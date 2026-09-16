@@ -34,10 +34,10 @@ export default function DocumentsRhTab({
         <div className="space-y-5">
             {/* Bannière Conformité RH — Documents Obligatoires Manquants */}
             {canWrite && obligatoiresManquants.length > 0 && (
-                <Card padding className="border-l-4 border-l-amber-500 bg-[var(--color-bg-subtle)]/80 space-y-3">
+                <Card padding className="flag-warning bg-[var(--color-bg-subtle)]/80 space-y-3">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-2">
-                            <AlertTriangle size={16} className="text-amber-500 shrink-0" />
+                            <AlertTriangle size={16} className="text-[var(--color-warning-500)] shrink-0" />
                             <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
                                 Conformité RH — Pièces Obligatoires Attendues
                             </h4>

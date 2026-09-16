@@ -242,7 +242,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
             case 'NON_CONCERNE':
                 return <Badge variant="neutral" size="sm" className="text-[10px]">NON CONCERNÉ</Badge>;
             case 'PLANIFIE':
-                return <Badge variant="neutral" size="sm" className="font-semibold text-neutral-600 dark:text-neutral-300">PLANIFIÉ</Badge>;
+                return <Badge variant="neutral" size="sm" className="font-semibold text-[var(--color-fg-muted)]">PLANIFIÉ</Badge>;
             case 'NON_ECHU':
                 return <span className="text-[11px] text-[var(--color-fg-subtle)]">—</span>;
             default:
@@ -418,7 +418,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     onClick={handleExportExcel}
                                     className="w-full px-3 py-2 text-xs font-medium flex items-center gap-2.5 text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer text-left"
                                 >
-                                    <FileSpreadsheet size={15} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                    <FileSpreadsheet size={15} className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)] shrink-0" />
                                     <div>
                                         <div className="font-semibold">Format Excel (.xlsx)</div>
                                         <div className="text-[10px] text-[var(--color-fg-muted)]">Classeur avec formules actives</div>
@@ -430,7 +430,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     onClick={handleOpenPdfModal}
                                     className="w-full px-3 py-2 text-xs font-medium flex items-center gap-2.5 text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer text-left"
                                 >
-                                    <FileText size={15} className="text-rose-600 dark:text-rose-400 shrink-0" />
+                                    <FileText size={15} className="text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] shrink-0" />
                                     <div>
                                         <div className="font-semibold">Fiche individuelle PDF</div>
                                         <div className="text-[10px] text-[var(--color-fg-muted)]">Format A4 prêt à imprimer et émarger</div>
@@ -520,7 +520,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             <div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                                        <TrendingUp size={14} className="text-emerald-600" />
+                                        <TrendingUp size={14} className="text-[var(--color-success-600)]" />
                                         Heures Sup. (Paie)
                                     </span>
                                     <Badge
@@ -533,7 +533,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 </div>
                                 <div className="mt-2.5">
                                     <div className="flex items-baseline gap-2">
-                                        <span className={`text-2xl font-bold font-mono ${hasHsNettes ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--color-fg)]'}`}>
+                                        <span className={`text-2xl font-bold font-mono ${hasHsNettes ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
                                             {hasHsNettes ? `+${recap.heuresSuppNettes}` : '00h00'}
                                         </span>
                                         <span className="text-xs font-mono text-[var(--color-fg-muted)] font-semibold">
@@ -562,7 +562,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             <div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                                        <AlertTriangle size={14} className={hasRetardNet ? 'text-rose-500' : 'text-emerald-500'} />
+                                        <AlertTriangle size={14} className={hasRetardNet ? 'text-[var(--color-danger-500)]' : 'text-[var(--color-success-500)]'} />
                                         Retenue Salaire
                                     </span>
                                     <Badge
@@ -575,7 +575,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 </div>
                                 <div className="mt-2.5">
                                     <div className="flex items-baseline gap-2">
-                                        <span className={`text-2xl font-bold font-mono ${hasRetardNet ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                        <span className={`text-2xl font-bold font-mono ${hasRetardNet ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
                                             {hasRetardNet ? `-${recap.retardNet}` : '00h00'}
                                         </span>
                                         <span className="text-xs font-mono text-[var(--color-fg-muted)] font-semibold">
@@ -584,7 +584,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     </div>
                                     <p className="text-xs text-[var(--color-fg-muted)] mt-1 font-medium truncate" title={`Déficit d'heures sous le seuil hebdo : ${recap.retardNet || '00h00'} (après compensation intra-semaine)`}>
                                         {recap.retardCompense && recap.retardCompense !== '00h00' ? (
-                                            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                            <span className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-medium">
                                                 Heures compensées : <span className="font-bold">{recap.retardCompense}</span>
                                             </span>
                                         ) : hasRetardNet ? (
@@ -597,7 +597,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             </div>
                             <div className="mt-3 pt-2 border-t border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-subtle)] flex items-center justify-between">
                                 <span>Déficit net : {recap.retardNet || '00h00'}</span>
-                                <span className={recap.retardCompense && recap.retardCompense !== '00h00' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : ''}>
+                                <span className={recap.retardCompense && recap.retardCompense !== '00h00' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-bold' : ''}>
                                     Compensé : {recap.retardCompense || '00h00'}
                                 </span>
                             </div>
@@ -608,7 +608,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             <div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                                        <Award size={14} className={isAssiduiteEligible ? 'text-emerald-600' : 'text-amber-600'} />
+                                        <Award size={14} className={isAssiduiteEligible ? 'text-[var(--color-success-600)]' : 'text-[var(--color-warning-600)]'} />
                                         Assiduité & Primes
                                     </span>
                                     <Badge
@@ -621,7 +621,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 </div>
                                 <div className="mt-2.5">
                                     <div className="flex items-baseline gap-2">
-                                        <span className={`text-2xl font-bold font-mono ${isAssiduiteEligible ? 'text-[var(--color-fg)]' : 'text-amber-600 dark:text-amber-400'}`}>
+                                        <span className={`text-2xl font-bold font-mono ${isAssiduiteEligible ? 'text-[var(--color-fg)]' : 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]'}`}>
                                             {kpis.retardCumule || '00h00'}
                                         </span>
                                         <span className="text-xs font-mono text-[var(--color-fg-muted)] font-semibold">
@@ -630,11 +630,11 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     </div>
                                     <div className="mt-1 flex items-center gap-1 text-xs">
                                         {isAssiduiteEligible ? (
-                                            <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                                            <span className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-medium flex items-center gap-1">
                                                 <CheckCircle2 size={12} /> Prime assiduité accordée
                                             </span>
                                         ) : (
-                                            <span className="text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1" title={`La prime d'assiduité est accordée si le retard brut est inférieur à ${seuilAssiduiteMinutes} min`}>
+                                            <span className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-medium flex items-center gap-1" title={`La prime d'assiduité est accordée si le retard brut est inférieur à ${seuilAssiduiteMinutes} min`}>
                                                 <XCircle size={12} /> Seuil {seuilAssiduiteMinutes} min dépassé
                                             </span>
                                         )}
@@ -670,8 +670,8 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     <Th className="text-xs font-bold uppercase py-3 px-3 text-center" title="Temps de travail effectif de la journée">Heures faites</Th>
                                     <Th className="text-xs font-bold uppercase py-3 px-3 text-center" title="Différence par rapport aux 8h journalières : surplus (+) ou manque (-)">Écart (vs 8h)</Th>
                                     <Th className="text-xs font-bold uppercase py-3 px-3 text-center" title="Statut de la journée (Présent, Congé, Férié, Repos...)">Statut</Th>
-                                    <Th className="text-xs font-bold uppercase py-3 px-2 text-center border-l border-amber-500/30 text-amber-700 dark:text-amber-400 bg-amber-500/10 font-mono tracking-wider" title="Indemnité transport / déplacement (1 = Aller-Retour, 0.5 = 1 trajet, — = aucun)">Transport</Th>
-                                    <Th className="text-xs font-bold uppercase py-3 px-2 text-center border-l border-amber-500/30 text-amber-700 dark:text-amber-400 bg-amber-500/10 font-mono tracking-wider" title="Panier repas accordé sur site">Repas</Th>
+                                    <Th className="text-xs font-bold uppercase py-3 px-2 text-center border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10 font-mono tracking-wider" title="Indemnité transport / déplacement (1 = Aller-Retour, 0.5 = 1 trajet, — = aucun)">Transport</Th>
+                                    <Th className="text-xs font-bold uppercase py-3 px-2 text-center border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10 font-mono tracking-wider" title="Panier repas accordé sur site">Repas</Th>
                                 </Thead>
                                 <Tbody>
                                     {pointages.length === 0 ? (
@@ -706,8 +706,8 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                         <div>{ptg.entree}</div>
                                                     </Td>
                                                     {isContinu ? (
-                                                        <Td colSpan={2} className="text-center py-2.5 px-2 bg-amber-500/[0.04]">
-                                                            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-800 dark:text-amber-200 bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/25" title="Journée continue sans pause">
+                                                        <Td colSpan={2} className="text-center py-2.5 px-2 bg-[var(--color-orange-500)]/[0.04]">
+                                                            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-orange-700)] dark:text-[var(--color-orange-200)] bg-[var(--color-orange-500)]/15 px-2 py-0.5 rounded border border-[var(--color-orange-500)]/25" title="Journée continue sans pause">
                                                                 <FastForward size={11} className="shrink-0" /> Continu
                                                             </span>
                                                         </Td>
@@ -726,7 +726,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                     </Td>
                                                     <Td className="font-mono text-xs text-center py-2.5 px-2">
                                                         {ptg.minutesRetard > 0 ? (
-                                                            <span className="font-semibold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded border border-rose-300 dark:border-rose-800/50" title={`Retard cumulé sur la journée (matin et après-midi) : ${ptg.minutesRetard} min`}>
+                                                            <span className="font-semibold text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] bg-[var(--color-danger-50)] dark:bg-[var(--color-danger-950)]/40 px-1.5 py-0.5 rounded border border-[var(--color-danger-200)] dark:border-[var(--color-danger-800)]/50" title={`Retard cumulé sur la journée (matin et après-midi) : ${ptg.minutesRetard} min`}>
                                                                 {ptg.minutesRetard} min
                                                             </span>
                                                         ) : (
@@ -736,12 +736,12 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                     <Td className="font-mono text-xs font-bold text-center py-2.5 px-3 text-[var(--color-fg)]">
                                                         {ptg.statut === 'CONGE' ? (
                                                             <div title="Jour de congé payé (seuil hebdomadaire abaissé de 8h)">
-                                                                <span className="text-blue-600 dark:text-blue-400 font-sans font-semibold text-[11px]">Congé</span>
+                                                                <span className="text-[var(--color-sky-600)] dark:text-[var(--color-sky-400)] font-sans font-semibold text-[11px]">Congé</span>
                                                                 <div className="text-[9.5px] text-[var(--color-fg-muted)] font-normal font-sans">(-8h seuil)</div>
                                                             </div>
                                                         ) : ptg.statut === 'FERIE_CHOME' ? (
                                                             <div title="Jour férié chômé (seuil hebdomadaire abaissé de 8h)">
-                                                                <span className="text-amber-600 dark:text-amber-400 font-sans font-semibold text-[11px]">Férié</span>
+                                                                <span className="text-[var(--color-purple-600)] dark:text-[var(--color-purple-400)] font-sans font-semibold text-[11px]">Férié</span>
                                                                 <div className="text-[9.5px] text-[var(--color-fg-muted)] font-normal font-sans">(-8h seuil)</div>
                                                             </div>
                                                         ) : (
@@ -774,10 +774,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                         {getStatutBadge(ptg.statut)}
                                                     </Td>
 
-                                                    {/* Colonne DPLT (Déplacement : 1, 0.5 ou 0) - Surlignée en Orange */}
-                                                    <Td className="font-mono text-xs text-center py-2.5 px-2 border-l border-amber-500/20 bg-amber-500/[0.04]">
+                                                    {/* Colonne DPLT (Déplacement : 1, 0.5 ou 0) */}
+                                                    <Td className="font-mono text-xs text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/20 bg-[var(--color-orange-500)]/[0.04]">
                                                         {valDplt > 0 ? (
-                                                            <span className="font-bold text-amber-700 dark:text-amber-400" title={`Déplacement : ${valDplt === 1 ? 'Matin + Soir (1)' : ptg.deplacementMatin ? 'Matin (0.5)' : 'Soir (0.5)'}`}>
+                                                            <span className="font-bold text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)]" title={`Déplacement : ${valDplt === 1 ? 'Matin + Soir (1)' : ptg.deplacementMatin ? 'Matin (0.5)' : 'Soir (0.5)'}`}>
                                                                 {valDplt}
                                                             </span>
                                                         ) : (
@@ -787,10 +787,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                         )}
                                                     </Td>
 
-                                                    {/* Colonne REPAS (Paniers repas : 1, 2 ou 0) - Surlignée en Orange */}
-                                                    <Td className="font-mono text-xs text-center py-2.5 px-2 border-l border-amber-500/20 bg-amber-500/[0.04]">
+                                                    {/* Colonne REPAS (Paniers repas : 1, 2 ou 0) */}
+                                                    <Td className="font-mono text-xs text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/20 bg-[var(--color-orange-500)]/[0.04]">
                                                         {valRepas > 0 ? (
-                                                            <span className="font-bold text-amber-700 dark:text-amber-400" title={`Repas : ${valRepas} ${valRepas > 1 ? 'repas' : 'repas'}`}>
+                                                            <span className="font-bold text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)]" title={`Repas : ${valRepas} ${valRepas > 1 ? 'repas' : 'repas'}`}>
                                                                 {valRepas}
                                                             </span>
                                                         ) : (
@@ -819,10 +819,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             <td className="text-center py-2.5 px-3 text-xs font-bold text-[var(--color-fg-muted)]">
                                                 {pointages.filter(p => p.statut === 'PRESENT' || p.statut === 'DISPENSE_POINTAGE').length} j ouvrés
                                             </td>
-                                            <td className="font-mono text-xs font-bold text-center py-2.5 px-2 border-l border-amber-500/30 text-amber-700 dark:text-amber-400 bg-amber-500/10">
+                                            <td className="font-mono text-xs font-bold text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10">
                                                 {pointages.reduce((acc, p) => acc + (p.deplacementMatin ? 0.5 : 0) + (p.deplacementAm ? 0.5 : 0), 0)}
                                             </td>
-                                            <td className="font-mono text-xs font-bold text-center py-2.5 px-2 border-l border-amber-500/30 text-amber-700 dark:text-amber-400 bg-amber-500/10">
+                                            <td className="font-mono text-xs font-bold text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10">
                                                 {pointages.reduce((acc, p) => acc + (p.nbRepas || (p.indemniteRepas ? 1 : 0)), 0)}
                                             </td>
                                         </tr>
@@ -851,7 +851,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             <div className="attendance-info p-2.5 text-xs flex items-center gap-2">
                                 <Scale size={15} className="shrink-0" />
                                 <div>
-                                    <strong>Règle {dureeHebdoLegale}h/semaine :</strong> les heures au-delà de {dureeJourNormale || 'la durée prévue'}h par jour compensent d&apos;abord les heures manquantes de la semaine. L&apos;objectif est ajusté pour les congés et jours fériés. Le solde devient une <span className="font-semibold text-emerald-700 dark:text-emerald-300">heure supplémentaire</span> ou une <span className="font-semibold text-rose-700 dark:text-rose-300">retenue sur salaire</span>.
+                                    <strong>Règle {dureeHebdoLegale}h/semaine :</strong> les heures au-delà de {dureeJourNormale || 'la durée prévue'}h par jour compensent d&apos;abord les heures manquantes de la semaine. L&apos;objectif est ajusté pour les congés et jours fériés. Le solde devient une <span className="font-semibold text-[var(--color-success-700)] dark:text-[var(--color-success-300)]">heure supplémentaire</span> ou une <span className="font-semibold text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]">retenue sur salaire</span>.
                                 </div>
                             </div>
 
@@ -883,12 +883,12 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                         {(b.nbJoursConge > 0 || b.nbJoursFerie > 0) && (
                                                             <div className="flex flex-wrap items-center justify-center gap-1 mt-1">
                                                                 {b.nbJoursConge > 0 && (
-                                                                    <span className="text-[9px] px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-sans font-medium" title={`${b.nbJoursConge}j de congé déduit(s) du seuil attendu`}>
+                                                                    <span className="text-[9px] px-1 py-0.5 rounded bg-[var(--color-sky-50)] dark:bg-[var(--color-sky-950)]/40 text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)] border border-[var(--color-sky-200)] font-sans font-medium" title={`${b.nbJoursConge}j de congé déduit(s) du seuil attendu`}>
                                                                         -{b.nbJoursConge}j congé
                                                                     </span>
                                                                 )}
                                                                 {b.nbJoursFerie > 0 && (
-                                                                    <span className="text-[9px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-sans font-medium" title={`${b.nbJoursFerie}j férié chômé non dû`}>
+                                                                    <span className="text-[9px] px-1 py-0.5 rounded bg-[var(--color-warning-50)] dark:bg-[var(--color-warning-950)]/40 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] border border-[var(--color-warning-200)] font-sans font-medium" title={`${b.nbJoursFerie}j férié chômé non dû`}>
                                                                         -{b.nbJoursFerie}j férié
                                                                     </span>
                                                                 )}
@@ -983,13 +983,13 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Retenue salaire (Déficit net)</span>
-                                        <span className={`font-mono font-bold ${recap.retardNet && recap.retardNet !== '00h00' ? 'text-rose-600 dark:text-rose-400' : 'text-[var(--color-fg-muted)]'}`}>
+                                        <span className={`font-mono font-bold ${recap.retardNet && recap.retardNet !== '00h00' ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg-muted)]'}`}>
                                             {recap.retardNet && recap.retardNet !== '00h00' ? `-${recap.retardNet}` : '00h00'}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Heures sup. nettes payées</span>
-                                        <span className={`font-mono font-bold ${recap.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--color-fg-muted)]'}`}>
+                                        <span className={`font-mono font-bold ${recap.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]'}`}>
                                             {recap.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' ? `+${recap.heuresSuppNettes}` : '00h00'}
                                         </span>
                                     </div>
@@ -1001,13 +1001,13 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                 <Scale size={12} className="text-[var(--color-brand-500)]" />
                                                 Réconciliation &amp; Terrain
                                             </span>
-                                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-bold">
+                                            <span className="text-[10px] text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-mono font-bold">
                                                 {recap.retardCompense && recap.retardCompense !== '00h00' ? `${recap.retardCompense} compensé` : ''}
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center text-xs" title="Total des retards constatés sur la période (matin et après-midi)">
                                             <span className="text-[var(--color-fg-muted)]">Retards constatés</span>
-                                            <span className={`font-mono ${(kpis.retardCumule && kpis.retardCumule !== '00h00') ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-[var(--color-fg)]'}`}>
+                                            <span className={`font-mono ${(kpis.retardCumule && kpis.retardCumule !== '00h00') ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] font-bold' : 'text-[var(--color-fg)]'}`}>
                                                 {kpis.retardCumule || recap.retards || '00h00'}
                                             </span>
                                         </div>
@@ -1017,7 +1017,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                 {recap.heuresSuppBrutes || '00h00'}
                                             </span>
                                         </div>
-                                        <div className="flex justify-between items-center text-xs text-emerald-600 dark:text-emerald-400" title="Surplus absorbés pour combler les heures manquantes de la même semaine">
+                                        <div className="flex justify-between items-center text-xs text-[var(--color-success-600)] dark:text-[var(--color-success-400)]" title="Surplus absorbés pour combler les heures manquantes de la même semaine">
                                             <span>Heures utilisées pour compenser</span>
                                             <span className="font-mono font-bold">
                                                 {recap.retardCompense && recap.retardCompense !== '00h00' ? `-${recap.retardCompense}` : '00h00'}
@@ -1033,10 +1033,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             <div>
                                 <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2.5">
                                     <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-1.5">
-                                        <DollarSign size={14} className="text-emerald-600" />
+                                        <DollarSign size={14} className="text-[var(--color-orange-600)]" />
                                         Indemnités &amp; Majorations
                                     </h4>
-                                    <span className="font-mono text-sm font-black text-emerald-600">
+                                    <span className="font-mono text-sm font-black text-[var(--color-orange-600)] dark:text-[var(--color-orange-400)]">
                                         {kpis.totalIndemnitesMois || kpis.montantRepasTotal || '0 Ar'}
                                     </span>
                                 </div>
@@ -1046,7 +1046,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     <div className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] space-y-1.5">
                                         <div className="flex items-center justify-between gap-2">
                                             <div className="flex items-center gap-2 min-w-0">
-                                                <div className="w-6 h-6 rounded flex items-center justify-center bg-emerald-500/10 text-emerald-600 shrink-0">
+                                                <div className="w-6 h-6 rounded flex items-center justify-center bg-[var(--color-orange-500)]/10 text-[var(--color-orange-600)] shrink-0">
                                                     <Utensils size={13} />
                                                 </div>
                                                 <div className="min-w-0">
@@ -1057,7 +1057,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                 </div>
                                             </div>
                                             <div className="text-right shrink-0">
-                                                <span className="font-mono text-sm font-bold text-emerald-600">
+                                                <span className="font-mono text-sm font-bold text-[var(--color-orange-600)] dark:text-[var(--color-orange-400)]">
                                                     {kpis.montantRepasTotal || '0 Ar'}
                                                 </span>
                                             </div>
@@ -1103,7 +1103,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         {hasMajorations ? (
                                             <div className="flex flex-wrap gap-1.5 pt-0.5">
                                                 {hs30Val > 0 && (
-                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-[var(--color-warning-500)]/10 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] border border-[var(--color-warning-500)]/20">
                                                         +{hs30Val}h à 30%
                                                     </span>
                                                 )}
@@ -1123,7 +1123,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                     </span>
                                                 )}
                                                 {ferVal > 0 && (
-                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-[var(--color-success-500)]/10 text-[var(--color-success-700)] dark:text-[var(--color-success-300)] border border-[var(--color-success-500)]/20">
                                                         +{ferVal}h férié
                                                     </span>
                                                 )}
@@ -1172,10 +1172,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 <div className="mt-2 pt-2 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/70 p-2.5 space-y-1.5">
                                     <div className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wider">
                                         <span className="flex items-center gap-1 text-[var(--color-fg-muted)]">
-                                            <Award size={12} className={isAssiduiteEligible ? 'text-emerald-600' : 'text-amber-600'} />
+                                            <Award size={12} className={isAssiduiteEligible ? 'text-[var(--color-success-600)]' : 'text-[var(--color-warning-600)]'} />
                                             Prime d'Assiduité
                                         </span>
-                                        <span className={`text-[10px] font-mono font-bold ${isAssiduiteEligible ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                        <span className={`text-[10px] font-mono font-bold ${isAssiduiteEligible ? 'text-[var(--color-success-600)]' : 'text-[var(--color-warning-600)]'}`}>
                                             {isAssiduiteEligible ? '✓ ÉLIGIBLE' : '✕ HORS CRITÈRE'}
                                         </span>
                                     </div>
@@ -1185,7 +1185,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     </div>
                                     <div className="flex justify-between items-center text-xs">
                                         <span className="text-[var(--color-fg-muted)]">Cumul retards bruts</span>
-                                        <span className={`font-mono font-bold ${isAssiduiteEligible ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                        <span className={`font-mono font-bold ${isAssiduiteEligible ? 'text-[var(--color-success-600)]' : 'text-[var(--color-warning-600)]'}`}>
                                             {kpis.retardCumule || recap.retards || '00h00'}
                                         </span>
                                     </div>

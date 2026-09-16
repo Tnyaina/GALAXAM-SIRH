@@ -92,11 +92,11 @@ function SupervisionEmployeeGroup({
 
                         // Repère de bordure latérale
                         const borderClass = isDuplicate
-                            ? 'border-l-4 border-l-danger-500 bg-danger-500/[0.02]'
+                            ? 'flag-danger bg-[var(--color-danger-500)]/[0.02]'
                             : isPending
-                                ? 'border-l-4 border-l-[var(--color-brand-500)]'
+                                ? 'flag-brand'
                                 : isSoon
-                                    ? 'border-l-4 border-l-warning-500'
+                                    ? 'flag-warning'
                                     : 'border-l-4 border-l-transparent';
 
                         return (

@@ -310,6 +310,8 @@ export default function EmployeList() {
                 totalEmployes={displayTotal}
                 totalActifs={totalActifs}
                 totalInactifs={totalInactifs}
+                selectedStatus={statusFilter}
+                onStatusSelect={setStatusFilter}
             />
 
             {/* Barre d'outils : recherche + filtres de structure + multi-tri */}

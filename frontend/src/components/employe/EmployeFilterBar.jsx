@@ -1,4 +1,8 @@
+import { useMemo } from 'react';
 import { Search, RotateCcw, X } from 'lucide-react';
+import Select from '@/components/ui/forms/Select';
+import Input from '@/components/ui/forms/Input';
+import Button from '@/components/ui/forms/Button';
 
 export default function EmployeFilterBar({
     searchQuery = '',
@@ -20,9 +24,10 @@ export default function EmployeFilterBar({
     totalFound = 0,
 }) {
     // Filtrer les services selon le département sélectionné
-    const filteredServices = serviceFilter || departementFilter
-        ? services.filter(s => !departementFilter || String(s.idDepartement || s.id_departement) === String(departementFilter))
-        : services;
+    const filteredServices = useMemo(() => {
+        if (!serviceFilter && !departementFilter) return services;
+        return services.filter(s => !departementFilter || String(s.idDepartement || s.id_departement) === String(departementFilter));
+    }, [services, departementFilter, serviceFilter]);
 
     const hasActiveFilters = Boolean(
         searchQuery || 
@@ -37,19 +42,67 @@ export default function EmployeFilterBar({
     const selectedDept = departements.find(d => String(d.idDepartement || d.id_departement) === String(departementFilter));
     const selectedService = services.find(srv => String(srv.idService || srv.id_service) === String(serviceFilter));
 
+    // Options pour les composants Select
+    const statusOptions = useMemo(() => [
+        { value: 'ALL', label: 'Statut : Tous' },
+        { value: 'ACTIVE', label: 'Actifs uniquement' },
+        { value: 'INACTIVE', label: 'Inactifs uniquement' },
+    ], []);
+
+    const siteOptions = useMemo(() => [
+        { value: '', label: 'Site : Tous les sites' },
+        ...sites
+            .filter(s => s.estActif !== false && s.actif !== false)
+            .map(s => ({
+                value: String(s.idSite || s.id_site),
+                label: s.nomSite || s.nom_site || s.libelle
+            }))
+    ], [sites]);
+
+    const deptOptions = useMemo(() => [
+        { value: '', label: 'Département : Tous' },
+        ...departements
+            .filter(d => d.estActif !== false && d.actif !== false)
+            .map(d => ({
+                value: String(d.idDepartement || d.id_departement),
+                label: d.nomDepartement || d.nom_departement || d.libelle
+            }))
+    ], [departements]);
+
+    const serviceOptions = useMemo(() => [
+        { value: '', label: 'Service : Tous' },
+        ...filteredServices
+            .filter(srv => srv.estActif !== false && srv.actif !== false)
+            .map(srv => ({
+                value: String(srv.idService || srv.id_service),
+                label: srv.nomService || srv.nom_service || srv.libelle
+            }))
+    ], [filteredServices]);
+
+    const sortOptions = useMemo(() => [
+        { value: 'HIERARCHICAL', label: 'Tri : Dépt → Service → Nom' },
+        { value: 'SITE_SERVICE', label: 'Tri : Site → Service → Nom' },
+        { value: 'NOM_ASC', label: 'Tri : Nom (A → Z)' },
+        { value: 'NOM_DESC', label: 'Tri : Nom (Z → A)' },
+        { value: 'MATRICULE_ASC', label: 'Tri : Matricule (0 → 9)' },
+        { value: 'MATRICULE_DESC', label: 'Tri : Matricule (9 → 0)' },
+        { value: 'ANCIENNETE_DESC', label: 'Tri : Ancienneté (Anciens)' },
+        { value: 'ANCIENNETE_ASC', label: 'Tri : Ancienneté (Récents)' },
+    ], []);
+
     return (
         <div className="p-3 sm:p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-3 font-sans shadow-2xs">
-            {/* Grille principale parfaitement équilibrée (6 colonnes symétriques sur desktop) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
+            {/* Grille principale : 6 colonnes symétriques sur desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5 items-center">
                 {/* 1. Recherche globale avec bouton clear */}
                 <div className="relative">
-                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] pointer-events-none" />
-                    <input
+                    <Input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => onSearchChange(e.target.value)}
                         placeholder="Recherche (nom, matricule)..."
-                        className="w-full pl-8 pr-7 py-1.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] rounded-none"
+                        iconLeft={<Search size={14} />}
+                        className="py-1.5 pl-8 pr-7 text-xs"
                     />
                     {searchQuery && (
                         <button
@@ -65,92 +118,47 @@ export default function EmployeFilterBar({
                 </div>
 
                 {/* 2. Filtre Statut */}
-                <div>
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => onStatusFilterChange(e.target.value)}
-                        className="w-full py-1.5 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer rounded-none"
-                    >
-                        <option value="ALL">Statut : Tous</option>
-                        <option value="ACTIVE">Actifs uniquement</option>
-                        <option value="INACTIVE">Inactifs uniquement</option>
-                    </select>
-                </div>
+                <Select
+                    value={statusFilter}
+                    onChange={(val) => onStatusFilterChange(val)}
+                    options={statusOptions}
+                    className="py-1.5 text-xs"
+                />
 
                 {/* 3. Filtre Site */}
-                <div>
-                    <select
-                        value={siteFilter}
-                        onChange={(e) => onSiteFilterChange(e.target.value)}
-                        className="w-full py-1.5 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer rounded-none"
-                    >
-                        <option value="">Site : Tous les sites</option>
-                        {sites
-                            .filter(s => s.estActif !== false && s.actif !== false)
-                            .map(s => (
-                                <option key={s.idSite || s.id_site} value={s.idSite || s.id_site}>
-                                    {s.nomSite || s.nom_site || s.libelle}
-                                </option>
-                            ))}
-                    </select>
-                </div>
+                <Select
+                    value={siteFilter}
+                    onChange={(val) => onSiteFilterChange(val)}
+                    options={siteOptions}
+                    className="py-1.5 text-xs"
+                />
 
                 {/* 4. Filtre Département */}
-                <div>
-                    <select
-                        value={departementFilter}
-                        onChange={(e) => {
-                            onDepartementFilterChange(e.target.value);
-                            onServiceFilterChange('');
-                        }}
-                        className="w-full py-1.5 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer rounded-none"
-                    >
-                        <option value="">Département : Tous</option>
-                        {departements
-                            .filter(d => d.estActif !== false && d.actif !== false)
-                            .map(d => (
-                                <option key={d.idDepartement || d.id_departement} value={d.idDepartement || d.id_departement}>
-                                    {d.nomDepartement || d.nom_departement || d.libelle}
-                                </option>
-                            ))}
-                    </select>
-                </div>
+                <Select
+                    value={departementFilter}
+                    onChange={(val) => {
+                        onDepartementFilterChange(val);
+                        onServiceFilterChange('');
+                    }}
+                    options={deptOptions}
+                    className="py-1.5 text-xs"
+                />
 
                 {/* 5. Filtre Service */}
-                <div>
-                    <select
-                        value={serviceFilter}
-                        onChange={(e) => onServiceFilterChange(e.target.value)}
-                        className="w-full py-1.5 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer rounded-none"
-                    >
-                        <option value="">Service : Tous</option>
-                        {filteredServices
-                            .filter(srv => srv.estActif !== false && srv.actif !== false)
-                            .map(srv => (
-                                <option key={srv.idService || srv.id_service} value={srv.idService || srv.id_service}>
-                                    {srv.nomService || srv.nom_service || srv.libelle}
-                                </option>
-                            ))}
-                    </select>
-                </div>
+                <Select
+                    value={serviceFilter}
+                    onChange={(val) => onServiceFilterChange(val)}
+                    options={serviceOptions}
+                    className="py-1.5 text-xs"
+                />
 
                 {/* 6. Ordre de Tri */}
-                <div>
-                    <select
-                        value={sortPreset}
-                        onChange={(e) => onSortPresetChange(e.target.value)}
-                        className="w-full py-1.5 px-2.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] cursor-pointer rounded-none"
-                    >
-                        <option value="HIERARCHICAL">Tri : Dépt → Service → Nom</option>
-                        <option value="SITE_SERVICE">Tri : Site → Service → Nom</option>
-                        <option value="NOM_ASC">Tri : Nom (A → Z)</option>
-                        <option value="NOM_DESC">Tri : Nom (Z → A)</option>
-                        <option value="MATRICULE_ASC">Tri : Matricule (0 → 9)</option>
-                        <option value="MATRICULE_DESC">Tri : Matricule (9 → 0)</option>
-                        <option value="ANCIENNETE_DESC">Tri : Ancienneté (Anciens)</option>
-                        <option value="ANCIENNETE_ASC">Tri : Ancienneté (Récents)</option>
-                    </select>
-                </div>
+                <Select
+                    value={sortPreset}
+                    onChange={(val) => onSortPresetChange(val)}
+                    options={sortOptions}
+                    className="py-1.5 text-xs"
+                />
             </div>
 
             {/* Barre de synthèse & Badges de filtres actifs amovibles */}
@@ -170,7 +178,7 @@ export default function EmployeFilterBar({
                 {hasActiveFilters && (
                     <div className="flex items-center gap-1.5 flex-wrap">
                         {searchQuery && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-[var(--color-bg-subtle)] border border-[var(--color-border)] text-[var(--color-fg)] rounded-none">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)]">
                                 Recherche: <strong className="font-mono">{searchQuery}</strong>
                                 <button
                                     type="button"
@@ -184,7 +192,7 @@ export default function EmployeFilterBar({
                         )}
 
                         {statusFilter !== 'ALL' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-[var(--color-bg-subtle)] border border-[var(--color-border)] text-[var(--color-fg)] rounded-none">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)]">
                                 Statut: <strong>{statusFilter === 'ACTIVE' ? 'Actifs' : 'Inactifs'}</strong>
                                 <button
                                     type="button"
@@ -198,7 +206,7 @@ export default function EmployeFilterBar({
                         )}
 
                         {selectedSite && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-[var(--color-bg-subtle)] border border-[var(--color-border)] text-[var(--color-fg)] rounded-none">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)]">
                                 Site: <strong>{selectedSite.nomSite || selectedSite.libelle}</strong>
                                 <button
                                     type="button"
@@ -212,7 +220,7 @@ export default function EmployeFilterBar({
                         )}
 
                         {selectedDept && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-[var(--color-bg-subtle)] border border-[var(--color-border)] text-[var(--color-fg)] rounded-none">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)]">
                                 Dépt: <strong>{selectedDept.nomDepartement || selectedDept.libelle}</strong>
                                 <button
                                     type="button"
@@ -229,7 +237,7 @@ export default function EmployeFilterBar({
                         )}
 
                         {selectedService && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-[var(--color-bg-subtle)] border border-[var(--color-border)] text-[var(--color-fg)] rounded-none">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)]">
                                 Service: <strong>{selectedService.nomService || selectedService.libelle}</strong>
                                 <button
                                     type="button"
@@ -243,14 +251,16 @@ export default function EmployeFilterBar({
                         )}
 
                         {/* Bouton pour tout réinitialiser */}
-                        <button
+                        <Button
                             type="button"
+                            variant="ghost"
+                            size="xs"
+                            iconLeft={<RotateCcw size={12} />}
                             onClick={onResetFilters}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] text-[var(--color-brand-500)] hover:underline font-semibold cursor-pointer ml-1"
+                            className="text-[var(--color-brand-600)] hover:text-[var(--color-brand-700)] ml-1 font-semibold"
                         >
-                            <RotateCcw size={11} />
-                            <span>Réinitialiser tout</span>
-                        </button>
+                            Réinitialiser tout
+                        </Button>
                     </div>
                 )}
             </div>
