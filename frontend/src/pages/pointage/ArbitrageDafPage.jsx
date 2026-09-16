@@ -9,7 +9,7 @@ import {
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
 import Select from '@/components/ui/forms/Select';
-import { Textarea } from '@/components/ui/forms/Input';
+import Input, { Textarea } from '@/components/ui/forms/Input';
 import Pagination from '@/components/ui/navigation/Pagination';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
@@ -425,11 +425,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 {/* KPI Cards — 5 indicateurs clés */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                     {[
-                        { label: 'Salariés', value: kpis.totalSalaries, icon: Users, color: 'text-brand-600 dark:text-brand-400' },
-                        { label: 'Heures totales', value: `${formatHeuresDecimal(kpis.totalHeures)} (${formatHeuresMinutes(kpis.totalHeures)})`, icon: Clock, color: 'text-sky-600 dark:text-sky-400' },
-                        { label: 'HS30 + HS50', value: `${formatHeuresDecimal(kpis.totalHs30 + kpis.totalHs50)} (${formatHeuresMinutes(kpis.totalHs30 + kpis.totalHs50)})`, icon: TrendingUp, color: 'text-violet-600 dark:text-violet-400' },
-                        { label: 'Retards cumulés', value: `${formatHeuresDecimal(kpis.totalRetardMins / 60)} (${formatHeuresMinutes(kpis.totalRetardMins / 60)})`, icon: AlertTriangle, color: 'text-orange-600 dark:text-orange-400' },
-                        { label: 'Indemnités totales', value: formatMonnaie(kpis.totalIndemnites), icon: Banknote, color: 'text-emerald-600 dark:text-emerald-400' },
+                        { label: 'Salariés', value: kpis.totalSalaries, icon: Users, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
+                        { label: 'Heures totales', value: `${formatHeuresDecimal(kpis.totalHeures)} (${formatHeuresMinutes(kpis.totalHeures)})`, icon: Clock, color: 'text-[var(--color-info-600)] dark:text-[var(--color-info-400)]' },
+                        { label: 'HS30 + HS50', value: `${formatHeuresDecimal(kpis.totalHs30 + kpis.totalHs50)} (${formatHeuresMinutes(kpis.totalHs30 + kpis.totalHs50)})`, icon: TrendingUp, color: 'text-[var(--color-brand-500)] dark:text-[var(--color-brand-300)]' },
+                        { label: 'Retards cumulés', value: `${formatHeuresDecimal(kpis.totalRetardMins / 60)} (${formatHeuresMinutes(kpis.totalRetardMins / 60)})`, icon: AlertTriangle, color: 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' },
+                        { label: 'Indemnités totales', value: formatMonnaie(kpis.totalIndemnites), icon: Banknote, color: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' },
                     ].map(kpi => (
                         <div key={kpi.label} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex items-center gap-3">
                             <kpi.icon size={20} className={`${kpi.color} shrink-0`} />
@@ -479,24 +479,23 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
                         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
                             {/* Recherche salarié dans la table */}
-                            <div className="relative w-48 sm:w-56">
-                                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
-                                <input
-                                    type="text"
+                            <div className="w-48 sm:w-56">
+                                <Input
+                                    icon={<Search size={13} className="text-[var(--color-fg-muted)]" />}
+                                    iconRight={searchTerm ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setSearchTerm(''); setCurrentPage(1); }}
+                                            className="hover:text-[var(--color-fg)] cursor-pointer"
+                                        >
+                                            <X size={13} />
+                                        </button>
+                                    ) : null}
                                     value={searchTerm}
                                     onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                                     placeholder="Nom ou matricule..."
-                                    className="w-full pl-8 pr-7 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)] h-[32px] rounded-none placeholder:text-[var(--color-fg-subtle)]"
+                                    className="h-[32px] text-xs"
                                 />
-                                {searchTerm && (
-                                    <button
-                                        type="button"
-                                        onClick={() => { setSearchTerm(''); setCurrentPage(1); }}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] cursor-pointer"
-                                    >
-                                        <X size={13} />
-                                    </button>
-                                )}
                             </div>
 
                             {/* Toggle vue */}
@@ -653,12 +652,12 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                         {((row.nbJoursConge || 0) > 0 || (row.nbJoursFerieChome || 0) > 0) && (
                                                             <div className="flex flex-wrap items-center justify-center gap-1 mt-0.5 font-sans">
                                                                 {(row.nbJoursConge || 0) > 0 && (
-                                                                    <span className="text-[9px] px-1 py-0.2 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium" title={`${row.nbJoursConge}j de congé payé`}>
+                                                                    <span className="text-[9px] px-1 py-0.2 rounded bg-[var(--color-info-500)]/15 text-[var(--color-info-700)] dark:text-[var(--color-info-300)] font-medium" title={`${row.nbJoursConge}j de congé payé`}>
                                                                         +{row.nbJoursConge}j congé
                                                                     </span>
                                                                 )}
                                                                 {(row.nbJoursFerieChome || 0) > 0 && (
-                                                                    <span className="text-[9px] px-1 py-0.2 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-medium" title={`${row.nbJoursFerieChome}j férié chômé`}>
+                                                                    <span className="text-[9px] px-1 py-0.2 rounded bg-[var(--color-warning-500)]/15 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-medium" title={`${row.nbJoursFerieChome}j férié chômé`}>
                                                                         +{row.nbJoursFerieChome}j férié
                                                                     </span>
                                                                 )}

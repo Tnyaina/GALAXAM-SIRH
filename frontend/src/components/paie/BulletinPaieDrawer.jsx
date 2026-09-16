@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import SlideOver from '@/components/ui/overlays/SlideOver';
 import Button from '@/components/ui/forms/Button';
+import Input from '@/components/ui/forms/Input';
+import Select from '@/components/ui/forms/Select';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import paieService from '@/api/paie/paieService';
 import { getErrorMessage } from '@/api/apiClient';
@@ -229,7 +231,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                 {loading && <SkeletonTable rows={8} cols={4} />}
 
                 {error && (
-                    <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                    <div className="p-4 bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/25 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)] text-xs flex items-center gap-2">
                         <AlertCircle size={16} className="shrink-0" />
                         <span>{error}</span>
                     </div>
@@ -238,8 +240,8 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                 {feedbackMsg && (
                     <div className={`p-3 mb-4 text-xs flex items-center gap-2 border ${
                         feedbackMsg.type === 'success' 
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
-                            : 'bg-rose-50 border-rose-200 text-rose-800'
+                            ? 'bg-[var(--color-success-500)]/10 border-[var(--color-success-500)]/25 text-[var(--color-success-700)] dark:text-[var(--color-success-300)]' 
+                            : 'bg-[var(--color-danger-500)]/10 border-[var(--color-danger-500)]/25 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]'
                     }`}>
                         {feedbackMsg.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
                         <span>{feedbackMsg.text}</span>
@@ -278,7 +280,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                         <span className="text-[var(--color-fg)]">
                                             + Heures Supplémentaires (+30%: {bulletin.heuresHs30 || 0}h / +50%: {bulletin.heuresHs50 || 0}h)
                                         </span>
-                                        <span className="font-mono font-bold text-emerald-600">
+                                        <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
                                             +{formatAr(bulletin.majorationHeuresSupplementaires || 0)}
                                         </span>
                                     </div>
@@ -289,7 +291,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                         <span className="text-[var(--color-fg)]">
                                             + Majoration Nuit (+30% / {bulletin.heuresNuit}h)
                                         </span>
-                                        <span className="font-mono font-bold text-emerald-600">
+                                        <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
                                             +{formatAr(bulletin.majorationHeuresNuit || 0)}
                                         </span>
                                     </div>
@@ -300,7 +302,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                         <span className="text-[var(--color-fg)]">
                                             + Indemnités Repas & Déplacement
                                         </span>
-                                        <span className="font-mono font-bold text-emerald-600">
+                                        <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
                                             +{formatAr(bulletin.totalIndemnitesForfaitaires)}
                                         </span>
                                     </div>
@@ -308,10 +310,10 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
 
                                 {(bulletin.retenueAbsence || 0) > 0 && (
                                     <div className="flex justify-between items-center py-1 border-b border-[var(--color-border-subtle)]/50">
-                                        <span className="text-rose-600">
+                                        <span className="text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
                                             - Retenue Absences & Retards
                                         </span>
-                                        <span className="font-mono font-bold text-rose-600">
+                                        <span className="font-mono font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
                                             -{formatAr(bulletin.retenueAbsence)}
                                         </span>
                                     </div>
@@ -345,56 +347,42 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                             {showAddVariable && (
                                 <form onSubmit={handleCreerAjustement} className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] space-y-2.5 my-2">
                                     <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label className="text-[10px] font-semibold text-[var(--color-fg-muted)] block mb-0.5">
-                                                Type d'élément
-                                            </label>
-                                            <select
-                                                className="w-full text-xs p-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none focus:outline-none"
-                                                value={ajustementForm.typeMouvement}
-                                                onChange={(e) => handleAjustementChange('typeMouvement', e.target.value)}
-                                            >
-                                                <option value="PRIM_EXC">Prime exceptionnelle (+ Gain)</option>
-                                                <option value="ACOMPTE_15">Acompte quinzaine (- Retenue)</option>
-                                                <option value="AVANCE_SPEC">Avance spéciale (- Retenue)</option>
-                                                <option value="DED_DIV">Déduction diverse (- Retenue)</option>
-                                                {(Array.isArray(typeMouvements) ? typeMouvements : []).map(t => (
-                                                    <option key={t.idTypeMouvement || t.code} value={t.code}>
-                                                        {t.libelle} ({t.sens})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                        <Select
+                                            label="Type d'élément"
+                                            value={ajustementForm.typeMouvement}
+                                            onChange={(val) => handleAjustementChange('typeMouvement', val)}
+                                            options={[
+                                                { value: 'PRIM_EXC', label: 'Prime exceptionnelle (+ Gain)' },
+                                                { value: 'ACOMPTE_15', label: 'Acompte quinzaine (- Retenue)' },
+                                                { value: 'AVANCE_SPEC', label: 'Avance spéciale (- Retenue)' },
+                                                { value: 'DED_DIV', label: 'Déduction diverse (- Retenue)' },
+                                                ...(Array.isArray(typeMouvements) ? typeMouvements : []).map(t => ({
+                                                    value: t.code,
+                                                    label: `${t.libelle} (${t.sens})`
+                                                }))
+                                            ]}
+                                        />
 
-                                        <div>
-                                            <label className="text-[10px] font-semibold text-[var(--color-fg-muted)] block mb-0.5">
-                                                Montant (Ar)
-                                            </label>
-                                            <input
-                                                type="number"
-                                                step="1000"
-                                                min="1000"
-                                                required
-                                                placeholder="Ex: 50000"
-                                                className="w-full text-xs p-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none focus:outline-none font-mono"
-                                                value={ajustementForm.montant}
-                                                onChange={(e) => handleAjustementChange('montant', e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="text-[10px] font-semibold text-[var(--color-fg-muted)] block mb-0.5">
-                                            Motif / Justification
-                                        </label>
-                                        <input
-                                            type="text"
-                                            placeholder="Ex: Prime spéciale projet"
-                                            className="w-full text-xs p-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none focus:outline-none"
-                                            value={ajustementForm.motif}
-                                            onChange={(e) => handleAjustementChange('motif', e.target.value)}
+                                        <Input
+                                            label="Montant (Ar)"
+                                            type="number"
+                                            step="1000"
+                                            min="1000"
+                                            required
+                                            placeholder="Ex: 50000"
+                                            value={ajustementForm.montant}
+                                            onChange={(e) => handleAjustementChange('montant', e.target.value)}
+                                            className="font-mono"
                                         />
                                     </div>
+
+                                    <Input
+                                        label="Motif / Justification"
+                                        type="text"
+                                        placeholder="Ex: Prime spéciale projet"
+                                        value={ajustementForm.motif}
+                                        onChange={(e) => handleAjustementChange('motif', e.target.value)}
+                                    />
 
                                     <div className="flex justify-end gap-2 pt-1">
                                         <Button
@@ -422,25 +410,25 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                 {bulletin.primeAnciennete > 0 && (
                                     <div className="flex justify-between items-center py-1 border-b border-[var(--color-border-subtle)]/50">
                                         <span className="text-[var(--color-fg)]">+ Prime d'ancienneté</span>
-                                        <span className="font-mono font-bold text-emerald-600">+{formatAr(bulletin.primeAnciennete)}</span>
+                                        <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">+{formatAr(bulletin.primeAnciennete)}</span>
                                     </div>
                                 )}
                                 {bulletin.primeAssiduite > 0 && (
                                     <div className="flex justify-between items-center py-1 border-b border-[var(--color-border-subtle)]/50">
                                         <span className="text-[var(--color-fg)]">+ Prime d'assiduité</span>
-                                        <span className="font-mono font-bold text-emerald-600">+{formatAr(bulletin.primeAssiduite)}</span>
+                                        <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">+{formatAr(bulletin.primeAssiduite)}</span>
                                     </div>
                                 )}
                                 {bulletin.primePerformance > 0 && (
                                     <div className="flex justify-between items-center py-1 border-b border-[var(--color-border-subtle)]/50">
                                         <span className="text-[var(--color-fg)]">+ Prime de performance</span>
-                                        <span className="font-mono font-bold text-emerald-600">+{formatAr(bulletin.primePerformance)}</span>
+                                        <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">+{formatAr(bulletin.primePerformance)}</span>
                                     </div>
                                 )}
                                 {bulletin.totalRetenuesAvances > 0 && (
                                     <div className="flex justify-between items-center py-1 border-b border-[var(--color-border-subtle)]/50">
-                                        <span className="text-rose-600">- Acomptes & Avances sur salaire</span>
-                                        <span className="font-mono font-bold text-rose-600">-{formatAr(bulletin.totalRetenuesAvances)}</span>
+                                        <span className="text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">- Acomptes & Avances sur salaire</span>
+                                        <span className="font-mono font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">-{formatAr(bulletin.totalRetenuesAvances)}</span>
                                     </div>
                                 )}
                                 {lignesVariables.length === 0 && bulletin.totalRetenuesAvances === 0 && (
@@ -460,12 +448,12 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
 
                             <div className="flex justify-between items-center text-[var(--color-fg-muted)] py-0.5">
                                 <span>- CNaPS Salariale (1% plafonné 8× SMIG)</span>
-                                <span className="font-mono font-semibold text-rose-600">{bulletin.cnapsSalariale == null ? 'Détail indisponible' : `-${formatAr(bulletin.cnapsSalariale)}`}</span>
+                                <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">{bulletin.cnapsSalariale == null ? 'Détail indisponible' : `-${formatAr(bulletin.cnapsSalariale)}`}</span>
                             </div>
 
                             <div className="flex justify-between items-center text-[var(--color-fg-muted)] py-0.5">
                                 <span>- Santé OSTIE / AMIT Salariale (1%)</span>
-                                <span className="font-mono font-semibold text-rose-600">{bulletin.ostieSalariale == null ? 'Détail indisponible' : `-${formatAr(bulletin.ostieSalariale)}`}</span>
+                                <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">{bulletin.ostieSalariale == null ? 'Détail indisponible' : `-${formatAr(bulletin.ostieSalariale)}`}</span>
                             </div>
 
                             <div className="flex justify-between items-center font-bold text-xs py-1 border-t border-b border-slate-200 bg-white px-2">
@@ -475,13 +463,13 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
 
                             <div className="flex justify-between items-center text-[var(--color-fg-muted)] py-0.5">
                                 <span>- IRSA Net (Barème progressif LF 2026 - min 3 000 Ar)</span>
-                                <span className="font-mono font-semibold text-rose-600">-{formatAr(bulletin.irsaNet)}</span>
+                                <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">-{formatAr(bulletin.irsaNet)}</span>
                             </div>
 
                             {Number(bulletin.totalRetenuesAvances) > 0 && (
                                 <div className="flex justify-between items-center text-[var(--color-fg-muted)] py-0.5">
                                     <span>- Mensualité Prêt / Acomptes prélevés</span>
-                                    <span className="font-mono font-semibold text-rose-600">-{formatAr(bulletin.totalRetenuesAvances)}</span>
+                                    <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">-{formatAr(bulletin.totalRetenuesAvances)}</span>
                                 </div>
                             )}
 
@@ -529,8 +517,8 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                     <td className="p-2 text-slate-500">{l.codeRubrique}</td>
                                                     <td className="p-2 font-sans font-medium text-slate-800">{l.libelleRubrique}</td>
                                                     <td className="p-2 text-right text-slate-600">{l.baseCalcul ? Number(l.baseCalcul).toLocaleString('fr-MG') : '-'}</td>
-                                                    <td className="p-2 text-right text-emerald-600 font-bold">{l.montantGain && Number(l.montantGain) > 0 ? Number(l.montantGain).toLocaleString('fr-MG') : '-'}</td>
-                                                    <td className="p-2 text-right text-rose-600 font-bold">{l.montantRetenue && Number(l.montantRetenue) > 0 ? Number(l.montantRetenue).toLocaleString('fr-MG') : '-'}</td>
+                                                    <td className="p-2 text-right text-[var(--color-success-600)] font-bold">{l.montantGain && Number(l.montantGain) > 0 ? Number(l.montantGain).toLocaleString('fr-MG') : '-'}</td>
+                                                    <td className="p-2 text-right text-[var(--color-danger-600)] font-bold">{l.montantRetenue && Number(l.montantRetenue) > 0 ? Number(l.montantRetenue).toLocaleString('fr-MG') : '-'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>

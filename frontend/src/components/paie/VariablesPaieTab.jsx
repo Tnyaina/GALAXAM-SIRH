@@ -296,7 +296,7 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
                                         </Badge>
                                     </Td>
                                     <Td className="text-right font-mono font-bold whitespace-nowrap">
-                                        <span className={v.sens === 'GAIN' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
+                                        <span className={v.sens === 'GAIN' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'}>
                                             {v.sens === 'GAIN' ? '+' : '-'}{formatAr(v.montant)}
                                         </span>
                                     </Td>
@@ -313,7 +313,7 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
                                             <button
                                                 type="button"
                                                 onClick={() => handleSupprimer(v.id_avance)}
-                                                className="p-1 hover:bg-rose-500/10 text-[var(--color-fg-muted)] hover:text-rose-600 rounded-none transition-colors"
+                                                className="p-1 hover:bg-[var(--color-danger-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-600)] rounded-none transition-colors"
                                                 title="Supprimer cette variable"
                                                 aria-label="Supprimer"
                                             >

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { TrendingUp, Plus, Trash2, AlertTriangle, Layers, Percent } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Modal from '@/components/ui/overlays/Modal';
 import Alert from '@/components/ui/feedback/Alert';
 import { fmtDate } from '@/utils/paieUtils';
@@ -281,25 +282,23 @@ export default function IrsaRevalorisationModal({
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full text-xs text-left border-collapse">
-                            <thead>
-                                <tr className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] uppercase tracking-wider font-semibold">
-                                    <th className="p-2.5 w-20">Tranche</th>
-                                    <th className="p-2.5">Seuil Min (Ar)</th>
-                                    <th className="p-2.5">Seuil Max (Ar)</th>
-                                    <th className="p-2.5 w-32">Taux (%)</th>
-                                    <th className="p-2.5 w-16 text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+                        <Table>
+                            <Thead>
+                                <Th className="w-20">Tranche</Th>
+                                <Th>Seuil Min (Ar)</Th>
+                                <Th>Seuil Max (Ar)</Th>
+                                <Th className="w-32">Taux (%)</Th>
+                                <Th className="w-16 text-center">Action</Th>
+                            </Thead>
+                            <Tbody>
                                 {tranches.map((t, idx) => {
                                     const isLast = idx === tranches.length - 1;
                                     return (
-                                        <tr key={idx} className="hover:bg-[var(--color-bg-subtle)]/40 transition-colors">
-                                            <td className="p-2.5 font-bold text-[var(--color-brand-500)] whitespace-nowrap">
+                                        <Tr key={idx}>
+                                            <Td isData className="font-bold text-[var(--color-brand-500)] whitespace-nowrap">
                                                 T{t.numeroTranche}
-                                            </td>
-                                            <td className="p-2.5">
+                                            </Td>
+                                            <Td>
                                                 <input
                                                     type="number"
                                                     min="0"
@@ -310,8 +309,8 @@ export default function IrsaRevalorisationModal({
                                                     onChange={(e) => handleTrancheChange(idx, 'trancheMin', e.target.value)}
                                                     className="w-full text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] px-2 py-1.5 focus:outline-none focus:border-[var(--color-brand-500)] disabled:opacity-60 disabled:cursor-not-allowed text-right font-mono"
                                                 />
-                                            </td>
-                                            <td className="p-2.5">
+                                            </Td>
+                                            <Td>
                                                 <input
                                                     type="number"
                                                     min={parseFloat(t.trancheMin) + 1 || 0}
@@ -321,8 +320,8 @@ export default function IrsaRevalorisationModal({
                                                     onChange={(e) => handleTrancheChange(idx, 'trancheMax', e.target.value)}
                                                     className="w-full text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] px-2 py-1.5 focus:outline-none focus:border-[var(--color-brand-500)] text-right font-mono"
                                                 />
-                                            </td>
-                                            <td className="p-2.5">
+                                            </Td>
+                                            <Td>
                                                 <div className="relative">
                                                     <input
                                                         type="number"
@@ -336,23 +335,23 @@ export default function IrsaRevalorisationModal({
                                                     />
                                                     <Percent size={11} className="absolute right-2 top-2.5 text-[var(--color-fg-muted)] pointer-events-none" />
                                                 </div>
-                                            </td>
-                                            <td className="p-2.5 text-center">
+                                            </Td>
+                                            <Td className="text-center">
                                                 <button
                                                     type="button"
                                                     onClick={() => handleRemoveTranche(idx)}
                                                     disabled={tranches.length <= 1}
-                                                    className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                                    className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                                                     title="Supprimer cette tranche"
                                                 >
                                                     <Trash2 size={15} />
                                                 </button>
-                                            </td>
-                                        </tr>
+                                            </Td>
+                                        </Tr>
                                     );
                                 })}
-                            </tbody>
-                        </table>
+                            </Tbody>
+                        </Table>
                     </div>
                 </div>
             </form>

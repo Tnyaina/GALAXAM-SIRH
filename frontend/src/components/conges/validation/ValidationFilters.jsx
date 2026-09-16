@@ -1,5 +1,6 @@
 import { Search, Plus, RefreshCw, FileText, Clock, CheckCircle, XCircle, Ban } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
+import Select from '@/components/ui/forms/Select';
 import Button from '@/components/ui/forms/Button';
 
 const STATUTS = [
@@ -71,35 +72,29 @@ export default function ValidationFilters({
         <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto shrink-0">
           {/* Sélecteur dynamique Type de Congé */}
           {typesConges.length > 0 && (
-            <div className="w-full sm:w-44">
-              <select
+            <div className="w-full sm:w-48">
+              <Select
                 value={selectedTypeConge || ''}
-                onChange={(e) => setSelectedTypeConge(e.target.value)}
-                className="w-full h-8 text-xs bg-[var(--color-bg-subtle)] border border-[var(--color-border)] text-[var(--color-fg)] px-2.5 py-1 outline-none focus:border-[var(--color-brand-500)] cursor-pointer font-medium rounded-none"
-              >
-                <option value="">Tous les types d'absence</option>
-                {typesConges
+                onChange={(val) => setSelectedTypeConge(val)}
+                placeholder="Tous les types d'absence"
+                options={typesConges
                   .filter((t) => t.estActif !== false && t.actif !== false)
-                  .map((t) => (
-                    <option key={t.idTypeConge} value={t.idTypeConge}>
-                      {t.libelleTypeConge || t.codeTypeConge}
-                    </option>
-                  ))}
-              </select>
+                  .map((t) => ({
+                    value: t.idTypeConge,
+                    label: t.libelleTypeConge || t.codeTypeConge
+                  }))
+                }
+              />
             </div>
           )}
 
-          <div className="relative w-full sm:w-52">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-subtle)] pointer-events-none" />
+          <div className="w-full sm:w-52">
             <Input
               placeholder="Rechercher collaborateur…"
               value={searchRaw}
               onChange={(e) => setSearchRaw(e.target.value)}
-              className="pl-8 h-8 text-xs bg-[var(--color-bg-subtle)] border-[var(--color-border)] rounded-none"
+              icon={<Search size={14} />}
             />
-            {searchRaw !== searchTerm && (
-              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-[var(--color-brand-500)]" title="Recherche en cours..." />
-            )}
           </div>
 
           <Button

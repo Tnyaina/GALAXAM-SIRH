@@ -50,7 +50,7 @@ export default function DatesCongeSection({
             </span>
           </label>
           {estDemiJournee && (
-            <span className="text-xs font-bold text-info-600 dark:text-info-400 bg-info-500/10 px-2 py-0.5 border border-info-500/20">
+            <span className="text-xs font-bold text-[var(--color-info-600)] bg-[var(--color-info-500)]/10 px-2 py-0.5 border border-[var(--color-info-500)]/20">
               0,5 J
             </span>
           )}
@@ -301,15 +301,15 @@ export default function DatesCongeSection({
 
       {/* Extension pathologique maternité */}
       {isMaternite && (
-        <label className="flex items-start gap-3 pl-3 border-l-2 border-warning-500 py-1 mt-4 cursor-pointer">
+        <label className="flex items-start gap-3 pl-3 border-l-2 border-[var(--color-warning-500)] py-1 mt-4 cursor-pointer">
           <input
             type="checkbox"
             checked={extensionPathologiqueMaternite}
             onChange={(e) => setExtensionPathologiqueMaternite(e.target.checked)}
-            className="w-4 h-4 mt-0.5 accent-warning-500 cursor-pointer shrink-0"
+            className="w-4 h-4 mt-0.5 accent-[var(--color-warning-500)] cursor-pointer shrink-0"
           />
           <span className="text-sm text-[var(--color-fg)]">
-            <span className="font-semibold text-warning-600 dark:text-warning-500">Extension pathologique</span>
+            <span className="font-semibold text-[var(--color-warning-600)]">Extension pathologique</span>
             <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">
               Porte le congé maternité à 119 jours maximum (17 semaines).
             </span>

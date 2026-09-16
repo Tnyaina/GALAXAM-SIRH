@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Eye, Briefcase, Power } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import Button from '@/components/ui/forms/Button';
+import Input from '@/components/ui/forms/Input';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -163,14 +164,12 @@ export default function FonctionsTab() {
             {/* Barre d'outils */}
             <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-4 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
                 <div className="flex items-center gap-3 flex-1 max-w-lg">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" size={16} />
-                        <input
-                            type="text"
+                    <div className="flex-1">
+                        <Input
                             placeholder="Rechercher par intitulé de poste, code..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 border border-[var(--color-border)] rounded-none bg-[var(--color-surface)] text-sm text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]"
+                            icon={<Search size={16} />}
                         />
                     </div>
                     <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-subtle)] rounded-none whitespace-nowrap">

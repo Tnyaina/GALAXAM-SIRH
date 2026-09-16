@@ -246,7 +246,7 @@ export default function ValidationModals({
               type="checkbox"
               checked={derogationSoldeNegatif}
               onChange={(e) => setDerogationSoldeNegatif(e.target.checked)}
-              className="w-4 h-4 mt-0.5 accent-warning-500 cursor-pointer shrink-0"
+              className="w-4 h-4 mt-0.5 accent-[var(--color-warning-500)] cursor-pointer shrink-0"
             />
             <span className="text-sm font-medium text-[var(--color-fg)]">
               Autoriser le dépassement de solde (prise par anticipation)

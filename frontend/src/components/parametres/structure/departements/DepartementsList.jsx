@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Building, Plus, Edit2, Eye, Search, Power } from 'lucide-react';
+import Button from '@/components/ui/forms/Button';
+import Input from '@/components/ui/forms/Input';
 import Badge from '@/components/ui/data-display/Badge';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 
@@ -50,28 +52,26 @@ export default function DepartementsList({
                             <span className="hidden sm:inline">Inactifs</span>
                         </label>
                     )}
-                    <button
+                    <Button
                         onClick={handleCreate}
-                        className="p-1.5 hover:bg-[var(--color-brand-500)] hover:text-white bg-[var(--color-bg-subtle)] text-[var(--color-brand-500)] rounded-none cursor-pointer transition-colors border border-[var(--color-border-subtle)]"
+                        variant="secondary"
+                        size="xs"
+                        iconLeft={<Plus size={14} />}
                         title="Créer un département"
                         aria-label="Créer un nouveau département"
                     >
-                        <Plus size={15} />
-                    </button>
+                        Nouveau
+                    </Button>
                 </div>
             </div>
 
             {/* Barre de recherche instantanée */}
-            <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" size={14} />
-                <input
-                    type="text"
-                    placeholder="Filtrer par nom, code..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1 text-xs border border-[var(--color-border)] rounded-none bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]"
-                />
-            </div>
+            <Input
+                placeholder="Filtrer par nom, code..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                icon={<Search size={14} />}
+            />
 
             {/* Liste des cartes départements */}
             <div className="space-y-1.5 overflow-y-auto pr-1 flex-1 max-h-[520px]">

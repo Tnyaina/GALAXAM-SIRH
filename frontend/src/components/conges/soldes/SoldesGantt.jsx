@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
+import Input from '@/components/ui/forms/Input';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Pagination from '@/components/ui/navigation/Pagination';
 import { useAuth } from '@/context/AuthContext';
@@ -239,9 +240,8 @@ export default function SoldesGantt({
           {/* Outils : Recherche + Navigateur temporel */}
           <div className="flex items-center gap-2.5 flex-wrap">
             {/* Barre de recherche */}
-            <div className="relative flex items-center">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 text-[var(--color-fg-subtle)] pointer-events-none" />
-              <input
+            <div className="w-48 sm:w-60">
+              <Input
                 type="text"
                 value={ganttSearch}
                 onChange={(e) => {
@@ -249,21 +249,8 @@ export default function SoldesGantt({
                   setGanttPage(1);
                 }}
                 placeholder="Filtrer par nom, poste, dept…"
-                className="pl-8 pr-7 py-1 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-xs text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] outline-none focus:border-brand-500 h-8 w-44 sm:w-56 transition-colors"
+                icon={<Search size={14} />}
               />
-              {ganttSearch && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGanttSearch('');
-                    setGanttPage(1);
-                  }}
-                  className="absolute right-2 text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)] p-0.5 cursor-pointer"
-                  title="Effacer"
-                >
-                  <X size={13} />
-                </button>
-              )}
             </div>
 
             {planningLoading && (

@@ -5,6 +5,7 @@ import { getErrorMessage } from '@/api/apiClient';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea } from '@/components/ui/forms/Input';
+import Select from '@/components/ui/forms/Select';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import { Card } from '@/components/ui/data-display/Card';
@@ -32,6 +33,16 @@ const getMouvementLabel = (type) => {
     default: return type;
   }
 };
+
+const TYPE_OPTIONS = [
+  { value: 'ALL', label: 'Tous les mouvements' },
+  { value: 'ACQUISITION', label: 'Acquisition mensuelle (+2.5j)' },
+  { value: 'BONIFICATION', label: 'Bonification d\'ancienneté' },
+  { value: 'PRISE', label: 'Prise de congé' },
+  { value: 'AJUSTEMENT', label: 'Ajustement manuel RH' },
+  { value: 'ANNULATION', label: 'Annulation de demande' },
+  { value: 'EXPIRATION', label: 'Expiration triennale' },
+];
 
 export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjustementSuccess }) {
   const [filterType, setFilterType] = useState('ALL');
@@ -86,21 +97,12 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
           {/* Filtre par type */}
-          <div className="flex items-center gap-1.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] px-2.5 py-1 text-xs">
-            <Filter className="w-3.5 h-3.5 text-[var(--color-fg-subtle)]" />
-            <select
+          <div className="w-56">
+            <Select
               value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="bg-transparent text-[var(--color-fg)] focus:outline-none cursor-pointer text-xs font-medium"
-            >
-              <option value="ALL">Tous les mouvements</option>
-              <option value="ACQUISITION">Acquisition mensuelle (+2.5j)</option>
-              <option value="BONIFICATION">Bonification d'ancienneté</option>
-              <option value="PRISE">Prise de congé</option>
-              <option value="AJUSTEMENT">Ajustement manuel RH</option>
-              <option value="ANNULATION">Annulation de demande</option>
-              <option value="EXPIRATION">Expiration triennale</option>
-            </select>
+              onChange={(val) => setFilterType(val)}
+              options={TYPE_OPTIONS}
+            />
           </div>
 
           {/* Bouton d'ajustement RH */}

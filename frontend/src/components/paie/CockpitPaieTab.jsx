@@ -31,6 +31,7 @@ import Alert from '@/components/ui/feedback/Alert';
 import StatCard from '@/components/ui/data-display/StatCard';
 import { Table, Thead, Th, Tbody, Tr, Td, TableEmpty } from '@/components/ui/data-display/Table';
 import Input from '@/components/ui/forms/Input';
+import Select from '@/components/ui/forms/Select';
 
 /**
  * Cockpit Principal de Paie DAF (GALAXAM LOGISTICS)
@@ -370,18 +371,18 @@ export default function CockpitPaieTab({
                             <span className="text-xs font-semibold text-[var(--color-fg-muted)]">
                                 Exercice :
                             </span>
-                            <select
-                                value={idPeriodeActive || ''}
-                                onChange={(e) => setIdPeriodeActive(Number(e.target.value))}
-                                className="text-xs font-bold font-mono px-2 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-none focus:outline-none"
-                            >
-                                <option value="">Selectionnez une période</option>
-                                {periodes.map(p => (
-                                    <option key={p.idPeriodePaie || p.id_periode_paie} value={p.idPeriodePaie || p.id_periode_paie}>
-                                        {p.code} ({p.codeStatut || p.statut || 'EN_COURS'})
-                                    </option>
-                                ))}
-                            </select>
+                            <Select
+                                value={String(idPeriodeActive || '')}
+                                onChange={(val) => setIdPeriodeActive(val ? Number(val) : null)}
+                                options={[
+                                    { value: '', label: 'Sélectionnez une période' },
+                                    ...periodes.map(p => ({
+                                        value: String(p.idPeriodePaie || p.id_periode_paie),
+                                        label: `${p.code} (${p.codeStatut || p.statut || 'EN_COURS'})`
+                                    }))
+                                ]}
+                                className="text-xs font-bold font-mono h-[28px] min-w-[200px]"
+                            />
                         </div>
                         <p className="text-xs text-[var(--color-fg-muted)] mt-1 font-mono">
                             Cycle d'activité : <span className="font-semibold text-[var(--color-fg)]">{periode.dateDebut || '26/..'} → {periode.dateFin || '25/..'}</span> • Statut : <span className="font-bold text-[var(--color-brand-500)]">{periode.libelleStatut || periode.statut || 'EN_COURS'}</span>
@@ -598,31 +599,31 @@ export default function CockpitPaieTab({
 
                     <div className="flex items-center gap-1.5">
                         <span className="text-[11px] text-[var(--color-fg-muted)] font-medium">Site :</span>
-                        <select
+                        <Select
                             value={filterSite}
-                            onChange={(e) => setFilterSite(e.target.value)}
-                            className="text-xs py-1.5 px-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] rounded-none focus:outline-none focus:border-[var(--color-brand-500)]"
-                        >
-                            <option value="ALL">Tous les sites</option>
-                            {sites.map((s, idx) => (
-                                <option key={idx} value={s}>{s}</option>
-                            ))}
-                        </select>
+                            onChange={(val) => setFilterSite(val)}
+                            options={[
+                                { value: 'ALL', label: 'Tous les sites' },
+                                ...sites.map(s => ({ value: s, label: s }))
+                            ]}
+                            className="text-xs h-[30px] min-w-[130px]"
+                        />
                     </div>
 
                     <div className="flex items-center gap-1.5">
                         <span className="text-[11px] text-[var(--color-fg-muted)] font-medium">Statut :</span>
-                        <select
+                        <Select
                             value={filterAlert}
-                            onChange={(e) => setFilterAlert(e.target.value)}
-                            className="text-xs py-1.5 px-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] rounded-none focus:outline-none focus:border-[var(--color-brand-500)]"
-                        >
-                            <option value="ALL">Tous les statuts</option>
-                            <option value="ALERTS">⚠ Variations &gt; 20%</option>
-                            <option value="STC">★ Sortants STC Inclus</option>
-                            <option value="VALIDE">✓ Validés</option>
-                            <option value="CLOTURE">✓ Clôturés</option>
-                        </select>
+                            onChange={(val) => setFilterAlert(val)}
+                            options={[
+                                { value: 'ALL', label: 'Tous les statuts' },
+                                { value: 'ALERTS', label: '⚠ Variations > 20%' },
+                                { value: 'STC', label: '★ Sortants STC Inclus' },
+                                { value: 'VALIDE', label: '✓ Validés' },
+                                { value: 'CLOTURE', label: '✓ Clôturés' },
+                            ]}
+                            className="text-xs h-[30px] min-w-[150px]"
+                        />
                     </div>
                 </div>
 
@@ -794,71 +795,55 @@ export default function CockpitPaieTab({
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-[11px] font-semibold text-[var(--color-fg-muted)] block mb-1">
-                                Type de Variable *
-                            </label>
-                            <select
-                                className="w-full text-xs p-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none focus:outline-none"
-                                value={variableForm.typeMouvement}
-                                onChange={(e) => setVariableForm({ ...variableForm, typeMouvement: e.target.value })}
-                            >
-                                <option value="PRIM_EXC">Prime exceptionnelle (Gain)</option>
-                                <option value="ACOMPTE_15">Acompte quinzaine (Retenue)</option>
-                                <option value="AVANCE_SPEC">Avance spéciale (Retenue)</option>
-                                <option value="DED_DIV">Déduction diverse (Retenue)</option>
-                                {(Array.isArray(typesMouvements) ? typesMouvements : []).map((t) => (
-                                    <option key={t.idTypeMouvement || t.code} value={t.code}>
-                                        {t.libelle} ({t.sens})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                        <Select
+                            label="Type de Variable"
+                            required
+                            value={variableForm.typeMouvement}
+                            onChange={(val) => setVariableForm({ ...variableForm, typeMouvement: val })}
+                            options={[
+                                { value: 'PRIM_EXC', label: 'Prime exceptionnelle (Gain)' },
+                                { value: 'ACOMPTE_15', label: 'Acompte quinzaine (Retenue)' },
+                                { value: 'AVANCE_SPEC', label: 'Avance spéciale (Retenue)' },
+                                { value: 'DED_DIV', label: 'Déduction diverse (Retenue)' },
+                                ...(Array.isArray(typesMouvements) ? typesMouvements : []).map((t) => ({
+                                    value: t.code,
+                                    label: `${t.libelle} (${t.sens})`
+                                }))
+                            ]}
+                        />
 
-                        <div>
-                            <label className="text-[11px] font-semibold text-[var(--color-fg-muted)] block mb-1">
-                                Sens *
-                            </label>
-                            <select
-                                className="w-full text-xs p-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none focus:outline-none"
-                                value={variableForm.sens}
-                                onChange={(e) => setVariableForm({ ...variableForm, sens: e.target.value })}
-                            >
-                                <option value="GAIN">+ Gain (Ajout au brut)</option>
-                                <option value="RETENUE">- Retenue (Déduction du net)</option>
-                            </select>
-                        </div>
+                        <Select
+                            label="Sens"
+                            required
+                            value={variableForm.sens}
+                            onChange={(val) => setVariableForm({ ...variableForm, sens: val })}
+                            options={[
+                                { value: 'GAIN', label: '+ Gain (Ajout au brut)' },
+                                { value: 'RETENUE', label: '- Retenue (Déduction du net)' },
+                            ]}
+                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-[11px] font-semibold text-[var(--color-fg-muted)] block mb-1">
-                                Montant en Ariary *
-                            </label>
-                            <input
-                                type="number"
-                                step="1000"
-                                min="1000"
-                                required
-                                placeholder="Ex: 50000"
-                                className="w-full text-xs p-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none focus:outline-none font-mono"
-                                value={variableForm.montant}
-                                onChange={(e) => setVariableForm({ ...variableForm, montant: e.target.value })}
-                            />
-                        </div>
+                        <Input
+                            label="Montant en Ariary"
+                            type="number"
+                            step="1000"
+                            min="1000"
+                            required
+                            placeholder="Ex: 50000"
+                            value={variableForm.montant}
+                            onChange={(e) => setVariableForm({ ...variableForm, montant: e.target.value })}
+                            className="font-mono"
+                        />
 
-                        <div>
-                            <label className="text-[11px] font-semibold text-[var(--color-fg-muted)] block mb-1">
-                                Motif / Référence
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="Ex: Prime transport projet"
-                                className="w-full text-xs p-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none focus:outline-none"
-                                value={variableForm.motif}
-                                onChange={(e) => setVariableForm({ ...variableForm, motif: e.target.value })}
-                            />
-                        </div>
+                        <Input
+                            label="Motif / Référence"
+                            type="text"
+                            placeholder="Ex: Prime transport projet"
+                            value={variableForm.motif}
+                            onChange={(e) => setVariableForm({ ...variableForm, motif: e.target.value })}
+                        />
                     </div>
                 </form>
             </Modal>

@@ -7,6 +7,7 @@ import {
 import paieConfigService from '@/api/admin/paieConfigService';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import Modal from '@/components/ui/overlays/Modal';
@@ -115,11 +116,11 @@ const EMPTY_FORM = {
 };
 
 const MAJORATION_CONFIG = [
-    { type: 'HS_30',    title: 'HS Tranche 1', subtitle: '41ᵉ à 48ᵉ h (premières 8h)', icon: Clock,    defaultPct: 30, color: 'text-amber-500',  badgeBg: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
-    { type: 'HS_50',    title: 'HS Tranche 2', subtitle: 'Au-delà de la 48ᵉ heure',    icon: Zap,      defaultPct: 50, color: 'text-orange-500', badgeBg: 'bg-orange-500/10 text-orange-700 dark:text-orange-300' },
-    { type: 'NUIT',     title: 'Heures de Nuit', subtitle: '22h00 – 05h00 du matin',    icon: Moon,     defaultPct: 30, color: 'text-indigo-500', badgeBg: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300' },
-    { type: 'DIMANCHE', title: 'Dimanche',     subtitle: 'Repos hebdomadaire légal',   icon: Sun,      defaultPct: 40, color: 'text-purple-500', badgeBg: 'bg-purple-500/10 text-purple-700 dark:text-purple-300' },
-    { type: 'FERIE',    title: 'Jour Férié',   subtitle: 'Férié chômé et payé',        icon: Calendar, defaultPct: 100, color: 'text-rose-500',   badgeBg: 'bg-rose-500/10 text-rose-700 dark:text-rose-300' },
+    { type: 'HS_30',    title: 'HS Tranche 1', subtitle: '41ᵉ à 48ᵉ h (premières 8h)', icon: Clock,    defaultPct: 30, color: 'text-[var(--color-warning-500)]',  badgeBg: 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)]' },
+    { type: 'HS_50',    title: 'HS Tranche 2', subtitle: 'Au-delà de la 48ᵉ heure',    icon: Zap,      defaultPct: 50, color: 'text-[var(--color-orange-500)]',   badgeBg: 'bg-[var(--color-orange-500)]/10 text-[var(--color-orange-600)]' },
+    { type: 'NUIT',     title: 'Heures de Nuit', subtitle: '22h00 – 05h00 du matin',    icon: Moon,     defaultPct: 30, color: 'text-[var(--color-purple-500)]',   badgeBg: 'bg-[var(--color-purple-500)]/10 text-[var(--color-purple-600)]' },
+    { type: 'DIMANCHE', title: 'Dimanche',     subtitle: 'Repos hebdomadaire légal',   icon: Sun,      defaultPct: 40, color: 'text-[var(--color-brand-500)]',    badgeBg: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)]' },
+    { type: 'FERIE',    title: 'Jour Férié',   subtitle: 'Férié chômé et payé',        icon: Calendar, defaultPct: 100, color: 'text-[var(--color-danger-500)]',  badgeBg: 'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-600)]' },
 ];
 
 function MajorationsFormSection({ majorations = [], onChange, isReadOnly }) {
@@ -232,34 +233,32 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
                 )}
             </div>
 
-            <div className="border border-[var(--color-border-subtle)] overflow-x-auto">
-                <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                        <tr className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] uppercase tracking-wider font-semibold">
-                            <th className="p-2.5 w-24">Tranche</th>
-                            <th className="p-2.5 text-right">Seuil Min (Ar)</th>
-                            <th className="p-2.5 text-right">Seuil Max (Ar)</th>
-                            <th className="p-2.5 text-right w-28">Taux IRSA</th>
-                            {!isReadOnly && <th className="p-2.5 w-16 text-center">Action</th>}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--color-border-subtle)]">
+            <div className="overflow-x-auto">
+                <Table>
+                    <Thead>
+                        <Th className="w-24">Tranche</Th>
+                        <Th className="text-right">Seuil Min (Ar)</Th>
+                        <Th className="text-right">Seuil Max (Ar)</Th>
+                        <Th className="text-right w-28">Taux IRSA</Th>
+                        {!isReadOnly && <Th className="w-16 text-center">Action</Th>}
+                    </Thead>
+                    <Tbody>
                         {tranches.map((t, idx) => {
                             const isLast = idx === tranches.length - 1;
                             if (isReadOnly) {
                                 return (
-                                    <tr key={t.numeroTranche || idx} className="hover:bg-[var(--color-bg-subtle)]/30">
-                                        <td className="p-2.5 font-bold text-[var(--color-brand-500)]">Tranche {t.numeroTranche}</td>
-                                        <td className="p-2.5 text-right font-mono font-semibold">{fmtAr(t.trancheMin)}</td>
-                                        <td className="p-2.5 text-right font-mono font-semibold">{t.trancheMax ? fmtAr(t.trancheMax) : 'Sans plafond (∞)'}</td>
-                                        <td className="p-2.5 text-right font-bold text-[var(--color-danger-500)]">{t.taux}%</td>
-                                    </tr>
+                                    <Tr key={t.numeroTranche || idx}>
+                                        <Td isData className="font-bold text-[var(--color-brand-500)]">Tranche {t.numeroTranche}</Td>
+                                        <Td isData className="text-right font-semibold">{fmtAr(t.trancheMin)}</Td>
+                                        <Td isData className="text-right font-semibold">{t.trancheMax ? fmtAr(t.trancheMax) : 'Sans plafond (∞)'}</Td>
+                                        <Td isData className="text-right font-bold text-[var(--color-danger-500)]">{t.taux}%</Td>
+                                    </Tr>
                                 );
                             }
                             return (
-                                <tr key={idx} className="hover:bg-[var(--color-bg-subtle)]/30">
-                                    <td className="p-2.5 font-bold text-[var(--color-brand-500)]">Tranche {t.numeroTranche}</td>
-                                    <td className="p-2.5">
+                                <Tr key={idx}>
+                                    <Td isData className="font-bold text-[var(--color-brand-500)]">Tranche {t.numeroTranche}</Td>
+                                    <Td>
                                         <input
                                             type="number"
                                             min="0"
@@ -270,8 +269,8 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
                                             onChange={e => handleFieldChange(idx, 'trancheMin', e.target.value)}
                                             className="w-full text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] px-2 py-1 text-right font-mono focus:outline-none focus:border-[var(--color-brand-500)] disabled:opacity-60"
                                         />
-                                    </td>
-                                    <td className="p-2.5">
+                                    </Td>
+                                    <Td>
                                         <input
                                             type="number"
                                             min={parseFloat(t.trancheMin) + 1 || 0}
@@ -281,8 +280,8 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
                                             onChange={e => handleFieldChange(idx, 'trancheMax', e.target.value)}
                                             className="w-full text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] px-2 py-1 text-right font-mono focus:outline-none focus:border-[var(--color-brand-500)]"
                                         />
-                                    </td>
-                                    <td className="p-2.5">
+                                    </Td>
+                                    <Td>
                                         <div className="relative">
                                             <input
                                                 type="number"
@@ -296,23 +295,23 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
                                             />
                                             <span className="absolute right-1.5 top-1 text-[11px] text-[var(--color-fg-muted)] pointer-events-none">%</span>
                                         </div>
-                                    </td>
-                                    <td className="p-2.5 text-center">
+                                    </Td>
+                                    <Td className="text-center">
                                         <button
                                             type="button"
                                             onClick={() => handleRemove(idx)}
                                             disabled={tranches.length <= 1}
-                                            className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                                            className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                                             title="Supprimer cette tranche"
                                         >
                                             <Trash2 size={14} />
                                         </button>
-                                    </td>
-                                </tr>
+                                    </Td>
+                                </Tr>
                             );
                         })}
-                    </tbody>
-                </table>
+                    </Tbody>
+                </Table>
             </div>
             {!isReadOnly && (
                 <p className="text-[11px] text-[var(--color-fg-muted)]">
@@ -1063,26 +1062,24 @@ export default function ReglementationFiscaleTab() {
                                     <div className="px-3 py-2 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
                                         Barème Progressif IRSA en vigueur ({activeTranches.length} tranches)
                                     </div>
-                                    <table className="w-full text-xs text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-[var(--color-surface)] border-b border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] uppercase tracking-wider font-semibold">
-                                                <th className="p-2 w-28">Tranche</th>
-                                                <th className="p-2 text-right">Seuil Minimum (Ar)</th>
-                                                <th className="p-2 text-right">Seuil Maximum (Ar)</th>
-                                                <th className="p-2 text-right w-24">Taux IRSA</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+                                    <Table>
+                                        <Thead>
+                                            <Th className="w-28">Tranche</Th>
+                                            <Th className="text-right">Seuil Minimum (Ar)</Th>
+                                            <Th className="text-right">Seuil Maximum (Ar)</Th>
+                                            <Th className="text-right w-24">Taux IRSA</Th>
+                                        </Thead>
+                                        <Tbody>
                                             {activeTranches.map(t => (
-                                                <tr key={t.idTranche} className="hover:bg-[var(--color-bg-subtle)]/40 transition-colors">
-                                                    <td className="p-2 font-bold text-[var(--color-brand-500)]">Tranche {t.numeroTranche}</td>
-                                                    <td className="p-2 text-right font-mono font-semibold">{fmtAr(t.trancheMin)}</td>
-                                                    <td className="p-2 text-right font-mono font-semibold">{t.trancheMax ? fmtAr(t.trancheMax) : 'Sans plafond (∞)'}</td>
-                                                    <td className="p-2 text-right font-bold text-[var(--color-danger-500)]">{t.taux}%</td>
-                                                </tr>
+                                                <Tr key={t.idTranche}>
+                                                    <Td isData className="font-bold text-[var(--color-brand-500)]">Tranche {t.numeroTranche}</Td>
+                                                    <Td isData className="text-right font-semibold">{fmtAr(t.trancheMin)}</Td>
+                                                    <Td isData className="text-right font-semibold">{t.trancheMax ? fmtAr(t.trancheMax) : 'Sans plafond (∞)'}</Td>
+                                                    <Td isData className="text-right font-bold text-[var(--color-danger-500)]">{t.taux}%</Td>
+                                                </Tr>
                                             ))}
-                                        </tbody>
-                                    </table>
+                                        </Tbody>
+                                    </Table>
                                 </div>
                             )}
                         </div>
@@ -1103,30 +1100,28 @@ export default function ReglementationFiscaleTab() {
                                         <span>Taux de Majoration des Heures Spéciales en vigueur</span>
                                         <span className="text-[10px] font-normal lowercase text-[var(--color-fg-muted)]">Code du Travail Malgache (Art. 83-84)</span>
                                     </div>
-                                    <table className="w-full text-xs text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-[var(--color-surface)] border-b border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] uppercase tracking-wider font-semibold">
-                                                <th className="p-2 w-32">Type</th>
-                                                <th className="p-2">Description / Motif Légal</th>
-                                                <th className="p-2 text-right w-28">Majoration (%)</th>
-                                                <th className="p-2 text-right w-28">Multiplicateur</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+                                    <Table>
+                                        <Thead>
+                                            <Th className="w-32">Type</Th>
+                                            <Th>Description / Motif Légal</Th>
+                                            <Th className="text-right w-28">Majoration (%)</Th>
+                                            <Th className="text-right w-28">Multiplicateur</Th>
+                                        </Thead>
+                                        <Tbody>
                                             {activeMajorations.map(m => {
                                                 const pct = Math.round((parseFloat(m.taux) || 0) * 100);
                                                 const mult = (1 + (parseFloat(m.taux) || 0)).toFixed(2);
                                                 return (
-                                                    <tr key={m.idTauxMajoration || m.typeMajoration} className="hover:bg-[var(--color-bg-subtle)]/40 transition-colors">
-                                                        <td className="p-2 font-bold text-[var(--color-brand-500)]">{m.typeMajoration}</td>
-                                                        <td className="p-2 text-[var(--color-fg)]">{m.description || '—'}</td>
-                                                        <td className="p-2 text-right font-bold text-[var(--color-warning-600)]">+{pct}%</td>
-                                                        <td className="p-2 text-right text-[var(--color-fg-muted)] font-mono">x{mult}</td>
-                                                    </tr>
+                                                    <Tr key={m.idTauxMajoration || m.typeMajoration}>
+                                                        <Td isData className="font-bold text-[var(--color-brand-500)]">{m.typeMajoration}</Td>
+                                                        <Td className="text-[var(--color-fg)]">{m.description || '—'}</Td>
+                                                        <Td isData className="text-right font-bold text-[var(--color-warning-600)]">+{pct}%</Td>
+                                                        <Td isData muted className="text-right">x{mult}</Td>
+                                                    </Tr>
                                                 );
                                             })}
-                                        </tbody>
-                                    </table>
+                                        </Tbody>
+                                    </Table>
                                 </div>
                             )}
                         </div>

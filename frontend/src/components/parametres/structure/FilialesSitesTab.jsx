@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { Search, Plus, Building2, MapPin, Eye, Filter } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import Button from '@/components/ui/forms/Button';
+import Input from '@/components/ui/forms/Input';
+import Select from '@/components/ui/forms/Select';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
 import Alert from '@/components/ui/feedback/Alert';
@@ -353,34 +355,29 @@ export default function FilialesSitesTab() {
 
             <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-3.5 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
                 <div className="flex items-center gap-3 flex-1 flex-wrap">
-                    <div className="relative flex-1 min-w-[200px] max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" size={15} />
-                        <input
-                            type="text"
+                    <div className="flex-1 min-w-[200px] max-w-sm">
+                        <Input
                             placeholder={activeSubTab === 'filiales' ? "Rechercher par code, raison sociale..." : "Rechercher un site par code, nom..."}
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-9 pr-3 py-1.5 border border-[var(--color-border)] rounded-none bg-[var(--color-surface)] text-xs text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]"
+                            icon={<Search size={15} />}
                         />
                     </div>
 
                     {activeSubTab === 'sites' && (
-                        <div className="flex items-center gap-2">
-                            <Filter size={14} className="text-[var(--color-fg-muted)]" />
-                            <select
+                        <div className="min-w-[220px]">
+                            <Select
                                 value={filterFilialeId}
-                                onChange={(e) => setFilterFilialeId(e.target.value)}
-                                className="text-xs border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] px-2.5 py-1.5 rounded-none focus:outline-none focus:border-[var(--color-brand-500)]"
-                            >
-                                <option value="">Toutes les filiales</option>
-                                {safeFiliales
+                                onChange={(val) => setFilterFilialeId(val)}
+                                placeholder="Toutes les filiales"
+                                options={safeFiliales
                                     .filter(f => f.estActif !== false && f.actif !== false)
-                                    .map(f => (
-                                        <option key={f.idFiliale} value={f.idFiliale}>
-                                            {f.codeFiliale} - {f.raisonSociale}
-                                        </option>
-                                    ))}
-                            </select>
+                                    .map(f => ({
+                                        value: f.idFiliale,
+                                        label: `${f.codeFiliale} - ${f.raisonSociale}`
+                                    }))
+                                }
+                            />
                         </div>
                     )}
                 </div>

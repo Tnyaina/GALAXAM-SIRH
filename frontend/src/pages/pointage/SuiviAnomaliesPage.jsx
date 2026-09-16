@@ -18,6 +18,7 @@ import {
     ChevronUp
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
+import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
@@ -334,11 +335,11 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             {/* ---------- KPI CARDS — 5 INDICATEURS CLÉS ---------- */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                 {[
-                    { label: 'Salariés suivis', value: kpis?.collaborateursSuivis || 0, icon: Users, color: 'text-brand-600 dark:text-brand-400' },
-                    { label: 'Jours pointés', value: `${kpis?.joursSaisis || 0} / ${kpis?.joursTheoriques || 0} j`, icon: Calendar, color: 'text-sky-600 dark:text-sky-400' },
-                    { label: 'Heures travaillées', value: `${Math.round(kpis?.heuresCumulees || 0)}h`, icon: Clock, color: 'text-indigo-600 dark:text-indigo-400' },
-                    { label: 'Anomalies actives', value: `${kpis?.anomaliesActives || 0}`, badge: kpis?.anomaliesCritiques > 0 ? `${kpis.anomaliesCritiques} crit.` : null, icon: AlertTriangle, color: 'text-amber-600 dark:text-amber-400' },
-                    { label: 'Indemnités prév.', value: `${Math.round(kpis?.indemnitesPrevisionnelles || 0).toLocaleString('fr-FR')} Ar`, icon: Banknote, color: 'text-emerald-600 dark:text-emerald-400' },
+                    { label: 'Salariés suivis', value: kpis?.collaborateursSuivis || 0, icon: Users, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
+                    { label: 'Jours pointés', value: `${kpis?.joursSaisis || 0} / ${kpis?.joursTheoriques || 0} j`, icon: Calendar, color: 'text-[var(--color-info-600)] dark:text-[var(--color-info-400)]' },
+                    { label: 'Heures travaillées', value: `${Math.round(kpis?.heuresCumulees || 0)}h`, icon: Clock, color: 'text-[var(--color-brand-500)] dark:text-[var(--color-brand-300)]' },
+                    { label: 'Anomalies actives', value: `${kpis?.anomaliesActives || 0}`, badge: kpis?.anomaliesCritiques > 0 ? `${kpis.anomaliesCritiques} crit.` : null, icon: AlertTriangle, color: 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' },
+                    { label: 'Indemnités prév.', value: `${Math.round(kpis?.indemnitesPrevisionnelles || 0).toLocaleString('fr-FR')} Ar`, icon: Banknote, color: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' },
                 ].map(kpi => (
                     <div key={kpi.label} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex items-center gap-3">
                         <kpi.icon size={20} className={`${kpi.color} shrink-0`} />
@@ -347,7 +348,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                             <div className="text-base sm:text-lg font-bold font-mono text-[var(--color-fg)] flex items-center gap-1.5">
                                 <span>{kpi.value}</span>
                                 {kpi.badge && (
-                                    <span className="text-[10px] font-sans px-1.5 py-0.2 bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 font-bold border border-rose-200">
+                                    <span className="text-[10px] font-sans px-1.5 py-0.2 bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)] font-bold border border-[var(--color-danger-500)]/30">
                                         {kpi.badge}
                                     </span>
                                 )}
@@ -452,12 +453,12 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                     {/* Badge statut anomalies */}
                                     <div className="flex items-center justify-between pt-1 border-t border-[var(--color-border-subtle)]">
                                         {sem.nbAnomalies > 0 ? (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 bg-[var(--color-warning-500)]/10 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] border border-[var(--color-warning-500)]/30">
                                                 <AlertTriangle size={10} />
                                                 {sem.nbAnomalies} anomalie{sem.nbAnomalies > 1 ? 's' : ''}
                                             </span>
                                         ) : sem.joursSaisis > 0 ? (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 bg-[var(--color-success-500)]/10 text-[var(--color-success-700)] dark:text-[var(--color-success-300)] border border-[var(--color-success-500)]/30">
                                                 <CheckCircle2 size={10} />
                                                 Conforme
                                             </span>
@@ -500,64 +501,66 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
 
                     <div className="flex items-center gap-2 flex-wrap">
                         {/* Recherche Employé */}
-                        <div className="relative">
-                            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
-                            <input
-                                type="text"
+                        <div className="w-44 sm:w-52">
+                            <Input
+                                icon={<Search size={13} className="text-[var(--color-fg-muted)]" />}
                                 placeholder="Rechercher nom, matricule…"
                                 value={searchQuery}
                                 onChange={(e) => {
                                     setSearchQuery(e.target.value);
                                     setCurrentPage(1);
                                 }}
-                                className="text-xs pl-7 pr-3 py-1 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] w-44 focus:w-56 transition-all focus:border-[var(--color-brand-500)] outline-none"
+                                className="text-xs h-[28px]"
                             />
                         </div>
 
                         {/* Filtre Type */}
-                        <select
+                        <Select
                             value={filterType}
-                            onChange={(e) => {
-                                setFilterType(e.target.value);
+                            onChange={(val) => {
+                                setFilterType(val);
                                 setCurrentPage(1);
                             }}
-                            className="text-xs py-1 px-2.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] outline-none focus:border-[var(--color-brand-500)] cursor-pointer h-[28px]"
-                        >
-                            <option value="ALL">Tous les types</option>
-                            <option value="ABSENCE">Absence non justifiée</option>
-                            <option value="INCOMPLET">Pointage incomplet / Non saisi</option>
-                            <option value="RETARD">Retards</option>
-                        </select>
+                            options={[
+                                { value: 'ALL', label: 'Tous les types' },
+                                { value: 'ABSENCE', label: 'Absence non justifiée' },
+                                { value: 'INCOMPLET', label: 'Pointage incomplet' },
+                                { value: 'RETARD', label: 'Retards' },
+                            ]}
+                            className="text-xs min-w-[135px] h-[28px]"
+                        />
 
                         {/* Filtre Sévérité */}
-                        <select
+                        <Select
                             value={filterSeverite}
-                            onChange={(e) => {
-                                setFilterSeverite(e.target.value);
+                            onChange={(val) => {
+                                setFilterSeverite(val);
                                 setCurrentPage(1);
                             }}
-                            className="text-xs py-1 px-2.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] outline-none focus:border-[var(--color-brand-500)] cursor-pointer h-[28px]"
-                        >
-                            <option value="ALL">Toutes sévérités</option>
-                            <option value="CRITIQUE">Critique (Bloquant la validation)</option>
-                            <option value="HAUTE">Élevée</option>
-                            <option value="MOYENNE">Moyenne</option>
-                            <option value="FAIBLE">Faible</option>
-                        </select>
+                            options={[
+                                { value: 'ALL', label: 'Toutes sévérités' },
+                                { value: 'CRITIQUE', label: 'Critique (Bloquant)' },
+                                { value: 'HAUTE', label: 'Élevée' },
+                                { value: 'MOYENNE', label: 'Moyenne' },
+                                { value: 'FAIBLE', label: 'Faible' },
+                            ]}
+                            className="text-xs min-w-[135px] h-[28px]"
+                        />
 
                         {/* Filtre Statut de Traitement */}
-                        <select
+                        <Select
                             value={filterStatutTraitement}
-                            onChange={(e) => {
-                                setFilterStatutTraitement(e.target.value);
+                            onChange={(val) => {
+                                setFilterStatutTraitement(val);
                                 setCurrentPage(1);
                             }}
-                            className="text-xs py-1 px-2.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] outline-none focus:border-[var(--color-brand-500)] cursor-pointer h-[28px]"
-                        >
-                            <option value="ALL">Tous les statuts</option>
-                            <option value="TODO">À régulariser uniquement</option>
-                            <option value="DONE">Déjà régularisés</option>
-                        </select>
+                            options={[
+                                { value: 'ALL', label: 'Tous les statuts' },
+                                { value: 'TODO', label: 'À régulariser' },
+                                { value: 'DONE', label: 'Déjà régularisés' },
+                            ]}
+                            className="text-xs min-w-[130px] h-[28px]"
+                        />
 
                         {/* Filtre Date précise */}
                         <div className="relative flex items-center">
@@ -747,7 +750,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                                         Régularisé
                                                     </span>
                                                 ) : (
-                                                    <span className="text-amber-600 dark:text-amber-400 font-semibold inline-flex items-center gap-1 text-[11px]">
+                                                    <span className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-semibold inline-flex items-center gap-1 text-[11px]">
                                                         <Clock size={12} />
                                                         À régulariser
                                                     </span>

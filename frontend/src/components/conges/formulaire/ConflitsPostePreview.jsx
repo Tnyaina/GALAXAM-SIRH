@@ -187,7 +187,7 @@ export default function ConflitsPostePreview({
                     className="flex items-center border-b border-[var(--color-border-subtle)] last:border-0 relative h-9 hover:bg-[var(--color-surface-hover)]"
                   >
                     <div className="w-28 shrink-0 px-2 text-[11px] text-[var(--color-fg)] truncate border-r border-[var(--color-border)] flex items-center gap-1.5">
-                      <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-900 dark:text-amber-200 text-[9px] font-bold flex items-center justify-center shrink-0">
+                      <span className="w-4 h-4 rounded-full bg-[var(--color-warning-500)]/20 text-[var(--color-warning-600)] text-[9px] font-bold flex items-center justify-center shrink-0">
                         {col.prenom?.[0] || 'C'}
                       </span>
                       <span className="truncate font-medium">{col.prenom} {col.nom}</span>
@@ -254,10 +254,10 @@ export default function ConflitsPostePreview({
           )}
 
           {conflitReport?.conflitPoste ? (
-            <div className="p-3 bg-amber-500/10 border border-amber-500/40 text-amber-950 dark:text-amber-200 space-y-2">
+            <div className="p-3 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 text-[var(--color-fg)] space-y-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 font-bold text-xs">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <div className="flex items-center gap-1.5 font-bold text-xs text-[var(--color-warning-600)]">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
                   <span>Collision de poste détectée</span>
                 </div>
                 {conflitReport.nomFonction && (
@@ -267,11 +267,11 @@ export default function ConflitsPostePreview({
                 )}
               </div>
 
-              <p className="text-[11px] leading-relaxed">
+              <p className="text-[11px] leading-relaxed text-[var(--color-fg-muted)]">
                 {conflitReport.colleguesAbsents?.length || 1} collaborateur(s) du même poste sont simultanément absents.
               </p>
 
-              <label className="flex items-start gap-2.5 pt-1 mt-1 border-t border-amber-500/30 cursor-pointer">
+              <label className="flex items-start gap-2.5 pt-1 mt-1 border-t border-[var(--color-warning-500)]/30 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={derogationContinuiteService}
@@ -287,12 +287,12 @@ export default function ConflitsPostePreview({
               </label>
             </div>
           ) : (
-            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 space-y-1">
-              <div className="flex items-center gap-2 font-bold text-xs">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className="p-3 bg-[var(--color-success-500)]/10 border border-[var(--color-success-500)]/30 text-[var(--color-fg)] space-y-1">
+              <div className="flex items-center gap-2 font-bold text-xs text-[var(--color-success-600)]">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>Continuité de service assurée</span>
               </div>
-              <p className="text-[11px] text-emerald-800 dark:text-emerald-300">
+              <p className="text-[11px] text-[var(--color-fg-muted)]">
                 Aucun autre collaborateur au poste {conflitReport?.nomFonction ? `« ${conflitReport.nomFonction} »` : 'associé'} n'est absent sur ces dates.
               </p>
             </div>

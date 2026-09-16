@@ -1,4 +1,5 @@
 import { Search, ClockCheck, Coffee, Save, CalendarOff } from 'lucide-react';
+import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import PeriodNavigator from '@/components/ui/navigation/PeriodNavigator';
 
@@ -60,14 +61,13 @@ export default function PointageToolbar({
                     <div className="h-5 w-px bg-[var(--color-border-subtle)] shrink-0" />
 
                     {/* Recherche */}
-                    <div className="relative w-[180px] shrink-0">
-                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" />
-                        <input
-                            type="text"
+                    <div className="w-[180px] shrink-0">
+                        <Input
+                            icon={<Search size={12} className="text-[var(--color-fg-muted)]" />}
                             placeholder="Nom, matricule…"
                             value={searchTerm}
                             onChange={(e) => onSearchChange(e.target.value)}
-                            className="w-full pl-7 pr-3 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:border-brand-500 h-[32px]"
+                            className="h-[32px] text-xs"
                         />
                     </div>
                 </div>
@@ -81,7 +81,7 @@ export default function PointageToolbar({
                         title="Appliquer l'horaire standard (08h-17h) aux lignes non saisies"
                         className="flex items-center gap-1.5 px-3 h-[32px] text-xs font-semibold border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                     >
-                        <ClockCheck size={13} className="text-emerald-600 shrink-0" />
+                        <ClockCheck size={13} className="text-[var(--color-success-600)] shrink-0" />
                         <span>Horaire standard</span>
                     </button>
                     <button
@@ -91,7 +91,7 @@ export default function PointageToolbar({
                         title="Déduire automatiquement la pause déjeuner pour les pointages continus"
                         className="flex items-center gap-1.5 px-3 h-[32px] text-xs font-semibold border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                     >
-                        <Coffee size={13} className="text-amber-600 shrink-0" />
+                        <Coffee size={13} className="text-[var(--color-warning-600)] shrink-0" />
                         <span>Déduire pauses</span>
                     </button>
                     {onAddConge && (
@@ -99,7 +99,7 @@ export default function PointageToolbar({
                             type="button"
                             onClick={onAddConge}
                             title="Déclarer un congé ou une absence pour un collaborateur"
-                            className="flex items-center gap-1.5 px-3 h-[32px] text-xs font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer whitespace-nowrap"
+                            className="flex items-center gap-1.5 px-3 h-[32px] text-xs font-semibold border border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/10 text-[var(--color-warning-800)] dark:text-[var(--color-warning-300)] hover:bg-[var(--color-warning-500)]/20 transition-colors cursor-pointer whitespace-nowrap"
                         >
                             <CalendarOff size={13} className="shrink-0" />
                             <span>Congé / Absence</span>
@@ -116,7 +116,7 @@ export default function PointageToolbar({
                         className={`
                             flex items-center gap-1.5 px-4 h-[32px] text-xs font-bold shrink-0 transition-all cursor-pointer border whitespace-nowrap
                             ${dirtyCount > 0
-                                ? 'bg-brand-600 hover:bg-brand-700 text-white border-brand-600 shadow-sm'
+                                ? 'bg-[var(--color-brand-600)] hover:bg-[var(--color-brand-700)] text-white border-[var(--color-brand-600)] shadow-sm'
                                 : isReadOnly
                                     ? 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] opacity-50 cursor-not-allowed'
                                     : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-fg-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)]'
