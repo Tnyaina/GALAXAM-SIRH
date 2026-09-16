@@ -195,8 +195,13 @@ public class PeriodePaieController {
                     "Le code, la date de début et la date de fin sont requis.");
         }
 
+        String statutInitial = (String) payload.getOrDefault("statutCode", "EN_COURS");
+        if (!"BROUILLON".equals(statutInitial) && !"EN_COURS".equals(statutInitial)) {
+            statutInitial = "EN_COURS";
+        }
+
         String sql = "INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode) " +
-                     "VALUES (?, ?, ?, ?, (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'BROUILLON'))";
+                     "VALUES (?, ?, ?, ?, (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = ?))";
 
         try (Connection c = dataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
@@ -204,6 +209,7 @@ public class PeriodePaieController {
                 ps.setString(2, libelle != null ? libelle : code);
                 ps.setDate(3, java.sql.Date.valueOf(dateDebut));
                 ps.setDate(4, java.sql.Date.valueOf(dateFin));
+                ps.setString(5, statutInitial);
                 ps.executeUpdate();
 
                 resp.put("success", true);

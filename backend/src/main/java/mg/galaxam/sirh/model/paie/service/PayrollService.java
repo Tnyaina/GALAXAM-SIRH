@@ -207,6 +207,16 @@ public class PayrollService {
         // Si validation réelle : génération automatique des bordereaux d'honoraires pour les consultants
         if (!simulation) {
             genererHonorairesPeriode(idPeriodePaie, idUtilisateur, c);
+
+            // Si la période était en PAIE_VALIDEE, un recalcul la replace en VALIDEE (bulletins en attente d'approbation)
+            String sqlReset = "UPDATE periode_paie SET " +
+                    "id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'VALIDEE'), " +
+                    "updated_at = CURRENT_TIMESTAMP " +
+                    "WHERE id_periode_paie = ? AND id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'PAIE_VALIDEE')";
+            try (PreparedStatement psReset = c.prepareStatement(sqlReset)) {
+                psReset.setInt(1, idPeriodePaie);
+                psReset.executeUpdate();
+            }
         }
 
         return batch;
@@ -328,6 +338,17 @@ public class PayrollService {
                 batch.ajouterBulletin(obtenirBulletinComplet(b.getIdBulletin(), c));
             }
         }
+
+        // Transition du statut de la période vers PAIE_VALIDEE (Paie Validée & Approuvée)
+        String sqlPeriode = "UPDATE periode_paie SET " +
+                "id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'PAIE_VALIDEE'), " +
+                "updated_at = CURRENT_TIMESTAMP " +
+                "WHERE id_periode_paie = ? AND id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'VALIDEE')";
+        try (PreparedStatement psP = c.prepareStatement(sqlPeriode)) {
+            psP.setInt(1, idPeriodePaie);
+            psP.executeUpdate();
+        }
+
         return batch;
     }
 

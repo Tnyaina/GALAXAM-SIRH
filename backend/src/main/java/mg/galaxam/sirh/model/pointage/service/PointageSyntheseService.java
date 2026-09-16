@@ -1550,7 +1550,7 @@ public class PointageSyntheseService {
                             "ROLE_ADMIN".equals(a.getAuthority()) || "POINTAGE_VALIDATE".equals(a.getAuthority())
                     );
 
-                    if ("CLOTUREE".equalsIgnoreCase(st) || "VALIDEE".equalsIgnoreCase(st)) {
+                    if ("CLOTUREE".equalsIgnoreCase(st) || "VALIDEE".equalsIgnoreCase(st) || "PAIE_VALIDEE".equalsIgnoreCase(st)) {
                         throw new IllegalStateException("Action impossible : La période de paie est en statut '" + st + "'. Vous ne pouvez pas modifier ou valider les semaines d'une période clôturée ou validée.");
                     }
                     if (("A_VALIDER".equalsIgnoreCase(st) || "TRANSMIS_DAF".equalsIgnoreCase(st)) && !isAdminOrDaf) {
@@ -1705,7 +1705,7 @@ public class PointageSyntheseService {
                 try (ResultSet rsC = psC.executeQuery()) {
                     if (rsC.next()) {
                         String st = rsC.getString("code");
-                        if ("CLOTUREE".equalsIgnoreCase(st) || "VALIDEE".equalsIgnoreCase(st) || "A_VALIDER".equalsIgnoreCase(st) || "TRANSMIS_DAF".equalsIgnoreCase(st)) {
+                        if ("CLOTUREE".equalsIgnoreCase(st) || "VALIDEE".equalsIgnoreCase(st) || "PAIE_VALIDEE".equalsIgnoreCase(st) || "A_VALIDER".equalsIgnoreCase(st) || "TRANSMIS_DAF".equalsIgnoreCase(st)) {
                             throw new IllegalStateException("Action impossible : La période de paie est en statut '" + st + "'. Vous devez d'abord réouvrir la période avant de déverrouiller une semaine.");
                         }
                     }

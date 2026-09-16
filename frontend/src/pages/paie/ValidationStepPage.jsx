@@ -94,8 +94,16 @@ export default function ValidationStepPage() {
         }
     }, [numericPeriodId, periode, motifReouverture, refresh]);
 
-    const statutVariant = { VALIDEE: 'success', CLOTUREE: 'secondary', EN_COURS: 'warning' };
+    const statutVariant = { VALIDEE: 'primary', PAIE_VALIDEE: 'success', CLOTUREE: 'secondary', EN_COURS: 'warning' };
+    const statutLabel = {
+        VALIDEE: 'Pointage Scellé & Figé',
+        PAIE_VALIDEE: 'Paie Validée & Approuvée',
+        CLOTUREE: 'Période Clôturée',
+        EN_COURS: 'Pointage En Cours'
+    };
     const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-MG', { day: '2-digit', month: 'long', year: 'numeric' }) : '–';
+
+    const isPaieValidee = periode?.state === 'PAIE_VALIDEE';
 
     const translateReason = (code) => {
         const map = {
@@ -134,10 +142,10 @@ export default function ValidationStepPage() {
                     </div>
                     <div>
                         <h1 className="text-base font-bold text-[var(--color-fg)] tracking-tight">
-                            Étape 6 — Validation & Clôture
+                            Étape 3 du Cycle Paie — Approbation & Clôture DAF
                         </h1>
                         <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-                            Validez les bulletins et clôturez la campagne pour générer les exports réglementaires.
+                            Approuvez les bulletins de paie calculés puis scellez définitivement la période avant génération des virements.
                         </p>
                     </div>
                 </div>
@@ -152,7 +160,7 @@ export default function ValidationStepPage() {
                         <div className="flex items-center gap-3 flex-wrap">
                             <span className="text-sm font-bold font-mono text-[var(--color-fg)]">{periode.code}</span>
                             <Badge variant={statutVariant[periode.state] || 'default'} dot size="sm">
-                                {periode.state}
+                                {statutLabel[periode.state] || periode.state}
                             </Badge>
                             <span className="text-xs text-[var(--color-fg-muted)]">
                                 {formatDate(periode.startDate)} → {formatDate(periode.endDate)}
@@ -166,9 +174,9 @@ export default function ValidationStepPage() {
                     <div className="flex items-center gap-3 p-4 bg-[var(--color-success-500)]/5 border border-[var(--color-success-500)]/20">
                         <Lock size={16} className="text-[var(--color-success-500)] shrink-0" />
                         <div className="flex-1">
-                            <p className="text-xs font-bold text-[var(--color-fg)]">Période clôturée</p>
+                            <p className="text-xs font-bold text-[var(--color-fg)]">Période clôturée définitivement</p>
                             <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                                Les bulletins sont immuables. Vous pouvez maintenant générer les exports réglementaires.
+                                Les bulletins et virements sont immuables. Vous pouvez télécharger les états réglementaires SAFI, CNaPS et virements bancaires.
                             </p>
                         </div>
                         <Button
@@ -177,22 +185,27 @@ export default function ValidationStepPage() {
                             onClick={() => navigate(`/paie/periodes/${numericPeriodId}/sorties`)}
                             id="btn-goto-sorties"
                         >
-                            Aller aux exports →
+                            Aller aux exports & virements →
                         </Button>
                     </div>
                 ) : (
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-4">
                         <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                            Actions disponibles
+                            Actions du workflow
                         </h2>
 
                         {/* Validation des bulletins */}
                         <div className="flex items-start justify-between gap-4 p-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]">
                             <div>
-                                <p className="text-xs font-semibold text-[var(--color-fg)]">1. Valider les bulletins calculés</p>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-xs font-semibold text-[var(--color-fg)]">1. Approuver les bulletins de paie (DAF / DG)</p>
+                                    {isPaieValidee && (
+                                        <Badge variant="success" size="xs">✓ Paie validée</Badge>
+                                    )}
+                                </div>
                                 <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                                    Approuve tous les bulletins au statut CALCULE → VALIDE.
-                                    {!canValidate && (
+                                    Verrouille les bulletins calculés (CALCULE → VALIDE). La période passe au statut officiel <span className="font-semibold text-[var(--color-success-700)] dark:text-[var(--color-success-300)]">PAIE_VALIDEE</span>.
+                                    {!canValidate && !isPaieValidee && (
                                         <span className="ml-1 text-[var(--color-warning-600)] font-medium">
                                             — {(actions?.VALIDATE?.reasonCodes || []).map(translateReason).join(' · ') || 'Bulletins en attente de calcul'}
                                         </span>
@@ -200,27 +213,27 @@ export default function ValidationStepPage() {
                                 </p>
                             </div>
                             <Button
-                                variant={canValidate ? 'success' : 'outline'}
+                                variant={canValidate ? 'success' : isPaieValidee ? 'outline' : 'outline'}
                                 size="sm"
-                                disabled={!canValidate || actionLoading !== null}
+                                disabled={!canValidate || actionLoading !== null || isPaieValidee}
                                 loading={actionLoading === 'valider'}
                                 iconLeft={<CheckCircle2 size={13} />}
                                 onClick={handleValider}
                                 id="btn-valider-bulletins"
                             >
-                                Valider
+                                {isPaieValidee ? 'Bulletins approuvés' : 'Approuver les bulletins'}
                             </Button>
                         </div>
 
                         {/* Clôture */}
                         <div className="flex items-start justify-between gap-4 p-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]">
                             <div>
-                                <p className="text-xs font-semibold text-[var(--color-fg)]">2. Clôturer la période</p>
+                                <p className="text-xs font-semibold text-[var(--color-fg)]">2. Générer les virements & Clôturer la période</p>
                                 <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                                    Verrouille définitivement les bulletins (lecture seule). Irréversible sans réouverture manuelle.
+                                    Scelle la période au statut <span className="font-semibold text-[var(--color-fg)]">CLOTUREE</span> (archivage légal immuable). Rend les sorties réglementaires définitives.
                                     {!canClose && (
                                         <span className="ml-1 text-[var(--color-warning-600)] font-medium">
-                                            — {(actions?.CLOSE?.reasonCodes || []).map(translateReason).join(' · ') || 'Requiert que tous les bulletins soient validés'}
+                                            — {(actions?.CLOSE?.reasonCodes || []).map(translateReason).join(' · ') || 'Requiert l’approbation préalable de tous les bulletins'}
                                         </span>
                                     )}
                                 </p>
@@ -234,7 +247,7 @@ export default function ValidationStepPage() {
                                 onClick={handleCloturer}
                                 id="btn-cloturer-periode"
                             >
-                                Clôturer
+                                Clôturer la campagne
                             </Button>
                         </div>
 

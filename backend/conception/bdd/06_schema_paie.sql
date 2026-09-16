@@ -249,6 +249,7 @@ CREATE TABLE bulletin_paie (
 CREATE INDEX idx_bulletin_periode ON bulletin_paie(id_periode_paie);
 CREATE INDEX idx_bulletin_employe ON bulletin_paie(id_employe);
 CREATE INDEX idx_bulletin_statut ON bulletin_paie(statut);
+CREATE INDEX idx_bulletin_snapshot_pointage ON bulletin_paie(id_snapshot_pointage);
 CREATE INDEX idx_bulletin_paie_calcule_par ON bulletin_paie(calcule_par);
 CREATE INDEX idx_bulletin_paie_valide_par ON bulletin_paie(valide_par);
 CREATE INDEX idx_bulletin_paie_cloture_par ON bulletin_paie(cloture_par);

@@ -13,6 +13,8 @@ DROP VIEW IF EXISTS v_pointage_semaine CASCADE;
 DROP VIEW IF EXISTS v_pointage_jour_cpl CASCADE;
 DROP VIEW IF EXISTS v_pointage_indemnites CASCADE;
 
+DROP TABLE IF EXISTS pointage_snapshot_semaine CASCADE;
+DROP TABLE IF EXISTS pointage_snapshot_jour CASCADE;
 DROP TABLE IF EXISTS pointage_cumul_indemnite CASCADE;
 DROP TABLE IF EXISTS pointage_cumul_periode CASCADE;
 DROP TABLE IF EXISTS pointage_semaine_calcule CASCADE;
@@ -23,6 +25,7 @@ DROP TABLE IF EXISTS ref_tolerance_arrivee_pointage CASCADE;
 DROP TABLE IF EXISTS site_indemnite_config CASCADE;
 DROP TABLE IF EXISTS ref_indemnite CASCADE;
 DROP TABLE IF EXISTS ref_statut_pointage_jour CASCADE;
+DROP TABLE IF EXISTS periode_paie_transition CASCADE;
 DROP TABLE IF EXISTS periode_paie CASCADE;
 DROP TABLE IF EXISTS ref_statut_periode_paie CASCADE;
 
@@ -309,10 +312,11 @@ INSERT INTO ref_statut_periode_paie (id_statut_periode, code, libelle) VALUES
 (1, 'BROUILLON', 'Période créée, non ouverte'),
 (2, 'EN_COURS', 'Saisie en cours'),
 (3, 'A_VALIDER', 'Terminée, en attente de validation DAF'),
-(4, 'TRANSMIS_DAF', 'Transmise à la DAF'),
-(5, 'VALIDEE', 'Validée — verrouillée pour saisie'),
-(6, 'CLOTUREE', 'Clôturée — consommée par la Paie, immuable');
-SELECT setval('ref_statut_periode_paie_id_statut_periode_seq', (SELECT GREATEST(MAX(id_statut_periode), 6) FROM ref_statut_periode_paie));
+(4, 'TRANSMIS_DAF', 'Transmise à la DAF — Arbitrage'),
+(5, 'VALIDEE', 'Pointage Scellé & Figé — Prêt pour calcul Paie'),
+(6, 'CLOTUREE', 'Clôturée — archivée, immuable'),
+(7, 'PAIE_VALIDEE', 'Paie Validée & Approuvée — Prête pour virement et clôture');
+SELECT setval('ref_statut_periode_paie_id_statut_periode_seq', (SELECT GREATEST(MAX(id_statut_periode), 7) FROM ref_statut_periode_paie));
 
 -- Statuts Pointage Journalier
 INSERT INTO ref_statut_pointage_jour (id_statut_jour, code, libelle, decompte_absence, necessite_saisie) VALUES

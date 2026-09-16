@@ -44,9 +44,20 @@ export default function PayrollCampaignHeader({
         EN_COURS: 'warning',
         A_VALIDER: 'info',
         TRANSMIS_DAF: 'info',
-        VALIDEE: 'success',
+        VALIDEE: 'primary',
+        PAIE_VALIDEE: 'success',
         CLOTUREE: 'secondary',
         BROUILLON: 'default',
+    };
+
+    const statutLabel = {
+        EN_COURS: 'Pointage En Cours',
+        A_VALIDER: 'Transmise DAF',
+        TRANSMIS_DAF: 'Transmise DAF',
+        VALIDEE: 'Pointage Scellé & Figé',
+        PAIE_VALIDEE: 'Paie Validée & Approuvée',
+        CLOTUREE: 'Période Clôturée',
+        BROUILLON: 'Brouillon',
     };
 
     const formatDate = (d) => {
@@ -62,9 +73,10 @@ export default function PayrollCampaignHeader({
             const pCode = p.code || '';
             const pLib = p.libelle || p.statutLibelle || '';
             const pStat = p.statutCode || p.codeStatut || p.statut || '';
+            const readableStat = statutLabel[pStat] || pStat || 'Pointage En Cours';
             return {
                 value: String(pId),
-                label: `${pCode}${pLib ? ` — ${pLib}` : ''} (${pStat || 'EN_COURS'})`
+                label: `${pCode}${pLib ? ` — ${pLib}` : ''} (${readableStat})`
             };
         });
     }, [periodes]);
@@ -105,7 +117,7 @@ export default function PayrollCampaignHeader({
                                 size="xs"
                                 dot
                             >
-                                {periode.state}
+                                {statutLabel[periode.state] || periode.state}
                             </Badge>
                         )}
 

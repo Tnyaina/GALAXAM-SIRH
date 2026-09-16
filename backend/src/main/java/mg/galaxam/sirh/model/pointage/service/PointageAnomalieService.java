@@ -681,7 +681,7 @@ public class PointageAnomalieService {
                             if ("CLOTUREE".equalsIgnoreCase(stCode)) {
                                 throw new IllegalStateException("Impossible de modifier les pointages : la période de paie est clôturée de manière définitive.");
                             }
-                            if ("VALIDEE".equalsIgnoreCase(stCode) && !isAdminOrDaf) {
+                            if (("VALIDEE".equalsIgnoreCase(stCode) || "PAIE_VALIDEE".equalsIgnoreCase(stCode)) && !isAdminOrDaf) {
                                 throw new IllegalStateException("Impossible de modifier les pointages : la période de paie est déjà validée.");
                             }
                             if (("A_VALIDER".equalsIgnoreCase(stCode) || "TRANSMIS_DAF".equalsIgnoreCase(stCode)) && !isAdminOrDaf) {

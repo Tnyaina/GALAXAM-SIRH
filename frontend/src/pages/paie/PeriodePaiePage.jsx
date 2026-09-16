@@ -38,23 +38,33 @@ const STATUT_CONFIG = {
     },
     'EN_COURS': {
         variant: 'info',
-        label: 'En cours (Saisie active)',
+        label: 'Saisie active (Pointage)',
         desc: 'Pointages ouverts aux agents'
     },
     'A_VALIDER': {
         variant: 'warning',
-        label: 'À valider (Fin de mois)',
-        desc: 'Saisie terminée, en attente de validation'
+        label: 'Transmise DAF (Arbitrage)',
+        desc: 'Saisie terminée, arbitrage DAF en cours'
+    },
+    'TRANSMIS_DAF': {
+        variant: 'warning',
+        label: 'Transmise DAF (Arbitrage)',
+        desc: 'Saisie terrain clôturée, arbitrage DAF en cours'
     },
     'VALIDEE': {
+        variant: 'primary',
+        label: 'Pointage Scellé & Figé',
+        desc: 'Snapshot scellé — Prêt pour calcul Paie'
+    },
+    'PAIE_VALIDEE': {
         variant: 'success',
-        label: 'Validée (Verrouillée)',
-        desc: 'Pointages verrouillés et figés'
+        label: 'Paie Validée & Approuvée',
+        desc: 'Bulletins approuvés — Prête pour virement et clôture'
     },
     'CLOTUREE': {
-        variant: 'danger',
-        label: 'Clôturée (Paie générée)',
-        desc: 'Période archivée définitivement'
+        variant: 'secondary',
+        label: 'Clôturée définitivement',
+        desc: 'Période archivée, immuable'
     }
 };
 
@@ -351,8 +361,8 @@ export default function PeriodePaiePage() {
     const stats = useMemo(() => {
         const total = periodes.length;
         const enCours = periodes.filter(p => p.statutCode === 'EN_COURS').length;
-        const aValider = periodes.filter(p => p.statutCode === 'A_VALIDER').length;
-        const verrouillees = periodes.filter(p => p.statutCode === 'VALIDEE' || p.statutCode === 'CLOTUREE').length;
+        const aValider = periodes.filter(p => p.statutCode === 'A_VALIDER' || p.statutCode === 'TRANSMIS_DAF').length;
+        const verrouillees = periodes.filter(p => p.statutCode === 'VALIDEE' || p.statutCode === 'PAIE_VALIDEE' || p.statutCode === 'CLOTUREE').length;
         return { total, enCours, aValider, verrouillees };
     }, [periodes]);
 

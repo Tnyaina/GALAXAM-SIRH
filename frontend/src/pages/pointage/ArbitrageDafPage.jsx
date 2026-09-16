@@ -415,7 +415,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 </Button>
                                 <Button type="button" variant="primary" size="sm" onClick={() => setShowValiderModal(true)}
                                     icon={<CheckCircle size={14} />} className="text-xs h-[32px] font-bold">
-                                    Valider
+                                    Valider l'arbitrage & Sceller les heures
                                 </Button>
                             </>
                         )}
@@ -887,9 +887,9 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 isOpen={showValiderModal}
                 onClose={() => setShowValiderModal(false)}
                 onConfirm={handleValiderPeriode}
-                title={`Valider ${currentPeriodeObj?.libelle || ''} ?`}
-                message="Les pointages seront validés et figés. Les saisies et modifications directes seront désactivées pour cette période. Cette action est irréversible."
-                confirmLabel="Valider la période"
+                title={`Arbitrage & Gel : ${currentPeriodeObj?.libelle || ''} ?`}
+                message="Cette action scelle définitivement les heures travaillées, les heures supplémentaires, les repas et les indemnités de la période. Le snapshot de pointage sera figé et immédiatement injecté dans le module Paie pour le calcul automatique des bulletins. Confirmer l'arbitrage et le scellement ?"
+                confirmLabel="Valider l'arbitrage & Sceller le pointage"
                 variant="success"
                 loading={processing}
             />

@@ -1229,7 +1229,7 @@ public class PointageSaisieService {
                     try (ResultSet rsCP = psCheckPer.executeQuery()) {
                         if (rsCP.next()) {
                             String stCode = rsCP.getString("code");
-                            if ("VALIDEE".equalsIgnoreCase(stCode) || "CLOTUREE".equalsIgnoreCase(stCode) || "A_VALIDER".equalsIgnoreCase(stCode) || "TRANSMIS_DAF".equalsIgnoreCase(stCode)) {
+                            if ("VALIDEE".equalsIgnoreCase(stCode) || "PAIE_VALIDEE".equalsIgnoreCase(stCode) || "CLOTUREE".equalsIgnoreCase(stCode) || "A_VALIDER".equalsIgnoreCase(stCode) || "TRANSMIS_DAF".equalsIgnoreCase(stCode)) {
                                 throw new IllegalStateException("Impossible de modifier les pointages : la période de paie est fermée ou en attente de validation.");
                             }
                         }

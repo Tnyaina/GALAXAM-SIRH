@@ -271,7 +271,7 @@ public class PayrollPeriodWorkflowService {
      */
     private String computeCurrentStep(PeriodState period, Connection connection) throws SQLException {
         String state = period.state();
-        if (!List.of("VALIDEE", "CLOTUREE").contains(state)) return null;
+        if (!List.of("VALIDEE", "PAIE_VALIDEE", "CLOTUREE").contains(state)) return null;
         if ("CLOTUREE".equals(state)) return "OUTPUTS";
 
         int total = count(connection, "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ?", period.id());
@@ -295,7 +295,7 @@ public class PayrollPeriodWorkflowService {
         String state = period.state();
         int periodId = period.id();
 
-        boolean paieOk = List.of("VALIDEE", "CLOTUREE").contains(state);
+        boolean paieOk = List.of("VALIDEE", "PAIE_VALIDEE", "CLOTUREE").contains(state);
         boolean cloturee = "CLOTUREE".equals(state);
 
         int total = paieOk ? count(connection,
@@ -396,7 +396,7 @@ public class PayrollPeriodWorkflowService {
      * modification n'est détectée.
      */
     private int computeRecalculationCount(int periodId, String state, Connection connection) throws SQLException {
-        if (!List.of("VALIDEE", "CLOTUREE").contains(state)) return 0;
+        if (!List.of("VALIDEE", "PAIE_VALIDEE", "CLOTUREE").contains(state)) return 0;
         int bulletinCount = count(connection,
                 "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? "
                 + "AND statut IN ('CALCULE','VALIDE','CLOTURE')", periodId);
@@ -421,10 +421,10 @@ public class PayrollPeriodWorkflowService {
     private String targetState(String currentState, PayrollPeriodCommand command) {
         return switch (command) {
             case OPEN -> requireTransition(currentState, "BROUILLON", "EN_COURS", command);
-            case SUBMIT -> requireTransition(currentState, "EN_COURS", "A_VALIDER", command);
+            case SUBMIT -> requireTransition(currentState, "EN_COURS", "TRANSMIS_DAF", command);
             case APPROVE -> requireTransition(currentState, List.of("A_VALIDER", "TRANSMIS_DAF"), "VALIDEE", command);
             case REJECT -> requireTransition(currentState, List.of("A_VALIDER", "TRANSMIS_DAF"), "EN_COURS", command);
-            case CLOSE -> requireTransition(currentState, "VALIDEE", "CLOTUREE", command);
+            case CLOSE -> requireTransition(currentState, List.of("VALIDEE", "PAIE_VALIDEE"), "CLOTUREE", command);
             case REOPEN -> requireTransition(currentState, "CLOTUREE", "EN_COURS", command);
         };
     }
@@ -640,7 +640,7 @@ public class PayrollPeriodWorkflowService {
                 case OPEN -> "BROUILLON".equals(state);
                 case SUBMIT -> "EN_COURS".equals(state);
                 case APPROVE, REJECT -> List.of("A_VALIDER", "TRANSMIS_DAF").contains(state);
-                case CLOSE -> "VALIDEE".equals(state);
+                case CLOSE -> List.of("VALIDEE", "PAIE_VALIDEE").contains(state);
                 case REOPEN -> "CLOTUREE".equals(state);
             };
             boolean authorized = isAuthorized(command, user);
@@ -691,7 +691,7 @@ public class PayrollPeriodWorkflowService {
         if (action == PayrollAction.ADD_VARIABLE) {
             return ActionCapability.permit();
         }
-        if (!"VALIDEE".equals(state)) return ActionCapability.denied("POINTAGE_NOT_FROZEN");
+        if (!List.of("VALIDEE", "PAIE_VALIDEE").contains(state)) return ActionCapability.denied("POINTAGE_NOT_FROZEN");
 
         if (action == PayrollAction.CALCULATE) {
             boolean populationBlocked = payrollPopulationResolver.resolve(periodId, connection).members().stream()
@@ -738,7 +738,7 @@ public class PayrollPeriodWorkflowService {
 
     private List<BusinessIssue> contextIssues(int periodId, String state, Connection connection) throws SQLException {
         List<BusinessIssue> issues = new java.util.ArrayList<>();
-        if (!"VALIDEE".equals(state)) {
+        if (!List.of("VALIDEE", "PAIE_VALIDEE", "CLOTUREE").contains(state)) {
             issues.add(new BusinessIssue("POINTAGE_NOT_FROZEN",
                     "Le pointage doit être validé et figé avant le calcul réel.", Map.of("periodId", periodId)));
         } else if (count(connection,
@@ -747,7 +747,7 @@ public class PayrollPeriodWorkflowService {
             issues.add(new BusinessIssue("POINTAGE_NOT_FROZEN",
                     "Aucun snapshot de pointage figé n'est disponible.", Map.of("periodId", periodId)));
         }
-        if ("VALIDEE".equals(state)) {
+        if (List.of("VALIDEE", "PAIE_VALIDEE").contains(state)) {
             int total = count(connection,
                     "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ?", periodId);
             int calculated = count(connection,
@@ -755,7 +755,7 @@ public class PayrollPeriodWorkflowService {
             if (total == 0) {
                 issues.add(new BusinessIssue("PAYROLL_NOT_CALCULATED",
                         "La paie doit être calculée avant validation.", Map.of("periodId", periodId)));
-            } else if (calculated == 0) {
+            } else if (calculated == 0 && !"PAIE_VALIDEE".equals(state)) {
                 issues.add(new BusinessIssue("PAYROLL_ALREADY_VALIDATED",
                         "Aucun bulletin calculé ne reste à valider.", Map.of("periodId", periodId)));
             }
