@@ -41,12 +41,32 @@ public class SecurityConfig {
         "/error"
     };
 
+    /**
+     * Valide la configuration CORS au démarrage.
+     * Rejette : origines null/blank, "*" exact, tout pattern contenant '*' ou '?'
+     * (qui permettraient des wildcards sous-domaine avec allowCredentials=true).
+     */
     @PostConstruct
-    void validateCorsConfiguration() {
-        if (allowedOrigins == null || allowedOrigins.length == 0
-                || Arrays.stream(allowedOrigins).anyMatch(origin -> origin == null || origin.isBlank() || "*".equals(origin.trim()))) {
+    public void validateCorsConfiguration() {
+        if (allowedOrigins == null || allowedOrigins.length == 0) {
             throw new IllegalStateException(
-                    "app.cors.allowed-origins doit contenir uniquement des origines explicites lorsque les credentials sont autorisés.");
+                    "app.cors.allowed-origins doit contenir au moins une origine explicite.");
+        }
+        for (String origin : allowedOrigins) {
+            if (origin == null || origin.isBlank()) {
+                throw new IllegalStateException(
+                        "app.cors.allowed-origins contient une origine null ou vide.");
+            }
+            if ("*".equals(origin.trim())) {
+                throw new IllegalStateException(
+                        "app.cors.allowed-origins ne doit pas contenir '*' lorsque les credentials sont autorisés.");
+            }
+            // Rejeter tout pattern avec wildcard (*, ?, [) qui permettrait une origine non exacte
+            if (origin.contains("*") || origin.contains("?") || origin.contains("[")) {
+                throw new IllegalStateException(
+                        "app.cors.allowed-origins contient un wildcard non autorisé ('" + origin + "'). "
+                        + "Seules les origines exactes sont permises avec allowCredentials=true.");
+            }
         }
     }
 
@@ -102,11 +122,13 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList(allowedOrigins));
+        // P1-04 : setAllowedOrigins (liste exacte) remplace setAllowedOriginPatterns
+        // qui acceptait les wildcards (https://*.example.com) avec allowCredentials=true.
+        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

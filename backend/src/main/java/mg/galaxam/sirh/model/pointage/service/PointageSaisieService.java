@@ -174,33 +174,45 @@ public class PointageSaisieService {
             result.put("libelleFerie", libelleFerie);
 
             // 3. Paramètres Horaires du Site (directement depuis ref_site)
+            // P1-03 : idSite est OBLIGATOIRE. Aucun fallback LIMIT 1 n'est toléré.
+            // Le site représente la ressource ; la configuration ne peut pas être devinée.
+            if (idSite <= 0) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                        "L'identifiant du site est obligatoire pour la saisie de pointage. "
+                        + "Un site non défini (idSite=" + idSite + ") ne peut pas être résolu.");
+            }
             Map<String, Object> siteParams = new HashMap<>();
-            String sqlSite = (idSite > 0)
-                ? "SELECT s.id_site, s.code_site, s.libelle, s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, COALESCE(s.horaire_continu, TRUE) AS horaire_continu FROM ref_site s WHERE s.id_site = ?"
-                : "SELECT s.id_site, s.code_site, s.libelle, s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, COALESCE(s.horaire_continu, TRUE) AS horaire_continu FROM ref_site s ORDER BY s.id_site LIMIT 1";
+            String sqlSite = "SELECT s.id_site, s.code_site, s.libelle, "
+                    + "s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, "
+                    + "s.heure_fin_apres_midi, s.horaire_continu "
+                    + "FROM ref_site s WHERE s.id_site = ?";
             try (PreparedStatement ps = c.prepareStatement(sqlSite)) {
-                if (idSite > 0) {
-                    ps.setInt(1, idSite);
-                }
+                ps.setInt(1, idSite);
                 try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        siteParams.put("idSite", idSite > 0 ? rs.getInt("id_site") : 0);
-                        siteParams.put("codeSite", idSite > 0 ? rs.getString("code_site") : "TOUS");
-                        siteParams.put("libelle", idSite > 0 ? rs.getString("libelle") : "Tous les sites");
-                        Time hdm = rs.getTime("heure_debut_matin");
-                        Time hfm = rs.getTime("heure_fin_matin");
-                        Time hda = rs.getTime("heure_debut_apres_midi");
-                        Time hfa = rs.getTime("heure_fin_apres_midi");
-                        boolean continu = rs.getBoolean("horaire_continu");
-
-                        siteParams.put("horaireContinu", continu);
-                        siteParams.put("heureDebutMatin", hdm != null ? hdm.toString().substring(0, 5) : "08:00");
-                        siteParams.put("heureFinMatin", hfm != null ? hfm.toString().substring(0, 5) : "12:00");
-                        siteParams.put("heureDebutAm", hda != null ? hda.toString().substring(0, 5) : (continu ? "13:00" : "14:00"));
-                        siteParams.put("heureFinAm", hfa != null ? hfa.toString().substring(0, 5) : "17:00");
-                        siteParams.put("siteDeplacementActif", true);
-                        siteParams.put("siteRepasActif", true);
+                    if (!rs.next()) {
+                        throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                                mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                                "Site introuvable (idSite=" + idSite + ").");
                     }
+                    siteParams.put("idSite", rs.getInt("id_site"));
+                    siteParams.put("codeSite", rs.getString("code_site"));
+                    siteParams.put("libelle", rs.getString("libelle"));
+                    Time hdm = rs.getTime("heure_debut_matin");
+                    Time hfm = rs.getTime("heure_fin_matin");
+                    Time hda = rs.getTime("heure_debut_apres_midi");
+                    Time hfa = rs.getTime("heure_fin_apres_midi");
+                    // P1-03 : pas de COALESCE côté Java non plus. null = non configuré.
+                    boolean continu = rs.getBoolean("horaire_continu");
+                    boolean continuu = !rs.wasNull() && continu;
+
+                    siteParams.put("horaireContinu", continuu);
+                    siteParams.put("heureDebutMatin", hdm != null ? hdm.toString().substring(0, 5) : "08:00");
+                    siteParams.put("heureFinMatin", hfm != null ? hfm.toString().substring(0, 5) : "12:00");
+                    siteParams.put("heureDebutAm", hda != null ? hda.toString().substring(0, 5) : (continuu ? "13:00" : "14:00"));
+                    siteParams.put("heureFinAm", hfa != null ? hfa.toString().substring(0, 5) : "17:00");
+                    siteParams.put("siteDeplacementActif", true);
+                    siteParams.put("siteRepasActif", true);
                 }
             }
 
@@ -219,13 +231,11 @@ public class PointageSaisieService {
             boolean siteRepasInclusParDefaut = false;
 
             List<Map<String, Object>> siteIndemnites = new ArrayList<>();
-            String sqlSiteInd = (idSite > 0)
-                ? "SELECT c.id_indemnite, i.code, i.libelle, COALESCE(i.fractionnable, FALSE) AS fractionnable, c.periodicite, c.montant_reference FROM site_indemnite_config c JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite WHERE c.id_site = ? AND c.est_actif = TRUE AND c.periodicite != 'FIXE_MENSUEL' ORDER BY i.libelle"
-                : "SELECT c.id_indemnite, i.code, i.libelle, COALESCE(i.fractionnable, FALSE) AS fractionnable, c.periodicite, c.montant_reference FROM site_indemnite_config c JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite WHERE c.id_site = (SELECT MIN(id_site) FROM ref_site) AND c.est_actif = TRUE AND c.periodicite != 'FIXE_MENSUEL' ORDER BY i.libelle";
+            String sqlSiteInd = "SELECT c.id_indemnite, i.code, i.libelle, COALESCE(i.fractionnable, FALSE) AS fractionnable, c.periodicite, c.montant_reference "
+                    + "FROM site_indemnite_config c JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite "
+                    + "WHERE c.id_site = ? AND c.est_actif = TRUE AND c.periodicite != 'FIXE_MENSUEL' ORDER BY i.libelle";
             try (PreparedStatement psI = c.prepareStatement(sqlSiteInd)) {
-                if (idSite > 0) {
-                    psI.setInt(1, idSite);
-                }
+                psI.setInt(1, idSite);
                 try (ResultSet rsI = psI.executeQuery()) {
                     while (rsI.next()) {
                         Map<String, Object> ind = new HashMap<>();

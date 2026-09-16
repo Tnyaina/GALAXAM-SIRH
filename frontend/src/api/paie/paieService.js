@@ -62,12 +62,33 @@ export const paieService = {
         return response.data;
     },
 
-    changerStatutAjustement: async (idAjustement, statut, motif = null) => {
-        const response = await apiClient.patch(`paie/ajustements/${idAjustement}/statut`, {
-            statut,
-            motif
+    /**
+     * P1-01 : Exécute une commande de workflow sur un ajustement (APPROVE, REJECT, CANCEL).
+     * Le backend décide de la transition autorisée et applique l'optimistic locking via expectedVersion.
+     */
+    executerCommandeAjustement: async (idAjustement, command, reason = null, expectedVersion = 1) => {
+        const response = await apiClient.post(`paie/ajustements/${idAjustement}/commands`, {
+            command,
+            reason,
+            expectedVersion
         });
         return response.data;
+    },
+
+    /**
+     * @deprecated P1-01 : Utiliser executerCommandeAjustement avec une commande explicite.
+     */
+    changerStatutAjustement: async (idAjustement, statut, motif = null, expectedVersion = 1) => {
+        const commandMap = {
+            APPROUVE: 'APPROVE',
+            APPROUVER: 'APPROVE',
+            REJETE: 'REJECT',
+            REJETER: 'REJECT',
+            ANNULE: 'CANCEL',
+            ANNULER: 'CANCEL'
+        };
+        const cmd = commandMap[statut?.toUpperCase()] || statut;
+        return paieService.executerCommandeAjustement(idAjustement, cmd, motif, expectedVersion);
     },
 
     supprimerAjustement: async (idAjustement) => {

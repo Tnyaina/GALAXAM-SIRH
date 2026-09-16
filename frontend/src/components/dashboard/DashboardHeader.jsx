@@ -39,8 +39,7 @@ export default function DashboardHeader({
     demandesCongeAValiderCount = 0,
     totalAlertesContrats = 0
 }) {
-    const { user, hasPermission } = useAuth();
-    const isDaf = hasPermission('POINTAGE_VALIDATE');
+    const { user } = useAuth();
     const toast = useToast();
     const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -111,11 +110,10 @@ export default function DashboardHeader({
         });
     };
 
-    // Période active : provient de periodContext.selectedPeriod (backend-driven),
-    // avec fallback robuste sur la liste des périodes si non résolue par date
-    const activePeriode = periodContext?.selectedPeriod
-        || periodes.find(p => p.statutCode === 'A_VALIDER' || p.statutCode === 'TRANSMIS_DAF' || p.statutCode === 'EN_COURS')
-        || (periodes.length > 0 ? periodes[0] : null);
+    // P1-02 : Période active = exclusivement periodContext.selectedPeriod fourni par le backend.
+    // Aucun fallback local (periodes.find, periodes[0]) : le backend est le seul décisionnaire.
+    // Si selectedPeriod est null → l'absence de widget indique explicitement qu'aucune période n'est active.
+    const activePeriode = periodContext?.selectedPeriod ?? null;
 
     const activePeriodeId = activePeriode ? (activePeriode.idPeriodePaie ?? activePeriode.id) : null;
     const activePeriodeCode = activePeriode?.code || '';
@@ -124,13 +122,16 @@ export default function DashboardHeader({
     const activePeriodeStatutLibelle = activePeriode?.statutLibelle || activePeriodeStatutCode || 'Active';
     const statutStyle = resolveStatutStyle(activePeriodeStatutCode);
 
-    // La route de destination est déterminée par les availableActions du backend.
-    // Si EDIT_POINTAGE est disponible → saisie ; si non → validation pour DAF, suivi ou cockpit sinon.
+    // P1-02 : La route de destination est fournie par le backend via periodContext.nextStep.destination
+    // ou via availableActions. Le frontend ne reconstruit pas de logique conditionnelle par rôle/statut.
     const periodeRoute = (() => {
-        if (!activePeriodeId) return '/pointages?tab=suivi';
+        if (!activePeriodeId) return null; // pas de navigation sans période active
+        // Priorité 1 : nextStep calculé par le backend selon rôle + statut
+        if (periodContext?.nextStep?.destination) return periodContext.nextStep.destination;
+        // Priorité 2 : action EDIT_POINTAGE disponible selon backend
         const actions = periodContext?.availableActions || activePeriode?.availableActions || {};
-        if (isDaf && actions.SUBMIT?.allowed === true) return '/pointages?tab=validation';
         if (actions.EDIT_POINTAGE?.allowed === true) return '/pointages?tab=saisie';
+        // Priorité 3 : vue de suivi de la période
         return `/paie/periods/${activePeriodeId}/overview`;
     })();
 

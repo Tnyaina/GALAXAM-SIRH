@@ -4,16 +4,20 @@ import jakarta.validation.Valid;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.api.dto.common.BusinessDecision;
 import mg.galaxam.sirh.api.dto.paie.PaieAjustementRequest;
-import mg.galaxam.sirh.api.dto.paie.StatutAjustementRequest;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.model.paie.PaieAvanceAcompte;
+import mg.galaxam.sirh.model.paie.workflow.PayrollAdjustmentCommand;
+import mg.galaxam.sirh.model.paie.workflow.PayrollAdjustmentCommandRequest;
+import mg.galaxam.sirh.model.paie.workflow.PayrollAdjustmentWorkflowService;
 import mg.galaxam.sirh.model.paieconfig.RefTypeMouvementPaie;
 import mg.galaxam.sirh.securite.AuditLog;
 import mg.galaxam.sirh.securite.CustomUserDetails;
@@ -27,15 +31,22 @@ import org.springframework.web.bind.annotation.*;
 /**
  * Contrôleur REST pour la saisie et la gestion des variables de paie, acomptes, avances et primes.
  * Base URL : /api/v1/paie/ajustements
+ *
+ * <p>Le workflow des ajustements passe désormais par {@link PayrollAdjustmentWorkflowService} :
+ * le client demande une commande ({@link PayrollAdjustmentCommand}), le backend décide la transition.
  */
 @RestController
 @RequestMapping({"/api/v1/paie/ajustements", "/v1/paie/ajustements", "/paie/ajustements"})
 public class PaieAjustementController {
 
     private final DataSource dataSource;
+    private final PayrollAdjustmentWorkflowService adjustmentWorkflowService;
 
-    public PaieAjustementController(DataSource dataSource) {
+    public PaieAjustementController(
+            DataSource dataSource,
+            PayrollAdjustmentWorkflowService adjustmentWorkflowService) {
         this.dataSource = dataSource;
+        this.adjustmentWorkflowService = adjustmentWorkflowService;
     }
 
     /**
@@ -94,6 +105,8 @@ public class PaieAjustementController {
                         map.put("datePaiement", rs.getDate("date_paiement"));
                         map.put("motif", rs.getString("motif"));
                         map.put("statut", rs.getString("statut"));
+                        Timestamp uAt = rs.getTimestamp("updated_at");
+                        map.put("version", uAt != null ? (int) (uAt.getTime() % Integer.MAX_VALUE) : 1);
                         map.put("idBulletin", rs.getObject("id_bulletin"));
                         map.put("modeReglement", rs.getString("mode_reglement"));
                         resultats.add(map);
@@ -148,15 +161,26 @@ public class PaieAjustementController {
                 entity.setDateDemande(req.getDateDemande() != null ? req.getDateDemande() : new java.sql.Date(System.currentTimeMillis()));
                 entity.setMotif(req.getMotif());
                 entity.setModeReglement(req.getModeReglement() != null ? req.getModeReglement() : "VIREMENT");
-                entity.setStatut(req.getStatut() != null ? req.getStatut() : "APPROUVE");
+                // P1-01 : Le statut initial est toujours EN_ATTENTE — le client ne décide pas.
+                // L'approbation passe par POST /{id}/commands avec commande APPROVE.
+                entity.setStatut("EN_ATTENTE");
                 entity.setCreePar(userId);
-                if ("APPROUVE".equalsIgnoreCase(entity.getStatut())) {
-                    entity.setApprouvePar(userId);
-                    entity.setDateAccord(new java.sql.Date(System.currentTimeMillis()));
-                }
 
                 entity.save(c);
                 AuditLog.audit(c, "CREATION", "paie_avance_acompte", String.valueOf(entity.getIdAvance()), null, entity);
+
+                int version = 1;
+                try (PreparedStatement psVer = c.prepareStatement("SELECT updated_at FROM paie_avance_acompte WHERE id_avance = ?")) {
+                    psVer.setInt(1, entity.getIdAvance());
+                    try (ResultSet rsVer = psVer.executeQuery()) {
+                        if (rsVer.next()) {
+                            Timestamp ts = rsVer.getTimestamp("updated_at");
+                            if (ts != null) {
+                                version = (int) (ts.getTime() % Integer.MAX_VALUE);
+                            }
+                        }
+                    }
+                }
 
                 c.commit();
 
@@ -168,6 +192,7 @@ public class PaieAjustementController {
                 resp.put("sens", sens);
                 resp.put("montant", entity.getMontant());
                 resp.put("statut", entity.getStatut());
+                resp.put("version", version);
 
                 return ResponseEntity.status(HttpStatus.CREATED).body(resp);
             } catch (Exception ex) {
@@ -178,46 +203,47 @@ public class PaieAjustementController {
     }
 
     /**
-     * Met à jour le statut d'un ajustement (Validation, Refus, Annulation).
+     * Exécute une commande métier sur un ajustement de paie.
+     *
+     * <p>Remplace l'ancien endpoint PUT /{id}/statut (mutation directe d'état).
+     * Le client fournit une commande explicite (APPROVE, REJECT, CANCEL) ;
+     * le backend décide si la transition est autorisée.
+     */
+    @PostMapping("/{id}/commands")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<BusinessDecision> executeCommand(
+            @PathVariable("id") int id,
+            @Valid @RequestBody PayrollAdjustmentCommandRequest req) throws Exception {
+        Integer userId = getCurrentUserId();
+        BusinessDecision decision = adjustmentWorkflowService.execute(
+                id, req.getCommand(), userId, req.getReason(), req.getExpectedVersion());
+        return ResponseEntity.ok(decision);
+    }
+
+    /**
+     * @deprecated Cet endpoint appliquait directement un statut arbitraire fourni par le client,
+     * violant le principe « le backend décide ». Utilisez POST /{id}/commands.
+     *
+     * <p>Retourne 410 Gone pour détecter les consommateurs obsolètes.
      */
     @PutMapping("/{id}/statut")
-    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> changerStatut(@PathVariable("id") int id, @Valid @RequestBody StatutAjustementRequest req)
-            throws Exception {
-        Integer userId = getCurrentUserId();
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                PaieAvanceAcompte entity = PaieAvanceAcompte.trouverParId(id, c);
-                if (entity == null) {
-                    throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
-                            "Ajustement de paie introuvable.");
-                }
+    @Deprecated(forRemoval = true)
+    public ResponseEntity<Map<String, String>> changerStatutDeprecated(@PathVariable("id") int id) {
+        return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
+                "code", "ENDPOINT_DEPRECATED",
+                "message", "Cet endpoint est déprécié (P1-01). Utilisez POST /paie/ajustements/"
+                        + id + "/commands avec une commande explicite (APPROVE, REJECT, CANCEL).",
+                "newEndpoint", "/paie/ajustements/" + id + "/commands"));
+    }
 
-                if ("IMPUTE_PAIE".equalsIgnoreCase(entity.getStatut())) {
-                    throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
-                            "Impossible de modifier un mouvement déjà imputé sur un bulletin de paie clôturé ou validé.");
-                }
-
-                entity.setStatut(req.getStatut().toUpperCase());
-                if ("APPROUVE".equalsIgnoreCase(req.getStatut())) {
-                    entity.setApprouvePar(userId);
-                    entity.setDateAccord(new java.sql.Date(System.currentTimeMillis()));
-                }
-                if (req.getMotif() != null && !req.getMotif().isBlank()) {
-                    entity.setMotif((entity.getMotif() != null ? entity.getMotif() + " | " : "") + req.getMotif());
-                }
-
-                entity.update(c);
-                AuditLog.audit(c, "MODIFICATION_STATUT", "paie_avance_acompte", String.valueOf(id), null, entity);
-
-                c.commit();
-                return ResponseEntity.ok(Map.of("success", true, "idAvance", id, "statut", entity.getStatut()));
-            } catch (Exception ex) {
-                c.rollback();
-                throw ex;
-            }
-        }
+    /**
+     * @deprecated Cet endpoint appliquait directement un statut arbitraire fourni par le client.
+     * Retourne 410 Gone pour détecter les consommateurs obsolètes utilisant PATCH.
+     */
+    @PatchMapping("/{id}/statut")
+    @Deprecated(forRemoval = true)
+    public ResponseEntity<Map<String, String>> changerStatutPatchDeprecated(@PathVariable("id") int id) {
+        return changerStatutDeprecated(id);
     }
 
     /**

@@ -10,6 +10,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.Timestamp;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -23,6 +24,8 @@ import mg.galaxam.sirh.api.dto.paie.ActionPaiePeriodeRequest;
 import mg.galaxam.sirh.api.dto.paie.CalculPeriodeRequest;
 import mg.galaxam.sirh.api.dto.paie.PaieAjustementRequest;
 import mg.galaxam.sirh.api.dto.pointage.SaisiePointageJourDTO;
+import mg.galaxam.sirh.model.paie.workflow.PayrollAdjustmentCommand;
+import mg.galaxam.sirh.model.paie.workflow.PayrollAdjustmentCommandRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -401,12 +404,17 @@ public class GrandWorkflowOhatraE2ETest extends BaseIntegrationTest {
         adjCallRaketaka.setMontant(new BigDecimal("21470.00"));
         adjCallRaketaka.setMotif("Dépassement communication personnelle flotte");
 
-        mockMvc.perform(post("/paie/ajustements")
+        // P1-01 : L'ajustement est créé en EN_ATTENTE puis approuvé via POST /commands
+        String resCallRaketaka = mockMvc.perform(post("/paie/ajustements")
                 .header("Authorization", "Bearer " + tokenAdmin)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJson(adjCallRaketaka)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.statut").value("APPROUVE"));
+                .andExpect(jsonPath("$.statut").value("EN_ATTENTE"))
+                .andReturn().getResponse().getContentAsString();
+
+        int idAdjCallRaketaka = objectMapper.readTree(resCallRaketaka).get("idAvance").asInt();
+        approuverAjustement(idAdjCallRaketaka);
 
         // 6.2 RAKETAKA - PRIME PERFORMANCE / AUTIMP
         PaieAjustementRequest adjPrimeRaketaka = new PaieAjustementRequest();
@@ -417,11 +425,14 @@ public class GrandWorkflowOhatraE2ETest extends BaseIntegrationTest {
         adjPrimeRaketaka.setMontant(new BigDecimal("25257.14"));
         adjPrimeRaketaka.setMotif("Prime AUTIMP modèle Ohatra");
 
-        mockMvc.perform(post("/paie/ajustements")
+        // P1-01 : créé en EN_ATTENTE puis approuvé via commande
+        String resPrimeRaketaka = mockMvc.perform(post("/paie/ajustements")
                 .header("Authorization", "Bearer " + tokenAdmin)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJson(adjPrimeRaketaka)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        approuverAjustement(objectMapper.readTree(resPrimeRaketaka).get("idAvance").asInt());
 
         // 6.3 RAKOTO - PRIME PERFORMANCE / AUTIMP
         PaieAjustementRequest adjPrimeRakoto = new PaieAjustementRequest();
@@ -432,11 +443,14 @@ public class GrandWorkflowOhatraE2ETest extends BaseIntegrationTest {
         adjPrimeRakoto.setMontant(new BigDecimal("56182.14"));
         adjPrimeRakoto.setMotif("Prime AUTIMP modèle Ohatra TMM");
 
-        mockMvc.perform(post("/paie/ajustements")
+        // P1-01 : créé en EN_ATTENTE puis approuvé via commande
+        String resPrimeRakoto = mockMvc.perform(post("/paie/ajustements")
                 .header("Authorization", "Bearer " + tokenAdmin)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJson(adjPrimeRakoto)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        approuverAjustement(objectMapper.readTree(resPrimeRakoto).get("idAvance").asInt());
 
         // =========================================================================
         // ÉTAPE 7 : CALCUL DU MOTEUR DE PAIE & VALIDATION DE PÉRIODE
@@ -575,6 +589,42 @@ public class GrandWorkflowOhatraE2ETest extends BaseIntegrationTest {
                 // Arrondi bancaire MROUND 10
                 double netFinal = bp.get("netAPayer").asDouble();
                 assertEquals(0.0, netFinal % 10, 0.001, "Le net à payer final doit être arrondi à la dizaine d'Ariary (MROUND 10)");
+            }
+        }
+    }
+
+    // =========================================================================
+    // Helpers
+    // =========================================================================
+
+    /**
+     * P1-01 : Approuve un ajustement via POST /commands APPROVE.
+     * La version est récupérée depuis la DB via EXTRACT(EPOCH FROM updated_at).
+     */
+    private void approuverAjustement(int idAvance) throws Exception {
+        int version = getAdjustmentVersion(idAvance);
+        PayrollAdjustmentCommandRequest cmd = new PayrollAdjustmentCommandRequest();
+        cmd.setCommand(PayrollAdjustmentCommand.APPROVE);
+        cmd.setExpectedVersion(version);
+
+        mockMvc.perform(post("/paie/ajustements/" + idAvance + "/commands")
+                .header("Authorization", "Bearer " + tokenAdmin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(cmd)))
+                .andExpect(status().isOk());
+    }
+
+    private int getAdjustmentVersion(int idAvance) throws Exception {
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT updated_at FROM paie_avance_acompte WHERE id_avance = ?")) {
+            ps.setInt(1, idAvance);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Timestamp ts = rs.getTimestamp("updated_at");
+                    return ts != null ? (int) (ts.getTime() % Integer.MAX_VALUE) : 1;
+                }
+                return 1;
             }
         }
     }

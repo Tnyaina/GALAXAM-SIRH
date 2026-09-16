@@ -80,4 +80,18 @@ class BackendDrivenFrontendArchitectureTest {
         assertThat(cockpit).contains("<Pagination", "bulletinsPage.totalElements", "useDebounce(searchQuery, 300)");
         assertThat(cockpit).doesNotContain("const matchSearch", "const matchSite", "let matchFilter");
     }
+
+    @Test
+    void payrollAdjustmentsUseCommandsAndNotClientStateMutations() throws Exception {
+        String paieService = Files.readString(Path.of("../frontend/src/api/paie/paieService.js"));
+        assertThat(paieService).contains("paie/ajustements/${idAjustement}/commands");
+        assertThat(paieService).doesNotContain("apiClient.put(`paie/ajustements");
+    }
+
+    @Test
+    void dashboardHeaderUsesBackendDrivenNextStep() throws Exception {
+        String header = Files.readString(Path.of("../frontend/src/components/dashboard/DashboardHeader.jsx"));
+        assertThat(header).contains("periodContext?.nextStep");
+        assertThat(header).doesNotContain("isDaf", "period?.codeStatut === 'VALIDEE'");
+    }
 }

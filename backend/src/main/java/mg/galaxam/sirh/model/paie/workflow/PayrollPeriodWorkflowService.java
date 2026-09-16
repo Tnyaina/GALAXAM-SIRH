@@ -116,15 +116,20 @@ public class PayrollPeriodWorkflowService {
             if (selected == null) {
                 return new PayrollPeriodContextView(targetDate, null, null, Map.of(),
                         List.of(new BusinessIssue("PAYROLL_PERIOD_CONTEXT_REQUIRED",
-                                "Sélectionnez explicitement une période de paie.", Map.of())), List.of(), List.of());
+                                "Sélectionnez explicitement une période de paie.", Map.of())),
+                        List.of(), List.of(), null);
             }
+            Map<String, ActionCapability> actions = availableActions(selected.id(), selected.state(), user, connection);
             return new PayrollPeriodContextView(
                     targetDate,
                     toSummary(current),
                     toSummary(selected),
-                    availableActions(selected.id(), selected.state(), user, connection),
+                    actions,
                     contextIssues(selected.id(), selected.state(), connection),
-                    List.of(), outputViews(selected, user, connection));
+                    List.of(),
+                    outputViews(selected, user, connection),
+                    // P1-02 : nextStep calculé par le backend selon statut + actions disponibles
+                    computeNextStep(selected.id(), selected.state(), actions));
         }
     }
 
@@ -212,6 +217,38 @@ public class PayrollPeriodWorkflowService {
             }
         }
         throw new IllegalStateException("Statut de période inconnu : " + statusId + ".");
+    }
+
+    /**
+     * P1-02 : Calcule l'étape de navigation suivante selon l'état de la période et les actions disponibles.
+     * Le frontend utilise {@code nextStep.destination} sans reconstruire cette logique par rôle/statut.
+     *
+     * <p>Matrice :
+     * <ul>
+     *   <li>EDIT_POINTAGE disponible → /pointages?tab=saisie (RH en saisie)</li>
+     *   <li>SUBMIT disponible → /pointages?tab=validation (Agent en cours de clôture)</li>
+     *   <li>APPROVE disponible → /paie/periods/{id}/overview (DAF validation)</li>
+     *   <li>CLOSE disponible → /paie/periods/{id}/overview (clôture)</li>
+     *   <li>aucune action → null</li>
+     * </ul>
+     */
+    private PayrollPeriodContextView.NextStep computeNextStep(
+            int periodId, String state, Map<String, ActionCapability> actions) {
+        if (actions == null || actions.isEmpty()) return null;
+        if (actions.getOrDefault("EDIT_POINTAGE", ActionCapability.denied("NA")).allowed()) {
+            return new PayrollPeriodContextView.NextStep("SAISIE", "/pointages?tab=saisie");
+        }
+        if (actions.getOrDefault("SUBMIT", ActionCapability.denied("NA")).allowed()) {
+            return new PayrollPeriodContextView.NextStep("TRANSMISSION", "/pointages?tab=validation");
+        }
+        if (actions.getOrDefault("APPROVE", ActionCapability.denied("NA")).allowed()) {
+            return new PayrollPeriodContextView.NextStep("VALIDATION", "/paie/periods/" + periodId + "/overview");
+        }
+        if (actions.getOrDefault("CLOSE", ActionCapability.denied("NA")).allowed()) {
+            return new PayrollPeriodContextView.NextStep("CLOTURE", "/paie/periods/" + periodId + "/overview");
+        }
+        // Période clôturée ou sans action disponible
+        return new PayrollPeriodContextView.NextStep("COCKPIT", "/paie/periods/" + periodId + "/overview");
     }
 
     private String targetState(String currentState, PayrollPeriodCommand command) {

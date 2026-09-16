@@ -20,7 +20,8 @@ public class PaieAjustementRequest {
     private Date dateDemande;
     private String motif;
     private String modeReglement = "VIREMENT";
-    private String statut = "APPROUVE"; // Par défaut directement approuvé pour la saisie RH
+    // Note P1-01 : le statut initial n'est plus fourni par le client.
+    // L'ajustement est toujours créé en EN_ATTENTE ; l'approbation passe par POST /{id}/commands.
 
     public Integer getIdEmploye() { return idEmploye; }
     public void setIdEmploye(Integer idEmploye) { this.idEmploye = idEmploye; }
@@ -48,7 +49,4 @@ public class PaieAjustementRequest {
 
     public String getModeReglement() { return modeReglement; }
     public void setModeReglement(String modeReglement) { this.modeReglement = modeReglement; }
-
-    public String getStatut() { return statut; }
-    public void setStatut(String statut) { this.statut = statut; }
 }

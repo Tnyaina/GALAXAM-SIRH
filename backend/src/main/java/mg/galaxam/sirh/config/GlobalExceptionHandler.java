@@ -1,6 +1,8 @@
 package mg.galaxam.sirh.config;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.sql.SQLException;
+import java.util.List;
 import java.util.stream.Collectors;
 import mg.galaxam.sirh.api.dto.common.ApiErrorResponse;
 import mg.galaxam.sirh.api.dto.common.BusinessIssue;
@@ -63,21 +65,43 @@ public class GlobalExceptionHandler {
                 request, java.util.Map.of(), issues);
     }
 
+    /**
+     * Gestion des violations d'intégrité PostgreSQL.
+     *
+     * <p>P1-06 : Classification par SQLSTATE (ISO 9075), pas par texte du message.
+     * Le texte du message PostgreSQL est localisé et ne peut pas être utilisé comme clé fiable.
+     * <ul>
+     *   <li>SQLSTATE 23503 = foreign_key_violation → DATA_REFERENCED</li>
+     *   <li>SQLSTATE 23505 = unique_violation → DATA_DUPLICATE</li>
+     *   <li>Autre → DATA_INTEGRITY_VIOLATION</li>
+     * </ul>
+     */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
-        log.warn("Violation d'intégrité BDD sur [{}] : {}", request.getRequestURI(), ex.getMessage());
-        
+        log.warn("Violation d'intégrité BDD sur [{}]", request.getRequestURI());
+
         SirhErrorCode code = SirhErrorCode.DATA_INTEGRITY_VIOLATION;
         String userFriendlyMessage = code.getDefaultMessage();
-        String exMsg = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
+        String constraintName = null;
 
-        if (exMsg.contains("foreign key") || exMsg.contains("violates foreign key constraint") || exMsg.contains("fk_")) {
-            code = SirhErrorCode.DATA_REFERENCED;
-            userFriendlyMessage = "Impossible de supprimer ou modifier cet élément car il est actuellement lié à d'autres dossiers actifs (employés, contrats, congés ou pointages).";
-        } else if (exMsg.contains("duplicate key") || exMsg.contains("unique constraint") || exMsg.contains("unique")) {
-            code = SirhErrorCode.DATA_DUPLICATE;
-            userFriendlyMessage = "Un enregistrement comportant cette valeur unique (ex: matricule, CIN, numéro de contrat ou code) existe déjà dans l'application.";
+        // P1-06 : Extraction du SQLSTATE via SQLException (standard JDBC) — ne jamais parser le message texte.
+        Throwable cause = ex.getMostSpecificCause();
+        if (cause instanceof SQLException sqlEx) {
+            String sqlState = sqlEx.getSQLState();
+            log.debug("SQLSTATE={}", sqlState);
+
+            if ("23503".equals(sqlState)) {
+                // foreign_key_violation
+                code = SirhErrorCode.DATA_REFERENCED;
+                userFriendlyMessage = "Impossible de supprimer ou modifier cet élément car il est actuellement lié à d'autres dossiers actifs.";
+            } else if ("23505".equals(sqlState)) {
+                // unique_violation
+                code = SirhErrorCode.DATA_DUPLICATE;
+                userFriendlyMessage = "Un enregistrement comportant cette valeur unique existe déjà dans l'application.";
+            }
+            // Autre SQLSTATE (23000, 23502, etc.) → DATA_INTEGRITY_VIOLATION par défaut
         }
+
         return problem(HttpStatus.CONFLICT, code.name(), userFriendlyMessage, request);
     }
 

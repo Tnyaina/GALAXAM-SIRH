@@ -213,7 +213,29 @@ public enum SirhErrorCode {
 
     EMPLOYE_NON_TROUVE(
             HttpStatus.NOT_FOUND,
-            "L'employé demandé n'existe pas.");
+            "L'employé demandé n'existe pas."),
+
+    // =========================================================================
+    // AJUSTEMENTS DE PAIE (P1-01)
+    // =========================================================================
+    PAYROLL_ADJUSTMENT_ALREADY_APPROVED(
+            HttpStatus.CONFLICT,
+            "Cet ajustement est déjà approuvé et ne peut pas être approuvé à nouveau."),
+
+    PAYROLL_ADJUSTMENT_COMMAND_BLOCKED(
+            HttpStatus.CONFLICT,
+            "Cette commande n'est pas autorisée dans l'état courant de l'ajustement."),
+
+    PAYROLL_ADJUSTMENT_VERSION_CONFLICT(
+            HttpStatus.CONFLICT,
+            "L'ajustement a été modifié entre-temps. Rechargez les données."),
+
+    // =========================================================================
+    // CONFIGURATION LÉGALE MANQUANTE (P1-03)
+    // =========================================================================
+    LEGAL_CONFIG_MISSING(
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "Configuration légale manquante pour la date demandée. LEGAL_REVIEW_REQUIRED.");
 
     private final HttpStatus httpStatus;
     private final String defaultMessage;

@@ -477,10 +477,21 @@ public class WorkflowRhService {
         if (estEvenementEssai || estEvenementRupture) {
             idAffectationCibleId = affectationActive != null ? affectationActive.getIdAffectation()
                     : req.getIdAffectationSource();
+            // P1-03 : La résolution de l'affectation doit être temporellement correcte.
+            // On cherche l'affectation ACTIVE à la date cible de l'événement RH,
+            // pas simplement la dernière insérée (ORDER BY id DESC sans date).
+            java.sql.Date dateEvenement = req.getDateEffet() != null ? req.getDateEffet()
+                    : new java.sql.Date(System.currentTimeMillis());
             if (idAffectationCibleId == null && idContratCibleId != null) {
                 try (var psAff = c.prepareStatement(
-                        "SELECT id_affectation FROM employe_affectation_carriere WHERE id_contrat = ? ORDER BY id_affectation DESC LIMIT 1")) {
+                        "SELECT id_affectation FROM employe_affectation_carriere "
+                        + "WHERE id_contrat = ? "
+                        + "AND date_debut <= ? "
+                        + "AND (date_fin IS NULL OR date_fin >= ?) "
+                        + "ORDER BY date_debut DESC, id_affectation DESC LIMIT 1")) {
                     psAff.setInt(1, idContratCibleId);
+                    psAff.setDate(2, dateEvenement);
+                    psAff.setDate(3, dateEvenement);
                     try (var rsAff = psAff.executeQuery()) {
                         if (rsAff.next())
                             idAffectationCibleId = rsAff.getInt(1);
@@ -489,13 +500,25 @@ public class WorkflowRhService {
             }
             if (idAffectationCibleId == null) {
                 try (var psAff = c.prepareStatement(
-                        "SELECT id_affectation FROM employe_affectation_carriere WHERE id_employe = ? ORDER BY id_affectation DESC LIMIT 1")) {
+                        "SELECT id_affectation FROM employe_affectation_carriere "
+                        + "WHERE id_employe = ? "
+                        + "AND date_debut <= ? "
+                        + "AND (date_fin IS NULL OR date_fin >= ?) "
+                        + "ORDER BY date_debut DESC, id_affectation DESC LIMIT 1")) {
                     psAff.setInt(1, idEmploye);
+                    psAff.setDate(2, dateEvenement);
+                    psAff.setDate(3, dateEvenement);
                     try (var rsAff = psAff.executeQuery()) {
                         if (rsAff.next())
                             idAffectationCibleId = rsAff.getInt(1);
                     }
                 }
+            }
+            if (idAffectationCibleId == null) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "Aucune affectation active trouvée pour l'employé " + idEmploye
+                        + " à la date " + dateEvenement + ". Vérifiez la cohérence temporelle.");
             }
         } else {
             EmployeAffectationCarriere affectationCbl = new EmployeAffectationCarriere();

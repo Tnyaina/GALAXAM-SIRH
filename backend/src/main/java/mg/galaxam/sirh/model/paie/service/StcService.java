@@ -348,24 +348,46 @@ public class StcService {
 
         // Chargement dynamique des règles légales et plafonds
         PaieConfigLegale configLegale = chargerConfigLegale(req.getDateDepart(), c);
-        BigDecimal smigRef = configLegale != null && configLegale.getSmeNational() != null
-                ? configLegale.getSmeNational()
-                : new BigDecimal("262680.00");
+        // P1-03 : Supprimer le fallback 262680.00. Si aucune config légale datée n'est trouvée,
+        // BLOQUER le calcul plutôt que d'utiliser une valeur inventée. LEGAL_REVIEW_REQUIRED.
+        if (configLegale == null || configLegale.getSmeNational() == null) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.LEGAL_CONFIG_MISSING,
+                    "Configuration légale (SME/SMIG) manquante ou non configurée pour la date de départ "
+                    + req.getDateDepart() + ". LEGAL_REVIEW_REQUIRED : "
+                    + "créez une entrée dans paie_config_legale couvrant cette période.");
+        }
+        BigDecimal smigRef = configLegale.getSmeNational();
 
-        // CNaPS 1% salariale, plafonnée à 8 x SME national
+        // CNaPS : taux valides à la date de départ (P1-03 : filtre de date historique)
         BigDecimal tauxCnapsSal = null;
         BigDecimal tauxCnapsPat = null;
-        try (PreparedStatement psCn = c.prepareStatement("SELECT taux_salarial, taux_patronal FROM ref_type_cotisation WHERE code = 'CNAPS' LIMIT 1")) {
+        String sqlCnaps = "SELECT taux_salarial, taux_patronal FROM ref_type_cotisation "
+                + "WHERE code = 'CNAPS' "
+                + "AND (date_debut IS NULL OR date_debut <= ?) "
+                + "AND (date_fin IS NULL OR date_fin >= ?) "
+                + "ORDER BY date_debut DESC NULLS LAST LIMIT 1";
+        try (PreparedStatement psCn = c.prepareStatement(sqlCnaps)) {
+            psCn.setDate(1, req.getDateDepart());
+            psCn.setDate(2, req.getDateDepart());
             try (ResultSet rsCn = psCn.executeQuery()) {
                 if (rsCn.next()) { tauxCnapsSal = rsCn.getBigDecimal(1).movePointLeft(2); tauxCnapsPat = rsCn.getBigDecimal(2).movePointLeft(2); }
             }
         }
-        if (tauxCnapsSal == null || tauxCnapsPat == null) throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: CNAPS");
+        if (tauxCnapsSal == null || tauxCnapsPat == null) throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: CNAPS pour date=" + req.getDateDepart());
+        // FMFP : taux valides à la date de départ (P1-03 : filtre de date historique)
         BigDecimal tauxFmfp = null;
-        try (PreparedStatement psFm = c.prepareStatement("SELECT taux_patronal FROM ref_type_cotisation WHERE code = 'FMFP' LIMIT 1")) {
+        String sqlFmfp = "SELECT taux_patronal FROM ref_type_cotisation "
+                + "WHERE code = 'FMFP' "
+                + "AND (date_debut IS NULL OR date_debut <= ?) "
+                + "AND (date_fin IS NULL OR date_fin >= ?) "
+                + "ORDER BY date_debut DESC NULLS LAST LIMIT 1";
+        try (PreparedStatement psFm = c.prepareStatement(sqlFmfp)) {
+            psFm.setDate(1, req.getDateDepart());
+            psFm.setDate(2, req.getDateDepart());
             try (ResultSet rsFm = psFm.executeQuery()) { if (rsFm.next() && rsFm.getBigDecimal(1) != null) tauxFmfp = rsFm.getBigDecimal(1).movePointLeft(2); }
         }
-        if (tauxFmfp == null) throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: FMFP");
+        if (tauxFmfp == null) throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: FMFP pour date=" + req.getDateDepart());
         SocialContributionCalculator.Result socialResult = new SocialContributionCalculator().calculate(
                 assietteSociale, new SocialContributionCalculator.Rules(tauxCnapsSal, tauxCnapsPat,
                         BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ONE, smigRef, true));
@@ -897,8 +919,15 @@ public class StcService {
         if (dateDepart == null) throw new IllegalArgumentException("La date métier de la configuration légale est obligatoire.");
         try {
             PaieConfigLegale config = PaieConfigLegale.findActiveAt(c, dateDepart.toLocalDate());
-            if (config == null) throw new IllegalStateException("Aucune configuration légale applicable au " + dateDepart + ".");
+            if (config == null) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.LEGAL_CONFIG_MISSING,
+                        "Aucune configuration légale applicable au " + dateDepart + ". LEGAL_REVIEW_REQUIRED : "
+                        + "créez une entrée dans paie_config_legale couvrant cette période.");
+            }
             return config;
+        } catch (mg.galaxam.sirh.common.exception.SirhBusinessException e) {
+            throw e;
         } catch (Exception e) {
             throw new IllegalStateException("Impossible de résoudre la configuration légale au " + dateDepart + ".", e);
         }

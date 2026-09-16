@@ -4,8 +4,6 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
@@ -29,7 +27,17 @@ public class JwtService {
     @Value("${app.security.jwt.refresh-token-expiration-ms}")
     private long refreshTokenExpirationMs;
 
-    private SecretKey getSigningKey() {
+    /**
+     * Valide le secret JWT au démarrage (FAIL FAST).
+     * HS512 requiert au minimum 512 bits = 64 bytes selon NIST SP 800-107.
+     * Un secret trop court n'est PAS renforcé silencieusement par hachage.
+     */
+    @jakarta.annotation.PostConstruct
+    public void validateJwtSecret() {
+        if (secretKeyString == null || secretKeyString.isBlank()) {
+            throw new IllegalStateException(
+                    "[JWT] app.security.jwt.secret est absent ou vide. HS512 requiert un secret d'au moins 64 bytes.");
+        }
         byte[] keyBytes;
         try {
             keyBytes = Base64.getDecoder().decode(secretKeyString);
@@ -37,13 +45,22 @@ public class JwtService {
             keyBytes = secretKeyString.getBytes(StandardCharsets.UTF_8);
         }
         if (keyBytes.length < 64) {
-            try {
-                MessageDigest md = MessageDigest.getInstance("SHA-512");
-                keyBytes = md.digest(keyBytes);
-            } catch (NoSuchAlgorithmException e) {
-                // Ignore fallback
-            }
+            throw new IllegalStateException(
+                    "[JWT] app.security.jwt.secret est trop court (" + keyBytes.length
+                    + " bytes). HS512 requiert au minimum 64 bytes (512 bits). "
+                    + "Ne pas utiliser un secret faible : générez une clé sécurisée.");
         }
+    }
+
+    private SecretKey getSigningKey() {
+        byte[] keyBytes;
+        try {
+            keyBytes = Base64.getDecoder().decode(secretKeyString);
+        } catch (Exception e) {
+            keyBytes = secretKeyString.getBytes(StandardCharsets.UTF_8);
+        }
+        // P1-04 : Pas de renforcement silencieux par SHA-512.
+        // La validation au démarrage (validateJwtSecret) garantit que la clé est suffisamment longue.
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
