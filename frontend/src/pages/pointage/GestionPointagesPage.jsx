@@ -127,11 +127,8 @@ export default function GestionPointagesPage() {
             },
             {
                 id: 'arbitrage',
-                label: 'Contrôle & Validation',
-                status: isDaf ? (activeStep === 'arbitrage' ? 'active' : 'pending') : 'daf-only',
-                lockReason: isDaf
-                    ? null
-                    : 'Étape réservée aux validateurs habilités'
+                label: isDaf ? 'Contrôle & Validation' : 'Synthèse & Contrôle',
+                status: activeStep === 'arbitrage' ? 'active' : 'pending'
             }
         ];
 

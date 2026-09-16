@@ -861,18 +861,33 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 </Button>
                             </div>
                         ) : (
-                            // Profil Agent de site : Transmission formelle
-                            <Button
-                                variant="primary"
-                                size="md"
-                                onClick={() => setShowTransmissionConfirm(true)}
-                                disabled={!canTransmitDaf || transmitting}
-                                loading={transmitting}
-                                icon={<Send size={14} />}
-                                title={transmissionBlockReason || 'Transmettre la synthèse pour validation finale.'}
-                            >
-                                Transmettre pour validation
-                            </Button>
+                            // Profil Agent de site : Revue Synthèse ou Transmission directe
+                            <div className="flex items-center gap-2">
+                                {canTransmitDaf && (
+                                    <Button
+                                        variant="outline"
+                                        size="md"
+                                        onClick={() => setShowTransmissionConfirm(true)}
+                                        disabled={transmitting}
+                                        loading={transmitting}
+                                        icon={<Send size={14} />}
+                                        title={transmissionBlockReason || 'Transmettre la synthèse pour validation finale.'}
+                                    >
+                                        Transmettre
+                                    </Button>
+                                )}
+                                <Button
+                                    variant="primary"
+                                    size="md"
+                                    onClick={() => onTabChange ? onTabChange('arbitrage') : null}
+                                    icon={<ShieldCheck size={15} />}
+                                    className="font-bold text-xs"
+                                    title="Consulter la synthèse consolidée des heures et indemnités"
+                                >
+                                    <span>Consulter la Synthèse &amp; Contrôle</span>
+                                    <ArrowRight size={14} className="ml-1" />
+                                </Button>
+                            </div>
                         )}
                     </div>
                 </div>

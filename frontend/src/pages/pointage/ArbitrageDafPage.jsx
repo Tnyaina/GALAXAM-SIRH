@@ -4,7 +4,7 @@ import {
     CheckCircle, XCircle, Lock, AlertTriangle, CheckCircle2, Clock,
     Users, TrendingUp, Moon, Award, Search,
     Edit3, Calendar, Building2, X, GanttChartSquare,
-    LayoutGrid, ShieldCheck, Banknote, RefreshCw, Scale, Eye
+    LayoutGrid, ShieldCheck, Banknote, RefreshCw, Scale, Eye, Send
 } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
@@ -63,6 +63,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
     const [showValiderModal, setShowValiderModal] = useState(false);
     const [showRejetModal, setShowRejetModal] = useState(false);
+    const [showTransmissionModal, setShowTransmissionModal] = useState(false);
+    const [transmitting, setTransmitting] = useState(false);
     const [motifRejet, setMotifRejet] = useState('');
     const [processing, setProcessing] = useState(false);
 
@@ -154,6 +156,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
     const periodActions = currentPeriodeObj?.availableActions || {};
     const canDecide = periodActions.APPROVE?.allowed === true || periodActions.REJECT?.allowed === true;
+    const canSubmit = periodActions.SUBMIT?.allowed === true;
+    const transmissionBlockReason = periodActions.SUBMIT?.reason || null;
 
     const kpis = useMemo(() => {
         const totalInd = Math.round(syntheseData.reduce((a, r) => a + ((r.montantRepas || 0) + (r.montantDeplacement || 0)), 0));
@@ -275,6 +279,33 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         } catch (err) {
             toast({ title: 'Erreur', message: getErrorMessage(err, 'Impossible de renvoyer la période.'), type: 'error' });
         } finally { setProcessing(false); }
+    };
+
+    const handleTransmettreDaf = async () => {
+        if (!selectedPeriode || !canSubmit) return;
+        setTransmitting(true);
+        try {
+            const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
+            const res = await periodePaieService.executeCommand(currentPeriodeObj.idPeriodePaie, 'SUBMIT', {
+                version: currentPeriodeObj.version,
+                idSite: siteParam
+            });
+            if (res?.decision === 'ALLOWED') {
+                toast({ title: 'Période transmise', message: 'La synthèse consolidée a été transmise avec succès pour arbitrage DAF.', type: 'success' });
+                setShowTransmissionModal(false);
+                window.dispatchEvent(new Event('refresh-notifications'));
+                const updatedList = await periodePaieService.getAllPeriodes();
+                if (updatedList) setPeriodes(updatedList);
+                await loadData();
+            } else {
+                toast({ title: 'Erreur', message: res?.message || 'Erreur lors de la transmission.', type: 'error' });
+            }
+        } catch (err) {
+            console.error('Erreur transmission validation:', err);
+            toast({ title: 'Erreur', message: getErrorMessage(err, 'Impossible de transmettre la période pour validation.'), type: 'error' });
+        } finally {
+            setTransmitting(false);
+        }
     };
 
     const [recalculating, setRecalculating] = useState(false);
@@ -407,6 +438,20 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 <span className="md:hidden">Actualiser</span>
                             </Button>
                         )}
+                        {canSubmit && (
+                            <Button
+                                type="button"
+                                variant="primary"
+                                size="sm"
+                                disabled={transmitting}
+                                onClick={() => setShowTransmissionModal(true)}
+                                icon={<Send size={14} className={transmitting ? 'animate-spin' : ''} />}
+                                className="text-xs h-[32px] font-bold"
+                                title={transmissionBlockReason || 'Transmettre la synthèse consolidée à la DAF'}
+                            >
+                                Transmettre à la DAF
+                            </Button>
+                        )}
                         {canDecide && (
                             <>
                                 <Button type="button" variant="danger" size="sm" onClick={() => setShowRejetModal(true)}
@@ -447,7 +492,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         <div className="flex items-center gap-3 flex-wrap">
                             <h3 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2 shrink-0">
                                 <ShieldCheck size={16} className="text-[var(--color-brand-500)]" />
-                                Contrôle & Validation — {currentPeriodeObj?.libelle || 'Période active'}
+                                {isDaf ? 'Contrôle & Validation DAF' : 'Synthèse mensuelle & Auto-Contrôle'} — {currentPeriodeObj?.libelle || 'Période active'}
                             </h3>
                             {/* Filtres alerte (synthèse seulement) */}
                             {viewMode === 'synthese' && (
@@ -805,26 +850,28 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                             >
                                                                 <Eye size={13} />
                                                             </button>
-                                                            <button
-                                                                type="button"
-                                                                disabled={isPeriodLocked}
-                                                                onClick={() => {
-                                                                    if (isPeriodLocked) {
-                                                                        toast({
-                                                                            title: 'Période verrouillée',
-                                                                            message: 'La période est validée ou clôturée : les modifications de pointage ne sont plus autorisées.',
-                                                                            type: 'warning'
-                                                                        });
-                                                                        return;
-                                                                    }
-                                                                    setAdjustInitialDate(null);
-                                                                    setSelectedEmployeToAdjust(row);
-                                                                }}
-                                                                className={`inline-flex items-center justify-center w-7 h-7 border border-[var(--color-border-subtle)] ${isPeriodLocked ? 'opacity-40 cursor-not-allowed' : 'hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] cursor-pointer'} transition-all`}
-                                                                title={isPeriodLocked ? "Période validée/clôturée : modifications impossibles" : "Ajuster le pointage de ce collaborateur"}
-                                                            >
-                                                                <Edit3 size={13} />
-                                                            </button>
+                                                            {isDaf && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={isPeriodLocked}
+                                                                    onClick={() => {
+                                                                        if (isPeriodLocked) {
+                                                                            toast({
+                                                                                title: 'Période verrouillée',
+                                                                                message: 'La période est validée ou clôturée : les modifications de pointage ne sont plus autorisées.',
+                                                                                type: 'warning'
+                                                                            });
+                                                                            return;
+                                                                        }
+                                                                        setAdjustInitialDate(null);
+                                                                        setSelectedEmployeToAdjust(row);
+                                                                    }}
+                                                                    className={`inline-flex items-center justify-center w-7 h-7 border border-[var(--color-border-subtle)] ${isPeriodLocked ? 'opacity-40 cursor-not-allowed' : 'hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] cursor-pointer'} transition-all`}
+                                                                    title={isPeriodLocked ? "Période validée/clôturée : modifications impossibles" : "Ajuster le pointage de ce collaborateur (DAF)"}
+                                                                >
+                                                                    <Edit3 size={13} />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </Td>
                                                 </Tr>
@@ -882,6 +929,17 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             </div>
 
             {/* Modales d'actions de validation */}
+            <ConfirmDialog
+                isOpen={showTransmissionModal}
+                onClose={() => setShowTransmissionModal(false)}
+                onConfirm={handleTransmettreDaf}
+                title={`Transmettre : ${currentPeriodeObj?.libelle || ''} ?`}
+                message="Cette action transmet officiellement la synthèse consolidée de pointage pour arbitrage et validation finale par la DAF. La saisie quotidienne sera figée pour les agents de site."
+                confirmLabel="Confirmer et transmettre"
+                variant="primary"
+                loading={transmitting}
+            />
+
             <ConfirmDialog
                 isOpen={showValiderModal}
                 onClose={() => setShowValiderModal(false)}
