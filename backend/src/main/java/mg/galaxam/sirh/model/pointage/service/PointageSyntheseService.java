@@ -834,14 +834,11 @@ public class PointageSyntheseService {
             "(SELECT COUNT(DISTINCT pj.id_employe) FROM pointage_jour pj JOIN ref_statut_pointage_jour spj ON pj.id_statut_jour = spj.id_statut_jour JOIN employe e ON pj.id_employe = e.id_employe WHERE pj.id_periode_paie = ? AND e.est_actif = TRUE AND spj.code LIKE '%ABS%' " + (idSite != null && idSite > 0 ? "AND pj.id_site = ? " : "") + ") AS count_absence, " +
             "(SELECT COUNT(DISTINCT psc.id_employe) FROM pointage_semaine_calcule psc JOIN employe e ON psc.id_employe = e.id_employe WHERE psc.id_periode_paie = ? AND e.est_actif = TRUE AND (psc.heures_hs_brutes > psc.heures_hs_nettes) " + (idSite != null && idSite > 0 ? "AND EXISTS (SELECT 1 FROM pointage_jour pj2 WHERE pj2.id_employe = e.id_employe AND pj2.id_periode_paie = psc.id_periode_paie AND pj2.id_site = ?) " : "") + ") AS count_compense, " +
             "(SELECT COUNT(DISTINCT e.id_employe) FROM employe e WHERE e.est_actif = TRUE AND (" +
-            "   EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? " + (idSite != null && idSite > 0 ? "AND pj.id_site = ? " : "") + " AND pj.total_heures > 8.0) " +
-            "   OR EXISTS (SELECT 1 FROM pointage_semaine_calcule psc WHERE psc.id_employe = e.id_employe AND psc.id_periode_paie = ? " + (idSite != null && idSite > 0 ? "AND EXISTS (SELECT 1 FROM pointage_jour pj2 WHERE pj2.id_employe = e.id_employe AND pj2.id_periode_paie = ? AND pj2.id_site = ?) " : "") + " AND (psc.heures_hs_30 > 0 OR psc.heures_hs_50 > 0))" +
+            "   EXISTS (SELECT 1 FROM pointage_semaine_calcule psc WHERE psc.id_employe = e.id_employe AND psc.id_periode_paie = ? " + (idSite != null && idSite > 0 ? "AND EXISTS (SELECT 1 FROM pointage_jour pj2 WHERE pj2.id_employe = e.id_employe AND pj2.id_periode_paie = ? AND pj2.id_site = ?) " : "") + " AND (psc.heures_hs_30 > 0 OR psc.heures_hs_50 > 0))" +
             ")) AS count_hs"
         );
         try (PreparedStatement psAl = c.prepareStatement(sqlAl.toString())) {
             int aIdx = 1;
-            psAl.setInt(aIdx++, idPeriode);
-            if (idSite != null && idSite > 0) psAl.setInt(aIdx++, idSite);
             psAl.setInt(aIdx++, idPeriode);
             if (idSite != null && idSite > 0) psAl.setInt(aIdx++, idSite);
             psAl.setInt(aIdx++, idPeriode);
@@ -906,25 +903,6 @@ public class PointageSyntheseService {
                 }
             }
         }
-        if (totalHs30 == 0 && totalHs50 == 0) {
-            StringBuilder sqlHsEst = new StringBuilder(
-                "SELECT COALESCE(SUM(GREATEST(0, pj.total_heures - 8.0)), 0) AS tot_hs " +
-                "FROM pointage_jour pj JOIN employe e ON pj.id_employe = e.id_employe " +
-                "WHERE pj.id_periode_paie = ? AND e.est_actif = TRUE "
-            );
-            if (idSite != null && idSite > 0) sqlHsEst.append("AND pj.id_site = ? ");
-            try (PreparedStatement psHsE = c.prepareStatement(sqlHsEst.toString())) {
-                psHsE.setInt(1, idPeriode);
-                if (idSite != null && idSite > 0) psHsE.setInt(2, idSite);
-                try (ResultSet rsHsE = psHsE.executeQuery()) {
-                    if (rsHsE.next()) {
-                        double totHsEst = rsHsE.getDouble("tot_hs");
-                        totalHs30 = Math.min(8.0 * (countAll > 0 ? countAll : 1), totHsEst);
-                        totalHs50 = Math.max(0.0, totHsEst - totalHs30);
-                    }
-                }
-            }
-        }
 
         // 4. CTE filtrée pour paginer au niveau SQL
         StringBuilder whereFilter = new StringBuilder();
@@ -946,9 +924,7 @@ public class PointageSyntheseService {
         }
 
         if ("HS".equalsIgnoreCase(filtre)) {
-            whereFilter.append("AND (EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? AND pj.total_heures > 8.0) " +
-                               "OR EXISTS (SELECT 1 FROM pointage_semaine_calcule psc WHERE psc.id_employe = e.id_employe AND psc.id_periode_paie = ? AND (psc.heures_hs_30 > 0 OR psc.heures_hs_50 > 0))) ");
-            filterParams.add(idPeriode);
+            whereFilter.append("AND EXISTS (SELECT 1 FROM pointage_semaine_calcule psc WHERE psc.id_employe = e.id_employe AND psc.id_periode_paie = ? AND (psc.heures_hs_30 > 0 OR psc.heures_hs_50 > 0)) ");
             filterParams.add(idPeriode);
         } else if ("NUIT".equalsIgnoreCase(filtre)) {
             whereFilter.append("AND EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? AND pj.heures_nuit > 0) ");

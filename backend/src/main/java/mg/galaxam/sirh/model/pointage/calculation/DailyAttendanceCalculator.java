@@ -163,7 +163,7 @@ public class DailyAttendanceCalculator {
         if (c.afternoonExit() == null || c.nightStartsAt() == null || c.nightEndsAt() == null) return 0;
         LocalTime exit = c.afternoonExit();
         if (exit.isAfter(c.nightStartsAt())) return Duration.between(c.nightStartsAt(), exit).toMinutes();
-        if (exit.isBefore(c.nightEndsAt())) return minutesBetween(c.nightStartsAt(), exit);
+        if (!exit.isAfter(c.nightEndsAt())) return minutesBetween(c.nightStartsAt(), exit);
         return 0;
     }
 
