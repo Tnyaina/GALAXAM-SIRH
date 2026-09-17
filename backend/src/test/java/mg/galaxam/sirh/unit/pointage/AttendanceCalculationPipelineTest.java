@@ -57,7 +57,7 @@ class AttendanceCalculationPipelineTest {
                 daily.calculateDay(day(LocalDate.of(2026, 9, 14), LocalTime.of(8, 0), LocalTime.of(17, 0), false)),
                 daily.calculateDay(day(LocalDate.of(2026, 9, 15), LocalTime.of(8, 0), LocalTime.of(19, 0), false)));
         WeeklyAttendanceResult week = weekly.calculateWeek(
-                new WeeklyAttendanceContext(LocalDate.of(2026, 9, 14), 960, 480, true), days);
+                new WeeklyAttendanceContext(LocalDate.of(2026, 9, 14), 960, 480, true, 480), days);
         AttendancePeriodResult result = period.calculateEmployeePeriod(
                 new AttendancePeriodContext(1, 9, LocalDate.of(2026, 9, 14), LocalDate.of(2026, 9, 20)),
                 List.of(week));
@@ -73,7 +73,7 @@ class AttendanceCalculationPipelineTest {
     @Test
     void overtimeBoundaryIsQualifiedOnceInExactMinutes() {
         LocalDate monday = LocalDate.of(2026, 9, 14);
-        WeeklyAttendanceContext rule = new WeeklyAttendanceContext(monday, 2_400, 480, true);
+        WeeklyAttendanceContext rule = new WeeklyAttendanceContext(monday, 2_400, 480, true, 480);
 
         assertThat(weekly.calculateWeek(rule, List.of(resultWithMinutes(monday, 2_399)))
                 .grossOvertimeMinutes()).isZero();
@@ -140,7 +140,7 @@ class AttendanceCalculationPipelineTest {
         DailyAttendanceResult day = new DailyAttendanceResult(1, monday, DailyAttendanceResult.Status.PRESENT,
                 worked, 0, worked, worked, late, 0, 0, false, false,
                 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, List.of());
-        return weekly.calculateWeek(new WeeklyAttendanceContext(monday, 2_400, 480, eligible), List.of(day));
+        return weekly.calculateWeek(new WeeklyAttendanceContext(monday, 2_400, 480, eligible, 480), List.of(day));
     }
 
     private DailyAttendanceResult resultWithMinutes(LocalDate date, long minutes) {

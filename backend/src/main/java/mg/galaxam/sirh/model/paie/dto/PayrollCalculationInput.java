@@ -9,6 +9,8 @@ import mg.galaxam.sirh.model.paie.PaieAvanceAcompte;
 import mg.galaxam.sirh.model.paie.PaiePretEcheance;
 import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
 import mg.galaxam.sirh.model.paie.engine.IrsaCalculator;
+import mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy;
+import mg.galaxam.sirh.model.paie.engine.TemporalRateResolver;
 
 /**
  * Objet d'entrée complet et immuable pour le calcul déterministe d'un bulletin de paie.
@@ -57,11 +59,13 @@ public class PayrollCalculationInput {
     private BigDecimal nbJoursPresents = BigDecimal.ZERO;
     private BigDecimal nbJoursAbsence = BigDecimal.ZERO;
     private BigDecimal nbJoursConges = BigDecimal.ZERO;
+    private BigDecimal joursSousContrat;
     private BigDecimal totalHeuresTravaillees = BigDecimal.ZERO;
     private BigDecimal heuresNormales = BigDecimal.ZERO;
     private BigDecimal heuresHs30 = BigDecimal.ZERO;
     private BigDecimal heuresHs50 = BigDecimal.ZERO;
     private BigDecimal heuresNuit = BigDecimal.ZERO;
+    private BigDecimal heuresDimanche = BigDecimal.ZERO;
     private BigDecimal heuresFeriees = BigDecimal.ZERO;
     private int minutesRetard = 0;
 
@@ -94,6 +98,7 @@ public class PayrollCalculationInput {
     private BigDecimal majorationHs30 = new BigDecimal("0.30");
     private BigDecimal majorationHs50 = new BigDecimal("0.50");
     private BigDecimal majorationNuit = new BigDecimal("0.30");
+    private BigDecimal majorationDimanche = new BigDecimal("0.40");
     private BigDecimal majorationFerie = BigDecimal.ZERO;
 
     public BigDecimal getMajorationHs30() { return majorationHs30; }
@@ -102,6 +107,8 @@ public class PayrollCalculationInput {
     public void setMajorationHs50(BigDecimal v) { this.majorationHs50 = v; }
     public BigDecimal getMajorationNuit() { return majorationNuit; }
     public void setMajorationNuit(BigDecimal v) { this.majorationNuit = v; }
+    public BigDecimal getMajorationDimanche() { return majorationDimanche; }
+    public void setMajorationDimanche(BigDecimal v) { this.majorationDimanche = v; }
     public BigDecimal getMajorationFerie() { return majorationFerie; }
     public void setMajorationFerie(BigDecimal v) { this.majorationFerie = v; }
 
@@ -226,6 +233,8 @@ public class PayrollCalculationInput {
         this.heuresHs30 = PayrollAttendanceInput.minutesToHours(value.overtime30Minutes());
         this.heuresHs50 = PayrollAttendanceInput.minutesToHours(value.overtime50Minutes());
         this.heuresNuit = PayrollAttendanceInput.minutesToHours(value.nightMinutes());
+        this.heuresDimanche = PayrollAttendanceInput.minutesToHours(value.sundayMinutes());
+        this.heuresFeriees = PayrollAttendanceInput.minutesToHours(value.holidayMinutes());
         this.nbHeuresAbsence = PayrollAttendanceInput.minutesToHours(value.unpaidAbsenceMinutes());
         this.minutesRetard = value.lateMinutes();
         this.indemniteRepas = value.mealAmount();
@@ -402,6 +411,9 @@ public class PayrollCalculationInput {
     public BigDecimal getNbJoursConges() { return nbJoursConges; }
     public void setNbJoursConges(BigDecimal nbJoursConges) { this.nbJoursConges = nbJoursConges; }
 
+    public BigDecimal getJoursSousContrat() { return joursSousContrat; }
+    public void setJoursSousContrat(BigDecimal joursSousContrat) { this.joursSousContrat = joursSousContrat; }
+
     public BigDecimal getTotalHeuresTravaillees() { return totalHeuresTravaillees; }
     public void setTotalHeuresTravaillees(BigDecimal totalHeuresTravaillees) { this.totalHeuresTravaillees = totalHeuresTravaillees; }
 
@@ -416,6 +428,9 @@ public class PayrollCalculationInput {
 
     public BigDecimal getHeuresNuit() { return heuresNuit; }
     public void setHeuresNuit(BigDecimal heuresNuit) { this.heuresNuit = heuresNuit; }
+
+    public BigDecimal getHeuresDimanche() { return heuresDimanche; }
+    public void setHeuresDimanche(BigDecimal heuresDimanche) { this.heuresDimanche = heuresDimanche; }
 
     public BigDecimal getHeuresFeriees() { return heuresFeriees; }
     public void setHeuresFeriees(BigDecimal heuresFeriees) { this.heuresFeriees = heuresFeriees; }
@@ -565,4 +580,13 @@ public class PayrollCalculationInput {
 
     public BigDecimal getDiviseurMensuelHeures() { return diviseurMensuelHeures; }
     public void setDiviseurMensuelHeures(BigDecimal diviseurMensuelHeures) { this.diviseurMensuelHeures = diviseurMensuelHeures; }
+
+    private TemporalRateResolver temporalRateResolver;
+    private SpecialPremiumCollisionPolicy specialPremiumCollisionPolicy;
+
+    public TemporalRateResolver getTemporalRateResolver() { return temporalRateResolver; }
+    public void setTemporalRateResolver(TemporalRateResolver temporalRateResolver) { this.temporalRateResolver = temporalRateResolver; }
+
+    public SpecialPremiumCollisionPolicy getSpecialPremiumCollisionPolicy() { return specialPremiumCollisionPolicy; }
+    public void setSpecialPremiumCollisionPolicy(SpecialPremiumCollisionPolicy specialPremiumCollisionPolicy) { this.specialPremiumCollisionPolicy = specialPremiumCollisionPolicy; }
 }

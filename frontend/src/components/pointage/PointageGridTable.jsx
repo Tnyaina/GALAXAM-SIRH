@@ -216,6 +216,14 @@ export default function PointageGridTable({
                             if (isNonSaisi) rowBorderCue = 'border-l-2 border-l-amber-500';
                             else if (row.totalHeures > 0) rowBorderCue = 'border-l-2 border-l-emerald-500';
 
+                            const isCrossMidnightAm = Boolean(
+                                (row.horaireContinu && row.heureEntreeMatin && row.heureSortieAm && row.heureSortieAm < row.heureEntreeMatin) ||
+                                (!row.horaireContinu && row.heureEntreeAm && row.heureSortieAm && row.heureSortieAm < row.heureEntreeAm)
+                            );
+                            const isCrossMidnightMatin = Boolean(
+                                !row.horaireContinu && row.heureEntreeMatin && row.heureSortieMatin && row.heureSortieMatin < row.heureEntreeMatin
+                            );
+
                             return (
                                 <Tr key={row.idEmploye} className={`border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors ${rowBorderCue}`}>
                                     {/* 0. Case à cocher de sélection */}
@@ -321,15 +329,25 @@ export default function PointageGridTable({
                                         <>
                                             {/* 3. Sortie Matin */}
                                             <Td className="px-2 py-1.5 text-center">
-                                                <TimeInput
-                                                    inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 1, el)}
-                                                    value={row.heureSortieMatin}
-                                                    disabled={isReadOnlyForUser || isCongeFull || isCongeMatin}
-                                                    onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieMatin', val)}
-                                                    onKeyDown={(e) => onKeyDown(e, row.idEmploye, 1)}
-                                                    onComplete={() => onFocusNext(row.idEmploye, 1)}
-                                                    className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
-                                                />
+                                                <div className="inline-flex items-center justify-center gap-1">
+                                                    <TimeInput
+                                                        inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 1, el)}
+                                                        value={row.heureSortieMatin}
+                                                        disabled={isReadOnlyForUser || isCongeFull || isCongeMatin}
+                                                        onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieMatin', val)}
+                                                        onKeyDown={(e) => onKeyDown(e, row.idEmploye, 1)}
+                                                        onComplete={() => onFocusNext(row.idEmploye, 1)}
+                                                        className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
+                                                    />
+                                                    {isCrossMidnightMatin && (
+                                                        <span
+                                                            className="shrink-0 px-1 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700 cursor-help"
+                                                            title={`Sortie le lendemain à ${row.heureSortieMatin}`}
+                                                        >
+                                                            +1j
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </Td>
 
                                             {/* 4. Retour Pause Midi */}
@@ -349,14 +367,24 @@ export default function PointageGridTable({
 
                                     {/* 5. Sortie Soir */}
                                     <Td className="px-2 py-1.5 text-center">
-                                        <TimeInput
-                                            inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 3, el)}
-                                            value={row.heureSortieAm}
-                                            disabled={isReadOnlyForUser || isCongeFull || isCongeAm}
-                                            onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieAm', val)}
-                                            onKeyDown={(e) => onKeyDown(e, row.idEmploye, 3)}
-                                            className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
-                                        />
+                                        <div className="inline-flex items-center justify-center gap-1">
+                                            <TimeInput
+                                                inputRef={(el) => onRegisterInputRef?.(row.idEmploye, 3, el)}
+                                                value={row.heureSortieAm}
+                                                disabled={isReadOnlyForUser || isCongeFull || isCongeAm}
+                                                onChange={(val) => onUpdateHours(row.idEmploye, 'heureSortieAm', val)}
+                                                onKeyDown={(e) => onKeyDown(e, row.idEmploye, 3)}
+                                                className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
+                                            />
+                                            {isCrossMidnightAm && (
+                                                <span
+                                                    className="shrink-0 px-1 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700 cursor-help"
+                                                    title={`Sortie le lendemain à ${row.heureSortieAm}`}
+                                                >
+                                                    +1j
+                                                </span>
+                                            )}
+                                        </div>
                                     </Td>
 
                                     {/* 6. Total Heures (Mise en avant horaire HHhMM plutôt que décimal) */}

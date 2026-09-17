@@ -161,8 +161,16 @@ public class PayrollExecutionEngine {
         // 1.1 Salaire de base (proratisé si entrée/sortie en cours de mois)
         BigDecimal salaireBaseLigne = salaireBaseContractuel;
         if (input.isEntreeSortieEnCoursDeMois()) {
-            BigDecimal heuresReelles = zeroIfNull(input.getHeuresNormales());
-            salaireBaseLigne = MoneyRoundingPolicy.amount(tauxHoraire.multiply(heuresReelles).min(salaireBaseContractuel));
+            if (input.getJoursSousContrat() != null && input.getJoursSousContrat().compareTo(BigDecimal.ZERO) > 0) {
+                // Règle métier confirmée : BASE PRORATISÉE = BASE MENSUELLE * JOURS CALENDAIRES SOUS CONTRAT / 30
+                salaireBaseLigne = MoneyRoundingPolicy.amount(
+                        salaireBaseContractuel.multiply(input.getJoursSousContrat())
+                                .divide(new BigDecimal("30"), 4, RoundingMode.HALF_UP)
+                );
+            } else {
+                BigDecimal heuresReelles = zeroIfNull(input.getHeuresNormales());
+                salaireBaseLigne = MoneyRoundingPolicy.amount(tauxHoraire.multiply(heuresReelles).min(salaireBaseContractuel));
+            }
         }
 
         lignes.add(creerLigne(bp, "SALAIRE_BASE", "Salaire de Base", "GAIN", "SALAIRE_BASE",
@@ -250,6 +258,16 @@ public class PayrollExecutionEngine {
             lignes.add(creerLigne(bp, "MAJORATION_NUIT", "Majoration Travail de Nuit (+30%)", "GAIN", "HEURES_SUP",
                     tauxHoraire, new BigDecimal("30.00"), montantNuit, null, 50));
             totalGainsBruts = totalGainsBruts.add(montantNuit);
+        }
+
+        BigDecimal heuresDimanche = zeroIfNull(input.getHeuresDimanche());
+        if (heuresDimanche.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal montantDimanche = overtime.dimanche();
+            BigDecimal baseTauxDimanche = BigDecimal.ONE.add(zeroIfNull(input.getMajorationDimanche()))
+                    .multiply(new BigDecimal("100"));
+            lignes.add(creerLigne(bp, "HEURES_DIMANCHE", "Majoration Travail Dimanche (+40%)", "GAIN", "HEURES_SUP",
+                    tauxHoraire, baseTauxDimanche, montantDimanche, null, 60));
+            totalGainsBruts = totalGainsBruts.add(montantDimanche);
         }
 
         BigDecimal heuresFerie = zeroIfNull(input.getHeuresFeriees());

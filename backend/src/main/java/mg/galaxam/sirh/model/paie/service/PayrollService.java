@@ -13,11 +13,14 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.sql.DataSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -32,6 +35,10 @@ import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet.ImpactPret;
 import mg.galaxam.sirh.model.paie.dto.PayrollBatchResult;
 import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
 import mg.galaxam.sirh.model.paie.dto.PayrollAttendanceInput;
+import mg.galaxam.sirh.model.pointage.calculation.QualifiedTimeBucket;
+import mg.galaxam.sirh.model.pointage.calculation.OvertimeTier;
+import mg.galaxam.sirh.model.pointage.calculation.DaySpecialType;
+import mg.galaxam.sirh.model.pointage.calculation.NightWorkType;
 import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
 import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
 import mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche;
@@ -46,6 +53,8 @@ import mg.galaxam.sirh.api.dto.paie.PayrollPopulationMember;
  */
 @Service
 public class PayrollService {
+
+    private static final Logger log = LoggerFactory.getLogger(PayrollService.class);
 
     @Autowired
     private DataSource dataSource;
@@ -428,11 +437,13 @@ public class PayrollService {
         return new BulletinPaieComplet(bp, lignes);
     }
 
-    // ==========================================================================
-    // MÉTHODES PRIVÉES DE COLLECTE ET DE PERSISTANCE
-    // ==========================================================================
-
-    private PayrollCalculationInput preparerInput(Integer idEmploye, Integer idPeriodePaie,
+    /**
+     * Assemble de manière idempotente le PayrollCalculationInput à partir des snapshots et référentiels BDD.
+     * Cette méthode constitue une API publique d'inspection pré-vol (pre-flight checks), permettant
+     * d'auditer les données assemblées (pointage qualifié, carrière, fiscalité) sans exécuter
+     * le moteur de valorisation ni créer d'effets de bord transactionnels.
+     */
+    public PayrollCalculationInput preparerInput(Integer idEmploye, Integer idPeriodePaie,
                                                  boolean simulation, Connection c) throws Exception {
         PayrollCalculationInput in = new PayrollCalculationInput();
         in.setIdEmploye(idEmploye);
@@ -568,17 +579,24 @@ public class PayrollService {
                     }
                     Timestamp frozenTimestamp = rs.getTimestamp("gele_at");
                     Instant frozenAt = frozenTimestamp == null ? Instant.EPOCH : frozenTimestamp.toInstant();
+                    BigDecimal hDim = rs.getBigDecimal("heures_dimanche_total");
+                    BigDecimal hFer = rs.getBigDecimal("heures_ferie_total");
+                    List<QualifiedTimeBucket> buckets = loadSnapshotBuckets(rs.getInt("id_cumul"), c);
                     in.setAttendanceInput(new PayrollAttendanceInput(
                             rs.getInt("id_cumul"), rs.getInt("version_snapshot"), idEmploye, idPeriodePaie, frozenAt,
                             PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("total_heures_travaillees")),
                             PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_30")),
                             PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_50")),
                             PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_nuit_total")),
+                            PayrollAttendanceInput.hoursToMinutes(hDim),
+                            PayrollAttendanceInput.hoursToMinutes(hFer),
+                            0L,
                             PayrollAttendanceInput.hoursToMinutes(hAbs), rs.getInt("total_minutes_retard"),
                             rs.getBigDecimal("nb_jours_ouvrables"), rs.getBigDecimal("nb_jours_presents"),
                             absenceDays, rs.getBigDecimal("nb_jours_conge"), rs.getBigDecimal("nb_jours_repas"),
                             rs.getBigDecimal("montant_repas"), rs.getBigDecimal("nb_jours_deplacement"),
-                            rs.getBigDecimal("montant_deplacement")));
+                            rs.getBigDecimal("montant_deplacement"),
+                            buckets));
                     in.setModeCalculAbsence("HEURES_REELLES");
                 } else {
                     if (!simulation) {
@@ -1263,5 +1281,29 @@ public class PayrollService {
                 "totalPages", Math.max(1, (int) Math.ceil((double) totalElements / size)),
                 "currentPage", page,
                 "pageSize", size);
+    }
+
+    private List<QualifiedTimeBucket> loadSnapshotBuckets(int snapshotId, Connection c) throws SQLException {
+        String sql = "SELECT date_debut, date_fin, minutes, overtime_tier, day_special_type, night_work_type, id_periode_paie, id_pointage " +
+                     "FROM pointage_snapshot_bucket WHERE id_cumul = ? ORDER BY date_debut ASC, id_snapshot_bucket ASC";
+        List<QualifiedTimeBucket> list = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, snapshotId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new QualifiedTimeBucket(
+                            rs.getTimestamp("date_debut").toLocalDateTime(),
+                            rs.getTimestamp("date_fin").toLocalDateTime(),
+                            rs.getLong("minutes"),
+                            OvertimeTier.valueOf(rs.getString("overtime_tier")),
+                            DaySpecialType.valueOf(rs.getString("day_special_type")),
+                            NightWorkType.valueOf(rs.getString("night_work_type")),
+                            rs.getInt("id_periode_paie"),
+                            rs.getObject("id_pointage") != null ? rs.getInt("id_pointage") : null
+                    ));
+                }
+            }
+        }
+        return Collections.unmodifiableList(list);
     }
 }

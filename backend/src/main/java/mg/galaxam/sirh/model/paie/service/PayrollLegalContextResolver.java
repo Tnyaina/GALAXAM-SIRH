@@ -6,12 +6,15 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
 import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
 import mg.galaxam.sirh.model.paie.engine.IrsaBracketResolver;
+import mg.galaxam.sirh.model.paie.engine.OvertimePayCalculator;
+import mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy;
 import mg.galaxam.sirh.model.paie.engine.TaxConfigurationResolver;
 import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
 import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
@@ -53,10 +56,57 @@ public class PayrollLegalContextResolver {
 
     private void resolveOvertimeRates(
             PayrollCalculationInput input, int configId, LocalDate targetDate, Connection connection) throws Exception {
-        input.setMajorationHs30(RefTauxMajoration.resolveApplicable(configId, "HS_30", targetDate, connection).getTaux());
-        input.setMajorationHs50(RefTauxMajoration.resolveApplicable(configId, "HS_50", targetDate, connection).getTaux());
-        input.setMajorationNuit(RefTauxMajoration.resolveApplicable(configId, "NUIT", targetDate, connection).getTaux());
-        input.setMajorationFerie(RefTauxMajoration.resolveApplicable(configId, "FERIE", targetDate, connection).getTaux());
+        List<PaieConfigLegale> allConfigs = PaieConfigLegale.listAll(connection);
+        Map<Integer, List<RefTauxMajoration>> ratesByConfig = new java.util.HashMap<>();
+        for (RefTauxMajoration r : RefTauxMajoration.listAll(connection)) {
+            if (r.getIdConfigLegale() != null) {
+                ratesByConfig.computeIfAbsent(r.getIdConfigLegale(), k -> new java.util.ArrayList<>()).add(r);
+            }
+        }
+
+        List<RefTauxMajoration> currentConfigRates = ratesByConfig.getOrDefault(configId, List.of());
+        input.setMajorationHs30(RefTauxMajoration.resolveApplicableFromList(currentConfigRates, "HS_30", targetDate).getTaux());
+        input.setMajorationHs50(RefTauxMajoration.resolveApplicableFromList(currentConfigRates, "HS_50", targetDate).getTaux());
+        input.setMajorationNuit(RefTauxMajoration.resolveApplicableFromList(currentConfigRates, "NUIT", targetDate).getTaux());
+        input.setMajorationDimanche(RefTauxMajoration.resolveApplicableFromList(currentConfigRates, "DIMANCHE", targetDate).getTaux());
+        input.setMajorationFerie(RefTauxMajoration.resolveApplicableFromList(currentConfigRates, "FERIE", targetDate).getTaux());
+
+        input.setTemporalRateResolver(date -> {
+            try {
+                int activeCfgId = resolveConfigIdAtDate(allConfigs, date, configId);
+                List<RefTauxMajoration> configRates = ratesByConfig.getOrDefault(activeCfgId, List.of());
+
+                BigDecimal hs30 = RefTauxMajoration.resolveApplicableFromList(configRates, "HS_30", date).getTaux();
+                BigDecimal hs50 = RefTauxMajoration.resolveApplicableFromList(configRates, "HS_50", date).getTaux();
+                BigDecimal nuit = RefTauxMajoration.resolveApplicableFromList(configRates, "NUIT", date).getTaux();
+                BigDecimal dim = RefTauxMajoration.resolveApplicableFromList(configRates, "DIMANCHE", date).getTaux();
+                BigDecimal ferie = RefTauxMajoration.resolveApplicableFromList(configRates, "FERIE", date).getTaux();
+                return new OvertimePayCalculator.Rates(
+                        hs30,
+                        hs50,
+                        nuit,
+                        null,
+                        dim,
+                        ferie,
+                        input.getSpecialPremiumCollisionPolicy() != null ? input.getSpecialPremiumCollisionPolicy() : SpecialPremiumCollisionPolicy.UNRESOLVED,
+                        null
+                );
+            } catch (Exception e) {
+                throw new IllegalStateException("Erreur de résolution des taux de majoration à la date " + date + " : " + e.getMessage(), e);
+            }
+        });
+    }
+
+    private static int resolveConfigIdAtDate(List<PaieConfigLegale> configs, LocalDate date, int defaultId) {
+        if (date == null || configs == null) return defaultId;
+        for (PaieConfigLegale cfg : configs) {
+            LocalDate from = cfg.getDateDebut() != null ? cfg.getDateDebut().toLocalDate() : LocalDate.MIN;
+            LocalDate to = cfg.getDateFin() != null ? cfg.getDateFin().toLocalDate() : LocalDate.MAX;
+            if (!date.isBefore(from) && !date.isAfter(to)) {
+                return cfg.getIdConfigLegale();
+            }
+        }
+        return defaultId;
     }
 
     private void resolveHealthContribution(PayrollCalculationInput input, Connection connection) throws Exception {

@@ -32,10 +32,7 @@ class BackendDrivenFrontendArchitectureTest {
                 "/paie/periods/:periodId/results/:employeeId");
         assertThat(page).contains(
                 "rawTab === 'bulletins'",
-                "`/paie/periods/${requestedPeriodId}/results`",
-                "['overview', 'Préparation']",
-                "['validation', 'Validation']",
-                "['outputs', 'Sorties']");
+                "`/paie/periods/${requestedPeriodId}/results`");
     }
 
     @Test

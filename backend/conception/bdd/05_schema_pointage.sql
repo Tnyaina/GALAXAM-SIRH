@@ -13,6 +13,7 @@ DROP VIEW IF EXISTS v_pointage_semaine CASCADE;
 DROP VIEW IF EXISTS v_pointage_jour_cpl CASCADE;
 DROP VIEW IF EXISTS v_pointage_indemnites CASCADE;
 
+DROP TABLE IF EXISTS pointage_snapshot_bucket CASCADE;
 DROP TABLE IF EXISTS pointage_snapshot_semaine CASCADE;
 DROP TABLE IF EXISTS pointage_snapshot_jour CASCADE;
 DROP TABLE IF EXISTS pointage_cumul_indemnite CASCADE;
@@ -234,6 +235,8 @@ CREATE TABLE pointage_cumul_periode (
     heures_hs_30 DECIMAL(6,2) NOT NULL DEFAULT 0,
     heures_hs_50 DECIMAL(6,2) NOT NULL DEFAULT 0,
     heures_nuit_total DECIMAL(6,2) NOT NULL DEFAULT 0,
+    heures_dimanche_total DECIMAL(6,2) NOT NULL DEFAULT 0,
+    heures_ferie_total DECIMAL(6,2) NOT NULL DEFAULT 0,
     heures_absence_retenues DECIMAL(6,2) NOT NULL DEFAULT 0,
     total_minutes_retard INTEGER NOT NULL DEFAULT 0,
     nb_jours_deplacement DECIMAL(5,2) NOT NULL DEFAULT 0,
@@ -272,6 +275,24 @@ CREATE TABLE pointage_snapshot_semaine (
     minutes_hs_50 INTEGER NOT NULL CHECK (minutes_hs_50 >= 0),
     PRIMARY KEY (id_cumul, id_semaine_calcule)
 );
+
+CREATE TABLE pointage_snapshot_bucket (
+    id_snapshot_bucket SERIAL PRIMARY KEY,
+    id_cumul INTEGER NOT NULL REFERENCES pointage_cumul_periode(id_cumul) ON DELETE RESTRICT,
+    id_pointage INTEGER REFERENCES pointage_jour(id_pointage) ON DELETE RESTRICT,
+    date_debut TIMESTAMP NOT NULL,
+    date_fin TIMESTAMP NOT NULL,
+    minutes INTEGER NOT NULL CHECK (minutes > 0),
+    overtime_tier VARCHAR(20) NOT NULL,
+    day_special_type VARCHAR(40) NOT NULL,
+    night_work_type VARCHAR(30) NOT NULL,
+    id_periode_paie INTEGER NOT NULL REFERENCES periode_paie(id_periode_paie),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_snapshot_bucket_cumul ON pointage_snapshot_bucket(id_cumul);
+CREATE INDEX idx_snapshot_bucket_periode ON pointage_snapshot_bucket(id_periode_paie);
+CREATE INDEX idx_snapshot_bucket_dates ON pointage_snapshot_bucket(date_debut, date_fin);
 
 CREATE TABLE pointage_cumul_indemnite (
     id_cumul_indemnite SERIAL PRIMARY KEY,

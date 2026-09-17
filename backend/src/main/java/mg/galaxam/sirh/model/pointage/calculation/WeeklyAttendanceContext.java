@@ -7,18 +7,23 @@ public record WeeklyAttendanceContext(
         long expectedMinutes,
         long firstOvertimeBandMinutes,
         boolean overtimeEligible,
-        long standardDayMinutes
+        long standardDayMinutes,
+        WeeklyPriorState priorState
 ) {
     public WeeklyAttendanceContext {
         if (weekStart == null || expectedMinutes < 0 || firstOvertimeBandMinutes < 0 || standardDayMinutes < 0) {
             throw new IllegalArgumentException("Contexte hebdomadaire invalide.");
         }
+        if (priorState == null) {
+            priorState = WeeklyPriorState.NONE;
+        }
     }
 
-    /** Compatibilité des appels existants : une semaine complète compte cinq journées standard. */
+    /** Constructeur standard pour une semaine sans tronçon antérieur. */
     public WeeklyAttendanceContext(LocalDate weekStart, long expectedMinutes,
-                                   long firstOvertimeBandMinutes, boolean overtimeEligible) {
+                                   long firstOvertimeBandMinutes, boolean overtimeEligible,
+                                   long standardDayMinutes) {
         this(weekStart, expectedMinutes, firstOvertimeBandMinutes, overtimeEligible,
-                expectedMinutes == 0 ? 0 : expectedMinutes / 5);
+                standardDayMinutes, WeeklyPriorState.NONE);
     }
 }

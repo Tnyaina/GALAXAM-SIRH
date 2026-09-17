@@ -138,6 +138,69 @@ public class CalculsConformiteIntegraleTest {
         }
 
         @Test
+        @DisplayName("1.1b Prorata trentième calendaire (Entrée le 11 -> 20j/30)")
+        void testProrataTrentiemeEntreeLe11() {
+            // Entrée le 11 : 20 jours calendaires sous contrat (30 - 11 + 1 = 20)
+            PayrollCalculationInput in = buildBaseInput(new BigDecimal("600000.00"), "PERMANENT");
+            in.setEntreeSortieEnCoursDeMois(true);
+            in.setJoursSousContrat(new BigDecimal("20"));
+
+            BulletinPaie bp = payrollEngine.initialiserEnTete(in);
+            List<BulletinPaieLigne> lignes = new ArrayList<>();
+            BigDecimal brut = payrollEngine.calculerSalaireBrut(in, bp, lignes);
+
+            // 600 000 * 20 / 30 = 400 000.00 Ar
+            assertEquals(new BigDecimal("400000.00"), brut);
+            assertEquals(new BigDecimal("400000.00"), bp.getTotalGainsBruts());
+        }
+
+        @Test
+        @DisplayName("1.1c Prorata trentième calendaire (Sortie le 20 -> 20j/30)")
+        void testProrataTrentiemeSortieLe20() {
+            // Sortie le 20 : 20 jours calendaires sous contrat (20 - 1 + 1 = 20)
+            PayrollCalculationInput in = buildBaseInput(new BigDecimal("600000.00"), "PERMANENT");
+            in.setEntreeSortieEnCoursDeMois(true);
+            in.setJoursSousContrat(new BigDecimal("20"));
+
+            BulletinPaie bp = payrollEngine.initialiserEnTete(in);
+            List<BulletinPaieLigne> lignes = new ArrayList<>();
+            BigDecimal brut = payrollEngine.calculerSalaireBrut(in, bp, lignes);
+
+            // 600 000 * 20 / 30 = 400 000.00 Ar
+            assertEquals(new BigDecimal("400000.00"), brut);
+        }
+
+        @Test
+        @DisplayName("1.1d Prorata trentième calendaire (Entrée le 5 et sortie le 25 -> 21j/30)")
+        void testProrataTrentiemeEntree5Sortie25() {
+            // Du 5 au 25 inclus = 21 jours
+            PayrollCalculationInput in = buildBaseInput(new BigDecimal("600000.00"), "PERMANENT");
+            in.setEntreeSortieEnCoursDeMois(true);
+            in.setJoursSousContrat(new BigDecimal("21"));
+
+            BulletinPaie bp = payrollEngine.initialiserEnTete(in);
+            List<BulletinPaieLigne> lignes = new ArrayList<>();
+            BigDecimal brut = payrollEngine.calculerSalaireBrut(in, bp, lignes);
+
+            // 600 000 * 21 / 30 = 420 000.00 Ar
+            assertEquals(new BigDecimal("420000.00"), brut);
+        }
+
+        @Test
+        @DisplayName("1.1e Prorata trentième calendaire (Mois complet sous contrat -> 30j/30, BASE pleine)")
+        void testProrataTrentiemeMoisComplet() {
+            PayrollCalculationInput in = buildBaseInput(new BigDecimal("600000.00"), "PERMANENT");
+            in.setEntreeSortieEnCoursDeMois(true);
+            in.setJoursSousContrat(new BigDecimal("30"));
+
+            BulletinPaie bp = payrollEngine.initialiserEnTete(in);
+            List<BulletinPaieLigne> lignes = new ArrayList<>();
+            BigDecimal brut = payrollEngine.calculerSalaireBrut(in, bp, lignes);
+
+            assertEquals(new BigDecimal("600000.00"), brut);
+        }
+
+        @Test
         @DisplayName("1.2 Retenue d'absence en mode Heures Réelles")
         void testRetenueAbsenceHeuresReelles() {
             PayrollCalculationInput in = buildBaseInput(new BigDecimal("520000.00"), "PERMANENT");
@@ -206,6 +269,21 @@ public class CalculsConformiteIntegraleTest {
             assertEquals(new BigDecimal("12000.00"), getMontantLigne(lignes, "HEURES_SUP_50"));
             assertEquals(new BigDecimal("3000.00"), getMontantLigne(lignes, "MAJORATION_NUIT"));
             assertEquals(new BigDecimal("32000.00"), getMontantLigne(lignes, "MAJORATION_FERIE"));
+        }
+
+        @Test
+        @DisplayName("1.4b Majoration Dimanche travaillé (+40%) : 6h à 140% = 16 800 Ar")
+        void testMajorationDimancheTravaille() {
+            PayrollCalculationInput in = buildBaseInput(new BigDecimal("346660.00"), "PERMANENT");
+            // Taux horaire = 2 000.00 Ar
+            in.setMajorationDimanche(new BigDecimal("0.40"));
+            in.setHeuresDimanche(new BigDecimal("6.0")); // 6h à 140% : 6 * 2000 * 1.40 = 16 800 Ar
+
+            BulletinPaie bp = payrollEngine.initialiserEnTete(in);
+            List<BulletinPaieLigne> lignes = new ArrayList<>();
+            payrollEngine.calculerSalaireBrut(in, bp, lignes);
+
+            assertEquals(new BigDecimal("16800.00"), getMontantLigne(lignes, "HEURES_DIMANCHE"));
         }
 
         @Test
@@ -461,7 +539,7 @@ public class CalculsConformiteIntegraleTest {
         @DisplayName("5.1 Qualification stricte des heures normales (40h = 2400 min) et HS")
         void testQualificationSemaineHeuresSup() {
             LocalDate lundi = LocalDate.of(2026, 9, 14);
-            WeeklyAttendanceContext regle = new WeeklyAttendanceContext(lundi, 2400, 480, true);
+            WeeklyAttendanceContext regle = new WeeklyAttendanceContext(lundi, 2400, 480, true, 480);
 
             // Semaine normale 40h pile (2400 min)
             WeeklyAttendanceResult resNormale = weeklyAttendanceCalculator.calculateWeek(regle,

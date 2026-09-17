@@ -14,6 +14,17 @@ import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceCalculator;
 import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceCalculator;
 import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceContext;
 import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceResult;
+import mg.galaxam.sirh.model.pointage.calculation.WeeklyPriorState;
+import mg.galaxam.sirh.model.pointage.calculation.PeriodWeekSegmenter;
+import mg.galaxam.sirh.model.pointage.calculation.WorkInterval;
+import mg.galaxam.sirh.model.pointage.calculation.WorkIntervalFactory;
+import mg.galaxam.sirh.model.pointage.calculation.TemporalBucket;
+import mg.galaxam.sirh.model.pointage.calculation.AttendanceTemporalPartitioner;
+import mg.galaxam.sirh.model.pointage.calculation.OvertimeProjectionEngine;
+import mg.galaxam.sirh.model.pointage.calculation.QualifiedTimeBucket;
+import mg.galaxam.sirh.model.pointage.calculation.OvertimeTier;
+import mg.galaxam.sirh.model.pointage.calculation.DaySpecialType;
+import mg.galaxam.sirh.model.pointage.calculation.NightWorkType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -505,9 +516,14 @@ public class PointageSyntheseService {
                     .setScale(0, RoundingMode.HALF_UP).longValueExact();
             long firstBandMinutes = seuilHsTranche1.multiply(BigDecimal.valueOf(60))
                     .setScale(0, RoundingMode.HALF_UP).longValueExact();
+            // Règle métier confirmée GALAXAM (Phase 1B) :
+            // Les périodes de paie sont strictement étanches pour le calcul des HS et des absences.
+            // Aucune compensation ordinaire (HS <-> déficit) ne traverse une frontière de période.
+            // Chaque tronçon est calculé avec son propre seuil et sa propre compensation autonome.
+            WeeklyPriorState priorState = WeeklyPriorState.NONE;
             WeeklyAttendanceResult res = weeklyAttendanceCalculator.calculateWeek(
                     new WeeklyAttendanceContext(lundi, expectedMinutes, firstBandMinutes, !isCadre,
-                            seuilHeuresJour.multiply(BigDecimal.valueOf(60)).longValueExact()), jours);
+                            seuilHeuresJour.multiply(BigDecimal.valueOf(60)).longValueExact(), priorState), jours);
             weeklyResults.add(res);
             totalHs30Minutes += res.overtime30Minutes();
             totalHs50Minutes += res.overtime50Minutes();
@@ -1089,12 +1105,13 @@ public class PointageSyntheseService {
                           "id_employe, id_periode_paie, version_snapshot, statut_snapshot, remplace_id_cumul, nb_jours_ouvrables, nb_jours_presents, " +
                           "nb_jours_absence, nb_jours_conge, nb_jours_ferie_chome, nb_jours_ferie_travaille, " +
                           "total_heures_travaillees, heures_hs_30, heures_hs_50, heures_nuit_total, " +
+                          "heures_dimanche_total, heures_ferie_total, " +
                           "heures_absence_retenues, total_minutes_retard, nb_jours_deplacement, montant_deplacement, " +
                           "nb_jours_repas, montant_repas, gele_par, gele_at" +
                           ") VALUES (?, ?, " +
                           "(SELECT COALESCE(MAX(version_snapshot), 0) + 1 FROM pointage_cumul_periode WHERE id_employe = ? AND id_periode_paie = ?), 'GELE', " +
                           "(SELECT id_cumul FROM pointage_cumul_periode WHERE id_employe = ? AND id_periode_paie = ? ORDER BY version_snapshot DESC LIMIT 1), " +
-                          "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) RETURNING id_cumul";
+                          "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) RETURNING id_cumul";
 
         try (PreparedStatement ps = c.prepareStatement(sqlCumul)) {
             for (PointageSyntheseMensuelleDTO dto : synthese) {
@@ -1121,13 +1138,15 @@ public class PointageSyntheseService {
                 ps.setBigDecimal(14, BigDecimal.valueOf(dto.getHeuresHs30()));
                 ps.setBigDecimal(15, BigDecimal.valueOf(dto.getHeuresHs50()));
                 ps.setBigDecimal(16, BigDecimal.valueOf(dto.getHeuresNuitTotal()));
-                ps.setBigDecimal(17, BigDecimal.valueOf(dto.getHeuresAbsenceRetenues()));
-                ps.setInt(18, dto.getTotalMinutesRetard());
-                ps.setBigDecimal(19, BigDecimal.valueOf(dto.getNbJoursDeplacement()));
-                ps.setBigDecimal(20, dto.getMontantDeplacement());
-                ps.setInt(21, dto.getNbJoursRepas());
-                ps.setBigDecimal(22, dto.getMontantRepas());
-                if (userId != null) ps.setInt(23, userId); else ps.setNull(23, java.sql.Types.INTEGER);
+                ps.setBigDecimal(17, BigDecimal.valueOf(dto.getHeuresDimancheTotal()));
+                ps.setBigDecimal(18, BigDecimal.valueOf(dto.getHeuresFerieTotal()));
+                ps.setBigDecimal(19, BigDecimal.valueOf(dto.getHeuresAbsenceRetenues()));
+                ps.setInt(20, dto.getTotalMinutesRetard());
+                ps.setBigDecimal(21, BigDecimal.valueOf(dto.getNbJoursDeplacement()));
+                ps.setBigDecimal(22, dto.getMontantDeplacement());
+                ps.setInt(23, dto.getNbJoursRepas());
+                ps.setBigDecimal(24, dto.getMontantRepas());
+                if (userId != null) ps.setInt(25, userId); else ps.setNull(25, java.sql.Types.INTEGER);
                 int snapshotId;
                 try (ResultSet inserted = ps.executeQuery()) {
                     if (!inserted.next()) throw new SQLException("Le snapshot Pointage n'a pas été créé.");
@@ -1188,6 +1207,177 @@ public class PointageSyntheseService {
         try (PreparedStatement ps = c.prepareStatement(weeks)) {
             ps.setInt(1, snapshotId); ps.setInt(2, employeeId); ps.setInt(3, periodId); ps.executeUpdate();
         }
+        enregistrerSnapshotBuckets(snapshotId, employeeId, periodId, c);
+    }
+
+    private void enregistrerSnapshotBuckets(int snapshotId, int employeeId, int periodId, Connection c)
+            throws SQLException {
+        LocalDate dateDebutPeriode = null;
+        LocalDate dateFinPeriode = null;
+        String sqlPeriode = "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?";
+        try (PreparedStatement psP = c.prepareStatement(sqlPeriode)) {
+            psP.setInt(1, periodId);
+            try (ResultSet rsP = psP.executeQuery()) {
+                if (rsP.next()) {
+                    Date dDeb = rsP.getDate("date_debut");
+                    Date dFin = rsP.getDate("date_fin");
+                    if (dDeb != null) dateDebutPeriode = dDeb.toLocalDate();
+                    if (dFin != null) dateFinPeriode = dFin.toLocalDate();
+                }
+            }
+        }
+        if (dateDebutPeriode == null || dateFinPeriode == null) {
+            return;
+        }
+
+        final Set<LocalDate> feries = (calendrierEngine != null)
+                ? calendrierEngine.getDatesFeriesEtChomees(dateDebutPeriode, dateFinPeriode, null, c)
+                : Collections.emptySet();
+
+        List<WorkInterval> intervals = new ArrayList<>();
+        String sqlP = "SELECT id_pointage, date_pointage, heure_entree_matin, heure_sortie_matin, " +
+                      "heure_entree_am, heure_sortie_am, horaire_continu_jour " +
+                      "FROM pointage_jour WHERE id_employe = ? AND id_periode_paie = ? ORDER BY date_pointage ASC";
+        try (PreparedStatement psP = c.prepareStatement(sqlP)) {
+            psP.setInt(1, employeeId);
+            psP.setInt(2, periodId);
+            try (ResultSet rsP = psP.executeQuery()) {
+                while (rsP.next()) {
+                    int ptId = rsP.getInt("id_pointage");
+                    Date dP = rsP.getDate("date_pointage");
+                    if (dP == null) continue;
+                    LocalDate datePointage = dP.toLocalDate();
+                    Time em = rsP.getTime("heure_entree_matin");
+                    Time sm = rsP.getTime("heure_sortie_matin");
+                    Time ea = rsP.getTime("heure_entree_am");
+                    Time sa = rsP.getTime("heure_sortie_am");
+                    boolean continu = rsP.getBoolean("horaire_continu_jour");
+                    intervals.addAll(WorkIntervalFactory.createIntervals(
+                            employeeId, ptId, datePointage,
+                            em != null ? em.toLocalTime() : null,
+                            sm != null ? sm.toLocalTime() : null,
+                            ea != null ? ea.toLocalTime() : null,
+                            sa != null ? sa.toLocalTime() : null,
+                            continu,
+                            "PTG_" + ptId
+                    ));
+                }
+            }
+        }
+
+        if (intervals.isEmpty()) {
+            return;
+        }
+
+        AttendanceTemporalPartitioner partitioner = new AttendanceTemporalPartitioner(
+                feries::contains,
+                date -> periodId
+        );
+        List<TemporalBucket> allBuckets = partitioner.partition(intervals);
+
+        String sqlTroncons = "SELECT debut_semaine, nb_jours_troncon, total_heures_travaillees, heures_hs_30, heures_hs_50 " +
+                             "FROM pointage_semaine_calcule WHERE id_employe = ? AND id_periode_paie = ? ORDER BY debut_semaine ASC";
+        List<QualifiedTimeBucket> qualifiedBuckets = new ArrayList<>();
+        Set<TemporalBucket> projectedBuckets = new HashSet<>();
+        OvertimeProjectionEngine projectionEngine = new OvertimeProjectionEngine();
+
+        try (PreparedStatement psT = c.prepareStatement(sqlTroncons)) {
+            psT.setInt(1, employeeId);
+            psT.setInt(2, periodId);
+            try (ResultSet rsT = psT.executeQuery()) {
+                while (rsT.next()) {
+                    Date dDeb = rsT.getDate("debut_semaine");
+                    if (dDeb == null) continue;
+                    LocalDate deb = dDeb.toLocalDate();
+                    int nbJours = rsT.getInt("nb_jours_troncon");
+                    LocalDate fin = deb.plusDays(nbJours - 1);
+
+                    List<TemporalBucket> tronconBuckets = allBuckets.stream()
+                            .filter(b -> !b.start().toLocalDate().isBefore(deb) && !b.start().toLocalDate().isAfter(fin))
+                            .toList();
+
+                    long h30 = Math.round(rsT.getDouble("heures_hs_30") * 60.0);
+                    long h50 = Math.round(rsT.getDouble("heures_hs_50") * 60.0);
+                    long totTronconBuckets = tronconBuckets.stream().mapToLong(TemporalBucket::minutes).sum();
+                    long regular = Math.max(0, totTronconBuckets - h30 - h50);
+
+                    if (!tronconBuckets.isEmpty()) {
+                        List<QualifiedTimeBucket> qbs = projectionEngine.project(tronconBuckets, regular, h30, h50);
+                        qualifiedBuckets.addAll(qbs);
+                        projectedBuckets.addAll(tronconBuckets);
+                    }
+                }
+            }
+        }
+
+        for (TemporalBucket b : allBuckets) {
+            if (!projectedBuckets.contains(b)) {
+                qualifiedBuckets.add(new QualifiedTimeBucket(
+                        b.start(),
+                        b.end(),
+                        b.minutes(),
+                        OvertimeTier.REGULAR,
+                        b.dayType(),
+                        b.nightType(),
+                        b.payrollPeriodId(),
+                        b.pointageId()
+                ));
+            }
+        }
+
+        String sqlInsertBucket = "INSERT INTO pointage_snapshot_bucket " +
+                                 "(id_cumul, id_pointage, date_debut, date_fin, minutes, " +
+                                 "overtime_tier, day_special_type, night_work_type, id_periode_paie) " +
+                                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement psB = c.prepareStatement(sqlInsertBucket)) {
+            for (QualifiedTimeBucket qb : qualifiedBuckets) {
+                psB.setInt(1, snapshotId);
+                if (qb.pointageId() != null) {
+                    psB.setInt(2, qb.pointageId());
+                } else {
+                    psB.setNull(2, java.sql.Types.INTEGER);
+                }
+                psB.setTimestamp(3, java.sql.Timestamp.valueOf(qb.start()));
+                psB.setTimestamp(4, java.sql.Timestamp.valueOf(qb.end()));
+                psB.setInt(5, (int) qb.minutes());
+                psB.setString(6, qb.overtimeTier().name());
+                psB.setString(7, qb.dayType().name());
+                psB.setString(8, qb.nightType().name());
+                psB.setInt(9, qb.payrollPeriodId());
+                psB.addBatch();
+            }
+            psB.executeBatch();
+        }
+    }
+
+    public List<QualifiedTimeBucket> getSnapshotBuckets(int snapshotId, Connection c) throws SQLException {
+        String sql = "SELECT date_debut, date_fin, minutes, overtime_tier, day_special_type, night_work_type, id_periode_paie, id_pointage " +
+                     "FROM pointage_snapshot_bucket WHERE id_cumul = ? ORDER BY date_debut ASC, id_snapshot_bucket ASC";
+        List<QualifiedTimeBucket> list = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, snapshotId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new QualifiedTimeBucket(
+                            rs.getTimestamp("date_debut").toLocalDateTime(),
+                            rs.getTimestamp("date_fin").toLocalDateTime(),
+                            rs.getLong("minutes"),
+                            OvertimeTier.valueOf(rs.getString("overtime_tier")),
+                            DaySpecialType.valueOf(rs.getString("day_special_type")),
+                            NightWorkType.valueOf(rs.getString("night_work_type")),
+                            rs.getInt("id_periode_paie"),
+                            rs.getObject("id_pointage") != null ? rs.getInt("id_pointage") : null
+                    ));
+                }
+            }
+        }
+        return Collections.unmodifiableList(list);
+    }
+
+    public List<QualifiedTimeBucket> getSnapshotBuckets(int snapshotId) throws SQLException {
+        try (Connection c = dataSource.getConnection()) {
+            return getSnapshotBuckets(snapshotId, c);
+        }
     }
 
     /**
@@ -1218,34 +1408,22 @@ public class PointageSyntheseService {
 
         if (dateDebut == null || dateFin == null) return result;
 
-        // Découpage en tronçons du Lundi au Dimanche
-        LocalDate cur = dateDebut;
-        int semNum = 1;
-        while (!cur.isAfter(dateFin)) {
-            LocalDate debutSemaine = cur.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-            LocalDate finSemaine = cur.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+        Map<String, String> params = ParametreGlobal.loadActiveMapAtDate(Date.valueOf(dateDebut), c);
+        BigDecimal seuilHeuresJour = ParametreGlobal.getBigDecimal(params, "SEUIL_HEURES_JOUR", new BigDecimal("8"));
 
-            // Si le début du tronçon tombe un Samedi ou Dimanche et qu'il y a une semaine suivante dans la période,
-            // on rattache ce weekend directement au dimanche de la semaine suivante (évite une semaine vide de 0 jour ouvré)
-            if (CalendrierOuvrableEngine.isWeekend(cur) && finSemaine.plusDays(7).isBefore(dateFin.plusDays(7))) {
-                cur = cur.plusDays(1);
-                continue;
-            }
+        // Découpage canonique unifié en tronçons (TRONÇON = SEMAINE ∩ PÉRIODE ∩ CALENDRIER APPLICABLE)
+        List<PeriodWeekSegmenter.Segment> segments = PeriodWeekSegmenter.segment(dateDebut, dateFin);
+        for (PeriodWeekSegmenter.Segment seg : segments) {
+            LocalDate dateDebutTroncon = seg.start();
+            LocalDate dateFinTroncon = seg.end();
+            int semNum = seg.index();
 
-            LocalDate dateDebutTroncon = cur.isBefore(debutSemaine) ? debutSemaine : cur;
-            if (dateDebutTroncon.isBefore(dateDebut)) dateDebutTroncon = dateDebut;
+            // Calcul des jours ouvrés du tronçon via le moteur centralisé
+            int nbOuvrables = (calendrierEngine != null)
+                    ? calendrierEngine.compterJoursOuvrables(dateDebutTroncon, dateFinTroncon, idSite, c)
+                    : CalendrierOuvrableEngine.calculerJoursOuvrables(dateDebutTroncon, dateFinTroncon);
 
-            LocalDate dateFinTroncon = finSemaine.isAfter(dateFin) ? dateFin : finSemaine;
-
-            // Calcul des jours ouvrés du tronçon
-            int nbOuvrables = 0;
-            for (LocalDate d = dateDebutTroncon; !d.isAfter(dateFinTroncon); d = d.plusDays(1)) {
-                if (!CalendrierOuvrableEngine.isWeekend(d)) {
-                    nbOuvrables++;
-                }
-            }
-
-            double seuilHeures = nbOuvrables * 8.0;
+            double seuilHeures = seuilHeuresJour.multiply(BigDecimal.valueOf(nbOuvrables)).doubleValue();
 
             // Statistiques des pointages réels saisis pour ce tronçon
             String sqlStats = "SELECT COUNT(*) AS total_points, " +
@@ -1371,9 +1549,6 @@ public class PointageSyntheseService {
             semMap.put("ready", isReady);
 
             result.add(semMap);
-
-            semNum++;
-            cur = dateFinTroncon.plusDays(1);
         }
 
         return result;
@@ -1758,5 +1933,46 @@ public class PointageSyntheseService {
         result.put("nbSemaines", nbSemainesCalculees);
         result.put("message", nbSemainesCalculees + " semaine(s) calculee(s) et actualisee(s) avec succes.");
         return result;
+    }
+
+    /**
+     * Charge l'état cumulé des tronçons antérieurs de la même semaine civile
+     * pour garantir la continuité du calcul (compensation, tranches HS, déficit)
+     * sans modifier rétroactivement les périodes clôturées.
+     */
+    private WeeklyPriorState chargerEtatHebdomadaireAnterieur(int idEmp, LocalDate lundi, LocalDate debutTroncon, int idPeriode, Connection c) {
+        if (c == null || idEmp <= 0 || lundi == null || debutTroncon == null) return WeeklyPriorState.NONE;
+        String sql = """
+            SELECT seuil_heures_troncon, total_heures_travaillees, heures_hs_brutes,
+                   heures_hs_nettes, heures_deficit, heures_hs_30, heures_hs_50
+            FROM pointage_semaine_calcule
+            WHERE id_employe = ?
+              AND (debut_semaine = ? OR (debut_semaine >= ? AND debut_semaine < ?))
+              AND id_periode_paie != ?
+            ORDER BY id_semaine_calcule DESC LIMIT 1
+        """;
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmp);
+            ps.setDate(2, Date.valueOf(lundi));
+            ps.setDate(3, Date.valueOf(lundi));
+            ps.setDate(4, Date.valueOf(debutTroncon));
+            ps.setInt(5, idPeriode);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    long expected = hoursToMinutes(rs.getBigDecimal("seuil_heures_troncon"));
+                    long worked = hoursToMinutes(rs.getBigDecimal("total_heures_travaillees"));
+                    long surplus = hoursToMinutes(rs.getBigDecimal("heures_hs_brutes"));
+                    long grossOT = hoursToMinutes(rs.getBigDecimal("heures_hs_nettes"));
+                    long compensated = Math.max(0, surplus - grossOT);
+                    long deficit = hoursToMinutes(rs.getBigDecimal("heures_deficit"));
+                    long ot30 = hoursToMinutes(rs.getBigDecimal("heures_hs_30"));
+                    long ot50 = hoursToMinutes(rs.getBigDecimal("heures_hs_50"));
+                    return new WeeklyPriorState(expected, worked, surplus, compensated, deficit, grossOT, ot30, ot50);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Impossible de charger l'état hebdomadaire antérieur pour l'employé {} sur la semaine {} : {}", idEmp, lundi, e.getMessage());
+        }
+        return WeeklyPriorState.NONE;
     }
 }

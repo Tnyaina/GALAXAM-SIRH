@@ -144,15 +144,20 @@ public class RefTauxMajoration extends ClassMere {
 
     /** Résolution stricte d'une majoration datée : absence ou chevauchement bloquent. */
     public static RefTauxMajoration resolveApplicable(int idConfigLegale, String type, LocalDate date, Connection c) throws Exception {
+        return resolveApplicableFromList(listByConfig(idConfigLegale, c), type, date);
+    }
+
+    /** Résolution stricte d'une majoration datée sur une liste en mémoire (pour résolution performante par date de bucket). */
+    public static RefTauxMajoration resolveApplicableFromList(List<RefTauxMajoration> rates, String type, LocalDate date) {
         List<RefTauxMajoration> candidates = new ArrayList<>();
-        for (RefTauxMajoration r : listByConfig(idConfigLegale, c)) {
+        for (RefTauxMajoration r : rates) {
             if (!type.equals(r.typeMajoration)) continue;
             LocalDate from = r.dateDebut == null ? LocalDate.MIN : r.dateDebut.toLocalDate();
             LocalDate to = r.dateFin == null ? LocalDate.MAX : r.dateFin.toLocalDate();
             if (!date.isBefore(from) && !date.isAfter(to)) candidates.add(r);
         }
         if (candidates.size() != 1) throw new IllegalStateException(
-                "MAJORATION_CONFIGURATION_INVALID: " + type + " applicable=" + candidates.size());
+                "MAJORATION_CONFIGURATION_INVALID: " + type + " applicable=" + candidates.size() + " à la date " + date);
         return candidates.get(0);
     }
 
