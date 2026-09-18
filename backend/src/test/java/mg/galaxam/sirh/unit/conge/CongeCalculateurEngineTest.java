@@ -21,27 +21,82 @@ class CongeCalculateurEngineTest {
     }
 
     @Test
-    @DisplayName("calculerNombreJours : Décompte en jours calendaires stricts")
-    void testCalculerNombreJours() {
-        LocalDate d1 = LocalDate.of(2026, 9, 1);
-        LocalDate d5 = LocalDate.of(2026, 9, 5);
+    @DisplayName("RG-CONGE-01/02 : Décompte en jours calendaires stricts - Cas A à E obligatoires")
+    void testCalculerNombreJoursCasA_E() {
+        // Cas A : Vendredi -> Dimanche = 3 jours calendaires (week-end inclus)
+        LocalDate venA = LocalDate.of(2026, 9, 18);
+        LocalDate dimA = LocalDate.of(2026, 9, 20);
+        assertThat(engine.calculerNombreJours(venA, dimA, false))
+                .isEqualByComparingTo(new BigDecimal("3.0"));
 
-        // 1er au 5 septembre inclus -> 5 jours
-        assertThat(engine.calculerNombreJours(d1, d5, false))
+        // Cas B : Lundi -> Dimanche = 7 jours calendaires
+        LocalDate lunB = LocalDate.of(2026, 9, 14);
+        LocalDate dimB = LocalDate.of(2026, 9, 20);
+        assertThat(engine.calculerNombreJours(lunB, dimB, false))
+                .isEqualByComparingTo(new BigDecimal("7.0"));
+
+        // Cas C : Lundi -> Vendredi = 5 jours calendaires (même si un jour férié est inclus)
+        LocalDate lunC = LocalDate.of(2026, 9, 14);
+        LocalDate venC = LocalDate.of(2026, 9, 18);
+        assertThat(engine.calculerNombreJours(lunC, venC, false))
                 .isEqualByComparingTo(new BigDecimal("5.0"));
 
-        // Demi-journée le 1er septembre -> 0.5 jour
-        assertThat(engine.calculerNombreJours(d1, d1, true))
+        // Cas D : Vendredi -> Lundi inclus = 4 jours calendaires
+        LocalDate venD = LocalDate.of(2026, 9, 18);
+        LocalDate lunD = LocalDate.of(2026, 9, 21);
+        assertThat(engine.calculerNombreJours(venD, lunD, false))
+                .isEqualByComparingTo(new BigDecimal("4.0"));
+
+        // Cas E : Vendredi -> Dimanche retour lundi = 3 jours débités
+        LocalDate venE = LocalDate.of(2026, 9, 18);
+        LocalDate dimE = LocalDate.of(2026, 9, 20);
+        assertThat(engine.calculerNombreJours(venE, dimE, false))
+                .isEqualByComparingTo(new BigDecimal("3.0"));
+
+        // Demi-journée le 18 septembre -> 0.5 jour
+        assertThat(engine.calculerNombreJours(venA, venA, true))
                 .isEqualByComparingTo(new BigDecimal("0.5"));
 
         // Demi-journée sur 2 dates distinctes -> Erreur
-        assertThatThrownBy(() -> engine.calculerNombreJours(d1, d5, true))
+        assertThatThrownBy(() -> engine.calculerNombreJours(venA, dimA, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Une demi-journée doit avoir une date de début et de fin identiques");
 
         // Dates obligatoires
-        assertThatThrownBy(() -> engine.calculerNombreJours(null, d5, false))
+        assertThatThrownBy(() -> engine.calculerNombreJours(null, dimA, false))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("RG-CONGE-05 : Tests 1 à 5 obligatoires - Valorisation NBCONGE calendaire")
+    void testCalculerNbJoursCongeValorises_Tests1a5() {
+        // Test 1 : Vendredi -> Dimanche => NBCONGE = 3
+        LocalDate ven1 = LocalDate.of(2026, 9, 18);
+        LocalDate dim1 = LocalDate.of(2026, 9, 20);
+        assertThat(engine.calculerNbJoursCongeValorises(ven1, dim1, false))
+                .isEqualByComparingTo(new BigDecimal("3.0"));
+
+        // Test 2 : Lundi -> Dimanche => NBCONGE = 7
+        LocalDate lun2 = LocalDate.of(2026, 9, 14);
+        LocalDate dim2 = LocalDate.of(2026, 9, 20);
+        assertThat(engine.calculerNbJoursCongeValorises(lun2, dim2, false))
+                .isEqualByComparingTo(new BigDecimal("7.0"));
+
+        // Test 3 : Lundi -> Vendredi (mercredi férié compris) => NBCONGE = 5 (aucune réduction)
+        LocalDate lun3 = LocalDate.of(2026, 9, 14);
+        LocalDate ven3 = LocalDate.of(2026, 9, 18);
+        assertThat(engine.calculerNbJoursCongeValorises(lun3, ven3, false))
+                .isEqualByComparingTo(new BigDecimal("5.0"));
+
+        // Test 4 : Vendredi -> Lundi inclus => NBCONGE = 4
+        LocalDate ven4 = LocalDate.of(2026, 9, 18);
+        LocalDate lun4 = LocalDate.of(2026, 9, 21);
+        assertThat(engine.calculerNbJoursCongeValorises(ven4, lun4, false))
+                .isEqualByComparingTo(new BigDecimal("4.0"));
+
+        // Test 5 : Demi-journée => NBCONGE = 0.5
+        assertThat(engine.calculerNbJoursCongeValorises(ven1, ven1, true))
+                .isEqualByComparingTo(new BigDecimal("0.5"));
     }
 
     @Test
@@ -70,6 +125,20 @@ class CongeCalculateurEngineTest {
         // 30 jours sur 30 -> 2.5 jours acquis
         assertThat(engine.calculerAcquisitionMensuelleProratisee(new BigDecimal("30.0")))
                 .isEqualByComparingTo(new BigDecimal("2.5"));
+    }
+
+    @Test
+    @DisplayName("Acquisition mensuelle selon absences injustifiées : 0 absence -> 2.5j, 3 absences -> 2.25j")
+    void testCalculerAcquisitionAvecAbsencesInjustifiees() {
+        // 0 absence injustifiée : base = 30 -> 2.5 jours
+        BigDecimal baseSansAbsence = new BigDecimal("30.0").subtract(BigDecimal.ZERO);
+        assertThat(engine.calculerAcquisitionMensuelleProratisee(baseSansAbsence))
+                .isEqualByComparingTo(new BigDecimal("2.50"));
+
+        // 3 jours d'absence injustifiée : base = 27 -> 2.5 * 27 / 30 = 2.25 jours
+        BigDecimal base3Absences = new BigDecimal("30.0").subtract(new BigDecimal("3.0"));
+        assertThat(engine.calculerAcquisitionMensuelleProratisee(base3Absences))
+                .isEqualByComparingTo(new BigDecimal("2.25"));
     }
 
     @Test

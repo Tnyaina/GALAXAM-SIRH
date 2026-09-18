@@ -16,6 +16,7 @@ public class BulletinPaieComplet {
     private List<BulletinPaieLigne> lignes = new ArrayList<>();
     private ImpactPret impactPret;
     private List<Integer> idsAvancesImputees = new ArrayList<>();
+    private ExplicationPaieDTO explication;
 
     public static record ImpactPret(
             Integer idEcheance,
@@ -25,6 +26,36 @@ public class BulletinPaieComplet {
             BigDecimal montantRestantEcheance,
             String nouveauStatut,
             BigDecimal capitalRestantPretApres
+    ) {}
+
+    /**
+     * DTO d'explication canonique backend-driven pour l'affichage transparent et le contrôle
+     * des éléments de calcul sur le bulletin sans recalcul côté React (Phase Paie Finalization).
+     */
+    public static record ExplicationPaieDTO(
+            long minutesAbsenceRetenues,
+            BigDecimal heuresAbsenceRetenues,
+            int minutesRetard,
+            BigDecimal diviseurMensuelHeures,
+            BigDecimal tauxHoraire,
+            BigDecimal montantRetenueAbsence,
+            BigDecimal nbJoursConge,
+            BigDecimal salaireBaseContractuel,
+            BigDecimal tauxJournalierTrentieme,
+            BigDecimal deductionCongeTrentieme,
+            BigDecimal tauxJournalierConge,
+            BigDecimal indemniteConge,
+            BigDecimal impactNetConge,
+            BigDecimal heuresHs30,
+            BigDecimal montantHs30,
+            BigDecimal heuresHs50,
+            BigDecimal montantHs50,
+            BigDecimal heuresNuit,
+            BigDecimal montantNuit,
+            BigDecimal heuresDimanche,
+            BigDecimal montantDimanche,
+            BigDecimal heuresFerie,
+            BigDecimal montantFerie
     ) {}
 
     public BulletinPaieComplet() {}
@@ -75,4 +106,7 @@ public class BulletinPaieComplet {
 
     public List<Integer> getIdsAvancesImputees() { return idsAvancesImputees; }
     public void setIdsAvancesImputees(List<Integer> idsAvancesImputees) { this.idsAvancesImputees = idsAvancesImputees; }
+
+    public ExplicationPaieDTO getExplication() { return explication; }
+    public void setExplication(ExplicationPaieDTO explication) { this.explication = explication; }
 }

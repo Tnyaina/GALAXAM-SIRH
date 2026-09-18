@@ -224,14 +224,26 @@ public class DemandeCongeController {
 
                 d.setIdDemandeConge(id); // Garantie d'exclusion de son propre ID pour l'anti-overlap
 
-                if (etaitValide) {
-                    // Supprime temporairement le mouvement de solde PRISE pour recalculer exactement le solde disponible
-                    try (PreparedStatement psDelPrise = c.prepareStatement(
-                            "DELETE FROM mouvement_solde_conge WHERE id_demande_conge = ? AND type_mouvement = 'PRISE'")) {
-                        psDelPrise.setInt(1, id);
-                        psDelPrise.executeUpdate();
+                // Sécurisation Phase 2A-2C (RG-CONGE) : Interdire la modification sur une période de paie clôturée ou payée
+                if (etaitValide && d.getDateDebut() != null && d.getDateFin() != null) {
+                    String sqlCheckPeriode = "SELECT p.code FROM periode_paie p " +
+                            "JOIN ref_statut_periode_paie r ON p.id_statut_periode = r.id_statut_periode " +
+                            "WHERE p.date_debut <= ? AND p.date_fin >= ? AND r.code IN ('CLOTUREE', 'PAIE_VALIDEE')";
+                    try (PreparedStatement psP = c.prepareStatement(sqlCheckPeriode)) {
+                        psP.setDate(1, d.getDateFin());
+                        psP.setDate(2, d.getDateDebut());
+                        try (ResultSet rsP = psP.executeQuery()) {
+                            if (rsP.next()) {
+                                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                                        mg.galaxam.sirh.common.exception.SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                                        "Action interdite : Impossible de modifier un congé sur une période de paie déjà validée ou clôturée ("
+                                                + rsP.getString("code") + ").");
+                            }
+                        }
                     }
                 }
+
+                BigDecimal ancienNbJours = d.getNbJoursDecomptes();
 
                 if (req.containsKey("idTypeConge"))
                     d.setIdTypeConge(Integer.parseInt(req.get("idTypeConge").toString()));
@@ -277,14 +289,19 @@ public class DemandeCongeController {
                 if (etaitValide) {
                     RefTypeConge typeConge = RefTypeConge.rechercherParId(d.getIdTypeConge(), c);
                     if (typeConge != null && typeConge.isDecompteSoldeAcquis()) {
-                        mg.galaxam.sirh.model.conge.MouvementSoldeConge prise = new mg.galaxam.sirh.model.conge.MouvementSoldeConge();
-                        prise.setIdEmploye(d.getIdEmploye());
-                        prise.setTypeMouvement("PRISE");
-                        prise.setNbJours(d.getNbJoursDecomptes().negate());
-                        prise.setIdDemandeConge(d.getIdDemandeConge());
-                        prise.setCommentaire("Prise de congé " + typeConge.getLibelle() + " (Demande #" + d.getIdDemandeConge() + " - Dates modifiées)");
-                        prise.setCreatedBy(getCurrentUserId());
-                        prise.save(c);
+                        BigDecimal nouveauNbJours = d.getNbJoursDecomptes();
+                        BigDecimal delta = nouveauNbJours.subtract(ancienNbJours != null ? ancienNbJours : BigDecimal.ZERO);
+                        if (delta.compareTo(BigDecimal.ZERO) != 0) {
+                            mg.galaxam.sirh.model.conge.MouvementSoldeConge ajustement = new mg.galaxam.sirh.model.conge.MouvementSoldeConge();
+                            ajustement.setIdEmploye(d.getIdEmploye());
+                            ajustement.setTypeMouvement("AJUSTEMENT");
+                            ajustement.setNbJours(delta.negate());
+                            ajustement.setIdDemandeConge(d.getIdDemandeConge());
+                            ajustement.setCommentaire("Ajustement de solde suite modification durée de la demande #" + d.getIdDemandeConge()
+                                    + " (" + ancienNbJours + "j -> " + nouveauNbJours + "j)");
+                            ajustement.setCreatedBy(getCurrentUserId());
+                            ajustement.save(c);
+                        }
                     }
 
                     NotificationRhService.creer(

@@ -71,6 +71,12 @@ public class PayrollService {
     @Autowired
     private TransactionRunner transactionRunner;
 
+    @Autowired
+    private mg.galaxam.sirh.model.conge.service.CongeService congeService;
+
+    @Autowired
+    private mg.galaxam.sirh.model.conge.service.CongeTauxApplicableService congeTauxApplicableService;
+
     // Cache local des id_rubrique par code (thread-safe)
     private final Map<String, Integer> cacheRubriques = new ConcurrentHashMap<>();
 
@@ -434,7 +440,61 @@ public class PayrollService {
         if (bp == null) return null;
 
         List<BulletinPaieLigne> lignes = BulletinPaieLigne.listerParBulletin(idBulletin, c);
-        return new BulletinPaieComplet(bp, lignes);
+        BulletinPaieComplet complet = new BulletinPaieComplet(bp, lignes);
+
+        // Reconstruire l'explication canonique backend-driven depuis les données du bulletin et de ses lignes
+        BigDecimal base = bp.getSalaireBase() != null ? bp.getSalaireBase() : BigDecimal.ZERO;
+        BigDecimal txHor = bp.getTauxHoraire() != null ? bp.getTauxHoraire() : BigDecimal.ZERO;
+        BigDecimal diviseur = (base.signum() > 0 && txHor.signum() > 0)
+                ? base.divide(txHor, 2, RoundingMode.HALF_UP)
+                : mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES;
+
+        BulletinPaieLigne lAbs = complet.trouverLigne("RETENUE_ABSENCE");
+        BigDecimal hAbs = lAbs != null && lAbs.getQuantite() != null ? lAbs.getQuantite() : BigDecimal.ZERO;
+        long minAbs = hAbs.multiply(new BigDecimal("60")).setScale(0, RoundingMode.HALF_UP).longValue();
+        int minRetard = bp.getMinutesRetard() != null ? bp.getMinutesRetard() : 0;
+        BigDecimal mntAbs = lAbs != null && lAbs.getMontantSalarial() != null ? lAbs.getMontantSalarial() : BigDecimal.ZERO;
+
+        BulletinPaieLigne lDed = complet.trouverLigne("DEDUCTION_CONGE_BASE");
+        BulletinPaieLigne lInd = complet.trouverLigne("INDEMNITE_CONGE_PAYE");
+        BigDecimal nbConge = bp.getJoursConges() != null ? bp.getJoursConges()
+                : (lDed != null && lDed.getQuantite() != null ? lDed.getQuantite() : BigDecimal.ZERO);
+        BigDecimal tx30 = base.divide(new BigDecimal("30.0"), 4, RoundingMode.HALF_UP);
+        BigDecimal dedConge = lDed != null && lDed.getMontantSalarial() != null ? lDed.getMontantSalarial() : BigDecimal.ZERO;
+        BigDecimal txConge = lInd != null && lInd.getBaseCalcul() != null ? lInd.getBaseCalcul() : tx30;
+        BigDecimal indConge = lInd != null && lInd.getMontantSalarial() != null ? lInd.getMontantSalarial() : BigDecimal.ZERO;
+        BigDecimal netConge = indConge.subtract(dedConge);
+
+        BulletinPaieLigne l30 = complet.trouverLigne("HEURES_SUP_30");
+        BigDecimal h30 = l30 != null && l30.getQuantite() != null ? l30.getQuantite() : bp.getHeuresHs30();
+        BigDecimal mnt30 = l30 != null && l30.getMontantSalarial() != null ? l30.getMontantSalarial() : BigDecimal.ZERO;
+
+        BulletinPaieLigne l50 = complet.trouverLigne("HEURES_SUP_50");
+        BigDecimal h50 = l50 != null && l50.getQuantite() != null ? l50.getQuantite() : bp.getHeuresHs50();
+        BigDecimal mnt50 = l50 != null && l50.getMontantSalarial() != null ? l50.getMontantSalarial() : BigDecimal.ZERO;
+
+        BulletinPaieLigne lNuit = complet.trouverLigne("MAJORATION_NUIT");
+        BigDecimal hNuit = lNuit != null && lNuit.getQuantite() != null ? lNuit.getQuantite() : bp.getHeuresNuit();
+        BigDecimal mntNuit = lNuit != null && lNuit.getMontantSalarial() != null ? lNuit.getMontantSalarial() : BigDecimal.ZERO;
+
+        BulletinPaieLigne lDim = complet.trouverLigne("HEURES_DIMANCHE");
+        BigDecimal hDim = lDim != null && lDim.getQuantite() != null ? lDim.getQuantite() : BigDecimal.ZERO;
+        BigDecimal mntDim = lDim != null && lDim.getMontantSalarial() != null ? lDim.getMontantSalarial() : BigDecimal.ZERO;
+
+        BulletinPaieLigne lFer = complet.trouverLigne("MAJORATION_FERIE");
+        BigDecimal hFer = lFer != null && lFer.getQuantite() != null ? lFer.getQuantite() : BigDecimal.ZERO;
+        BigDecimal mntFer = lFer != null && lFer.getMontantSalarial() != null ? lFer.getMontantSalarial() : BigDecimal.ZERO;
+
+        complet.setExplication(new BulletinPaieComplet.ExplicationPaieDTO(
+                minAbs, hAbs, minRetard, diviseur, txHor, mntAbs,
+                nbConge, base, tx30, dedConge, txConge, indConge, netConge,
+                h30 != null ? h30 : BigDecimal.ZERO, mnt30,
+                h50 != null ? h50 : BigDecimal.ZERO, mnt50,
+                hNuit != null ? hNuit : BigDecimal.ZERO, mntNuit,
+                hDim, mntDim, hFer, mntFer
+        ));
+
+        return complet;
     }
 
     /**
@@ -465,13 +525,15 @@ public class PayrollService {
             }
         }
 
-        // 2. Employé et affectation applicables à la fin de la période calculée.
-        Date dateReferenceEmploi = in.getDateFinPeriode();
-        if (dateReferenceEmploi == null) {
-            throw new IllegalStateException("La date de fin de période est obligatoire pour résoudre l'emploi.");
+        // 2. Employé, affectation et contrat applicables dans le tronçon de la période calculée.
+        Date dateDebutPeriodeSql = in.getDateDebutPeriode();
+        Date dateFinPeriodeSql = in.getDateFinPeriode();
+        if (dateDebutPeriodeSql == null || dateFinPeriodeSql == null) {
+            throw new IllegalStateException("Les dates de début et de fin de période sont obligatoires pour résoudre l'emploi.");
         }
         String sqlEmploye = "SELECT e.*, " +
-                "eac.salaire_base, eac.date_debut AS affectation_date_debut, " +
+                "eac.salaire_base, eac.date_debut AS affectation_date_debut, eac.date_fin AS affectation_date_fin, " +
+                "ct.date_debut AS contrat_date_debut, ct.date_fin AS contrat_date_fin, " +
                 "s.code_site, s.libelle AS site_nom, " +
                 "f.libelle AS fonction_libelle, " +
                 "d.libelle AS departement_nom, " +
@@ -500,10 +562,10 @@ public class PayrollService {
 
         try (PreparedStatement ps = c.prepareStatement(sqlEmploye)) {
             ps.setInt(1, idEmploye);
-            ps.setDate(2, dateReferenceEmploi);
-            ps.setDate(3, dateReferenceEmploi);
-            ps.setDate(4, dateReferenceEmploi);
-            ps.setDate(5, dateReferenceEmploi);
+            ps.setDate(2, dateFinPeriodeSql);
+            ps.setDate(3, dateDebutPeriodeSql);
+            ps.setDate(4, dateFinPeriodeSql);
+            ps.setDate(5, dateDebutPeriodeSql);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     in.setMatricule(rs.getString("matricule"));
@@ -532,9 +594,51 @@ public class PayrollService {
                     in.setModeCalculPaie(rs.getString("mode_calcul_code") != null ? rs.getString("mode_calcul_code") : "MENSUEL");
                     in.setSalaireBaseContractuel(rs.getBigDecimal("salaire_base") != null ? rs.getBigDecimal("salaire_base") : BigDecimal.ZERO);
                     in.setDateEmbauche(rs.getDate("date_embauche_resolue") != null ? rs.getDate("date_embauche_resolue") : rs.getDate("date_declaration"));
+
+                    // Résolution canonique du tronçon contractuel pour le prorata temporis /30
+                    Date contratDebut = rs.getDate("contrat_date_debut");
+                    Date contratFin = rs.getDate("contrat_date_fin");
+                    Date affFin = rs.getDate("affectation_date_fin");
+
+                    LocalDate dDebPer = in.getDateDebutPeriode().toLocalDate();
+                    LocalDate dFinPer = in.getDateFinPeriode().toLocalDate();
+
+                    LocalDate dDebContrat = contratDebut != null ? contratDebut.toLocalDate() : dDebPer;
+                    LocalDate dFinContratEffective = null;
+                    if (contratFin != null) {
+                        dFinContratEffective = contratFin.toLocalDate();
+                    }
+                    if (affFin != null) {
+                        LocalDate dAffFin = affFin.toLocalDate();
+                        if (dFinContratEffective == null || dAffFin.isBefore(dFinContratEffective)) {
+                            dFinContratEffective = dAffFin;
+                        }
+                    }
+
+                    LocalDate effectiveStart = dDebContrat.isAfter(dDebPer) ? dDebContrat : dDebPer;
+                    LocalDate effectiveEnd = (dFinContratEffective != null && dFinContratEffective.isBefore(dFinPer))
+                            ? dFinContratEffective
+                            : dFinPer;
+
+                    boolean entreeEnCours = dDebContrat.isAfter(dDebPer);
+                    boolean sortieEnCours = dFinContratEffective != null && dFinContratEffective.isBefore(dFinPer);
+
+                    if (entreeEnCours || sortieEnCours) {
+                        in.setEntreeSortieEnCoursDeMois(true);
+                        if (effectiveEnd.isBefore(effectiveStart)) {
+                            in.setJoursSousContrat(BigDecimal.ZERO);
+                        } else {
+                            long jours = java.time.temporal.ChronoUnit.DAYS.between(effectiveStart, effectiveEnd) + 1;
+                            in.setJoursSousContrat(BigDecimal.valueOf(jours));
+                        }
+                    } else {
+                        in.setEntreeSortieEnCoursDeMois(false);
+                        in.setJoursSousContrat(null);
+                    }
+
                     if (rs.next()) {
                         throw new IllegalStateException("Plusieurs affectations concurrentes sont applicables à l'employé "
-                                + idEmploye + " au " + dateReferenceEmploi + ".");
+                                + idEmploye + " sur la période " + in.getDateDebutPeriode() + " au " + in.getDateFinPeriode() + ".");
                     }
                 } else {
                     throw new IllegalArgumentException("Dossier employé ou affectation active introuvable pour l'id: " + idEmploye);
@@ -573,10 +677,10 @@ public class PayrollService {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     BigDecimal hAbs = rs.getBigDecimal("heures_absence_retenues");
-                    BigDecimal absenceDays = rs.getBigDecimal("nb_jours_absence");
-                    if ((hAbs == null || hAbs.signum() == 0) && absenceDays != null) {
-                        hAbs = absenceDays.multiply(new BigDecimal("8.0"));
+                    if (hAbs == null) {
+                        hAbs = BigDecimal.ZERO;
                     }
+                    BigDecimal absenceDays = rs.getBigDecimal("nb_jours_absence");
                     Timestamp frozenTimestamp = rs.getTimestamp("gele_at");
                     Instant frozenAt = frozenTimestamp == null ? Instant.EPOCH : frozenTimestamp.toInstant();
                     BigDecimal hDim = rs.getBigDecimal("heures_dimanche_total");
@@ -609,10 +713,21 @@ public class PayrollService {
             }
         }
 
-        // 5.1 Taux journalier de congé dynamique (conge_journal_droit - OHATRA KAJY DROITS CONGES mutualisé)
-        BigDecimal tauxConge = StcService.getTauxJournalierDernier(idEmploye, in.getSalaireBaseContractuel(), c);
-        if (tauxConge.compareTo(BigDecimal.ZERO) > 0) {
-            in.setTauxJournalierConge(tauxConge);
+        // 5.0 Détermination canonique de NBCONGE (RG-CONGE-05) : domaine Congés en jours calendaires
+        if (congeService != null && idEmploye != null && in.getDateDebutPeriode() != null && in.getDateFinPeriode() != null) {
+            LocalDate dDebPer = in.getDateDebutPeriode().toLocalDate();
+            LocalDate dFinPer = in.getDateFinPeriode().toLocalDate();
+            BigDecimal nbJoursCongeValorises = congeService.calculerNbJoursCongeValorises(idEmploye, dDebPer, dFinPer, c);
+            if (nbJoursCongeValorises != null) {
+                in.setNbJoursConges(nbJoursCongeValorises);
+            }
+        }
+
+        // 5.1 Taux journalier de congé dynamique (résolu historiquement strictement avant la période)
+        LocalDate refDateConge = in.getDateDebutPeriode().toLocalDate();
+        var resTC = congeTauxApplicableService.resoudreTauxCongeApplicable(idEmploye, refDateConge, in.getSalaireBaseContractuel(), c);
+        if (resTC != null && resTC.getTauxJournalier().compareTo(BigDecimal.ZERO) > 0) {
+            in.setTauxJournalierConge(resTC.getTauxJournalier());
         }
 
         // 6. Paramètres légaux et fiscaux (LF 2026 par défaut)
@@ -850,21 +965,31 @@ public class PayrollService {
     /**
      * Alimente le grand-livre de valorisation des droits à congés (OHATRA KAJY DROITS CONGES)
      * lors de la clôture de la paie.
+     * Enregistre les valorisations mensuelles bornées à la période de référence active (max 12 mois).
      */
     private void mettreAJourJournalConge(Integer idPeriodePaie, Connection c) throws Exception {
-        String sqlPeriode = "SELECT EXTRACT(YEAR FROM date_fin)::INT AS annee, EXTRACT(MONTH FROM date_fin)::INT AS mois " +
+        String sqlPeriode = "SELECT date_fin, EXTRACT(YEAR FROM date_fin)::INT AS annee, EXTRACT(MONTH FROM date_fin)::INT AS mois " +
                 "FROM periode_paie WHERE id_periode_paie = ?";
+        LocalDate dateFinPaie = LocalDate.of(2026, 1, 25);
         int annee = 2026;
         int mois = 1;
         try (PreparedStatement psP = c.prepareStatement(sqlPeriode)) {
             psP.setInt(1, idPeriodePaie);
             try (ResultSet rsP = psP.executeQuery()) {
                 if (rsP.next()) {
+                    Date df = rsP.getDate("date_fin");
+                    if (df != null) dateFinPaie = df.toLocalDate();
                     annee = rsP.getInt("annee");
                     mois = rsP.getInt("mois");
                 }
             }
         }
+
+        // 1. Résolution stricte du paramètre DUREE_REFERENCE_TCONGE_MOIS (aucun fallback silencieux)
+        Map<String, String> params = mg.galaxam.sirh.model.paieconfig.ParametreGlobal.loadActiveMapAtDate(
+                Date.valueOf(dateFinPaie), c);
+        int dureeReferenceMax = mg.galaxam.sirh.model.paieconfig.ParametreGlobal.requirePositiveInt(
+                params, "DUREE_REFERENCE_TCONGE_MOIS");
 
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriodePaie, c);
         for (BulletinPaie bp : bulletins) {
@@ -882,15 +1007,15 @@ public class PayrollService {
             int idEmp = bp.getIdEmploye();
             BigDecimal base = bp.getSalaireBase() != null ? bp.getSalaireBase() : BigDecimal.ZERO;
             BigDecimal jAbs = bp.getJoursAbsence() != null ? bp.getJoursAbsence() : BigDecimal.ZERO;
-            BigDecimal jCge = bp.getJoursConges() != null ? bp.getJoursConges() : BigDecimal.ZERO;
 
-            // Formule jours travaillés/assimilés : 30 - max(0, absence - conge)
-            BigDecimal absInjustifiees = jAbs.subtract(jCge).max(BigDecimal.ZERO);
+            // Dette KAJY résolue : jAbs et jCge sont déjà mutuellement exclusifs dans le modèle Pointage.
+            // Les congés pris ne doivent jamais effacer les absences injustifiées.
+            BigDecimal absInjustifiees = jAbs.max(BigDecimal.ZERO);
             BigDecimal formule = new BigDecimal("30.0").subtract(absInjustifiees).max(BigDecimal.ZERO);
 
-            // Droits acquis : 2.5 * formule / 30
-            BigDecimal droitMois = new BigDecimal("2.5").multiply(formule)
-                    .divide(new BigDecimal("30.0"), 4, RoundingMode.HALF_UP);
+            // Acquisition canonique unifiée (RG-CONGE, propriété du Domaine Congés)
+            BigDecimal droitMois = congeService.enregistrerAcquisitionMensuelle(
+                    idEmp, annee, mois, absInjustifiees, bp.getCalculePar(), c);
 
             // Récupérer les lignes du bulletin pour net_base et hs
             List<BulletinPaieLigne> lignes = BulletinPaieLigne.listerParBulletin(bp.getIdBulletin(), c);
@@ -910,21 +1035,46 @@ public class PayrollService {
             BigDecimal baseTotale = netBase.add(mntHs).max(BigDecimal.ZERO);
             BigDecimal valMois = baseTotale.multiply(droitMois).divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
 
-            // Cumul précédent
+            // 2. Résolution de la période de référence bornée KAJY pour l'employé
+            var refActive = congeTauxApplicableService.resoudrePeriodeReferenceActive(idEmp, dateFinPaie, c);
+            if (refActive == null) {
+                log.warn("[PayrollService] TCONGE_REFERENCE_PERIOD_MISSING: aucune période de référence active (conge_periode_reference) " +
+                        "n'est configurée pour l'employé {} couvrant la date de paie {}. " +
+                        "L'alimentation de la campagne TCONGE est ignorée pour cet employé (aucun journal de référence généré silencieusement).",
+                        idEmp, dateFinPaie);
+                continue;
+            }
+
+            // Calcul du numéro de mois dans la référence à partir de la position calendaire
+            long monthsBetween = java.time.temporal.ChronoUnit.MONTHS.between(
+                    refActive.getDateDebut().withDayOfMonth(1),
+                    dateFinPaie.withDayOfMonth(1)
+            );
+            int numeroMoisRef = (int) monthsBetween + 1;
+            if (numeroMoisRef < 1 || numeroMoisRef > dureeReferenceMax) {
+                throw new IllegalStateException("TCONGE_REFERENCE_CAPACITY_EXCEEDED: la date de paie " + dateFinPaie +
+                        " correspond au mois " + numeroMoisRef + " de la référence [" + refActive.getDateDebut() + ", " +
+                        refActive.getDateFin() + "], excédant la durée maximale autorisée de " + dureeReferenceMax + " mois.");
+            }
+
+            // 3. Cumuls STRICTEMENT BORNÉS à la période de référence active (suppression du cumul infini tous temps)
             BigDecimal cumulJoursPrec = BigDecimal.ZERO;
             BigDecimal cumulValPrec = BigDecimal.ZERO;
-            String sqlPrec = "SELECT cumul_jours_droit, cumul_valorisation FROM conge_journal_droit " +
-                    "WHERE id_employe = ? AND (annee < ? OR (annee = ? AND mois < ?)) " +
-                    "ORDER BY annee DESC, mois DESC LIMIT 1";
+            String sqlPrec = "SELECT COALESCE(SUM(jours_droit_acquis), 0) AS cumul_droits, " +
+                    "COALESCE(SUM(valorisation_mensuelle), 0) AS cumul_valo " +
+                    "FROM conge_journal_droit " +
+                    "WHERE id_periode_reference = ? AND id_employe = ? " +
+                    "  AND (annee < ? OR (annee = ? AND mois < ?))";
             try (PreparedStatement psPrec = c.prepareStatement(sqlPrec)) {
-                psPrec.setInt(1, idEmp);
-                psPrec.setInt(2, annee);
+                psPrec.setInt(1, refActive.getIdPeriodeReference());
+                psPrec.setInt(2, idEmp);
                 psPrec.setInt(3, annee);
-                psPrec.setInt(4, mois);
+                psPrec.setInt(4, annee);
+                psPrec.setInt(5, mois);
                 try (ResultSet rsPrec = psPrec.executeQuery()) {
                     if (rsPrec.next()) {
-                        cumulJoursPrec = rsPrec.getBigDecimal("cumul_jours_droit");
-                        cumulValPrec = rsPrec.getBigDecimal("cumul_valorisation");
+                        cumulJoursPrec = rsPrec.getBigDecimal("cumul_droits");
+                        cumulValPrec = rsPrec.getBigDecimal("cumul_valo");
                     }
                 }
             }
@@ -938,8 +1088,8 @@ public class PayrollService {
             String sqlUpsert = "INSERT INTO conge_journal_droit (" +
                     "id_employe, id_periode_paie, annee, mois, salaire_base, jours_travailles_formule, " +
                     "jours_droit_acquis, base_valorisation, valorisation_mensuelle, cumul_jours_droit, " +
-                    "cumul_valorisation, taux_journalier_conge" +
-                    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                    "cumul_valorisation, taux_journalier_conge, id_periode_reference, numero_mois_reference" +
+                    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
                     "ON CONFLICT (id_employe, annee, mois) DO UPDATE SET " +
                     "id_periode_paie = EXCLUDED.id_periode_paie, " +
                     "salaire_base = EXCLUDED.salaire_base, " +
@@ -949,7 +1099,9 @@ public class PayrollService {
                     "valorisation_mensuelle = EXCLUDED.valorisation_mensuelle, " +
                     "cumul_jours_droit = EXCLUDED.cumul_jours_droit, " +
                     "cumul_valorisation = EXCLUDED.cumul_valorisation, " +
-                    "taux_journalier_conge = EXCLUDED.taux_journalier_conge";
+                    "taux_journalier_conge = EXCLUDED.taux_journalier_conge, " +
+                    "id_periode_reference = EXCLUDED.id_periode_reference, " +
+                    "numero_mois_reference = EXCLUDED.numero_mois_reference";
 
             try (PreparedStatement psUp = c.prepareStatement(sqlUpsert)) {
                 psUp.setInt(1, idEmp);
@@ -964,7 +1116,21 @@ public class PayrollService {
                 psUp.setBigDecimal(10, cumulJours);
                 psUp.setBigDecimal(11, cumulVal);
                 psUp.setBigDecimal(12, tauxJournalier);
+                psUp.setInt(13, refActive.getIdPeriodeReference());
+                psUp.setInt(14, numeroMoisRef);
                 psUp.executeUpdate();
+            }
+
+            // 4. Clôture de la référence à l'atteinte du terme de 12 mois
+            // Fige le TAUX_CALCULE dans conge_periode_reference sans auto-activation à date arbitraire
+            if (numeroMoisRef == dureeReferenceMax) {
+                congeTauxApplicableService.cloturerPeriodeReference(
+                        refActive.getIdPeriodeReference(),
+                        cumulJours,
+                        cumulVal,
+                        tauxJournalier,
+                        c
+                );
             }
         }
     }

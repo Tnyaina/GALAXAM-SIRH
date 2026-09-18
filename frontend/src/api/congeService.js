@@ -129,6 +129,14 @@ const congeService = {
   },
 
   /**
+   * Récupère la ventilation d'imputation RG-CONGE-06 (stock historique restant vs droits datés)
+   */
+  getImputationSolde: async (idEmploye) => {
+    const response = await apiClient.get(`/conges/solde/imputation/${idEmploye}`);
+    return response.data;
+  },
+
+  /**
    * Récupère la consommation annuelle du pool d'un employé (ex: 10j permissions exceptionnelles)
    */
   getConsommationPool: async (idEmploye, annee = null) => {
@@ -143,6 +151,14 @@ const congeService = {
    */
   creerAjustementManuel: async (data) => {
     const response = await apiClient.post('/conges/solde/ajustement', data);
+    return response.data;
+  },
+
+  /**
+   * Initialise le solde historique d'un salarié (reprise de données / migration sans historique détaillé)
+   */
+  initialiserSoldeHistorique: async (data) => {
+    const response = await apiClient.post('/conges/solde/initialisation', data);
     return response.data;
   },
 

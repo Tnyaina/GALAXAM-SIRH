@@ -419,6 +419,30 @@ public class ParametreGlobal extends ClassMere {
         }
     }
 
+    /**
+     * Résolution stricte d'un entier strictement positif sans fallback silencieux.
+     * Lève des erreurs explicites en cas d'absence ou de valeur non valide.
+     */
+    public static int requirePositiveInt(java.util.Map<String, String> params, String key) {
+        if (params == null || key == null) {
+            throw new IllegalStateException("TCONGE_REFERENCE_DURATION_MISSING: paramètre " + key + " non chargé.");
+        }
+        String val = params.get(key.toUpperCase());
+        if (val == null || val.trim().isEmpty()) {
+            throw new IllegalStateException("TCONGE_REFERENCE_DURATION_MISSING: le paramètre obligatoire " + key + " est introuvable ou vide.");
+        }
+        int parsed;
+        try {
+            parsed = Integer.parseInt(val.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException("TCONGE_REFERENCE_DURATION_INVALID: la valeur du paramètre " + key + " ('" + val + "') n'est pas un entier valide.", e);
+        }
+        if (parsed <= 0) {
+            throw new IllegalStateException("TCONGE_REFERENCE_DURATION_INVALID: la valeur du paramètre " + key + " doit être strictement positive (obtenu: " + parsed + ").");
+        }
+        return parsed;
+    }
+
     public static String getString(java.util.Map<String, String> params, String key, String defaultValue) {
         if (params == null || key == null) return defaultValue;
         String val = params.get(key.toUpperCase());

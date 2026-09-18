@@ -227,7 +227,9 @@ public class PayrollCalculationInput {
         this.nbJoursOuvrables = value.workingDays();
         this.nbJoursPresents = value.presentDays();
         this.nbJoursAbsence = value.absenceDays();
-        this.nbJoursConges = value.leaveDays();
+        // Phase 2A-3B : NBCONGE financier est possédé exclusivement par CongeService.calculerNbJoursCongeValorises
+        // et injecté via PayrollService.preparerInput. Pointage n'alimente plus nbJoursConges.
+        // value.leaveDays() est purement conservé dans attendanceInput comme métrique de snapshot (DISPLAY_ONLY).
         this.totalHeuresTravaillees = PayrollAttendanceInput.minutesToHours(value.workedMinutes());
         this.heuresNormales = this.totalHeuresTravaillees;
         this.heuresHs30 = PayrollAttendanceInput.minutesToHours(value.overtime30Minutes());
@@ -242,6 +244,30 @@ public class PayrollCalculationInput {
     }
 
     /**
+     * Calcule ou retourne le diviseur mensuel d'heures effectif (issu de paie_config_legale ou constante canonique).
+     */
+    public BigDecimal getDiviseurMensuelHeuresEffectif() {
+        if (diviseurMensuelHeures != null && diviseurMensuelHeures.compareTo(BigDecimal.ZERO) > 0) {
+            return diviseurMensuelHeures;
+        }
+        return PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES;
+    }
+
+    /**
+     * Calcule ou retourne le taux horaire de référence à pleine précision (sans setScale prématuré).
+     */
+    public BigDecimal getTauxHorairePlein() {
+        if (tauxHoraire != null && tauxHoraire.compareTo(BigDecimal.ZERO) > 0) {
+            return tauxHoraire;
+        }
+        if (salaireBaseContractuel != null && salaireBaseContractuel.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal diviseur = getDiviseurMensuelHeuresEffectif();
+            return salaireBaseContractuel.divide(diviseur, java.math.MathContext.DECIMAL128);
+        }
+        return BigDecimal.ZERO;
+    }
+
+    /**
      * Calcule ou retourne le taux horaire de référence (Base / 173.33 ou diviseur configurable).
      */
     public BigDecimal getTauxHoraireEffectif() {
@@ -249,12 +275,14 @@ public class PayrollCalculationInput {
             return tauxHoraire;
         }
         if (salaireBaseContractuel != null && salaireBaseContractuel.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal diviseur = (diviseurMensuelHeures != null && diviseurMensuelHeures.compareTo(BigDecimal.ZERO) > 0)
-                    ? diviseurMensuelHeures
-                    : PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES;
+            BigDecimal diviseur = getDiviseurMensuelHeuresEffectif();
             return salaireBaseContractuel.divide(diviseur, 4, RoundingMode.HALF_UP);
         }
         return BigDecimal.ZERO;
+    }
+
+    public BigDecimal getSalaireBasePlein() {
+        return salaireBaseContractuel != null ? salaireBaseContractuel : BigDecimal.ZERO;
     }
 
     /**

@@ -133,10 +133,20 @@ public class DemandeConge extends ClassMere {
             BigDecimal soldeDisponible = (solde != null && solde.getSoldeActuel() != null)
                     ? solde.getSoldeActuel()
                     : BigDecimal.ZERO;
-            BigDecimal nouveauSolde = soldeDisponible.subtract(nbJoursDecomptes);
+            BigDecimal joursDejaImputes = BigDecimal.ZERO;
+            if (this.idDemandeConge != null) {
+                try (PreparedStatement psM = c.prepareStatement(
+                        "SELECT COALESCE(SUM(-nb_jours), 0) FROM mouvement_solde_conge WHERE id_demande_conge = ?")) {
+                    psM.setInt(1, this.idDemandeConge);
+                    try (ResultSet rsM = psM.executeQuery()) {
+                        if (rsM.next()) joursDejaImputes = rsM.getBigDecimal(1);
+                    }
+                }
+            }
+            BigDecimal nouveauSolde = soldeDisponible.add(joursDejaImputes).subtract(nbJoursDecomptes);
             if (nouveauSolde.compareTo(BigDecimal.ZERO) < 0) {
                 throw new IllegalArgumentException(
-                        "Solde de congé insuffisant (" + soldeDisponible + "j disponibles pour " + nbJoursDecomptes
+                        "Solde de congé insuffisant (" + soldeDisponible.add(joursDejaImputes) + "j disponibles pour " + nbJoursDecomptes
                                 + "j demandés). L'autorisation de prise par anticipation (dépassement de solde) est requise.");
             }
         }
@@ -567,10 +577,13 @@ public class DemandeConge extends ClassMere {
             throw new IllegalArgumentException("ID de demande de congé obligatoire pour l'annulation.");
         }
 
-        String sqlLock = "SELECT s.code, dc.id_statut_demande_conge FROM demande_conge dc " +
+        String sqlLock = "SELECT s.code, dc.id_statut_demande_conge, dc.id_employe, dc.date_debut, dc.date_fin FROM demande_conge dc " +
                          "JOIN ref_statut_demande_conge s ON dc.id_statut_demande_conge = s.id_statut_demande_conge " +
                          "WHERE dc.id_demande_conge = ? FOR UPDATE";
         String statutCourant;
+        Date dateDebutLock = this.dateDebut;
+        Date dateFinLock = this.dateFin;
+        Integer idEmployeLock = this.idEmploye;
         try (PreparedStatement psLock = c.prepareStatement(sqlLock)) {
             psLock.setInt(1, this.idDemandeConge);
             try (ResultSet rsLock = psLock.executeQuery()) {
@@ -579,8 +592,50 @@ public class DemandeConge extends ClassMere {
                 }
                 statutCourant = rsLock.getString("code");
                 this.idStatutDemandeConge = rsLock.getInt("id_statut_demande_conge");
+                dateDebutLock = rsLock.getDate("date_debut");
+                dateFinLock = rsLock.getDate("date_fin");
+                idEmployeLock = rsLock.getInt("id_employe");
                 if ("ANNULE".equalsIgnoreCase(statutCourant) || "REFUSE".equalsIgnoreCase(statutCourant)) {
                     throw new IllegalStateException("Une demande de congé déjà refusée ou annulée ne peut plus être annulée.");
+                }
+            }
+        }
+
+        // Sécurisation Phase 2A-2C (RG-CONGE) : Interdire l'annulation d'un congé sur une période clôturée ou payée
+        if (dateDebutLock != null && dateFinLock != null) {
+            String sqlCheckPeriode = "SELECT p.code, r.code AS statut_code FROM periode_paie p " +
+                    "JOIN ref_statut_periode_paie r ON p.id_statut_periode = r.id_statut_periode " +
+                    "WHERE p.date_debut <= ? AND p.date_fin >= ? " +
+                    "  AND r.code IN ('CLOTUREE', 'PAIE_VALIDEE')";
+            try (PreparedStatement psP = c.prepareStatement(sqlCheckPeriode)) {
+                psP.setDate(1, dateFinLock);
+                psP.setDate(2, dateDebutLock);
+                try (ResultSet rsP = psP.executeQuery()) {
+                    if (rsP.next()) {
+                        String pCode = rsP.getString("code");
+                        throw new IllegalStateException("Action interdite : Impossible d'annuler un congé sur une période de paie déjà validée ou clôturée ("
+                                + pCode + "). Une régularisation explicite RH/DAF est requise.");
+                    }
+                }
+            }
+
+            if (idEmployeLock != null) {
+                String sqlCheckBulletin = "SELECT b.id_bulletin, b.statut, p.code AS p_code FROM bulletin_paie b " +
+                        "JOIN periode_paie p ON b.id_periode_paie = p.id_periode_paie " +
+                        "WHERE b.id_employe = ? AND p.date_debut <= ? AND p.date_fin >= ? " +
+                        "  AND b.statut IN ('VALIDE', 'CLOTURE')";
+                try (PreparedStatement psB = c.prepareStatement(sqlCheckBulletin)) {
+                    psB.setInt(1, idEmployeLock);
+                    psB.setDate(2, dateFinLock);
+                    psB.setDate(3, dateDebutLock);
+                    try (ResultSet rsB = psB.executeQuery()) {
+                        if (rsB.next()) {
+                            String bStatut = rsB.getString("statut");
+                            String pCode = rsB.getString("p_code");
+                            throw new IllegalStateException("Action interdite : Impossible d'annuler un congé rattaché à un bulletin de paie déjà "
+                                    + bStatut + " (Période " + pCode + "). Une régularisation explicite RH/DAF est requise.");
+                        }
+                    }
                 }
             }
         }

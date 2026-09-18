@@ -178,25 +178,28 @@ class Phase0CharacterizationTest {
     class AnomaliesDemontrees {
 
         @Test
-        @DisplayName("2.1 Bug Proratisation Paie : Calcule sur heures au lieu du trentième calendaire")
+        @DisplayName("2.1 Résolution Proratisation Paie : Requiert les jours sous contrat et calcule sur le trentième calendaire (/30)")
         void demontrerBugProratisationPaie() {
             // Embauche le 16 d'un mois de 30 jours (15 jours calendaires travaillés)
             // Règle confirmée attendue : 600 000 * 15 / 30 = 300 000.00 Ar
-            // Code actuel : tauxHoraire * heuresReelles
+            // Le fallback horaire silencieux a été supprimé en Phase 2A-1
             PayrollCalculationInput in = new PayrollCalculationInput();
             in.setSalaireBaseContractuel(new BigDecimal("600000.00"));
             in.setEntreeSortieEnCoursDeMois(true);
-            // Si le snapshot transmet par exemple 80.00 heures réelles (10 jours ouvrés de 8h)
             in.setHeuresNormales(new BigDecimal("80.00"));
 
             BulletinPaie bp = payrollEngine.initialiserEnTete(in);
             List<BulletinPaieLigne> lignes = new ArrayList<>();
-            BigDecimal brut = payrollEngine.calculerSalaireBrut(in, bp, lignes);
+            // Sans joursSousContrat : interdiction du fallback horaire
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> payrollEngine.calculerSalaireBrut(in, bp, lignes))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("PAYROLL_CONTRACT_PERIOD_DATA_MISSING");
 
-            // Taux horaire = 600000 / 173.33 = 3461.6050
-            // 80 * 3461.6050 = 276 928.40 Ar (au lieu de 300 000.00 Ar conventionnels !)
-            assertThat(brut).isEqualByComparingTo("276928.40");
-            // CARACTÉRISATION DU BUG : Ce résultat démontre l'écart entre la formule horaire et le 1/30ème !
+            // Avec joursSousContrat = 15 : calcul canonique /30
+            in.setJoursSousContrat(new BigDecimal("15"));
+            List<BulletinPaieLigne> lignesValides = new ArrayList<>();
+            BigDecimal brut = payrollEngine.calculerSalaireBrut(in, bp, lignesValides);
+            assertThat(brut).isEqualByComparingTo("300000.00");
         }
 
         @Test

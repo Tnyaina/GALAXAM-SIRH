@@ -30,7 +30,9 @@ public class TestDatabaseCleaner {
                 s.execute("TRUNCATE TABLE pointage_cumul_periode CASCADE;");
                 s.execute("TRUNCATE TABLE demande_conge CASCADE;");
                 s.execute("TRUNCATE TABLE mouvement_solde_conge CASCADE;");
+                s.execute("TRUNCATE TABLE conge_taux_applicable CASCADE;");
                 s.execute("TRUNCATE TABLE conge_journal_droit CASCADE;");
+                s.execute("TRUNCATE TABLE conge_periode_reference CASCADE;");
                 s.execute("TRUNCATE TABLE workflow_rh CASCADE;");
                 s.execute("TRUNCATE TABLE contrat_periode_essai CASCADE;");
                 s.execute("TRUNCATE TABLE employe_affectation_carriere CASCADE;");

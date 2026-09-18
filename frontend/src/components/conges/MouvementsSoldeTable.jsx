@@ -22,7 +22,10 @@ const formatDateMouvement = (dateVal, fallbackTimestamp) => {
   });
 };
 
-const getMouvementLabel = (type) => {
+const getMouvementLabel = (type, commentaire) => {
+  if (type === 'AJUSTEMENT' && commentaire && commentaire.startsWith('[SOLDE_INITIAL]')) {
+    return 'Solde initial (reprise historique)';
+  }
   switch (type) {
     case 'ACQUISITION': return 'Acquisition mensuelle';
     case 'BONIFICATION': return 'Bonification ancienneté';
@@ -37,6 +40,7 @@ const getMouvementLabel = (type) => {
 const TYPE_OPTIONS = [
   { value: 'ALL', label: 'Tous les mouvements' },
   { value: 'ACQUISITION', label: 'Acquisition mensuelle (+2.5j)' },
+  { value: 'SOLDE_INITIAL', label: 'Solde initial (reprise historique)' },
   { value: 'BONIFICATION', label: 'Bonification d\'ancienneté' },
   { value: 'PRISE', label: 'Prise de congé' },
   { value: 'AJUSTEMENT', label: 'Ajustement manuel RH' },
@@ -56,6 +60,12 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
   const filteredMouvements = safeMouvements.filter((mvt) => {
     if (!mvt) return false;
     if (filterType === 'ALL') return true;
+    if (filterType === 'SOLDE_INITIAL') {
+      return mvt.typeMouvement === 'AJUSTEMENT' && mvt.commentaire?.startsWith('[SOLDE_INITIAL]');
+    }
+    if (filterType === 'AJUSTEMENT') {
+      return mvt.typeMouvement === 'AJUSTEMENT' && !mvt.commentaire?.startsWith('[SOLDE_INITIAL]');
+    }
     return mvt.typeMouvement === filterType;
   });
 
@@ -151,7 +161,7 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
                     </Td>
                     <Td>
                       <Badge variant="default" size="xs" className="font-semibold">
-                        {getMouvementLabel(m.typeMouvement)}
+                        {getMouvementLabel(m.typeMouvement, m.commentaire)}
                       </Badge>
                     </Td>
                     <Td className="text-center font-mono font-bold text-xs">

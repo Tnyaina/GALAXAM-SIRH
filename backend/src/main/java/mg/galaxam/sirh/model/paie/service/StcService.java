@@ -146,8 +146,12 @@ public class StcService {
         }
 
 
-        // Taux horaire légal (173.33h mensuelles)
-        BigDecimal tauxHoraire = salaireBase.divide(PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES, 4, RoundingMode.HALF_UP);
+        // Taux horaire légal résolu depuis la configuration légale applicable
+        PaieConfigLegale cfgLegale = chargerConfigLegale(dateDepartEffective, c);
+        BigDecimal diviseurHoraire = (cfgLegale != null && cfgLegale.getDiviseurMensuelHeures() != null)
+                ? cfgLegale.getDiviseurMensuelHeures()
+                : PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES;
+        BigDecimal tauxHoraire = salaireBase.divide(diviseurHoraire, 4, RoundingMode.HALF_UP);
         prep.setTauxHoraire(tauxHoraire);
 
         // 2. Ancienneté via AncienneteEngine (décompte complet des contrats successifs)
@@ -203,8 +207,8 @@ public class StcService {
                 : BigDecimal.ZERO;
         prep.setSoldeCongesRestant(soldeJours);
 
-        // Taux journalier valorisé TCONGE issu du Grand-Livre (mutualisé)
-        BigDecimal tauxConge = getTauxJournalierDernier(idEmploye, salaireBase, c);
+        // Taux journalier valorisé TCONGE issu du Grand-Livre (mutualisé avec résolution temporelle)
+        BigDecimal tauxConge = getTauxJournalierApplicable(idEmploye, dDep, salaireBase, c);
         prep.setTauxJournalierConge(tauxConge);
 
         BigDecimal iccpEstimee = MoneyRoundingPolicy.amount(soldeJours.multiply(tauxConge));
@@ -933,26 +937,18 @@ public class StcService {
         }
     }
 
+    private static final mg.galaxam.sirh.model.conge.service.CongeTauxApplicableService congeTauxApplicableService =
+            new mg.galaxam.sirh.model.conge.service.CongeTauxApplicableService();
+
+    public static BigDecimal getTauxJournalierApplicable(int idEmploye, LocalDate dateReference, BigDecimal salaireBaseFallback, Connection c) {
+        if (dateReference == null) {
+            throw new IllegalArgumentException("La date de référence temporelle est obligatoire pour résoudre TCONGE.");
+        }
+        return congeTauxApplicableService.resoudreTauxCongeApplicable(idEmploye, dateReference, salaireBaseFallback, c).getTauxJournalier();
+    }
+
     public static BigDecimal getTauxJournalierDernier(int idEmploye, BigDecimal salaireBaseFallback, Connection c) {
-        String sqlTauxConge = "SELECT taux_journalier_conge FROM conge_journal_droit " +
-                "WHERE id_employe = ? ORDER BY annee DESC, mois DESC LIMIT 1";
-        try (PreparedStatement psTC = c.prepareStatement(sqlTauxConge)) {
-            psTC.setInt(1, idEmploye);
-            try (ResultSet rsTC = psTC.executeQuery()) {
-                if (rsTC.next()) {
-                    BigDecimal taux = rsTC.getBigDecimal("taux_journalier_conge");
-                    if (taux != null && taux.compareTo(BigDecimal.ZERO) > 0) {
-                        return taux;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.warn("[StcService] Erreur recherche dernier taux journalier congé pour employé {}: {}", idEmploye, e.getMessage());
-        }
-        if (salaireBaseFallback != null && salaireBaseFallback.compareTo(BigDecimal.ZERO) > 0) {
-            return salaireBaseFallback.divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
-        }
-        return BigDecimal.ZERO;
+        return getTauxJournalierApplicable(idEmploye, LocalDate.now(), salaireBaseFallback, c);
     }
 
     private AncienneteEngine.AncienneteBilan calculerAncienneteEmploye(int idEmploye, Date dateDepart, Connection c) {

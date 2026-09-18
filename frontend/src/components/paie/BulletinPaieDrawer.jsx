@@ -166,15 +166,28 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         return Number(val).toLocaleString('fr-MG', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' Ar';
     };
 
+    const formatMinutes = (totalMin) => {
+        if (!totalMin || totalMin <= 0) return '0 min';
+        const h = Math.floor(totalMin / 60);
+        const m = totalMin % 60;
+        if (h === 0) return `${m} min`;
+        if (m === 0) return `${h} h`;
+        return `${h} h ${m} min`;
+    };
+
     const bulletin = data?.bulletin;
+    const explication = data?.explication;
     const lignes = Array.isArray(data?.lignes) ? data.lignes : [];
 
     // Classification des lignes pour l'affichage fidèle au Wireframe 2
     const lignesPointage = lignes.filter(l => 
-        ['HEURES_SUP', 'HEURES_SUP_30', 'HEURES_SUP_50', 'HEURES_NUIT', 'INDEMNITE_REPAS', 'INDEMNITE_DEPLACEMENT', 'ABSENCE_RETENUE'].includes(l.codeRubrique) ||
+        ['HEURES_SUP', 'HEURES_SUP_30', 'HEURES_SUP_50', 'HEURES_NUIT', 'HEURES_DIMANCHE', 'MAJORATION_FERIE',
+         'INDEMNITE_REPAS', 'INDEMNITE_DEPLACEMENT', 'RETENUE_ABSENCE', 'ABSENCE_RETENUE',
+         'DEDUCTION_CONGE_BASE', 'INDEMNITE_CONGE_PAYE'].includes(l.codeRubrique) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('heure')) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('nuit')) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('absence')) ||
+        (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('congé')) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('repas')) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('deplacement'))
     );
@@ -275,13 +288,77 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                             </div>
 
                             <div className="space-y-1.5">
+                                {/* Congés Payés avec ventilation canonique Base/30 et TCONGE */}
+                                {explication && (explication.nbJoursConge || 0) > 0 && (
+                                    <div className="py-2 border-b border-[var(--color-border-subtle)]/50 space-y-1">
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-semibold text-[var(--color-fg)]">
+                                                Congés Payés ({explication.nbJoursConge} j pris)
+                                            </span>
+                                            <span className={`font-mono font-bold ${explication.impactNetConge >= 0 ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'}`}>
+                                                {explication.impactNetConge >= 0 ? `+${formatAr(explication.impactNetConge)}` : `-${formatAr(Math.abs(explication.impactNetConge))}`}
+                                            </span>
+                                        </div>
+                                        <div className="text-[11px] text-[var(--color-fg-muted)] pl-2 border-l-2 border-blue-400 dark:border-blue-600 space-y-0.5">
+                                            <div>
+                                                Déduction base (1/30ème) : <span className="font-medium text-[var(--color-fg)]">-{formatAr(explication.deductionCongeTrentieme)}</span> ({explication.nbJoursConge} j × {formatAr(explication.tauxJournalierTrentieme)}/j)
+                                            </div>
+                                            <div>
+                                                Indemnité congé (TCONGE) : <span className="font-medium text-[var(--color-fg)]">+{formatAr(explication.indemniteConge)}</span> ({explication.nbJoursConge} j × {formatAr(explication.tauxJournalierConge)}/j)
+                                            </div>
+                                            <div className="text-[10px] text-[var(--color-fg-muted)]">
+                                                Règle : déduction Base/30 + maintien de salaire au taux TCONGE applicable
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Retenue Absences / Déficit horaire avec explicabilité backend-driven */}
+                                {explication && (explication.montantRetenueAbsence > 0 || explication.minutesAbsenceRetenues > 0) && (
+                                    <div className="py-2 border-b border-[var(--color-border-subtle)]/50 space-y-1">
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                                                - Retenue Déficit de Présence
+                                            </span>
+                                            <span className="font-mono font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                                                -{formatAr(explication.montantRetenueAbsence)}
+                                            </span>
+                                        </div>
+                                        <div className="text-[11px] text-[var(--color-fg-muted)] pl-2 border-l-2 border-red-400 dark:border-red-600 space-y-0.5">
+                                            <div>
+                                                Déficit net retenu : <span className="font-medium text-[var(--color-fg)]">{formatMinutes(explication.minutesAbsenceRetenues)}</span> ({explication.minutesAbsenceRetenues} min • {explication.heuresAbsenceRetenues} h)
+                                            </div>
+                                            <div>
+                                                Diviseur légal : <span className="font-medium text-[var(--color-fg)]">{explication.diviseurMensuelHeures} h</span> • Taux horaire : <span className="font-medium text-[var(--color-fg)]">{formatAr(explication.tauxHoraire)}/h</span>
+                                            </div>
+                                            {explication.minutesRetard > 0 && (
+                                                <div className="text-[10px] text-amber-700 dark:text-amber-400">
+                                                    Dont retards bruts enregistrés : {formatMinutes(explication.minutesRetard)} ({explication.minutesRetard} min) — <em>non déduits en doublon</em>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Fallback retenue absence si explication absente */}
+                                {!explication && (bulletin.retenueAbsence || 0) > 0 && (
+                                    <div className="flex justify-between items-center py-1 border-b border-[var(--color-border-subtle)]/50">
+                                        <span className="text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                                            - Retenue Absences & Retards
+                                        </span>
+                                        <span className="font-mono font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                                            -{formatAr(bulletin.retenueAbsence)}
+                                        </span>
+                                    </div>
+                                )}
+
                                 {((bulletin.heuresHs30 || 0) > 0 || (bulletin.heuresHs50 || 0) > 0) && (
                                     <div className="flex justify-between items-center py-1 border-b border-[var(--color-border-subtle)]/50">
                                         <span className="text-[var(--color-fg)]">
                                             + Heures Supplémentaires (+30%: {bulletin.heuresHs30 || 0}h / +50%: {bulletin.heuresHs50 || 0}h)
                                         </span>
                                         <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
-                                            +{formatAr(bulletin.majorationHeuresSupplementaires || 0)}
+                                            +{formatAr(bulletin.majorationHeuresSupplementaires || (explication ? (explication.montantHs30 || 0) + (explication.montantHs50 || 0) : 0))}
                                         </span>
                                     </div>
                                 )}
@@ -292,7 +369,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                             + Majoration Nuit (+30% / {bulletin.heuresNuit}h)
                                         </span>
                                         <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
-                                            +{formatAr(bulletin.majorationHeuresNuit || 0)}
+                                            +{formatAr(bulletin.majorationHeuresNuit || (explication ? explication.montantNuit : 0))}
                                         </span>
                                     </div>
                                 )}
@@ -308,18 +385,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                     </div>
                                 )}
 
-                                {(bulletin.retenueAbsence || 0) > 0 && (
-                                    <div className="flex justify-between items-center py-1 border-b border-[var(--color-border-subtle)]/50">
-                                        <span className="text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                                            - Retenue Absences & Retards
-                                        </span>
-                                        <span className="font-mono font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                                            -{formatAr(bulletin.retenueAbsence)}
-                                        </span>
-                                    </div>
-                                )}
-
-                                {lignesPointage.length === 0 && (
+                                {lignesPointage.length === 0 && !explication && (
                                     <div className="text-[11px] text-[var(--color-fg-muted)] italic py-1">
                                         Pointage standard appliqué (aucun écart d'heures ou absence).
                                     </div>

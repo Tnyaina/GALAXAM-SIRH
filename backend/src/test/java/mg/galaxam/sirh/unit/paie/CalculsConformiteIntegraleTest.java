@@ -120,19 +120,22 @@ public class CalculsConformiteIntegraleTest {
     class PaieBrutTests {
 
         @Test
-        @DisplayName("1.1 Prorata temporis en cours de mois (Entrée / Sortie)")
+        @DisplayName("1.1 Prorata temporis en cours de mois (Entrée / Sortie) : jours sous contrat /30 obligatoire")
         void testProrataTemporisEntreeSortie() {
             PayrollCalculationInput in = buildBaseInput(new BigDecimal("600000.00"), "PERMANENT");
             in.setEntreeSortieEnCoursDeMois(true);
-            // Salarié ayant travaillé seulement 86.665 heures (moitié du mois)
-            in.setHeuresNormales(new BigDecimal("86.665"));
 
+            // Phase 2A-1 : Le fallback heuresReelles * tauxHoraire est strictement interdit
             BulletinPaie bp = payrollEngine.initialiserEnTete(in);
             List<BulletinPaieLigne> lignes = new ArrayList<>();
-            BigDecimal brut = payrollEngine.calculerSalaireBrut(in, bp, lignes);
+            assertThrows(IllegalStateException.class, () -> payrollEngine.calculerSalaireBrut(in, bp, lignes));
 
-            // Taux horaire = 600 000 / 173.33 = ~3461.6050
-            // Salaire proratisé = 86.665 * 3461.6050 = 300 000.00 Ar
+            // Avec les jours sous contrat canoniques (15 jours sur 30 = moitié du mois)
+            in.setJoursSousContrat(new BigDecimal("15"));
+            List<BulletinPaieLigne> lignesValides = new ArrayList<>();
+            BigDecimal brut = payrollEngine.calculerSalaireBrut(in, bp, lignesValides);
+
+            // 600 000 * 15 / 30 = 300 000.00 Ar
             assertEquals(new BigDecimal("300000.00"), brut);
             assertEquals(new BigDecimal("300000.00"), bp.getTotalGainsBruts());
         }
@@ -224,26 +227,26 @@ public class CalculsConformiteIntegraleTest {
         }
 
         @Test
-        @DisplayName("1.3 Retenue d'absence en mode Trentième (1/30ème)")
+        @DisplayName("1.3 Retenue d'absence en heures réelles canonique")
         void testRetenueAbsenceTrentieme() {
             PayrollCalculationInput in = buildBaseInput(new BigDecimal("600000.00"), "PERMANENT");
-            in.setModeCalculAbsence("TRENTIEME");
-            in.setNbJoursAbsence(new BigDecimal("3.0"));
+            // Phase 2A-1 : Absences consommées en temps (heures réelles)
+            in.setNbHeuresAbsence(new BigDecimal("24.0"));
 
             BulletinPaie bp = payrollEngine.initialiserEnTete(in);
             List<BulletinPaieLigne> lignes = new ArrayList<>();
             BigDecimal brut = payrollEngine.calculerSalaireBrut(in, bp, lignes);
 
-            // Taux journalier trentième = 600 000 / 30 = 20 000 Ar
-            // Retenue pour 3 jours = 60 000 Ar
-            // Brut = 600 000 - 60 000 = 540 000 Ar
+            // Taux horaire = 600 000 / 173.33 = ~3461.6050
+            // Retenue pour 24h = 24 * 3461.6050 = 83078.52 Ar
+            // Brut = 600 000 - 83078.52 = 516921.48 Ar
             BigDecimal montantRetenue = lignes.stream()
                     .filter(l -> "RETENUE_ABSENCE".equals(l.getCodeRubrique()))
                     .map(BulletinPaieLigne::getMontantSalarial)
                     .findFirst().orElse(BigDecimal.ZERO);
 
-            assertEquals(new BigDecimal("60000.00"), montantRetenue);
-            assertEquals(new BigDecimal("540000.00"), brut);
+            assertEquals(new BigDecimal("83078.52"), montantRetenue);
+            assertEquals(new BigDecimal("516921.48"), brut);
         }
 
         @Test

@@ -95,6 +95,18 @@ public class CongeSoldeController {
         }
     }
 
+    @GetMapping("/solde/imputation/{idEmploye}")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getImputationSolde(@PathVariable Integer idEmploye) {
+        try (Connection c = dataSource.getConnection()) {
+            mg.galaxam.sirh.model.conge.engine.PurgeFifoEngine.ImputationResult res = congeService.getImputationSolde(idEmploye, c);
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
     @GetMapping("/pool-consommation/employe/{idEmploye}")
     @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getConsommationPool(
@@ -146,6 +158,41 @@ public class CongeSoldeController {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                     mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
                     "Impossible d'enregistrer cet ajustement de solde.");
+        }
+    }
+
+    @PostMapping("/solde/initialisation")
+    @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> initialiserSoldeHistorique(@RequestBody Map<String, Object> req) {
+        if (!req.containsKey("idEmploye") || !req.containsKey("soldeInitial") || !req.containsKey("dateArrete")) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "L'idEmploye, le soldeInitial et la dateArrete sont obligatoires pour l'initialisation de solde.");
+        }
+
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                int idEmploye = Integer.parseInt(req.get("idEmploye").toString());
+                BigDecimal soldeInitial = new BigDecimal(req.get("soldeInitial").toString());
+                java.time.LocalDate dateArrete = java.time.LocalDate.parse(req.get("dateArrete").toString());
+                boolean inclutAcquisitionMoisArrete = req.containsKey("inclutAcquisitionMoisArrete") && Boolean.parseBoolean(req.get("inclutAcquisitionMoisArrete").toString());
+                String motif = req.containsKey("motif") && req.get("motif") != null ? req.get("motif").toString() : null;
+                Integer currentUserId = getCurrentUserId();
+
+                congeService.initialiserSoldeHistorique(idEmploye, soldeInitial, dateArrete, inclutAcquisitionMoisArrete, motif, currentUserId, c);
+                c.commit();
+
+                VSoldeCongeEmploye soldeMisAJour = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
+                return ResponseEntity.ok(soldeMisAJour);
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        } catch (Exception e) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "Impossible d'enregistrer cette initialisation de solde : " + e.getMessage());
         }
     }
 
