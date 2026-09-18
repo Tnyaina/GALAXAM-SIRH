@@ -20,7 +20,6 @@ export default function ValidationFilters({
   displayTotal,
   searchRaw,
   setSearchRaw,
-  searchTerm,
   loading,
   onRefresh,
   onNewDemande

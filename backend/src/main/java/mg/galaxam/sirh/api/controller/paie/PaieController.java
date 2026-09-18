@@ -144,6 +144,33 @@ public class PaieController {
         }
     }
 
+    @GetMapping("/employe/{idEmploye}/bulletins")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> listerBulletinsEmploye(@PathVariable("idEmploye") Integer idEmploye) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            List<Map<String, Object>> list = payrollService.listerBulletinsEmploye(idEmploye, c);
+            return ResponseEntity.ok(list);
+        }
+    }
+
+    @GetMapping("/employe/{idEmploye}/synthese")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> obtenirSynthesePaieEmploye(@PathVariable("idEmploye") Integer idEmploye) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            Map<String, Object> synthese = payrollService.obtenirSynthesePaieEmploye(idEmploye, c);
+            return ResponseEntity.ok(synthese);
+        }
+    }
+
+    @GetMapping("/employe/{idEmploye}/prets")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> listerPretsEmploye(@PathVariable("idEmploye") Integer idEmploye) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            List<mg.galaxam.sirh.model.paie.PaiePret> list = mg.galaxam.sirh.model.paie.PaiePret.listerParEmploye(idEmploye, c);
+            return ResponseEntity.ok(list);
+        }
+    }
+
     // =========================================================================
     // RESTITUTIONS & EXPORTS OFFICIELS (SAFI 25 COL, EDI ISI XML, DNTS, VIREMENT)
     // =========================================================================

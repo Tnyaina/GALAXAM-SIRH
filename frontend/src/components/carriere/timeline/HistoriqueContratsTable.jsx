@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FileText, Award, FileCheck, Eye, EyeOff } from 'lucide-react';
+import { FileText, Award, FileCheck, Eye, EyeOff, Calculator } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
@@ -10,7 +10,8 @@ export default function HistoriqueContratsTable({
     displayContrats = [],
     _contratActif,
     onOpenCertificat,
-    onOpenAttestation
+    onOpenAttestation,
+    onOpenStc,
 }) {
     const today = new Date().setHours(0, 0, 0, 0);
 
@@ -168,14 +169,27 @@ export default function HistoriqueContratsTable({
                                                 Sans effet juridique
                                             </span>
                                         ) : canGenerateCertificat ? (
-                                            <Button
-                                                onClick={() => onOpenCertificat(ct)}
-                                                variant="outline"
-                                                size="xs"
-                                                iconLeft={<Award size={13} />}
-                                            >
-                                                Certificat
-                                            </Button>
+                                            <div className="flex justify-end gap-1.5">
+                                                {onOpenStc && (
+                                                    <Button
+                                                        onClick={() => onOpenStc(ct)}
+                                                        variant="outline"
+                                                        size="xs"
+                                                        iconLeft={<Calculator size={13} />}
+                                                        className="border-[var(--color-brand-600)] text-[var(--color-brand-600)] hover:bg-[var(--color-brand-50)]"
+                                                    >
+                                                        STC
+                                                    </Button>
+                                                )}
+                                                <Button
+                                                    onClick={() => onOpenCertificat(ct)}
+                                                    variant="outline"
+                                                    size="xs"
+                                                    iconLeft={<Award size={13} />}
+                                                >
+                                                    Certificat
+                                                </Button>
+                                            </div>
                                         ) : isContratEnCours ? (
                                             <Button
                                                 onClick={() => onOpenAttestation(ct)}

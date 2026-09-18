@@ -1,6 +1,8 @@
 import { useRef } from 'react';
 import { Printer, X } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
+import { formatMoneyAr } from '@/utils/moneyUtils';
+import { fmtDate } from '@/utils/carriereUtils';
 
 /**
  * Vue imprimable A4 normalisée pour Bulletin de Paie Malagasy (GALAXAM SIRH).
@@ -19,10 +21,7 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
         window.print();
     };
 
-    const formatAr = (val) => {
-        if (val === null || val === undefined) return '0 Ar';
-        return Number(val).toLocaleString('fr-MG', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' Ar';
-    };
+    const formatAr = (val) => formatMoneyAr(val);
 
     return (
         <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm overflow-y-auto flex flex-col items-center p-4 sm:p-6 print:p-0 print:bg-white print:static">
@@ -93,11 +92,11 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
                         </div>
                         <div className="flex justify-between border-b border-slate-200 pb-0.5">
                             <span className="text-slate-500 font-medium">Nom & Prénom :</span>
-                            <span className="font-bold text-slate-900">{bulletin.nomEmploye} {bulletin.prenomEmploye}</span>
+                            <span className="font-bold text-slate-900">{bulletin.nomPrenom || [bulletin.nom, bulletin.prenom].filter(Boolean).join(' ') || [bulletin.nomEmploye, bulletin.prenomEmploye].filter(Boolean).join(' ') || 'Employé'}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-200 pb-0.5">
                             <span className="text-slate-500 font-medium">Fonction :</span>
-                            <span className="text-slate-800 font-medium">{bulletin.fonction || '-'}</span>
+                            <span className="text-slate-800 font-medium">{bulletin.intitulePoste || bulletin.fonction || '-'}</span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-slate-500 font-medium">Site d'affectation :</span>
@@ -112,11 +111,11 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
                         </div>
                         <div className="flex justify-between border-b border-slate-200 pb-0.5">
                             <span className="text-slate-500 font-medium">N° CIN :</span>
-                            <span className="font-mono text-slate-800">{bulletin.cin || 'Non renseigné'}</span>
+                            <span className="font-mono text-slate-800">{bulletin.cinNumero || bulletin.cin || 'Non renseigné'}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-200 pb-0.5">
                             <span className="text-slate-500 font-medium">Date d'embauche :</span>
-                            <span className="text-slate-800">{bulletin.dateEmbauche || '-'}</span>
+                            <span className="text-slate-800">{bulletin.dateEmbauche ? fmtDate(bulletin.dateEmbauche) : '-'}</span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-slate-500 font-medium">Régime fiscal :</span>
@@ -129,7 +128,7 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
                 <div className="grid grid-cols-4 gap-2 border border-slate-300 p-2 mb-4 text-center bg-white text-[11px]">
                     <div className="border-r border-slate-200 pr-2">
                         <span className="text-slate-500 block text-[10px]">Jours Travaillés</span>
-                        <span className="font-bold text-slate-800">{bulletin.nbJoursTravailles ?? 22} j</span>
+                        <span className="font-bold text-slate-800">{bulletin.joursTravailles ?? bulletin.nbJoursTravailles ?? '-'} j</span>
                     </div>
                     <div className="border-r border-slate-200 pr-2">
                         <span className="text-slate-500 block text-[10px]">Heures Normales</span>
@@ -169,7 +168,12 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
                                 </td>
                             </tr>
                         ) : (
-                            lignes.map((ligne, idx) => (
+                            lignes.map((ligne, idx) => {
+                                const isRetenue = ligne.sens === 'RETENUE';
+                                const isGain = ligne.sens === 'GAIN' || ligne.sens === 'INFO';
+                                const montantRetenue = isRetenue ? (ligne.montantSalarial ?? ligne.montantRetenue) : (ligne.montantRetenue && Number(ligne.montantRetenue) > 0 ? ligne.montantRetenue : null);
+                                const montantGain = isGain ? (ligne.montantSalarial ?? ligne.montantGain) : (ligne.montantGain && Number(ligne.montantGain) > 0 ? ligne.montantGain : null);
+                                return (
                                 <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}>
                                     <td className="border-r border-slate-200 p-1 font-mono text-[10px] text-slate-600">
                                         {ligne.codeRubrique || '-'}
@@ -184,13 +188,13 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
                                         {ligne.tauxSalarial ? `${Number(ligne.tauxSalarial)}%` : '-'}
                                     </td>
                                     <td className="border-r border-slate-200 p-1 text-right font-mono text-rose-700">
-                                        {ligne.montantRetenue && Number(ligne.montantRetenue) > 0 
-                                            ? Number(ligne.montantRetenue).toLocaleString('fr-MG') 
+                                        {montantRetenue && Number(montantRetenue) > 0
+                                            ? Number(montantRetenue).toLocaleString('fr-MG')
                                             : '-'}
                                     </td>
                                     <td className="border-r border-slate-200 p-1 text-right font-mono font-medium text-emerald-700">
-                                        {ligne.montantGain && Number(ligne.montantGain) > 0 
-                                            ? Number(ligne.montantGain).toLocaleString('fr-MG') 
+                                        {montantGain && Number(montantGain) > 0
+                                            ? Number(montantGain).toLocaleString('fr-MG')
                                             : '-'}
                                     </td>
                                     <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-600">
@@ -202,7 +206,7 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
                                             : '-'}
                                     </td>
                                 </tr>
-                            ))
+                            );})
                         )}
                     </tbody>
                 </table>
@@ -224,7 +228,7 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
                         </div>
                         <div className="flex justify-between font-medium border-t border-slate-200 pt-1">
                             <span className="text-slate-700">Net Imposable (IRSA) :</span>
-                            <span className="font-mono font-bold">{formatAr(bulletin.netImposable)}</span>
+                            <span className="font-mono font-bold">{formatAr(bulletin.salaireNetImposable ?? bulletin.netImposable)}</span>
                         </div>
                         <div className="flex justify-between text-rose-700">
                             <span>Retenue Fiscale IRSA Nette :</span>

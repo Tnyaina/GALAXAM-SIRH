@@ -5,8 +5,6 @@ import {
     Trash2, 
     TrendingUp, 
     TrendingDown, 
-    AlertCircle, 
-    CheckCircle2, 
     Search
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
@@ -22,6 +20,7 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import paieService from '@/api/paie/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
+import { formatMoneyAr } from '@/utils/moneyUtils';
 
 export default function VariablesPaieTab({ idPeriodeActive }) {
     const [variables, setVariables] = useState([]);
@@ -82,11 +81,11 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!form.idEmploye) {
-            alert('Veuillez sélectionner un employé.');
+            setFeedbackMsg({ type: 'error', text: 'Veuillez sélectionner un employé.' });
             return;
         }
         if (!form.montant || Number(form.montant) <= 0) {
-            alert('Veuillez renseigner un montant valide.');
+            setFeedbackMsg({ type: 'error', text: 'Veuillez renseigner un montant valide.' });
             return;
         }
 
@@ -113,13 +112,14 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
             setFeedbackMsg({ type: 'success', text: 'Variable de paie enregistrée avec succès.' });
             await chargerDonnees();
         } catch (err) {
-            alert(getErrorMessage(err, 'Erreur lors de la création de la variable.'));
+            setFeedbackMsg({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la création de la variable.') });
         } finally {
             setSubmitting(false);
         }
     };
 
     const handleSupprimer = async (idAvance) => {
+        if (!idAvance) return;
         if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette variable de paie ?')) return;
 
         try {
@@ -134,21 +134,22 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
         }
     };
 
-    const formatAr = (val) => {
-        if (!val) return '0 Ar';
-        return Number(val).toLocaleString('fr-MG') + ' Ar';
-    };
+    const formatAr = (val) => formatMoneyAr(val);
 
     // Filtrage
     const listVariables = Array.isArray(variables) ? variables : [];
     const filteredVariables = listVariables.filter(v => {
         const matchSens = filterSens === 'ALL' || v.sens === filterSens;
         const q = searchQuery.toLowerCase();
+        const nomComplet = v.nomComplet || v.nom_complet || '';
+        const typeLibelle = v.typeLibelle || v.type_libelle || v.typeMouvement || v.type_mouvement || '';
+        const matricule = v.matricule || '';
+        const motif = v.motif || '';
         const matchSearch = !q || 
-            (v.nom_complet && v.nom_complet.toLowerCase().includes(q)) ||
-            (v.matricule && v.matricule.toLowerCase().includes(q)) ||
-            (v.type_libelle && v.type_libelle.toLowerCase().includes(q)) ||
-            (v.motif && v.motif.toLowerCase().includes(q));
+            nomComplet.toLowerCase().includes(q) ||
+            matricule.toLowerCase().includes(q) ||
+            typeLibelle.toLowerCase().includes(q) ||
+            motif.toLowerCase().includes(q);
         return matchSens && matchSearch;
     });
 
@@ -269,22 +270,26 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
                         </Tr>
                     </Thead>
                     <Tbody>
-                        {filteredVariables.map((v) => {
+                        {filteredVariables.map((v, index) => {
+                            const idAvance = v.idAvance ?? v.id_avance;
+                            const dateDemande = v.dateDemande || v.date_demande;
+                            const nomComplet = v.nomComplet || v.nom_complet;
+                            const typeLibelle = v.typeLibelle || v.type_libelle || v.typeMouvement || v.type_mouvement;
                             const statInfo = statutLabels[v.statut] || { label: v.statut || 'Enregistré', variant: 'neutral' };
                             return (
-                                <Tr key={v.id_avance} className="hover:bg-[var(--color-bg-subtle)]/50 transition-colors">
+                                <Tr key={idAvance || index} className="hover:bg-[var(--color-bg-subtle)]/50 transition-colors">
                                     <Td className="font-mono text-[11px] text-[var(--color-fg-muted)]">
-                                        {v.date_demande || '—'}
+                                        {dateDemande || '—'}
                                     </Td>
                                     <Td className="font-mono font-bold text-[var(--color-fg)]">
                                         {v.matricule || '—'}
                                     </Td>
                                     <Td className="font-semibold text-[var(--color-fg)] whitespace-nowrap">
-                                        {v.nom_complet || 'Collaborateur'}
+                                        {nomComplet || 'Collaborateur'}
                                     </Td>
                                     <Td>
                                         <span className="font-medium text-[var(--color-fg)] block">
-                                            {v.type_libelle || v.type_mouvement}
+                                            {typeLibelle || 'Variable'}
                                         </span>
                                     </Td>
                                     <Td>
@@ -292,7 +297,7 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
                                             variant={v.sens === 'GAIN' ? 'success' : 'danger'}
                                             size="xs"
                                         >
-                                            {v.sens === 'GAIN' ? '+ Gain' : '- Retenue'}
+                                             {v.sens === 'GAIN' ? '+ Gain' : '- Retenue'}
                                         </Badge>
                                     </Td>
                                     <Td className="text-right font-mono font-bold whitespace-nowrap">
@@ -309,10 +314,10 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
                                         </Badge>
                                     </Td>
                                     <Td className="text-right">
-                                        {v.statut !== 'IMPUTE_PAIE' && (
+                                        {v.statut !== 'IMPUTE_PAIE' && idAvance && (
                                             <button
                                                 type="button"
-                                                onClick={() => handleSupprimer(v.id_avance)}
+                                                onClick={() => handleSupprimer(idAvance)}
                                                 className="p-1 hover:bg-[var(--color-danger-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-600)] rounded-none transition-colors"
                                                 title="Supprimer cette variable"
                                                 aria-label="Supprimer"

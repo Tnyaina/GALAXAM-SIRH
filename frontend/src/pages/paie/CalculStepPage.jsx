@@ -11,6 +11,7 @@ import StatCard from '@/components/ui/data-display/StatCard';
 import { Card } from '@/components/ui/data-display/Card';
 import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
 import paieService from '@/api/paie/paieService';
+import { formatMoneyAr } from '@/utils/moneyUtils';
 
 /**
  * CalculStepPage — Étape 4 : Calcul de la paie.
@@ -116,10 +117,7 @@ export default function CalculStepPage() {
         }
     }, [numericPeriodId, refresh, loadExistingCalculation]);
 
-    const formatAr = (val) => {
-        if (val == null) return '0 Ar';
-        return Number(val).toLocaleString('fr-MG', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' Ar';
-    };
+    const formatAr = (val) => formatMoneyAr(val);
 
     const displayKpis = result || existingKpis;
     const hasBulletins = Boolean((result?.bulletins ?? 0) > 0 || (existingKpis?.bulletins ?? 0) > 0);

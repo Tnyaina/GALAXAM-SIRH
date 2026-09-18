@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  Search, X, CalendarDays, ChevronLeft, ChevronRight, RefreshCw, 
-  Calendar as CalendarIcon, Users, UserCheck, Plus 
+  Search, CalendarDays, ChevronLeft, ChevronRight, RefreshCw,
+  Calendar as CalendarIcon, Users, UserCheck, Plus
 } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';

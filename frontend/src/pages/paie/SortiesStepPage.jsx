@@ -7,7 +7,7 @@ import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
-import { FileText, Lock, ArrowLeft } from 'lucide-react';
+import { FileText, ArrowLeft } from 'lucide-react';
 
 const ExportsPaieTab = lazy(() => import('@/components/paie/ExportsPaieTab'));
 

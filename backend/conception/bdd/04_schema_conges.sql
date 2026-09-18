@@ -9,6 +9,8 @@ DROP VIEW IF EXISTS v_demande_conge_cpl CASCADE;
 DROP VIEW IF EXISTS v_pool_conge_annuel_consommation CASCADE;
 DROP VIEW IF EXISTS v_solde_conge_employe CASCADE;
 
+DROP TABLE IF EXISTS conge_taux_applicable CASCADE;
+DROP TABLE IF EXISTS conge_periode_reference CASCADE;
 DROP TABLE IF EXISTS mouvement_solde_conge CASCADE;
 DROP TABLE IF EXISTS demande_conge CASCADE;
 DROP TABLE IF EXISTS ref_statut_demande_conge CASCADE;
@@ -120,6 +122,40 @@ CREATE INDEX idx_mouvement_solde_date ON mouvement_solde_conge(date_mouvement);
 CREATE INDEX idx_mouvement_solde_conge_created_by ON mouvement_solde_conge(created_by);
 CREATE UNIQUE INDEX idx_uniq_mouvement_prise_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'PRISE' AND id_demande_conge IS NOT NULL;
 CREATE UNIQUE INDEX idx_uniq_mouvement_annulation_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'ANNULATION' AND id_demande_conge IS NOT NULL;
+
+-- 5. Périodes de Référence Bornées & Taux Applicables (TCONGE Canonical)
+CREATE TABLE conge_periode_reference (
+    id_periode_reference SERIAL PRIMARY KEY,
+    id_employe INT NOT NULL REFERENCES employe(id_employe),
+    date_debut DATE NOT NULL,
+    date_fin DATE NOT NULL,
+    statut VARCHAR(30) NOT NULL DEFAULT 'OUVERTE', -- 'OUVERTE', 'CLOTUREE', 'ARCHIVEE'
+    taux_calcule_cloture NUMERIC(12,2),
+    cumul_droits_cloture NUMERIC(8,4),
+    cumul_valorisation_cloture NUMERIC(12,2),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_by INT REFERENCES utilisateur(id_utilisateur),
+    CONSTRAINT chk_periode_dates CHECK (date_fin >= date_debut),
+    CONSTRAINT chk_statut_ref CHECK (statut IN ('OUVERTE', 'CLOTUREE', 'ARCHIVEE'))
+);
+CREATE INDEX idx_conge_ref_emp_dates ON conge_periode_reference(id_employe, date_debut, date_fin);
+
+CREATE TABLE conge_taux_applicable (
+    id_taux_applicable SERIAL PRIMARY KEY,
+    id_employe INT NOT NULL REFERENCES employe(id_employe),
+    taux_journalier NUMERIC(12,2) NOT NULL,
+    date_effet DATE NOT NULL,
+    date_fin DATE, -- convention [date_effet, date_fin[
+    source_provenance VARCHAR(50) NOT NULL,
+    id_periode_reference INT REFERENCES conge_periode_reference(id_periode_reference),
+    commentaire TEXT,
+    cree_par INT REFERENCES utilisateur(id_utilisateur),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_taux_positif CHECK (taux_journalier > 0),
+    CONSTRAINT chk_dates_taux CHECK (date_fin IS NULL OR date_fin > date_effet),
+    CONSTRAINT chk_source_provenance CHECK (source_provenance IN ('KAJY_MIGRATION', 'CALCUL_PERIODE_REFERENCE', 'INITIALISATION_BASE_30'))
+);
+CREATE INDEX idx_taux_app_emp_dates ON conge_taux_applicable(id_employe, date_effet, date_fin);
 
 -- =====================================================================
 -- VUES DU MODULE CONGÉS

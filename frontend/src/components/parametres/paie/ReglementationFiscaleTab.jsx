@@ -191,12 +191,15 @@ function MajorationsFormSection({ majorations = [], onChange, isReadOnly }) {
 }
 
 function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
+    const [localError, setLocalError] = useState(null);
+
     const handleAdd = () => {
         const last = tranches[tranches.length - 1];
         if (last && (last.trancheMax === '' || last.trancheMax === null || last.trancheMax === undefined)) {
-            alert("Veuillez d'abord définir un montant maximum pour la dernière tranche avant d'en ajouter une nouvelle.");
+            setLocalError("Veuillez d'abord définir un montant maximum pour la dernière tranche avant d'en ajouter une nouvelle.");
             return;
         }
+        setLocalError(null);
         const nextNum = tranches.length + 1;
         const nextMin = last ? (parseFloat(last.trancheMax) || 0) + 1 : 0;
         onChange([
@@ -206,12 +209,14 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
     };
 
     const handleRemove = (idx) => {
+        setLocalError(null);
         if (tranches.length <= 1) return;
         const next = tranches.filter((_, i) => i !== idx).map((t, i) => ({ ...t, numeroTranche: i + 1 }));
         onChange(next);
     };
 
     const handleFieldChange = (idx, field, val) => {
+        setLocalError(null);
         const next = [...tranches];
         next[idx] = { ...next[idx], [field]: val };
         onChange(next);
@@ -219,6 +224,11 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
 
     return (
         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3 col-span-1 md:col-span-2">
+            {localError && (
+                <div className="p-2.5 text-xs bg-[var(--color-danger-500)]/10 text-[var(--color-danger-600)] border border-[var(--color-danger-500)]/20">
+                    {localError}
+                </div>
+            )}
             <div className="flex items-center justify-between">
                 <SectionTitle 
                     icon={Percent} 

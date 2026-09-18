@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { History, PlusCircle, Filter } from 'lucide-react';
+import { History, PlusCircle } from 'lucide-react';
 import congeService from '@/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Badge from '@/components/ui/data-display/Badge';

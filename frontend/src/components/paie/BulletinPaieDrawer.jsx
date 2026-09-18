@@ -18,6 +18,7 @@ import Select from '@/components/ui/forms/Select';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import paieService from '@/api/paie/paieService';
 import { getErrorMessage } from '@/api/apiClient';
+import { formatMoneyAr } from '@/utils/moneyUtils';
 import BulletinPaiePrintView from './BulletinPaiePrintView';
 
 /**
@@ -161,10 +162,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         }
     };
 
-    const formatAr = (val) => {
-        if (val === null || val === undefined) return '0 Ar';
-        return Number(val).toLocaleString('fr-MG', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' Ar';
-    };
+    const formatAr = (val) => formatMoneyAr(val);
 
     const formatMinutes = (totalMin) => {
         if (!totalMin || totalMin <= 0) return '0 min';
@@ -178,6 +176,16 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     const bulletin = data?.bulletin;
     const explication = data?.explication;
     const lignes = Array.isArray(data?.lignes) ? data.lignes : [];
+
+    const nomAffiche = bulletin ? (bulletin.nomPrenom || [bulletin.nom, bulletin.prenom].filter(Boolean).join(' ') || [bulletin.nomEmploye, bulletin.prenomEmploye].filter(Boolean).join(' ') || 'Employé') : '';
+    const joursTravailles = bulletin ? (bulletin.joursTravailles ?? bulletin.nbJoursTravailles) : null;
+    const heuresNormales = bulletin?.heuresNormales;
+    const netImposable = bulletin ? (bulletin.salaireNetImposable ?? bulletin.netImposable) : null;
+
+    const ligneCnaps = lignes.find(l => l.codeRubrique === 'COTISATION_CNAPS_SAL' || l.codeRubrique === 'CNAPS_SAL' || (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('cnaps')));
+    const ligneOstie = lignes.find(l => l.codeRubrique === 'COTISATION_OSTIE_SAL' || l.codeRubrique === 'OSTIE_SAL' || (l.libelleRubrique && (l.libelleRubrique.toLowerCase().includes('ostie') || l.libelleRubrique.toLowerCase().includes('santé'))));
+    const cnapsVal = bulletin ? (bulletin.cnapsSalariale ?? (ligneCnaps ? (ligneCnaps.montantSalarial ?? ligneCnaps.montantRetenue) : null)) : null;
+    const ostieVal = bulletin ? (bulletin.ostieSalariale ?? (ligneOstie ? (ligneOstie.montantSalarial ?? ligneOstie.montantRetenue) : null)) : null;
 
     // Classification des lignes pour l'affichage fidèle au Wireframe 2
     const lignesPointage = lignes.filter(l => 
@@ -205,8 +213,8 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
             <SlideOver
                 isOpen={isOpen}
                 onClose={onClose}
-                title={bulletin ? `BULLETIN DE PAIE — ${bulletin.nomEmploye} ${bulletin.prenomEmploye}` : 'Bulletin de Paie'}
-                subtitle={bulletin ? `Matricule : ${bulletin.matricule} | Période : ${bulletin.codePeriode || 'En cours'} | Site : ${bulletin.nomSite || 'Siège'} | Contrat : ${bulletin.typeContrat || 'CDI'}` : 'Chargement...'}
+                title={bulletin ? `BULLETIN DE PAIE — ${nomAffiche}` : 'Bulletin de Paie'}
+                subtitle={bulletin ? `Matricule : ${bulletin.matricule || '—'} | Période : ${bulletin.codePeriode || bulletin.periodeCode || 'En cours'} | Site : ${bulletin.nomSite || 'Siège'} | Contrat : ${bulletin.typeContrat || 'CDI'}` : 'Chargement...'}
                 icon={<FileText size={18} />}
                 width="2xl"
                 footer={
@@ -281,9 +289,9 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                     ÉLÉMENTS CALCULÉS (POINTAGE {bulletin.codePeriode || 'En cours'})
                                 </span>
                                 <span className="text-[10px] text-[var(--color-fg-muted)] font-mono">
-                                    {bulletin.nbJoursTravailles == null || bulletin.heuresNormales == null
+                                    {joursTravailles == null
                                         ? 'Détail de pointage indisponible'
-                                        : `${bulletin.nbJoursTravailles}j travaillés • ${bulletin.heuresNormales}h`}
+                                        : `${joursTravailles}j travaillés${heuresNormales != null ? ` • ${heuresNormales}h` : ''}`}
                                 </span>
                             </div>
 
@@ -506,25 +514,25 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                         </div>
 
                         {/* 4. SYNTHÈSE LÉGALE, SOCIALE & FISCALE (Wireframe 2) */}
-                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 space-y-2 bg-slate-50/50">
-                            <div className="flex justify-between items-center font-bold text-xs py-1 border-b border-slate-200">
-                                <span className="uppercase tracking-wide text-slate-800">TOTAL BRUT</span>
-                                <span className="font-mono text-sm text-slate-900">{formatAr(bulletin.totalGainsBruts)}</span>
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 space-y-2 bg-[var(--color-bg-subtle)]/40">
+                            <div className="flex justify-between items-center font-bold text-xs py-1 border-b border-[var(--color-border-subtle)]">
+                                <span className="uppercase tracking-wide text-[var(--color-fg)]">TOTAL BRUT</span>
+                                <span className="font-mono text-sm text-[var(--color-fg)]">{formatAr(bulletin.totalGainsBruts)}</span>
                             </div>
 
                             <div className="flex justify-between items-center text-[var(--color-fg-muted)] py-0.5">
                                 <span>- CNaPS Salariale (1% plafonné 8× SMIG)</span>
-                                <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">{bulletin.cnapsSalariale == null ? 'Détail indisponible' : `-${formatAr(bulletin.cnapsSalariale)}`}</span>
+                                <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">{cnapsVal == null ? 'Détail indisponible' : `-${formatAr(cnapsVal)}`}</span>
                             </div>
 
                             <div className="flex justify-between items-center text-[var(--color-fg-muted)] py-0.5">
                                 <span>- Santé OSTIE / AMIT Salariale (1%)</span>
-                                <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">{bulletin.ostieSalariale == null ? 'Détail indisponible' : `-${formatAr(bulletin.ostieSalariale)}`}</span>
+                                <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">{ostieVal == null ? 'Détail indisponible' : `-${formatAr(ostieVal)}`}</span>
                             </div>
 
-                            <div className="flex justify-between items-center font-bold text-xs py-1 border-t border-b border-slate-200 bg-white px-2">
-                                <span className="text-slate-800">= NET IMPOSABLE</span>
-                                <span className="font-mono text-slate-900">{formatAr(bulletin.netImposable)}</span>
+                            <div className="flex justify-between items-center font-bold text-xs py-1 border-t border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-2">
+                                <span className="text-[var(--color-fg)]">= NET IMPOSABLE</span>
+                                <span className="font-mono text-[var(--color-fg)]">{formatAr(netImposable)}</span>
                             </div>
 
                             <div className="flex justify-between items-center text-[var(--color-fg-muted)] py-0.5">
@@ -540,12 +548,12 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                             )}
 
                             {/* Encadré NET À PAYER (Wireframe 2) */}
-                            <div className="mt-3 pt-3 border-t-2 border-slate-800 flex justify-between items-center bg-slate-900 text-white p-3">
+                            <div className="mt-3 pt-3 border-t-2 border-[var(--color-brand-800)] flex justify-between items-center bg-[var(--color-ink-950)] text-white p-3">
                                 <div>
-                                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-300 block">
+                                    <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-ink-200)] block">
                                         NET À PAYER
                                     </span>
-                                    <span className="text-[10px] text-slate-400 font-mono">
+                                    <span className="text-[10px] text-[var(--color-ink-350)] font-mono">
                                         Arrondi bancaire légal
                                     </span>
                                 </div>
@@ -578,15 +586,21 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-[var(--color-border-subtle)]">
-                                            {lignes.map((l, i) => (
-                                                <tr key={i} className="hover:bg-[var(--color-bg-subtle)]/40 font-mono text-[11px]">
-                                                    <td className="p-2 text-slate-500">{l.codeRubrique}</td>
-                                                    <td className="p-2 font-sans font-medium text-slate-800">{l.libelleRubrique}</td>
-                                                    <td className="p-2 text-right text-slate-600">{l.baseCalcul ? Number(l.baseCalcul).toLocaleString('fr-MG') : '-'}</td>
-                                                    <td className="p-2 text-right text-[var(--color-success-600)] font-bold">{l.montantGain && Number(l.montantGain) > 0 ? Number(l.montantGain).toLocaleString('fr-MG') : '-'}</td>
-                                                    <td className="p-2 text-right text-[var(--color-danger-600)] font-bold">{l.montantRetenue && Number(l.montantRetenue) > 0 ? Number(l.montantRetenue).toLocaleString('fr-MG') : '-'}</td>
-                                                </tr>
-                                            ))}
+                                            {lignes.map((l, i) => {
+                                                const isRetenue = l.sens === 'RETENUE';
+                                                const isGain = l.sens === 'GAIN' || l.sens === 'INFO';
+                                                const montantRet = isRetenue ? (l.montantSalarial ?? l.montantRetenue) : (l.montantRetenue && Number(l.montantRetenue) > 0 ? l.montantRetenue : null);
+                                                const montantGn = isGain ? (l.montantSalarial ?? l.montantGain) : (l.montantGain && Number(l.montantGain) > 0 ? l.montantGain : null);
+                                                return (
+                                                    <tr key={i} className="hover:bg-[var(--color-bg-subtle)]/40 font-mono text-[11px]">
+                                                        <td className="p-2 text-[var(--color-fg-subtle)]">{l.codeRubrique}</td>
+                                                        <td className="p-2 font-sans font-medium text-[var(--color-fg)]">{l.libelleRubrique}</td>
+                                                        <td className="p-2 text-right text-[var(--color-fg-muted)]">{formatMoneyAr(l.baseCalcul)}</td>
+                                                        <td className="p-2 text-right text-[var(--color-success-600)] font-bold">{montantGn && Number(montantGn) > 0 ? formatMoneyAr(montantGn) : '—'}</td>
+                                                        <td className="p-2 text-right text-[var(--color-danger-600)] font-bold">{montantRet && Number(montantRet) > 0 ? formatMoneyAr(montantRet) : '—'}</td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>

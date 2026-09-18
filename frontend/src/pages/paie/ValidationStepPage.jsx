@@ -30,6 +30,7 @@ export default function ValidationStepPage() {
     const [feedback, setFeedback] = useState(null);
     const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
     const [motifReouverture, setMotifReouverture] = useState('');
+    const [reopenError, setReopenError] = useState(null);
 
     const actions = context?.availableActions || {};
     const canValidate = actions?.VALIDATE?.allowed === true;
@@ -74,10 +75,11 @@ export default function ValidationStepPage() {
     const handleReouvrirSubmit = useCallback(async (e) => {
         e.preventDefault();
         if (motifReouverture.trim().length < 5) {
-            alert('Le motif de réouverture est obligatoire (5 caractères minimum).');
+            setReopenError('Le motif de réouverture est obligatoire (5 caractères minimum).');
             return;
         }
         setActionLoading('rouvrir');
+        setReopenError(null);
         try {
             await periodePaieService.executeCommand(numericPeriodId, 'REOPEN', {
                 version: periode?.version,
@@ -88,7 +90,9 @@ export default function ValidationStepPage() {
             setFeedback({ type: 'success', text: 'Période réouverte pour corrections.' });
             await refresh();
         } catch (err) {
-            alert(err?.response?.data?.message || 'Erreur lors de la réouverture.');
+            const msg = err?.response?.data?.message || 'Erreur lors de la réouverture.';
+            setReopenError(msg);
+            setFeedback({ type: 'error', text: msg });
         } finally {
             setActionLoading(null);
         }
@@ -292,13 +296,13 @@ export default function ValidationStepPage() {
             {/* Modal de réouverture */}
             <Modal
                 isOpen={isReopenModalOpen}
-                onClose={() => { setIsReopenModalOpen(false); setMotifReouverture(''); }}
+                onClose={() => { setIsReopenModalOpen(false); setMotifReouverture(''); setReopenError(null); }}
                 title="Motif de réouverture"
                 icon={<AlertTriangle size={16} className="text-[var(--color-warning-500)]" />}
                 size="md"
                 footer={
                     <>
-                        <Button variant="ghost" size="sm" onClick={() => { setIsReopenModalOpen(false); setMotifReouverture(''); }}>
+                        <Button variant="ghost" size="sm" onClick={() => { setIsReopenModalOpen(false); setMotifReouverture(''); setReopenError(null); }}>
                             Annuler
                         </Button>
                         <Button
@@ -314,6 +318,9 @@ export default function ValidationStepPage() {
                 }
             >
                 <form onSubmit={handleReouvrirSubmit} className="space-y-3">
+                    {reopenError && (
+                        <Alert type="error" message={reopenError} onClose={() => setReopenError(null)} />
+                    )}
                     <p className="text-xs text-[var(--color-fg-muted)]">
                         La réouverture annule la clôture et remet la période en état ouvert.
                         Toutes les modifications seront tracées.

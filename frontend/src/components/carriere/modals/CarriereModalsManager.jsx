@@ -11,6 +11,7 @@ const RuptureContratModal = lazy(() => import('@/pages/employe/carriere/b/Ruptur
 const CertificatTravailModal = lazy(() => import('@/pages/employe/carriere/b/CertificatTravailModal'));
 const AttestationTravailModal = lazy(() => import('@/pages/employe/carriere/b/AttestationTravailModal'));
 const ContratTravailModal = lazy(() => import('@/pages/employe/carriere/b/ContratTravailModal'));
+const StcPreparationModal = lazy(() => import('@/components/paie/stc/StcPreparationModal'));
 
 export default function CarriereModalsManager({
     // Données de base
@@ -36,6 +37,8 @@ export default function CarriereModalsManager({
         selectedAttestationContrat, selectedAttestationAffectation, loadingAttestationAffectation,
         isContratModalOpen, setIsContratModalOpen,
         selectedContratDoc, selectedContratAffectation, loadingContratAffectation,
+        isStcModalOpen, setIsStcModalOpen,
+        selectedStcContrat,
         handleSuccessAction, handleOpenEditModal
     } = modalsState;
 
@@ -171,6 +174,20 @@ export default function CarriereModalsManager({
                     affectation={selectedContratAffectation || affectationActive}
                     loadingAffectation={loadingContratAffectation}
                     filiale={selectedContratDoc?.filiale || contratActif?.filiale}
+                />
+            )}
+
+            {isStcModalOpen && (
+                <StcPreparationModal
+                    isOpen={isStcModalOpen}
+                    onClose={() => setIsStcModalOpen(false)}
+                    idEmploye={idEmploye}
+                    nomEmploye={nomEmploye}
+                    dateDepartInitiale={selectedStcContrat?.dateFin || null}
+                    motifInitial="DEMISSION"
+                    onStcValide={() => {
+                        handleSuccessAction('Solde de Tout Compte validé avec succès !');
+                    }}
                 />
             )}
 

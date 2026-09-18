@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, Building2, MapPin, Eye, Filter } from 'lucide-react';
+import { Search, Plus, Building2, MapPin, Eye } from 'lucide-react';
 import organisationService from '@/api/admin/organisationService';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';

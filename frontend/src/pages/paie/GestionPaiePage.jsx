@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState, useCallback } from 'react
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
     Banknote, CalendarRange, ArrowRight, RefreshCw, FileText, LayoutDashboard,
-    DollarSign, AlertTriangle, ShieldCheck, CheckCircle2, SlidersHorizontal, Calculator
+    DollarSign, AlertTriangle, ShieldCheck, SlidersHorizontal, Calculator
 } from 'lucide-react';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import Tabs from '@/components/ui/navigation/Tabs';
@@ -10,12 +10,13 @@ import Button from '@/components/ui/forms/Button';
 import Select from '@/components/ui/forms/Select';
 import Badge from '@/components/ui/data-display/Badge';
 import StatCard from '@/components/ui/data-display/StatCard';
-import { Card, CardBody } from '@/components/ui/data-display/Card';
+import { Card } from '@/components/ui/data-display/Card';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
 import PayrollPeriodStepper from '@/components/paie/PayrollPeriodStepper';
 import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
 import paieService from '@/api/paie/paieService';
+import { formatMoneyAr } from '@/utils/moneyUtils';
 
 // Lazy loading des sous-composants
 const CockpitPaieTab = lazy(() => import('@/components/paie/CockpitPaieTab'));
@@ -116,10 +117,7 @@ export default function GestionPaiePage() {
         return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
     };
 
-    const formatAr = (val) => {
-        if (val == null) return '0 Ar';
-        return Number(val).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' Ar';
-    };
+    const formatAr = (val) => formatMoneyAr(val);
 
     const statutVariant = {
         EN_COURS: 'warning',

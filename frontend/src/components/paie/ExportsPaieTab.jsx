@@ -67,7 +67,7 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
                 setPreviewData(Array.isArray(data) ? data : (data?.content || data?.items || []));
             }
         } catch (err) {
-            alert(getErrorMessage(err, 'Erreur lors du chargement des données d\'aperçu.'));
+            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors du chargement des données d\'aperçu.') });
             setPreviewType(null);
         } finally {
             setPreviewLoading(false);

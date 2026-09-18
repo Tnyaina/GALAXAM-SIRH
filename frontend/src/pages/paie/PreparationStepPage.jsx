@@ -1,11 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle2, XCircle, AlertTriangle, ClipboardList, Snowflake } from 'lucide-react';
+import { CheckCircle2, XCircle, ClipboardList, Snowflake } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import PayrollCampaignHeader from '@/components/paie/PayrollCampaignHeader';
 import PayrollNavigationFooter from '@/components/paie/PayrollNavigationFooter';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
-import Card from '@/components/ui/data-display/Card';
 import Alert from '@/components/ui/feedback/Alert';
 import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
 

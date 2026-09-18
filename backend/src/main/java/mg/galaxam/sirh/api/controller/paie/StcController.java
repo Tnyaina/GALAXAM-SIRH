@@ -105,6 +105,18 @@ public class StcController {
     }
 
     /**
+     * Liste les STC (historique / en cours) d'un collaborateur spécifique.
+     */
+    @GetMapping("/employe/{idEmploye}")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> listerStcEmploye(@PathVariable("idEmploye") Integer idEmploye) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            List<PaieStc> list = stcService.listerStcEmploye(idEmploye, c);
+            return ResponseEntity.ok(list);
+        }
+    }
+
+    /**
      * Récupère la quittance libératoire financière officielle d'un STC validé.
      */
     @GetMapping("/{idStc}/recu")

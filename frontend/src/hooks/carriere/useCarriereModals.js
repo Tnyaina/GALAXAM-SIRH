@@ -48,6 +48,10 @@ export function useCarriereModals({
     const [selectedContratAffectation, setSelectedContratAffectation] = useState(null);
     const [loadingContratAffectation, setLoadingContratAffectation] = useState(false);
 
+    // STC (Solde de Tout Compte)
+    const [isStcModalOpen, setIsStcModalOpen] = useState(false);
+    const [selectedStcContrat, setSelectedStcContrat] = useState(null);
+
     const [selectedWfModal, setSelectedWfModal] = useState(null);
 
     // -------------------------------------------------------------------------------------------------
@@ -249,6 +253,11 @@ export function useCarriereModals({
         }
     };
 
+    const handleOpenStc = (contrat = null) => {
+        setSelectedStcContrat(contrat);
+        setIsStcModalOpen(true);
+    };
+
     return {
         // États d'orchestration
         isTransitioning, setIsTransitioning,
@@ -264,13 +273,15 @@ export function useCarriereModals({
         isRenouvellementModalOpen, setIsRenouvellementModalOpen,
         isRuptureModalOpen, setIsRuptureModalOpen,
         
-        // Données Certificat / Attestation / Contrat
+        // Données Certificat / Attestation / Contrat / STC
         isCertificatModalOpen, setIsCertificatModalOpen,
         selectedCertificatContrat, selectedCertificatAffectation, loadingCertificatAffectation,
         isAttestationModalOpen, setIsAttestationModalOpen,
         selectedAttestationContrat, selectedAttestationAffectation, loadingAttestationAffectation,
         isContratModalOpen, setIsContratModalOpen,
         selectedContratDoc, selectedContratAffectation, loadingContratAffectation,
+        isStcModalOpen, setIsStcModalOpen,
+        selectedStcContrat, setSelectedStcContrat,
 
         // Actions
         handleSuccessAction,
@@ -283,6 +294,7 @@ export function useCarriereModals({
         handleSelectWorkflowRecap,
         handleOpenCertificat,
         handleOpenAttestation,
-        handleOpenContrat
+        handleOpenContrat,
+        handleOpenStc
     };
 }

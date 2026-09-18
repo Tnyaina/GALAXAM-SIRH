@@ -19,6 +19,27 @@ export function fmtMoney(val) {
 }
 
 /**
+ * Helper monétaire canonique pour le module Paie (Sprint Paie UI P0/P1).
+ * Comportement attendu :
+ * - null -> '—'
+ * - undefined -> '—'
+ * - NaN -> '—'
+ * - '' -> '—'
+ * - 0 -> '0 Ar'
+ * - montant -> valeur formatée Ar (ex: '1 250 000 Ar')
+ *
+ * @param {number|string|null|undefined} val
+ * @returns {string}
+ */
+export function formatMoneyAr(val) {
+    if (val === null || val === undefined || val === '') return '—';
+    const num = Number(val);
+    if (isNaN(num)) return '—';
+    if (num === 0) return '0 Ar';
+    return num.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).replace(/\u202F/g, ' ') + ' Ar';
+}
+
+/**
  * Formate un montant monétaire selon la locale malgache officielle (fr-MG) avec devise MGA.
  * 
  * @param {number|string|null|undefined} amount

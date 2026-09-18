@@ -471,4 +471,45 @@ class PaieControllerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.kpis.effectifCalcule", is(2)))
                 .andExpect(jsonPath("$.bulletins", hasSize(2)));
     }
+
+    @Test
+    @DisplayName("GET /paie/employe/{id}/synthese, bulletins & prets - Dossier Paie Collaborateur (P0/P1)")
+    void testEmployePaieDossierEndpoints() throws Exception {
+        // 1. Calcul préalable d'un bulletin pour empPermanent
+        CalculEmployeRequest req = new CalculEmployeRequest();
+        req.setIdEmploye(empPermanent.idEmploye);
+        req.setIdPeriodePaie(idPeriode);
+        req.setSimulation(false);
+
+        mockMvc.perform(post("/paie/calculer-employe")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(req)))
+                .andExpect(status().isOk());
+
+        // 2. Synthèse financière backend-driven de l'employé
+        mockMvc.perform(get("/paie/employe/" + empPermanent.idEmploye + "/synthese")
+                        .header("Authorization", "Bearer " + getAdminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.salaireBaseContractuel", notNullValue()))
+                .andExpect(jsonPath("$.tauxHoraire", notNullValue()))
+                .andExpect(jsonPath("$.tauxJournalierConge", notNullValue()))
+                .andExpect(jsonPath("$.dernierBrut", notNullValue()))
+                .andExpect(jsonPath("$.dernierNet", notNullValue()))
+                .andExpect(jsonPath("$.dernierePeriodeCode", is("PER-2026-01")));
+
+        // 3. Historique des bulletins de l'employé
+        mockMvc.perform(get("/paie/employe/" + empPermanent.idEmploye + "/bulletins")
+                        .header("Authorization", "Bearer " + getAdminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", not(empty())))
+                .andExpect(jsonPath("$[0].codePeriode", is("PER-2026-01")))
+                .andExpect(jsonPath("$[0].netAPayer", notNullValue()));
+
+        // 4. Liste des prêts de l'employé
+        mockMvc.perform(get("/paie/employe/" + empPermanent.idEmploye + "/prets")
+                        .header("Authorization", "Bearer " + getAdminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", notNullValue()));
+    }
 }

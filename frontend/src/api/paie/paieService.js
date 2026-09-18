@@ -56,6 +56,21 @@ export const paieService = {
         return response.data;
     },
 
+    listerBulletinsEmploye: async (idEmploye) => {
+        const response = await apiClient.get(`paie/employe/${idEmploye}/bulletins`);
+        return response.data;
+    },
+
+    getSynthesePaieEmploye: async (idEmploye) => {
+        const response = await apiClient.get(`paie/employe/${idEmploye}/synthese`);
+        return response.data;
+    },
+
+    listerPretsEmploye: async (idEmploye) => {
+        const response = await apiClient.get(`paie/employe/${idEmploye}/prets`);
+        return response.data;
+    },
+
     // --- Variables & Ajustements (Primes, Acomptes, Retenues) ---
     listerAjustements: async (idPeriode = null, idEmploye = null) => {
         const params = {};

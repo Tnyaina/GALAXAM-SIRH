@@ -907,6 +907,11 @@ public class StcService {
         return PaieStc.lister(c);
     }
 
+    public List<PaieStc> listerStcEmploye(Integer idEmploye, Connection c) throws Exception {
+        if (idEmploye == null) return List.of();
+        return PaieStc.listerParEmploye(idEmploye, c);
+    }
+
     /**
      * Charge les tranches IRSA liées à la configLegale fournie.
      * Si configLegale est null, la date de référence est utilisée pour chercher

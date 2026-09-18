@@ -9,8 +9,6 @@ import {
     CheckCircle2, 
     Search, 
     Eye, 
-    ArrowUpRight, 
-    ArrowDownRight,
     ShieldCheck, 
     Download,
     Plus,
@@ -32,6 +30,7 @@ import StatCard from '@/components/ui/data-display/StatCard';
 import { Table, Thead, Th, Tbody, Tr, Td, TableEmpty } from '@/components/ui/data-display/Table';
 import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
+import { formatMoneyAr } from '@/utils/moneyUtils';
 
 /**
  * Cockpit Principal de Paie DAF (GALAXAM LOGISTICS)
@@ -140,7 +139,7 @@ export default function CockpitPaieTab({
     const handleCreerVariable = async (e) => {
         e.preventDefault();
         if (!variableForm.idEmploye || !variableForm.montant) {
-            alert('Veuillez renseigner un collaborateur et un montant.');
+            setFeedback({ type: 'error', text: 'Veuillez renseigner un collaborateur et un montant.' });
             return;
         }
 
@@ -167,7 +166,7 @@ export default function CockpitPaieTab({
             setFeedback({ type: 'success', text: 'Variable enregistrée avec succès. Recalculez la paie pour l\'appliquer.' });
             await chargerCockpit();
         } catch (err) {
-            alert(getErrorMessage(err, 'Erreur lors de la création de la variable.'));
+            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la création de la variable.') });
         } finally {
             setSubmittingVariable(false);
         }
@@ -244,7 +243,7 @@ export default function CockpitPaieTab({
     const handleRouvrirPaie = async (e) => {
         e.preventDefault();
         if (!motifReouverture || motifReouverture.trim().length < 5) {
-            alert('Le motif de réouverture est obligatoire (min 5 caractères).');
+            setFeedback({ type: 'error', text: 'Le motif de réouverture est obligatoire (min 5 caractères).' });
             return;
         }
 
@@ -260,16 +259,13 @@ export default function CockpitPaieTab({
             await chargerCockpit();
             if (onReloadPeriodes) onReloadPeriodes();
         } catch (err) {
-            alert(getErrorMessage(err, 'Erreur lors de la réouverture.'));
+            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la réouverture.') });
         } finally {
             setActionLoading(null);
         }
     };
 
-    const formatAr = (val) => {
-        if (val === null || val === undefined) return '0 Ar';
-        return Number(val).toLocaleString('fr-MG', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' Ar';
-    };
+    const formatAr = (val) => formatMoneyAr(val);
 
     const readiness = cockpit?.readiness || {};
     const kpis = cockpit?.kpis || {};

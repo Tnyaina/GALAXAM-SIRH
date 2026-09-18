@@ -168,11 +168,20 @@ class StcControllerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.mentionLiberatoire", notNullValue()))
                 .andExpect(jsonPath("$.formuleManuscriteObligatoire", notNullValue()));
 
-        // 5. Liste des reçus STC
+        // 5. Liste des reçus STC globaux
         mockMvc.perform(get("/paie/stc/liste")
                         .header("Authorization", "Bearer " + getAdminToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].idStc", is(idStc)));
+
+        // 6. Consultation STC par collaborateur (Sprint Paie UI P0/P1)
+        mockMvc.perform(get("/paie/stc/employe/" + employeDepart.idEmploye)
+                        .header("Authorization", "Bearer " + getAdminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].idStc", is(idStc)))
+                .andExpect(jsonPath("$[0].statut", is("VALIDE")))
+                .andExpect(jsonPath("$[0].numeroRecu", containsString("STC-")));
     }
 }

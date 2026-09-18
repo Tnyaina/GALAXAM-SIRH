@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     ArrowLeft, User, Users, Briefcase, XCircle, Folder,
-    AlertTriangle, Calendar, Clock, ArrowRight, Compass
+    AlertTriangle, Calendar, Clock, ArrowRight, Compass, Banknote
 } from 'lucide-react';
 import employeService from '@/api/employe/employeService';
 import documentRhService from '@/api/employe/documentRhService';
@@ -25,6 +25,7 @@ const DocumentsRhTab = lazy(() => import('@/components/employe/tabs/DocumentsRhT
 const FamilleContactsTab = lazy(() => import('@/components/employe/tabs/FamilleContactsTab'));
 const CongesTab = lazy(() => import('@/components/employe/tabs/CongesTab'));
 const PointageTab = lazy(() => import('@/components/employe/tabs/PointageTab'));
+const EmployePaieTab = lazy(() => import('@/components/employe/tabs/EmployePaieTab'));
 const UploadDocumentModal = lazy(() => import('@/components/employe/tabs/UploadDocumentModal'));
 import SEO from '@/components/system/SEO';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
@@ -43,6 +44,8 @@ export default function EmployeFicheDetailPage() {
     const canValidate = hasPermission('EMPLOYE_VALIDATE');
     const canReadConges = hasPermission('CONGE_READ');
     const canReadPointages = hasPermission('POINTAGE_READ');
+    const canReadPaie = hasPermission('PAIE_READ') || hasPermission('ROLE_ADMIN');
+    const canWritePaie = hasPermission('PAIE_WRITE') || hasPermission('ROLE_ADMIN');
 
     const [detailData, setDetailData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -81,8 +84,11 @@ export default function EmployeFicheDetailPage() {
         if (canReadPointages) {
             tabs.push({ id: 'pointage', label: 'Pointages & Présence', icon: <Clock size={16} /> });
         }
+        if (canReadPaie) {
+            tabs.push({ id: 'paie', label: 'Paie & Rémunération', icon: <Banknote size={16} /> });
+        }
         return tabs;
-    }, [documentsData.documents.length, canReadConges, canReadPointages]);
+    }, [documentsData.documents.length, canReadConges, canReadPointages, canReadPaie]);
 
     const activeTab = useMemo(() => {
         const allowedTabIds = mainTabs.map(t => t.id);
@@ -439,6 +445,13 @@ export default function EmployeFicheDetailPage() {
                         {activeTab === 'pointage' && (
                             <Suspense fallback={<TabLoader label="Chargement des pointages de l'employé..." />}>
                                 <PointageTab idEmploye={id} employe={emp} />
+                            </Suspense>
+                        )}
+
+                        {/* Onglet 7: Paie & Rémunération */}
+                        {activeTab === 'paie' && (
+                            <Suspense fallback={<TabLoader label="Chargement du dossier paie de l'employé..." />}>
+                                <EmployePaieTab idEmploye={id} employe={emp} canWrite={canWritePaie} />
                             </Suspense>
                         )}
 

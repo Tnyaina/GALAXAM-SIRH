@@ -456,6 +456,8 @@ CREATE TABLE conge_journal_droit (
     id_journal SERIAL PRIMARY KEY,
     id_employe INT NOT NULL REFERENCES employe(id_employe),
     id_periode_paie INT REFERENCES periode_paie(id_periode_paie),
+    id_periode_reference INT REFERENCES conge_periode_reference(id_periode_reference),
+    numero_mois_reference INT,
     annee INT NOT NULL,
     mois INT NOT NULL,
     salaire_base NUMERIC(12,2) NOT NULL,
@@ -472,6 +474,7 @@ CREATE TABLE conge_journal_droit (
 
 CREATE INDEX idx_conge_journal_emp ON conge_journal_droit(id_employe);
 CREATE INDEX idx_conge_journal_periode ON conge_journal_droit(id_periode_paie);
+CREATE INDEX idx_conge_journal_ref ON conge_journal_droit(id_periode_reference);
 
 -- =====================================================================
 -- TRIGGERS DE SÉCURITÉ : IMMUTABILITÉ POST-CLÔTURE

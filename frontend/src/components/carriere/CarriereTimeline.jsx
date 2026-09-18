@@ -27,6 +27,7 @@ export default function CarriereTimeline({
     onOpenCertificat,
     onOpenAttestation,
     onOpenContrat,
+    onOpenStc,
 }) {
     const [modeAffichage, setModeAffichage] = useState('tables'); // 'tables' par défaut | 'parcours'
 
@@ -129,6 +130,7 @@ export default function CarriereTimeline({
                             onOpenCertificat={onOpenCertificat}
                             onOpenAttestation={onOpenAttestation}
                             onOpenContrat={onOpenContrat}
+                            onOpenStc={onOpenStc}
                         />
                     </div>
                 )}

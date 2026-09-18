@@ -110,6 +110,18 @@ export default function EmployeSideSummaryPanel({
 
                     <button
                         type="button"
+                        onClick={() => onNavigateTab('paie')}
+                        className={`w-full py-2 px-2.5 text-[11px] sm:text-xs text-center font-semibold border transition-colors rounded-none cursor-pointer leading-tight ${
+                            activeTab === 'paie'
+                                ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)]'
+                                : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-hover)]'
+                        }`}
+                    >
+                        Paie &amp; Rémunération
+                    </button>
+
+                    <button
+                        type="button"
                         onClick={() => onNavigateTab('documents')}
                         className={`w-full py-2 px-2.5 text-[11px] sm:text-xs flex items-center justify-between font-semibold border transition-colors rounded-none cursor-pointer leading-tight ${
                             activeTab === 'documents'

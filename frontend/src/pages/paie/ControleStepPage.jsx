@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ShieldCheck, AlertTriangle, Download, Eye, ArrowUpRight, ArrowDownRight,
-    Search, CheckCircle2, FileText, Banknote
+    Search, CheckCircle2, FileText
 } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import PayrollCampaignHeader from '@/components/paie/PayrollCampaignHeader';

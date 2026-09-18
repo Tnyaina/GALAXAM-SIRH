@@ -113,6 +113,7 @@ export default function CarriereTab({
                 onOpenCertificat={modalsState.handleOpenCertificat}
                 onOpenAttestation={modalsState.handleOpenAttestation}
                 onOpenContrat={modalsState.handleOpenContrat}
+                onOpenStc={modalsState.handleOpenStc}
             />
 
             {/* Gestionnaire Centralisé de Modales */}

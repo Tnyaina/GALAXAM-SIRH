@@ -7,22 +7,43 @@ import Select from '@/components/ui/forms/Select';
 import PayrollPeriodStepper from '@/components/paie/PayrollPeriodStepper';
 
 /**
- * PayrollCampaignHeader — En-tête de campagne fixe, présent sur toutes les étapes de paie.
+ * PayrollCampaignHeader — Barre de commande supérieure pour les étapes de paie.
  *
  * Affiche :
- *  - Sélecteur interactif de période pour changer d'exercice à tout moment
- *  - Le libellé et statut de la période active (code, dates, statut)
- *  - Le stepper de campagne (issu du backend)
- *  - La bannière de recalcul si `recalculationRequired === true`
+ * - Le fil d'Ariane et le sélecteur réactif de période
+ * - Le statut actuel avec badge coloré
+ * - L'indicateur de recalcul requis (si variables modifiées ou anomalies)
+ * - Le bouton "Recalculer" avec confirmation
+ * - Le Stepper horizontal interactif (les 7 étapes du workflow)
  *
- * @prop {Object}   context           - PayrollPeriodContextView complet retourné par le backend
- * @prop {Array}    periodes          - Liste de toutes les périodes disponibles pour le sélecteur
+ * @prop {Object}   context           - Objet retourné par usePayrollCampaign (selectedPeriod, steps, etc.)
+ * @prop {Array}    periodes          - Liste des périodes disponibles
  * @prop {Function} onSelectPeriod    - Callback lorsqu'une nouvelle période est choisie
  * @prop {string}   activeStep        - Code de l'étape actuellement affichée (page active)
  * @prop {boolean}  loading           - Affiche l'état de chargement dans le stepper
  * @prop {Function} onRefresh         - Callback déclenché au clic sur "Recalculer"
  * @prop {boolean}  refreshLoading   - Vrai pendant le recalcul
  */
+const STATUT_VARIANT = {
+    EN_COURS: 'warning',
+    A_VALIDER: 'info',
+    TRANSMIS_DAF: 'info',
+    VALIDEE: 'primary',
+    PAIE_VALIDEE: 'success',
+    CLOTUREE: 'secondary',
+    BROUILLON: 'default',
+};
+
+const STATUT_LABEL = {
+    EN_COURS: 'Pointage En Cours',
+    A_VALIDER: 'Transmise DAF',
+    TRANSMIS_DAF: 'Transmise DAF',
+    VALIDEE: 'Pointage Scellé & Figé',
+    PAIE_VALIDEE: 'Paie Validée & Approuvée',
+    CLOTUREE: 'Période Clôturée',
+    BROUILLON: 'Brouillon',
+};
+
 export default function PayrollCampaignHeader({
     context,
     periodes = [],
@@ -39,27 +60,6 @@ export default function PayrollCampaignHeader({
     const recalcRequired = context?.recalculationRequired === true;
     const recalcReason = context?.recalculationReason;
 
-    /** Map code statut → variant Badge */
-    const statutVariant = {
-        EN_COURS: 'warning',
-        A_VALIDER: 'info',
-        TRANSMIS_DAF: 'info',
-        VALIDEE: 'primary',
-        PAIE_VALIDEE: 'success',
-        CLOTUREE: 'secondary',
-        BROUILLON: 'default',
-    };
-
-    const statutLabel = {
-        EN_COURS: 'Pointage En Cours',
-        A_VALIDER: 'Transmise DAF',
-        TRANSMIS_DAF: 'Transmise DAF',
-        VALIDEE: 'Pointage Scellé & Figé',
-        PAIE_VALIDEE: 'Paie Validée & Approuvée',
-        CLOTUREE: 'Période Clôturée',
-        BROUILLON: 'Brouillon',
-    };
-
     const formatDate = (d) => {
         if (!d) return '–';
         return new Date(d).toLocaleDateString('fr-MG', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -73,7 +73,7 @@ export default function PayrollCampaignHeader({
             const pCode = p.code || '';
             const pLib = p.libelle || p.statutLibelle || '';
             const pStat = p.statutCode || p.codeStatut || p.statut || '';
-            const readableStat = statutLabel[pStat] || pStat || 'Pointage En Cours';
+            const readableStat = STATUT_LABEL[pStat] || pStat || 'Pointage En Cours';
             return {
                 value: String(pId),
                 label: `${pCode}${pLib ? ` — ${pLib}` : ''} (${readableStat})`
@@ -93,31 +93,27 @@ export default function PayrollCampaignHeader({
                     <div className="min-w-0 flex items-center gap-2.5 flex-wrap">
                         {/* Sélecteur de période réactif */}
                         {periodOptions.length > 0 ? (
-                            <div className="w-56 sm:w-64">
-                                <Select
-                                    value={activePeriodId ? String(activePeriodId) : ''}
-                                    options={periodOptions}
-                                    onChange={(val) => {
-                                        const num = Number(val);
-                                        if (num && onSelectPeriod) onSelectPeriod(num);
-                                    }}
-                                    containerClassName="w-full"
-                                    className="!py-1 !text-xs font-mono font-bold"
-                                />
-                            </div>
+                            <Select
+                                value={activePeriodId ? String(activePeriodId) : ''}
+                                onChange={(val) => onSelectPeriod && onSelectPeriod(Number(val))}
+                                options={periodOptions}
+                                className="text-xs font-semibold max-w-xs"
+                                aria-label="Sélectionner une période"
+                            />
                         ) : (
-                            <span className="text-xs font-bold text-[var(--color-fg)] uppercase tracking-wide truncate">
-                                {periode?.code ?? 'Période en cours'}
-                            </span>
+                            <h2 className="text-sm font-bold text-[var(--color-fg)] truncate">
+                                {periode?.code ? `Période ${periode.code}` : 'Campagne de paie'}
+                            </h2>
                         )}
 
+                        {/* Badge statut période */}
                         {periode?.state && (
                             <Badge
-                                variant={statutVariant[periode.state] || 'default'}
-                                size="xs"
+                                variant={STATUT_VARIANT[periode.state] || 'default'}
+                                size="sm"
                                 dot
                             >
-                                {statutLabel[periode.state] || periode.state}
+                                {STATUT_LABEL[periode.state] || periode.state || 'En cours'}
                             </Badge>
                         )}
 

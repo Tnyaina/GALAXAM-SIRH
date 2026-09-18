@@ -29,6 +29,7 @@ import mg.galaxam.sirh.model.paie.BulletinPaie;
 import mg.galaxam.sirh.model.paie.BulletinPaieLigne;
 import mg.galaxam.sirh.model.paie.PaieAvanceAcompte;
 import mg.galaxam.sirh.model.paie.PaieHonorairePrestation;
+import mg.galaxam.sirh.model.paie.PaiePret;
 import mg.galaxam.sirh.model.paie.PaiePretEcheance;
 import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
 import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet.ImpactPret;
@@ -1471,5 +1472,177 @@ public class PayrollService {
             }
         }
         return Collections.unmodifiableList(list);
+    }
+
+    /**
+     * Liste l'historique complet des bulletins de paie d'un collaborateur (Sprint Paie UI P0/P1).
+     */
+    public List<Map<String, Object>> listerBulletinsEmploye(Integer idEmploye, Connection c) throws Exception {
+        if (idEmploye == null) return Collections.emptyList();
+        String sql = "SELECT b.id_bulletin, b.id_periode_paie, b.reference_bulletin, b.type_bulletin, b.statut, " +
+                "b.salaire_base, b.total_gains_bruts, b.total_cotisations_salariales, b.salaire_net_imposable, " +
+                "b.irsa_net, b.retenue_isi_5, b.net_a_payer, b.date_calcul, b.date_validation, b.date_cloture, " +
+                "p.code AS code_periode, p.libelle AS libelle_periode, p.date_debut AS date_debut_periode, p.date_fin AS date_fin_periode " +
+                "FROM bulletin_paie b " +
+                "JOIN periode_paie p ON b.id_periode_paie = p.id_periode_paie " +
+                "WHERE b.id_employe = ? " +
+                "ORDER BY p.date_debut DESC, b.id_bulletin DESC";
+        List<Map<String, Object>> list = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("idBulletin", rs.getInt("id_bulletin"));
+                    map.put("idPeriodePaie", rs.getInt("id_periode_paie"));
+                    map.put("referenceBulletin", rs.getString("reference_bulletin"));
+                    map.put("typeBulletin", rs.getString("type_bulletin"));
+                    map.put("statut", rs.getString("statut"));
+                    map.put("salaireBase", rs.getBigDecimal("salaire_base"));
+                    map.put("totalGainsBruts", rs.getBigDecimal("total_gains_bruts"));
+                    map.put("totalCotisationsSalariales", rs.getBigDecimal("total_cotisations_salariales"));
+                    map.put("salaireNetImposable", rs.getBigDecimal("salaire_net_imposable"));
+                    map.put("irsaNet", rs.getBigDecimal("irsa_net"));
+                    map.put("retenueIsi5", rs.getBigDecimal("retenue_isi_5"));
+                    map.put("netAPayer", rs.getBigDecimal("net_a_payer"));
+                    map.put("dateCalcul", rs.getTimestamp("date_calcul"));
+                    map.put("dateValidation", rs.getTimestamp("date_validation"));
+                    map.put("dateCloture", rs.getTimestamp("date_cloture"));
+                    map.put("codePeriode", rs.getString("code_periode"));
+                    map.put("libellePeriode", rs.getString("libelle_periode"));
+                    map.put("dateDebutPeriode", rs.getDate("date_debut_periode"));
+                    map.put("dateFinPeriode", rs.getDate("date_fin_periode"));
+                    list.add(map);
+                }
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Fournit une synthèse financière compacte et 100% backend-driven pour l'onglet Paie de l'employé.
+     */
+    public Map<String, Object> obtenirSynthesePaieEmploye(Integer idEmploye, Connection c) throws Exception {
+        if (idEmploye == null) return Collections.emptyMap();
+        Map<String, Object> synthese = new HashMap<>();
+
+        // 1. Situation contractuelle et rémunération de base
+        String sqlContrat = "SELECT e.matricule, e.nom, e.prenom, " +
+                "eac.salaire_base, ct.id_contrat, ct.numero_contrat, rsc.code AS code_statut_contrat, " +
+                "ct.date_debut AS date_debut_contrat, ct.date_fin AS date_fin_contrat, " +
+                "f.libelle AS fonction_nom, d.libelle AS dept_nom, s.libelle AS site_nom " +
+                "FROM employe e " +
+                "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
+                "LEFT JOIN contrat_travail ct ON (eac.id_contrat = ct.id_contrat OR ct.id_employe = e.id_employe) " +
+                "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                "LEFT JOIN ref_fonction f ON eac.id_fonction = f.id_fonction " +
+                "LEFT JOIN ref_departement d ON eac.id_departement = d.id_departement " +
+                "LEFT JOIN ref_site s ON eac.id_site = s.id_site " +
+                "WHERE e.id_employe = ? " +
+                "ORDER BY (CASE WHEN rsc.code = 'ACTIF' THEN 1 ELSE 2 END), eac.date_debut DESC NULLS LAST, ct.date_debut DESC NULLS LAST LIMIT 1";
+
+        BigDecimal salaireBase = BigDecimal.ZERO;
+        try (PreparedStatement ps = c.prepareStatement(sqlContrat)) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    salaireBase = rs.getBigDecimal("salaire_base") != null ? rs.getBigDecimal("salaire_base") : BigDecimal.ZERO;
+                    synthese.put("matricule", rs.getString("matricule"));
+                    synthese.put("nomComplet", (rs.getString("nom") + " " + (rs.getString("prenom") != null ? rs.getString("prenom") : "")).trim());
+                    synthese.put("fonction", rs.getString("fonction_nom"));
+                    synthese.put("departement", rs.getString("dept_nom"));
+                    synthese.put("site", rs.getString("site_nom"));
+                    synthese.put("idContrat", rs.getObject("id_contrat"));
+                    synthese.put("numeroContrat", rs.getString("numero_contrat"));
+                    String codeStatut = rs.getString("code_statut_contrat");
+                    synthese.put("codeStatutContrat", codeStatut);
+                    synthese.put("dateDebutContrat", rs.getDate("date_debut_contrat"));
+                    synthese.put("dateFinContrat", rs.getDate("date_fin_contrat"));
+                    synthese.put("contratActif", "ACTIF".equalsIgnoreCase(codeStatut));
+                }
+            }
+        }
+        synthese.put("salaireBaseContractuel", salaireBase);
+
+        // 2. Taux horaire légal backend-driven (diviseur conventionnel légal)
+        BigDecimal diviseur = new BigDecimal("173.3333");
+        try {
+            var conf = PaieConfigLegale.findActiveAt(c, LocalDate.now());
+            if (conf != null && conf.getDiviseurMensuelHeures() != null && conf.getDiviseurMensuelHeures().compareTo(BigDecimal.ZERO) > 0) {
+                diviseur = conf.getDiviseurMensuelHeures();
+            }
+        } catch (Exception ignored) {}
+        BigDecimal tauxHoraire = salaireBase.compareTo(BigDecimal.ZERO) > 0
+                ? salaireBase.divide(diviseur, 4, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        synthese.put("tauxHoraire", tauxHoraire);
+        synthese.put("diviseurHeures", diviseur);
+
+        // 3. TCONGE journalier applicable résolu par le moteur canonique
+        BigDecimal tauxConge = BigDecimal.ZERO;
+        try {
+            if (congeTauxApplicableService != null && salaireBase.compareTo(BigDecimal.ZERO) > 0) {
+                var res = congeTauxApplicableService.resoudreTauxCongeApplicable(idEmploye, LocalDate.now(), salaireBase, c);
+                if (res != null && res.getTauxJournalier() != null) {
+                    tauxConge = res.getTauxJournalier();
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Impossible de résoudre TCONGE pour employe {}: {}", idEmploye, ex.getMessage());
+            if (salaireBase.compareTo(BigDecimal.ZERO) > 0) {
+                tauxConge = salaireBase.divide(new BigDecimal("30"), 4, RoundingMode.HALF_UP);
+            }
+        }
+        synthese.put("tauxJournalierConge", tauxConge);
+
+        // 4. Dernier bulletin de paie payé / validé
+        String sqlLastBulletin = "SELECT b.id_bulletin, b.total_gains_bruts, b.net_a_payer, b.statut, b.date_calcul, " +
+                "p.code AS code_periode, p.libelle AS libelle_periode, p.date_fin AS date_fin_periode " +
+                "FROM bulletin_paie b " +
+                "JOIN periode_paie p ON b.id_periode_paie = p.id_periode_paie " +
+                "WHERE b.id_employe = ? " +
+                "ORDER BY p.date_debut DESC, b.id_bulletin DESC LIMIT 1";
+        try (PreparedStatement ps = c.prepareStatement(sqlLastBulletin)) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    synthese.put("dernierBulletinId", rs.getInt("id_bulletin"));
+                    synthese.put("dernierePeriodeCode", rs.getString("code_periode"));
+                    synthese.put("dernierePeriodeLibelle", rs.getString("libelle_periode"));
+                    synthese.put("derniereDatePaiement", rs.getDate("date_fin_periode"));
+                    synthese.put("dernierBrut", rs.getBigDecimal("total_gains_bruts"));
+                    synthese.put("dernierNet", rs.getBigDecimal("net_a_payer"));
+                    synthese.put("dernierStatut", rs.getString("statut"));
+                } else {
+                    synthese.put("dernierBulletinId", null);
+                    synthese.put("dernierePeriodeCode", null);
+                    synthese.put("dernierePeriodeLibelle", null);
+                    synthese.put("derniereDatePaiement", null);
+                    synthese.put("dernierBrut", null);
+                    synthese.put("dernierNet", null);
+                    synthese.put("dernierStatut", null);
+                }
+            }
+        }
+
+        // 5. Avances et acomptes en attente d'imputation (non encore rattachés à un bulletin)
+        String sqlAvances = "SELECT COALESCE(SUM(montant), 0) AS total_avances, COUNT(*) AS nb_avances " +
+                "FROM paie_avance_acompte " +
+                "WHERE id_employe = ? AND (statut = 'APPROUVE' OR statut = 'VALIDE') AND id_bulletin IS NULL";
+        try (PreparedStatement ps = c.prepareStatement(sqlAvances)) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    synthese.put("totalAvancesEnCours", rs.getBigDecimal("total_avances"));
+                    synthese.put("nbAvancesEnCours", rs.getInt("nb_avances"));
+                }
+            }
+        }
+
+        // 6. Prêts d'entreprise : capital restant dû
+        BigDecimal capitalPrets = PaiePret.calculerCapitalRestantTotal(idEmploye, c);
+        synthese.put("capitalRestantPrets", capitalPrets != null ? capitalPrets : BigDecimal.ZERO);
+
+        return synthese;
     }
 }
