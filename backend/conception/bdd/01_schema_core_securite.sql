@@ -264,6 +264,6 @@ INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, d
 (33, 'SEUIL_CONGES_PENALITE_PP_JOURS', 'PAIE', '1.0', 'Nombre de jours de congés dans le mois au-delà duquel la pénalité sur PP s applique si retard > seuil', '2026-01-01', NULL, TRUE, TRUE),
 (34, 'TAUX_PENALITE_PP', 'PAIE', '0.25', 'Taux de réduction appliqué sur la prime de performance (ex: 0.25 = 1/4 soit 25%)', '2026-01-01', NULL, TRUE, TRUE),
 (35, 'SEUIL_HEURES_SEMAINE_COMPENSATION', 'POINTAGE', '40.0', 'Seuil hebdomadaire normal d heures travaillées pour compensation des retards et déclenchement des HS', '2026-01-01', NULL, TRUE, TRUE),
-(38, 'DUREE_REFERENCE_TCONGE_MOIS', 'CONGE', '12', 'Borne technique de validité du paramètre. Ne représente ni le début de la règle métier, ni le début d une campagne TCONGE, ni une date historique GALAXAM.', '2000-01-01', NULL, TRUE, FALSE)
+(38, 'DUREE_REFERENCE_TCONGE_MOIS', 'CONGE', '12', 'Borne technique de validité du paramètre. Ne représente ni le début de la règle métier, ni le début d une campagne TCONGE, ni une date historique.', '2000-01-01', NULL, TRUE, FALSE)
 ON CONFLICT (code_parametre, date_debut) DO UPDATE SET valeur = EXCLUDED.valeur, description = EXCLUDED.description, est_actif = EXCLUDED.est_actif, est_desactivable = EXCLUDED.est_desactivable;
 SELECT setval('parametre_global_id_parametre_seq', (SELECT GREATEST(MAX(id_parametre), 38) FROM parametre_global));
