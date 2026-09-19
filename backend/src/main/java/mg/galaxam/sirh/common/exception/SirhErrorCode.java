@@ -196,6 +196,14 @@ public enum SirhErrorCode {
             HttpStatus.NOT_FOUND,
             "La demande de congé demandée n'existe pas."),
 
+    LEAVE_RATE_MISSING(
+            HttpStatus.CONFLICT,
+            "Aucun taux de congé n'est configuré pour cet employé à cette date. Configurez le taux avant de générer la paie."),
+
+    CYCLE_ACCUMULATORS_UNKNOWN(
+            HttpStatus.CONFLICT,
+            "Les données antérieures à la reprise sont incomplètes. Le taux de la prochaine période ne peut pas être calculé automatiquement sans arbitrage RH."),
+
     // =========================================================================
     // EMPLOYÉ & RÉFÉRENTIELS
     // =========================================================================

@@ -183,6 +183,10 @@ public class TestEmployeFixtures {
     }
 
     public void crediterSoldeConge(int idEmploye, double jours) {
+        crediterSoldeConge(idEmploye, jours, new BigDecimal("25000.00"));
+    }
+
+    public void crediterSoldeConge(int idEmploye, double jours, BigDecimal tauxJournalier) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -194,6 +198,18 @@ public class TestEmployeFixtures {
                     ps.setBigDecimal(2, BigDecimal.valueOf(jours));
                     ps.executeUpdate();
                 }
+
+                if (tauxJournalier != null && tauxJournalier.compareTo(BigDecimal.ZERO) > 0) {
+                    String sqlTaux = "INSERT INTO conge_taux_applicable (" +
+                            "id_employe, taux_journalier, date_effet, source_provenance, commentaire) " +
+                            "VALUES (?, ?, '2025-01-01', 'REPRISE_CUTOVER', 'Taux test fixture initial')";
+                    try (PreparedStatement psTaux = c.prepareStatement(sqlTaux)) {
+                        psTaux.setInt(1, idEmploye);
+                        psTaux.setBigDecimal(2, tauxJournalier);
+                        psTaux.executeUpdate();
+                    }
+                }
+
                 c.commit();
             } catch (Exception e) {
                 c.rollback();

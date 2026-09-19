@@ -28,6 +28,7 @@ const formatDateOnly = (dateString) => {
 
 export default function CongesTab({ idEmploye, employe, canWrite = false }) {
   const [soldeEmploye, setSoldeEmploye] = useState(null);
+  const [situationData, setSituationData] = useState(null);
   const [mouvements, setMouvements] = useState([]);
   const [demandesEmploye, setDemandesEmploye] = useState([]);
   const [totalDemandes, setTotalDemandes] = useState(0);
@@ -62,8 +63,9 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
     try {
       setLoading(true);
       setError(null);
-      const [soldeRes, mvtRes, demRes, poolRes, refRes] = await Promise.all([
+      const [soldeRes, situationRes, mvtRes, demRes, poolRes, refRes] = await Promise.all([
         congeService.getSoldeEmploye(idEmploye).catch(() => null),
+        congeService.getSituationEmploye(idEmploye).catch(() => null),
         congeService.getMouvementsEmploye(idEmploye).catch(() => []),
         congeService.getDemandesEmploye(idEmploye, { page: 1, size: pageSize }).catch(() => null),
         congeService.getConsommationPool(idEmploye).catch(() => []),
@@ -71,6 +73,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
       ]);
 
       setSoldeEmploye(soldeRes);
+      setSituationData(situationRes);
       setMouvements(mvtRes || []);
       setDemandesEmploye(demRes?.content || []);
       setTotalDemandes(demRes?.totalElements || 0);
@@ -188,9 +191,10 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
 
       {error && <Alert type="error" message={typeof error === 'string' ? error : JSON.stringify(error)} />}
 
-      {/* Synthèse des Soldes */}
+      {/* Synthèse des Soldes & Situation TCONGE */}
       <SoldeCongeWidget
         soldeData={soldeEmploye}
+        situationData={situationData}
         consommationPool={consommationPool}
         employe={employe}
         canWrite={canWrite}

@@ -13,6 +13,7 @@ import mg.galaxam.sirh.fixtures.TestEmployeFixtures;
 import mg.galaxam.sirh.model.conge.DemandeConge;
 import mg.galaxam.sirh.model.conge.MouvementSoldeConge;
 import mg.galaxam.sirh.model.conge.service.CongeService;
+import mg.galaxam.sirh.model.conge.service.CongeTauxApplicableService;
 import mg.galaxam.sirh.model.paie.dto.PayrollAttendanceInput;
 import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
 import mg.galaxam.sirh.model.paie.service.PayrollService;
@@ -29,6 +30,9 @@ public class Phase2a3bSoldeInitialIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private CongeService congeService;
+
+    @Autowired
+    private CongeTauxApplicableService congeTauxApplicableService;
 
     @Autowired
     private PayrollService payrollService;
@@ -199,7 +203,7 @@ public class Phase2a3bSoldeInitialIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Cas E : Solde historique connu, aucun historique TCONGE -> Fallback CURRENT_INITIALIZATION_RULE sans historique fictif")
+    @DisplayName("Cas E : Solde historique sans TCONGE -> LEAVE_RATE_MISSING (interdiction fallback silencieux Base/30)")
     public void testCasE_SoldeHistoriqueSansHistoriqueTconge() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             congeService.initialiserSoldeHistorique(
@@ -209,11 +213,20 @@ public class Phase2a3bSoldeInitialIntegrationTest extends BaseIntegrationTest {
             BigDecimal salaireBase = new BigDecimal("600000.00");
             LocalDate dateRef = LocalDate.of(2026, 9, 1);
 
-            // Résolution TCONGE : aucun historique dans conge_journal_droit -> Fallback Base / 30.0 = 20 000.00 Ar
+            // 1. Sans taux configuré : l'interdiction du silent fallback Base/30 lève LEAVE_RATE_MISSING
+            IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
+                    StcService.getTauxJournalierApplicable(emp.idEmploye, dateRef, salaireBase, c));
+            assertTrue(ex.getMessage().contains("LEAVE_RATE_MISSING"), "Doit explicitement bloquer avec LEAVE_RATE_MISSING");
+
+            // 2. Avec taux de cutover / migration configuré : résolution exacte
+            congeTauxApplicableService.enregistrerTauxApplicableMigration(
+                    emp.idEmploye, new BigDecimal("20000.00"), LocalDate.of(2026, 8, 31),
+                    null, "Taux cutover test", 1, c);
+
             BigDecimal taux = StcService.getTauxJournalierApplicable(emp.idEmploye, dateRef, salaireBase, c);
             assertEquals(0, taux.compareTo(new BigDecimal("20000.00")));
 
-            // Vérifier qu'aucun enregistrement n'a été créé dans conge_journal_droit
+            // 3. Vérifier qu'aucun enregistrement fictif n'a été créé dans conge_journal_droit
             try (PreparedStatement ps = c.prepareStatement("SELECT COUNT(*) FROM conge_journal_droit WHERE id_employe = ?")) {
                 ps.setInt(1, emp.idEmploye);
                 try (ResultSet rs = ps.executeQuery()) {

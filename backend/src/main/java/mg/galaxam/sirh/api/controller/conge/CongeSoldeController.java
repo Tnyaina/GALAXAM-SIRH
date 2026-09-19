@@ -8,6 +8,8 @@ import javax.sql.DataSource;
 import mg.galaxam.sirh.model.conge.MouvementSoldeConge;
 import mg.galaxam.sirh.model.conge.VPoolCongeAnnuelConsommation;
 import mg.galaxam.sirh.model.conge.VSoldeCongeEmploye;
+import mg.galaxam.sirh.model.conge.engine.CongeCutoverOpeningRequestDTO;
+import mg.galaxam.sirh.model.conge.engine.CongeSituationEmployeDTO;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -234,6 +236,50 @@ public class CongeSoldeController {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                     mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
                     "Impossible d'enregistrer cette initialisation de solde : " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/solde/employe/{idEmploye}/situation")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getSituationEmploye(
+            @PathVariable Integer idEmploye,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateReference) {
+        try (Connection c = dataSource.getConnection()) {
+            java.time.LocalDate refDate = dateReference != null ? dateReference : java.time.LocalDate.now();
+            CongeSituationEmployeDTO situation = congeTauxApplicableService.obtenirSituationComplete(idEmploye, refDate, c);
+            return ResponseEntity.ok(situation);
+        } catch (Exception e) {
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @PostMapping("/solde/cutover-opening")
+    @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> enregistrerCutoverOpening(@RequestBody CongeCutoverOpeningRequestDTO req) {
+        if (req.getIdEmploye() == null || req.getSoldeJours() == null || req.getTauxJournalierApplicable() == null || req.getDateDebutReference() == null) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "idEmploye, soldeJours, tauxJournalierApplicable et dateDebutReference sont obligatoires pour le cutover.");
+        }
+
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                Integer currentUserId = getCurrentUserId();
+                if (req.getDateCutover() == null) {
+                    req.setDateCutover(java.time.LocalDate.now());
+                }
+                congeTauxApplicableService.enregistrerCutoverSnapshot(req, currentUserId, c);
+                c.commit();
+
+                CongeSituationEmployeDTO situation = congeTauxApplicableService.obtenirSituationComplete(req.getIdEmploye(), req.getDateCutover(), c);
+                return ResponseEntity.status(HttpStatus.CREATED).body(situation);
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        } catch (Exception e) {
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 

@@ -12,5 +12,8 @@ public enum TcongeSourceProvenance {
     CALCUL_PERIODE_REFERENCE,
 
     /** Amorçage canonique contractuel pour un salarié sans historique (SalaireBase / 30) */
-    INITIALISATION_BASE_30
+    INITIALISATION_BASE_30,
+
+    /** Taux repris lors du cutover initial explicite (solde + TCONGE + optionnellement cumuls) */
+    REPRISE_CUTOVER
 }

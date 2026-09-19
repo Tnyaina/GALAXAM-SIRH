@@ -242,13 +242,18 @@ public class GrandWorkflowOhatraE2ETest extends BaseIntegrationTest {
         // ÉTAPE 3 : GESTION DES CONGÉS (POST /conges/demandes + validation)
         // =========================================================================
 
-        // Crédit de solde de congé annuel pour RAKETAKA (15 jours)
+        // Crédit de solde de congé annuel pour RAKETAKA (15 jours) + Taux TCONGE initial Ohatra
         try (Connection c = dataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(
                      "INSERT INTO mouvement_solde_conge (id_employe, type_mouvement, nb_jours, date_mouvement, commentaire) " +
-                             "VALUES (?, 'ACQUISITION', 15.0, '2025-12-01', 'Solde acquis exercice')")) {
+                             "VALUES (?, 'ACQUISITION', 15.0, '2025-12-01', 'Solde acquis exercice')");
+             PreparedStatement psTaux = c.prepareStatement(
+                     "INSERT INTO conge_taux_applicable (id_employe, taux_journalier, date_effet, source_provenance, commentaire) " +
+                             "VALUES (?, 8666.67, '2025-12-01', 'KAJY_MIGRATION', 'TCONGE initial Ohatra')")) {
             ps.setInt(1, idEmpRaketaka);
             ps.executeUpdate();
+            psTaux.setInt(1, idEmpRaketaka);
+            psTaux.executeUpdate();
         }
 
         // Dépôt d'une demande de congé annuel pour RAKETAKA

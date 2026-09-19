@@ -1,23 +1,56 @@
-import { Calendar, Clock, ArrowDownCircle, ShieldAlert, Info, CheckCircle, AlertTriangle, Coins } from 'lucide-react';
+import { useState } from 'react';
+import { Calendar, Clock, ArrowDownCircle, ShieldAlert, Info, CheckCircle, AlertTriangle, Coins, ChevronDown, ChevronUp } from 'lucide-react';
 import StatCard from '@/components/ui/data-display/StatCard';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 
-export default function SoldeCongeWidget({ soldeData, consommationPool, employe, canWrite = false, onOpenInitModal }) {
-  if (!soldeData) return null;
+export default function SoldeCongeWidget({
+  soldeData,
+  situationData = null,
+  consommationPool,
+  employe,
+  canWrite = false,
+  onOpenInitModal
+}) {
+  const [showDetailAccumulateurs, setShowDetailAccumulateurs] = useState(false);
 
-  const soldeActuel = Number(soldeData.soldeActuel || 0);
-  const totalAcquis = Number(soldeData.totalAcquis || 0);
-  const totalPris = Number(soldeData.totalPris || 0);
-  const totalBonification = Number(soldeData.totalBonification || 0);
+  if (!soldeData && !situationData) return null;
+
+  // A. Solde consommable
+  const soldeActuel = Number(
+    situationData?.soldeJours !== undefined && situationData?.soldeJours !== null
+      ? situationData.soldeJours
+      : (soldeData?.soldeActuel || 0)
+  );
+  const totalAcquis = Number(
+    situationData?.totalAcquis !== undefined && situationData?.totalAcquis !== null
+      ? situationData.totalAcquis
+      : (soldeData?.totalAcquis || 0)
+  );
+  const totalPris = Number(
+    situationData?.totalPris !== undefined && situationData?.totalPris !== null
+      ? situationData.totalPris
+      : (soldeData?.totalPris || 0)
+  );
+  const totalBonification = Number(soldeData?.totalBonification || 0);
   const totalCumule = totalAcquis + totalBonification;
-  const totalExpire = Number(soldeData.totalExpire || 0);
+  const totalExpire = Number(soldeData?.totalExpire || 0);
+
+  // B. TCONGE applicable
+  const tauxConge = situationData?.tauxApplicable?.montant !== undefined
+    ? Number(situationData.tauxApplicable.montant)
+    : Number(soldeData?.tauxJournalierConge || 0);
+
+  const sourceTaux = situationData?.tauxApplicable?.source || soldeData?.sourceTauxConge || null;
+
+  // C. Période de référence & cycle
+  const refCycle = situationData?.periodeReference || null;
 
   // Pool partagé permissions exceptionnelles (10j / an max)
   const poolJoursConsommes = consommationPool && consommationPool.length > 0
     ? Number(consommationPool[0].joursConsommes || 0)
     : 0;
 
-  // Calcul de l'ancienneté et éligibilité légale au congé annuel payé (Règle des 12 mois - Art. 83)
+  // Ancienneté et éligibilité légale
   const dateDebut = employe?.dateEmbauche || employe?.dateDebutContratActif || employe?.dateDebut;
   let ancienneteInfo = null;
 
@@ -87,7 +120,18 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe,
 
   const formatJours = (val) => {
     const num = Number(val || 0);
-    return Number.isInteger(num) ? num.toString() : num.toFixed(1);
+    return Number.isInteger(num) ? num.toString() : num.toFixed(2);
+  };
+
+  const getSourceLabel = (src) => {
+    if (!src) return 'Non renseignée';
+    switch (src) {
+      case 'REPRISE_CUTOVER': return 'Reprise initiale (Cutover)';
+      case 'CALCUL_PERIODE_REFERENCE': return 'Période de référence (12 mois)';
+      case 'KAJY_MIGRATION': return 'Migration Excel historique';
+      case 'INITIALISATION_BASE_30': return 'Amorçage contractuel (Base / 30)';
+      default: return src;
+    }
   };
 
   return (
@@ -116,7 +160,7 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe,
               <div>
                 <span className="font-bold text-sm">Période d'acquisition d'ancienneté en cours ({ancienneteInfo.months} mois / 12)</span>
                 <p className="text-xs text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] mt-0.5">
-                  L'ouverture du droit légal au congé annuel payé aura lieu le <strong>{ancienneteInfo.dateOuvertureStr}</strong> (). Une <strong>dérogation RH</strong> est requise pour toute prise anticipée.
+                  L'ouverture du droit légal au congé annuel payé aura lieu le <strong>{ancienneteInfo.dateOuvertureStr}</strong>. Une <strong>dérogation RH</strong> est requise pour toute prise anticipée.
                 </p>
               </div>
             </div>
@@ -127,30 +171,34 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe,
         )
       )}
 
-      {/* ── Taux Journalier de Congé (TCONGE) Résolu ── */}
-      {soldeData?.tauxJournalierConge && Number(soldeData.tauxJournalierConge) > 0 && (
-        <div className="p-3 bg-[var(--color-bg-subtle)]/60 border border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-3 text-xs">
+      {/* ── Bandeau TCONGE & Cycle Annuel de Référence (Section 28) ── */}
+      <div className="p-3.5 bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] space-y-2.5 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <Coins size={17} className="text-[var(--color-brand-600)] shrink-0" />
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <span className="font-semibold text-[var(--color-fg)]">Taux Journalier TCONGE :</span>
-              <span className="font-mono font-bold text-sm text-[var(--color-brand-600)]">
-                {formatMoneyAr(soldeData.tauxJournalierConge)}
-              </span>
-              <span className="text-[11px] text-[var(--color-fg-muted)]">
-                / jour d'absence indemnisé ou ICCP
-              </span>
+            <Coins size={18} className="text-[var(--color-brand-600)] shrink-0" />
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+              <span className="font-semibold text-[var(--color-fg)]">Taux Congé Applicable (TCONGE) :</span>
+              {tauxConge > 0 ? (
+                <>
+                  <span className="font-mono font-bold text-sm text-[var(--color-brand-600)]">
+                    {formatMoneyAr(tauxConge)}
+                  </span>
+                  <span className="text-[11px] text-[var(--color-fg-muted)]">
+                    / jour d'absence indemnisé
+                  </span>
+                </>
+              ) : (
+                <span className="text-xs font-semibold text-[var(--color-danger-500)]">
+                  Non configuré (LEAVE_RATE_MISSING)
+                </span>
+              )}
             </div>
           </div>
+
           <div className="flex items-center gap-2">
-            {soldeData?.sourceTauxConge && (
-              <span className="text-[11px] px-2.5 py-0.5 font-medium bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg-muted)]">
-                Source : {
-                  soldeData.sourceTauxConge === 'CALCUL_PERIODE_REFERENCE' ? 'Période de référence (12 mois)' :
-                    soldeData.sourceTauxConge === 'KAJY_MIGRATION' ? 'Migration historique' :
-                      soldeData.sourceTauxConge === 'INITIALISATION_BASE_30' ? 'Base légale initiale (Salaire Base / 30)' :
-                        soldeData.sourceTauxConge
-                }
+            {sourceTaux && (
+              <span className="text-[11px] px-2.5 py-0.5 font-medium bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg-muted)]">
+                Source : {getSourceLabel(sourceTaux)}
               </span>
             )}
             {canWrite && onOpenInitModal && (
@@ -158,14 +206,85 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe,
                 type="button"
                 onClick={onOpenInitModal}
                 className="text-[11px] font-semibold text-[var(--color-brand-600)] hover:underline hover:text-[var(--color-brand-700)] cursor-pointer"
-                title="Modifier ou renseigner le taux de migration issu d'Excel"
+                title="Initialiser ou réajuster la situation de cutover"
               >
-                Ajuster
+                {tauxConge > 0 ? 'Ajuster / Reprise' : 'Initialiser la situation'}
               </button>
             )}
           </div>
         </div>
-      )}
+
+        {/* Ligne Cycle Annuel et État Historique */}
+        <div className="pt-2 border-t border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-2 text-[11px]">
+          <div className="flex items-center gap-2 text-[var(--color-fg-muted)]">
+            <Calendar size={13} className="text-[var(--color-fg-subtle)]" />
+            <span>Cycle annuel :</span>
+            {refCycle ? (
+              <strong className="text-[var(--color-fg)] font-mono">
+                {refCycle.dateDebut} → {refCycle.dateFin}
+              </strong>
+            ) : (
+              <span className="italic">Aucun cycle actif</span>
+            )}
+            {refCycle?.modeReprise && (
+              <span className={`px-2 py-0.2 border text-[10px] font-semibold ${
+                refCycle.openingComplete
+                  ? 'bg-[var(--color-success-500)]/15 text-[var(--color-success-700)] dark:text-[var(--color-success-300)] border-[var(--color-success-500)]/30'
+                  : 'bg-[var(--color-warning-500)]/15 text-[var(--color-warning-800)] dark:text-[var(--color-warning-200)] border-[var(--color-warning-500)]/30'
+              }`}>
+                {refCycle.openingComplete ? 'Historique complet' : 'Historique antérieur partiel'}
+              </span>
+            )}
+          </div>
+
+          {refCycle && (
+            <button
+              type="button"
+              onClick={() => setShowDetailAccumulateurs(!showDetailAccumulateurs)}
+              className="text-[11px] font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] flex items-center gap-1 cursor-pointer"
+            >
+              <span>{showDetailAccumulateurs ? 'Masquer le détail du cycle' : 'Voir le détail du cycle'}</span>
+              {showDetailAccumulateurs ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            </button>
+          )}
+        </div>
+
+        {/* Détail déroulant des accumulateurs du cycle (Section 28) */}
+        {showDetailAccumulateurs && refCycle && (
+          <div className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded text-xs grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fadeIn">
+            <div>
+              <span className="text-[11px] text-[var(--color-fg-muted)] block">Droits du cycle :</span>
+              <strong className="font-mono">{formatJours(refCycle.cumulDroitsTotal || refCycle.cumulDroitsPostCutover || 0)} j</strong>
+              {refCycle.cumulDroitsOuverture !== null && refCycle.cumulDroitsOuverture !== undefined && (
+                <span className="text-[10px] text-[var(--color-fg-subtle)] block">
+                  (dont {formatJours(refCycle.cumulDroitsOuverture)}j ouv.)
+                </span>
+              )}
+            </div>
+
+            <div>
+              <span className="text-[11px] text-[var(--color-fg-muted)] block">Valorisation cycle :</span>
+              <strong className="font-mono text-[var(--color-brand-600)]">
+                {formatMoneyAr(refCycle.cumulValorisationTotal || refCycle.cumulValorisationPostCutover || 0)}
+              </strong>
+            </div>
+
+            <div>
+              <span className="text-[11px] text-[var(--color-fg-muted)] block">Projection futur TCONGE :</span>
+              <strong className="font-mono">
+                {refCycle.tauxProjection ? formatMoneyAr(refCycle.tauxProjection) + '/j' : '—'}
+              </strong>
+            </div>
+
+            <div>
+              <span className="text-[11px] text-[var(--color-fg-muted)] block">Clôture annuelle :</span>
+              <strong className={refCycle.clotureAutomatiquePossible ? 'text-[var(--color-success-600)]' : 'text-[var(--color-warning-600)]'}>
+                {refCycle.clotureAutomatiquePossible ? 'Automatique' : 'Arbitrage RH requis'}
+              </strong>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Grille des 4 Cartes Métier Harmonieuses */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

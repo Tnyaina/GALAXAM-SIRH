@@ -7,6 +7,10 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import mg.galaxam.sirh.model.conge.engine.CongeCutoverOpeningRequestDTO;
+import mg.galaxam.sirh.model.conge.engine.CongeModeReprise;
+import mg.galaxam.sirh.model.conge.engine.CongeSituationEmployeDTO;
+import mg.galaxam.sirh.model.conge.engine.ReferencePeriodPolicy;
 import mg.galaxam.sirh.model.conge.engine.TauxCongeResolution;
 import mg.galaxam.sirh.model.conge.engine.TcongeApplicableRateStatus;
 import mg.galaxam.sirh.model.conge.engine.TcongeConfigurationDTO;
@@ -117,7 +121,40 @@ public class CongeTauxApplicableService {
             log.warn("[CongeTauxApplicableService] Erreur recherche taux historique legacy pour employé {}: {}", idEmploye, e.getMessage());
         }
 
-        // 3. Cas 0 match : Amorçage contractuel canonique pour nouvel employé sans historique
+        // 3. Cas 0 match : Vérification anti-fallback silencieux pour salarié historique
+        String sqlCheckRef = "SELECT mode_reprise FROM conge_periode_reference WHERE id_employe = ? AND date_debut <= ? AND date_fin >= ?";
+        try (PreparedStatement psRef = c.prepareStatement(sqlCheckRef)) {
+            psRef.setInt(1, idEmploye);
+            psRef.setDate(2, Date.valueOf(dateReference));
+            psRef.setDate(3, Date.valueOf(dateReference));
+            try (ResultSet rsRef = psRef.executeQuery()) {
+                if (rsRef.next()) {
+                    String mode = rsRef.getString("mode_reprise");
+                    if (mode != null && !mode.equals("NEW_HIRE")) {
+                        throw new IllegalStateException("LEAVE_RATE_MISSING: Aucun taux journalier TCONGE configuré pour le salarié historique (ID: " +
+                                idEmploye + ") à la date " + dateReference + ". Le fallback Base/30 est strictement interdit pour les salariés historiques.");
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            log.warn("[CongeTauxApplicableService] Erreur lors de la vérification de référence pour l'employé {}: {}", idEmploye, e.getMessage());
+        }
+
+        // Vérification de tout mouvement de congé antérieur (preuve de reprise ou de passif de congés)
+        String sqlHist = "SELECT 1 FROM mouvement_solde_conge WHERE id_employe = ? LIMIT 1";
+        try (PreparedStatement psH = c.prepareStatement(sqlHist)) {
+            psH.setInt(1, idEmploye);
+            try (ResultSet rsH = psH.executeQuery()) {
+                if (rsH.next()) {
+                    throw new IllegalStateException("LEAVE_RATE_MISSING: Aucun taux journalier TCONGE configuré pour le salarié historique (ID: " +
+                            idEmploye + ") à la date " + dateReference + ". Le fallback Base/30 est strictement interdit.");
+                }
+            }
+        } catch (SQLException e) {
+            log.warn("[CongeTauxApplicableService] Erreur lors de la vérification d'historique pour l'employé {}: {}", idEmploye, e.getMessage());
+        }
+
+        // 4. Cas nouveau collaborateur pur (NEW_HIRE sans historique) : Amorçage contractuel canonique Base / 30
         if (salaireBaseFallback != null && salaireBaseFallback.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal tauxBase30 = salaireBaseFallback.divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
             return new TauxCongeResolution(
@@ -399,7 +436,8 @@ public class CongeTauxApplicableService {
                                                               LocalDate dateMoisPaie,
                                                               Connection c) throws SQLException {
         String sql = "SELECT id_periode_reference, date_debut, date_fin, statut, " +
-                "taux_calcule_cloture, cumul_droits_cloture, cumul_valorisation_cloture " +
+                "taux_calcule_cloture, cumul_droits_cloture, cumul_valorisation_cloture, " +
+                "mode_reprise, date_cutover, cumul_droits_ouverture, cumul_valorisation_ouverture " +
                 "FROM conge_periode_reference " +
                 "WHERE id_employe = ? " +
                 "  AND statut = 'OUVERTE' " +
@@ -414,12 +452,17 @@ public class CongeTauxApplicableService {
             ps.setDate(3, Date.valueOf(dateMoisPaie));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    Date dCut = rs.getDate("date_cutover");
                     refs.add(new PeriodeReferenceData(
                             rs.getInt("id_periode_reference"),
                             rs.getDate("date_debut").toLocalDate(),
                             rs.getDate("date_fin").toLocalDate(),
                             rs.getString("statut"),
-                            rs.getBigDecimal("taux_calcule_cloture")
+                            rs.getBigDecimal("taux_calcule_cloture"),
+                            rs.getString("mode_reprise"),
+                            dCut != null ? dCut.toLocalDate() : null,
+                            rs.getBigDecimal("cumul_droits_ouverture"),
+                            rs.getBigDecimal("cumul_valorisation_ouverture")
                     ));
                 }
             }
@@ -490,7 +533,11 @@ public class CongeTauxApplicableService {
      */
     public BigDecimal cloturerPeriodeReference(int idPeriodeReference, Integer idUtilisateur, Connection c) throws SQLException {
         // Idempotence check
-        String sqlCheck = "SELECT statut, taux_calcule_cloture FROM conge_periode_reference WHERE id_periode_reference = ? FOR UPDATE";
+        String sqlCheck = "SELECT statut, taux_calcule_cloture, mode_reprise, cumul_droits_ouverture, cumul_valorisation_ouverture " +
+                "FROM conge_periode_reference WHERE id_periode_reference = ? FOR UPDATE";
+        String modeReprise = null;
+        BigDecimal cumulDroitsOuverture = null;
+        BigDecimal cumulValoOuverture = null;
         try (PreparedStatement psCheck = c.prepareStatement(sqlCheck)) {
             psCheck.setInt(1, idPeriodeReference);
             try (ResultSet rsCheck = psCheck.executeQuery()) {
@@ -500,24 +547,36 @@ public class CongeTauxApplicableService {
                 if ("CLOTUREE".equals(rsCheck.getString("statut"))) {
                     return rsCheck.getBigDecimal("taux_calcule_cloture");
                 }
+                modeReprise = rsCheck.getString("mode_reprise");
+                cumulDroitsOuverture = rsCheck.getBigDecimal("cumul_droits_ouverture");
+                cumulValoOuverture = rsCheck.getBigDecimal("cumul_valorisation_ouverture");
             }
         }
 
-        // Calcul des cumuls depuis conge_journal_droit
+        // Calcul des cumuls depuis conge_journal_droit (post-cutover ou natifs)
         String sqlSum = "SELECT COALESCE(SUM(jours_droit_acquis), 0) AS sum_droits, " +
                 "COALESCE(SUM(valorisation_mensuelle), 0) AS sum_valo " +
                 "FROM conge_journal_droit WHERE id_periode_reference = ?";
-        BigDecimal cumulDroits = BigDecimal.ZERO;
-        BigDecimal cumulValo = BigDecimal.ZERO;
+        BigDecimal postDroits = BigDecimal.ZERO;
+        BigDecimal postValo = BigDecimal.ZERO;
         try (PreparedStatement psSum = c.prepareStatement(sqlSum)) {
             psSum.setInt(1, idPeriodeReference);
             try (ResultSet rsSum = psSum.executeQuery()) {
                 if (rsSum.next()) {
-                    cumulDroits = rsSum.getBigDecimal("sum_droits");
-                    cumulValo = rsSum.getBigDecimal("sum_valo");
+                    postDroits = rsSum.getBigDecimal("sum_droits");
+                    postValo = rsSum.getBigDecimal("sum_valo");
                 }
             }
         }
+
+        // Guard MINIMAL_OPENING : historique antérieur inconnu -> Clôture automatique interdite
+        if ("MINIMAL_OPENING".equals(modeReprise) && cumulDroitsOuverture == null) {
+            throw new IllegalStateException("CYCLE_ACCUMULATORS_UNKNOWN: Les données antérieures au cutover sont inconnues pour la période " +
+                    idPeriodeReference + " (MINIMAL_OPENING). Clôture automatique impossible sans arbitrage RH.");
+        }
+
+        BigDecimal cumulDroits = postDroits.add(cumulDroitsOuverture != null ? cumulDroitsOuverture : BigDecimal.ZERO);
+        BigDecimal cumulValo = postValo.add(cumulValoOuverture != null ? cumulValoOuverture : BigDecimal.ZERO);
 
         if (cumulDroits.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalStateException("TCONGE_CLOSURE_DROITS_ZERO: impossible de clôturer une référence sans droits acquis.");
@@ -727,20 +786,362 @@ public class CongeTauxApplicableService {
         return dto;
     }
 
+    /**
+     * Enregistre un cutover snapshot initial de manière transactionnelle et atomique (Section 17-19 & 27).
+     * Crée la période de référence bornée avec ses cumuls d'ouverture,
+     * le taux TCONGE applicable de cutover, et le mouvement d'ajustement du solde consommable.
+     */
+    public int enregistrerCutoverSnapshot(CongeCutoverOpeningRequestDTO req,
+                                         Integer idUtilisateur,
+                                         Connection c) throws SQLException {
+        if (req == null) {
+            throw new IllegalArgumentException("La requête de cutover est obligatoire.");
+        }
+        if (req.getIdEmploye() == null) {
+            throw new IllegalArgumentException("L'identifiant employé est obligatoire.");
+        }
+        if (req.getDateCutover() == null) {
+            throw new IllegalArgumentException("La date de cutover est obligatoire.");
+        }
+        if (req.getSoldeJours() == null || req.getSoldeJours().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Le solde de jours initial doit être positif ou nul.");
+        }
+        if (req.getTauxJournalierApplicable() == null || req.getTauxJournalierApplicable().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Le taux TCONGE applicable initial doit être strictement positif.");
+        }
+        if (req.getDateDebutReference() == null) {
+            throw new IllegalArgumentException("La date de début de période de référence est obligatoire.");
+        }
+
+        CongeModeReprise mode = req.getModeReprise() != null ? req.getModeReprise() : CongeModeReprise.AGGREGATED_OPENING;
+
+        if (mode == CongeModeReprise.AGGREGATED_OPENING) {
+            if (req.getCumulDroitsOuverture() == null || req.getCumulDroitsOuverture().compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("Le cumul des droits à l'ouverture est obligatoire pour AGGREGATED_OPENING.");
+            }
+            if (req.getCumulValorisationOuverture() == null || req.getCumulValorisationOuverture().compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("Le cumul de valorisation à l'ouverture est obligatoire pour AGGREGATED_OPENING.");
+            }
+        }
+
+        LocalDate dateDebut = req.getDateDebutReference();
+        LocalDate dateFin = ReferencePeriodPolicy.calculerDateFinReference(dateDebut);
+
+        // 1. Vérifier l'absence de chevauchement de référence
+        verifierAbsenceChevauchementReference(req.getIdEmploye(), dateDebut, dateFin, null, c);
+
+        // 2. Insérer la période de référence
+        String sqlRef = "INSERT INTO conge_periode_reference (" +
+                "id_employe, date_debut, date_fin, statut, created_by, " +
+                "mode_reprise, date_cutover, cumul_droits_ouverture, cumul_valorisation_ouverture" +
+                ") VALUES (?, ?, ?, 'OUVERTE', ?, ?, ?, ?, ?) RETURNING id_periode_reference";
+
+        int idPeriodeRef;
+        try (PreparedStatement psRef = c.prepareStatement(sqlRef)) {
+            psRef.setInt(1, req.getIdEmploye());
+            psRef.setDate(2, Date.valueOf(dateDebut));
+            psRef.setDate(3, Date.valueOf(dateFin));
+            if (idUtilisateur != null) {
+                psRef.setInt(4, idUtilisateur);
+            } else {
+                psRef.setNull(4, Types.INTEGER);
+            }
+            psRef.setString(5, mode.name());
+            psRef.setDate(6, Date.valueOf(req.getDateCutover()));
+            if (req.getCumulDroitsOuverture() != null) {
+                psRef.setBigDecimal(7, req.getCumulDroitsOuverture());
+            } else {
+                psRef.setNull(7, Types.NUMERIC);
+            }
+            if (req.getCumulValorisationOuverture() != null) {
+                psRef.setBigDecimal(8, req.getCumulValorisationOuverture());
+            } else {
+                psRef.setNull(8, Types.NUMERIC);
+            }
+
+            try (ResultSet rsRef = psRef.executeQuery()) {
+                if (rsRef.next()) {
+                    idPeriodeRef = rsRef.getInt(1);
+                } else {
+                    throw new IllegalStateException("Impossible d'insérer la période de référence de cutover.");
+                }
+            }
+        }
+
+        // 3. Insérer le taux applicable
+        // Borner les taux existants ouverts si nécessaire
+        String sqlCap = "UPDATE conge_taux_applicable SET date_fin = ? WHERE id_employe = ? AND (date_fin IS NULL OR date_fin > ?) AND date_effet < ?";
+        try (PreparedStatement psCap = c.prepareStatement(sqlCap)) {
+            psCap.setDate(1, Date.valueOf(req.getDateCutover()));
+            psCap.setInt(2, req.getIdEmploye());
+            psCap.setDate(3, Date.valueOf(req.getDateCutover()));
+            psCap.setDate(4, Date.valueOf(req.getDateCutover()));
+            psCap.executeUpdate();
+        }
+
+        String sqlTaux = "INSERT INTO conge_taux_applicable (" +
+                "id_employe, taux_journalier, date_effet, date_fin, source_provenance, id_periode_reference, commentaire, cree_par" +
+                ") VALUES (?, ?, ?, NULL, 'REPRISE_CUTOVER', ?, ?, ?)";
+        try (PreparedStatement psTaux = c.prepareStatement(sqlTaux)) {
+            psTaux.setInt(1, req.getIdEmploye());
+            psTaux.setBigDecimal(2, req.getTauxJournalierApplicable().setScale(2, RoundingMode.HALF_UP));
+            psTaux.setDate(3, Date.valueOf(req.getDateCutover()));
+            psTaux.setInt(4, idPeriodeRef);
+            psTaux.setString(5, req.getCommentaire() != null ? req.getCommentaire() : "Reprise cutover initial (" + mode.name() + ")");
+            if (idUtilisateur != null) {
+                psTaux.setInt(6, idUtilisateur);
+            } else {
+                psTaux.setNull(6, Types.INTEGER);
+            }
+            psTaux.executeUpdate();
+        }
+
+        // 4. Insérer le mouvement de solde initial
+        String sqlMvt = "INSERT INTO mouvement_solde_conge (" +
+                "id_employe, type_mouvement, nb_jours, date_mouvement, commentaire, created_by" +
+                ") VALUES (?, 'AJUSTEMENT', ?, ?, ?, ?)";
+        try (PreparedStatement psMvt = c.prepareStatement(sqlMvt)) {
+            psMvt.setInt(1, req.getIdEmploye());
+            psMvt.setBigDecimal(2, req.getSoldeJours().setScale(2, RoundingMode.HALF_UP));
+            psMvt.setDate(3, Date.valueOf(req.getDateCutover()));
+            psMvt.setString(4, "Reprise cutover - Solde initial au " + req.getDateCutover() + (req.getCommentaire() != null ? " : " + req.getCommentaire() : ""));
+            if (idUtilisateur != null) {
+                psMvt.setInt(5, idUtilisateur);
+            } else {
+                psMvt.setNull(5, Types.INTEGER);
+            }
+            psMvt.executeUpdate();
+        }
+
+        log.info("[CongeTauxApplicableService] Cutover enregistré avec succès pour l'employé {} : solde={}j, TCONGE={}Ar/j, mode={}",
+                req.getIdEmploye(), req.getSoldeJours(), req.getTauxJournalierApplicable(), mode);
+
+        return idPeriodeRef;
+    }
+
+    /**
+     * Clôture arbitrée explicite par les RH pour les cas MINIMAL_OPENING ou arbitrage exceptionnel (Section 19).
+     * Enregistre l'utilisateur, la justification, et le nouveau taux calculé/arbitré.
+     */
+    public void cloturerPeriodeArbitree(int idPeriodeReference,
+                                       BigDecimal tauxArbitre,
+                                       String justification,
+                                       Integer idUtilisateur,
+                                       Connection c) throws SQLException {
+        if (tauxArbitre == null || tauxArbitre.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Le taux arbitré doit être strictement positif.");
+        }
+        if (justification == null || justification.isBlank()) {
+            throw new IllegalArgumentException("Une justification explicite est obligatoire pour un arbitrage RH de clôture.");
+        }
+
+        String sqlRef = "SELECT id_periode_reference, statut, id_employe FROM conge_periode_reference WHERE id_periode_reference = ? FOR UPDATE";
+        try (PreparedStatement psRef = c.prepareStatement(sqlRef)) {
+            psRef.setInt(1, idPeriodeReference);
+            try (ResultSet rsRef = psRef.executeQuery()) {
+                if (!rsRef.next()) {
+                    throw new IllegalArgumentException("Période de référence introuvable : ID " + idPeriodeReference);
+                }
+                if ("CLOTUREE".equals(rsRef.getString("statut"))) {
+                    throw new IllegalStateException("La période " + idPeriodeReference + " est déjà clôturée.");
+                }
+            }
+        }
+
+        String sqlSum = "SELECT COALESCE(SUM(jours_droit_acquis), 0) AS sum_droits, " +
+                "COALESCE(SUM(valorisation_mensuelle), 0) AS sum_valo " +
+                "FROM conge_journal_droit WHERE id_periode_reference = ?";
+        BigDecimal postDroits = BigDecimal.ZERO;
+        BigDecimal postValo = BigDecimal.ZERO;
+        try (PreparedStatement psSum = c.prepareStatement(sqlSum)) {
+            psSum.setInt(1, idPeriodeReference);
+            try (ResultSet rsSum = psSum.executeQuery()) {
+                if (rsSum.next()) {
+                    postDroits = rsSum.getBigDecimal("sum_droits");
+                    postValo = rsSum.getBigDecimal("sum_valo");
+                }
+            }
+        }
+
+        String sqlUp = "UPDATE conge_periode_reference SET " +
+                "statut = 'CLOTUREE', " +
+                "cumul_droits_cloture = ?, " +
+                "cumul_valorisation_cloture = ?, " +
+                "taux_calcule_cloture = ? " +
+                "WHERE id_periode_reference = ?";
+        try (PreparedStatement psUp = c.prepareStatement(sqlUp)) {
+            psUp.setBigDecimal(1, postDroits);
+            psUp.setBigDecimal(2, postValo);
+            psUp.setBigDecimal(3, tauxArbitre.setScale(2, RoundingMode.HALF_UP));
+            psUp.setInt(4, idPeriodeReference);
+            psUp.executeUpdate();
+        }
+
+        log.info("[CongeTauxApplicableService] Période {} clôturée par arbitrage RH par utilisateur {} : taux={}, motif='{}'",
+                idPeriodeReference, idUtilisateur, tauxArbitre, justification);
+    }
+
+    /**
+     * Récupère la situation complète d'un salarié (Correction 1 et Section 21).
+     * Expose le solde consommable, le TCONGE as-of, et la période de référence avec ses accumulateurs.
+     */
+    public CongeSituationEmployeDTO obtenirSituationComplete(int idEmploye, LocalDate dateReference, Connection c) throws SQLException {
+        if (dateReference == null) {
+            dateReference = LocalDate.now();
+        }
+        CongeSituationEmployeDTO dto = new CongeSituationEmployeDTO();
+        dto.setIdEmploye(idEmploye);
+
+        // Informations employé
+        String sqlEmp = "SELECT matricule, nom, prenom FROM employe WHERE id_employe = ?";
+        try (PreparedStatement psEmp = c.prepareStatement(sqlEmp)) {
+            psEmp.setInt(1, idEmploye);
+            try (ResultSet rsEmp = psEmp.executeQuery()) {
+                if (rsEmp.next()) {
+                    dto.setMatricule(rsEmp.getString("matricule"));
+                    dto.setNom(rsEmp.getString("nom"));
+                    dto.setPrenom(rsEmp.getString("prenom"));
+                }
+            }
+        }
+
+        // Salaire de base contractuel
+        BigDecimal salaireBase = BigDecimal.ZERO;
+        String sqlBase = "SELECT salaire_base FROM employe_affectation_carriere WHERE id_employe = ? ORDER BY date_debut DESC NULLS LAST LIMIT 1";
+        try (PreparedStatement psBase = c.prepareStatement(sqlBase)) {
+            psBase.setInt(1, idEmploye);
+            try (ResultSet rsBase = psBase.executeQuery()) {
+                if (rsBase.next() && rsBase.getBigDecimal("salaire_base") != null) {
+                    salaireBase = rsBase.getBigDecimal("salaire_base");
+                }
+            }
+        }
+        dto.setSalaireBase(salaireBase);
+
+        // A. Solde consommable
+        String sqlSolde = "SELECT " +
+                "COALESCE(SUM(CASE " +
+                "  WHEN type_mouvement IN ('ACQUISITION', 'AJUSTEMENT', 'REGULARISATION', 'REPORT') THEN nb_jours " +
+                "  WHEN type_mouvement IN ('PRISE', 'EXPIRATION', 'DEDUCTION') THEN -nb_jours " +
+                "  ELSE 0 END), 0) AS solde, " +
+                "COALESCE(SUM(CASE WHEN type_mouvement IN ('ACQUISITION', 'REPORT') THEN nb_jours ELSE 0 END), 0) AS total_acquis, " +
+                "COALESCE(SUM(CASE WHEN type_mouvement = 'PRISE' THEN nb_jours ELSE 0 END), 0) AS total_pris, " +
+                "MAX(CASE WHEN type_mouvement = 'ACQUISITION' THEN date_mouvement ELSE NULL END) AS derniere_acq " +
+                "FROM mouvement_solde_conge WHERE id_employe = ?";
+        try (PreparedStatement psSolde = c.prepareStatement(sqlSolde)) {
+            psSolde.setInt(1, idEmploye);
+            try (ResultSet rsSolde = psSolde.executeQuery()) {
+                if (rsSolde.next()) {
+                    dto.setSoldeJours(rsSolde.getBigDecimal("solde"));
+                    dto.setTotalAcquis(rsSolde.getBigDecimal("total_acquis"));
+                    dto.setTotalPris(rsSolde.getBigDecimal("total_pris"));
+                    Date dAcq = rsSolde.getDate("derniere_acq");
+                    if (dAcq != null) {
+                        dto.setDerniereAcquisition(dAcq.toLocalDate());
+                    }
+                }
+            }
+        }
+
+        // B. TCONGE applicable as-of
+        try {
+            TauxCongeResolution resTaux = resoudreTauxCongeApplicable(idEmploye, dateReference, salaireBase, c);
+            if (resTaux != null) {
+                CongeSituationEmployeDTO.TauxApplicableDTO tauxDto = new CongeSituationEmployeDTO.TauxApplicableDTO();
+                tauxDto.setMontant(resTaux.getTauxJournalier());
+                tauxDto.setDateEffet(resTaux.getDateEffet());
+                tauxDto.setDateFin(resTaux.getDateFin());
+                tauxDto.setSource(resTaux.getSourceProvenance() != null ? resTaux.getSourceProvenance().name() : null);
+                dto.setTauxApplicable(tauxDto);
+            }
+        } catch (Exception e) {
+            log.debug("[CongeTauxApplicableService] TCONGE non résolu au {} pour employé {}: {}", dateReference, idEmploye, e.getMessage());
+        }
+
+        // C. Période de référence & accumulateurs
+        PeriodeReferenceData refActive = resoudrePeriodeReferenceActive(idEmploye, dateReference, c);
+        if (refActive != null) {
+            CongeSituationEmployeDTO.PeriodeReferenceDTO perDto = new CongeSituationEmployeDTO.PeriodeReferenceDTO();
+            perDto.setIdPeriodeReference(refActive.getIdPeriodeReference());
+            perDto.setDateDebut(refActive.getDateDebut());
+            perDto.setDateFin(refActive.getDateFin());
+            perDto.setStatut(refActive.getStatut());
+            perDto.setModeReprise(refActive.getModeReprise());
+            perDto.setDateCutover(refActive.getDateCutover());
+            perDto.setCumulDroitsOuverture(refActive.getCumulDroitsOuverture());
+            perDto.setCumulValorisationOuverture(refActive.getCumulValorisationOuverture());
+
+            // Post-cutover accumulation from conge_journal_droit
+            String sqlPost = "SELECT COALESCE(SUM(jours_droit_acquis), 0) AS sum_droits, " +
+                    "COALESCE(SUM(valorisation_mensuelle), 0) AS sum_valo " +
+                    "FROM conge_journal_droit WHERE id_periode_reference = ?";
+            BigDecimal postDroits = BigDecimal.ZERO;
+            BigDecimal postValo = BigDecimal.ZERO;
+            try (PreparedStatement psPost = c.prepareStatement(sqlPost)) {
+                psPost.setInt(1, refActive.getIdPeriodeReference());
+                try (ResultSet rsPost = psPost.executeQuery()) {
+                    if (rsPost.next()) {
+                        postDroits = rsPost.getBigDecimal("sum_droits");
+                        postValo = rsPost.getBigDecimal("sum_valo");
+                    }
+                }
+            }
+            perDto.setCumulDroitsPostCutover(postDroits);
+            perDto.setCumulValorisationPostCutover(postValo);
+
+            if ("MINIMAL_OPENING".equals(refActive.getModeReprise()) && refActive.getCumulDroitsOuverture() == null) {
+                perDto.setOpeningComplete(false);
+                perDto.setClotureAutomatiquePossible(false);
+                perDto.setCumulDroitsTotal(null);
+                perDto.setCumulValorisationTotal(null);
+                perDto.setTauxProjection(null);
+            } else {
+                perDto.setOpeningComplete(true);
+                perDto.setClotureAutomatiquePossible(true);
+                BigDecimal totalDroits = postDroits.add(refActive.getCumulDroitsOuverture() != null ? refActive.getCumulDroitsOuverture() : BigDecimal.ZERO);
+                BigDecimal totalValo = postValo.add(refActive.getCumulValorisationOuverture() != null ? refActive.getCumulValorisationOuverture() : BigDecimal.ZERO);
+                perDto.setCumulDroitsTotal(totalDroits);
+                perDto.setCumulValorisationTotal(totalValo);
+                if (totalDroits.compareTo(BigDecimal.ZERO) > 0) {
+                    perDto.setTauxProjection(totalValo.divide(totalDroits, 2, RoundingMode.HALF_UP));
+                }
+            }
+
+            dto.setPeriodeReference(perDto);
+        }
+
+        return dto;
+    }
+
     public static class PeriodeReferenceData {
         private final int idPeriodeReference;
         private final LocalDate dateDebut;
         private final LocalDate dateFin;
         private final String statut;
         private final BigDecimal tauxCalculeCloture;
+        private final String modeReprise;
+        private final LocalDate dateCutover;
+        private final BigDecimal cumulDroitsOuverture;
+        private final BigDecimal cumulValorisationOuverture;
 
         public PeriodeReferenceData(int idPeriodeReference, LocalDate dateDebut, LocalDate dateFin,
                                     String statut, BigDecimal tauxCalculeCloture) {
+            this(idPeriodeReference, dateDebut, dateFin, statut, tauxCalculeCloture, null, null, null, null);
+        }
+
+        public PeriodeReferenceData(int idPeriodeReference, LocalDate dateDebut, LocalDate dateFin,
+                                    String statut, BigDecimal tauxCalculeCloture,
+                                    String modeReprise, LocalDate dateCutover,
+                                    BigDecimal cumulDroitsOuverture, BigDecimal cumulValorisationOuverture) {
             this.idPeriodeReference = idPeriodeReference;
             this.dateDebut = dateDebut;
             this.dateFin = dateFin;
             this.statut = statut;
             this.tauxCalculeCloture = tauxCalculeCloture;
+            this.modeReprise = modeReprise;
+            this.dateCutover = dateCutover;
+            this.cumulDroitsOuverture = cumulDroitsOuverture;
+            this.cumulValorisationOuverture = cumulValorisationOuverture;
         }
 
         public int getIdPeriodeReference() { return idPeriodeReference; }
@@ -753,5 +1154,9 @@ public class CongeTauxApplicableService {
         public String statut() { return statut; }
         public BigDecimal getTauxCalculeCloture() { return tauxCalculeCloture; }
         public BigDecimal tauxCalculeCloture() { return tauxCalculeCloture; }
+        public String getModeReprise() { return modeReprise; }
+        public LocalDate getDateCutover() { return dateCutover; }
+        public BigDecimal getCumulDroitsOuverture() { return cumulDroitsOuverture; }
+        public BigDecimal getCumulValorisationOuverture() { return cumulValorisationOuverture; }
     }
 }

@@ -130,13 +130,18 @@ CREATE TABLE conge_periode_reference (
     date_debut DATE NOT NULL,
     date_fin DATE NOT NULL,
     statut VARCHAR(30) NOT NULL DEFAULT 'OUVERTE', -- 'OUVERTE', 'CLOTUREE', 'ARCHIVEE'
+    mode_reprise VARCHAR(30) NOT NULL DEFAULT 'FULL_HISTORY', -- 'FULL_HISTORY', 'AGGREGATED_OPENING', 'MINIMAL_OPENING', 'NEW_HIRE'
+    date_cutover DATE,
+    cumul_droits_ouverture NUMERIC(8,4),
+    cumul_valorisation_ouverture NUMERIC(12,2),
     taux_calcule_cloture NUMERIC(12,2),
     cumul_droits_cloture NUMERIC(8,4),
     cumul_valorisation_cloture NUMERIC(12,2),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_by INT REFERENCES utilisateur(id_utilisateur),
     CONSTRAINT chk_periode_dates CHECK (date_fin >= date_debut),
-    CONSTRAINT chk_statut_ref CHECK (statut IN ('OUVERTE', 'CLOTUREE', 'ARCHIVEE'))
+    CONSTRAINT chk_statut_ref CHECK (statut IN ('OUVERTE', 'CLOTUREE', 'ARCHIVEE')),
+    CONSTRAINT chk_mode_reprise CHECK (mode_reprise IN ('FULL_HISTORY', 'AGGREGATED_OPENING', 'MINIMAL_OPENING', 'NEW_HIRE'))
 );
 CREATE INDEX idx_conge_ref_emp_dates ON conge_periode_reference(id_employe, date_debut, date_fin);
 
@@ -153,7 +158,7 @@ CREATE TABLE conge_taux_applicable (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_taux_positif CHECK (taux_journalier > 0),
     CONSTRAINT chk_dates_taux CHECK (date_fin IS NULL OR date_fin > date_effet),
-    CONSTRAINT chk_source_provenance CHECK (source_provenance IN ('KAJY_MIGRATION', 'CALCUL_PERIODE_REFERENCE', 'INITIALISATION_BASE_30'))
+    CONSTRAINT chk_source_provenance CHECK (source_provenance IN ('KAJY_MIGRATION', 'CALCUL_PERIODE_REFERENCE', 'INITIALISATION_BASE_30', 'REPRISE_CUTOVER'))
 );
 CREATE INDEX idx_taux_app_emp_dates ON conge_taux_applicable(id_employe, date_effet, date_fin);
 

@@ -968,7 +968,7 @@ public class PayrollService {
      * lors de la clôture de la paie.
      * Enregistre les valorisations mensuelles bornées à la période de référence active (max 12 mois).
      */
-    private void mettreAJourJournalConge(Integer idPeriodePaie, Connection c) throws Exception {
+    public void mettreAJourJournalConge(Integer idPeriodePaie, Connection c) throws Exception {
         String sqlPeriode = "SELECT date_fin, EXTRACT(YEAR FROM date_fin)::INT AS annee, EXTRACT(MONTH FROM date_fin)::INT AS mois " +
                 "FROM periode_paie WHERE id_periode_paie = ?";
         LocalDate dateFinPaie = LocalDate.of(2026, 1, 25);
@@ -1028,7 +1028,7 @@ public class PayrollService {
                     if (l.getMontantSalarial() != null) netBase = netBase.subtract(l.getMontantSalarial());
                 } else if ("INDEMNITE_CONGE".equals(codeRub) || "INDEMNITE_CONGE_PAYE".equals(codeRub)) {
                     if (l.getMontantSalarial() != null) netBase = netBase.add(l.getMontantSalarial());
-                } else if ("HEURES_SUP".equalsIgnoreCase(l.getCategorie())) {
+                } else if ("HEURES_SUP".equalsIgnoreCase(l.getCategorie()) || "HEURES_SUPPLEMENTAIRES".equalsIgnoreCase(l.getCategorie()) || codeRub.startsWith("HS_") || "HS".equals(codeRub)) {
                     if (l.getMontantSalarial() != null) mntHs = mntHs.add(l.getMontantSalarial());
                 }
             }
@@ -1080,6 +1080,14 @@ public class PayrollService {
                 }
             }
 
+            // Prise en compte des cumuls d'ouverture (cutover AGGREGATED_OPENING)
+            if (refActive.getCumulDroitsOuverture() != null) {
+                cumulJoursPrec = (cumulJoursPrec != null ? cumulJoursPrec : BigDecimal.ZERO).add(refActive.getCumulDroitsOuverture());
+            }
+            if (refActive.getCumulValorisationOuverture() != null) {
+                cumulValPrec = (cumulValPrec != null ? cumulValPrec : BigDecimal.ZERO).add(refActive.getCumulValorisationOuverture());
+            }
+
             BigDecimal cumulJours = (cumulJoursPrec != null ? cumulJoursPrec : BigDecimal.ZERO).add(droitMois);
             BigDecimal cumulVal = (cumulValPrec != null ? cumulValPrec : BigDecimal.ZERO).add(valMois);
             BigDecimal tauxJournalier = cumulJours.compareTo(BigDecimal.ZERO) > 0
@@ -1125,13 +1133,18 @@ public class PayrollService {
             // 4. Clôture de la référence à l'atteinte du terme de 12 mois
             // Fige le TAUX_CALCULE dans conge_periode_reference sans auto-activation à date arbitraire
             if (numeroMoisRef == dureeReferenceMax) {
-                congeTauxApplicableService.cloturerPeriodeReference(
-                        refActive.getIdPeriodeReference(),
-                        cumulJours,
-                        cumulVal,
-                        tauxJournalier,
-                        c
-                );
+                if ("MINIMAL_OPENING".equals(refActive.getModeReprise()) && refActive.getCumulDroitsOuverture() == null) {
+                    log.warn("[PayrollService] Terme de la période {} atteint pour l'employé {} en MINIMAL_OPENING. Arbitrage RH explicite requis (CYCLE_ACCUMULATORS_UNKNOWN).",
+                            refActive.getIdPeriodeReference(), idEmp);
+                } else {
+                    congeTauxApplicableService.cloturerPeriodeReference(
+                            refActive.getIdPeriodeReference(),
+                            cumulJours,
+                            cumulVal,
+                            tauxJournalier,
+                            c
+                    );
+                }
             }
         }
     }

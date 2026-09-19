@@ -171,6 +171,23 @@ const congeService = {
   },
 
   /**
+   * Récupère la situation complète canonique d'un salarié (Solde, TCONGE applicable, Période & Accumulateurs)
+   */
+  getSituationEmploye: async (idEmploye, dateReference = null) => {
+    const params = dateReference ? { dateReference } : {};
+    const response = await apiClient.get(`/conges/solde/employe/${idEmploye}/situation`, { params });
+    return response.data;
+  },
+
+  /**
+   * Enregistre un cutover snapshot initial (AGGREGATED_OPENING ou MINIMAL_OPENING)
+   */
+  cutoverOpening: async (payload) => {
+    const response = await apiClient.post('/conges/solde/cutover-opening', payload);
+    return response.data;
+  },
+
+  /**
    * Déclenche la purge légale triennale des congés prescrits (+36 mois)
    */
   declencherPurgeExpiration: async () => {
