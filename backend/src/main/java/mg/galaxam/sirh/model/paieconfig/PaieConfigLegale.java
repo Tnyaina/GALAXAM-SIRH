@@ -46,6 +46,10 @@ public class PaieConfigLegale extends ClassMere {
     private BigDecimal acquisitionCongeMensuelJours;
     private Integer diviseurValorisationCongeJours;
 
+    // Exonération fiscale Heures Supplémentaires (CGI 01.03.03-9°)
+    private Boolean exonerationHsIrsaActive = Boolean.TRUE;
+    private BigDecimal plafondMensuelHsExonerees = new BigDecimal("20.00");
+
     // Champ calculé (non stocké, calculé côté SQL)
     private BigDecimal plafondCotisationMensuel;
 
@@ -69,8 +73,9 @@ public class PaieConfigLegale extends ClassMere {
                 "sme_national, sme_agricole, plafond_cotisation_nb_sme, " +
                 "seuil_exoneration_irsa, minimum_perception_irsa, deduction_charge_famille, arrondi_base_irsa, " +
                 "duree_hebdo_legale, diviseur_mensuel_heures, seuil_hs_tranche1, plafond_hs_hebdo, " +
-                "acquisition_conge_mensuel_jours, diviseur_valorisation_conge_jours) " +
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id_config_legale";
+                "acquisition_conge_mensuel_jours, diviseur_valorisation_conge_jours, " +
+                "exoneration_hs_irsa_active, plafond_mensuel_hs_exonerees) " +
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id_config_legale";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, codeVersion);
             ps.setString(2, libelle);
@@ -87,8 +92,10 @@ public class PaieConfigLegale extends ClassMere {
             ps.setBigDecimal(13, diviseurMensuelHeures);
             ps.setBigDecimal(14, seuilHsTranche1);
             ps.setBigDecimal(15, plafondHsHebdo);
-            ps.setBigDecimal(16, acquisitionCongeMensuelJours);
+            ps.setBigDecimal(16, acquisitionCongeMensuelJours != null ? acquisitionCongeMensuelJours : new BigDecimal("2.50"));
             ps.setInt(17, diviseurValorisationCongeJours != null ? diviseurValorisationCongeJours : 30);
+            ps.setBoolean(18, Boolean.TRUE.equals(exonerationHsIrsaActive));
+            ps.setBigDecimal(19, Boolean.TRUE.equals(exonerationHsIrsaActive) && plafondMensuelHsExonerees != null ? plafondMensuelHsExonerees : BigDecimal.ZERO);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) this.idConfigLegale = rs.getInt(1);
             }
@@ -102,7 +109,8 @@ public class PaieConfigLegale extends ClassMere {
                 "sme_national=?, sme_agricole=?, plafond_cotisation_nb_sme=?, " +
                 "seuil_exoneration_irsa=?, minimum_perception_irsa=?, deduction_charge_famille=?, arrondi_base_irsa=?, " +
                 "duree_hebdo_legale=?, diviseur_mensuel_heures=?, seuil_hs_tranche1=?, plafond_hs_hebdo=?, " +
-                "acquisition_conge_mensuel_jours=?, diviseur_valorisation_conge_jours=?, updated_at=NOW() " +
+                "acquisition_conge_mensuel_jours=?, diviseur_valorisation_conge_jours=?, " +
+                "exoneration_hs_irsa_active=?, plafond_mensuel_hs_exonerees=?, updated_at=NOW() " +
                 "WHERE id_config_legale=?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, codeVersion);
@@ -122,8 +130,10 @@ public class PaieConfigLegale extends ClassMere {
             ps.setBigDecimal(15, plafondHsHebdo != null ? plafondHsHebdo : new BigDecimal("20.00"));
             ps.setBigDecimal(16, acquisitionCongeMensuelJours != null ? acquisitionCongeMensuelJours : new BigDecimal("2.50"));
             ps.setInt(17, diviseurValorisationCongeJours != null ? diviseurValorisationCongeJours : 30);
+            ps.setBoolean(18, Boolean.TRUE.equals(exonerationHsIrsaActive));
+            ps.setBigDecimal(19, Boolean.TRUE.equals(exonerationHsIrsaActive) && plafondMensuelHsExonerees != null ? plafondMensuelHsExonerees : BigDecimal.ZERO);
             if (idConfigLegale != null) {
-                ps.setInt(18, idConfigLegale);
+                ps.setInt(20, idConfigLegale);
             } else {
                 throw new IllegalArgumentException("L'identifiant de la configuration légale est requis pour la modification.");
             }
@@ -280,6 +290,22 @@ public class PaieConfigLegale extends ClassMere {
         p.acquisitionCongeMensuelJours = rs.getBigDecimal("acquisition_conge_mensuel_jours");
         p.diviseurValorisationCongeJours = rs.getInt("diviseur_valorisation_conge_jours");
         try {
+            p.exonerationHsIrsaActive = rs.getObject("exoneration_hs_irsa_active") != null
+                    ? rs.getBoolean("exoneration_hs_irsa_active")
+                    : Boolean.FALSE;
+        } catch (Exception ignored) {
+            p.exonerationHsIrsaActive = Boolean.FALSE;
+        }
+        try {
+            BigDecimal pl = rs.getBigDecimal("plafond_mensuel_hs_exonerees");
+            p.plafondMensuelHsExonerees = (Boolean.TRUE.equals(p.exonerationHsIrsaActive) && pl != null) ? pl : BigDecimal.ZERO;
+        } catch (Exception ignored) {
+            p.plafondMensuelHsExonerees = BigDecimal.ZERO;
+        }
+        if (!Boolean.TRUE.equals(p.exonerationHsIrsaActive)) {
+            p.plafondMensuelHsExonerees = BigDecimal.ZERO;
+        }
+        try {
             p.plafondCotisationMensuel = rs.getBigDecimal("plafond_cotisation_mensuel");
         } catch (Exception ignored) {}
         return p;
@@ -322,5 +348,9 @@ public class PaieConfigLegale extends ClassMere {
     public void setAcquisitionCongeMensuelJours(BigDecimal v) { this.acquisitionCongeMensuelJours = v; }
     public Integer getDiviseurValorisationCongeJours() { return diviseurValorisationCongeJours; }
     public void setDiviseurValorisationCongeJours(Integer v) { this.diviseurValorisationCongeJours = v; }
+    public Boolean getExonerationHsIrsaActive() { return exonerationHsIrsaActive; }
+    public void setExonerationHsIrsaActive(Boolean v) { this.exonerationHsIrsaActive = v; }
+    public BigDecimal getPlafondMensuelHsExonerees() { return plafondMensuelHsExonerees; }
+    public void setPlafondMensuelHsExonerees(BigDecimal v) { this.plafondMensuelHsExonerees = v; }
     public BigDecimal getPlafondCotisationMensuel() { return plafondCotisationMensuel; }
 }

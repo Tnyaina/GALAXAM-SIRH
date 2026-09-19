@@ -42,6 +42,10 @@ public class PayrollLegalContextResolver {
                 && config.getDiviseurMensuelHeures().compareTo(BigDecimal.ZERO) > 0) {
             input.setDiviseurMensuelHeures(config.getDiviseurMensuelHeures());
         }
+        Boolean exoActive = config.getExonerationHsIrsaActive();
+        boolean estActif = Boolean.TRUE.equals(exoActive);
+        input.setExonerationHsIrsaActive(estActif);
+        input.setPlafondMensuelHsExonerees(estActif && config.getPlafondMensuelHsExonerees() != null ? config.getPlafondMensuelHsExonerees() : BigDecimal.ZERO);
         input.setIdConfigLegale(configId);
 
         if (input.isSoumisIsi5()) {
@@ -178,6 +182,22 @@ public class PayrollLegalContextResolver {
             input.setTauxMalusPerformance(new BigDecimal(parameters.getOrDefault("TAUX_PENALITE_PP", "0.25")));
         } catch (NumberFormatException ignored) {
             input.setTauxMalusPerformance(new BigDecimal("0.25"));
+        }
+        if (parameters.containsKey("EXONERATION_HS_IRSA_ACTIVE")) {
+            boolean active = Boolean.parseBoolean(parameters.get("EXONERATION_HS_IRSA_ACTIVE"));
+            input.setExonerationHsIrsaActive(active);
+            if (!active) {
+                input.setPlafondMensuelHsExonerees(BigDecimal.ZERO);
+            }
+        }
+        if (parameters.containsKey("PLAFOND_MENSUEL_HS_EXONEREES")) {
+            if (input.isExonerationHsIrsaActive()) {
+                try {
+                    input.setPlafondMensuelHsExonerees(new BigDecimal(parameters.get("PLAFOND_MENSUEL_HS_EXONEREES")));
+                } catch (Exception ignored) {
+                    input.setPlafondMensuelHsExonerees(BigDecimal.ZERO);
+                }
+            }
         }
     }
 

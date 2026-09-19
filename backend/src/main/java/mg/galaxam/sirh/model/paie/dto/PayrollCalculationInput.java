@@ -101,6 +101,33 @@ public class PayrollCalculationInput {
     private BigDecimal majorationDimanche = new BigDecimal("0.40");
     private BigDecimal majorationFerie = BigDecimal.ZERO;
 
+    // 6.1 Exonération fiscale des heures supplémentaires (CGI Art. 01.03.03-9°)
+    private boolean exonerationHsIrsaActive = true;
+    private Boolean categorieEligibleExonerationHs;
+    private boolean appliquerExonerationHs = false;
+    private BigDecimal plafondMensuelHsExonerees = new BigDecimal("20.00");
+
+    public boolean isExonerationHsIrsaActive() { return exonerationHsIrsaActive; }
+    public void setExonerationHsIrsaActive(boolean v) { this.exonerationHsIrsaActive = v; }
+    public Boolean getCategorieEligibleExonerationHs() { return categorieEligibleExonerationHs; }
+    public void setCategorieEligibleExonerationHs(Boolean v) { this.categorieEligibleExonerationHs = v; }
+
+    public boolean isAppliquerExonerationHs() {
+        if (!exonerationHsIrsaActive) {
+            return false;
+        }
+        if (plafondMensuelHsExonerees == null || plafondMensuelHsExonerees.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        if (categorieEligibleExonerationHs != null) {
+            return categorieEligibleExonerationHs;
+        }
+        return appliquerExonerationHs;
+    }
+    public void setAppliquerExonerationHs(boolean v) { this.appliquerExonerationHs = v; }
+    public BigDecimal getPlafondMensuelHsExonerees() { return plafondMensuelHsExonerees; }
+    public void setPlafondMensuelHsExonerees(BigDecimal v) { this.plafondMensuelHsExonerees = v; }
+
     public BigDecimal getMajorationHs30() { return majorationHs30; }
     public void setMajorationHs30(BigDecimal v) { this.majorationHs30 = v; }
     public BigDecimal getMajorationHs50() { return majorationHs50; }

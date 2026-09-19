@@ -344,6 +344,9 @@ public class PaieConfigLegaleController {
         p.setPlafondHsHebdo(r.getPlafondHsHebdo() != null ? r.getPlafondHsHebdo() : new BigDecimal("20.00"));
         p.setAcquisitionCongeMensuelJours(r.getAcquisitionCongeMensuelJours() != null ? r.getAcquisitionCongeMensuelJours() : new BigDecimal("2.50"));
         p.setDiviseurValorisationCongeJours(r.getDiviseurValorisationCongeJours() != null ? r.getDiviseurValorisationCongeJours() : 30);
+        boolean exoActive = Boolean.TRUE.equals(r.getExonerationHsIrsaActive());
+        p.setExonerationHsIrsaActive(exoActive);
+        p.setPlafondMensuelHsExonerees(exoActive && r.getPlafondMensuelHsExonerees() != null ? r.getPlafondMensuelHsExonerees() : BigDecimal.ZERO);
         return p;
     }
 }

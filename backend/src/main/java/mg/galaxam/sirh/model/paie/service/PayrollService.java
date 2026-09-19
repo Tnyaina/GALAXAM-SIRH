@@ -539,6 +539,9 @@ public class PayrollService {
                 "f.libelle AS fonction_libelle, " +
                 "d.libelle AS departement_nom, " +
                 "cat.code AS categorie_code, " +
+                "cat.est_eligible_hs AS categorie_est_eligible_hs, " +
+                "cat.est_cadre AS categorie_est_cadre, " +
+                "cat.est_eligible_exoneration_hs AS categorie_est_eligible_exoneration_hs, " +
                 "mcp.code AS mode_calcul_code, " +
                 "fil.raison_sociale AS filiale_nom, " +
                 "tri.code AS regime_code, " +
@@ -592,6 +595,11 @@ public class PayrollService {
                     in.setSoumisIrsa(PayrollConfigurationGuard.requireFlag(rs, "soumis_irsa", "TYPE_INTERVENANT", idEmploye));
                     in.setSoumisIsi5(PayrollConfigurationGuard.requireFlag(rs, "soumis_isi_5", "TYPE_INTERVENANT", idEmploye));
                     in.setCategorieProfessionnelle(rs.getString("categorie_code") != null ? rs.getString("categorie_code") : "AGENT");
+                    boolean catEligibleHs = rs.getBoolean("categorie_est_eligible_hs");
+                    boolean catEstCadre = rs.getBoolean("categorie_est_cadre");
+                    Object exoObj = rs.getObject("categorie_est_eligible_exoneration_hs");
+                    boolean catEligibleExo = exoObj != null ? rs.getBoolean("categorie_est_eligible_exoneration_hs") : (catEligibleHs && !catEstCadre);
+                    in.setCategorieEligibleExonerationHs(catEligibleExo);
                     in.setModeCalculPaie(rs.getString("mode_calcul_code") != null ? rs.getString("mode_calcul_code") : "MENSUEL");
                     in.setSalaireBaseContractuel(rs.getBigDecimal("salaire_base") != null ? rs.getBigDecimal("salaire_base") : BigDecimal.ZERO);
                     in.setDateEmbauche(rs.getDate("date_embauche_resolue") != null ? rs.getDate("date_embauche_resolue") : rs.getDate("date_declaration"));

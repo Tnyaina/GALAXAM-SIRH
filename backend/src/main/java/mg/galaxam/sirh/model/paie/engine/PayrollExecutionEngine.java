@@ -69,8 +69,11 @@ public class PayrollExecutionEngine {
         // 3. Net imposable
         BigDecimal salaireNetImposable = calculerNetImposable(totalGainsBruts, cotis.totalCotisationsSalariales(), bp);
 
+        // 3.1 Exonération fiscale des Heures Supplémentaires (CGI Art. 01.03.03-9°)
+        OvertimeExemptionDetail hsExo = calculerExonerationFiscaleHs(input, input.getTauxHoraireEffectif(), bp, lignes);
+
         // 4. Fiscalité (IRSA progressif ou ISI 5%)
-        FiscaliteResult fisc = calculerFiscalite(salaireNetImposable, totalGainsBruts, input, bp, lignes);
+        FiscaliteResult fisc = calculerFiscalite(salaireNetImposable, hsExo.hsExonereeIrsa(), totalGainsBruts, input, bp, lignes);
 
         // 5. Indemnités non imposables (Repas, Transport, Déplacements, Notes de frais)
         BigDecimal totalIndemnitesNet = calculerIndemnitesNonImposables(input, bp, lignes);
@@ -334,6 +337,67 @@ public class PayrollExecutionEngine {
         return total;
     }
 
+    public record OvertimeExemptionDetail(
+            BigDecimal totalHsBrut,
+            BigDecimal hsExonereeIrsa,
+            BigDecimal hsImposableIrsa,
+            BigDecimal heuresExonerees,
+            BigDecimal heuresImposables
+    ) {}
+
+    /**
+     * Calcule l'exonération fiscale des heures supplémentaires selon l'Article 01.03.03-9° du CGI :
+     * "Les rémunérations perçues au titre des heures supplémentaires effectuées dans la limite de
+     * 20 heures par mois, à l'exclusion de celles perçues par le personnel cadre."
+     */
+    public OvertimeExemptionDetail calculerExonerationFiscaleHs(
+            PayrollCalculationInput input, BigDecimal tauxHoraire, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
+        BigDecimal h30 = zeroIfNull(input.getHeuresHs30());
+        BigDecimal h50 = zeroIfNull(input.getHeuresHs50());
+        BigDecimal totalHeuresHs = h30.add(h50);
+
+        OvertimePayCalculator overtimeCalculator = new OvertimePayCalculator();
+        OvertimePayCalculator.Result overtime = overtimeCalculator.calculate(input, tauxHoraire);
+        BigDecimal totalHsBrut = overtime.hs30().add(overtime.hs50());
+
+        BigDecimal plafond = input.getPlafondMensuelHsExonerees();
+        if (!input.isAppliquerExonerationHs()
+                || plafond == null
+                || plafond.compareTo(BigDecimal.ZERO) <= 0
+                || totalHeuresHs.compareTo(BigDecimal.ZERO) <= 0) {
+            return new OvertimeExemptionDetail(totalHsBrut, BigDecimal.ZERO, totalHsBrut, BigDecimal.ZERO, totalHeuresHs);
+        }
+
+        // Imputation chronologique légale : tranche 30% d'abord, puis tranche 50%
+        BigDecimal exo30Heures = h30.min(plafond);
+        BigDecimal restePlafond = plafond.subtract(exo30Heures).max(BigDecimal.ZERO);
+        BigDecimal exo50Heures = h50.min(restePlafond);
+
+        BigDecimal totalHeuresExo = exo30Heures.add(exo50Heures);
+        BigDecimal totalHeuresImp = totalHeuresHs.subtract(totalHeuresExo).max(BigDecimal.ZERO);
+
+        BigDecimal txHs30 = BigDecimal.ONE.add(zeroIfNull(input.getMajorationHs30()));
+        BigDecimal txHs50 = BigDecimal.ONE.add(zeroIfNull(input.getMajorationHs50()));
+
+        BigDecimal remunExo30 = MoneyRoundingPolicy.amount(exo30Heures.multiply(tauxHoraire).multiply(txHs30));
+        BigDecimal remunExo50 = MoneyRoundingPolicy.amount(exo50Heures.multiply(tauxHoraire).multiply(txHs50));
+        BigDecimal totalExonereIrsa = remunExo30.add(remunExo50).min(totalHsBrut);
+        BigDecimal totalImposableIrsa = totalHsBrut.subtract(totalExonereIrsa).max(BigDecimal.ZERO);
+
+        if (totalExonereIrsa.compareTo(BigDecimal.ZERO) > 0) {
+            String comm = String.format("Exonération IRSA Art. 01.03.03-9° CGI : %s h (Plafond %sh/mois)", totalHeuresExo, plafond.stripTrailingZeros().toPlainString());
+            lignes.add(creerLigne(bp, "HS_EXONEREE_IRSA", "Heures Supplémentaires Exonérées IRSA (CGI 01.03.03-9°)", "INFO", "HEURES_SUP",
+                    tauxHoraire, null, totalHeuresExo, totalExonereIrsa, null, comm, 75));
+        }
+        if (totalImposableIrsa.compareTo(BigDecimal.ZERO) > 0) {
+            String comm = String.format("HS Imposables IRSA : %s h au-delà du plafond mensuel de %sh", totalHeuresImp, plafond.stripTrailingZeros().toPlainString());
+            lignes.add(creerLigne(bp, "HS_IMPOSABLE_IRSA", "Heures Supplémentaires Imposables IRSA", "INFO", "HEURES_SUP",
+                    tauxHoraire, null, totalHeuresImp, totalImposableIrsa, null, comm, 76));
+        }
+
+        return new OvertimeExemptionDetail(totalHsBrut, totalExonereIrsa, totalImposableIrsa, totalHeuresExo, totalHeuresImp);
+    }
+
     public BigDecimal calculerPrimes(PayrollCalculationInput input, BigDecimal salaireBaseContractuel,
                                       BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal totalPrimes = BigDecimal.ZERO;
@@ -516,6 +580,11 @@ public class PayrollExecutionEngine {
 
     public FiscaliteResult calculerFiscalite(BigDecimal salaireNetImposable, BigDecimal totalGainsBruts,
                                             PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
+        return calculerFiscalite(salaireNetImposable, BigDecimal.ZERO, totalGainsBruts, input, bp, lignes);
+    }
+
+    public FiscaliteResult calculerFiscalite(BigDecimal salaireNetImposable, BigDecimal hsExonereeIrsa, BigDecimal totalGainsBruts,
+                                            PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal irsaNet = MoneyRoundingPolicy.tax(BigDecimal.ZERO);
         BigDecimal retenueIsi = MoneyRoundingPolicy.tax(BigDecimal.ZERO);
 
@@ -531,9 +600,12 @@ public class PayrollExecutionEngine {
             bp.setRetenueIsi5(retenueIsi);
             bp.setIrsaNet(MoneyRoundingPolicy.tax(BigDecimal.ZERO));
         } else if (input.isSoumisIrsa()) {
+            // Assiette IRSA Fiscale : Net Imposable Social - Rémunération des HS exonérées (CGI Art. 01.03.03-9°)
+            BigDecimal assietteFiscale = salaireNetImposable.subtract(zeroIfNull(hsExonereeIrsa)).max(BigDecimal.ZERO);
+
             // Régime Salarié : Barème progressif IRSA unifié (6 tranches, min 3 000 Ar)
             var irsaRes = new IrsaCalculator().calculate(
-                    salaireNetImposable,
+                    assietteFiscale,
                     input.getTranchesIrsa(),
                     input.getNbEnfantsEligibles(),
                     input.getDeductionParEnfant(),

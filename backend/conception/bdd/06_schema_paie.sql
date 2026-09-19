@@ -559,13 +559,19 @@ INSERT INTO bareme_irsa (id_config_legale, numero_tranche, tranche_min, tranche_
 (1, 3, 400001.00, 500000.00, 10.00, '2022-01-01', '2025-12-31'),
 (1, 4, 500001.00, 600000.00, 15.00, '2022-01-01', '2025-12-31'),
 (1, 5, 600001.00, NULL, 20.00, '2022-01-01', '2025-12-31'),
-(2, 1, 0.00, 350000.00, 0.00, '2026-01-01', NULL),
-(2, 2, 350001.00, 400000.00, 5.00, '2026-01-01', NULL),
-(2, 3, 400001.00, 500000.00, 10.00, '2026-01-01', NULL),
-(2, 4, 500001.00, 600000.00, 15.00, '2026-01-01', NULL),
-(2, 5, 600001.00, 4000000.00, 20.00, '2026-01-01', NULL),
-(2, 6, 4000001.00, NULL, 25.00, '2026-01-01', NULL);
-SELECT setval('bareme_irsa_id_tranche_seq', (SELECT GREATEST(MAX(id_tranche), 11) FROM bareme_irsa));
+(3, 1, 0.00, 350000.00, 0.00, '2026-01-01', '2026-02-28'),
+(3, 2, 350001.00, 400000.00, 5.00, '2026-01-01', '2026-02-28'),
+(3, 3, 400001.00, 500000.00, 10.00, '2026-01-01', '2026-02-28'),
+(3, 4, 500001.00, 600000.00, 15.00, '2026-01-01', '2026-02-28'),
+(3, 5, 600001.00, 4000000.00, 20.00, '2026-01-01', '2026-02-28'),
+(3, 6, 4000001.00, NULL, 25.00, '2026-01-01', '2026-02-28'),
+(2, 1, 0.00, 350000.00, 0.00, '2026-03-01', NULL),
+(2, 2, 350001.00, 400000.00, 5.00, '2026-03-01', NULL),
+(2, 3, 400001.00, 500000.00, 10.00, '2026-03-01', NULL),
+(2, 4, 500001.00, 600000.00, 15.00, '2026-03-01', NULL),
+(2, 5, 600001.00, 4000000.00, 20.00, '2026-03-01', NULL),
+(2, 6, 4000001.00, NULL, 25.00, '2026-03-01', NULL);
+SELECT setval('bareme_irsa_id_tranche_seq', (SELECT GREATEST(MAX(id_tranche), 17) FROM bareme_irsa));
 
 -- Majorations d'Heures Supplémentaires & Spéciales (LF_2024_2025 et LF_2026)
 INSERT INTO ref_taux_majoration (id_config_legale, type_majoration, taux, description, date_debut, date_fin) VALUES
@@ -574,12 +580,17 @@ INSERT INTO ref_taux_majoration (id_config_legale, type_majoration, taux, descri
 (1, 'NUIT', 0.30, 'Heures de nuit (22h - 05h)', '2022-01-01', '2025-12-31'),
 (1, 'DIMANCHE', 0.40, 'Travail le dimanche', '2022-01-01', '2025-12-31'),
 (1, 'FERIE', 1.00, 'Travail jour férié', '2022-01-01', '2025-12-31'),
-(2, 'HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine', '2026-01-01', NULL),
-(2, 'HS_50', 0.50, 'Au-delà de la 48ᵉ heure', '2026-01-01', NULL),
-(2, 'NUIT', 0.30, 'Heures de nuit (22h - 05h)', '2026-01-01', NULL),
-(2, 'DIMANCHE', 0.40, 'Travail le dimanche', '2026-01-01', NULL),
-(2, 'FERIE', 1.00, 'Travail jour férié', '2026-01-01', NULL);
-SELECT setval('ref_taux_majoration_id_taux_majoration_seq', (SELECT GREATEST(MAX(id_taux_majoration), 10) FROM ref_taux_majoration));
+(3, 'HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine', '2026-01-01', '2026-02-28'),
+(3, 'HS_50', 0.50, 'Au-delà de la 48ᵉ heure', '2026-01-01', '2026-02-28'),
+(3, 'NUIT', 0.30, 'Heures de nuit (22h - 05h)', '2026-01-01', '2026-02-28'),
+(3, 'DIMANCHE', 0.40, 'Travail le dimanche', '2026-01-01', '2026-02-28'),
+(3, 'FERIE', 1.00, 'Travail jour férié', '2026-01-01', '2026-02-28'),
+(2, 'HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine', '2026-03-01', NULL),
+(2, 'HS_50', 0.50, 'Au-delà de la 48ᵉ heure', '2026-03-01', NULL),
+(2, 'NUIT', 0.30, 'Heures de nuit (22h - 05h)', '2026-03-01', NULL),
+(2, 'DIMANCHE', 0.40, 'Travail le dimanche', '2026-03-01', NULL),
+(2, 'FERIE', 1.00, 'Travail jour férié', '2026-03-01', NULL);
+SELECT setval('ref_taux_majoration_id_taux_majoration_seq', (SELECT GREATEST(MAX(id_taux_majoration), 15) FROM ref_taux_majoration));
 
 -- Catalogue des Rubriques de Paie (Plan Standard 37 Rubriques Canoniques)
 INSERT INTO paie_rubrique (id_rubrique, code, libelle, categorie, type_valeur, sens, soumis_cnaps, soumis_sante, soumis_irsa, est_fixe, ordre_affichage, description) VALUES

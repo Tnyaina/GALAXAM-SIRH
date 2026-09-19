@@ -159,6 +159,7 @@ CREATE TABLE ref_categorie_professionnelle (
     description TEXT,
     est_eligible_hs BOOLEAN NOT NULL DEFAULT TRUE,
     est_cadre BOOLEAN NOT NULL DEFAULT FALSE,
+    est_eligible_exoneration_hs BOOLEAN NOT NULL DEFAULT TRUE,
     dispense_pointage BOOLEAN NOT NULL DEFAULT FALSE,
     actif BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -186,12 +187,15 @@ CREATE INDEX idx_site_calendrier_ferie_ferie ON site_calendrier_ferie(id_ferie);
 
 CREATE TABLE ref_periode_chomee (
     id_periode SERIAL PRIMARY KEY,
-    libelle VARCHAR(150) NOT NULL,
     id_site INT REFERENCES ref_site(id_site),
     date_debut DATE NOT NULL,
-    date_fin DATE,
+    date_fin DATE NOT NULL,
+    motif VARCHAR(150) NOT NULL,
     est_paye BOOLEAN DEFAULT TRUE,
-    taux_paiement NUMERIC(5,2) DEFAULT 100.00
+    impacte_conge BOOLEAN DEFAULT FALSE,
+    actif BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_ref_periode_chomee_site ON ref_periode_chomee(id_site);
@@ -216,6 +220,8 @@ CREATE TABLE paie_config_legale (
     plafond_hs_hebdo NUMERIC(5,2) NOT NULL DEFAULT 20.00,
     acquisition_conge_mensuel_jours NUMERIC(4,2) NOT NULL DEFAULT 2.50,
     diviseur_valorisation_conge_jours INT NOT NULL DEFAULT 30,
+    exoneration_hs_irsa_active BOOLEAN NOT NULL DEFAULT TRUE,
+    plafond_mensuel_hs_exonerees NUMERIC(5,2) NOT NULL DEFAULT 20.00,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_dates_config CHECK (date_fin IS NULL OR date_fin > date_debut)
@@ -363,20 +369,22 @@ INSERT INTO ref_mode_calcul_paie (id_mode_calcul_paie, code, libelle, descriptio
 SELECT setval('ref_mode_calcul_paie_id_mode_calcul_paie_seq', (SELECT GREATEST(MAX(id_mode_calcul_paie), 3) FROM ref_mode_calcul_paie));
 
 -- Catégories Professionnelles
-INSERT INTO ref_categorie_professionnelle (id_categorie_professionnelle, code, libelle, description, est_eligible_hs, est_cadre, dispense_pointage) VALUES
-(1, 'CADRE', 'Cadre', 'Cadres et ingénieurs', FALSE, TRUE, FALSE),
-(2, 'A', 'Agent', 'Techniciens et agents', TRUE, FALSE, FALSE);
+INSERT INTO ref_categorie_professionnelle (id_categorie_professionnelle, code, libelle, description, est_eligible_hs, est_cadre, est_eligible_exoneration_hs, dispense_pointage) VALUES
+(1, 'CADRE', 'Cadre', 'Cadres et ingénieurs', FALSE, TRUE, FALSE, FALSE),
+(2, 'A', 'Agent', 'Techniciens et agents', TRUE, FALSE, TRUE, FALSE);
 SELECT setval('ref_categorie_professionnelle_id_categorie_professionnelle_seq', (SELECT GREATEST(MAX(id_categorie_professionnelle), 2) FROM ref_categorie_professionnelle));
 
 -- Configuration Légale de Paie :
 -- 1. LF_2024_2025 (applicable du 01/01/2024 au 31/12/2025) : SME 262 680 Ar, Plafond CNaPS 2 101 440 Ar, Barème 5 tranches (couvre les tests déc 2025 : 26 nov - 25 déc)
--- 2. LF_2026 (en vigueur depuis le 01/01/2026) : Revalorisation SME 300 000 Ar (agricole 304 300 Ar), Plafond CNaPS 2 400 000 Ar, Barème 6 tranches (25%), Min IRSA 3 000 Ar
+-- 2. LF_2026_JAN_FEB (applicable du 01/01/2026 au 28/02/2026) : Décret CNaPS SME 262 680 Ar maintenu jusqu'au 28/02/2026, Barème IRSA 6 tranches LF 2026 (Min IRSA 3 000 Ar, tranche 25%)
+-- 3. LF_2026 (en vigueur depuis le 01/03/2026) : Revalorisation effective SME 300 000 Ar (agricole 304 300 Ar), Plafond CNaPS 2 400 000 Ar, Barème 6 tranches (25%), Min IRSA 3 000 Ar
 INSERT INTO paie_config_legale (
     id_config_legale, code_version, libelle, date_debut, date_fin,
     sme_national, sme_agricole, plafond_cotisation_nb_sme,
     seuil_exoneration_irsa, minimum_perception_irsa, deduction_charge_famille, arrondi_base_irsa,
     duree_hebdo_legale, diviseur_mensuel_heures, seuil_hs_tranche1, plafond_hs_hebdo,
-    acquisition_conge_mensuel_jours, diviseur_valorisation_conge_jours
+    acquisition_conge_mensuel_jours, diviseur_valorisation_conge_jours,
+    exoneration_hs_irsa_active, plafond_mensuel_hs_exonerees
 ) VALUES 
 (
     1,
@@ -386,16 +394,29 @@ INSERT INTO paie_config_legale (
     262680.00, 266500.00, 8.00,
     350000.00, 2000.00, 2000.00, 'CENTAINE_INF',
     40.00, 173.33, 8.00, 20.00,
-    2.50, 30
+    2.50, 30,
+    TRUE, 20.00
+),
+(
+    3,
+    'LF_2026_JAN_FEB',
+    'Loi de Finances 2026 (Janv-Févr 2026) — IRSA 6 Tranches, SME CNaPS 262 680 Ar',
+    '2026-01-01', '2026-02-28',
+    262680.00, 266500.00, 8.00,
+    350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
+    40.00, 173.33, 8.00, 20.00,
+    2.50, 30,
+    TRUE, 20.00
 ),
 (
     2,
     'LF_2026',
     'Loi de Finances 2026 — Revalorisation SME 300 000 Ar, Plafond CNaPS 2 400 000 Ar, Min IRSA 3 000 Ar',
-    '2026-01-01', NULL,
+    '2026-03-01', NULL,
     300000.00, 304300.00, 8.00,
     350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
     40.00, 173.33, 8.00, 20.00,
-    2.50, 30
+    2.50, 30,
+    TRUE, 20.00
 );
-SELECT setval('paie_config_legale_id_config_legale_seq', (SELECT GREATEST(MAX(id_config_legale), 2) FROM paie_config_legale));
+SELECT setval('paie_config_legale_id_config_legale_seq', (SELECT GREATEST(MAX(id_config_legale), 3) FROM paie_config_legale));

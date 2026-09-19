@@ -16,6 +16,8 @@ public class RefCategorieProfessionnelle extends ClassMere {
     private String libelle;
     private String description;
     private boolean estEligibleHs = true;
+    private boolean estCadre = false;
+    private boolean estEligibleExonerationHs = true;
     private boolean actif = true;
     private Timestamp createdAt;
     private Timestamp updatedAt;
@@ -48,13 +50,15 @@ public class RefCategorieProfessionnelle extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        String sql = "INSERT INTO ref_categorie_professionnelle (code, libelle, description, est_eligible_hs, actif) VALUES (?, ?, ?, ?, ?) RETURNING id_categorie_professionnelle";
+        String sql = "INSERT INTO ref_categorie_professionnelle (code, libelle, description, est_eligible_hs, est_cadre, est_eligible_exoneration_hs, actif) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id_categorie_professionnelle";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
             ps.setString(3, description);
             ps.setBoolean(4, estEligibleHs);
-            ps.setBoolean(5, actif);
+            ps.setBoolean(5, estCadre);
+            ps.setBoolean(6, estEligibleExonerationHs);
+            ps.setBoolean(7, actif);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     this.idCategorieProfessionnelle = rs.getInt(1);
@@ -66,14 +70,16 @@ public class RefCategorieProfessionnelle extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
-        String sql = "UPDATE ref_categorie_professionnelle SET code = ?, libelle = ?, description = ?, est_eligible_hs = ?, actif = ?, updated_at = CURRENT_TIMESTAMP WHERE id_categorie_professionnelle = ?";
+        String sql = "UPDATE ref_categorie_professionnelle SET code = ?, libelle = ?, description = ?, est_eligible_hs = ?, est_cadre = ?, est_eligible_exoneration_hs = ?, actif = ?, updated_at = CURRENT_TIMESTAMP WHERE id_categorie_professionnelle = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
             ps.setString(3, description);
             ps.setBoolean(4, estEligibleHs);
-            ps.setBoolean(5, actif);
-            ps.setInt(6, idCategorieProfessionnelle);
+            ps.setBoolean(5, estCadre);
+            ps.setBoolean(6, estEligibleExonerationHs);
+            ps.setBoolean(7, actif);
+            ps.setInt(8, idCategorieProfessionnelle);
             ps.executeUpdate();
         }
         return this;
@@ -132,6 +138,12 @@ public class RefCategorieProfessionnelle extends ClassMere {
         cp.setLibelle(rs.getString("libelle"));
         cp.setDescription(rs.getString("description"));
         cp.setEstEligibleHs(rs.getBoolean("est_eligible_hs"));
+        try {
+            cp.setEstCadre(rs.getBoolean("est_cadre"));
+        } catch (Exception ignored) {}
+        try {
+            cp.setEstEligibleExonerationHs(rs.getObject("est_eligible_exoneration_hs") != null ? rs.getBoolean("est_eligible_exoneration_hs") : true);
+        } catch (Exception ignored) {}
         cp.setActif(rs.getBoolean("actif"));
         cp.setCreatedAt(rs.getTimestamp("created_at"));
         cp.setUpdatedAt(rs.getTimestamp("updated_at"));
@@ -153,6 +165,12 @@ public class RefCategorieProfessionnelle extends ClassMere {
 
     public boolean isEstEligibleHs() { return estEligibleHs; }
     public void setEstEligibleHs(boolean estEligibleHs) { this.estEligibleHs = estEligibleHs; }
+
+    public boolean isEstCadre() { return estCadre; }
+    public void setEstCadre(boolean estCadre) { this.estCadre = estCadre; }
+
+    public boolean isEstEligibleExonerationHs() { return estEligibleExonerationHs; }
+    public void setEstEligibleExonerationHs(boolean estEligibleExonerationHs) { this.estEligibleExonerationHs = estEligibleExonerationHs; }
 
     public boolean isActif() { return actif; }
     public void setActif(boolean actif) { this.actif = actif; }

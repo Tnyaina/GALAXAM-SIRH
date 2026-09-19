@@ -100,6 +100,8 @@ public class RefCarriereController {
                 existing.setLibelle(cat.getLibelle());
                 existing.setDescription(cat.getDescription());
                 existing.setEstEligibleHs(cat.isEstEligibleHs());
+                existing.setEstCadre(cat.isEstCadre());
+                existing.setEstEligibleExonerationHs(cat.isEstEligibleExonerationHs());
                 existing.setActif(cat.isActif());
 
                 existing.update(c);

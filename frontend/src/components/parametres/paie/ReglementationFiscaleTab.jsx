@@ -110,6 +110,7 @@ const EMPTY_FORM = {
     seuilExonerationIrsa: '350000', minimumPerceptionIrsa: '3000', deductionChargeFamille: '2000',
     arrondiBaseIrsa: 'CENTAINE_INF',
     dureeHebdoLegale: '40', diviseurMensuelHeures: '173.33', seuilHsTranche1: '8', plafondHsHebdo: '20',
+    exonerationHsIrsaActive: true, plafondMensuelHsExonerees: '20',
     acquisitionCongeMensuelJours: '2.5', diviseurValorisationCongeJours: '30',
     tranchesIrsa: DEFAULT_TRANCHES_IRSA,
     majorations: DEFAULT_MAJORATIONS,
@@ -633,6 +634,42 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 onChange={e => upd('plafondHsHebdo', e.target.value)}
                                 hint="Limite légale max (ex: 20h)"
                             />
+                            <div className="col-span-2 pt-2 border-t border-[var(--color-border-subtle)] space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <span className="text-xs font-semibold text-[var(--color-fg)]">Exonération IRSA des Heures Supplémentaires</span>
+                                        <p className="text-[11px] text-[var(--color-fg-muted)]">Article 01.03.03-9° CGI (salariés non-cadres éligibles)</p>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            disabled={isReadOnly}
+                                            checked={!!formData.exonerationHsIrsaActive}
+                                            onChange={e => upd('exonerationHsIrsaActive', e.target.checked)}
+                                        />
+                                        <div className="w-9 h-5 bg-[var(--color-border-strong)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-brand-500)]"></div>
+                                    </label>
+                                </div>
+                                {!formData.exonerationHsIrsaActive ? (
+                                    <div className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-xs text-[var(--color-fg-muted)] rounded">
+                                        <span className="font-semibold text-[var(--color-fg)]">Exonération désactivée pour cet exercice :</span>
+                                        <p className="text-[11px] mt-0.5">100% des heures supplémentaires accomplies seront intégrées dans l'assiette imposable IRSA (aucun abattement ni repli appliqué).</p>
+                                    </div>
+                                ) : (
+                                    <Input
+                                        label="Plafond mensuel HS exonérées (h)"
+                                        type="number"
+                                        step="0.5"
+                                        min="0"
+                                        required={!isReadOnly}
+                                        disabled={isReadOnly}
+                                        value={formData.plafondMensuelHsExonerees}
+                                        onChange={e => upd('plafondMensuelHsExonerees', e.target.value)}
+                                        hint="Plafond d'heures exonérées par mois civil (ex: 20h selon CGI Art. 01.03.03-9°)"
+                                    />
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -817,6 +854,8 @@ export default function ReglementationFiscaleTab() {
             diviseurMensuelHeures: String(activeConfig.diviseurMensuelHeures ?? '173.33'),
             seuilHsTranche1: String(activeConfig.seuilHsTranche1 ?? '8'),
             plafondHsHebdo: String(activeConfig.plafondHsHebdo ?? '20'),
+            exonerationHsIrsaActive: activeConfig.exonerationHsIrsaActive ?? true,
+            plafondMensuelHsExonerees: String(activeConfig.plafondMensuelHsExonerees ?? '20'),
             acquisitionCongeMensuelJours: String(activeConfig.acquisitionCongeMensuelJours ?? '2.5'),
             diviseurValorisationCongeJours: String(activeConfig.diviseurValorisationCongeJours ?? '30'),
             tranchesIrsa: clonedTranches,
@@ -849,6 +888,8 @@ export default function ReglementationFiscaleTab() {
             diviseurMensuelHeures: String(config.diviseurMensuelHeures ?? '173.33'),
             seuilHsTranche1: String(config.seuilHsTranche1 ?? '8'),
             plafondHsHebdo: String(config.plafondHsHebdo ?? '20'),
+            exonerationHsIrsaActive: config.exonerationHsIrsaActive ?? true,
+            plafondMensuelHsExonerees: String(config.plafondMensuelHsExonerees ?? '20'),
             acquisitionCongeMensuelJours: String(config.acquisitionCongeMensuelJours ?? '2.5'),
             diviseurValorisationCongeJours: String(config.diviseurValorisationCongeJours ?? '30'),
             tranchesIrsa: tranches.map(t => ({
@@ -905,6 +946,8 @@ export default function ReglementationFiscaleTab() {
             diviseurMensuelHeures: String(config.diviseurMensuelHeures ?? '173.33'),
             seuilHsTranche1: String(config.seuilHsTranche1 ?? '8'),
             plafondHsHebdo: String(config.plafondHsHebdo ?? '20'),
+            exonerationHsIrsaActive: config.exonerationHsIrsaActive ?? true,
+            plafondMensuelHsExonerees: String(config.plafondMensuelHsExonerees ?? '20'),
             acquisitionCongeMensuelJours: String(config.acquisitionCongeMensuelJours ?? '2.5'),
             diviseurValorisationCongeJours: String(config.diviseurValorisationCongeJours ?? '30'),
             tranchesIrsa: tranches.length > 0 ? tranches.map(t => ({
@@ -952,6 +995,8 @@ export default function ReglementationFiscaleTab() {
         diviseurMensuelHeures: parseSafe(formData.diviseurMensuelHeures, 173.33),
         seuilHsTranche1: parseSafe(formData.seuilHsTranche1, 8),
         plafondHsHebdo: parseSafe(formData.plafondHsHebdo, 20),
+        exonerationHsIrsaActive: Boolean(formData.exonerationHsIrsaActive),
+        plafondMensuelHsExonerees: formData.exonerationHsIrsaActive ? parseSafe(formData.plafondMensuelHsExonerees, 0) : 0,
         acquisitionCongeMensuelJours: parseSafe(formData.acquisitionCongeMensuelJours, 2.5),
         diviseurValorisationCongeJours: parseInt(formData.diviseurValorisationCongeJours, 10) || 30,
     });
@@ -1060,10 +1105,11 @@ export default function ReglementationFiscaleTab() {
 
                         <div>
                             <SectionTitle icon={Percent} label="Règles Fiscales IRSA" color="var(--color-warning-600)" badge="Code Général des Impôts" />
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 <KpiField label="Seuil d'exonération" value={fmtAr(activeConfig.seuilExonerationIrsa)} sub="Base imposable en dessous → IRSA = 0" />
                                 <KpiField label="Minimum de Perception" value={fmtAr(activeConfig.minimumPerceptionIrsa)} sub="Plancher légal si IRSA calculé insuffisant" />
                                 <KpiField label="Déduction / Personne à Charge" value={fmtAr(activeConfig.deductionChargeFamille)} sub="Conjoint, enfants légitimes à charge" />
+                                <KpiField label="Exonération HS (CGI)" value={(activeConfig.exonerationHsIrsaActive && Number(activeConfig.plafondMensuelHsExonerees) > 0) ? `${fmtNb(activeConfig.plafondMensuelHsExonerees, 0)}h max / mois` : "Désactivée (0h)"} sub="Art. 01.03.03-9° non-cadres" />
                             </div>
 
                             {/* Grille des tranches progressives de l'exercice actif */}
