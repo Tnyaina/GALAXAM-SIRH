@@ -249,8 +249,8 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
 
                     {/* Somme en toutes lettres */}
                     {recu.netEnLettres && (
-                        <p className="text-[11px] text-[var(--color-fg-muted)] italic">
-                            Arrêté le présent solde de tout compte à la somme nette de : <strong className="text-[var(--color-fg)] not-italic">{recu.netEnLettres} Ariary</strong>.
+                        <p className="text-[11px] text-[var(--color-fg-muted)] ">
+                            Arrêté le présent solde de tout compte à la somme nette de : <strong className="text-[var(--color-fg)] not-">{recu.netEnLettres} Ariary</strong>.
                         </p>
                     )}
 

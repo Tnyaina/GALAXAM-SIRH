@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Printer, X, Award, CheckCircle } from 'lucide-react';
+import { Printer, X, Download } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
-import { DocumentFrame } from '@/components/carriere/ContractDocument';
+import Loading from '@/components/ui/feedback/Loading';
+import documentService from '@/api/documentService';
 import { fmtDateFr } from '@/utils/carriereUtils';
 
 export default function CertificatTravailModal({
@@ -11,22 +12,40 @@ export default function CertificatTravailModal({
     employe,
     contrat,
     affectation,
-    loadingAffectation = false, // true pendant la récupération de l'affectation liée au contrat (contrat historique)
     filiale,
-    signataire, // { nom, fonction } — optionnel, personne habilitée qui délivre le certificat
+    signataire,
     dateDebutInitiale = null,
 }) {
     const [mounted, setMounted] = useState(false);
-    const [typeAnciennete, setTypeAnciennete] = useState('contrat'); // 'contrat' | 'globale'
+    const [typeAnciennete, setTypeAnciennete] = useState('globale'); // 'contrat' | 'globale'
+    const [loadingData, setLoadingData] = useState(true);
+    const [downloadingDocx, setDownloadingDocx] = useState(false);
+    const [docData, setDocData] = useState(null);
     const printRef = useRef(null);
+
+    const idContrat = contrat?.idContrat;
+
+    const chargerDonnees = useCallback(async () => {
+        if (!idContrat) return;
+        setLoadingData(true);
+        try {
+            const data = await documentService.getCertificatData(idContrat, typeAnciennete);
+            setDocData(data);
+        } catch (err) {
+            console.error('Erreur chargement certificat backend:', err);
+        } finally {
+            setLoadingData(false);
+        }
+    }, [idContrat, typeAnciennete]);
 
     useEffect(() => {
         if (isOpen) {
+            chargerDonnees();
             const t = setTimeout(() => setMounted(true), 10);
             return () => clearTimeout(t);
         }
         setMounted(false);
-    }, [isOpen]);
+    }, [isOpen, chargerDonnees]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -37,274 +56,262 @@ export default function CertificatTravailModal({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onClose]);
 
-    if (!isOpen) return null;
-
-    const getVal = (...keys) => {
-        for (const k of keys) {
-            if (k !== undefined && k !== null && String(k).trim() !== '') {
-                return String(k).trim();
-            }
+    const handleDownloadDocx = async () => {
+        if (!idContrat || downloadingDocx) return;
+        setDownloadingDocx(true);
+        try {
+            const filename = `Certificat_Travail_${docData?.employe?.matricule || idContrat}.docx`;
+            await documentService.downloadCertificatDocx(idContrat, typeAnciennete, filename);
+        } catch (err) {
+            console.error('Erreur téléchargement DOCX certificat:', err);
+        } finally {
+            setDownloadingDocx(false);
         }
-        return null;
     };
-
-    const nomComplet = `${employe?.nom || ''} ${employe?.prenom || ''}`.trim() || '……………';
-    const numContrat = contrat?.numeroContrat || 'CTR-EXPIRE';
-    const filialeNom = filiale?.libelle || contrat?.libelleFiliale || employe?.filiale || employe?.libelleFiliale || 'GALAXAM LOGISTICS';
-    const filialeAdresse = filiale?.adresse || contrat?.adresseFiliale || employe?.adresseFiliale || null;
-    const filialeNif = filiale?.nif || contrat?.nifFiliale || employe?.nifFiliale || null;
-    const filialeStat = filiale?.stat || contrat?.statFiliale || employe?.statFiliale || null;
-
-    const dateDebutContrat = contrat?.dateDebut;
-    const dateFinRaw = contrat?.dateFin || new Date();
-    const dateFin = fmtDateFr(dateFinRaw);
-
-    const dateDebutGlobale = contrat?.dateOrigineChaine || dateDebutInitiale || employe?.dateEmbauche || employe?.dateEntree || contrat?.dateDebut;
-
-    const dateDebutEffectif = typeAnciennete === 'globale' && dateDebutGlobale ? dateDebutGlobale : dateDebutContrat;
-    const dateDebut = fmtDateFr(dateDebutEffectif);
-    const anciennete = typeAnciennete === 'globale'
-        ? (contrat?.ancienneteEffectiveTexte || '—')
-        : (contrat?.ancienneteContratTexte || '—');
-
-    const fonction = getVal(
-        affectation?.libelleFonction,
-        affectation?.fonction,
-        affectation?.nomFonction,
-        contrat?.libelleFonction,
-        contrat?.libelleFonctionCible,
-        contrat?.libelleFonctionSource,
-        contrat?.fonction,
-        employe?.fonction,
-        employe?.poste,
-        employe?.libelleFonction,
-        employe?.titrePoste
-    ) || '—';
-
-    const categorieProfessionnelle = getVal(
-        affectation?.libelleCategorieProfessionnelle,
-        affectation?.libelleCategoriePro,
-        affectation?.libelleCategorie,
-        affectation?.categorie,
-        contrat?.libelleCategorieProfessionnelle,
-        contrat?.libelleCategoriePro,
-        contrat?.libelleCategorie,
-        contrat?.categorie,
-        employe?.categorieProfessionnelle,
-        employe?.libelleCategoriePro,
-        employe?.categorie
-    );
-
-    const natureContrat = getVal(
-        contrat?.libelleTypeContrat,
-        contrat?.libelleTypeContratCible,
-        contrat?.typeContrat,
-        affectation?.libelleTypeContrat
-    );
-
-    const siteNom = getVal(
-        affectation?.libelleSite,
-        contrat?.libelleSite,
-        employe?.site,
-        employe?.libelleSite
-    ) || 'Antananarivo';
-
-    const deptNom = getVal(
-        affectation?.libelleDepartement,
-        contrat?.libelleDepartement,
-        employe?.departement,
-        employe?.libelleDepartement
-    ) || 'Siège';
-
-    const siteDept = `${siteNom} - ${deptNom}`;
-
-    const employeAdresse = employe?.adresse || null;
-    const employeCin = employe?.cin || employe?.numeroCin || null;
-    const employeMatricule = employe?.matricule || null;
-    const employeCnaps = employe?.numeroCnaps || null;
-
-    const dateEmission = fmtDateFr(new Date());
-    const signataireNom = signataire?.nom || null;
-    const signataireFonction = signataire?.fonction || 'Directeur des Ressources Humaines';
 
     const handlePrint = () => {
         window.print();
     };
 
+    if (!isOpen) return null;
+
+    // Données d'en-tête officiel
+    const ent = docData?.entreprise || {
+        nom: filiale?.libelle || filiale?.raisonSociale || contrat?.libelleFiliale || 'GALAXAM LOGISTICS',
+        adresse: filiale?.adresse || null,
+        ville: filiale?.ville || null,
+        pays: filiale?.pays || null,
+        nif: filiale?.nif || null,
+        stat: filiale?.stat || null,
+        telephone: filiale?.telephone || null,
+        email: filiale?.email || null,
+    };
+
+    const emp = docData?.employe || {
+        nomComplet: `${employe?.nom || ''} ${employe?.prenom || ''}`.trim() || 'Collaborateur',
+        matricule: employe?.matricule || '',
+        dateNaissance: employe?.dateNaissance || null,
+        lieuNaissance: employe?.lieuNaissance || '',
+        numeroCin: employe?.cin || employe?.numeroCin || '',
+        adresse: employe?.adresse || '',
+    };
+
+    const sig = docData?.signataire || {
+        nom: signataire?.nom || 'Direction des Ressources Humaines',
+        fonction: signataire?.fonction || 'Directeur des Ressources Humaines',
+        ville: filiale?.ville || null,
+        dateEmissionTexte: fmtDateFr(new Date()),
+    };
+
+    const refDoc = docData?.reference || `CERT-${contrat?.numeroContrat || 'CTR'}`;
+    const dateEntreeTexte = docData?.dateEntreeTexte || fmtDateFr(dateDebutInitiale || contrat?.dateDebut || new Date());
+    const dateSortieTexte = docData?.dateSortieTexte || fmtDateFr(contrat?.dateFin || new Date());
+    const dureeTotaleTexte = docData?.dureeTotaleTexte || '';
+    const typeContratLib = docData?.typeContrat || 'durée indéterminée';
+    const mentionLiberatoire = docData?.mentionLiberatoire || "Nous confirmons que le/la salarié(e) quitte l'entreprise libre de tout engagement et de toute dette envers la société.";
+    const postesOccupes = docData?.postesOccupes || [];
+    const libFonction = docData?.dernierPoste || affectation?.libelleFonction || contrat?.libelleFonction || '';
+    const catPro = docData?.derniereCategorie || affectation?.libelleCategorieProfessionnelle || '';
+    const departement = docData?.dernierDepartement || affectation?.libelleDepartement || '';
+
     return createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-5 bg-black/60 backdrop-blur-[3px] print:p-0 print:bg-white print:static print:block">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-6 bg-black/60 backdrop-blur-[2px] print:p-0 print:bg-white print:static print:block">
             <div className="absolute inset-0 print:hidden" onClick={onClose} />
 
             {/* Modale Container */}
             <div
                 className={`
-                    relative bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-none shadow-2xl
-                    w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col
-                    transform    print:shadow-none print:border-none print:w-full print:max-w-none print:h-auto print:max-h-none print:overflow-visible print:transform-none print:p-0 print:bg-white
+                    relative bg-white border border-gray-300 rounded shadow-2xl
+                    w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col
+                    transform print:shadow-none print:border-none print:w-full print:max-w-none print:h-auto print:max-h-none print:overflow-visible print:transform-none print:p-0
                     ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
                 `}
             >
-                {/* Header d'actions (masqué à l'impression) */}
-                <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 flex-shrink-0 flex items-center justify-between print:hidden">
-                    <div className="flex items-center gap-2 font-bold text-base text-ink-900 dark:text-white">
-                        <Award size={20} className="text-brand-500" />
-                        <span>Certificat de Travail Officiel</span>
-                        <span className="text-xs text-ink-400 font-normal">({numContrat})</span>
+                {/* Barre d'actions (masquée à l'impression) */}
+                <div className="px-6 py-3.5 border-b border-gray-200 bg-gray-50 flex-shrink-0 flex items-center justify-between print:hidden">
+                    <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm text-gray-900">Certificat de Travail</span>
+                        <span className="text-xs text-gray-500">({refDoc})</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <Button
                             type="button"
+                            onClick={handleDownloadDocx}
+                            variant="outline"
+                            size="sm"
+                            loading={downloadingDocx}
+                            iconLeft={<Download size={15} />}
+                            title="Télécharger le fichier Word (.docx) conforme au modèle officiel"
+                        >
+                            Télécharger Word (.docx)
+                        </Button>
+                        <Button
+                            type="button"
                             onClick={handlePrint}
                             variant="primary"
-                            size="md"
-                            iconLeft={<Printer size={16} />}
+                            size="sm"
+                            iconLeft={<Printer size={15} />}
                         >
-                            Imprimer / Imprimer en PDF
+                            Imprimer / PDF
                         </Button>
-                        <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-none">
-                            <X size={20} />
+                        <button
+                            onClick={onClose}
+                            className="text-gray-400 hover:text-gray-700 p-1 ml-2 rounded hover:bg-gray-200 transition-colors"
+                            aria-label="Fermer"
+                        >
+                            <X size={18} />
                         </button>
                     </div>
                 </div>
 
-                {/* Barre de sélection du mode d'ancienneté (masquée à l'impression) */}
-                <div className="px-6 py-2.5 bg-brand-500/5 dark:bg-brand-500/10 border-b border-ink-150 dark:border-ink-700 flex flex-wrap items-center justify-between gap-3 flex-shrink-0 print:hidden text-xs">
+                {/* Options (masquée à l'impression) */}
+                <div className="px-6 py-2.5 bg-gray-100/70 border-b border-gray-200 flex flex-wrap items-center justify-between gap-4 flex-shrink-0 print:hidden text-xs text-gray-700">
                     <div className="flex items-center gap-2">
-                        <span className="font-semibold text-ink-600 dark:text-ink-300">Base d'ancienneté :</span>
-                        <div className="inline-flex p-0.5 bg-ink-150 dark:bg-ink-800 rounded-none">
-                            <button
-                                type="button"
-                                onClick={() => setTypeAnciennete('contrat')}
-                                className={`px-3 py-1 text-xs font-semibold rounded-none  cursor-pointer ${
-                                    typeAnciennete === 'contrat'
-                                        ? 'bg-white dark:bg-ink-900 text-brand-500 shadow-xs font-bold'
-                                        : 'text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-white'
-                                }`}
-                            >
-                                Spécifique au contrat ({fmtDateFr(dateDebutContrat)})
-                            </button>
+                        <span className="font-medium text-gray-600">Période prise en compte :</span>
+                        <div className="inline-flex bg-gray-200 p-0.5 rounded">
                             <button
                                 type="button"
                                 onClick={() => setTypeAnciennete('globale')}
-                                className={`px-3 py-1 text-xs font-semibold rounded-none  cursor-pointer ${
+                                className={`px-2.5 py-0.5 rounded text-xs transition-colors ${
                                     typeAnciennete === 'globale'
-                                        ? 'bg-white dark:bg-ink-900 text-brand-500 shadow-xs font-bold'
-                                        : 'text-ink-600 dark:text-ink-400 hover:text-ink-900 dark:hover:text-white'
+                                        ? 'bg-white text-gray-900 font-semibold shadow-xs'
+                                        : 'text-gray-600 hover:text-gray-900'
                                 }`}
                             >
-                                Globale entreprise ({fmtDateFr(dateDebutGlobale)})
+                                Carrière complète
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setTypeAnciennete('contrat')}
+                                className={`px-2.5 py-0.5 rounded text-xs transition-colors ${
+                                    typeAnciennete === 'contrat'
+                                        ? 'bg-white text-gray-900 font-semibold shadow-xs'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                            >
+                                Contrat actuel
                             </button>
                         </div>
                     </div>
-                    <span className="font-mono font-bold text-brand-500 text-xs">
-                        Ancienneté calculée : {anciennete || '—'}
-                    </span>
-                </div>
 
-                {/* Corps du Document Officiel */}
-                <div className="flex-1 overflow-y-auto p-6 lg:p-10 bg-ink-50/50 dark:bg-ink-950/40 print:bg-white print:p-0 print:overflow-visible print:block">
-                    {loadingAffectation && (
-                        <div className="mb-4 text-center text-[11px] text-ink-400 print:hidden">
-                            Récupération des données du poste (fonction, site, département)...
+                    {dureeTotaleTexte && (
+                        <div className="text-gray-600 text-xs">
+                            Durée totale : <span className="font-medium text-gray-900">{dureeTotaleTexte}</span>
                         </div>
                     )}
-                    <div ref={printRef} className="certificat-print-portal w-full max-w-[650px] mx-auto print:max-w-none print:w-full print:m-0 print:p-0">
-
-                        <DocumentFrame watermark={null} className="border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 p-8 shadow-sm print:border-none print:p-6 print:bg-white print:text-black">
-
-                            {/* En-tête de Société */}
-                            <div className="text-center pb-6 border-b-2 border-ink-900 dark:border-white mb-6 print:pb-3 print:mb-3">
-                                <h1 className="text-2xl font-black uppercase tracking-widest text-ink-900 dark:text-white font-serif print:text-xl">
-                                    {filialeNom}
-                                </h1>
-                                <p className="text-[11px] font-sans uppercase tracking-widest text-ink-500 mt-1 print:text-[10px]">
-                                    Direction des Ressources Humaines &amp; Juridique
-                                </p>
-                                {filialeAdresse && (
-                                    <p className="text-[10px] font-sans text-ink-400 mt-1 print:text-[9px]">{filialeAdresse}</p>
-                                )}
-                                {(filialeNif || filialeStat) && (
-                                    <p className="text-[10px] font-sans text-ink-400 mt-0.5 print:text-[9px]">
-                                        {filialeNif && <>NIF&nbsp;: {filialeNif}</>}
-                                        {filialeNif && filialeStat && <span className="mx-1.5">·</span>}
-                                        {filialeStat && <>STAT&nbsp;: {filialeStat}</>}
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Titre du document */}
-                            <div className="py-6 text-center print:py-3">
-                                <h2 className="text-2xl font-serif font-bold uppercase tracking-wider text-ink-900 dark:text-white print:text-xl">
-                                    Certificat de Travail
-                                </h2>
-                                <p className="text-xs font-mono text-ink-400 mt-2 print:mt-1">Réf. N° CERT-{numContrat}</p>
-                            </div>
-
-                            {/* Attestation officielle */}
-                            <div className="py-4 space-y-5 text-sm leading-[1.9] font-serif text-ink-900 dark:text-ink-100 text-justify print:py-2 print:space-y-3 print:leading-loose">
-                                <p>
-                                    Je soussigné(e), agissant en qualité de <strong>{signataireFonction}</strong> de la société <strong>{filialeNom}</strong>{filialeAdresse && <>, établie au <strong>{filialeAdresse}</strong></>}, certifie par la présente que :
-                                </p>
-
-                                <p>
-                                    <strong>Monsieur / Madame {nomComplet}</strong>
-                                    {employeAdresse && <>, domicilié(e) à {employeAdresse}</>}
-                                    {employeMatricule && <>, matricule interne n° <strong>{employeMatricule}</strong></>}
-                                    {employeCin && <>, titulaire de la CIN n° <strong>{employeCin}</strong></>},
-                                    {' '}a été employé(e) au sein de notre établissement du <strong>{dateDebut}</strong> au <strong>{dateFin}</strong>
-                                    {anciennete && <>, soit une ancienneté de <strong>{anciennete}</strong></>},
-                                    {' '}sous contrat n° <strong>{numContrat}</strong>{natureContrat && <> ({natureContrat})</>}.
-                                </p>
-
-                                <p>
-                                    Au cours de cette période, l'intéressé(e) a occupé le poste de <strong>{fonction}</strong>
-                                    {categorieProfessionnelle && <> — catégorie professionnelle {categorieProfessionnelle}</>},
-                                    {' '}au sein de {siteDept}.
-                                </p>
-
-                                <p>
-                                    L'intéressé(e) a quitté nos effectifs le <strong>{dateFin}</strong>{employeCnaps && <>. Son numéro d'immatriculation à la Caisse Nationale de Prévoyance Sociale (CNaPS) est <strong>{employeCnaps}</strong></>}.
-                                </p>
-
-                                <p className="text-xs text-ink-500 pt-1">
-                                    Le présent certificat est délivré pour servir et valoir ce que de droit. Il ne constitue ni un reçu pour solde de tout compte, ni une renonciation à un droit quelconque de l'une ou l'autre des parties.
-                                </p>
-                            </div>
-
-                            {/* Signatures & Cachet */}
-                            <div className="pt-10 mt-6 border-t border-ink-150 dark:border-ink-800 flex justify-between items-end text-xs font-sans print:pt-4 print:mt-4">
-                                <div>
-                                    <p className="text-ink-400">Délivré à Antananarivo, le</p>
-                                    <p className="font-bold text-ink-900 dark:text-white">{dateEmission}</p>
-                                </div>
-
-                                <div className="text-center pr-6">
-                                    <p className="font-bold uppercase tracking-wider text-ink-900 dark:text-white print:pb-8">
-                                        {signataireFonction}
-                                    </p>
-                                    {signataireNom && (
-                                        <p className="text-ink-500 pb-8 print:pb-6">{signataireNom}</p>
-                                    )}
-                                    {!signataireNom && <div className="pb-12 print:pb-8" />}
-                                    <div className="border-t border-dashed border-ink-300 dark:border-ink-700 w-48 mx-auto pt-1 text-[10px] text-ink-400 print:border-black">
-                                        Signature &amp; Cachet Officiel
-                                    </div>
-                                </div>
-                            </div>
-
-                        </DocumentFrame>
-
-                    </div>
                 </div>
 
-                {/* Footer Modal (masqué à l'impression) */}
-                <div className="px-6 py-3 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex-shrink-0 flex items-center justify-between text-xs text-ink-400 print:hidden">
-                    <span className="flex items-center gap-1.5 text-success-600 font-semibold">
-                        <CheckCircle size={14} /> Document RH conforme aux normes réglementaires
-                    </span>
-                    <Button type="button" onClick={onClose} variant="outline" size="md">
-                        Fermer
-                    </Button>
+                {/* Feuille de document officielle — Rendu 1:1 modèle Word (Police Calibri, sobre, sans déco superflue) */}
+                <div className="flex-1 overflow-y-auto p-6 lg:p-10 bg-gray-200/60 print:bg-white print:p-0 print:overflow-visible print:block">
+                    {loadingData ? (
+                        <div className="py-20 flex justify-center print:hidden">
+                            <Loading size="lg" label="Chargement du certificat de travail..." />
+                        </div>
+                    ) : (
+                        <div
+                            ref={printRef}
+                            className="w-full max-w-[720px] mx-auto bg-white p-10 md:p-14 shadow-md text-black leading-relaxed print:shadow-none print:p-8"
+                            style={{ fontFamily: "Calibri, 'Segoe UI', Arial, sans-serif" }}
+                        >
+                            {/* EN-TÊTE DE SOCIÉTÉ OFFICIEL */}
+                            <div className="text-center pb-3 border-b-2 border-[#1f3864]">
+                                <div className="text-base md:text-lg font-bold tracking-wider uppercase text-[#1f3864]">
+                                    {ent.nom}
+                                </div>
+                                <div className="text-xs text-gray-700 mt-1">
+                                    {ent.adresse} · {ent.ville} · {ent.pays}
+                                </div>
+                                <div className="text-xs text-gray-700">
+                                    {ent.nif && <span>NIF : {ent.nif}</span>}
+                                    {ent.nif && ent.stat && <span> · </span>}
+                                    {ent.stat && <span>STAT : {ent.stat}</span>}
+                                    {ent.rcs && <span> · {ent.rcs}</span>}
+                                </div>
+                                <div className="text-xs text-gray-700">
+                                    Tél. {ent.telephone} · Email : {ent.email}
+                                </div>
+                            </div>
+
+                            {/* TITRE DU DOCUMENT */}
+                            <div className="text-center mt-8 mb-4">
+                                <h1 className="text-lg md:text-xl font-bold uppercase tracking-wide text-black">
+                                    CERTIFICAT DE TRAVAIL
+                                </h1>
+                            </div>
+
+                            {/* RÉFÉRENCE ET DATE */}
+                            <div className="text-right text-xs text-gray-700 mb-6">
+                                Référence : {refDoc} — {sig.ville}, le {sig.dateEmissionTexte}
+                            </div>
+
+                            {/* TEXTE DU CERTIFICAT CONFORME AU MODÈLE DOCX */}
+                            <div className="space-y-4 text-xs md:text-sm text-justify leading-relaxed text-black">
+                                <p>
+                                    Je soussigné(e), <strong>{sig.nom}</strong>, agissant en qualité de <strong>{sig.fonction}</strong> de la société <strong>{ent.nom}</strong>
+                                    {ent.adresse ? `, dont le siège social est situé ${ent.adresse}` : ''}
+                                    {ent.rcs ? `, immatriculée au RCS sous le numéro ${ent.rcs}` : ''}
+                                    {ent.nif || ent.stat ? (
+                                        <>, sous le {ent.nif ? <>NIF n° <strong>{ent.nif}</strong></> : ''}{ent.nif && ent.stat ? ' et le ' : ''}{ent.stat ? <>STAT n° <strong>{ent.stat}</strong></> : ''}</>
+                                    ) : ''}
+                                    , certifie par la présente que :
+                                </p>
+
+                                <p>
+                                    Madame/Monsieur <strong>{emp.nomComplet}</strong>
+                                    {emp.dateNaissance && <>, né(e) le <strong>{fmtDateFr(emp.dateNaissance)}</strong></>}
+                                    {emp.lieuNaissance && <> à <strong>{emp.lieuNaissance}</strong></>}
+                                    {emp.adresse && <>, demeurant {emp.adresse}</>}
+                                    {Boolean(emp.dateNaissance || emp.lieuNaissance || emp.adresse) ? ', a été employé(e)' : ' a été employé(e)'} au sein de notre entreprise du <strong>{dateEntreeTexte}</strong> au <strong>{dateSortieTexte}</strong>, soit une durée totale de <strong>{dureeTotaleTexte}</strong>, dans le cadre d'un contrat de travail à <strong>{typeContratLib}</strong>.
+                                </p>
+
+                                {(postesOccupes.length > 0 || libFonction) && (
+                                    <div>
+                                        <p className="mb-2">
+                                            Durant cette période, l'intéressé(e) a occupé successivement les postes suivants :
+                                        </p>
+                                        {postesOccupes.length > 0 ? (
+                                            <div className="space-y-1 pl-4">
+                                                {postesOccupes.map((p, idx) => (
+                                                    <div key={idx}>
+                                                        — Du {p.dateDebutTexte} au {p.dateFinTexte} — <strong>{p.libelleFonction}</strong>{p.categorieProfessionnelle ? ` (${p.categorieProfessionnelle})` : ''}{p.departement ? `. Département ${p.departement}` : ''}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="pl-4">
+                                                — Du {dateEntreeTexte} au {dateSortieTexte} — <strong>{libFonction}</strong>{catPro ? ` (${catPro})` : ''}{departement ? `. Département ${departement}` : ''}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {libFonction && (
+                                    <p>
+                                        Au moment de son départ, Madame/Monsieur <strong>{emp.nomComplet}</strong> occupait le poste de <strong>{libFonction}</strong>{catPro ? `, classé au niveau ${catPro}` : ''}{departement ? `, au sein du département ${departement}` : ''}.
+                                    </p>
+                                )}
+
+                                <p>
+                                    Le contrat de travail a pris fin le <strong>{dateSortieTexte}</strong>. {mentionLiberatoire}
+                                </p>
+
+                                <p>
+                                    Le présent certificat est délivré pour servir et valoir ce que de droit, conformément aux dispositions légales et conventionnelles applicables. Nous confirmons que le/la salarié(e) a rempli ses fonctions avec sérieux et professionnalisme durant toute la durée de sa collaboration au sein de notre entreprise.
+                                </p>
+                            </div>
+
+                            {/* SIGNATURE & CACHET (ALIGNÉ À DROITE, CONFORME MODÈLE) */}
+                            <div className="mt-12 text-right text-xs leading-relaxed text-black">
+                                <p>{sig.ville ? `${sig.ville}, le ` : 'Le '}{sig.dateEmissionTexte}</p>
+                                <p className="italic mt-1">Fait pour servir et valoir ce que de droit.</p>
+                                <div className="pt-6">
+                                    <p className="font-bold">{sig.nom}</p>
+                                    <p>{sig.fonction}</p>
+                                    <p className="text-gray-500 pt-1">Signature et cachet de l'entreprise</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>,

@@ -70,7 +70,7 @@ export default function FichePersonnelleTab({
                             icon={<Calendar size={13} />}
                         />
                         <InfoBlock label="Lieu de naissance" value={emp.lieuNaissance} icon={<MapPin size={13} />} />
-                        <InfoBlock label="Nationalité" value={emp.nationalite || 'Malgache'} />
+                        <InfoBlock label="Nationalité" value={emp.nationalite} />
                         <InfoBlock label="Situation familiale" value={emp.situationFamiliale} icon={<Heart size={13} />} />
 
                         <InfoBlock label="N° CIN" value={emp.cinNumero} mono icon={<CreditCard size={13} />} />

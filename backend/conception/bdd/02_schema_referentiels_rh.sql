@@ -381,8 +381,8 @@ INSERT INTO paie_config_legale (
 (
     1,
     'LF_2024_2025',
-    'Loi de Finances / Réglementation 2024-2025 — SME 262 680 Ar, Plafond CNaPS 2 101 440 Ar',
-    '2024-01-01', '2025-12-31',
+    'Loi de Finances / Réglementation 2022-2025 — SME 262 680 Ar, Plafond CNaPS 2 101 440 Ar',
+    '2022-01-01', '2025-12-31',
     262680.00, 266500.00, 8.00,
     350000.00, 2000.00, 2000.00, 'CENTAINE_INF',
     40.00, 173.33, 8.00, 20.00,

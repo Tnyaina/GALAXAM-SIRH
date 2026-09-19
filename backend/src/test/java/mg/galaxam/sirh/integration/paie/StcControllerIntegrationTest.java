@@ -77,6 +77,17 @@ class StcControllerIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
+    @DisplayName("GET /paie/stc/preparer/{idEmploye} - Tolérance format ISO timestamp (ex: 2023-12-31T00:00:00.000+03:00)")
+    void testPreparerStcWithIsoTimestamp() throws Exception {
+        mockMvc.perform(get("/paie/stc/preparer/" + employeDepart.idEmploye)
+                        .param("dateDepart", "2026-01-20T00:00:00.000+03:00")
+                        .param("motif", "DEMISSION")
+                        .header("Authorization", "Bearer " + getAdminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.idEmploye", is(employeDepart.idEmploye)));
+    }
+
+    @Test
     @DisplayName("POST /paie/stc/calculer - Simulation sans persistance ni apurement")
     void testSimulerStc() throws Exception {
         StcCalculRequest req = new StcCalculRequest();

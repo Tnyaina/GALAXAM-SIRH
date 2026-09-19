@@ -102,6 +102,8 @@ class PointageExcelExportServiceTest {
             assertThat(headerHebdo.getCell(5).getStringCellValue()).isEqualTo("Retards (min)");
             assertThat(headerHebdo.getCell(6).getStringCellValue()).isEqualTo("Compensé (h)");
             assertThat(headerHebdo.getCell(7).getStringCellValue()).isEqualTo("Impact Paie (h)");
+            assertThat(headerHebdo.getCell(8).getStringCellValue()).isEqualTo("Heures Sup (h)");
+            assertThat(headerHebdo.getCell(9).getStringCellValue()).isEqualTo("Retenue (h)");
 
             // Vérifier en-tête Journal Quotidien logique et ordonné
             assertThat(headerJour).isNotNull();

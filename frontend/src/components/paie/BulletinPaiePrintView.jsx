@@ -51,7 +51,7 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
             </div>
 
             {/* Feuille A4 imprimable */}
-            <div 
+            <div
                 ref={printRef}
                 className="w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-900 p-8 shadow-2xl border border-slate-200 print:border-none print:shadow-none print:p-0 print:m-0 font-sans text-xs"
             >
@@ -163,7 +163,7 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
                     <tbody className="divide-y divide-slate-200">
                         {lignes.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="p-4 text-center text-slate-400 italic">
+                                <td colSpan={8} className="p-4 text-center text-slate-400 ">
                                     Aucune ligne ventilée sur ce bulletin.
                                 </td>
                             </tr>
@@ -174,39 +174,40 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
                                 const montantRetenue = isRetenue ? (ligne.montantSalarial ?? ligne.montantRetenue) : (ligne.montantRetenue && Number(ligne.montantRetenue) > 0 ? ligne.montantRetenue : null);
                                 const montantGain = isGain ? (ligne.montantSalarial ?? ligne.montantGain) : (ligne.montantGain && Number(ligne.montantGain) > 0 ? ligne.montantGain : null);
                                 return (
-                                <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}>
-                                    <td className="border-r border-slate-200 p-1 font-mono text-[10px] text-slate-600">
-                                        {ligne.codeRubrique || '-'}
-                                    </td>
-                                    <td className="border-r border-slate-200 p-1 font-medium text-slate-800">
-                                        {ligne.libelleRubrique}
-                                    </td>
-                                    <td className="border-r border-slate-200 p-1 text-right font-mono">
-                                        {ligne.baseCalcul ? Number(ligne.baseCalcul).toLocaleString('fr-MG') : '-'}
-                                    </td>
-                                    <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-600">
-                                        {ligne.tauxSalarial ? `${Number(ligne.tauxSalarial)}%` : '-'}
-                                    </td>
-                                    <td className="border-r border-slate-200 p-1 text-right font-mono text-rose-700">
-                                        {montantRetenue && Number(montantRetenue) > 0
-                                            ? Number(montantRetenue).toLocaleString('fr-MG')
-                                            : '-'}
-                                    </td>
-                                    <td className="border-r border-slate-200 p-1 text-right font-mono font-medium text-emerald-700">
-                                        {montantGain && Number(montantGain) > 0
-                                            ? Number(montantGain).toLocaleString('fr-MG')
-                                            : '-'}
-                                    </td>
-                                    <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-600">
-                                        {ligne.tauxPatronal ? `${Number(ligne.tauxPatronal)}%` : '-'}
-                                    </td>
-                                    <td className="p-1 text-right font-mono text-slate-700">
-                                        {ligne.montantPatronal && Number(ligne.montantPatronal) > 0 
-                                            ? Number(ligne.montantPatronal).toLocaleString('fr-MG') 
-                                            : '-'}
-                                    </td>
-                                </tr>
-                            );})
+                                    <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}>
+                                        <td className="border-r border-slate-200 p-1 font-mono text-[10px] text-slate-600">
+                                            {ligne.codeRubrique || '-'}
+                                        </td>
+                                        <td className="border-r border-slate-200 p-1 font-medium text-slate-800">
+                                            {ligne.libelleRubrique}
+                                        </td>
+                                        <td className="border-r border-slate-200 p-1 text-right font-mono">
+                                            {ligne.baseCalcul ? Number(ligne.baseCalcul).toLocaleString('fr-MG') : '-'}
+                                        </td>
+                                        <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-600">
+                                            {ligne.tauxSalarial ? `${Number(ligne.tauxSalarial)}%` : '-'}
+                                        </td>
+                                        <td className="border-r border-slate-200 p-1 text-right font-mono text-rose-700">
+                                            {montantRetenue && Number(montantRetenue) > 0
+                                                ? Number(montantRetenue).toLocaleString('fr-MG')
+                                                : '-'}
+                                        </td>
+                                        <td className="border-r border-slate-200 p-1 text-right font-mono font-medium text-emerald-700">
+                                            {montantGain && Number(montantGain) > 0
+                                                ? Number(montantGain).toLocaleString('fr-MG')
+                                                : '-'}
+                                        </td>
+                                        <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-600">
+                                            {ligne.tauxPatronal ? `${Number(ligne.tauxPatronal)}%` : '-'}
+                                        </td>
+                                        <td className="p-1 text-right font-mono text-slate-700">
+                                            {ligne.montantPatronal && Number(ligne.montantPatronal) > 0
+                                                ? Number(ligne.montantPatronal).toLocaleString('fr-MG')
+                                                : '-'}
+                                        </td>
+                                    </tr>
+                                );
+                            })
                         )}
                     </tbody>
                 </table>
@@ -260,7 +261,7 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
                             <span className="text-xl font-mono font-black tracking-tight text-white block mt-0.5">
                                 {formatAr(bulletin.netAPayer)}
                             </span>
-                            <span className="text-[10px] text-slate-400 block mt-0.5 italic">
+                            <span className="text-[10px] text-slate-400 block mt-0.5 ">
                                 Payé par virement bancaire sur compte désigné
                             </span>
                         </div>
@@ -271,11 +272,11 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
                 <div className="grid grid-cols-2 gap-8 pt-4 border-t border-slate-300 text-[11px]">
                     <div>
                         <p className="font-semibold text-slate-700 mb-8">Pour la Direction Générale / DAF :</p>
-                        <p className="text-[10px] text-slate-400 italic">Signature et cachet de l'entreprise</p>
+                        <p className="text-[10px] text-slate-400 ">Signature et cachet de l'entreprise</p>
                     </div>
                     <div className="text-right">
                         <p className="font-semibold text-slate-700 mb-8">Le Salarié :</p>
-                        <p className="text-[10px] text-slate-400 italic">Mention manuscrite « Vu et approuvé » et signature</p>
+                        <p className="text-[10px] text-slate-400 ">Mention manuscrite « Vu et approuvé » et signature</p>
                     </div>
                 </div>
 

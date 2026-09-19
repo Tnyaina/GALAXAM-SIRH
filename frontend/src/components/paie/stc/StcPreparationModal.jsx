@@ -59,6 +59,8 @@ export default function StcPreparationModal({
     nomEmploye,
     dateDepartInitiale = null,
     motifInitial = 'DEMISSION',
+    moisPreavisInitial = null,
+    indemnitePreavisInitiale = null,
     onStcValide,
 }) {
     // Étape UI courante : 'PREPARATION' | 'SIMULATION' | 'VALIDE'
@@ -98,7 +100,7 @@ export default function StcPreparationModal({
         setLoadingPrep(true);
         setErrorMsg(null);
         try {
-            const dateRef = dateDepartInitiale || new Date().toISOString().split('T')[0];
+            const dateRef = fmtDateInput(dateDepartInitiale) || new Date().toISOString().split('T')[0];
             const data = await stcService.preparerStc(idEmploye, dateRef, motifInitial);
             setPrepData(data);
 
@@ -106,9 +108,11 @@ export default function StcPreparationModal({
             setForm({
                 dateDepart: fmtDateInput(data.dateDepart || dateRef),
                 motifRupture: data.motifRupture || motifInitial || 'DEMISSION',
-                moisPreavis: String(data.moisPreavisSuggere ?? '0'),
+                moisPreavis: moisPreavisInitial !== null ? String(moisPreavisInitial) : String(data.moisPreavisSuggere ?? '0'),
                 joursTravaillesDernierMois: data.joursTravaillesEstimes != null ? String(data.joursTravaillesEstimes) : '',
-                indemnitePreavis: data.indemnitePreavisEstimee != null && Number(data.indemnitePreavisEstimee) > 0 ? String(data.indemnitePreavisEstimee) : '',
+                indemnitePreavis: (indemnitePreavisInitiale !== null && Number(indemnitePreavisInitiale) >= 0)
+                    ? String(indemnitePreavisInitiale)
+                    : (data.indemnitePreavisEstimee != null && Number(data.indemnitePreavisEstimee) > 0 ? String(data.indemnitePreavisEstimee) : ''),
                 indemniteLicenciement: data.indemniteLicenciementEstimee != null && Number(data.indemniteLicenciementEstimee) > 0 ? String(data.indemniteLicenciementEstimee) : '',
                 autresIndemnites: '',
                 motifAutresIndemnites: '',
@@ -125,7 +129,7 @@ export default function StcPreparationModal({
         } finally {
             setLoadingPrep(false);
         }
-    }, [idEmploye, dateDepartInitiale, motifInitial]);
+    }, [idEmploye, dateDepartInitiale, motifInitial, moisPreavisInitial, indemnitePreavisInitiale]);
 
     useEffect(() => {
         if (isOpen && idEmploye) {
@@ -146,7 +150,7 @@ export default function StcPreparationModal({
         return {
             idEmploye: Number(idEmploye),
             idPeriodePaie: prepData?.idPeriodePaie || null,
-            dateDepart: form.dateDepart,
+            dateDepart: fmtDateInput(form.dateDepart),
             motifRupture: form.motifRupture,
             joursTravaillesDernierMois: form.joursTravaillesDernierMois ? Number(form.joursTravaillesDernierMois) : null,
             moisPreavis: form.moisPreavis !== '' ? Number(form.moisPreavis) : 0,

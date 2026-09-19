@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { 
-    FileText, 
-    Printer, 
-    RefreshCw, 
-    PlusCircle, 
-    AlertCircle, 
-    CheckCircle2, 
-    Clock, 
+import {
+    FileText,
+    Printer,
+    RefreshCw,
+    PlusCircle,
+    AlertCircle,
+    CheckCircle2,
+    Clock,
     DollarSign,
     ChevronUp,
     Info
@@ -114,9 +114,9 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                 statut: 'APPROUVE'
             });
 
-            setFeedbackMsg({ 
-                type: 'success', 
-                text: 'Variable enregistrée avec succès. Recalculez le bulletin pour mettre à jour le net à payer.' 
+            setFeedbackMsg({
+                type: 'success',
+                text: 'Variable enregistrée avec succès. Recalculez le bulletin pour mettre à jour le net à payer.'
             });
             setShowAddVariable(false);
             setAjustementForm({
@@ -128,9 +128,9 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
             // Recalcul automatique direct
             await handleRecalculerEmploye();
         } catch (err) {
-            setFeedbackMsg({ 
-                type: 'error', 
-                text: getErrorMessage(err, 'Erreur lors de la création de la variable.') 
+            setFeedbackMsg({
+                type: 'error',
+                text: getErrorMessage(err, 'Erreur lors de la création de la variable.')
             });
         } finally {
             setSubmittingAjustement(false);
@@ -143,8 +143,8 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         setFeedbackMsg(null);
         try {
             await paieService.calculerBulletinEmploye(
-                data.bulletin.idEmploye, 
-                data.bulletin.idPeriodePaie, 
+                data.bulletin.idEmploye,
+                data.bulletin.idPeriodePaie,
                 false
             );
             setFeedbackMsg({ type: 'success', text: 'Bulletin recalculé et mis à jour !' });
@@ -153,9 +153,9 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                 onRecalculateSuccess();
             }
         } catch (err) {
-            setFeedbackMsg({ 
-                type: 'error', 
-                text: getErrorMessage(err, 'Erreur lors du recalcul.') 
+            setFeedbackMsg({
+                type: 'error',
+                text: getErrorMessage(err, 'Erreur lors du recalcul.')
             });
         } finally {
             setRecalculating(false);
@@ -188,10 +188,10 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     const ostieVal = bulletin ? (bulletin.ostieSalariale ?? (ligneOstie ? (ligneOstie.montantSalarial ?? ligneOstie.montantRetenue) : null)) : null;
 
     // Classification des lignes pour l'affichage fidèle au Wireframe 2
-    const lignesPointage = lignes.filter(l => 
+    const lignesPointage = lignes.filter(l =>
         ['HEURES_SUP', 'HEURES_SUP_30', 'HEURES_SUP_50', 'HEURES_NUIT', 'HEURES_DIMANCHE', 'MAJORATION_FERIE',
-         'INDEMNITE_REPAS', 'INDEMNITE_DEPLACEMENT', 'RETENUE_ABSENCE', 'ABSENCE_RETENUE',
-         'DEDUCTION_CONGE_BASE', 'INDEMNITE_CONGE_PAYE'].includes(l.codeRubrique) ||
+            'INDEMNITE_REPAS', 'INDEMNITE_DEPLACEMENT', 'RETENUE_ABSENCE', 'ABSENCE_RETENUE',
+            'DEDUCTION_CONGE_BASE', 'INDEMNITE_CONGE_PAYE'].includes(l.codeRubrique) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('heure')) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('nuit')) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('absence')) ||
@@ -200,7 +200,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('deplacement'))
     );
 
-    const lignesVariables = lignes.filter(l => 
+    const lignesVariables = lignes.filter(l =>
         ['PRIME_PERF', 'PRIME_EXC', 'PRIME_ASSI', 'ACOMPTE_15', 'AVANCE_SPEC', 'PRET_ENTREPRISE'].includes(l.codeRubrique) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('prime')) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('acompte')) ||
@@ -220,9 +220,9 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                 footer={
                     bulletin && (
                         <div className="flex items-center justify-between w-full">
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
+                            <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => setShowPrintModal(true)}
                                 className="flex items-center gap-1.5"
                             >
@@ -259,11 +259,10 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                 )}
 
                 {feedbackMsg && (
-                    <div className={`p-3 mb-4 text-xs flex items-center gap-2 border ${
-                        feedbackMsg.type === 'success' 
-                            ? 'bg-[var(--color-success-500)]/10 border-[var(--color-success-500)]/25 text-[var(--color-success-700)] dark:text-[var(--color-success-300)]' 
+                    <div className={`p-3 mb-4 text-xs flex items-center gap-2 border ${feedbackMsg.type === 'success'
+                            ? 'bg-[var(--color-success-500)]/10 border-[var(--color-success-500)]/25 text-[var(--color-success-700)] dark:text-[var(--color-success-300)]'
                             : 'bg-[var(--color-danger-500)]/10 border-[var(--color-danger-500)]/25 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]'
-                    }`}>
+                        }`}>
                         {feedbackMsg.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
                         <span>{feedbackMsg.text}</span>
                     </div>
@@ -394,7 +393,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                 )}
 
                                 {lignesPointage.length === 0 && !explication && (
-                                    <div className="text-[11px] text-[var(--color-fg-muted)] italic py-1">
+                                    <div className="text-[11px] text-[var(--color-fg-muted)]  py-1">
                                         Pointage standard appliqué (aucun écart d'heures ou absence).
                                     </div>
                                 )}
@@ -506,7 +505,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                     </div>
                                 )}
                                 {lignesVariables.length === 0 && bulletin.totalRetenuesAvances === 0 && (
-                                    <div className="text-[11px] text-[var(--color-fg-muted)] italic py-1">
+                                    <div className="text-[11px] text-[var(--color-fg-muted)]  py-1">
                                         Aucune variable ou acompte enregistré ce mois-ci.
                                     </div>
                                 )}

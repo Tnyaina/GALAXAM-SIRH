@@ -18,10 +18,10 @@ public class StcRecuDTO {
 
     // Entreprise
     private String entrepriseNom = "GALAXAM LOGISTICS";
-    private String entrepriseNif = "3000019434";
-    private String entrepriseStat = "52291 11 2010 0 00123";
-    private String entrepriseCnaps = "010-004512-P";
-    private String entrepriseAdresse = "Enceinte Filatex Ankadimbahoaka, Antananarivo 101, Madagascar";
+    private String entrepriseNif = null;
+    private String entrepriseStat = null;
+    private String entrepriseCnaps = null;
+    private String entrepriseAdresse = null;
 
     // Employé
     private Integer idEmploye;

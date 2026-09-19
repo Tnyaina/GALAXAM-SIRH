@@ -46,10 +46,20 @@ public class StcController {
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> preparerStc(
             @PathVariable("idEmploye") Integer idEmploye,
-            @RequestParam(name = "dateDepart", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate dateDepart,
+            @RequestParam(name = "dateDepart", required = false) String dateDepart,
             @RequestParam(name = "motif", required = false, defaultValue = "DEMISSION") String motif) throws Exception {
         try (Connection c = dataSource.getConnection()) {
-            Date dateSql = dateDepart != null ? Date.valueOf(dateDepart) : new Date(System.currentTimeMillis());
+            Date dateSql;
+            if (dateDepart != null && !dateDepart.isBlank()) {
+                String cleanDate = dateDepart.contains("T") ? dateDepart.split("T")[0] : dateDepart.trim();
+                try {
+                    dateSql = Date.valueOf(java.time.LocalDate.parse(cleanDate));
+                } catch (Exception e) {
+                    dateSql = new Date(System.currentTimeMillis());
+                }
+            } else {
+                dateSql = new Date(System.currentTimeMillis());
+            }
             StcPreparationDTO prep = stcService.preparerStc(idEmploye, dateSql, motif, c);
             return ResponseEntity.ok(prep);
         }

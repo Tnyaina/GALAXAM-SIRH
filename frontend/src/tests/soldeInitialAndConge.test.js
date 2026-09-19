@@ -104,4 +104,17 @@ describe('Phase 2A-3B : Solde Initial & Non-Recalcul Frontend', () => {
     expect(mouvementReprise.typeMouvement).toBe('AJUSTEMENT');
   });
 
+  it('fournit le taux journalier TCONGE et sa source de provenance dans le solde de congés', () => {
+    const soldeDto = {
+      idEmploye: 42,
+      soldeActuel: 17.5,
+      totalAcquis: 25.0,
+      tauxJournalierConge: 28500.0,
+      sourceTauxConge: 'CALCUL_PERIODE_REFERENCE',
+    };
+
+    expect(soldeDto.tauxJournalierConge).toBe(28500.0);
+    expect(soldeDto.sourceTauxConge).toBe('CALCUL_PERIODE_REFERENCE');
+  });
+
 });

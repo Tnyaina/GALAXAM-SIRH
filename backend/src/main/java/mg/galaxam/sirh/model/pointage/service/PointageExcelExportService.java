@@ -16,6 +16,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -258,6 +259,13 @@ public class PointageExcelExportService {
             List<PointageTronconSemaineDTO> bilans = fiche.getBilansHebdo();
             List<PointageJourDTO> pointages = fiche.getPointagesData();
 
+            Map<String, String> regles = fiche.getReglesAppliquees() != null ? fiche.getReglesAppliquees() : Collections.emptyMap();
+            double dureeHebdo = 40.0;
+            if (regles.containsKey("dureeHebdoLegale")) {
+                try { dureeHebdo = Double.parseDouble(regles.get("dureeHebdoLegale")); } catch (Exception ignored) {}
+            }
+            double dureeJourStandard = dureeHebdo / 5.0;
+
             // ==================== 2. DÉCOMPOSITION HEBDOMADAIRE  ====================
             Row rSec1 = sheet.createRow(rowIdx++);
             Cell cSec1 = rSec1.createCell(0);
@@ -269,7 +277,7 @@ public class PointageExcelExportService {
                     "Semaine", "Jours", "Objectif semaine (h)",
                     "Heures faites (hh:mm)", "Heures faites (déc.)",
                     "Retards (min)",
-                    "Compensé (h)", "Impact Paie (h)"
+                    "Compensé (h)", "Impact Paie (h)", "Heures Sup (h)", "Retenue (h)"
             };
             for (int i = 0; i < headersHebdo.length; i++) {
                 Cell ch = rHead1.createCell(i);
@@ -298,7 +306,8 @@ public class PointageExcelExportService {
 
                     // C: Objectif semaine (h) - valeur calculée intégrant les congés et fériés
                     Cell cSeuil = rH.createCell(2);
-                    cSeuil.setCellValue(b.getSeuilHeuresTroncon() > 0 ? b.getSeuilHeuresTroncon() : 40.0);
+                    double seuilDefaut = (b.getNbJoursTroncon() > 0) ? b.getNbJoursTroncon() * dureeJourStandard : dureeHebdo;
+                    cSeuil.setCellValue(b.getSeuilHeuresTroncon() > 0 ? b.getSeuilHeuresTroncon() : seuilDefaut);
                     cSeuil.setCellStyle(numberStyle);
 
                     // D: Heures faites (hh:mm)
@@ -326,6 +335,16 @@ public class PointageExcelExportService {
                     Cell cImpact = rH.createCell(7);
                     cImpact.setCellFormula("ROUND(E" + excelR + " - C" + excelR + ", 2)");
                     cImpact.setCellStyle(numberStyle);
+
+                    // I: Heures Sup nettes (h) pour ce tronçon
+                    Cell cHs = rH.createCell(8);
+                    cHs.setCellFormula("IF(E" + excelR + " > C" + excelR + ", ROUND(E" + excelR + " - C" + excelR + ", 2), 0)");
+                    cHs.setCellStyle(numberStyle);
+
+                    // J: Retenue nette (h) pour ce tronçon
+                    Cell cRetenue = rH.createCell(9);
+                    cRetenue.setCellFormula("IF(C" + excelR + " > E" + excelR + ", ROUND(C" + excelR + " - E" + excelR + ", 2), 0)");
+                    cRetenue.setCellStyle(numberStyle);
 
                     HebdoRowHolder holder = new HebdoRowHolder();
                     holder.row = rH;
@@ -368,6 +387,15 @@ public class PointageExcelExportService {
 
             Cell cTotImpact = rTotHebdo.createCell(7);
             cTotImpact.setCellFormula("SUM(H" + hebdoStartRow + ":H" + hebdoEndRow + ")");
+            cTotImpact.setCellStyle(totalNumberStyle);
+
+            Cell cTotHs = rTotHebdo.createCell(8);
+            cTotHs.setCellFormula("SUM(I" + hebdoStartRow + ":I" + hebdoEndRow + ")");
+            cTotHs.setCellStyle(totalNumberStyle);
+
+            Cell cTotRetenue = rTotHebdo.createCell(9);
+            cTotRetenue.setCellFormula("SUM(J" + hebdoStartRow + ":J" + hebdoEndRow + ")");
+            cTotRetenue.setCellStyle(totalNumberStyle);
             cTotImpact.setCellStyle(totalNumberStyle);
 
             rowIdx++; // Espace
@@ -456,9 +484,14 @@ public class PointageExcelExportService {
                     }
                     cTotDec.setCellStyle(numberStyle);
 
-                    // J: Écart vs 8h standard
+                    // J: Écart vs 8h standard (0 pour repos, férié chômé, congé, et tout jour non travaillé sauf absence)
                     Cell cEcart = rD.createCell(9);
-                    cEcart.setCellFormula("IF(ISNUMBER(I" + excelR + "), ROUND(I" + excelR + " - 8, 2), 0)");
+                    String rEcart = String.valueOf(excelR);
+                    cEcart.setCellFormula(
+                            "IF(OR(K" + rEcart + "=\"Repos\", K" + rEcart + "=\"Congé payé\", K" + rEcart + "=\"Férié chômé\", K" + rEcart + "=\"Non concerné\", K" + rEcart + "=\"Planifié\", K" + rEcart + "=\"—\", AND(I" + rEcart + "=0, K" + rEcart + "<>\"Absent\")), 0, " +
+                            "IF(OR(ISNUMBER(SEARCH(\"Dimanche\", K" + rEcart + ")), ISNUMBER(SEARCH(\"100%\", K" + rEcart + "))), I" + rEcart + ", " +
+                            "ROUND(I" + rEcart + " - " + dureeJourStandard + ", 2)))"
+                    );
                     cEcart.setCellStyle(ecartStyle);
 
                     // K: Statut
@@ -676,7 +709,7 @@ public class PointageExcelExportService {
 
     private static String formatStatutLabel(String statut) {
         if (statut == null || statut.trim().isEmpty()) return "Présent";
-        switch (statut) {
+        switch (statut.toUpperCase()) {
             case "CONGE":
             case "CONGE_PAYE":
                 return "Congé payé";
@@ -685,13 +718,30 @@ public class PointageExcelExportService {
             case "REPOS":
                 return "Repos";
             case "ABSENT":
+            case "ABSENCE_NON_JUSTIFIEE":
+            case "ABSENCE_JUSTIFIEE":
                 return "Absent";
             case "DISPENSE_POINTAGE":
                 return "Dispensé";
+            case "DEMI_JOURNEE":
+                return "Demi-journée";
+            case "SAMEDI_TRAVAILLE":
+                return "Samedi travaillé";
+            case "DIMANCHE_TRAVAILLE":
+                return "Dimanche (+40%)";
+            case "FERIE_TRAVAILLE":
+                return "Férié (+100%)";
+            case "RETARD":
+                return "Retard";
+            case "NON_CONCERNE":
+                return "Non concerné";
+            case "PLANIFIE":
+                return "Planifié";
+            case "NON_ECHU":
+                return "—";
             case "PRESENT":
-                return "Présent";
             default:
-                return statut;
+                return "Présent";
         }
     }
 }

@@ -8,12 +8,14 @@ import { fmtDate } from '@/utils/carriereUtils';
 
 export default function HistoriqueContratsTable({
     displayContrats = [],
-    _contratActif,
+    contratActif = null,
     onOpenCertificat,
     onOpenAttestation,
+    onOpenContrat,
     onOpenStc,
 }) {
     const today = new Date().setHours(0, 0, 0, 0);
+    const hasContratActif = Boolean(contratActif) || displayContrats.some(ct => Boolean(ct.isActif) && !ct.isAnnule);
 
     // Par défaut : NON AFFICHER les contrats annulés
     const [showAnnules, setShowAnnules] = useState(false);
@@ -163,13 +165,66 @@ export default function HistoriqueContratsTable({
                                     </Td>
                                     <Td align="right">
                                         {isPlanifie ? (
-                                            <span className="text-[11px] text-ink-400">Non démarré</span>
+                                            <div className="flex justify-end gap-1.5 items-center">
+                                                <span className="text-[11px] text-ink-400">Non démarré</span>
+                                                {onOpenContrat && (
+                                                    <Button
+                                                        onClick={() => onOpenContrat(ct)}
+                                                        variant="ghost"
+                                                        size="xs"
+                                                        iconLeft={<FileText size={13} />}
+                                                    >
+                                                        Consulter
+                                                    </Button>
+                                                )}
+                                            </div>
                                         ) : isAnnule ? (
                                             <span className="inline-flex items-center text-[10.5px] text-ink-400 px-2 py-0.5 bg-ink-100 dark:bg-ink-800/80 border border-ink-200 dark:border-ink-700">
                                                 Sans effet juridique
                                             </span>
+                                        ) : isContratEnCours ? (
+                                            <div className="flex justify-end gap-1.5 items-center">
+                                                {onOpenAttestation && (
+                                                    <Button
+                                                        onClick={() => onOpenAttestation(ct)}
+                                                        variant="outline"
+                                                        size="xs"
+                                                        iconLeft={<FileCheck size={13} />}
+                                                    >
+                                                        Attestation
+                                                    </Button>
+                                                )}
+                                                {onOpenContrat && (
+                                                    <Button
+                                                        onClick={() => onOpenContrat(ct)}
+                                                        variant="ghost"
+                                                        size="xs"
+                                                        iconLeft={<FileText size={13} />}
+                                                    >
+                                                        Consulter
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        ) : hasContratActif ? (
+                                            /* Salarié en poste : Ancien contrat de transition (ni STC ni certificat de sortie) */
+                                            <div className="flex justify-end gap-1.5 items-center">
+                                                <span className="text-[10.5px] text-ink-400 px-2 py-0.5 bg-ink-100/60 dark:bg-ink-800/60 border border-ink-200 dark:border-ink-700 font-sans">
+                                                    Transitionné
+                                                </span>
+                                                {onOpenContrat && (
+                                                    <Button
+                                                        onClick={() => onOpenContrat(ct)}
+                                                        variant="outline"
+                                                        size="xs"
+                                                        iconLeft={<FileText size={13} />}
+                                                    >
+                                                        Consulter
+                                                    </Button>
+                                                )}
+                                            </div>
                                         ) : canGenerateCertificat ? (
-                                            <div className="flex justify-end gap-1.5">
+                                            /* Salarié ayant quitté l'entreprise : STC et Certificat de travail légal */
+                                            <div className="flex justify-end gap-1.5 items-center">
                                                 {onOpenStc && (
                                                     <Button
                                                         onClick={() => onOpenStc(ct)}
@@ -181,24 +236,17 @@ export default function HistoriqueContratsTable({
                                                         STC
                                                     </Button>
                                                 )}
-                                                <Button
-                                                    onClick={() => onOpenCertificat(ct)}
-                                                    variant="outline"
-                                                    size="xs"
-                                                    iconLeft={<Award size={13} />}
-                                                >
-                                                    Certificat
-                                                </Button>
+                                                {onOpenCertificat && (
+                                                    <Button
+                                                        onClick={() => onOpenCertificat(ct)}
+                                                        variant="outline"
+                                                        size="xs"
+                                                        iconLeft={<Award size={13} />}
+                                                    >
+                                                        Certificat
+                                                    </Button>
+                                                )}
                                             </div>
-                                        ) : isContratEnCours ? (
-                                            <Button
-                                                onClick={() => onOpenAttestation(ct)}
-                                                variant="outline"
-                                                size="xs"
-                                                iconLeft={<FileCheck size={13} />}
-                                            >
-                                                Attestation
-                                            </Button>
                                         ) : null}
                                     </Td>
                                 </Tr>

@@ -122,7 +122,7 @@ export function ArticleBlock({ n, title, children }) {
     );
 }
 
-export function DocumentFooter({ lieu = 'Antananarivo', dateSignature, status = 'Brouillon (non actif)' }) {
+export function DocumentFooter({ lieu = '', dateSignature, status = 'Brouillon (non actif)' }) {
     return (
         <div className="pt-5 mt-5 border-t border-ink-150 dark:border-ink-800 space-y-4">
             {/* Bloc signatures, comme au bas d'un contrat papier */}
@@ -138,7 +138,7 @@ export function DocumentFooter({ lieu = 'Antananarivo', dateSignature, status = 
             </div>
 
             <div className="flex items-center justify-between text-[11px] font-sans text-ink-400 pt-1">
-                <span>Fait à {lieu}{dateSignature ? `, le ${dateSignature}` : ''} en double exemplaire</span>
+                <span>Fait{lieu ? ` à ${lieu}` : ''}{dateSignature ? `, le ${dateSignature}` : ''} en double exemplaire</span>
                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-ink-300 dark:border-ink-600 uppercase tracking-wide text-[10px] font-bold text-ink-500 dark:text-ink-300">
                     <span className="w-1.5 h-1.5 rounded-none bg-amber-500" />
                     {status}
@@ -216,7 +216,10 @@ export function ContractPreview({
                 )}
             </div>
 
-            <DocumentFooter />
+            <DocumentFooter
+                lieu={libSite?.libelle || libFiliale?.ville || ''}
+                dateSignature={fmtDateFr(formData?.dateSignature || formData?.dateDebut)}
+            />
         </DocumentFrame>
     );
 }

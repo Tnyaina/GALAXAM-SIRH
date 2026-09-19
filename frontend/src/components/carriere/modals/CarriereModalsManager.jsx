@@ -39,7 +39,7 @@ export default function CarriereModalsManager({
         selectedContratDoc, selectedContratAffectation, loadingContratAffectation,
         isStcModalOpen, setIsStcModalOpen,
         selectedStcContrat,
-        handleSuccessAction, handleOpenEditModal
+        handleSuccessAction, handleOpenEditModal, handleOpenStc
     } = modalsState;
 
     return (
@@ -126,6 +126,10 @@ export default function CarriereModalsManager({
                     workflowActif={workflowCplActif}
                     initialData={editInitialData}
                     onSuccess={(res) => handleSuccessAction('Brouillon de rupture et fin de contrat créé avec succès !', res)}
+                    onOpenStc={(stcParams) => {
+                        setIsRuptureModalOpen(false);
+                        handleOpenStc(stcParams);
+                    }}
                 />
             )}
 
@@ -183,8 +187,10 @@ export default function CarriereModalsManager({
                     onClose={() => setIsStcModalOpen(false)}
                     idEmploye={idEmploye}
                     nomEmploye={nomEmploye}
-                    dateDepartInitiale={selectedStcContrat?.dateFin || null}
-                    motifInitial="DEMISSION"
+                    dateDepartInitiale={selectedStcContrat?.dateDepart || selectedStcContrat?.dateFin || null}
+                    motifInitial={selectedStcContrat?.motifRupture || (selectedStcContrat?.dateFin ? 'FIN_CONTRAT' : 'DEMISSION')}
+                    moisPreavisInitial={selectedStcContrat?.moisPreavis ?? null}
+                    indemnitePreavisInitiale={selectedStcContrat?.indemnitePreavis ?? null}
                     onStcValide={() => {
                         handleSuccessAction('Solde de Tout Compte validé avec succès !');
                     }}

@@ -377,7 +377,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite = false })
                         )}
                     </div>
                 ) : (
-                    <p className="text-xs text-[var(--color-fg-muted)] italic p-2">
+                    <p className="text-xs text-[var(--color-fg-muted)]  p-2">
                         Contrat actif ({synthese?.numeroContrat || 'En cours'}) — Aucun Solde de Tout Compte requis à ce jour.
                     </p>
                 )}
@@ -451,8 +451,8 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite = false })
                                                 b.statut === 'VALIDE' || b.statut === 'CLOTURE'
                                                     ? 'success'
                                                     : b.statut === 'CALCULE'
-                                                    ? 'info'
-                                                    : 'default'
+                                                        ? 'info'
+                                                        : 'default'
                                             }
                                             size="xs"
                                         >
@@ -594,8 +594,8 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite = false })
                                                     m.statut === 'APPROUVE' || m.statut === 'VALIDE' || m.statut === 'REGLE'
                                                         ? 'success'
                                                         : m.statut === 'EN_ATTENTE'
-                                                        ? 'warning'
-                                                        : 'default'
+                                                            ? 'warning'
+                                                            : 'default'
                                                 }
                                                 size="xs"
                                             >
@@ -608,7 +608,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite = false })
                                                     Imputé (Bulletin #{m.idBulletin})
                                                 </span>
                                             ) : (
-                                                <span className="text-[var(--color-warning-600)] italic">
+                                                <span className="text-[var(--color-warning-600)] ">
                                                     En attente d'imputation
                                                 </span>
                                             )}
@@ -706,17 +706,17 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite = false })
                         options={
                             typesMouvements.length > 0
                                 ? typesMouvements.map(t => ({
-                                      value: t.code,
-                                      label: `${t.libelle} (${t.sens === 'GAIN' ? 'GAIN' : 'RETENUE'})`,
-                                  }))
+                                    value: t.code,
+                                    label: `${t.libelle} (${t.sens === 'GAIN' ? 'GAIN' : 'RETENUE'})`,
+                                }))
                                 : [
-                                      { value: 'ACOMPTE_15', label: 'Acompte du 15 (RETENUE)' },
-                                      { value: 'AVANCE_SPECIALE', label: 'Avance Spéciale (RETENUE)' },
-                                      { value: 'NOTE_DE_FRAIS', label: 'Note de Frais / Remboursement (GAIN)' },
-                                      { value: 'PRIM_EXC', label: 'Prime Exceptionnelle (GAIN)' },
-                                      { value: 'CALL_PERSO', label: 'Appels Personnels (RETENUE)' },
-                                      { value: 'RET_DIV', label: 'Retenue Diverse (RETENUE)' },
-                                  ]
+                                    { value: 'ACOMPTE_15', label: 'Acompte du 15 (RETENUE)' },
+                                    { value: 'AVANCE_SPECIALE', label: 'Avance Spéciale (RETENUE)' },
+                                    { value: 'NOTE_DE_FRAIS', label: 'Note de Frais / Remboursement (GAIN)' },
+                                    { value: 'PRIM_EXC', label: 'Prime Exceptionnelle (GAIN)' },
+                                    { value: 'CALL_PERSO', label: 'Appels Personnels (RETENUE)' },
+                                    { value: 'RET_DIV', label: 'Retenue Diverse (RETENUE)' },
+                                ]
                         }
                     />
 

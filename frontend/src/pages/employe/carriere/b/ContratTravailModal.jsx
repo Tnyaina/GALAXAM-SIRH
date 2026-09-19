@@ -77,7 +77,7 @@ export default function ContratTravailModal({
         affectation?.libelleSite,
         contrat?.libelleSite,
         employe?.libelleSite
-    ) || 'Antananarivo';
+    );
 
     const departementNom = getVal(
         affectation?.libelleDepartement,
@@ -115,9 +115,8 @@ export default function ContratTravailModal({
     return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs font-sans print:p-0 print:bg-white print:static print:inset-auto">
             <div
-                className={`relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xl transition-all duration-200 print:border-none print:shadow-none print:max-h-none print:w-full print:m-0 ${
-                    mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-                }`}
+                className={`relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xl transition-all duration-200 print:border-none print:shadow-none print:max-h-none print:w-full print:m-0 ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+                    }`}
             >
                 {/* Barre de contrôle supérieure (masquée à l'impression) */}
                 <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] print:hidden">
@@ -163,7 +162,7 @@ export default function ContratTravailModal({
 
                     <div ref={printRef} className="w-full max-w-[720px] mx-auto print:max-w-none print:w-full">
                         <DocumentFrame className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-8 sm:p-12 shadow-sm text-[13px] leading-relaxed text-[var(--color-fg)] space-y-6 print:border-none print:p-6 print:bg-white print:text-black">
-                            
+
                             {/* En-tête Institutionnel */}
                             <div className="text-center pb-6 border-b-2 border-[var(--color-fg)] print:border-black space-y-1">
                                 <h1 className="text-2xl font-black uppercase tracking-wider font-serif print:text-xl">
@@ -200,7 +199,7 @@ export default function ContratTravailModal({
                                     <strong>ENTRE LES SOUSSIGNÉS :</strong>
                                 </p>
                                 <p className="pl-3 border-l-2 border-[var(--color-border-subtle)]">
-                                    La société <strong>{filialeNom}</strong>, sise à {filialeAdresse || 'Antananarivo, Madagascar'}, représentée légalement par sa Direction des Ressources Humaines,<br />
+                                    La société <strong>{filialeNom}</strong>{filialeAdresse ? <>, sise à {filialeAdresse}</> : ''}, représentée légalement par sa Direction des Ressources Humaines,<br />
                                     ci-après désignée <em>« l'Employeur »</em>, d'une part,
                                 </p>
                                 <p className="pl-3 border-l-2 border-[var(--color-border-subtle)]">
@@ -256,7 +255,7 @@ export default function ContratTravailModal({
                                         </p>
                                     )}
                                     <p>
-                                        • <strong>Lieu de travail / Site :</strong> {siteNom}
+                                        • <strong>Lieu de travail / Site :</strong> {siteNom || '—'}
                                         {departementNom && <> · Département : {departementNom}</>}
                                         {serviceNom && <> · Service : {serviceNom}</>}
                                     </p>
@@ -304,11 +303,11 @@ export default function ContratTravailModal({
                             <div className="pt-8 border-t-2 border-[var(--color-border-subtle)] flex justify-between items-start text-xs print:pt-4">
                                 <div className="w-5/12 text-center space-y-12">
                                     <p className="font-bold">Pour l'Employeur</p>
-                                    <p className="text-[11px] text-[var(--color-fg-muted)] print:text-black italic">Signature &amp; Cachet</p>
+                                    <p className="text-[11px] text-[var(--color-fg-muted)] print:text-black ">Signature &amp; Cachet</p>
                                 </div>
                                 <div className="w-5/12 text-center space-y-12">
                                     <p className="font-bold">Le Salarié</p>
-                                    <p className="text-[11px] text-[var(--color-fg-muted)] print:text-black italic">Précédé de la mention « Lu et approuvé »</p>
+                                    <p className="text-[11px] text-[var(--color-fg-muted)] print:text-black ">Précédé de la mention « Lu et approuvé »</p>
                                 </div>
                             </div>
 

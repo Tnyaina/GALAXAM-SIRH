@@ -3,6 +3,7 @@ package mg.galaxam.sirh.model.pointage.service;
 import mg.galaxam.sirh.api.dto.pointage.FichePointageEmployeDTO;
 import mg.galaxam.sirh.api.dto.pointage.PointageJourDTO;
 import mg.galaxam.sirh.api.dto.pointage.PointageSyntheseMensuelleDTO;
+import mg.galaxam.sirh.api.dto.pointage.PointageTronconSemaineDTO;
 import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
 import mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine;
 import org.slf4j.Logger;
@@ -439,6 +440,7 @@ public class PointageEmployeService {
         double totalHeuresNuit = 0.0;
         double totalHeuresDimanche = 0.0;
         double totalHeuresFerie = 0.0;
+        int cumulMinutesEcart = 0;
 
         LocalDate today = LocalDate.now();
 
@@ -539,12 +541,14 @@ public class PointageEmployeService {
                     totalJoursTravailles++;
                     totalHeuresRealisees += PointageTimeBoundaryMapper.toLegacyDecimalHours(totalMinutesJour);
                     totalHeuresDimanche += PointageTimeBoundaryMapper.toLegacyDecimalHours(totalMinutesJour);
+                    cumulMinutesEcart += totalMinutesJour;
                     dto.setEcart("+" + dto.getHeures() + " (Maj. 40%)");
                     dto.setEcartPositif(true);
                 } else if ("FERIE_TRAVAILLE".equalsIgnoreCase(rec.codeStatut)) {
                     totalJoursTravailles++;
                     totalHeuresRealisees += PointageTimeBoundaryMapper.toLegacyDecimalHours(totalMinutesJour);
                     totalHeuresFerie += PointageTimeBoundaryMapper.toLegacyDecimalHours(totalMinutesJour);
+                    cumulMinutesEcart += totalMinutesJour;
                     dto.setEcart("+" + dto.getHeures() + " (Gratif. 100%)");
                     dto.setEcartPositif(true);
                 } else {
@@ -556,20 +560,23 @@ public class PointageEmployeService {
                     if (totalMinutesJour > dureeJourMins) {
                         dto.setEcart("+" + PointageTimeBoundaryMapper.formatHoursMinutes(totalMinutesJour - dureeJourMins));
                         dto.setEcartPositif(true);
+                        cumulMinutesEcart += (totalMinutesJour - dureeJourMins);
                     } else if (totalMinutesJour < dureeJourMins && totalMinutesJour > 0) {
                         dto.setEcart("-" + PointageTimeBoundaryMapper.formatHoursMinutes(dureeJourMins - totalMinutesJour));
                         dto.setEcartPositif(false);
+                        cumulMinutesEcart += (totalMinutesJour - dureeJourMins);
                     } else {
                         dto.setEcart("00 min");
                         dto.setEcartPositif(true);
                     }
                 }
 
-                if ("PRESENT".equalsIgnoreCase(rec.codeStatut) || ("DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut) && !isWeekendRec) || "SAMEDI_TRAVAILLE".equalsIgnoreCase(rec.codeStatut)) {
+                if ("PRESENT".equalsIgnoreCase(rec.codeStatut) || ("DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut) && !isWeekendRec) || "SAMEDI_TRAVAILLE".equalsIgnoreCase(rec.codeStatut) || "DEMI_JOURNEE".equalsIgnoreCase(rec.codeStatut) || "RETARD".equalsIgnoreCase(rec.codeStatut)) {
                     totalJoursTravailles++;
                     totalHeuresRealisees += PointageTimeBoundaryMapper.toLegacyDecimalHours(totalMinutesJour);
                 } else if ("ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(rec.codeStatut)) {
                     nbAbsences++;
+                    cumulMinutesEcart -= dureeJourMins;
                 }
 
                 if ("DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut) && isWeekendRec && rec.totalMinutes <= 0) {
@@ -725,8 +732,32 @@ public class PointageEmployeService {
             log.error("[PointageEmployeService] Erreur calcul synthèse employe {}: {}", idEmploye, e.getMessage(), e);
         }
 
-        long minutesTheoriquesPlein = (long) totalJoursOuvrables * dureeJourMins;
-        int hTheoriquesInt = (int) (minutesTheoriquesPlein / 60);
+        // Calcul unifié de l'objectif d'heures du collaborateur sur la période
+        // Source unique de vérité : la somme des seuils de chaque tronçon calculés par WeeklyAttendanceCalculator
+        double totalObjectifHeures = 0.0;
+        if (synDto != null && synDto.getTronconsSemaine() != null && !synDto.getTronconsSemaine().isEmpty()) {
+            totalObjectifHeures = synDto.getTronconsSemaine().stream()
+                    .mapToDouble(PointageTronconSemaineDTO::getSeuilHeuresTroncon)
+                    .sum();
+        }
+        int nbCongesVal = synDto != null ? synDto.getNbJoursConge() : 0;
+        int nbFerieChomeVal = synDto != null ? synDto.getNbJoursFerieChome() : 0;
+        if (totalObjectifHeures <= 0.0) {
+            int joursEffectifs = Math.max(0, totalJoursOuvrables - nbCongesVal);
+            totalObjectifHeures = joursEffectifs * (dureeJourMins / 60.0);
+        }
+
+        int objH = (int) Math.floor(totalObjectifHeures);
+        int objM = (int) Math.round((totalObjectifHeures - objH) * 60);
+        String heuresObjectifStr = String.format("%02dh%02d", objH, objM);
+
+        int nbJoursAEffectuer = Math.max(0, totalJoursOuvrables - nbCongesVal);
+        String joursPrevusStr;
+        if (nbCongesVal > 0) {
+            joursPrevusStr = String.format("%d prévus (+%d j congé)", nbJoursAEffectuer, nbCongesVal);
+        } else {
+            joursPrevusStr = String.format("%d prévus", totalJoursOuvrables);
+        }
 
         double heuresRealisees = (synDto != null && synDto.getTotalHeuresTravaillees() > 0) ? synDto.getTotalHeuresTravaillees() : totalHeuresRealisees;
         int retardsMins = synDto != null ? synDto.getTotalMinutesRetard() : totalMinutesRetard;
@@ -770,9 +801,9 @@ public class PointageEmployeService {
 
         Map<String, String> kpis = new LinkedHashMap<>();
         kpis.put("joursTravailles", ((synDto != null && synDto.getNbJoursPresents() > 0) ? synDto.getNbJoursPresents() : totalJoursTravailles) + " j");
-        kpis.put("joursPrevus", totalJoursOuvrables + " prévus");
+        kpis.put("joursPrevus", joursPrevusStr);
         kpis.put("heuresRealisees", String.format("%02dh%02d", (int) Math.floor(heuresRealisees), (int) Math.round((heuresRealisees - Math.floor(heuresRealisees)) * 60)));
-        kpis.put("heuresObjectif", String.format("objectif %02dh00", hTheoriquesInt));
+        kpis.put("heuresObjectif", heuresObjectifStr);
         kpis.put("retardCumule", retardCumuleStr);
         kpis.put("retardOccurrences", nbOccurrencesRetard + " occurrences");
         kpis.put("retardCompense", retardCompenseStr);
@@ -805,8 +836,6 @@ public class PointageEmployeService {
 
         BigDecimal tarifRepasMidi = ParametreGlobal.getBigDecimal(activeParams, "MONTANT_REPAS_MIDI", new BigDecimal("2000"));
         kpis.put("tarifRepas", String.format("%,.0f Ar", tarifRepasMidi).replace(',', ' '));
-        int nbCongesVal = synDto != null ? synDto.getNbJoursConge() : 0;
-        int nbFerieChomeVal = synDto != null ? synDto.getNbJoursFerieChome() : 0;
         int nbPresentsVal = (synDto != null && synDto.getNbJoursPresents() > 0) ? synDto.getNbJoursPresents() : totalJoursTravailles;
         kpis.put("nbJoursPresents", String.valueOf(nbPresentsVal));
         kpis.put("nbJoursConges", String.valueOf(nbCongesVal));
@@ -830,9 +859,18 @@ public class PointageEmployeService {
         kpis.put("heuresFerie", String.format("%.1fh", hFer));
 
         // Récapitulatif Unifié
+        int absEcartMins = Math.abs(cumulMinutesEcart);
+        int ecartH = absEcartMins / 60;
+        int ecartM = absEcartMins % 60;
+        String ecartSign = cumulMinutesEcart > 0 ? "+" : (cumulMinutesEcart < 0 ? "-" : "");
+        String ecartCumuleStr = String.format("%s%02dh%02d", ecartSign, ecartH, ecartM);
+
         Map<String, String> recap = new LinkedHashMap<>();
-        recap.put("tempsTheorique", String.format("%02dh00", hTheoriquesInt));
+        recap.put("tempsTheorique", heuresObjectifStr);
+        recap.put("totalJoursConge", String.valueOf(nbCongesVal));
+        recap.put("totalJoursFerieChome", String.valueOf(nbFerieChomeVal));
         recap.put("tempsRealise", kpis.get("heuresRealisees"));
+        recap.put("ecartCumule", ecartCumuleStr);
         recap.put("tempsAbsence", String.format("%02dh00", (synDto != null ? synDto.getNbJoursAbsence() : nbAbsences) * 8));
         recap.put("retards", retardCumuleStr);
         recap.put("retardCompense", retardCompenseStr);

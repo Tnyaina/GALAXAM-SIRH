@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Plus, RefreshCw, CalendarDays, ExternalLink } from 'lucide-react';
+import { Calendar, Plus, RefreshCw, CalendarDays, ExternalLink, SlidersHorizontal } from 'lucide-react';
 import congeService from '@/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
@@ -19,6 +19,7 @@ import SoldeCongeWidget from '@/components/conges/SoldeCongeWidget';
 import MouvementsSoldeTable from '@/components/conges/MouvementsSoldeTable';
 
 const DemandeCongeModal = lazy(() => import('@/components/conges/DemandeCongeModal'));
+const InitialisationSoldeModal = lazy(() => import('@/components/conges/InitialisationSoldeModal'));
 
 const formatDateOnly = (dateString) => {
   if (!dateString) return '—';
@@ -36,6 +37,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showDemandeModal, setShowDemandeModal] = useState(false);
+  const [showInitModal, setShowInitModal] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('demandes'); // 'demandes' ou 'registre'
 
   // Pagination
@@ -160,6 +162,18 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
           </Button>
           {canWrite && (
             <Button
+              variant="outline"
+              size="xs"
+              onClick={() => setShowInitModal(true)}
+              iconLeft={<SlidersHorizontal size={13} />}
+              className="text-xs font-semibold"
+              title="Initialiser le solde historique ou renseigner le TCONGE de migration issu d'Excel"
+            >
+              Initialiser Solde / TCONGE
+            </Button>
+          )}
+          {canWrite && (
+            <Button
               variant="primary"
               size="xs"
               onClick={() => { setSelectedDemande(null); setShowDemandeModal(true); }}
@@ -175,7 +189,13 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
       {error && <Alert type="error" message={typeof error === 'string' ? error : JSON.stringify(error)} />}
 
       {/* Synthèse des Soldes */}
-      <SoldeCongeWidget soldeData={soldeEmploye} consommationPool={consommationPool} employe={employe} />
+      <SoldeCongeWidget
+        soldeData={soldeEmploye}
+        consommationPool={consommationPool}
+        employe={employe}
+        canWrite={canWrite}
+        onOpenInitModal={() => setShowInitModal(true)}
+      />
 
       {/* Navigation Sous-onglets officielle */}
       <div className="border-b border-[var(--color-border-subtle)]">
@@ -343,6 +363,19 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
         onConfirm={handleAnnulerConfirm}
         onClose={() => setConfirmAnnulerState({ isOpen: false, idDemande: null })}
       />
+
+      {/* Modal initialisation historique solde & TCONGE (Lazy) */}
+      {showInitModal && (
+        <Suspense fallback={null}>
+          <InitialisationSoldeModal
+            isOpen={showInitModal}
+            onClose={() => setShowInitModal(false)}
+            onSuccess={loadData}
+            employe={employe}
+            soldeData={soldeEmploye}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

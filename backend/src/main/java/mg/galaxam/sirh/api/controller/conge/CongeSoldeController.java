@@ -36,6 +36,9 @@ public class CongeSoldeController {
     @Autowired
     private mg.galaxam.sirh.model.conge.service.CongeService congeService;
 
+    @Autowired
+    private mg.galaxam.sirh.model.conge.service.CongeTauxApplicableService congeTauxApplicableService;
+
     @GetMapping("/planning")
     @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getPlanning(
@@ -76,6 +79,28 @@ public class CongeSoldeController {
     public ResponseEntity<?> getSoldeEmploye(@PathVariable Integer idEmploye) {
         try (Connection c = dataSource.getConnection()) {
             VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
+            if (solde != null && congeTauxApplicableService != null) {
+                try {
+                    BigDecimal salaireBase = BigDecimal.ZERO;
+                    String sqlBase = "SELECT salaire_base FROM employe_affectation_carriere WHERE id_employe = ? ORDER BY date_debut DESC NULLS LAST LIMIT 1";
+                    try (java.sql.PreparedStatement psBase = c.prepareStatement(sqlBase)) {
+                        psBase.setInt(1, idEmploye);
+                        try (java.sql.ResultSet rsBase = psBase.executeQuery()) {
+                            if (rsBase.next() && rsBase.getBigDecimal("salaire_base") != null) {
+                                salaireBase = rsBase.getBigDecimal("salaire_base");
+                            }
+                        }
+                    }
+                    solde.setSalaireBase(salaireBase);
+                    var resTaux = congeTauxApplicableService.resoudreTauxCongeApplicable(idEmploye, java.time.LocalDate.now(), salaireBase, c);
+                    if (resTaux != null) {
+                        solde.setTauxJournalierConge(resTaux.getTauxJournalier());
+                        solde.setSourceTauxConge(resTaux.getSourceProvenance() != null ? resTaux.getSourceProvenance().name() : null);
+                    }
+                } catch (Exception ex) {
+                    // Non bloquant : si non calculable au jour j, laisser null
+                }
+            }
             return ResponseEntity.ok(solde);
         } catch (Exception e) {
             e.printStackTrace();
@@ -181,9 +206,25 @@ public class CongeSoldeController {
                 Integer currentUserId = getCurrentUserId();
 
                 congeService.initialiserSoldeHistorique(idEmploye, soldeInitial, dateArrete, inclutAcquisitionMoisArrete, motif, currentUserId, c);
+
+                if (req.containsKey("tauxJournalierMigration") && req.get("tauxJournalierMigration") != null && !req.get("tauxJournalierMigration").toString().isBlank()) {
+                    BigDecimal tauxMigration = new BigDecimal(req.get("tauxJournalierMigration").toString());
+                    if (tauxMigration.compareTo(BigDecimal.ZERO) > 0) {
+                        enregistrerOuMettreAJourTauxMigration(idEmploye, tauxMigration, dateArrete, motif, currentUserId, c);
+                    }
+                }
                 c.commit();
 
                 VSoldeCongeEmploye soldeMisAJour = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
+                if (soldeMisAJour != null && congeTauxApplicableService != null) {
+                    try {
+                        var resTaux = congeTauxApplicableService.resoudreTauxCongeApplicable(idEmploye, java.time.LocalDate.now(), null, c);
+                        if (resTaux != null) {
+                            soldeMisAJour.setTauxJournalierConge(resTaux.getTauxJournalier());
+                            soldeMisAJour.setSourceTauxConge(resTaux.getSourceProvenance() != null ? resTaux.getSourceProvenance().name() : null);
+                        }
+                    } catch (Exception ignored) {}
+                }
                 return ResponseEntity.ok(soldeMisAJour);
             } catch (Exception e) {
                 c.rollback();
@@ -194,6 +235,71 @@ public class CongeSoldeController {
                     mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
                     "Impossible d'enregistrer cette initialisation de solde : " + e.getMessage());
         }
+    }
+
+    @PostMapping("/taux-applicable/migration")
+    @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> enregistrerTauxMigrationStandalone(@RequestBody Map<String, Object> req) {
+        if (!req.containsKey("idEmploye") || !req.containsKey("tauxJournalier") || !req.containsKey("dateEffet")) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "idEmploye, tauxJournalier et dateEffet sont obligatoires.");
+        }
+
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                int idEmploye = Integer.parseInt(req.get("idEmploye").toString());
+                BigDecimal taux = new BigDecimal(req.get("tauxJournalier").toString());
+                java.time.LocalDate dateEffet = java.time.LocalDate.parse(req.get("dateEffet").toString());
+                String commentaire = req.containsKey("commentaire") && req.get("commentaire") != null ? req.get("commentaire").toString() : null;
+                Integer currentUserId = getCurrentUserId();
+
+                enregistrerOuMettreAJourTauxMigration(idEmploye, taux, dateEffet, commentaire, currentUserId, c);
+                c.commit();
+
+                return ResponseEntity.ok(Map.of(
+                        "success", true,
+                        "idEmploye", idEmploye,
+                        "tauxJournalier", taux,
+                        "dateEffet", dateEffet,
+                        "sourceProvenance", "KAJY_MIGRATION"
+                ));
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        } catch (Exception e) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "Impossible d'enregistrer le taux de migration : " + e.getMessage());
+        }
+    }
+
+    private void enregistrerOuMettreAJourTauxMigration(int idEmploye, BigDecimal tauxMigration, java.time.LocalDate dateEffet, String motif, Integer currentUserId, Connection c) throws Exception {
+        String sqlClose = "UPDATE conge_taux_applicable SET date_fin = ? WHERE id_employe = ? AND (date_fin IS NULL OR date_fin > ?) AND date_effet < ?";
+        try (java.sql.PreparedStatement psClose = c.prepareStatement(sqlClose)) {
+            psClose.setDate(1, java.sql.Date.valueOf(dateEffet));
+            psClose.setInt(2, idEmploye);
+            psClose.setDate(3, java.sql.Date.valueOf(dateEffet));
+            psClose.setDate(4, java.sql.Date.valueOf(dateEffet));
+            psClose.executeUpdate();
+        }
+        String sqlDel = "DELETE FROM conge_taux_applicable WHERE id_employe = ? AND date_effet >= ? AND source_provenance = 'KAJY_MIGRATION'";
+        try (java.sql.PreparedStatement psDel = c.prepareStatement(sqlDel)) {
+            psDel.setInt(1, idEmploye);
+            psDel.setDate(2, java.sql.Date.valueOf(dateEffet));
+            psDel.executeUpdate();
+        }
+        congeTauxApplicableService.enregistrerTauxApplicableMigration(
+                idEmploye,
+                tauxMigration,
+                dateEffet,
+                null,
+                motif != null ? motif : "Reprise historique TCONGE Excel",
+                currentUserId,
+                c
+        );
     }
 
     private Integer getCurrentUserId() {

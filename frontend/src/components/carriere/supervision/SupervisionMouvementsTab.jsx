@@ -293,7 +293,7 @@ function SupervisionMouvementsTab() {
 
                                     {/* Rémunération (protégée par PAIE_READ) */}
                                     <Td className="font-data">
-                                        <HasPermission authority="PAIE_READ" fallback={<span className="text-[var(--color-fg-subtle)] text-[11px] italic">Confidentiel</span>}>
+                                        <HasPermission authority="PAIE_READ" fallback={<span className="text-[var(--color-fg-subtle)] text-[11px] ">Confidentiel</span>}>
                                             {wf.salaireBase ? (
                                                 <span className="font-bold text-[var(--color-fg)]">
                                                     {fmtAriary(wf.salaireBase)} Ar

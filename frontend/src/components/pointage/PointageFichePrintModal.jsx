@@ -93,6 +93,38 @@ export default function PointageFichePrintModal({
         day: 'numeric'
     });
 
+    const formatStatut = (statut) => {
+        const s = (statut || '').toUpperCase();
+        switch (s) {
+            case 'PRESENT': return 'Présent';
+            case 'RETARD': return 'Retard';
+            case 'DEMI_JOURNEE': return 'Demi-journée';
+            case 'DISPENSE_POINTAGE': return 'Dispensé';
+            case 'SAMEDI_TRAVAILLE': return 'Samedi travaillé';
+            case 'DIMANCHE_TRAVAILLE': return 'Dimanche travaillé';
+            case 'FERIE_TRAVAILLE': return 'Férié travaillé (+100%)';
+            case 'FERIE_CHOME': return 'Férié chômé';
+            case 'CONGE':
+            case 'CONGE_PAYE': return 'Congé payé';
+            case 'ABSENCE_AUTORISEE': return 'Absence autorisée';
+            case 'ABSENCE_NON_JUSTIFIEE': return 'Absence injustifiée';
+            case 'MALADIE': return 'Maladie';
+            case 'REPOS': return 'Repos hebdomadaire';
+            case 'PLANIFIE': return 'Planifié';
+            case 'NON_CONCERNE': return 'Non concerné';
+            case 'NON_ECHU': return '—';
+            default: return statut || 'Présent';
+        }
+    };
+
+    const workedDaysCount = pointages.filter(p => {
+        const st = (p.statut || '').toUpperCase();
+        return ['PRESENT', 'DISPENSE_POINTAGE', 'DEMI_JOURNEE', 'RETARD', 'SAMEDI_TRAVAILLE', 'DIMANCHE_TRAVAILLE', 'FERIE_TRAVAILLE'].includes(st);
+    }).length;
+
+    const dureeHebdo = ficheData?.reglesAppliquees?.dureeHebdoLegale || kpis?.dureeHebdoLegale || '40';
+    const dureeJour = Number(dureeHebdo) > 0 ? Number(dureeHebdo) / 5 : 8;
+
     const modalContent = (
         <div className="fixed inset-0 z-[9999] overflow-y-auto bg-black/60 flex items-center justify-center p-2 sm:p-4 print:p-0 print:bg-white print:static print:block print:overflow-visible">
             {/* Règles CSS dédiées à l'impression A4 évitant tout tronquage ou coupure */}
@@ -280,7 +312,7 @@ export default function PointageFichePrintModal({
                                 <Scale size={11} />
                                 II. Décomposition Hebdomadaire &amp; Compensation
                             </h2>
-                            <span className="text-[8px] text-slate-600 font-sans italic">
+                            <span className="text-[8px] text-slate-600 font-sans ">
                                 Objectif ajusté pour congés (-8h/j) et fériés (-8h) · Compensation intra-semaine (40h)
                             </span>
                         </div>
@@ -375,7 +407,13 @@ export default function PointageFichePrintModal({
                             </thead>
                             <tbody className="divide-y divide-slate-200 font-mono">
                                 {pointages.map((pj, idx) => {
-                                    const isWeekend = pj.isRepos && pj.isRepos();
+                                    const st = (pj.statut || '').toUpperCase();
+                                    const isConge = st === 'CONGE' || st === 'CONGE_PAYE';
+                                    const isFerie = st === 'FERIE_CHOME' || (st === 'FERIE' && (!pj.heures || pj.heures === '00h00' || pj.heures === '—'));
+                                    const isWeekend = st === 'REPOS' || (pj.isRepos && pj.isRepos());
+                                    const isNonEchu = st === 'NON_ECHU';
+                                    const isMerged = isConge || isFerie || isWeekend || isNonEchu;
+
                                     const isContinu = Boolean(
                                         pj.horaireContinuJour ||
                                         pj.horaireContinu ||
@@ -386,50 +424,80 @@ export default function PointageFichePrintModal({
                                     const isNegativeEcart = pj.ecart && pj.ecart.startsWith('-');
 
                                     return (
-                                        <tr key={idx} className={isWeekend ? 'bg-slate-50 text-slate-400' : ''}>
+                                        <tr
+                                            key={idx}
+                                            className={
+                                                isConge
+                                                    ? 'bg-sky-50/60'
+                                                    : isFerie
+                                                        ? 'bg-purple-50/60'
+                                                        : isWeekend
+                                                            ? 'bg-slate-50 text-slate-400'
+                                                            : ''
+                                            }
+                                        >
                                             <td className="py-0.5 px-1 border-r border-slate-300 text-left font-sans font-medium">
                                                 {pj.dateComplete || pj.date}
                                             </td>
                                             <td className="py-0.5 px-0.5 border-r border-slate-300">{pj.jour}</td>
-                                            <td className="py-0.5 px-0.5 border-r border-slate-300 font-medium">
-                                                {pj.entree || '—'}
-                                            </td>
-                                            {isContinu ? (
-                                                <td colSpan={2} className="py-0.5 px-0.5 border-r border-slate-300 text-[7.5px] font-sans text-amber-800 bg-amber-50">
-                                                    Journée continue
+
+                                            {/* Cols 3 à 9 fusionnées si Congé / Férié / Repos / Non Échu */}
+                                            {isMerged ? (
+                                                <td colSpan={7} className="py-0.5 px-1 border-r border-slate-300 text-center font-sans">
+                                                    {isConge ? (
+                                                        <span className="text-sky-700 font-bold text-[7.5px] uppercase tracking-wide">
+                                                            Congé Payé — Jour d'absence autorisée (Objectif hebdo abaissé de {dureeJour}h)
+                                                        </span>
+                                                    ) : isFerie ? (
+                                                        <span className="text-purple-700 font-bold text-[7.5px] uppercase tracking-wide">
+                                                            Férié Chômé Légal — Jour chômé payé (Objectif hebdo abaissé de {dureeJour}h)
+                                                        </span>
+                                                    ) : isWeekend ? (
+                                                        <span className="text-slate-400  text-[7.5px]">
+                                                            Repos hebdomadaire
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-slate-400 text-[7.5px]">—</span>
+                                                    )}
                                                 </td>
                                             ) : (
                                                 <>
-                                                    <td className="py-0.5 px-0.5 border-r border-slate-300">{pj.sortiePause || '—'}</td>
-                                                    <td className="py-0.5 px-0.5 border-r border-slate-300">{pj.retourPause || '—'}</td>
+                                                    <td className="py-0.5 px-0.5 border-r border-slate-300 font-medium">
+                                                        {pj.entree || '—'}
+                                                    </td>
+                                                    {isContinu ? (
+                                                        <td colSpan={2} className="py-0.5 px-0.5 border-r border-slate-300 text-[7.5px] font-sans text-amber-800 bg-amber-50">
+                                                            Journée continue
+                                                        </td>
+                                                    ) : (
+                                                        <>
+                                                            <td className="py-0.5 px-0.5 border-r border-slate-300">{pj.sortiePause || '—'}</td>
+                                                            <td className="py-0.5 px-0.5 border-r border-slate-300">{pj.retourPause || '—'}</td>
+                                                        </>
+                                                    )}
+                                                    <td className="py-0.5 px-0.5 border-r border-slate-300">{pj.sortie || '—'}</td>
+                                                    <td className="py-0.5 px-0.5 border-r border-slate-300 font-medium">
+                                                        {isRetard ? (
+                                                            <span className="text-rose-700 font-bold">{pj.minutesRetard} min</span>
+                                                        ) : '—'}
+                                                    </td>
+                                                    <td className="py-0.5 px-1 border-r border-slate-300 font-bold">
+                                                        {pj.heures || '—'}
+                                                    </td>
+                                                    <td className="py-0.5 px-1 border-r border-slate-300 font-bold">
+                                                        {isPositiveEcart ? (
+                                                            <span className="text-emerald-700">{pj.ecart}</span>
+                                                        ) : isNegativeEcart ? (
+                                                            <span className="text-rose-700">{pj.ecart}</span>
+                                                        ) : (
+                                                            <span className="text-slate-500">{pj.ecart || '—'}</span>
+                                                        )}
+                                                    </td>
                                                 </>
                                             )}
-                                            <td className="py-0.5 px-0.5 border-r border-slate-300">{pj.sortie || '—'}</td>
-                                            <td className="py-0.5 px-0.5 border-r border-slate-300 font-medium">
-                                                {isRetard ? (
-                                                    <span className="text-rose-700 font-bold">{pj.minutesRetard} min</span>
-                                                ) : '—'}
-                                            </td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300 font-bold">
-                                                {pj.statut === 'CONGE' || pj.statut === 'CONGE_PAYE' ? (
-                                                    <span className="text-blue-700 font-sans font-medium">Congé (-8h)</span>
-                                                ) : pj.statut === 'FERIE_CHOME' ? (
-                                                    <span className="text-amber-700 font-sans font-medium">Férié (-8h)</span>
-                                                ) : (
-                                                    pj.heures || '—'
-                                                )}
-                                            </td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300 font-bold">
-                                                {isPositiveEcart ? (
-                                                    <span className="text-emerald-700">{pj.ecart}</span>
-                                                ) : isNegativeEcart ? (
-                                                    <span className="text-rose-700">{pj.ecart}</span>
-                                                ) : (
-                                                    <span className="text-slate-500">{pj.ecart || '—'}</span>
-                                                )}
-                                            </td>
+
                                             <td className="py-0.5 px-1 border-r border-slate-300 text-left font-sans font-medium">
-                                                {pj.statut === 'CONGE' || pj.statut === 'CONGE_PAYE' ? 'Congé payé' : pj.statut === 'FERIE_CHOME' ? 'Férié chômé' : (pj.statut || 'Présent')}
+                                                {formatStatut(pj.statut)}
                                             </td>
                                             <td className="py-0.5 px-1 border-r border-slate-300 font-sans">
                                                 {pj.montantDeplacement > 0 ? formatMonnaie(pj.montantDeplacement) : '—'}
@@ -456,7 +524,7 @@ export default function PointageFichePrintModal({
                                         {recap.ecartCumule || '—'}
                                     </td>
                                     <td className="py-1 px-1 border-r border-slate-300 text-left font-sans">
-                                        {pointages.filter(p => p.statut === 'PRESENT' || p.statut === 'DISPENSE_POINTAGE').length} j travaillés
+                                        {kpis.joursTravailles ? `${kpis.joursTravailles} travaillés` : `${workedDaysCount} j travaillés`}
                                     </td>
                                     <td className="py-1 px-1 border-r border-slate-300 font-sans">
                                         {kpis.montantDeplacementTotal || '0 Ar'}
@@ -475,7 +543,7 @@ export default function PointageFichePrintModal({
                             <span className="text-[9px] font-bold uppercase text-slate-700">
                                 Le Salarié
                             </span>
-                            <span className="text-[8px] text-slate-400 italic">
+                            <span className="text-[8px] text-slate-400 ">
                                 « Lu et approuvé » — Date &amp; Signature
                             </span>
                         </div>
@@ -483,7 +551,7 @@ export default function PointageFichePrintModal({
                             <span className="text-[9px] font-bold uppercase text-slate-700">
                                 Le Responsable Hiérarchique
                             </span>
-                            <span className="text-[8px] text-slate-400 italic">
+                            <span className="text-[8px] text-slate-400 ">
                                 Visa &amp; Validation Site
                             </span>
                         </div>
@@ -491,7 +559,7 @@ export default function PointageFichePrintModal({
                             <span className="text-[9px] font-bold uppercase text-slate-700">
                                 La Direction
                             </span>
-                            <span className="text-[8px] text-slate-400 italic">
+                            <span className="text-[8px] text-slate-400 ">
                                 Visa Paie &amp; Conformité
                             </span>
                         </div>

@@ -16,6 +16,9 @@ public class VSoldeCongeEmploye extends ClassMere {
     private BigDecimal totalPris;
     private BigDecimal totalExpire;
     private Date derniereAcquisition;
+    private BigDecimal tauxJournalierConge;
+    private String sourceTauxConge;
+    private BigDecimal salaireBase;
 
     public VSoldeCongeEmploye() {
         this.setNomTable("V_SOLDE_CONGE_EMPLOYE");
@@ -108,4 +111,13 @@ public class VSoldeCongeEmploye extends ClassMere {
 
     public Date getDerniereAcquisition() { return derniereAcquisition; }
     public void setDerniereAcquisition(Date derniereAcquisition) { this.derniereAcquisition = derniereAcquisition; }
+
+    public BigDecimal getTauxJournalierConge() { return tauxJournalierConge; }
+    public void setTauxJournalierConge(BigDecimal tauxJournalierConge) { this.tauxJournalierConge = tauxJournalierConge; }
+
+    public String getSourceTauxConge() { return sourceTauxConge; }
+    public void setSourceTauxConge(String sourceTauxConge) { this.sourceTauxConge = sourceTauxConge; }
+
+    public BigDecimal getSalaireBase() { return salaireBase; }
+    public void setSalaireBase(BigDecimal salaireBase) { this.salaireBase = salaireBase; }
 }

@@ -36,8 +36,8 @@ function getStatut(config) {
 function StatutBadge({ statut }) {
     const styles = {
         EN_VIGUEUR: 'bg-[var(--color-success-500)]/12 text-[var(--color-success-600)] border-[var(--color-success-500)]/25',
-        PROGRAMME:  'bg-[var(--color-brand-500)]/12 text-[var(--color-brand-500)] border-[var(--color-brand-500)]/25',
-        ARCHIVE:    'bg-[var(--color-fg-muted)]/10 text-[var(--color-fg-muted)] border-[var(--color-border-subtle)]',
+        PROGRAMME: 'bg-[var(--color-brand-500)]/12 text-[var(--color-brand-500)] border-[var(--color-brand-500)]/25',
+        ARCHIVE: 'bg-[var(--color-fg-muted)]/10 text-[var(--color-fg-muted)] border-[var(--color-border-subtle)]',
     };
     const labels = { EN_VIGUEUR: '● En vigueur', PROGRAMME: '◆ Programmé', ARCHIVE: '○ Archivé' };
     return (
@@ -95,11 +95,11 @@ const DEFAULT_MAJORATIONS = [
 ];
 
 const _MAJORATION_META = {
-    HS_30:    { label: 'HS Tranche 1 (premières 8h)', defaultPct: 30 },
-    HS_50:    { label: 'HS Tranche 2 (au-delà du seuil)', defaultPct: 50 },
-    NUIT:     { label: 'Heures de Nuit (22h - 05h)',      defaultPct: 30 },
-    DIMANCHE: { label: 'Travail le Dimanche',             defaultPct: 40 },
-    FERIE:    { label: 'Travail Jour Férié',              defaultPct: 100 },
+    HS_30: { label: 'HS Tranche 1 (premières 8h)', defaultPct: 30 },
+    HS_50: { label: 'HS Tranche 2 (au-delà du seuil)', defaultPct: 50 },
+    NUIT: { label: 'Heures de Nuit (22h - 05h)', defaultPct: 30 },
+    DIMANCHE: { label: 'Travail le Dimanche', defaultPct: 40 },
+    FERIE: { label: 'Travail Jour Férié', defaultPct: 100 },
 };
 
 const MAJORATION_ORDER = { 'HS_30': 1, 'HS_50': 2, 'NUIT': 3, 'DIMANCHE': 4, 'FERIE': 5 };
@@ -116,11 +116,11 @@ const EMPTY_FORM = {
 };
 
 const MAJORATION_CONFIG = [
-    { type: 'HS_30',    title: 'HS Tranche 1', subtitle: '41ᵉ à 48ᵉ h (premières 8h)', icon: Clock,    defaultPct: 30, color: 'text-[var(--color-warning-500)]',  badgeBg: 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)]' },
-    { type: 'HS_50',    title: 'HS Tranche 2', subtitle: 'Au-delà de la 48ᵉ heure',    icon: Zap,      defaultPct: 50, color: 'text-[var(--color-orange-500)]',   badgeBg: 'bg-[var(--color-orange-500)]/10 text-[var(--color-orange-600)]' },
-    { type: 'NUIT',     title: 'Heures de Nuit', subtitle: '22h00 – 05h00 du matin',    icon: Moon,     defaultPct: 30, color: 'text-[var(--color-purple-500)]',   badgeBg: 'bg-[var(--color-purple-500)]/10 text-[var(--color-purple-600)]' },
-    { type: 'DIMANCHE', title: 'Dimanche',     subtitle: 'Repos hebdomadaire légal',   icon: Sun,      defaultPct: 40, color: 'text-[var(--color-brand-500)]',    badgeBg: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)]' },
-    { type: 'FERIE',    title: 'Jour Férié',   subtitle: 'Férié chômé et payé',        icon: Calendar, defaultPct: 100, color: 'text-[var(--color-danger-500)]',  badgeBg: 'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-600)]' },
+    { type: 'HS_30', title: 'HS Tranche 1', subtitle: '41ᵉ à 48ᵉ h (premières 8h)', icon: Clock, defaultPct: 30, color: 'text-[var(--color-warning-500)]', badgeBg: 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)]' },
+    { type: 'HS_50', title: 'HS Tranche 2', subtitle: 'Au-delà de la 48ᵉ heure', icon: Zap, defaultPct: 50, color: 'text-[var(--color-orange-500)]', badgeBg: 'bg-[var(--color-orange-500)]/10 text-[var(--color-orange-600)]' },
+    { type: 'NUIT', title: 'Heures de Nuit', subtitle: '22h00 – 05h00 du matin', icon: Moon, defaultPct: 30, color: 'text-[var(--color-purple-500)]', badgeBg: 'bg-[var(--color-purple-500)]/10 text-[var(--color-purple-600)]' },
+    { type: 'DIMANCHE', title: 'Dimanche', subtitle: 'Repos hebdomadaire légal', icon: Sun, defaultPct: 40, color: 'text-[var(--color-brand-500)]', badgeBg: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)]' },
+    { type: 'FERIE', title: 'Jour Férié', subtitle: 'Férié chômé et payé', icon: Calendar, defaultPct: 100, color: 'text-[var(--color-danger-500)]', badgeBg: 'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-600)]' },
 ];
 
 function MajorationsFormSection({ majorations = [], onChange, isReadOnly }) {
@@ -132,10 +132,10 @@ function MajorationsFormSection({ majorations = [], onChange, isReadOnly }) {
 
     return (
         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3 col-span-1 md:col-span-2">
-            <SectionTitle 
-                icon={Clock} 
-                label="6. Taux de Majoration des Heures Spéciales" 
-                color="var(--color-warning-600)" 
+            <SectionTitle
+                icon={Clock}
+                label="6. Taux de Majoration des Heures Spéciales"
+                color="var(--color-warning-600)"
                 badge="Code du Travail Art. 83-84"
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -147,8 +147,8 @@ function MajorationsFormSection({ majorations = [], onChange, isReadOnly }) {
                     const Icon = item.icon;
 
                     return (
-                        <div 
-                            key={item.type} 
+                        <div
+                            key={item.type}
                             className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3 flex flex-col justify-between hover:border-[var(--color-brand-500)]/40 transition-colors"
                         >
                             <div>
@@ -230,10 +230,10 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
                 </div>
             )}
             <div className="flex items-center justify-between">
-                <SectionTitle 
-                    icon={Percent} 
-                    label="7. Barème Progressif IRSA (Tranches d'imposition)" 
-                    color="var(--color-brand-500)" 
+                <SectionTitle
+                    icon={Percent}
+                    label="7. Barème Progressif IRSA (Tranches d'imposition)"
+                    color="var(--color-brand-500)"
                     badge="Code Général des Impôts (CGI)"
                 />
                 {!isReadOnly && (
@@ -342,16 +342,16 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
 
     // Titre et sémantique selon le mode
     const isRevalorisation = mode === 'revaloriser';
-    const isEdit          = mode === 'edit';
-    const isInit          = mode === 'init';
-    const isView          = mode === 'view';
-    const isReadOnly      = isView;
+    const isEdit = mode === 'edit';
+    const isInit = mode === 'init';
+    const isView = mode === 'view';
+    const isReadOnly = isView;
 
     const TITLES = {
         revaloriser: { title: 'Nouvelle Loi de Finances — Date d\'Application', icon: <TrendingUp size={18} />, submit: 'Appliquer la nouvelle LF' },
-        init:        { title: 'Initialiser le premier exercice fiscal', icon: <Sparkles size={18} />, submit: 'Créer l\'exercice' },
-        edit:        { title: 'Corriger les valeurs de l\'exercice', icon: <Edit2 size={18} />, submit: 'Enregistrer la correction' },
-        view:        { title: 'Détails de l\'exercice archivé', icon: <Eye size={18} />, submit: null },
+        init: { title: 'Initialiser le premier exercice fiscal', icon: <Sparkles size={18} />, submit: 'Créer l\'exercice' },
+        edit: { title: 'Corriger les valeurs de l\'exercice', icon: <Edit2 size={18} />, submit: 'Enregistrer la correction' },
+        view: { title: 'Détails de l\'exercice archivé', icon: <Eye size={18} />, submit: null },
     };
     const meta = TITLES[mode] || TITLES.init;
 
@@ -360,7 +360,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
             isOpen={isOpen}
             onClose={onClose}
             title={meta.title}
-                   size="4xl"
+            size="4xl"
             footer={
                 <>
                     <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={loading}>
@@ -384,7 +384,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                         <div className="text-xs text-[var(--color-fg-muted)] space-y-1">
                             <p className="font-bold text-[var(--color-fg)]">Revalorisation légale (Nouvelle Loi de Finances) — Versionnement automatique</p>
                             <p>L'exercice en vigueur <strong className="text-[var(--color-fg)]">{activeConfig?.codeVersion}</strong> sera automatiquement
-                            clôturé à la veille de la date d'application choisie ci-dessous. Le nouvel exercice prendra effet dès cette date.</p>
+                                clôturé à la veille de la date d'application choisie ci-dessous. Le nouvel exercice prendra effet dès cette date.</p>
                             <p className="text-[var(--color-fg-muted)]">Exemple : pour une application au <em>01/01/2027</em>, l'exercice actuel se clôturera le <em>31/12/2026</em>.</p>
                         </div>
                     </div>
@@ -479,10 +479,10 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                     {/* COLONNE GAUCHE : Social & Retraite */}
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3.5 flex flex-col justify-between">
                         <div>
-                            <SectionTitle 
-                                icon={Banknote} 
-                                label="2. Salaire Minimum & Cotisations Sociales" 
-                                color="var(--color-success-600)" 
+                            <SectionTitle
+                                icon={Banknote}
+                                label="2. Salaire Minimum & Cotisations Sociales"
+                                color="var(--color-success-600)"
                                 badge="CNaPS / OSTIE / FMFP"
                             />
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -534,10 +534,10 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                     {/* COLONNE DROITE : Fiscalité IRSA */}
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3.5 flex flex-col justify-between">
                         <div>
-                            <SectionTitle 
-                                icon={Percent} 
-                                label="3. Règles Fiscales IRSA (CGI)" 
-                                color="var(--color-warning-600)" 
+                            <SectionTitle
+                                icon={Percent}
+                                label="3. Règles Fiscales IRSA (CGI)"
+                                color="var(--color-warning-600)"
                                 badge="Loi de Finances"
                             />
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -583,10 +583,10 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
 
                     {/* COLONNE GAUCHE : Temps de Travail */}
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3">
-                        <SectionTitle 
-                            icon={Timer} 
-                            label="4. Temps de Travail & Heures Supplémentaires" 
-                            color="var(--color-fg-muted)" 
+                        <SectionTitle
+                            icon={Timer}
+                            label="4. Temps de Travail & Heures Supplémentaires"
+                            color="var(--color-fg-muted)"
                             badge="Code du Travail Art. 83"
                         />
                         <div className="grid grid-cols-2 gap-3">
@@ -638,11 +638,11 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
 
                     {/* COLONNE DROITE : Congés Payés */}
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3">
-                        <SectionTitle 
-                            icon={Palmtree} 
-                            label="5. Droits & Valorisation des Congés Payés" 
-                            color="var(--color-brand-500)" 
-                            badge="Code du Travail Art. 85-88"
+                        <SectionTitle
+                            icon={Palmtree}
+                            label="5. Droits & Valorisation des Congés Payés"
+                            color="var(--color-brand-500)"
+                            badge="Code du Travail -88"
                         />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <Input
@@ -678,10 +678,10 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                     />
 
                     {/* SECTION 7 : Barème Progressif IRSA (Pleine largeur) */}
-                    <TranchesIrsaFormSection 
-                        tranches={formData.tranchesIrsa || []} 
-                        onChange={v => upd('tranchesIrsa', v)} 
-                        isReadOnly={isReadOnly} 
+                    <TranchesIrsaFormSection
+                        tranches={formData.tranchesIrsa || []}
+                        onChange={v => upd('tranchesIrsa', v)}
+                        isReadOnly={isReadOnly}
                     />
 
                 </div>
@@ -806,21 +806,21 @@ export default function ReglementationFiscaleTab() {
         const f = {
             codeVersion: '', libelle: '',
             dateDebut: '', dateFin: '',
-            smeNational:              String(activeConfig.smeNational ?? ''),
-            smeAgricole:              String(activeConfig.smeAgricole ?? ''),
-            plafondCotisationNbSme:   String(activeConfig.plafondCotisationNbSme ?? '8'),
-            seuilExonerationIrsa:     String(activeConfig.seuilExonerationIrsa ?? ''),
-            minimumPerceptionIrsa:    String(activeConfig.minimumPerceptionIrsa ?? ''),
-            deductionChargeFamille:   String(activeConfig.deductionChargeFamille ?? ''),
-            arrondiBaseIrsa:          activeConfig.arrondiBaseIrsa ?? 'CENTAINE_INF',
-            dureeHebdoLegale:         String(activeConfig.dureeHebdoLegale ?? '40'),
-            diviseurMensuelHeures:    String(activeConfig.diviseurMensuelHeures ?? '173.33'),
-            seuilHsTranche1:          String(activeConfig.seuilHsTranche1 ?? '8'),
-            plafondHsHebdo:           String(activeConfig.plafondHsHebdo ?? '20'),
-            acquisitionCongeMensuelJours:   String(activeConfig.acquisitionCongeMensuelJours ?? '2.5'),
+            smeNational: String(activeConfig.smeNational ?? ''),
+            smeAgricole: String(activeConfig.smeAgricole ?? ''),
+            plafondCotisationNbSme: String(activeConfig.plafondCotisationNbSme ?? '8'),
+            seuilExonerationIrsa: String(activeConfig.seuilExonerationIrsa ?? ''),
+            minimumPerceptionIrsa: String(activeConfig.minimumPerceptionIrsa ?? ''),
+            deductionChargeFamille: String(activeConfig.deductionChargeFamille ?? ''),
+            arrondiBaseIrsa: activeConfig.arrondiBaseIrsa ?? 'CENTAINE_INF',
+            dureeHebdoLegale: String(activeConfig.dureeHebdoLegale ?? '40'),
+            diviseurMensuelHeures: String(activeConfig.diviseurMensuelHeures ?? '173.33'),
+            seuilHsTranche1: String(activeConfig.seuilHsTranche1 ?? '8'),
+            plafondHsHebdo: String(activeConfig.plafondHsHebdo ?? '20'),
+            acquisitionCongeMensuelJours: String(activeConfig.acquisitionCongeMensuelJours ?? '2.5'),
             diviseurValorisationCongeJours: String(activeConfig.diviseurValorisationCongeJours ?? '30'),
-            tranchesIrsa:             clonedTranches,
-            majorations:              clonedMajs,
+            tranchesIrsa: clonedTranches,
+            majorations: clonedMajs,
         };
         setFormData(f);
         setModalMode('revaloriser');
@@ -834,30 +834,30 @@ export default function ReglementationFiscaleTab() {
         const tranches = getTranchesForConfig(config, baremesIrsa);
         const majs = getMajorationsForConfig(config, majorations);
         setFormData({
-            codeVersion:              config.codeVersion ?? '',
-            libelle:                  config.libelle ?? '',
-            dateDebut:                fmtDateInput(config.dateDebut) ?? '',
-            dateFin:                  fmtDateInput(config.dateFin) ?? '',
-            smeNational:              String(config.smeNational ?? ''),
-            smeAgricole:              String(config.smeAgricole ?? ''),
-            plafondCotisationNbSme:   String(config.plafondCotisationNbSme ?? '8'),
-            seuilExonerationIrsa:     String(config.seuilExonerationIrsa ?? ''),
-            minimumPerceptionIrsa:    String(config.minimumPerceptionIrsa ?? ''),
-            deductionChargeFamille:   String(config.deductionChargeFamille ?? ''),
-            arrondiBaseIrsa:          config.arrondiBaseIrsa ?? 'CENTAINE_INF',
-            dureeHebdoLegale:         String(config.dureeHebdoLegale ?? '40'),
-            diviseurMensuelHeures:    String(config.diviseurMensuelHeures ?? '173.33'),
-            seuilHsTranche1:          String(config.seuilHsTranche1 ?? '8'),
-            plafondHsHebdo:           String(config.plafondHsHebdo ?? '20'),
-            acquisitionCongeMensuelJours:   String(config.acquisitionCongeMensuelJours ?? '2.5'),
+            codeVersion: config.codeVersion ?? '',
+            libelle: config.libelle ?? '',
+            dateDebut: fmtDateInput(config.dateDebut) ?? '',
+            dateFin: fmtDateInput(config.dateFin) ?? '',
+            smeNational: String(config.smeNational ?? ''),
+            smeAgricole: String(config.smeAgricole ?? ''),
+            plafondCotisationNbSme: String(config.plafondCotisationNbSme ?? '8'),
+            seuilExonerationIrsa: String(config.seuilExonerationIrsa ?? ''),
+            minimumPerceptionIrsa: String(config.minimumPerceptionIrsa ?? ''),
+            deductionChargeFamille: String(config.deductionChargeFamille ?? ''),
+            arrondiBaseIrsa: config.arrondiBaseIrsa ?? 'CENTAINE_INF',
+            dureeHebdoLegale: String(config.dureeHebdoLegale ?? '40'),
+            diviseurMensuelHeures: String(config.diviseurMensuelHeures ?? '173.33'),
+            seuilHsTranche1: String(config.seuilHsTranche1 ?? '8'),
+            plafondHsHebdo: String(config.plafondHsHebdo ?? '20'),
+            acquisitionCongeMensuelJours: String(config.acquisitionCongeMensuelJours ?? '2.5'),
             diviseurValorisationCongeJours: String(config.diviseurValorisationCongeJours ?? '30'),
-            tranchesIrsa:             tranches.map(t => ({
+            tranchesIrsa: tranches.map(t => ({
                 numeroTranche: t.numeroTranche,
                 trancheMin: t.trancheMin,
                 trancheMax: t.trancheMax ?? '',
                 taux: t.taux
             })),
-            majorations:              majs.length > 0 ? majs.map(m => ({
+            majorations: majs.length > 0 ? majs.map(m => ({
                 typeMajoration: m.typeMajoration,
                 taux: m.taux,
                 description: m.description || ''
@@ -890,30 +890,30 @@ export default function ReglementationFiscaleTab() {
         const tranches = getTranchesForConfig(config, baremesIrsa);
         const majs = getMajorationsForConfig(config, majorations);
         setFormData({
-            codeVersion:              config.codeVersion ?? '',
-            libelle:                  config.libelle ?? '',
-            dateDebut:                fmtDateInput(config.dateDebut) ?? '',
-            dateFin:                  fmtDateInput(config.dateFin) ?? '',
-            smeNational:              String(config.smeNational ?? ''),
-            smeAgricole:              String(config.smeAgricole ?? ''),
-            plafondCotisationNbSme:   String(config.plafondCotisationNbSme ?? '8'),
-            seuilExonerationIrsa:     String(config.seuilExonerationIrsa ?? ''),
-            minimumPerceptionIrsa:    String(config.minimumPerceptionIrsa ?? ''),
-            deductionChargeFamille:   String(config.deductionChargeFamille ?? ''),
-            arrondiBaseIrsa:          config.arrondiBaseIrsa ?? 'CENTAINE_INF',
-            dureeHebdoLegale:         String(config.dureeHebdoLegale ?? '40'),
-            diviseurMensuelHeures:    String(config.diviseurMensuelHeures ?? '173.33'),
-            seuilHsTranche1:          String(config.seuilHsTranche1 ?? '8'),
-            plafondHsHebdo:           String(config.plafondHsHebdo ?? '20'),
-            acquisitionCongeMensuelJours:   String(config.acquisitionCongeMensuelJours ?? '2.5'),
+            codeVersion: config.codeVersion ?? '',
+            libelle: config.libelle ?? '',
+            dateDebut: fmtDateInput(config.dateDebut) ?? '',
+            dateFin: fmtDateInput(config.dateFin) ?? '',
+            smeNational: String(config.smeNational ?? ''),
+            smeAgricole: String(config.smeAgricole ?? ''),
+            plafondCotisationNbSme: String(config.plafondCotisationNbSme ?? '8'),
+            seuilExonerationIrsa: String(config.seuilExonerationIrsa ?? ''),
+            minimumPerceptionIrsa: String(config.minimumPerceptionIrsa ?? ''),
+            deductionChargeFamille: String(config.deductionChargeFamille ?? ''),
+            arrondiBaseIrsa: config.arrondiBaseIrsa ?? 'CENTAINE_INF',
+            dureeHebdoLegale: String(config.dureeHebdoLegale ?? '40'),
+            diviseurMensuelHeures: String(config.diviseurMensuelHeures ?? '173.33'),
+            seuilHsTranche1: String(config.seuilHsTranche1 ?? '8'),
+            plafondHsHebdo: String(config.plafondHsHebdo ?? '20'),
+            acquisitionCongeMensuelJours: String(config.acquisitionCongeMensuelJours ?? '2.5'),
             diviseurValorisationCongeJours: String(config.diviseurValorisationCongeJours ?? '30'),
-            tranchesIrsa:             tranches.length > 0 ? tranches.map(t => ({
+            tranchesIrsa: tranches.length > 0 ? tranches.map(t => ({
                 numeroTranche: t.numeroTranche,
                 trancheMin: t.trancheMin,
                 trancheMax: t.trancheMax ?? '',
                 taux: t.taux
             })) : DEFAULT_TRANCHES_IRSA,
-            majorations:              majs.length > 0 ? majs.map(m => ({
+            majorations: majs.length > 0 ? majs.map(m => ({
                 typeMajoration: m.typeMajoration,
                 taux: m.taux,
                 description: m.description || ''
@@ -926,32 +926,32 @@ export default function ReglementationFiscaleTab() {
     };
 
     const buildPayload = () => ({
-        codeVersion:                  formData.codeVersion,
-        libelle:                      formData.libelle,
-        dateDebut:                    formData.dateDebut || null,
-        dateFin:                      formData.dateFin || null,
-        tranchesIrsa:                 (formData.tranchesIrsa || []).map(t => ({
+        codeVersion: formData.codeVersion,
+        libelle: formData.libelle,
+        dateDebut: formData.dateDebut || null,
+        dateFin: formData.dateFin || null,
+        tranchesIrsa: (formData.tranchesIrsa || []).map(t => ({
             numeroTranche: t.numeroTranche,
             trancheMin: parseFloat(t.trancheMin) || 0,
             trancheMax: t.trancheMax !== '' && t.trancheMax !== null && t.trancheMax !== undefined ? parseFloat(t.trancheMax) : null,
             taux: parseFloat(t.taux) || 0
         })),
-        majorations:                  (formData.majorations || []).map(m => ({
+        majorations: (formData.majorations || []).map(m => ({
             typeMajoration: m.typeMajoration,
             taux: parseSafe(m.taux, 0),
             description: m.description || ''
         })),
-        smeNational:                  parseSafe(formData.smeNational),
-        smeAgricole:                  parseSafe(formData.smeAgricole),
-        plafondCotisationNbSme:       parseSafe(formData.plafondCotisationNbSme, 8),
-        seuilExonerationIrsa:         parseSafe(formData.seuilExonerationIrsa),
-        minimumPerceptionIrsa:        parseSafe(formData.minimumPerceptionIrsa),
-        deductionChargeFamille:       parseSafe(formData.deductionChargeFamille),
-        arrondiBaseIrsa:              formData.arrondiBaseIrsa || 'CENTAINE_INF',
-        dureeHebdoLegale:             parseSafe(formData.dureeHebdoLegale, 40),
-        diviseurMensuelHeures:        parseSafe(formData.diviseurMensuelHeures, 173.33),
-        seuilHsTranche1:              parseSafe(formData.seuilHsTranche1, 8),
-        plafondHsHebdo:               parseSafe(formData.plafondHsHebdo, 20),
+        smeNational: parseSafe(formData.smeNational),
+        smeAgricole: parseSafe(formData.smeAgricole),
+        plafondCotisationNbSme: parseSafe(formData.plafondCotisationNbSme, 8),
+        seuilExonerationIrsa: parseSafe(formData.seuilExonerationIrsa),
+        minimumPerceptionIrsa: parseSafe(formData.minimumPerceptionIrsa),
+        deductionChargeFamille: parseSafe(formData.deductionChargeFamille),
+        arrondiBaseIrsa: formData.arrondiBaseIrsa || 'CENTAINE_INF',
+        dureeHebdoLegale: parseSafe(formData.dureeHebdoLegale, 40),
+        diviseurMensuelHeures: parseSafe(formData.diviseurMensuelHeures, 173.33),
+        seuilHsTranche1: parseSafe(formData.seuilHsTranche1, 8),
+        plafondHsHebdo: parseSafe(formData.plafondHsHebdo, 20),
         acquisitionCongeMensuelJours: parseSafe(formData.acquisitionCongeMensuelJours, 2.5),
         diviseurValorisationCongeJours: parseInt(formData.diviseurValorisationCongeJours, 10) || 30,
     });
@@ -1013,7 +1013,7 @@ export default function ReglementationFiscaleTab() {
                                 HS max&nbsp;<strong>{fmtNb(activeConfig.plafondHsHebdo, 0)}h</strong>/sem,
                                 diviseur&nbsp;<strong>{fmtNb(activeConfig.diviseurMensuelHeures, 4)}h</strong>/mois
                             </p>
-                            <p>• <strong>Congés payés</strong> (Art. 85) :
+                            <p>• <strong>Congés payés</strong> () :
                                 <strong> {fmtNb(activeConfig.acquisitionCongeMensuelJours, 2)} j</strong>/mois,
                                 décompte calendaire ÷&nbsp;<strong>{activeConfig.diviseurValorisationCongeJours}</strong>
                             </p>
@@ -1139,7 +1139,7 @@ export default function ReglementationFiscaleTab() {
                         <div>
                             <SectionTitle icon={Palmtree} label="Congés Payés" color="var(--color-brand-500)" />
                             <div className="grid grid-cols-2 gap-2">
-                                <KpiField label="Acquisition mensuelle" value={`${fmtNb(activeConfig.acquisitionCongeMensuelJours, 2)} j/mois`} sub="= 30 j/an (Art. 85)" />
+                                <KpiField label="Acquisition mensuelle" value={`${fmtNb(activeConfig.acquisitionCongeMensuelJours, 2)} j/mois`} sub="= 30 j/an ()" />
                                 <KpiField label="Valorisation d'1 jour de congé" value={`Salaire brut ÷ ${activeConfig.diviseurValorisationCongeJours}`} sub="Décompte calendaire standard" />
                             </div>
                         </div>
@@ -1195,13 +1195,12 @@ export default function ReglementationFiscaleTab() {
                     return (
                         <div
                             key={config.idConfigLegale}
-                            className={`border flex items-center gap-4 px-4 py-3 transition-all ${
-                                isActive
+                            className={`border flex items-center gap-4 px-4 py-3 transition-all ${isActive
                                     ? 'bg-[var(--color-success-500)]/5 border-[var(--color-success-500)]/30'
                                     : isProgramme
-                                    ? 'bg-[var(--color-brand-500)]/5 border-[var(--color-brand-500)]/25'
-                                    : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] opacity-55'
-                            }`}
+                                        ? 'bg-[var(--color-brand-500)]/5 border-[var(--color-brand-500)]/25'
+                                        : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] opacity-55'
+                                }`}
                         >
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-0.5">
@@ -1212,10 +1211,10 @@ export default function ReglementationFiscaleTab() {
                                 <PeriodeBadge config={config} />
                             </div>
                             <div className="hidden md:flex items-center gap-6 text-xs text-[var(--color-fg-muted)] shrink-0">
-                                <span><span className="font-bold text-[var(--color-fg)]">{fmtAr(config.smeNational)}</span><br/>SME</span>
-                                <span><span className="font-bold text-[var(--color-fg)]">{fmtAr(config.minimumPerceptionIrsa)}</span><br/>Min. IRSA</span>
-                                <span><span className="font-bold text-[var(--color-fg)]">{config.dureeHebdoLegale}h</span><br/>Légale</span>
-                                <span><span className="font-bold text-[var(--color-fg)]">{fmtAr(config.plafondCotisationMensuel)}</span><br/>Plafond social</span>
+                                <span><span className="font-bold text-[var(--color-fg)]">{fmtAr(config.smeNational)}</span><br />SME</span>
+                                <span><span className="font-bold text-[var(--color-fg)]">{fmtAr(config.minimumPerceptionIrsa)}</span><br />Min. IRSA</span>
+                                <span><span className="font-bold text-[var(--color-fg)]">{config.dureeHebdoLegale}h</span><br />Légale</span>
+                                <span><span className="font-bold text-[var(--color-fg)]">{fmtAr(config.plafondCotisationMensuel)}</span><br />Plafond social</span>
                             </div>
 
                             {/* Actions selon le statut */}

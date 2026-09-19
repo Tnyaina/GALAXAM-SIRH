@@ -1,7 +1,8 @@
-import { Calendar, Clock, ArrowDownCircle, ShieldAlert, Info, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Calendar, Clock, ArrowDownCircle, ShieldAlert, Info, CheckCircle, AlertTriangle, Coins } from 'lucide-react';
 import StatCard from '@/components/ui/data-display/StatCard';
+import { formatMoneyAr } from '@/utils/moneyUtils';
 
-export default function SoldeCongeWidget({ soldeData, consommationPool, employe }) {
+export default function SoldeCongeWidget({ soldeData, consommationPool, employe, canWrite = false, onOpenInitModal }) {
   if (!soldeData) return null;
 
   const soldeActuel = Number(soldeData.soldeActuel || 0);
@@ -98,7 +99,7 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe 
             <div className="flex items-center gap-2.5">
               <CheckCircle size={17} className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)] shrink-0" />
               <div>
-                <span className="font-bold text-sm">Éligible aux congés payés annuels (Art. 85)</span>
+                <span className="font-bold text-sm">Éligible aux congés payés annuels</span>
                 <p className="text-xs text-[var(--color-success-600)] dark:text-[var(--color-success-400)] mt-0.5">
                   Ancienneté de <strong>{ancienneteInfo.textAnciennete}</strong> (embauché(e) le {ancienneteInfo.dateDebutStr}). Droit ouvert depuis le {ancienneteInfo.dateOuvertureStr}.
                 </p>
@@ -115,7 +116,7 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe 
               <div>
                 <span className="font-bold text-sm">Période d'acquisition d'ancienneté en cours ({ancienneteInfo.months} mois / 12)</span>
                 <p className="text-xs text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] mt-0.5">
-                  L'ouverture du droit légal au congé annuel payé aura lieu le <strong>{ancienneteInfo.dateOuvertureStr}</strong> (Art. 85). Une <strong>dérogation RH</strong> est requise pour toute prise anticipée.
+                  L'ouverture du droit légal au congé annuel payé aura lieu le <strong>{ancienneteInfo.dateOuvertureStr}</strong> (). Une <strong>dérogation RH</strong> est requise pour toute prise anticipée.
                 </p>
               </div>
             </div>
@@ -124,6 +125,46 @@ export default function SoldeCongeWidget({ soldeData, consommationPool, employe 
             </span>
           </div>
         )
+      )}
+
+      {/* ── Taux Journalier de Congé (TCONGE) Résolu ── */}
+      {soldeData?.tauxJournalierConge && Number(soldeData.tauxJournalierConge) > 0 && (
+        <div className="p-3 bg-[var(--color-bg-subtle)]/60 border border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <Coins size={17} className="text-[var(--color-brand-600)] shrink-0" />
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="font-semibold text-[var(--color-fg)]">Taux Journalier TCONGE :</span>
+              <span className="font-mono font-bold text-sm text-[var(--color-brand-600)]">
+                {formatMoneyAr(soldeData.tauxJournalierConge)}
+              </span>
+              <span className="text-[11px] text-[var(--color-fg-muted)]">
+                / jour d'absence indemnisé ou ICCP
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {soldeData?.sourceTauxConge && (
+              <span className="text-[11px] px-2.5 py-0.5 font-medium bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg-muted)]">
+                Source : {
+                  soldeData.sourceTauxConge === 'CALCUL_PERIODE_REFERENCE' ? 'Période de référence (12 mois)' :
+                    soldeData.sourceTauxConge === 'KAJY_MIGRATION' ? 'Migration historique' :
+                      soldeData.sourceTauxConge === 'INITIALISATION_BASE_30' ? 'Base légale initiale (Salaire Base / 30)' :
+                        soldeData.sourceTauxConge
+                }
+              </span>
+            )}
+            {canWrite && onOpenInitModal && (
+              <button
+                type="button"
+                onClick={onOpenInitModal}
+                className="text-[11px] font-semibold text-[var(--color-brand-600)] hover:underline hover:text-[var(--color-brand-700)] cursor-pointer"
+                title="Modifier ou renseigner le taux de migration issu d'Excel"
+              >
+                Ajuster
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Grille des 4 Cartes Métier Harmonieuses */}

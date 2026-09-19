@@ -15,7 +15,15 @@ export const stcService = {
      */
     preparerStc: async (idEmploye, dateDepart = null, motif = 'DEMISSION') => {
         const params = {};
-        if (dateDepart) params.dateDepart = dateDepart;
+        if (dateDepart) {
+            let formattedDate = dateDepart;
+            if (typeof dateDepart === 'string') {
+                formattedDate = dateDepart.includes('T') ? dateDepart.split('T')[0] : dateDepart.substring(0, 10);
+            } else if (dateDepart instanceof Date && !isNaN(dateDepart.getTime())) {
+                formattedDate = dateDepart.toISOString().split('T')[0];
+            }
+            params.dateDepart = formattedDate;
+        }
         if (motif) params.motif = motif;
         const response = await apiClient.get(`paie/stc/preparer/${idEmploye}`, { params });
         return response.data;

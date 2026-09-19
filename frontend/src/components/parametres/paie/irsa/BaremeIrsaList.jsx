@@ -142,10 +142,10 @@ export default function BaremeIrsaList({ tranchesIrsa = [], onOpenCreate, onOpen
                                 type="button"
                                 onClick={() => toggleGroup(groupKey)}
                                 className={`w-full px-4 py-3 flex items-center justify-between text-left transition-colors cursor-pointer select-none ${statut === 'EN_VIGUEUR'
-                                        ? 'bg-[var(--color-success-500)]/8 hover:bg-[var(--color-success-500)]/12'
-                                        : statut === 'PROGRAMME'
-                                            ? 'bg-[var(--color-brand-500)]/8 hover:bg-[var(--color-brand-500)]/12'
-                                            : 'bg-[var(--color-bg-subtle)] hover:bg-[var(--color-surface)]'
+                                    ? 'bg-[var(--color-success-500)]/8 hover:bg-[var(--color-success-500)]/12'
+                                    : statut === 'PROGRAMME'
+                                        ? 'bg-[var(--color-brand-500)]/8 hover:bg-[var(--color-brand-500)]/12'
+                                        : 'bg-[var(--color-bg-subtle)] hover:bg-[var(--color-surface)]'
                                     }`}
                             >
                                 <div className="flex items-center gap-3">
@@ -208,7 +208,7 @@ export default function BaremeIrsaList({ tranchesIrsa = [], onOpenCreate, onOpen
                                                                 <Edit2 size={16} />
                                                             </button>
                                                         ) : (
-                                                            <span className="text-[10px] text-[var(--color-fg-muted)] italic px-2">archivé</span>
+                                                            <span className="text-[10px] text-[var(--color-fg-muted)]  px-2">archivé</span>
                                                         )}
                                                     </Td>
                                                 </Tr>

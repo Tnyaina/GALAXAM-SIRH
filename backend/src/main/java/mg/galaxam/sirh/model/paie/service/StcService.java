@@ -186,7 +186,10 @@ public class StcService {
                         throw new IllegalStateException("Plusieurs périodes de paie couvrent la date de départ " + dateDepartEffective + ".");
                     }
                 } else {
-                    throw new IllegalStateException("Aucune période de paie ne couvre la date de départ " + dateDepartEffective + ".");
+                    // Pour un départ historique ou anticipé (hors calendrier de paie actif),
+                    // on ne bloque pas la préparation / simulation STC : l'imputation se fera sur la période de régularisation
+                    prep.setIdPeriodePaie(null);
+                    prep.setCodePeriodePaie("HORS_CALENDRIER");
                 }
             }
         }
@@ -357,9 +360,8 @@ public class StcService {
         if (configLegale == null || configLegale.getSmeNational() == null) {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                     mg.galaxam.sirh.common.exception.SirhErrorCode.LEGAL_CONFIG_MISSING,
-                    "Configuration légale (SME/SMIG) manquante ou non configurée pour la date de départ "
-                    + req.getDateDepart() + ". LEGAL_REVIEW_REQUIRED : "
-                    + "créez une entrée dans paie_config_legale couvrant cette période.");
+                    "Aucun barème réglementaire (SME/SMIG) n'est configuré pour la date du "
+                    + req.getDateDepart() + ". Veuillez renseigner l'exercice réglementaire correspondant dans les Paramètres de Paie (LEGAL_REVIEW_REQUIRED).");
         }
         BigDecimal smigRef = configLegale.getSmeNational();
 
@@ -831,6 +833,17 @@ public class StcService {
         r.setDateEmission(s.getDateValidation() != null ? s.getDateValidation() : new Timestamp(System.currentTimeMillis()));
         r.setStatut(s.getStatut());
 
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT raison_sociale, nif, stat FROM ref_filiale WHERE est_actif = TRUE ORDER BY id_filiale ASC LIMIT 1")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    if (rs.getString("raison_sociale") != null) r.setEntrepriseNom(rs.getString("raison_sociale"));
+                    if (rs.getString("nif") != null) r.setEntrepriseNif(rs.getString("nif"));
+                    if (rs.getString("stat") != null) r.setEntrepriseStat(rs.getString("stat"));
+                }
+            }
+        } catch (Exception ignored) {}
+
         r.setIdEmploye(s.getIdEmploye());
         r.setMatricule(prep.getMatricule());
         r.setNomComplet(prep.getNomComplet());
@@ -931,8 +944,8 @@ public class StcService {
             if (config == null) {
                 throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                         mg.galaxam.sirh.common.exception.SirhErrorCode.LEGAL_CONFIG_MISSING,
-                        "Aucune configuration légale applicable au " + dateDepart + ". LEGAL_REVIEW_REQUIRED : "
-                        + "créez une entrée dans paie_config_legale couvrant cette période.");
+                        "Aucun barème réglementaire fiscal ou social (SME, CNaPS, IRSA) n'est configuré pour la date du " + dateDepart + ". "
+                        + "Veuillez enregistrer la réglementation applicable dans les Paramètres de Paie > Réglementation Fiscale & Sociale (LEGAL_REVIEW_REQUIRED).");
             }
             return config;
         } catch (mg.galaxam.sirh.common.exception.SirhBusinessException e) {

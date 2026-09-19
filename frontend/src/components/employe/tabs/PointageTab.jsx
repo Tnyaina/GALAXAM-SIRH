@@ -264,10 +264,37 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const seuilAssiduiteMinutes = parseInt(kpis?.seuilAssiduiteMinutes || regles?.seuilAssiduiteMinutes, 10) || 45;
     const dureeHebdoLegale = regles?.dureeHebdoLegale || kpis?.dureeHebdoLegale || '40';
     const dureeJourNormale = Number(dureeHebdoLegale) > 0 ? Number(dureeHebdoLegale) / 5 : null;
-    const isAssiduiteEligible = kpis?.primeAssiduiteEligible === 'true' || 
+    const isAssiduiteEligible = kpis?.primeAssiduiteEligible === 'true' ||
         (kpis?.primeAssiduiteEligible !== 'false' && (parseHhMmToDecimal(kpis?.retardCumule) * 60 < seuilAssiduiteMinutes));
     const hasRetardNet = Boolean(recap?.retardNet && recap.retardNet !== '00h00' && recap.retardNet !== '0h');
     const hasHsNettes = Boolean(recap?.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' && recap.heuresSuppNettes !== '0h');
+
+    const totalRetardMinutes = pointages.reduce((acc, p) => acc + (p.minutesRetard || 0), 0);
+    const totalRetardHhMm = kpis?.retardCumule || (totalRetardMinutes > 0 ? formatHeuresMinutes(totalRetardMinutes / 60) : '00h00');
+
+    const totalEcartMinutes = pointages.reduce((acc, p) => {
+        if (!p.ecart || p.ecart === '—' || p.ecart === '-') return acc;
+        const clean = p.ecart.trim();
+        if (clean.includes('h')) {
+            const sign = clean.startsWith('-') ? -1 : 1;
+            const parts = clean.replace(/[+\-]/g, '').split('h');
+            const h = parseInt(parts[0], 10) || 0;
+            const m = parseInt(parts[1], 10) || 0;
+            return acc + sign * (h * 60 + m);
+        }
+        return acc;
+    }, 0);
+
+    const computedEcartStr = formatHeuresMinutes(totalEcartMinutes / 60, true);
+    const displayEcart = (recap?.ecartCumule && recap.ecartCumule !== '—') ? recap.ecartCumule : computedEcartStr;
+
+    const workedDaysCount = pointages.filter(p => {
+        const st = (p.statut || '').toUpperCase();
+        return ['PRESENT', 'DISPENSE_POINTAGE', 'DEMI_JOURNEE', 'RETARD', 'SAMEDI_TRAVAILLE', 'DIMANCHE_TRAVAILLE', 'FERIE_TRAVAILLE'].includes(st);
+    }).length;
+
+    const totalTransportUnits = pointages.reduce((acc, p) => acc + (p.deplacementMatin ? 0.5 : 0) + (p.deplacementAm ? 0.5 : 0), 0);
+    const totalRepasUnits = pointages.reduce((acc, p) => acc + (p.nbRepas || (p.indemniteRepas ? 1 : 0)), 0);
 
     const currIndexInList = periodesList.findIndex(p => p.idPeriodePaie === selectedPeriodeId);
 
@@ -504,7 +531,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     </div>
                                     {kpis.heuresObjectif ? (
                                         <p className="text-xs text-[var(--color-fg-muted)] mt-1 font-medium">
-                                            objectif {kpis.heuresObjectif}
+                                            objectif {kpis.heuresObjectif.replace(/^objectif\s*/i, '')}
                                         </p>
                                     ) : null}
                                 </div>
@@ -682,7 +709,13 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         </Tr>
                                     ) : (
                                         pointages.map((ptg, idx) => {
-                                            const isWeekend = ptg.statut === 'REPOS';
+                                            const st = (ptg.statut || '').toUpperCase();
+                                            const isConge = st === 'CONGE' || st === 'CONGE_PAYE';
+                                            const isFerie = st === 'FERIE_CHOME' || (st === 'FERIE' && (!ptg.heures || ptg.heures === '00h00' || ptg.heures === '—'));
+                                            const isRepos = st === 'REPOS';
+                                            const isNonEchu = st === 'NON_ECHU';
+                                            const isMerged = isConge || isFerie || isRepos || isNonEchu;
+
                                             const valDplt = (ptg.deplacementMatin ? 0.5 : 0) + (ptg.deplacementAm ? 0.5 : 0);
                                             const valRepas = ptg.nbRepas || (ptg.indemniteRepas ? 1 : 0);
                                             const isContinu = Boolean(
@@ -694,7 +727,15 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             return (
                                                 <Tr
                                                     key={`${ptg.dateComplete || ptg.date}-${idx}`}
-                                                    className={isWeekend ? 'bg-[var(--color-bg-subtle)]/40' : ''}
+                                                    className={
+                                                        isConge
+                                                            ? 'bg-[var(--color-sky-500)]/[0.04]'
+                                                            : isFerie
+                                                                ? 'bg-[var(--color-purple-500)]/[0.04]'
+                                                                : isRepos
+                                                                    ? 'bg-[var(--color-bg-subtle)]/40'
+                                                                    : ''
+                                                    }
                                                 >
                                                     <Td className="font-mono text-xs font-bold text-[var(--color-fg)] py-2.5 px-3">
                                                         {ptg.date}
@@ -702,79 +743,101 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                     <Td className="text-xs text-[var(--color-fg-muted)] py-2.5 px-3">
                                                         {ptg.jour}
                                                     </Td>
-                                                    <Td className="font-mono text-xs text-center py-2.5 px-3">
-                                                        <div>{ptg.entree}</div>
-                                                    </Td>
-                                                    {isContinu ? (
-                                                        <Td colSpan={2} className="text-center py-2.5 px-2 bg-[var(--color-orange-500)]/[0.04]">
-                                                            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-orange-700)] dark:text-[var(--color-orange-200)] bg-[var(--color-orange-500)]/15 px-2 py-0.5 rounded border border-[var(--color-orange-500)]/25" title="Journée continue sans pause">
-                                                                <FastForward size={11} className="shrink-0" /> Continu
-                                                            </span>
+
+                                                    {/* Colonnes 3 à 9 : Fusionnées si Congé / Férié / Repos / Non Échu */}
+                                                    {isMerged ? (
+                                                        <Td colSpan={7} className="text-center py-2.5 px-3">
+                                                            {isConge ? (
+                                                                <div className="flex items-center justify-center gap-2 py-0.5">
+                                                                    <span className="font-bold text-xs text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)] uppercase tracking-wide">
+                                                                        Congé Payé
+                                                                    </span>
+                                                                    <span className="text-[11px] text-[var(--color-sky-600)] dark:text-[var(--color-sky-400)] font-sans">
+                                                                        · Jour d'absence légale (Objectif hebdomadaire abaissé de {dureeJourNormale || 8}h)
+                                                                    </span>
+                                                                </div>
+                                                            ) : isFerie ? (
+                                                                <div className="flex items-center justify-center gap-2 py-0.5">
+                                                                    <span className="font-bold text-xs text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] uppercase tracking-wide">
+                                                                        Férié Chômé Légal
+                                                                    </span>
+                                                                    <span className="text-[11px] text-[var(--color-purple-600)] dark:text-[var(--color-purple-400)] font-sans">
+                                                                        · Jour chômé payé (Objectif hebdomadaire abaissé de {dureeJourNormale || 8}h)
+                                                                    </span>
+                                                                </div>
+                                                            ) : isRepos ? (
+                                                                <span className="text-xs text-[var(--color-fg-subtle)] ">
+                                                                    Repos hebdomadaire
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-xs text-[var(--color-fg-subtle)] opacity-40">—</span>
+                                                            )}
                                                         </Td>
                                                     ) : (
                                                         <>
                                                             <Td className="font-mono text-xs text-center py-2.5 px-3">
-                                                                {ptg.sortiePause}
+                                                                <div>{ptg.entree}</div>
                                                             </Td>
+                                                            {isContinu ? (
+                                                                <Td colSpan={2} className="text-center py-2.5 px-2 bg-[var(--color-orange-500)]/[0.04]">
+                                                                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-orange-700)] dark:text-[var(--color-orange-200)] bg-[var(--color-orange-500)]/15 px-2 py-0.5 rounded border border-[var(--color-orange-500)]/25" title="Journée continue sans pause">
+                                                                        <FastForward size={11} className="shrink-0" /> Continu
+                                                                    </span>
+                                                                </Td>
+                                                            ) : (
+                                                                <>
+                                                                    <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                                        {ptg.sortiePause}
+                                                                    </Td>
+                                                                    <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                                        {ptg.retourPause}
+                                                                    </Td>
+                                                                </>
+                                                            )}
                                                             <Td className="font-mono text-xs text-center py-2.5 px-3">
-                                                                {ptg.retourPause}
+                                                                {ptg.sortie}
                                                             </Td>
-                                                        </>
-                                                    )}
-                                                    <Td className="font-mono text-xs text-center py-2.5 px-3">
-                                                        {ptg.sortie}
-                                                    </Td>
-                                                    <Td className="font-mono text-xs text-center py-2.5 px-2">
-                                                        {ptg.minutesRetard > 0 ? (
-                                                            <span className="font-semibold text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] bg-[var(--color-danger-50)] dark:bg-[var(--color-danger-950)]/40 px-1.5 py-0.5 rounded border border-[var(--color-danger-200)] dark:border-[var(--color-danger-800)]/50" title={`Retard cumulé sur la journée (matin et après-midi) : ${ptg.minutesRetard} min`}>
-                                                                {ptg.minutesRetard} min
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] opacity-40">—</span>
-                                                        )}
-                                                    </Td>
-                                                    <Td className="font-mono text-xs font-bold text-center py-2.5 px-3 text-[var(--color-fg)]">
-                                                        {ptg.statut === 'CONGE' ? (
-                                                            <div title="Jour de congé payé (seuil hebdomadaire abaissé de 8h)">
-                                                                <span className="text-[var(--color-sky-600)] dark:text-[var(--color-sky-400)] font-sans font-semibold text-[11px]">Congé</span>
-                                                                <div className="text-[9.5px] text-[var(--color-fg-muted)] font-normal font-sans">(-8h seuil)</div>
-                                                            </div>
-                                                        ) : ptg.statut === 'FERIE_CHOME' ? (
-                                                            <div title="Jour férié chômé (seuil hebdomadaire abaissé de 8h)">
-                                                                <span className="text-[var(--color-purple-600)] dark:text-[var(--color-purple-400)] font-sans font-semibold text-[11px]">Férié</span>
-                                                                <div className="text-[9.5px] text-[var(--color-fg-muted)] font-normal font-sans">(-8h seuil)</div>
-                                                            </div>
-                                                        ) : (
-                                                            <>
+                                                            <Td className="font-mono text-xs text-center py-2.5 px-2">
+                                                                {ptg.minutesRetard > 0 ? (
+                                                                    <span className="font-semibold text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] bg-[var(--color-danger-50)] dark:bg-[var(--color-danger-950)]/40 px-1.5 py-0.5 rounded border border-[var(--color-danger-200)] dark:border-[var(--color-danger-800)]/50" title={`Retard cumulé sur la journée : ${ptg.minutesRetard} min`}>
+                                                                        {ptg.minutesRetard} min
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-[var(--color-fg-subtle)] opacity-40">—</span>
+                                                                )}
+                                                            </Td>
+                                                            <Td className="font-mono text-xs font-bold text-center py-2.5 px-3 text-[var(--color-fg)]">
                                                                 <div>{ptg.heures}</div>
                                                                 {ptg.heures && ptg.heures !== '—' && ptg.heures !== '00h00' && (
                                                                     <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">
                                                                         ({ptg.totalHeuresDecimal != null ? ptg.totalHeuresDecimal.toFixed(2) : parseHhMmToDecimal(ptg.heures).toFixed(2)}h)
                                                                     </div>
                                                                 )}
-                                                            </>
-                                                        )}
-                                                    </Td>
-                                                    <Td className="font-mono text-xs text-center py-2.5 px-3">
-                                                        {ptg.ecart && ptg.ecart.startsWith('-') ? (
-                                                            <span className="text-[var(--color-danger-500)] dark:text-[var(--color-danger-400)] font-bold">
-                                                                {ptg.ecart}
-                                                            </span>
-                                                        ) : ptg.ecart && ptg.ecart.startsWith('+') ? (
-                                                            <span className="text-[var(--color-success-500)] dark:text-[var(--color-success-400)] font-bold">
-                                                                {ptg.ecart}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[var(--color-fg-muted)]">
-                                                                {ptg.ecart}
-                                                            </span>
-                                                        )}
-                                                    </Td>
+                                                            </Td>
+                                                            <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                                {ptg.ecart && ptg.ecart.startsWith('-') ? (
+                                                                    <span className="text-[var(--color-danger-500)] dark:text-[var(--color-danger-400)] font-bold">
+                                                                        {ptg.ecart}
+                                                                    </span>
+                                                                ) : ptg.ecart && ptg.ecart.startsWith('+') ? (
+                                                                    <span className="text-[var(--color-success-500)] dark:text-[var(--color-success-400)] font-bold">
+                                                                        {ptg.ecart}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-[var(--color-fg-muted)]">
+                                                                        {ptg.ecart}
+                                                                    </span>
+                                                                )}
+                                                            </Td>
+                                                        </>
+                                                    )}
+
+                                                    {/* Colonne 10 : Statut */}
                                                     <Td className="text-center py-2.5 px-3">
                                                         {getStatutBadge(ptg.statut)}
                                                     </Td>
 
-                                                    {/* Colonne DPLT (Déplacement : 1, 0.5 ou 0) */}
+                                                    {/* Colonne 11 : DPLT (Déplacement : 1, 0.5 ou 0) */}
                                                     <Td className="font-mono text-xs text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/20 bg-[var(--color-orange-500)]/[0.04]">
                                                         {valDplt > 0 ? (
                                                             <span className="font-bold text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)]" title={`Déplacement : ${valDplt === 1 ? 'Matin + Soir (1)' : ptg.deplacementMatin ? 'Matin (0.5)' : 'Soir (0.5)'}`}>
@@ -782,12 +845,12 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] opacity-40">
-                                                                {isWeekend ? '—' : '0'}
+                                                                {isRepos || isConge || isFerie ? '—' : '0'}
                                                             </span>
                                                         )}
                                                     </Td>
 
-                                                    {/* Colonne REPAS (Paniers repas : 1, 2 ou 0) */}
+                                                    {/* Colonne 12 : REPAS (Paniers repas : 1, 2 ou 0) */}
                                                     <Td className="font-mono text-xs text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/20 bg-[var(--color-orange-500)]/[0.04]">
                                                         {valRepas > 0 ? (
                                                             <span className="font-bold text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)]" title={`Repas : ${valRepas} ${valRepas > 1 ? 'repas' : 'repas'}`}>
@@ -795,7 +858,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] opacity-40">
-                                                                {isWeekend ? '—' : '0'}
+                                                                {isRepos || isConge || isFerie ? '—' : '0'}
                                                             </span>
                                                         )}
                                                     </Td>
@@ -805,25 +868,67 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     )}
                                 </Tbody>
                                 {pointages.length > 0 && (
-                                    <tfoot className="border-t-2 border-[var(--color-border)] bg-[var(--color-bg-subtle)]/60 font-bold">
+                                    <tfoot className="border-t-2 border-[var(--color-border)] bg-[var(--color-bg-subtle)]/70 font-bold">
                                         <tr>
+                                            {/* Cols 1 à 6 : Date à Sortie */}
                                             <td colSpan={6} className="py-2.5 px-3 text-xs uppercase font-bold text-[var(--color-fg-muted)]">
                                                 Total Période
                                             </td>
+
+                                            {/* Col 7 : Retard Total */}
+                                            <td className="font-mono text-xs font-bold text-center py-2.5 px-2 text-[var(--color-fg)]">
+                                                {totalRetardMinutes > 0 ? (
+                                                    <span className="text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                                                        {totalRetardHhMm}
+                                                        <span className="block text-[10px] font-normal font-sans opacity-75">
+                                                            ({totalRetardMinutes} min)
+                                                        </span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[var(--color-fg-subtle)] opacity-60">00h00</span>
+                                                )}
+                                            </td>
+
+                                            {/* Col 8 : Heures Réalisées */}
                                             <td className="font-mono text-xs font-bold text-center py-2.5 px-3 text-[var(--color-fg)]">
-                                                {recap.tempsRealise || '—'}
+                                                <div>{recap.tempsRealise || '00h00'}</div>
+                                                {recap.tempsRealise && recap.tempsRealise !== '00h00' && (
+                                                    <div className="text-[10px] text-[var(--color-fg-muted)] font-normal">
+                                                        ({parseHhMmToDecimal(recap.tempsRealise).toFixed(2)}h)
+                                                    </div>
+                                                )}
                                             </td>
-                                            <td className="font-mono text-xs text-center py-2.5 px-3 text-[var(--color-fg-muted)]">
-                                                {recap.ecartCumule || '—'}
+
+                                            {/* Col 9 : Écart Cumulé (vs 8h) */}
+                                            <td className="font-mono text-xs font-bold text-center py-2.5 px-3">
+                                                <span className={displayEcart && displayEcart.startsWith('-') ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : displayEcart && displayEcart.startsWith('+') ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]'}>
+                                                    {displayEcart || '—'}
+                                                </span>
                                             </td>
+
+                                            {/* Col 10 : Statut (Jours Travaillés) */}
                                             <td className="text-center py-2.5 px-3 text-xs font-bold text-[var(--color-fg-muted)]">
-                                                {pointages.filter(p => p.statut === 'PRESENT' || p.statut === 'DISPENSE_POINTAGE').length} j ouvrés
+                                                {kpis.joursTravailles ? `${kpis.joursTravailles} travaillés` : `${workedDaysCount} j travaillés`}
                                             </td>
+
+                                            {/* Col 11 : Transport */}
                                             <td className="font-mono text-xs font-bold text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10">
-                                                {pointages.reduce((acc, p) => acc + (p.deplacementMatin ? 0.5 : 0) + (p.deplacementAm ? 0.5 : 0), 0)}
+                                                <div>{totalTransportUnits}</div>
+                                                {kpis.montantDeplacementTotal ? (
+                                                    <div className="text-[9.5px] font-sans font-normal text-[var(--color-orange-600)] dark:text-[var(--color-orange-300)]">
+                                                        {kpis.montantDeplacementTotal}
+                                                    </div>
+                                                ) : null}
                                             </td>
+
+                                            {/* Col 12 : Repas */}
                                             <td className="font-mono text-xs font-bold text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10">
-                                                {pointages.reduce((acc, p) => acc + (p.nbRepas || (p.indemniteRepas ? 1 : 0)), 0)}
+                                                <div>{totalRepasUnits}</div>
+                                                {kpis.montantRepasTotal ? (
+                                                    <div className="text-[9.5px] font-sans font-normal text-[var(--color-orange-600)] dark:text-[var(--color-orange-300)]">
+                                                        {kpis.montantRepasTotal}
+                                                    </div>
+                                                ) : null}
                                             </td>
                                         </tr>
                                     </tfoot>

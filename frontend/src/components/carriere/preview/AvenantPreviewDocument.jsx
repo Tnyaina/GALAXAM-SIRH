@@ -75,7 +75,7 @@ export default function AvenantPreviewDocument({
             </div>
 
             <DocumentFooter
-                lieu="Antananarivo"
+                lieu={apresSite || avantSite || ''}
                 dateSignature={fmtDateFr(formData.dateSignature || formData.dateEffet)}
             />
         </DocumentFrame>

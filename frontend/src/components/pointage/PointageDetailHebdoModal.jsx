@@ -166,7 +166,7 @@ export default function PointageDetailHebdoModal({
                                     {kpis.heuresRealisees || recap.tempsRealise || formatHeuresMinutes(recap.totalHeuresFaites)}
                                 </div>
                                 <div className="text-[9.5px] text-[var(--color-fg-subtle)] mt-0.5 font-mono">
-                                    {kpis.heuresObjectif || formatHeuresDecimal(recap.totalHeuresFaites)}
+                                    {kpis.heuresObjectif ? `objectif ${kpis.heuresObjectif.replace(/^objectif\s*/i, '')}` : formatHeuresDecimal(recap.totalHeuresFaites)}
                                 </div>
                             </div>
 

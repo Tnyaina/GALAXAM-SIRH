@@ -365,7 +365,7 @@ public class PointageSyntheseService {
                     long nightMinutes = hoursToMinutes(rsPtg.getBigDecimal("heures_nuit"));
                     int ret = rsPtg.getInt("minutes_retard");
 
-                    if ("PRESENT".equals(stCode) || "DISPENSE_POINTAGE".equals(stCode) || "SAMEDI_TRAVAILLE".equals(stCode) || "DEMI_JOURNEE".equals(stCode)) {
+                    if ("PRESENT".equals(stCode) || "DISPENSE_POINTAGE".equals(stCode) || "SAMEDI_TRAVAILLE".equals(stCode) || "DEMI_JOURNEE".equals(stCode) || "RETARD".equals(stCode)) {
                         presents++;
                     } else if ("DIMANCHE_TRAVAILLE".equals(stCode) || (isSunday && th > 0)) {
                         presents++;

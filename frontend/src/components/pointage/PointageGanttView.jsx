@@ -70,7 +70,7 @@ export default function PointageGanttView({
                     </button>
                     <div className="flex items-center gap-1 overflow-x-auto px-1">
                         {semaines.length === 0 ? (
-                            <span className="text-[11px] text-[var(--color-fg-muted)] italic px-2 py-0.5 select-none">
+                            <span className="text-[11px] text-[var(--color-fg-muted)]  px-2 py-0.5 select-none">
                                 {loadingGantt ? 'Chargement des semaines…' : 'Aucune semaine disponible pour cette période'}
                             </span>
                         ) : (
@@ -83,8 +83,8 @@ export default function PointageGanttView({
                                         onClick={() => onSelectSemaine(sem)}
                                         disabled={loadingGantt}
                                         className={`flex items-center gap-1.5 px-2.5 py-1 text-[10.5px] font-semibold whitespace-nowrap border transition-all cursor-pointer disabled:opacity-50 ${isSelected
-                                                ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] border-[var(--color-brand-500)]/40 font-bold'
-                                                : 'text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)] hover:border-[var(--color-border)]'
+                                            ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] border-[var(--color-brand-500)]/40 font-bold'
+                                            : 'text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)] hover:border-[var(--color-border)]'
                                             }`}
                                     >
                                         <Calendar size={11} />
@@ -156,15 +156,14 @@ export default function PointageGanttView({
                                     return (
                                         <th
                                             key={day.date}
-                                            className={`px-1 py-2 text-center font-semibold text-[10px] border-r border-[var(--color-border-subtle)] min-w-[90px] ${
-                                                isToday
+                                            className={`px-1 py-2 text-center font-semibold text-[10px] border-r border-[var(--color-border-subtle)] min-w-[90px] ${isToday
                                                     ? 'bg-brand-500/10 text-brand-600 dark:text-brand-400 font-bold border-brand-500/30'
                                                     : isFuture
                                                         ? 'bg-[var(--color-bg-subtle)]/30 text-[var(--color-fg-muted)] opacity-60'
                                                         : day.isWeekend
                                                             ? 'bg-amber-500/5 text-[var(--color-fg-muted)]'
                                                             : 'text-[var(--color-fg)]'
-                                            }`}
+                                                }`}
                                         >
                                             <div className="font-bold flex items-center justify-center gap-1">
                                                 {day.label}
@@ -219,11 +218,10 @@ export default function PointageGanttView({
                                             return (
                                                 <td
                                                     key={day.date}
-                                                    className={`px-1 py-1.5 border-r border-[var(--color-border-subtle)] text-center select-none ${
-                                                        isFuture
+                                                    className={`px-1 py-1.5 border-r border-[var(--color-border-subtle)] text-center select-none ${isFuture
                                                             ? 'cursor-not-allowed bg-[var(--color-bg-subtle)]/20 opacity-55'
                                                             : 'cursor-pointer hover:opacity-85'
-                                                    }`}
+                                                        }`}
                                                     onMouseEnter={(e) => handleCellHover(e, emp, day, cellData)}
                                                     onMouseLeave={() => setTooltip(null)}
                                                     onClick={(e) => {
@@ -320,7 +318,7 @@ function GanttTooltip({ tooltip, tooltipRef }) {
     // Repas
     let repasLabel = 'Non';
     if (cellData?.indemniteRepasRecue || cellData?.repas) {
-        repasLabel = cellData?.montantRepas 
+        repasLabel = cellData?.montantRepas
             ? `Accordée (${Math.round(cellData.montantRepas).toLocaleString('fr-FR')} Ar)`
             : 'Accordée';
     } else if (cellData?.estDerogeRepas) {
@@ -492,7 +490,7 @@ function isWeekend(day) {
 
 function getStatutStyle(cellData, day) {
     if (day?.date && isDateInFuture(day.date)) {
-        return { bg: 'bg-[var(--color-bg-subtle)]/25', border: 'border-dashed border-[var(--color-border-subtle)]/70', text: 'text-[var(--color-fg-muted)] opacity-40 italic' };
+        return { bg: 'bg-[var(--color-bg-subtle)]/25', border: 'border-dashed border-[var(--color-border-subtle)]/70', text: 'text-[var(--color-fg-muted)] opacity-40 ' };
     }
 
     const weekend = isWeekend(day);
