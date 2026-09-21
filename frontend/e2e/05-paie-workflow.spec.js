@@ -1,19 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { execSync } from 'child_process';
+import { executeE2eSql } from './support/database.js';
 
 /**
  * Helper de réinitialisation déterministe de la période 101.
  * Rétablit le statut VALIDEE (pointage scellé, prêt pour calcul paie) et les bulletins en CALCULE.
  */
 function resetPeriod101() {
-    try {
-        execSync(
-            `PGPASSWORD=galaxam_password /opt/homebrew/Cellar/libpq/18.1/bin/psql -h localhost -p 5432 -U galaxam_admin -d sirh_galaxam_test -c "UPDATE periode_paie SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'VALIDEE') WHERE id_periode_paie = 101; UPDATE bulletin_paie SET statut = 'ROUVERT', motif_reouverture = 'Reouverture test reset' WHERE id_periode_paie = 101; UPDATE bulletin_paie SET statut = 'CALCULE' WHERE id_periode_paie = 101; INSERT INTO conge_taux_applicable (id_employe, taux_journalier, date_effet, source_provenance, commentaire) SELECT 1, 13333.33, '2026-01-01', 'REPRISE_CUTOVER', 'TCONGE initial E2E EMP001' WHERE NOT EXISTS (SELECT 1 FROM conge_taux_applicable WHERE id_employe = 1); INSERT INTO conge_taux_applicable (id_employe, taux_journalier, date_effet, source_provenance, commentaire) SELECT 2, 16666.67, '2026-01-01', 'REPRISE_CUTOVER', 'TCONGE initial E2E EMP002' WHERE NOT EXISTS (SELECT 1 FROM conge_taux_applicable WHERE id_employe = 2);"`,
-            { stdio: 'ignore' }
-        );
-    } catch (e) {
-        console.warn('Reset period 101 warning:', e.message);
-    }
+    executeE2eSql("UPDATE periode_paie SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'VALIDEE') WHERE id_periode_paie = 101; UPDATE bulletin_paie SET statut = 'ROUVERT', motif_reouverture = 'Reouverture test reset' WHERE id_periode_paie = 101; UPDATE bulletin_paie SET statut = 'CALCULE' WHERE id_periode_paie = 101; INSERT INTO conge_taux_applicable (id_employe, taux_journalier, date_effet, source_provenance, commentaire) SELECT 1, 13333.33, '2026-01-01', 'REPRISE_CUTOVER', 'TCONGE initial E2E EMP001' WHERE NOT EXISTS (SELECT 1 FROM conge_taux_applicable WHERE id_employe = 1); INSERT INTO conge_taux_applicable (id_employe, taux_journalier, date_effet, source_provenance, commentaire) SELECT 2, 16666.67, '2026-01-01', 'REPRISE_CUTOVER', 'TCONGE initial E2E EMP002' WHERE NOT EXISTS (SELECT 1 FROM conge_taux_applicable WHERE id_employe = 2);");
 }
 
 async function loginAsDaf(page) {

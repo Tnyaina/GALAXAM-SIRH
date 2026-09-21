@@ -65,6 +65,7 @@ public class BulletinPaie extends ClassMere {
     private BigDecimal totalCotisationsSalariales = BigDecimal.ZERO;
     private BigDecimal totalCotisationsPatronales = BigDecimal.ZERO;
     private BigDecimal salaireNetImposable = BigDecimal.ZERO;
+    private BigDecimal revenuNetImposable;
     private BigDecimal baseIrsaArrondie = BigDecimal.ZERO;
     private BigDecimal irsaBrut = BigDecimal.ZERO;
     private BigDecimal reductionEnfants = BigDecimal.ZERO;
@@ -656,20 +657,36 @@ public class BulletinPaie extends ClassMere {
     public BigDecimal getTotalCotisationsPatronales() { return totalCotisationsPatronales; }
     public void setTotalCotisationsPatronales(BigDecimal totalCotisationsPatronales) { this.totalCotisationsPatronales = totalCotisationsPatronales; }
 
+    /** @deprecated Valeur historique NETI. Utiliser {@link #getRevenuNetAvantImpot()}. */
+    @Deprecated
     public BigDecimal getSalaireNetImposable() { return salaireNetImposable; }
     public void setSalaireNetImposable(BigDecimal salaireNetImposable) { this.salaireNetImposable = salaireNetImposable; }
 
+    /** Palier social historique NETI : brut moins cotisations salariales, avant IRSA. */
+    public BigDecimal getRevenuNetAvantImpot() {
+        return totalGainsBruts.subtract(totalCotisationsSalariales).max(BigDecimal.ZERO);
+    }
+
+    /** Revenu fiscal avant l'arrondi de l'assiette IRSA; distingue notamment les HS exonérées. */
+    public BigDecimal getRevenuNetImposable() {
+        return revenuNetImposable != null ? revenuNetImposable : salaireNetImposable;
+    }
+    public void setRevenuNetImposable(BigDecimal revenuNetImposable) { this.revenuNetImposable = revenuNetImposable; }
+
     public BigDecimal getBaseIrsaArrondie() { return baseIrsaArrondie; }
     public void setBaseIrsaArrondie(BigDecimal baseIrsaArrondie) { this.baseIrsaArrondie = baseIrsaArrondie; }
+    public BigDecimal getAssietteIrsa() { return baseIrsaArrondie; }
 
     public BigDecimal getIrsaBrut() { return irsaBrut; }
     public void setIrsaBrut(BigDecimal irsaBrut) { this.irsaBrut = irsaBrut; }
+    public BigDecimal getIrsaCalcule() { return irsaBrut; }
 
     public BigDecimal getReductionEnfants() { return reductionEnfants; }
     public void setReductionEnfants(BigDecimal reductionEnfants) { this.reductionEnfants = reductionEnfants; }
 
     public BigDecimal getIrsaNet() { return irsaNet; }
     public void setIrsaNet(BigDecimal irsaNet) { this.irsaNet = irsaNet; }
+    public BigDecimal getIrsaDu() { return irsaNet; }
 
     public BigDecimal getRetenueIsi5() { return retenueIsi5; }
     public void setRetenueIsi5(BigDecimal retenueIsi5) { this.retenueIsi5 = retenueIsi5; }

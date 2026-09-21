@@ -180,7 +180,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     const nomAffiche = bulletin ? (bulletin.nomPrenom || [bulletin.nom, bulletin.prenom].filter(Boolean).join(' ') || [bulletin.nomEmploye, bulletin.prenomEmploye].filter(Boolean).join(' ') || 'Employé') : '';
     const joursTravailles = bulletin ? (bulletin.joursTravailles ?? bulletin.nbJoursTravailles) : null;
     const heuresNormales = bulletin?.heuresNormales;
-    const netImposable = bulletin ? (bulletin.salaireNetImposable ?? bulletin.netImposable) : null;
+    const netImposable = bulletin ? (bulletin.revenuNetImposable ?? bulletin.salaireNetImposable ?? bulletin.netImposable) : null;
 
     const ligneCnaps = lignes.find(l => l.codeRubrique === 'COTISATION_CNAPS_SAL' || l.codeRubrique === 'CNAPS_SAL' || (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('cnaps')));
     const ligneOstie = lignes.find(l => l.codeRubrique === 'COTISATION_OSTIE_SAL' || l.codeRubrique === 'OSTIE_SAL' || (l.libelleRubrique && (l.libelleRubrique.toLowerCase().includes('ostie') || l.libelleRubrique.toLowerCase().includes('santé'))));

@@ -36,10 +36,10 @@ public class PayrollFormulaCharacterizationTest {
         irsaCalculator = new IrsaCalculator();
         tranchesLf2024 = List.of(
                 new Tranche(new BigDecimal("0.00"), new BigDecimal("350000.00"), BigDecimal.ZERO),
-                new Tranche(new BigDecimal("350001.00"), new BigDecimal("400000.00"), new BigDecimal("0.05")),
-                new Tranche(new BigDecimal("400001.00"), new BigDecimal("500000.00"), new BigDecimal("0.10")),
-                new Tranche(new BigDecimal("500001.00"), new BigDecimal("600000.00"), new BigDecimal("0.15")),
-                new Tranche(new BigDecimal("600001.00"), null, new BigDecimal("0.20"))
+                new Tranche(new BigDecimal("350000.00"), new BigDecimal("400000.00"), new BigDecimal("0.05")),
+                new Tranche(new BigDecimal("400000.00"), new BigDecimal("500000.00"), new BigDecimal("0.10")),
+                new Tranche(new BigDecimal("500000.00"), new BigDecimal("600000.00"), new BigDecimal("0.15")),
+                new Tranche(new BigDecimal("600000.00"), null, new BigDecimal("0.20"))
         );
     }
 
@@ -68,6 +68,11 @@ public class PayrollFormulaCharacterizationTest {
         in.setTauxSanteSalarial(new BigDecimal("0.01"));
         in.setTauxSantePatronal(new BigDecimal("0.05"));
         in.setTauxFmfpPatronal(new BigDecimal("0.01"));
+        in.setMajorationHs30(new BigDecimal("0.30"));
+        in.setMajorationHs50(new BigDecimal("0.50"));
+        in.setMajorationNuit(new BigDecimal("0.30"));
+        in.setMajorationDimanche(new BigDecimal("0.40"));
+        in.setMajorationFerie(new BigDecimal("1.00"));
         in.setSoumisCnaps(true);
         in.setSoumisSante(true);
         in.setSoumisIrsa(true);
@@ -217,27 +222,27 @@ public class PayrollFormulaCharacterizationTest {
         @Test
         void testFrontieresAssietteCentaineInferieure() {
             // 620000.00 -> 620000.00
-            Result r1 = irsaCalculator.calculate(new BigDecimal("620000.00"), tranchesLf2024, 0, BigDecimal.ZERO, BigDecimal.ZERO, null);
+            Result r1 = irsaCalculator.calculate(new BigDecimal("620000.00"), tranchesLf2024, 0, BigDecimal.ZERO, BigDecimal.ZERO);
             assertEquals(new BigDecimal("620000.00"), r1.baseIrsaArrondie());
 
             // 620000.01 -> 620000.00
-            Result r2 = irsaCalculator.calculate(new BigDecimal("620000.01"), tranchesLf2024, 0, BigDecimal.ZERO, BigDecimal.ZERO, null);
+            Result r2 = irsaCalculator.calculate(new BigDecimal("620000.01"), tranchesLf2024, 0, BigDecimal.ZERO, BigDecimal.ZERO);
             assertEquals(new BigDecimal("620000.00"), r2.baseIrsaArrondie());
 
             // 620049.99 -> 620000.00
-            Result r3 = irsaCalculator.calculate(new BigDecimal("620049.99"), tranchesLf2024, 0, BigDecimal.ZERO, BigDecimal.ZERO, null);
+            Result r3 = irsaCalculator.calculate(new BigDecimal("620049.99"), tranchesLf2024, 0, BigDecimal.ZERO, BigDecimal.ZERO);
             assertEquals(new BigDecimal("620000.00"), r3.baseIrsaArrondie());
 
             // 620050.00 -> 620000.00 (prouve que ce n'est PAS HALF_UP)
-            Result r4 = irsaCalculator.calculate(new BigDecimal("620050.00"), tranchesLf2024, 0, BigDecimal.ZERO, BigDecimal.ZERO, null);
+            Result r4 = irsaCalculator.calculate(new BigDecimal("620050.00"), tranchesLf2024, 0, BigDecimal.ZERO, BigDecimal.ZERO);
             assertEquals(new BigDecimal("620000.00"), r4.baseIrsaArrondie());
 
             // 620099.99 -> 620000.00
-            Result r5 = irsaCalculator.calculate(new BigDecimal("620099.99"), tranchesLf2024, 0, BigDecimal.ZERO, BigDecimal.ZERO, null);
+            Result r5 = irsaCalculator.calculate(new BigDecimal("620099.99"), tranchesLf2024, 0, BigDecimal.ZERO, BigDecimal.ZERO);
             assertEquals(new BigDecimal("620000.00"), r5.baseIrsaArrondie());
 
             // 620100.00 -> 620100.00
-            Result r6 = irsaCalculator.calculate(new BigDecimal("620100.00"), tranchesLf2024, 0, BigDecimal.ZERO, BigDecimal.ZERO, null);
+            Result r6 = irsaCalculator.calculate(new BigDecimal("620100.00"), tranchesLf2024, 0, BigDecimal.ZERO, BigDecimal.ZERO);
             assertEquals(new BigDecimal("620100.00"), r6.baseIrsaArrondie());
         }
     }
@@ -250,34 +255,34 @@ public class PayrollFormulaCharacterizationTest {
             BigDecimal minPerception = new BigDecimal("2000.00");
 
             // <= 350 000 : minimum 2000 Ar
-            Result r349 = irsaCalculator.calculate(new BigDecimal("349900.00"), tranchesLf2024, 0, BigDecimal.ZERO, minPerception, null);
+            Result r349 = irsaCalculator.calculate(new BigDecimal("349900.00"), tranchesLf2024, 0, BigDecimal.ZERO, minPerception);
             assertEquals(new BigDecimal("2000.00"), r349.irsaNet());
 
-            Result r350 = irsaCalculator.calculate(new BigDecimal("350000.00"), tranchesLf2024, 0, BigDecimal.ZERO, minPerception, null);
+            Result r350 = irsaCalculator.calculate(new BigDecimal("350000.00"), tranchesLf2024, 0, BigDecimal.ZERO, minPerception);
             assertEquals(new BigDecimal("2000.00"), r350.irsaNet());
 
-            // 350 100 : brut = 99 * 5% = 4.95 Ar -> net = max(10, 2000) = 2000 Ar
-            Result r350100 = irsaCalculator.calculate(new BigDecimal("350100.00"), tranchesLf2024, 0, BigDecimal.ZERO, minPerception, null);
+            // 350 100 : brut = 100 * 5% = 5 Ar -> net = max(10, 2000) = 2000 Ar
+            Result r350100 = irsaCalculator.calculate(new BigDecimal("350100.00"), tranchesLf2024, 0, BigDecimal.ZERO, minPerception);
             assertEquals(new BigDecimal("2000.00"), r350100.irsaNet());
 
-            // 400 000 : 49999 * 5% = 2499.95 Ar -> arrondi dizaine = 2500.00 Ar
-            Result r400 = irsaCalculator.calculate(new BigDecimal("400000.00"), tranchesLf2024, 0, BigDecimal.ZERO, minPerception, null);
-            assertEquals(new BigDecimal("2499.95"), r400.irsaBrut());
+            // 400 000 : (400000 - 350000) * 5% = 2500 Ar
+            Result r400 = irsaCalculator.calculate(new BigDecimal("400000.00"), tranchesLf2024, 0, BigDecimal.ZERO, minPerception);
+            assertEquals(new BigDecimal("2500.00"), r400.irsaBrut());
             assertEquals(new BigDecimal("2500.00"), r400.irsaArrondiDizaine());
 
-            // 500 000 : 2499.95 + 99999 * 10% (9999.90) = 12499.85 -> arrondi dizaine = 12500.00 Ar
-            Result r500 = irsaCalculator.calculate(new BigDecimal("500000.00"), tranchesLf2024, 0, BigDecimal.ZERO, minPerception, null);
-            assertEquals(new BigDecimal("12499.85"), r500.irsaBrut());
+            // 500 000 : 2500 + 100000 * 10% = 12500 Ar
+            Result r500 = irsaCalculator.calculate(new BigDecimal("500000.00"), tranchesLf2024, 0, BigDecimal.ZERO, minPerception);
+            assertEquals(new BigDecimal("12500.00"), r500.irsaBrut());
             assertEquals(new BigDecimal("12500.00"), r500.irsaArrondiDizaine());
 
-            // 600 000 : 12499.85 + 99999 * 15% (14999.85) = 27499.70 -> arrondi dizaine = 27500.00 Ar
-            Result r600 = irsaCalculator.calculate(new BigDecimal("600000.00"), tranchesLf2024, 0, BigDecimal.ZERO, minPerception, null);
-            assertEquals(new BigDecimal("27499.70"), r600.irsaBrut());
+            // 600 000 : 12500 + 100000 * 15% = 27500 Ar
+            Result r600 = irsaCalculator.calculate(new BigDecimal("600000.00"), tranchesLf2024, 0, BigDecimal.ZERO, minPerception);
+            assertEquals(new BigDecimal("27500.00"), r600.irsaBrut());
             assertEquals(new BigDecimal("27500.00"), r600.irsaArrondiDizaine());
 
-            // 620 000 : 27499.70 + 19999 * 20% (3999.80) = 31499.50 -> arrondi dizaine = 31500.00 Ar
-            Result r620 = irsaCalculator.calculate(new BigDecimal("620000.00"), tranchesLf2024, 0, BigDecimal.ZERO, minPerception, null);
-            assertEquals(new BigDecimal("31499.50"), r620.irsaBrut());
+            // 620 000 : 27500 + 20000 * 20% = 31500 Ar
+            Result r620 = irsaCalculator.calculate(new BigDecimal("620000.00"), tranchesLf2024, 0, BigDecimal.ZERO, minPerception);
+            assertEquals(new BigDecimal("31500.00"), r620.irsaBrut());
             assertEquals(new BigDecimal("31500.00"), r620.irsaArrondiDizaine());
         }
 
@@ -655,4 +660,3 @@ public class PayrollFormulaCharacterizationTest {
         }
     }
 }
-

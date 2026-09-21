@@ -111,7 +111,7 @@ public class PayrollFormulaTest {
         // Cas A : Revenu faible (assiette < 350 000 Ar) -> Minimum 3 000 Ar
         BigDecimal baseFaible = new BigDecimal("320456.78");
         IrsaCalculator.Result resFaible = irsaCalculator.calculate(
-                baseFaible, tranches, 0, new BigDecimal("2000.00"), new BigDecimal("3000.00"), BigDecimal.ZERO
+                baseFaible, tranches, 0, new BigDecimal("2000.00"), new BigDecimal("3000.00")
         );
         assertEquals(new BigDecimal("320400.00"), resFaible.baseIrsaArrondie(), "Troncature à la centaine inférieure (320 400)");
         assertEquals(BigDecimal.ZERO.setScale(2), resFaible.irsaBrut(), "IRSA brut à 0%");
@@ -127,7 +127,7 @@ public class PayrollFormulaTest {
         // Réduction 2 enfants = 4 000 Ar -> Net = 16 030 Ar
         BigDecimal baseMoyenne = new BigDecimal("550280.00");
         IrsaCalculator.Result resMoyenne = irsaCalculator.calculate(
-                baseMoyenne, tranches, 2, new BigDecimal("2000.00"), new BigDecimal("3000.00"), BigDecimal.ZERO
+                baseMoyenne, tranches, 2, new BigDecimal("2000.00"), new BigDecimal("3000.00")
         );
         assertEquals(new BigDecimal("550200.00"), resMoyenne.baseIrsaArrondie());
         assertEquals(new BigDecimal("20030.00"), resMoyenne.irsaBrut());
@@ -143,7 +143,7 @@ public class PayrollFormulaTest {
         // Total brut = 707 500 Ar
         BigDecimal base4M = new BigDecimal("4000000.00");
         IrsaCalculator.Result res4M = irsaCalculator.calculate(
-                base4M, tranches, 0, new BigDecimal("2000.00"), new BigDecimal("3000.00"), BigDecimal.ZERO
+                base4M, tranches, 0, new BigDecimal("2000.00"), new BigDecimal("3000.00")
         );
         assertEquals(new BigDecimal("707500.00"), res4M.irsaBrut(), "IRSA exact à la frontière de 4 000 000 Ar");
     }

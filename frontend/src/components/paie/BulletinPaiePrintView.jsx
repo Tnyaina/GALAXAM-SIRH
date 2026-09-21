@@ -229,7 +229,7 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
                         </div>
                         <div className="flex justify-between font-medium border-t border-slate-200 pt-1">
                             <span className="text-slate-700">Net Imposable (IRSA) :</span>
-                            <span className="font-mono font-bold">{formatAr(bulletin.salaireNetImposable ?? bulletin.netImposable)}</span>
+                            <span className="font-mono font-bold">{formatAr(bulletin.revenuNetImposable ?? bulletin.salaireNetImposable ?? bulletin.netImposable)}</span>
                         </div>
                         <div className="flex justify-between text-rose-700">
                             <span>Retenue Fiscale IRSA Nette :</span>

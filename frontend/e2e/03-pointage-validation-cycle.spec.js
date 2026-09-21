@@ -2,6 +2,45 @@ import { test, expect } from '@playwright/test';
 
 test.describe('E2E Scénarios 4, 5 & 6 — Cycle de Validation du Pointage : Transmission, Rejet DAF et Gel Snapshot', () => {
 
+    test.beforeAll(async ({ browser }) => {
+        const page = await browser.newPage();
+        await page.goto('/');
+        await page.locator('input[name="identifiant"]').fill('pointage@galaxam.com');
+        await page.locator('input[name="password"]').fill('Test-Pointage-Only-Password-2026!');
+        await page.locator('button[type="submit"]').click();
+        await expect(page).toHaveURL(/\/pointages/);
+        await page.goto('/pointages?tab=suivi&periode=101');
+        await expect(page.getByText(/Salariés suivis/i)).toBeVisible();
+        const blockingMessage = page.getByText(/anomalie\(s\) bloquante\(s\) non régularisée\(s\)/i);
+        const hasBlockingAnomaly = await blockingMessage.waitFor({ state: 'visible', timeout: 3000 })
+            .then(() => true)
+            .catch(() => false);
+        if (!hasBlockingAnomaly) {
+            await page.goto('/pointages?tab=saisie&periode=101&date=2026-09-08&site=1');
+            await expect(page.locator('table')).toBeVisible();
+            await page.getByRole('button', { name: /Horaire standard/i }).click();
+            await page.locator('button:has-text("Enregistrer")').click();
+            await expect(page.getByText(/Récapitulatif & Validation des Pointages du Jour/i)).toBeVisible();
+            await page.getByRole('button', { name: /Confirmer & Enregistrer/i }).click();
+            await expect(page.getByText(/Pointages enregistrés avec succès/i)).toBeVisible({ timeout: 10000 });
+            await page.goto('/pointages?tab=saisie&periode=101&date=2026-09-09&site=1');
+            await expect(page.locator('table')).toBeVisible();
+            const firstRow = page.locator('table tbody tr').first();
+            const entreeInput = firstRow.locator('input[placeholder="--:--"]').first();
+            await entreeInput.fill('08:00');
+            await page.locator('button:has-text("Enregistrer")').click();
+            await expect(page.getByText(/Récapitulatif & Validation des Pointages du Jour/i)).toBeVisible();
+            await page.getByRole('button', { name: /Confirmer & Enregistrer/i }).click();
+            await expect(page.getByText(/Pointages enregistrés avec succès/i)).toBeVisible({ timeout: 10000 });
+            await page.goto('/pointages?tab=saisie&periode=101&date=2026-09-09&site=1');
+            await page.getByRole('button', { name: /Horaire standard/i }).click();
+            await page.locator('button:has-text("Enregistrer")').click();
+            await page.getByRole('button', { name: /Confirmer & Enregistrer/i }).click();
+            await expect(page.getByText(/Pointages enregistrés avec succès/i)).toBeVisible({ timeout: 10000 });
+        }
+        await page.close();
+    });
+
     test('3.1. Blocage anomalie, Régularisation, Transmission par l\'Agent (SUBMIT) et verrouillage de la saisie', async ({ page }) => {
         // Connexion Agent
         await page.goto('/');

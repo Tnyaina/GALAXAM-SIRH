@@ -480,15 +480,15 @@ public class StcService {
         LocalDate dateRefIrsa = req.getDateDepart().toLocalDate();
         List<Tranche> tranches = chargerTranchesIrsa(configLegale, dateRefIrsa, c);
         int nbEnfants = prep.getNbEnfantsACharge();
-        BigDecimal deducParEnfant = (configLegale != null && configLegale.getDeductionChargeFamille() != null)
-                ? configLegale.getDeductionChargeFamille() : new BigDecimal("2000.00");
-        BigDecimal minPercep = (configLegale != null && configLegale.getMinimumPerceptionIrsa() != null)
-                ? configLegale.getMinimumPerceptionIrsa() : new BigDecimal("3000.00");
-        BigDecimal seuilExo = (configLegale != null && configLegale.getSeuilExonerationIrsa() != null)
-                ? configLegale.getSeuilExonerationIrsa() : new BigDecimal("350000.00");
+        if (configLegale == null || configLegale.getDeductionChargeFamille() == null
+                || configLegale.getMinimumPerceptionIrsa() == null) {
+            throw new IllegalStateException("IRSA_CONFIGURATION_MISSING");
+        }
+        BigDecimal deducParEnfant = configLegale.getDeductionChargeFamille();
+        BigDecimal minPercep = configLegale.getMinimumPerceptionIrsa();
 
         var irsaRes = new IrsaCalculator().calculate(
-                netImposable, tranches, nbEnfants, deducParEnfant, minPercep, seuilExo
+                netImposable, tranches, nbEnfants, deducParEnfant, minPercep
         );
         irsaNet = MoneyRoundingPolicy.tax(irsaRes.irsaNet().min(netImposable));
         res.setIrsaNet(irsaNet);

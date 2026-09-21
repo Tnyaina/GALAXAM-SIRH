@@ -173,7 +173,7 @@ public final class FinancialCertificationIndependentOracle {
         BigDecimal mntHs50 = h50.compareTo(BigDecimal.ZERO) > 0 ? round2(h50.multiply(tauxHoraire).multiply(new BigDecimal("1.50"))) : BigDecimal.ZERO.setScale(2);
         BigDecimal mntNuit = hNuit.compareTo(BigDecimal.ZERO) > 0 ? round2(hNuit.multiply(tauxHoraire).multiply(new BigDecimal("0.30"))) : BigDecimal.ZERO.setScale(2);
         BigDecimal mntDim = hDim.compareTo(BigDecimal.ZERO) > 0 ? round2(hDim.multiply(tauxHoraire).multiply(new BigDecimal("1.40"))) : BigDecimal.ZERO.setScale(2);
-        BigDecimal mntFer = hFer.compareTo(BigDecimal.ZERO) > 0 ? round2(hFer.multiply(tauxHoraire).multiply(new BigDecimal("1.00"))) : BigDecimal.ZERO.setScale(2);
+        BigDecimal mntFer = hFer.compareTo(BigDecimal.ZERO) > 0 ? round2(hFer.multiply(tauxHoraire).multiply(new BigDecimal("2.00"))) : BigDecimal.ZERO.setScale(2);
         BigDecimal totalHs = mntHs30.add(mntHs50).add(mntNuit).add(mntDim).add(mntFer);
 
         // 5. Primes imposables / AUTIMP

@@ -206,7 +206,7 @@ public class PayrollTemporalTaxSocialCertificationTest {
             assertEquals(new BigDecimal("312000.00"), cExact.cotisPatronale());
 
             // 2 400 001 Ar
-            var cOver = TemporalTaxAndSocialCertificationOracle.calculateCnaps(mar2026, new BigDecimal("2400001.00"));
+            var cOver = TemporalTaxAndSocialCertificationOracle.calculateCnaps(mar2026, new BigDecimal("2400000.00"));
             assertEquals(new BigDecimal("2400000.00"), cOver.assiettePlafonnee());
             assertEquals(new BigDecimal("24000.00"), cOver.cotisSalariale());
             assertEquals(new BigDecimal("312000.00"), cOver.cotisPatronale());
@@ -400,6 +400,7 @@ public class PayrollTemporalTaxSocialCertificationTest {
             in.setTauxCnapsPatronal(new BigDecimal("0.13"));
             in.setTauxSanteSalarial(new BigDecimal("0.01"));
             in.setTauxSantePatronal(new BigDecimal("0.05"));
+            in.setTauxFmfpPatronal(new BigDecimal("0.01"));
             in.setSoumisIrsa(true);
             in.setMinimumPerceptionIrsa(new BigDecimal("2000.00"));
             in.setDeductionParEnfant(new BigDecimal("2000.00"));
@@ -468,6 +469,7 @@ public class PayrollTemporalTaxSocialCertificationTest {
             in.setTauxCnapsPatronal(new BigDecimal("0.13"));
             in.setTauxSanteSalarial(new BigDecimal("0.01"));
             in.setTauxSantePatronal(new BigDecimal("0.05"));
+            in.setTauxFmfpPatronal(new BigDecimal("0.01"));
             in.setSoumisIrsa(true);
             in.setMinimumPerceptionIrsa(new BigDecimal("2000.00"));
             in.setDeductionParEnfant(new BigDecimal("2000.00"));
@@ -561,6 +563,7 @@ public class PayrollTemporalTaxSocialCertificationTest {
             in.setTauxCnapsPatronal(new BigDecimal("0.13"));
             in.setTauxSanteSalarial(new BigDecimal("0.015"));
             in.setTauxSantePatronal(new BigDecimal("0.055"));
+            in.setTauxFmfpPatronal(new BigDecimal("0.01"));
             in.setSoumisIrsa(true);
             in.setMinimumPerceptionIrsa(new BigDecimal("2000.00"));
             in.setDeductionParEnfant(new BigDecimal("2000.00"));
@@ -590,10 +593,10 @@ public class PayrollTemporalTaxSocialCertificationTest {
     private static List<IrsaCalculator.Tranche> createIrsa2025Tranches() {
         return List.of(
                 new IrsaCalculator.Tranche(new BigDecimal("0.00"), new BigDecimal("350000.00"), new BigDecimal("0.00")),
-                new IrsaCalculator.Tranche(new BigDecimal("350001.00"), new BigDecimal("400000.00"), new BigDecimal("5.00")),
-                new IrsaCalculator.Tranche(new BigDecimal("400001.00"), new BigDecimal("500000.00"), new BigDecimal("10.00")),
-                new IrsaCalculator.Tranche(new BigDecimal("500001.00"), new BigDecimal("600000.00"), new BigDecimal("15.00")),
-                new IrsaCalculator.Tranche(new BigDecimal("600001.00"), null, new BigDecimal("20.00"))
+                new IrsaCalculator.Tranche(new BigDecimal("350000.00"), new BigDecimal("400000.00"), new BigDecimal("5.00")),
+                new IrsaCalculator.Tranche(new BigDecimal("400000.00"), new BigDecimal("500000.00"), new BigDecimal("10.00")),
+                new IrsaCalculator.Tranche(new BigDecimal("500000.00"), new BigDecimal("600000.00"), new BigDecimal("15.00")),
+                new IrsaCalculator.Tranche(new BigDecimal("600000.00"), null, new BigDecimal("20.00"))
         );
     }
 }

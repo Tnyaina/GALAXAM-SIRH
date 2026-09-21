@@ -217,7 +217,7 @@ export default function CalculStepPage() {
                 const primesEtAutres = Number(brut) - Number(salaireBase) + Number(montantAbsence) + Number(deductionConge) - Number(indemniteConge) - Number(totalHs);
                 const cnapsSal = b.cotisationCnapsSalariale ?? findLigne(['CNAPS_SAL', 'COTISATION_CNAPS_SAL'])?.montantSalarial ?? 0;
                 const santeSal = b.cotisationSanteSalariale ?? findLigne(['SANTE_SAL', 'OSTIE_SAL', 'COTISATION_OSTIE_SAL'])?.montantSalarial ?? 0;
-                const netImposable = b.salaireNetImposable ?? 0;
+                const netImposable = b.revenuNetImposable ?? b.salaireNetImposable ?? 0;
                 const irsa = b.irsaNet ?? 0;
                 const avancesAcomptes = b.totalRetenuesAcomptePret ?? 0;
                 const netAPayer = b.netAPayer ?? 0;
@@ -276,7 +276,7 @@ export default function CalculStepPage() {
             const cnapsSal = complet?.bulletin?.cotisationCnapsSalariale ?? findLigne(['CNAPS_SAL', 'COTISATION_CNAPS_SAL'])?.montantSalarial ?? 0;
             const santeSal = complet?.bulletin?.cotisationSanteSalariale ?? findLigne(['SANTE_SAL', 'OSTIE_SAL', 'COTISATION_OSTIE_SAL'])?.montantSalarial ?? 0;
             const cotisationsSalariales = b.totalCotisationsSalariales ?? (Number(cnapsSal) + Number(santeSal));
-            const netImposable = b.salaireNetImposable ?? (Number(brut) - Number(cotisationsSalariales));
+            const netImposable = b.revenuNetImposable ?? b.salaireNetImposable ?? (Number(brut) - Number(cotisationsSalariales));
             const irsa = b.irsaNet ?? 0;
             const avancesAcomptes = complet?.bulletin?.totalRetenuesAcomptePret ?? 0;
             const netAPayer = b.netAPayer ?? 0;

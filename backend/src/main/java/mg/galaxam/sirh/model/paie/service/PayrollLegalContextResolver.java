@@ -53,9 +53,44 @@ public class PayrollLegalContextResolver {
         }
         resolveOvertimeRates(input, configId, targetDate, connection);
         input.setTranchesIrsa(IrsaBracketResolver.resolve(configId, targetDate, connection));
+        resolveCompanySocialContributions(input, targetDate, connection);
         resolveHealthContribution(input, connection);
         resolveSiteAllowances(input, connection);
         resolveDynamicParameters(input, targetDate, connection);
+    }
+
+    private void resolveCompanySocialContributions(
+            PayrollCalculationInput input, LocalDate targetDate, Connection connection) throws Exception {
+        String sql = "SELECT code, taux_salarial, taux_patronal FROM ref_type_cotisation "
+                + "WHERE code IN ('CNAPS', 'FMFP') AND est_actif = true "
+                + "AND date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) ORDER BY code";
+        boolean cnapsFound = false;
+        boolean fmfpFound = false;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            Date date = Date.valueOf(targetDate);
+            statement.setDate(1, date);
+            statement.setDate(2, date);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    String code = resultSet.getString("code");
+                    if ("CNAPS".equals(code)) {
+                        input.setTauxCnapsSalarial(toDecimalRate(resultSet.getBigDecimal("taux_salarial")));
+                        input.setTauxCnapsPatronal(toDecimalRate(resultSet.getBigDecimal("taux_patronal")));
+                        cnapsFound = true;
+                    } else if ("FMFP".equals(code)) {
+                        input.setTauxFmfpPatronal(toDecimalRate(resultSet.getBigDecimal("taux_patronal")));
+                        fmfpFound = true;
+                    }
+                }
+            }
+        }
+        if (input.isSoumisCnaps() && (!cnapsFound || !fmfpFound)) {
+            throw PayrollConfigurationGuard.missing("COTISATIONS_ENTREPRISE", input.getIdEmploye(), targetDate.toString());
+        }
+    }
+
+    private static BigDecimal toDecimalRate(BigDecimal percentage) {
+        return percentage == null ? null : percentage.movePointLeft(2);
     }
 
     private void resolveOvertimeRates(
@@ -118,7 +153,7 @@ public class PayrollLegalContextResolver {
                 "FROM site_cotisation sc " +
                 "JOIN ref_site s ON sc.id_site = s.id_site " +
                 "JOIN ref_type_cotisation tc ON sc.id_type_cotisation = tc.id_type_cotisation " +
-                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) AND tc.code != 'CNAPS' AND sc.est_actif = true " +
+                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) AND tc.code IN ('OSTIE', 'OMSI') AND sc.est_actif = true " +
                 "ORDER BY tc.code, sc.id_site_cotisation LIMIT 2";
         boolean found = false;
         try (PreparedStatement ps = connection.prepareStatement(sql)) {

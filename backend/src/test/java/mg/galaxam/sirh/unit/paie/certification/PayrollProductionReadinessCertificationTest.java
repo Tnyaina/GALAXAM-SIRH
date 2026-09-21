@@ -37,6 +37,23 @@ import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
  */
 public class PayrollProductionReadinessCertificationTest {
 
+    private static PayrollCalculationInput configuredInput() {
+        PayrollCalculationInput input = new PayrollCalculationInput();
+        input.setTauxCnapsSalarial(new BigDecimal("0.01"));
+        input.setTauxCnapsPatronal(new BigDecimal("0.13"));
+        input.setTauxSanteSalarial(new BigDecimal("0.01"));
+        input.setTauxSantePatronal(new BigDecimal("0.05"));
+        input.setTauxFmfpPatronal(new BigDecimal("0.01"));
+        input.setMajorationHs30(new BigDecimal("0.30"));
+        input.setMajorationHs50(new BigDecimal("0.50"));
+        input.setMajorationNuit(new BigDecimal("0.30"));
+        input.setMajorationDimanche(new BigDecimal("0.40"));
+        input.setMajorationFerie(BigDecimal.ZERO);
+        input.setExonerationHsIrsaActive(true);
+        input.setPlafondMensuelHsExonerees(new BigDecimal("20.00"));
+        return input;
+    }
+
     private PayrollExecutionEngine engine;
 
     @BeforeEach
@@ -74,7 +91,7 @@ public class PayrollProductionReadinessCertificationTest {
         BigDecimal h30 = new BigDecimal("10.00");
         BigDecimal h50 = new BigDecimal("4.00");
 
-        PayrollCalculationInput in = new PayrollCalculationInput();
+        PayrollCalculationInput in = configuredInput();
         in.setIdEmploye(4);
         in.setMatricule("MATR-004");
         in.setNomPrenom("RAKOTO Hery");
@@ -124,7 +141,7 @@ public class PayrollProductionReadinessCertificationTest {
             BigDecimal h30 = new BigDecimal("10.00");
             BigDecimal h50 = new BigDecimal("4.00");
 
-            PayrollCalculationInput in = new PayrollCalculationInput();
+            PayrollCalculationInput in = configuredInput();
             in.setIdEmploye(4);
             in.setMatricule("MATR-004");
             in.setNomPrenom("RAKOTO Hery");
@@ -202,7 +219,7 @@ public class PayrollProductionReadinessCertificationTest {
             BigDecimal h30 = new BigDecimal("10.00");
             BigDecimal h50 = new BigDecimal("4.00");
 
-            PayrollCalculationInput in = new PayrollCalculationInput();
+            PayrollCalculationInput in = configuredInput();
             in.setIdEmploye(4);
             in.setMatricule("MATR-004");
             in.setNomPrenom("RAKOTO Hery");
@@ -252,7 +269,7 @@ public class PayrollProductionReadinessCertificationTest {
 
         private PayrollCalculationInput buildInputForHours(BigDecimal h30, BigDecimal h50) {
             BigDecimal base = new BigDecimal("400000.00");
-            PayrollCalculationInput in = new PayrollCalculationInput();
+            PayrollCalculationInput in = configuredInput();
             in.setIdEmploye(100);
             in.setCategorieProfessionnelle("AGENT");
             in.setSalaireBaseContractuel(base);
@@ -392,7 +409,7 @@ public class PayrollProductionReadinessCertificationTest {
             };
 
             for (BigDecimal base : salaires) {
-                PayrollCalculationInput in = new PayrollCalculationInput();
+                PayrollCalculationInput in = configuredInput();
                 in.setIdEmploye(1);
                 in.setSalaireBaseContractuel(base);
                 in.setDiviseurMensuelHeures(new BigDecimal("173.33"));
@@ -457,7 +474,7 @@ public class PayrollProductionReadinessCertificationTest {
             // Sem 1 (8h) + Sem 2 (7h) + Sem 3 (6h) = 21h HS30
             BigDecimal totalH30 = new BigDecimal("21.00");
 
-            PayrollCalculationInput in = new PayrollCalculationInput();
+            PayrollCalculationInput in = configuredInput();
             in.setIdEmploye(101);
             in.setCategorieProfessionnelle("AGENT");
             in.setSalaireBaseContractuel(new BigDecimal("400000.00"));
@@ -489,7 +506,7 @@ public class PayrollProductionReadinessCertificationTest {
         @DisplayName("12.1 Frontière de mois : Décembre 18h HS puis Janvier 10h HS (Compteurs indépendants)")
         void testMonthlyBoundaryIndependence() {
             // Mois 1 (Décembre 2025) : 18h HS
-            PayrollCalculationInput inDec = new PayrollCalculationInput();
+            PayrollCalculationInput inDec = configuredInput();
             inDec.setIdEmploye(102);
             inDec.setCategorieProfessionnelle("AGENT");
             inDec.setSalaireBaseContractuel(new BigDecimal("400000.00"));
@@ -512,7 +529,7 @@ public class PayrollProductionReadinessCertificationTest {
                     "En Décembre, 18h <= 20h -> 100% exonérées");
 
             // Mois 2 (Janvier 2026) : 10h HS (Nouveau compteur mensuel autonome)
-            PayrollCalculationInput inJan = new PayrollCalculationInput();
+            PayrollCalculationInput inJan = configuredInput();
             inJan.setIdEmploye(102);
             inJan.setCategorieProfessionnelle("AGENT");
             inJan.setSalaireBaseContractuel(new BigDecimal("400000.00"));
@@ -549,7 +566,7 @@ public class PayrollProductionReadinessCertificationTest {
             List<PayrollCalculationInput> population = new ArrayList<>();
 
             // 3 profils distincts
-            PayrollCalculationInput p1 = new PayrollCalculationInput();
+            PayrollCalculationInput p1 = configuredInput();
             p1.setIdEmploye(1);
             p1.setSalaireBaseContractuel(new BigDecimal("600000.00"));
             p1.setSmeNational(new BigDecimal("262680.00"));
@@ -559,7 +576,7 @@ public class PayrollProductionReadinessCertificationTest {
             p1.setTranchesIrsa(createIrsa2025Tranches());
             population.add(p1);
 
-            PayrollCalculationInput p2 = new PayrollCalculationInput();
+            PayrollCalculationInput p2 = configuredInput();
             p2.setIdEmploye(2);
             p2.setSalaireBaseContractuel(new BigDecimal("550000.00"));
             p2.setNbHeuresAbsence(new BigDecimal("2.67"));
@@ -572,7 +589,7 @@ public class PayrollProductionReadinessCertificationTest {
             p2.setTranchesIrsa(createIrsa2025Tranches());
             population.add(p2);
 
-            PayrollCalculationInput p3 = new PayrollCalculationInput();
+            PayrollCalculationInput p3 = configuredInput();
             p3.setIdEmploye(3);
             p3.setSalaireBaseContractuel(new BigDecimal("400000.00"));
             p3.setHeuresHs30(new BigDecimal("10.00"));
@@ -631,14 +648,14 @@ public class PayrollProductionReadinessCertificationTest {
         @DisplayName("22.1 Shadow Payroll sur 5 profils types : Delta inexpliqué strictement égal à 0.00 Ar")
         void testShadowPayrollFiveProfiles() {
             // Profil 1 : Ouvrier sans incident (Base 350k)
-            PayrollCalculationInput p1 = new PayrollCalculationInput();
+            PayrollCalculationInput p1 = configuredInput();
             p1.setIdEmploye(1); p1.setSalaireBaseContractuel(new BigDecimal("350000.00"));
             p1.setSmeNational(new BigDecimal("262680.00")); p1.setSoumisCnaps(true); p1.setSoumisSante(true); p1.setSoumisIrsa(true);
             p1.setMinimumPerceptionIrsa(new BigDecimal("2000.00")); p1.setDeductionParEnfant(new BigDecimal("2000.00"));
             p1.setTranchesIrsa(createIrsa2025Tranches());
 
             // Profil 2 : Salarié avec absences et congés (Base 550k)
-            PayrollCalculationInput p2 = new PayrollCalculationInput();
+            PayrollCalculationInput p2 = configuredInput();
             p2.setIdEmploye(2); p2.setSalaireBaseContractuel(new BigDecimal("550000.00"));
             p2.setNbHeuresAbsence(new BigDecimal("2.67")); p2.setNbJoursConges(new BigDecimal("2.00"));
             p2.setTauxJournalierConge(new BigDecimal("18333.33"));
@@ -647,7 +664,7 @@ public class PayrollProductionReadinessCertificationTest {
             p2.setTranchesIrsa(createIrsa2025Tranches());
 
             // Profil 3 : Agent avec heures supplémentaires (Base 400k, 14h HS)
-            PayrollCalculationInput p3 = new PayrollCalculationInput();
+            PayrollCalculationInput p3 = configuredInput();
             p3.setIdEmploye(3); p3.setSalaireBaseContractuel(new BigDecimal("400000.00"));
             p3.setHeuresHs30(new BigDecimal("10.00")); p3.setHeuresHs50(new BigDecimal("4.00"));
             p3.setMajorationHs30(new BigDecimal("0.30")); p3.setMajorationHs50(new BigDecimal("0.50"));
@@ -658,7 +675,7 @@ public class PayrollProductionReadinessCertificationTest {
             p3.setAppliquerExonerationHs(true);
 
             // Profil 4 : Cadre supérieur au-delà du plafond CNaPS (Base 3 000 000 Ar)
-            PayrollCalculationInput p4 = new PayrollCalculationInput();
+            PayrollCalculationInput p4 = configuredInput();
             p4.setIdEmploye(4); p4.setCategorieProfessionnelle("CADRE");
             p4.setSalaireBaseContractuel(new BigDecimal("3000000.00"));
             p4.setSmeNational(new BigDecimal("262680.00")); p4.setSoumisCnaps(true); p4.setSoumisSante(true); p4.setSoumisIrsa(true);
@@ -666,7 +683,7 @@ public class PayrollProductionReadinessCertificationTest {
             p4.setTranchesIrsa(createIrsa2025Tranches());
 
             // Profil 5 : Cadre dirigeant haut revenu (Base 5 000 000 Ar, tranche 25% LF 2026)
-            PayrollCalculationInput p5 = new PayrollCalculationInput();
+            PayrollCalculationInput p5 = configuredInput();
             p5.setIdEmploye(5); p5.setCategorieProfessionnelle("CADRE");
             p5.setSalaireBaseContractuel(new BigDecimal("5000000.00"));
             p5.setSmeNational(new BigDecimal("262680.00")); p5.setSoumisCnaps(true); p5.setSoumisSante(true); p5.setSoumisIrsa(true);
@@ -817,4 +834,3 @@ public class PayrollProductionReadinessCertificationTest {
         }
     }
 }
-

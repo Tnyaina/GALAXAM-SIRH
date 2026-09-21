@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import mg.galaxam.sirh.model.paie.BulletinPaie;
 import mg.galaxam.sirh.model.paie.BulletinPaieLigne;
+import mg.galaxam.sirh.model.paie.engine.IrsaCalculator;
 
 /**
  * Conteneur complet d'un bulletin de paie généré avec ses lignes ventilées
@@ -17,6 +18,7 @@ public class BulletinPaieComplet {
     private ImpactPret impactPret;
     private List<Integer> idsAvancesImputees = new ArrayList<>();
     private ExplicationPaieDTO explication;
+    private ExplicationFiscaliteDTO explicationFiscalite;
 
     public static record ImpactPret(
             Integer idEcheance,
@@ -56,6 +58,19 @@ public class BulletinPaieComplet {
             BigDecimal montantDimanche,
             BigDecimal heuresFerie,
             BigDecimal montantFerie
+    ) {}
+
+    public static record ExplicationFiscaliteDTO(
+            BigDecimal revenuNetAvantImpot,
+            BigDecimal remunerationHsExonereeIrsa,
+            BigDecimal revenuNetImposable,
+            BigDecimal assietteIrsa,
+            BigDecimal irsaCalcule,
+            BigDecimal irsaAvantReduction,
+            BigDecimal reductionChargeFamille,
+            BigDecimal minimumPerceptionApplicable,
+            BigDecimal irsaDu,
+            List<IrsaCalculator.TrancheDetail> detailsTranches
     ) {}
 
     public BulletinPaieComplet() {}
@@ -109,4 +124,7 @@ public class BulletinPaieComplet {
 
     public ExplicationPaieDTO getExplication() { return explication; }
     public void setExplication(ExplicationPaieDTO explication) { this.explication = explication; }
+
+    public ExplicationFiscaliteDTO getExplicationFiscalite() { return explicationFiscalite; }
+    public void setExplicationFiscalite(ExplicationFiscaliteDTO explicationFiscalite) { this.explicationFiscalite = explicationFiscalite; }
 }

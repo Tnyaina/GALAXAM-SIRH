@@ -48,6 +48,11 @@ public class Phase2a1PayrollCoreAlignmentUnitTest {
         in.setDateDebutPeriode(Date.valueOf(LocalDate.of(2026, 9, 1)));
         in.setDateFinPeriode(Date.valueOf(LocalDate.of(2026, 9, 30)));
         in.setDateCalcul(Date.valueOf(LocalDate.of(2026, 9, 30)));
+        in.setMajorationHs30(new BigDecimal("0.30"));
+        in.setMajorationHs50(new BigDecimal("0.50"));
+        in.setMajorationNuit(new BigDecimal("0.30"));
+        in.setMajorationDimanche(new BigDecimal("0.40"));
+        in.setMajorationFerie(new BigDecimal("1.00"));
         return in;
     }
 

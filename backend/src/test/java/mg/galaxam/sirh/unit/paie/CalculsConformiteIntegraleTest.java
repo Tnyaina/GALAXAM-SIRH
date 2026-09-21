@@ -55,10 +55,10 @@ public class CalculsConformiteIntegraleTest {
         // Barème fiscal progressif IRSA officiel Madagascar
         tranchesLf2026 = List.of(
                 new Tranche(new BigDecimal("0.00"), new BigDecimal("350000.00"), new BigDecimal("0.0")),
-                new Tranche(new BigDecimal("350001.00"), new BigDecimal("400000.00"), new BigDecimal("5.0")),
-                new Tranche(new BigDecimal("400001.00"), new BigDecimal("500000.00"), new BigDecimal("10.0")),
-                new Tranche(new BigDecimal("500001.00"), new BigDecimal("600000.00"), new BigDecimal("15.0")),
-                new Tranche(new BigDecimal("600001.00"), null, new BigDecimal("20.0"))
+                new Tranche(new BigDecimal("350000.00"), new BigDecimal("400000.00"), new BigDecimal("5.0")),
+                new Tranche(new BigDecimal("400000.00"), new BigDecimal("500000.00"), new BigDecimal("10.0")),
+                new Tranche(new BigDecimal("500000.00"), new BigDecimal("600000.00"), new BigDecimal("15.0")),
+                new Tranche(new BigDecimal("600000.00"), null, new BigDecimal("20.0"))
         );
     }
 
@@ -91,6 +91,11 @@ public class CalculsConformiteIntegraleTest {
         in.setTauxSanteSalarial(new BigDecimal("0.01"));
         in.setTauxSantePatronal(new BigDecimal("0.05"));
         in.setTauxFmfpPatronal(new BigDecimal("0.01"));
+        in.setMajorationHs30(new BigDecimal("0.30"));
+        in.setMajorationHs50(new BigDecimal("0.50"));
+        in.setMajorationNuit(new BigDecimal("0.30"));
+        in.setMajorationDimanche(new BigDecimal("0.40"));
+        in.setMajorationFerie(new BigDecimal("1.00"));
 
         in.setForfaitRepasSite(BigDecimal.ZERO);
         in.setForfaitTransportSite(BigDecimal.ZERO);
@@ -388,7 +393,7 @@ public class CalculsConformiteIntegraleTest {
             // Réduction 3 enfants = 6 000 Ar
             // Impôt net = 54 540 - 6 000 = 48 540 Ar
             assertEquals(new BigDecimal("735200.00"), bp.getBaseIrsaArrondie());
-            assertEquals(new BigDecimal("54539.50"), bp.getIrsaBrut());
+            assertEquals(new BigDecimal("54540.00"), bp.getIrsaBrut());
             assertEquals(new BigDecimal("6000.00"), bp.getReductionEnfants());
             assertEquals(new BigDecimal("48540.00"), fisc.irsaNet());
             assertEquals(new BigDecimal("48540.00"), bp.getIrsaNet());

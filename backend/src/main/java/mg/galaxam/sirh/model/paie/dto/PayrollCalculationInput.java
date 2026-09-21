@@ -88,24 +88,26 @@ public class PayrollCalculationInput {
 
     // 6. Fiscalité & Déductions familiales
     private int nbEnfantsEligibles = 0;
-    private BigDecimal smeNational = new BigDecimal("262680.00");
-    private BigDecimal minimumPerceptionIrsa = new BigDecimal("3000.00");
-    private BigDecimal deductionParEnfant = new BigDecimal("2000.00");
-    private BigDecimal seuilExonerationIrsa = new BigDecimal("350000.00");
+    private BigDecimal smeNational;
+    private BigDecimal minimumPerceptionIrsa;
+    private BigDecimal deductionParEnfant;
+    /** @deprecated La tranche IRSA à 0 % est portée uniquement par {@code tranchesIrsa}. */
+    @Deprecated
+    private BigDecimal seuilExonerationIrsa;
     private List<IrsaCalculator.Tranche> tranchesIrsa = new ArrayList<>();
     private BigDecimal tauxIsi;
     // Majorations résolues par l'orchestrateur depuis ref_taux_majoration.
-    private BigDecimal majorationHs30 = new BigDecimal("0.30");
-    private BigDecimal majorationHs50 = new BigDecimal("0.50");
-    private BigDecimal majorationNuit = new BigDecimal("0.30");
-    private BigDecimal majorationDimanche = new BigDecimal("0.40");
-    private BigDecimal majorationFerie = BigDecimal.ZERO;
+    private BigDecimal majorationHs30;
+    private BigDecimal majorationHs50;
+    private BigDecimal majorationNuit;
+    private BigDecimal majorationDimanche;
+    private BigDecimal majorationFerie;
 
     // 6.1 Exonération fiscale des heures supplémentaires (CGI Art. 01.03.03-9°)
-    private boolean exonerationHsIrsaActive = true;
+    private boolean exonerationHsIrsaActive;
     private Boolean categorieEligibleExonerationHs;
     private boolean appliquerExonerationHs = false;
-    private BigDecimal plafondMensuelHsExonerees = new BigDecimal("20.00");
+    private BigDecimal plafondMensuelHsExonerees;
 
     public boolean isExonerationHsIrsaActive() { return exonerationHsIrsaActive; }
     public void setExonerationHsIrsaActive(boolean v) { this.exonerationHsIrsaActive = v; }
@@ -141,13 +143,11 @@ public class PayrollCalculationInput {
 
     // 7. Cotisations sociales (Taux légaux et régionaux)
     private String codeSanteOrgane = "OSTIE";
-    // Valeurs d'initialisation historiques conservées pour les constructions unitaires;
-    // les flux applicatifs les remplacent obligatoirement par la configuration datée.
-    private BigDecimal tauxCnapsSalarial = new BigDecimal("0.01");
-    private BigDecimal tauxCnapsPatronal = new BigDecimal("0.13");
-    private BigDecimal tauxSanteSalarial = new BigDecimal("0.01");
-    private BigDecimal tauxSantePatronal = new BigDecimal("0.05");
-    private BigDecimal tauxFmfpPatronal = new BigDecimal("0.01");
+    private BigDecimal tauxCnapsSalarial;
+    private BigDecimal tauxCnapsPatronal;
+    private BigDecimal tauxSanteSalarial;
+    private BigDecimal tauxSantePatronal;
+    private BigDecimal tauxFmfpPatronal;
 
     /** Représentation financière exacte utilisée par les calculateurs modernes. */
     public BigDecimal getTauxCnapsSalarialDecimal() { return tauxCnapsSalarial; }

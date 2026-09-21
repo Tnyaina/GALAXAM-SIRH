@@ -258,6 +258,7 @@ public class GalaxamHistoricalExcelCertificationTest extends BaseIntegrationTest
         in.setCodeSanteOrgane("OSTIE");
         in.setTauxSanteSalarial(new BigDecimal("0.010"));
         in.setTauxSantePatronal(new BigDecimal("0.050"));
+        in.setTauxFmfpPatronal(legalConfigDec2025.tauxFmfpPatronal());
         in.setSoumisIrsa(true);
         in.setMinimumPerceptionIrsa(legalConfigDec2025.minimumPerceptionIrsa());
         in.setDeductionParEnfant(legalConfigDec2025.deductionParEnfant());
@@ -337,6 +338,7 @@ public class GalaxamHistoricalExcelCertificationTest extends BaseIntegrationTest
         in.setCodeSanteOrgane("OSTIE");
         in.setTauxSanteSalarial(new BigDecimal("0.010"));
         in.setTauxSantePatronal(new BigDecimal("0.050"));
+        in.setTauxFmfpPatronal(legalConfigDec2025.tauxFmfpPatronal());
         in.setSoumisIrsa(true);
         in.setMinimumPerceptionIrsa(legalConfigDec2025.minimumPerceptionIrsa());
         in.setDeductionParEnfant(legalConfigDec2025.deductionParEnfant());
@@ -414,6 +416,7 @@ public class GalaxamHistoricalExcelCertificationTest extends BaseIntegrationTest
         in.setCodeSanteOrgane("OSTIE");
         in.setTauxSanteSalarial(new BigDecimal("0.010"));
         in.setTauxSantePatronal(new BigDecimal("0.050"));
+        in.setTauxFmfpPatronal(legalConfigDec2025.tauxFmfpPatronal());
         in.setSoumisIrsa(true);
         in.setMinimumPerceptionIrsa(legalConfigDec2025.minimumPerceptionIrsa());
         in.setDeductionParEnfant(legalConfigDec2025.deductionParEnfant());
@@ -590,6 +593,7 @@ public class GalaxamHistoricalExcelCertificationTest extends BaseIntegrationTest
         in.setCodeSanteOrgane("OSTIE");
         in.setTauxSanteSalarial(new BigDecimal("0.010"));
         in.setTauxSantePatronal(new BigDecimal("0.050"));
+        in.setTauxFmfpPatronal(legalConfigDec2025.tauxFmfpPatronal());
         in.setSoumisIrsa(true);
         in.setMinimumPerceptionIrsa(legalConfigDec2025.minimumPerceptionIrsa());
         in.setDeductionParEnfant(legalConfigDec2025.deductionParEnfant());

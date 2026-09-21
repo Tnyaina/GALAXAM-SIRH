@@ -49,14 +49,7 @@ export default function IrsaRevalorisationModal({
                     }))
                 );
             } else {
-                // Default Madagascar IRSA tranches template
-                setTranches([
-                    { numeroTranche: 1, trancheMin: 0, trancheMax: 350000, taux: 0 },
-                    { numeroTranche: 2, trancheMin: 350001, trancheMax: 400000, taux: 5 },
-                    { numeroTranche: 3, trancheMin: 400001, trancheMax: 500000, taux: 10 },
-                    { numeroTranche: 4, trancheMin: 500001, trancheMax: 600000, taux: 15 },
-                    { numeroTranche: 5, trancheMin: 600001, trancheMax: '', taux: 20 },
-                ]);
+                setTranches([]);
             }
         }
     }, [isOpen, currentTranches, defaultDate]);
@@ -81,7 +74,7 @@ export default function IrsaRevalorisationModal({
         }
 
         const nextNum = tranches.length + 1;
-        const nextMin = last ? parseFloat(last.trancheMax) + 1 : 0;
+        const nextMin = last ? parseFloat(last.trancheMax) : 0;
 
         setTranches(prev => [
             ...prev,

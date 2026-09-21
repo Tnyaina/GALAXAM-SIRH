@@ -36,29 +36,29 @@ public class PayrollFinancialPreProductionCertificationTest {
     // Barème LF 2026 officiel (6 tranches)
     private static final List<IrsaTrancheDef> TRANCHES_LF2026_ORACLE = List.of(
             new IrsaTrancheDef(BigDecimal.ZERO, new BigDecimal("350000.00"), BigDecimal.ZERO),
-            new IrsaTrancheDef(new BigDecimal("350001.00"), new BigDecimal("400000.00"), new BigDecimal("5.00")),
-            new IrsaTrancheDef(new BigDecimal("400001.00"), new BigDecimal("500000.00"), new BigDecimal("10.00")),
-            new IrsaTrancheDef(new BigDecimal("500001.00"), new BigDecimal("600000.00"), new BigDecimal("15.00")),
-            new IrsaTrancheDef(new BigDecimal("600001.00"), new BigDecimal("4000000.00"), new BigDecimal("20.00")),
-            new IrsaTrancheDef(new BigDecimal("4000001.00"), null, new BigDecimal("25.00"))
+            new IrsaTrancheDef(new BigDecimal("350000.00"), new BigDecimal("400000.00"), new BigDecimal("5.00")),
+            new IrsaTrancheDef(new BigDecimal("400000.00"), new BigDecimal("500000.00"), new BigDecimal("10.00")),
+            new IrsaTrancheDef(new BigDecimal("500000.00"), new BigDecimal("600000.00"), new BigDecimal("15.00")),
+            new IrsaTrancheDef(new BigDecimal("600000.00"), new BigDecimal("4000000.00"), new BigDecimal("20.00")),
+            new IrsaTrancheDef(new BigDecimal("4000000.00"), null, new BigDecimal("25.00"))
     );
 
     // Barème LF 2024-2025 officiel (5 tranches)
     private static final List<IrsaTrancheDef> TRANCHES_LF2025_ORACLE = List.of(
             new IrsaTrancheDef(BigDecimal.ZERO, new BigDecimal("350000.00"), BigDecimal.ZERO),
-            new IrsaTrancheDef(new BigDecimal("350001.00"), new BigDecimal("400000.00"), new BigDecimal("5.00")),
-            new IrsaTrancheDef(new BigDecimal("400001.00"), new BigDecimal("500000.00"), new BigDecimal("10.00")),
-            new IrsaTrancheDef(new BigDecimal("500001.00"), new BigDecimal("600000.00"), new BigDecimal("15.00")),
-            new IrsaTrancheDef(new BigDecimal("600001.00"), null, new BigDecimal("20.00"))
+            new IrsaTrancheDef(new BigDecimal("350000.00"), new BigDecimal("400000.00"), new BigDecimal("5.00")),
+            new IrsaTrancheDef(new BigDecimal("400000.00"), new BigDecimal("500000.00"), new BigDecimal("10.00")),
+            new IrsaTrancheDef(new BigDecimal("500000.00"), new BigDecimal("600000.00"), new BigDecimal("15.00")),
+            new IrsaTrancheDef(new BigDecimal("600000.00"), null, new BigDecimal("20.00"))
     );
 
     private static final List<IrsaCalculator.Tranche> TRANCHES_LF2026_ENGINE = List.of(
             new IrsaCalculator.Tranche(BigDecimal.ZERO, new BigDecimal("350000.00"), BigDecimal.ZERO),
-            new IrsaCalculator.Tranche(new BigDecimal("350001.00"), new BigDecimal("400000.00"), new BigDecimal("0.05")),
-            new IrsaCalculator.Tranche(new BigDecimal("400001.00"), new BigDecimal("500000.00"), new BigDecimal("0.10")),
-            new IrsaCalculator.Tranche(new BigDecimal("500001.00"), new BigDecimal("600000.00"), new BigDecimal("0.15")),
-            new IrsaCalculator.Tranche(new BigDecimal("600001.00"), new BigDecimal("4000000.00"), new BigDecimal("0.20")),
-            new IrsaCalculator.Tranche(new BigDecimal("4000001.00"), null, new BigDecimal("0.25"))
+            new IrsaCalculator.Tranche(new BigDecimal("350000.00"), new BigDecimal("400000.00"), new BigDecimal("0.05")),
+            new IrsaCalculator.Tranche(new BigDecimal("400000.00"), new BigDecimal("500000.00"), new BigDecimal("0.10")),
+            new IrsaCalculator.Tranche(new BigDecimal("500000.00"), new BigDecimal("600000.00"), new BigDecimal("0.15")),
+            new IrsaCalculator.Tranche(new BigDecimal("600000.00"), new BigDecimal("4000000.00"), new BigDecimal("0.20")),
+            new IrsaCalculator.Tranche(new BigDecimal("4000000.00"), null, new BigDecimal("0.25"))
     );
 
     @BeforeEach
@@ -86,6 +86,11 @@ public class PayrollFinancialPreProductionCertificationTest {
         in.setTauxSanteSalarial(new BigDecimal("0.01"));
         in.setTauxSantePatronal(new BigDecimal("0.05"));
         in.setTauxFmfpPatronal(new BigDecimal("0.01"));
+        in.setMajorationHs30(new BigDecimal("0.30"));
+        in.setMajorationHs50(new BigDecimal("0.50"));
+        in.setMajorationNuit(new BigDecimal("0.30"));
+        in.setMajorationDimanche(new BigDecimal("0.40"));
+        in.setMajorationFerie(new BigDecimal("1.00"));
         in.setSoumisIrsa(true);
         in.setSoumisIsi5(false);
         in.setMinimumPerceptionIrsa(new BigDecimal("3000.00"));
@@ -382,7 +387,7 @@ public class PayrollFinancialPreProductionCertificationTest {
                     new BigDecimal("500000.00"),
                     new BigDecimal("2399999.00"),
                     new BigDecimal("2400000.00"),
-                    new BigDecimal("2400001.00"),
+                    new BigDecimal("2400000.00"),
                     new BigDecimal("5000000.00")
             };
 

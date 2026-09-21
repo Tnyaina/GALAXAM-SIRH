@@ -51,10 +51,10 @@ public class PayrollUnitsAndRatesSeparationUnitTest {
         in.setDeductionParEnfant(new BigDecimal("2000.00"));
         in.setTranchesIrsa(List.of(
                 new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("0"), new BigDecimal("350000"), BigDecimal.ZERO),
-                new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("350001"), new BigDecimal("400000"), new BigDecimal("0.05")),
-                new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("400001"), new BigDecimal("500000"), new BigDecimal("0.10")),
-                new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("500001"), new BigDecimal("600000"), new BigDecimal("0.15")),
-                new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("600001"), null, new BigDecimal("0.20"))
+                new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("350000"), new BigDecimal("400000"), new BigDecimal("0.05")),
+                new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("400000"), new BigDecimal("500000"), new BigDecimal("0.10")),
+                new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("500000"), new BigDecimal("600000"), new BigDecimal("0.15")),
+                new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("600000"), null, new BigDecimal("0.20"))
         ));
         in.setTauxCnapsSalarial(new BigDecimal("0.01"));
         in.setTauxCnapsPatronal(new BigDecimal("0.13"));

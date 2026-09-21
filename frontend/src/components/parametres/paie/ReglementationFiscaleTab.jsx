@@ -76,52 +76,26 @@ function KpiField({ label, value, sub }) {
     );
 }
 
-// ---- Valeurs de pré-remplissage (guide de saisie pour un premier exercice vide) ----
-const DEFAULT_TRANCHES_IRSA = [
-    { numeroTranche: 1, trancheMin: 0, trancheMax: 350000, taux: 0 },
-    { numeroTranche: 2, trancheMin: 350001, trancheMax: 400000, taux: 5 },
-    { numeroTranche: 3, trancheMin: 400001, trancheMax: 500000, taux: 10 },
-    { numeroTranche: 4, trancheMin: 500001, trancheMax: 600000, taux: 15 },
-    { numeroTranche: 5, trancheMin: 600001, trancheMax: 4000000, taux: 20 },
-    { numeroTranche: 6, trancheMin: 4000001, trancheMax: '', taux: 25 },
-];
-
-const DEFAULT_MAJORATIONS = [
-    { typeMajoration: 'HS_30', taux: 0.30, description: '41ᵉ à 48ᵉ heure de la semaine' },
-    { typeMajoration: 'HS_50', taux: 0.50, description: 'Au-delà de la 48ᵉ heure' },
-    { typeMajoration: 'NUIT', taux: 0.30, description: 'Heures de nuit (22h - 05h)' },
-    { typeMajoration: 'DIMANCHE', taux: 0.40, description: 'Travail le dimanche' },
-    { typeMajoration: 'FERIE', taux: 1.00, description: 'Travail jour férié' }
-];
-
-const _MAJORATION_META = {
-    HS_30: { label: 'HS Tranche 1 (premières 8h)', defaultPct: 30 },
-    HS_50: { label: 'HS Tranche 2 (au-delà du seuil)', defaultPct: 50 },
-    NUIT: { label: 'Heures de Nuit (22h - 05h)', defaultPct: 30 },
-    DIMANCHE: { label: 'Travail le Dimanche', defaultPct: 40 },
-    FERIE: { label: 'Travail Jour Férié', defaultPct: 100 },
-};
-
 const MAJORATION_ORDER = { 'HS_30': 1, 'HS_50': 2, 'NUIT': 3, 'DIMANCHE': 4, 'FERIE': 5 };
 
 const EMPTY_FORM = {
     codeVersion: '', libelle: '', dateDebut: '', dateFin: '',
-    smeNational: '262680', smeAgricole: '266500', plafondCotisationNbSme: '8',
-    seuilExonerationIrsa: '350000', minimumPerceptionIrsa: '3000', deductionChargeFamille: '2000',
-    arrondiBaseIrsa: 'CENTAINE_INF',
-    dureeHebdoLegale: '40', diviseurMensuelHeures: '173.33', seuilHsTranche1: '8', plafondHsHebdo: '20',
-    exonerationHsIrsaActive: true, plafondMensuelHsExonerees: '20',
-    acquisitionCongeMensuelJours: '2.5', diviseurValorisationCongeJours: '30',
-    tranchesIrsa: DEFAULT_TRANCHES_IRSA,
-    majorations: DEFAULT_MAJORATIONS,
+    smeNational: '', smeAgricole: '', plafondCotisationNbSme: '',
+    seuilExonerationIrsa: '', minimumPerceptionIrsa: '', deductionChargeFamille: '',
+    arrondiBaseIrsa: '',
+    dureeHebdoLegale: '', diviseurMensuelHeures: '', seuilHsTranche1: '', plafondHsHebdo: '',
+    exonerationHsIrsaActive: false, plafondMensuelHsExonerees: '',
+    acquisitionCongeMensuelJours: '', diviseurValorisationCongeJours: '',
+    tranchesIrsa: [],
+    majorations: [],
 };
 
 const MAJORATION_CONFIG = [
-    { type: 'HS_30', title: 'HS Tranche 1', subtitle: '41ᵉ à 48ᵉ h (premières 8h)', icon: Clock, defaultPct: 30, color: 'text-[var(--color-warning-500)]', badgeBg: 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)]' },
-    { type: 'HS_50', title: 'HS Tranche 2', subtitle: 'Au-delà de la 48ᵉ heure', icon: Zap, defaultPct: 50, color: 'text-[var(--color-orange-500)]', badgeBg: 'bg-[var(--color-orange-500)]/10 text-[var(--color-orange-600)]' },
-    { type: 'NUIT', title: 'Heures de Nuit', subtitle: '22h00 – 05h00 du matin', icon: Moon, defaultPct: 30, color: 'text-[var(--color-purple-500)]', badgeBg: 'bg-[var(--color-purple-500)]/10 text-[var(--color-purple-600)]' },
-    { type: 'DIMANCHE', title: 'Dimanche', subtitle: 'Repos hebdomadaire légal', icon: Sun, defaultPct: 40, color: 'text-[var(--color-brand-500)]', badgeBg: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)]' },
-    { type: 'FERIE', title: 'Jour Férié', subtitle: 'Férié chômé et payé', icon: Calendar, defaultPct: 100, color: 'text-[var(--color-danger-500)]', badgeBg: 'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-600)]' },
+    { type: 'HS_30', title: 'HS Tranche 1', subtitle: 'Première tranche configurée', icon: Clock, color: 'text-[var(--color-warning-500)]', badgeBg: 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)]' },
+    { type: 'HS_50', title: 'HS Tranche 2', subtitle: 'Seconde tranche configurée', icon: Zap, color: 'text-[var(--color-orange-500)]', badgeBg: 'bg-[var(--color-orange-500)]/10 text-[var(--color-orange-600)]' },
+    { type: 'NUIT', title: 'Heures de Nuit', subtitle: 'Plage configurée en base', icon: Moon, color: 'text-[var(--color-purple-500)]', badgeBg: 'bg-[var(--color-purple-500)]/10 text-[var(--color-purple-600)]' },
+    { type: 'DIMANCHE', title: 'Dimanche', subtitle: 'Majoration configurée', icon: Sun, color: 'text-[var(--color-brand-500)]', badgeBg: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)]' },
+    { type: 'FERIE', title: 'Jour Férié', subtitle: 'Majoration configurée', icon: Calendar, color: 'text-[var(--color-danger-500)]', badgeBg: 'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-600)]' },
 ];
 
 function MajorationsFormSection({ majorations = [], onChange, isReadOnly }) {
@@ -142,9 +116,9 @@ function MajorationsFormSection({ majorations = [], onChange, isReadOnly }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 {MAJORATION_CONFIG.map(item => {
                     const found = majorations.find(m => m.typeMajoration === item.type);
-                    const rawTaux = found ? parseFloat(found.taux) : (item.defaultPct / 100);
-                    const pct = Math.round(rawTaux * 100);
-                    const mult = (1 + rawTaux).toFixed(2);
+                    const rawTaux = found ? parseFloat(found.taux) : null;
+                    const pct = rawTaux === null ? '' : Math.round(rawTaux * 100);
+                    const mult = rawTaux === null ? '—' : (1 + rawTaux).toFixed(2);
                     const Icon = item.icon;
 
                     return (
@@ -202,7 +176,7 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
         }
         setLocalError(null);
         const nextNum = tranches.length + 1;
-        const nextMin = last ? (parseFloat(last.trancheMax) || 0) + 1 : 0;
+        const nextMin = last ? (parseFloat(last.trancheMax) || 0) : 0;
         onChange([
             ...tranches,
             { numeroTranche: nextNum, trancheMin: nextMin, trancheMax: '', taux: 0 }
@@ -811,7 +785,7 @@ export default function ReglementationFiscaleTab() {
 
     // ---- Ouverture "Initialiser" : aucun exercice actif ----
     const handleOpenInit = () => {
-        setFormData({ ...EMPTY_FORM, dateDebut: todayStr, tranchesIrsa: DEFAULT_TRANCHES_IRSA, majorations: DEFAULT_MAJORATIONS });
+        setFormData({ ...EMPTY_FORM, dateDebut: todayStr, tranchesIrsa: [], majorations: [] });
         setModalMode('init');
         setEditingId(null);
         setModalError(null);
@@ -829,7 +803,7 @@ export default function ReglementationFiscaleTab() {
                 trancheMax: t.trancheMax ?? '',
                 taux: t.taux
             }))
-            : DEFAULT_TRANCHES_IRSA;
+            : [];
 
         const currentMajs = getMajorationsForConfig(activeConfig, majorations);
         const clonedMajs = currentMajs.length > 0
@@ -838,26 +812,26 @@ export default function ReglementationFiscaleTab() {
                 taux: m.taux,
                 description: m.description || ''
             }))
-            : DEFAULT_MAJORATIONS;
+            : [];
 
         const f = {
             codeVersion: '', libelle: '',
             dateDebut: '', dateFin: '',
             smeNational: String(activeConfig.smeNational ?? ''),
             smeAgricole: String(activeConfig.smeAgricole ?? ''),
-            plafondCotisationNbSme: String(activeConfig.plafondCotisationNbSme ?? '8'),
+            plafondCotisationNbSme: String(activeConfig.plafondCotisationNbSme ?? ''),
             seuilExonerationIrsa: String(activeConfig.seuilExonerationIrsa ?? ''),
             minimumPerceptionIrsa: String(activeConfig.minimumPerceptionIrsa ?? ''),
             deductionChargeFamille: String(activeConfig.deductionChargeFamille ?? ''),
             arrondiBaseIrsa: activeConfig.arrondiBaseIrsa ?? 'CENTAINE_INF',
-            dureeHebdoLegale: String(activeConfig.dureeHebdoLegale ?? '40'),
-            diviseurMensuelHeures: String(activeConfig.diviseurMensuelHeures ?? '173.33'),
-            seuilHsTranche1: String(activeConfig.seuilHsTranche1 ?? '8'),
-            plafondHsHebdo: String(activeConfig.plafondHsHebdo ?? '20'),
-            exonerationHsIrsaActive: activeConfig.exonerationHsIrsaActive ?? true,
-            plafondMensuelHsExonerees: String(activeConfig.plafondMensuelHsExonerees ?? '20'),
-            acquisitionCongeMensuelJours: String(activeConfig.acquisitionCongeMensuelJours ?? '2.5'),
-            diviseurValorisationCongeJours: String(activeConfig.diviseurValorisationCongeJours ?? '30'),
+            dureeHebdoLegale: String(activeConfig.dureeHebdoLegale ?? ''),
+            diviseurMensuelHeures: String(activeConfig.diviseurMensuelHeures ?? ''),
+            seuilHsTranche1: String(activeConfig.seuilHsTranche1 ?? ''),
+            plafondHsHebdo: String(activeConfig.plafondHsHebdo ?? ''),
+            exonerationHsIrsaActive: activeConfig.exonerationHsIrsaActive ?? false,
+            plafondMensuelHsExonerees: String(activeConfig.plafondMensuelHsExonerees ?? ''),
+            acquisitionCongeMensuelJours: String(activeConfig.acquisitionCongeMensuelJours ?? ''),
+            diviseurValorisationCongeJours: String(activeConfig.diviseurValorisationCongeJours ?? ''),
             tranchesIrsa: clonedTranches,
             majorations: clonedMajs,
         };
@@ -879,19 +853,19 @@ export default function ReglementationFiscaleTab() {
             dateFin: fmtDateInput(config.dateFin) ?? '',
             smeNational: String(config.smeNational ?? ''),
             smeAgricole: String(config.smeAgricole ?? ''),
-            plafondCotisationNbSme: String(config.plafondCotisationNbSme ?? '8'),
+            plafondCotisationNbSme: String(config.plafondCotisationNbSme ?? ''),
             seuilExonerationIrsa: String(config.seuilExonerationIrsa ?? ''),
             minimumPerceptionIrsa: String(config.minimumPerceptionIrsa ?? ''),
             deductionChargeFamille: String(config.deductionChargeFamille ?? ''),
             arrondiBaseIrsa: config.arrondiBaseIrsa ?? 'CENTAINE_INF',
-            dureeHebdoLegale: String(config.dureeHebdoLegale ?? '40'),
-            diviseurMensuelHeures: String(config.diviseurMensuelHeures ?? '173.33'),
-            seuilHsTranche1: String(config.seuilHsTranche1 ?? '8'),
-            plafondHsHebdo: String(config.plafondHsHebdo ?? '20'),
-            exonerationHsIrsaActive: config.exonerationHsIrsaActive ?? true,
-            plafondMensuelHsExonerees: String(config.plafondMensuelHsExonerees ?? '20'),
-            acquisitionCongeMensuelJours: String(config.acquisitionCongeMensuelJours ?? '2.5'),
-            diviseurValorisationCongeJours: String(config.diviseurValorisationCongeJours ?? '30'),
+            dureeHebdoLegale: String(config.dureeHebdoLegale ?? ''),
+            diviseurMensuelHeures: String(config.diviseurMensuelHeures ?? ''),
+            seuilHsTranche1: String(config.seuilHsTranche1 ?? ''),
+            plafondHsHebdo: String(config.plafondHsHebdo ?? ''),
+            exonerationHsIrsaActive: config.exonerationHsIrsaActive ?? false,
+            plafondMensuelHsExonerees: String(config.plafondMensuelHsExonerees ?? ''),
+            acquisitionCongeMensuelJours: String(config.acquisitionCongeMensuelJours ?? ''),
+            diviseurValorisationCongeJours: String(config.diviseurValorisationCongeJours ?? ''),
             tranchesIrsa: tranches.map(t => ({
                 numeroTranche: t.numeroTranche,
                 trancheMin: t.trancheMin,
@@ -902,7 +876,7 @@ export default function ReglementationFiscaleTab() {
                 typeMajoration: m.typeMajoration,
                 taux: m.taux,
                 description: m.description || ''
-            })) : DEFAULT_MAJORATIONS,
+            })) : [],
         });
         setModalMode('view');
         setEditingId(null);
@@ -937,30 +911,30 @@ export default function ReglementationFiscaleTab() {
             dateFin: fmtDateInput(config.dateFin) ?? '',
             smeNational: String(config.smeNational ?? ''),
             smeAgricole: String(config.smeAgricole ?? ''),
-            plafondCotisationNbSme: String(config.plafondCotisationNbSme ?? '8'),
+            plafondCotisationNbSme: String(config.plafondCotisationNbSme ?? ''),
             seuilExonerationIrsa: String(config.seuilExonerationIrsa ?? ''),
             minimumPerceptionIrsa: String(config.minimumPerceptionIrsa ?? ''),
             deductionChargeFamille: String(config.deductionChargeFamille ?? ''),
             arrondiBaseIrsa: config.arrondiBaseIrsa ?? 'CENTAINE_INF',
-            dureeHebdoLegale: String(config.dureeHebdoLegale ?? '40'),
-            diviseurMensuelHeures: String(config.diviseurMensuelHeures ?? '173.33'),
-            seuilHsTranche1: String(config.seuilHsTranche1 ?? '8'),
-            plafondHsHebdo: String(config.plafondHsHebdo ?? '20'),
-            exonerationHsIrsaActive: config.exonerationHsIrsaActive ?? true,
-            plafondMensuelHsExonerees: String(config.plafondMensuelHsExonerees ?? '20'),
-            acquisitionCongeMensuelJours: String(config.acquisitionCongeMensuelJours ?? '2.5'),
-            diviseurValorisationCongeJours: String(config.diviseurValorisationCongeJours ?? '30'),
+            dureeHebdoLegale: String(config.dureeHebdoLegale ?? ''),
+            diviseurMensuelHeures: String(config.diviseurMensuelHeures ?? ''),
+            seuilHsTranche1: String(config.seuilHsTranche1 ?? ''),
+            plafondHsHebdo: String(config.plafondHsHebdo ?? ''),
+            exonerationHsIrsaActive: config.exonerationHsIrsaActive ?? false,
+            plafondMensuelHsExonerees: String(config.plafondMensuelHsExonerees ?? ''),
+            acquisitionCongeMensuelJours: String(config.acquisitionCongeMensuelJours ?? ''),
+            diviseurValorisationCongeJours: String(config.diviseurValorisationCongeJours ?? ''),
             tranchesIrsa: tranches.length > 0 ? tranches.map(t => ({
                 numeroTranche: t.numeroTranche,
                 trancheMin: t.trancheMin,
                 trancheMax: t.trancheMax ?? '',
                 taux: t.taux
-            })) : DEFAULT_TRANCHES_IRSA,
+            })) : [],
             majorations: majs.length > 0 ? majs.map(m => ({
                 typeMajoration: m.typeMajoration,
                 taux: m.taux,
                 description: m.description || ''
-            })) : DEFAULT_MAJORATIONS,
+            })) : [],
         });
         setModalMode('edit');
         setEditingId(config.idConfigLegale);

@@ -121,7 +121,7 @@ public class CongeCutoverWorkflowIntegrationTest extends BaseIntegrationTest {
                     "VALUES (?, 'PRISE', ?, ?, 'Congé annuel payé', 1)";
             try (PreparedStatement psP = c.prepareStatement(sqlPrise)) {
                 psP.setInt(1, testEmployeId);
-                psP.setBigDecimal(2, new BigDecimal("5.00"));
+                psP.setBigDecimal(2, new BigDecimal("-5.00"));
                 psP.setDate(3, Date.valueOf(LocalDate.of(2026, 10, 10)));
                 psP.executeUpdate();
             }

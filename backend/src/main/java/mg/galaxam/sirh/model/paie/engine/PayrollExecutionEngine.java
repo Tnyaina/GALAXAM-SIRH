@@ -36,7 +36,7 @@ public class PayrollExecutionEngine {
     public static final BigDecimal MULTIPLICATEUR_PLAFOND_CNAPS = new BigDecimal("8.0");
 
     public record CotisationsResult(BigDecimal totalCotisationsSalariales, BigDecimal totalCotisationsPatronales) {}
-    public record FiscaliteResult(BigDecimal irsaNet, BigDecimal retenueIsi) {}
+    public record FiscaliteResult(BigDecimal irsaNet, BigDecimal retenueIsi, IrsaCalculator.Result detailIrsa) {}
     public record RetenuesResult(BigDecimal totalRetenues, ImpactPret impactPret, List<Integer> idsAvancesImputees) {}
 
     public PayrollExecutionEngine() { }
@@ -67,19 +67,19 @@ public class PayrollExecutionEngine {
         CotisationsResult cotis = calculerCotisationsSociales(totalGainsBruts, input, bp, lignes);
 
         // 3. Net imposable
-        BigDecimal salaireNetImposable = calculerNetImposable(totalGainsBruts, cotis.totalCotisationsSalariales(), bp);
+        BigDecimal revenuNetAvantImpot = calculerNetImposable(totalGainsBruts, cotis.totalCotisationsSalariales(), bp);
 
         // 3.1 Exonération fiscale des Heures Supplémentaires (CGI Art. 01.03.03-9°)
         OvertimeExemptionDetail hsExo = calculerExonerationFiscaleHs(input, input.getTauxHoraireEffectif(), bp, lignes);
 
         // 4. Fiscalité (IRSA progressif ou ISI 5%)
-        FiscaliteResult fisc = calculerFiscalite(salaireNetImposable, hsExo.hsExonereeIrsa(), totalGainsBruts, input, bp, lignes);
+        FiscaliteResult fisc = calculerFiscalite(revenuNetAvantImpot, hsExo.hsExonereeIrsa(), totalGainsBruts, input, bp, lignes);
 
         // 5. Indemnités non imposables (Repas, Transport, Déplacements, Notes de frais)
         BigDecimal totalIndemnitesNet = calculerIndemnitesNonImposables(input, bp, lignes);
 
         // Net disponible avant les déductions de trésorerie personnelles
-        BigDecimal netAvantTresorerie = salaireNetImposable
+        BigDecimal netAvantTresorerie = revenuNetAvantImpot
                 .subtract(fisc.retenueIsi())
                 .subtract(fisc.irsaNet())
                 .add(totalIndemnitesNet)
@@ -133,6 +133,18 @@ public class PayrollExecutionEngine {
                 minAbs, hAbs, minRetard, diviseur, txHor, mntAbs,
                 nbConge, base, tx30, dedConge, txConge, indConge, netConge,
                 h30, mnt30, h50, mnt50, hNuit, mntNuit, hDim, mntDim, hFer, mntFer
+        ));
+        complet.setExplicationFiscalite(new BulletinPaieComplet.ExplicationFiscaliteDTO(
+                revenuNetAvantImpot,
+                hsExo.hsExonereeIrsa(),
+                bp.getRevenuNetImposable(),
+                bp.getAssietteIrsa(),
+                bp.getIrsaCalcule(),
+                MoneyRoundingPolicy.irsaCalculatedUpperTen(bp.getIrsaCalcule()),
+                bp.getReductionEnfants(),
+                zeroIfNull(input.getMinimumPerceptionIrsa()),
+                bp.getIrsaDu(),
+                fisc.detailIrsa() == null ? List.of() : fisc.detailIrsa().detailsTranches()
         ));
 
         return complet;
@@ -569,9 +581,10 @@ public class PayrollExecutionEngine {
     // =========================================================================
 
     public BigDecimal calculerNetImposable(BigDecimal totalGainsBruts, BigDecimal totalCotisSalariales, BulletinPaie bp) {
-        BigDecimal salaireNetImposable = totalGainsBruts.subtract(totalCotisSalariales).max(BigDecimal.ZERO);
-        bp.setSalaireNetImposable(salaireNetImposable);
-        return salaireNetImposable;
+        BigDecimal revenuNetAvantImpot = totalGainsBruts.subtract(totalCotisSalariales).max(BigDecimal.ZERO);
+        bp.setSalaireNetImposable(revenuNetAvantImpot);
+        bp.setRevenuNetImposable(revenuNetAvantImpot);
+        return revenuNetAvantImpot;
     }
 
     // =========================================================================
@@ -587,6 +600,7 @@ public class PayrollExecutionEngine {
                                             PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal irsaNet = MoneyRoundingPolicy.tax(BigDecimal.ZERO);
         BigDecimal retenueIsi = MoneyRoundingPolicy.tax(BigDecimal.ZERO);
+        IrsaCalculator.Result detailIrsa = null;
 
         if (input.isSoumisIsi5()) {
             // Régime Prestataire / Consultant : Retenue libératoire ISI directe de 5%
@@ -602,16 +616,17 @@ public class PayrollExecutionEngine {
         } else if (input.isSoumisIrsa()) {
             // Assiette IRSA Fiscale : Net Imposable Social - Rémunération des HS exonérées (CGI Art. 01.03.03-9°)
             BigDecimal assietteFiscale = salaireNetImposable.subtract(zeroIfNull(hsExonereeIrsa)).max(BigDecimal.ZERO);
+            bp.setRevenuNetImposable(assietteFiscale);
 
             // Régime Salarié : Barème progressif IRSA unifié (6 tranches, min 3 000 Ar)
-            var irsaRes = new IrsaCalculator().calculate(
+            detailIrsa = new IrsaCalculator().calculate(
                     assietteFiscale,
                     input.getTranchesIrsa(),
                     input.getNbEnfantsEligibles(),
                     input.getDeductionParEnfant(),
-                    input.getMinimumPerceptionIrsa(),
-                    input.getSeuilExonerationIrsa()
+                    input.getMinimumPerceptionIrsa()
             );
+            var irsaRes = detailIrsa;
 
             bp.setBaseIrsaArrondie(irsaRes.baseIrsaArrondie());
             bp.setIrsaBrut(irsaRes.irsaBrut());
@@ -639,7 +654,7 @@ public class PayrollExecutionEngine {
             bp.setRetenueIsi5(MoneyRoundingPolicy.tax(BigDecimal.ZERO));
         }
 
-        return new FiscaliteResult(irsaNet, retenueIsi);
+        return new FiscaliteResult(irsaNet, retenueIsi, detailIrsa);
     }
 
     // =========================================================================

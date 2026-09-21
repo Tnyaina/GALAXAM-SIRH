@@ -21,7 +21,7 @@ import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
 import mg.galaxam.sirh.model.paieconfig.RefTauxMajoration;
 
 @SpringBootTest
-@ActiveProfiles("local")
+@ActiveProfiles("test")
 public class PayrollTemporalPostgresCertificationIntegrationTest {
 
     @Autowired

@@ -46,7 +46,7 @@ describe('Payroll Runtime UI Stabilization — Tests de Non-Régression DTO & Ru
                 salaireNetImposable: 601103.74,
                 netImposable: null
             };
-            const netImposable = bulletin.salaireNetImposable ?? bulletin.netImposable;
+            const netImposable = bulletin.revenuNetImposable ?? bulletin.salaireNetImposable ?? bulletin.netImposable;
             expect(netImposable).toBe(601103.74);
             expect(formatMoneyAr(netImposable)).toBe('601 103,74 Ar');
         });
