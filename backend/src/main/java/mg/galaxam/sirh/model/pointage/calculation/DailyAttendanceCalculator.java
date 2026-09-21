@@ -63,6 +63,13 @@ public class DailyAttendanceCalculator {
         long lateMinutes = context.autonomous() ? 0 : lateMinutes(context);
         long normalMinutes = Math.min(workedMinutes, scheduledMinutes);
         long absenceMinutes = Math.max(0, scheduledMinutes - workedMinutes);
+        if (context.leavePart() == DailyAttendanceContext.LeavePart.FULL_DAY || (context.publicHoliday() && !hasPunch)) {
+            absenceMinutes = 0;
+        } else if (context.leavePart() == DailyAttendanceContext.LeavePart.MORNING) {
+            absenceMinutes = Math.max(0, absenceMinutes - scheduledMorningMinutes(context));
+        } else if (context.leavePart() == DailyAttendanceContext.LeavePart.AFTERNOON) {
+            absenceMinutes = Math.max(0, absenceMinutes - (scheduledMinutes - scheduledMorningMinutes(context)));
+        }
         long nightMinutes = nightMinutes(context);
 
         DailyAttendanceResult.Status status = determineStatus(

@@ -96,6 +96,14 @@ export default function Router() {
                         <Route path="/pointages/synthese" element={<Navigate to="/pointages?tab=synthese" replace />} />
                         <Route path="/pointages/validation" element={<Navigate to="/pointages?tab=validation" replace />} />
                         <Route path="/pointages/arbitrage" element={<Navigate to="/pointages?tab=validation" replace />} />
+
+                        {/* Alias singuliers de compatibilité (/pointage/*) */}
+                        <Route path="/pointage" element={<Navigate to="/pointages" replace />} />
+                        <Route path="/pointage/saisie" element={<Navigate to="/pointages?tab=saisie" replace />} />
+                        <Route path="/pointage/anomalies" element={<Navigate to="/pointages?tab=anomalies" replace />} />
+                        <Route path="/pointage/synthese" element={<Navigate to="/pointages?tab=synthese" replace />} />
+                        <Route path="/pointage/validation" element={<Navigate to="/pointages?tab=validation" replace />} />
+                        <Route path="/pointage/arbitrage" element={<Navigate to="/pointages?tab=validation" replace />} />
                     </Route>
 
 

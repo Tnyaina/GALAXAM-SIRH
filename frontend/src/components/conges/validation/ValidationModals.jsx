@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, X, FileText, XSquare, Pencil, AlertTriangle } from 'lucide-react';
+import { Check, X, FileText, XSquare, Pencil, AlertTriangle, Calculator } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import Button from '@/components/ui/forms/Button';
@@ -8,6 +8,7 @@ import { Textarea, Checkbox } from '@/components/ui/forms/Input';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
 import { fmtDate } from '@/utils/dateUtils';
+import congeService from '@/api/congeService';
 
 const formatDate = (ts) => fmtDate(ts);
 
@@ -43,6 +44,27 @@ export default function ValidationModals({
   const [justificatifFourni, setJustificatifFourni] = useState(false);
   const [estRemunere, setEstRemunere] = useState(true);
   const [derogationSoldeNegatif, setDerogationSoldeNegatif] = useState(false);
+  const [soldeEmploye, setSoldeEmploye] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSolde = async () => {
+      if (!selectedDemande?.idEmploye) {
+        setSoldeEmploye(null);
+        return;
+      }
+      try {
+        const res = await congeService.getSoldeEmploye(selectedDemande.idEmploye);
+        if (isMounted) setSoldeEmploye(res);
+      } catch {
+        if (isMounted) setSoldeEmploye(null);
+      }
+    };
+    if (showValiderModal || showDetailModal) {
+      fetchSolde();
+    }
+    return () => { isMounted = false; };
+  }, [showValiderModal, showDetailModal, selectedDemande?.idEmploye]);
 
   useEffect(() => {
     if (showValiderModal && selectedDemande) {
@@ -53,6 +75,11 @@ export default function ValidationModals({
       setDerogationSoldeNegatif(Boolean(selectedDemande.derogationSoldeNegatif));
     }
   }, [showValiderModal, selectedDemande]);
+
+  const joursDemandes = Number(selectedDemande?.nbJoursDecomptes) || (selectedDemande?.estDemiJournee ? 0.5 : 0);
+  const soldeAvant = soldeEmploye?.soldeRestant ?? soldeEmploye?.soldeActuel ?? selectedDemande?.soldeRestant ?? selectedDemande?.soldeActuel ?? null;
+  const joursDebites = estRemunere ? joursDemandes : 0;
+  const soldeApres = soldeAvant != null ? (Number(soldeAvant) - joursDebites) : null;
 
   return (
     <>
@@ -188,6 +215,46 @@ export default function ValidationModals({
               </div>
             )}
 
+            {/* Audit comptable du solde de congé */}
+            <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3 text-xs space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block flex items-center gap-1.5">
+                <Calculator size={13} className="text-brand-500" />
+                Contrôle comptable du Solde de Congés Payés
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
+                  <span className="text-[10px] text-[var(--color-fg-muted)] block">Solde Avant</span>
+                  <span className="font-mono font-bold text-xs text-[var(--color-fg)]">
+                    {soldeAvant != null ? `${Number(soldeAvant).toFixed(2)} j` : '—'}
+                  </span>
+                </div>
+                <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
+                  <span className="text-[10px] text-[var(--color-fg-muted)] block">Jours Demandés</span>
+                  <span className="font-mono font-bold text-xs text-[var(--color-info-600)] dark:text-[var(--color-info-400)]">
+                    {Number(joursDemandes).toFixed(2)} j
+                  </span>
+                </div>
+                <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
+                  <span className="text-[10px] text-[var(--color-fg-muted)] block">Jours Débités</span>
+                  <span className="font-mono font-bold text-xs text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                    {estRemunere ? `-${Number(joursDemandes).toFixed(2)} j` : '0.00 j'}
+                  </span>
+                </div>
+                <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
+                  <span className="text-[10px] text-[var(--color-fg-muted)] block">Solde Après</span>
+                  <span className={`font-mono font-bold text-xs ${soldeApres != null && soldeApres < 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
+                    {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : '—'}
+                  </span>
+                </div>
+              </div>
+              <div className="text-[11px] text-[var(--color-fg-subtle)] pt-1 border-t border-[var(--color-border-subtle)] flex items-center justify-between">
+                <span>Impact Paie : <strong>{estRemunere ? 'Congé Rémunéré (TCONGE valorisé)' : 'Sans Solde (Retenue absence)'}</strong></span>
+                {soldeEmploye?.tauxJournalierConge && (
+                  <span>TCONGE : <strong className="font-mono">{Number(soldeEmploye.tauxJournalierConge).toLocaleString('fr-FR')} Ar/j</strong></span>
+                )}
+              </div>
+            </div>
+
             {/* Justificatif */}
             <div className="flex items-center gap-2 pt-2 border-t border-[var(--color-border-subtle)]">
               <span className="text-xs font-bold text-[var(--color-fg-muted)]">Justificatif fourni :</span>
@@ -225,6 +292,46 @@ export default function ValidationModals({
               message={typeof actionError === 'string' ? actionError : JSON.stringify(actionError)}
             />
           )}
+
+          {/* Audit comptable solde dans la modale de validation */}
+          <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3 text-xs space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block flex items-center gap-1.5">
+              <Calculator size={13} className="text-brand-500" />
+              Impact Comptable sur le Solde & Paie
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+              <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
+                <span className="text-[10px] text-[var(--color-fg-muted)] block">Solde Avant</span>
+                <span className="font-mono font-bold text-xs text-[var(--color-fg)]">
+                  {soldeAvant != null ? `${Number(soldeAvant).toFixed(2)} j` : '—'}
+                </span>
+              </div>
+              <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
+                <span className="text-[10px] text-[var(--color-fg-muted)] block">Demandés</span>
+                <span className="font-mono font-bold text-xs text-[var(--color-info-600)] dark:text-[var(--color-info-400)]">
+                  {Number(joursDemandes).toFixed(2)} j
+                </span>
+              </div>
+              <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
+                <span className="text-[10px] text-[var(--color-fg-muted)] block">Débités</span>
+                <span className="font-mono font-bold text-xs text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                  {estRemunere ? `-${Number(joursDemandes).toFixed(2)} j` : '0.00 j'}
+                </span>
+              </div>
+              <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
+                <span className="text-[10px] text-[var(--color-fg-muted)] block">Solde Après</span>
+                <span className={`font-mono font-bold text-xs ${soldeApres != null && soldeApres < 0 ? 'text-[var(--color-danger-600)] font-bold' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
+                  {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : '—'}
+                </span>
+              </div>
+            </div>
+            {soldeApres != null && soldeApres < 0 && !derogationSoldeNegatif && (
+              <div className="text-[11px] text-[var(--color-danger-600)] font-semibold flex items-center gap-1 mt-1">
+                <AlertTriangle size={12} />
+                Solde insuffisant : cochez l’autorisation de dépassement pour valider par anticipation.
+              </div>
+            )}
+          </div>
           <label className="flex items-start gap-3 cursor-pointer p-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
             <input
               type="checkbox"

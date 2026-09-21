@@ -222,6 +222,11 @@ public class TestEmployeFixtures {
 
     public CreatedEmploye createEmployeWithSalary(String matricule, String nom, String prenom, int idSite,
                                                  BigDecimal salaireBase, String regimeIntervenant, int nbEnfants) {
+        return createEmployeWithSalary(matricule, nom, prenom, idSite, salaireBase, regimeIntervenant, nbEnfants, false);
+    }
+
+    public CreatedEmploye createEmployeWithSalary(String matricule, String nom, String prenom, int idSite,
+                                                 BigDecimal salaireBase, String regimeIntervenant, int nbEnfants, boolean estCadre) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -278,7 +283,7 @@ public class TestEmployeFixtures {
                         "(SELECT id_departement FROM ref_departement LIMIT 1), " +
                         "(SELECT id_service FROM ref_service LIMIT 1), " +
                         "(SELECT id_fonction FROM ref_fonction LIMIT 1), " +
-                        "(SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle LIMIT 1), " +
+                        "(SELECT id_categorie_professionnelle FROM ref_categorie_professionnelle WHERE est_cadre = ? LIMIT 1), " +
                         "(SELECT id_mode_calcul_paie FROM ref_mode_calcul_paie LIMIT 1), " +
                         "'2025-01-01', ?) " +
                         "RETURNING id_affectation";
@@ -286,7 +291,8 @@ public class TestEmployeFixtures {
                     ps.setInt(1, emp.idEmploye);
                     ps.setInt(2, emp.idContrat);
                     ps.setInt(3, idSite);
-                    ps.setBigDecimal(4, salaireBase != null ? salaireBase : new BigDecimal("625000.00"));
+                    ps.setBoolean(4, estCadre);
+                    ps.setBigDecimal(5, salaireBase != null ? salaireBase : new BigDecimal("625000.00"));
                     try (ResultSet rs = ps.executeQuery()) {
                         if (rs.next()) emp.idAffectation = rs.getInt(1);
                     }

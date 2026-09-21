@@ -38,7 +38,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     const [submittingAjustement, setSubmittingAjustement] = useState(false);
     const [recalculating, setRecalculating] = useState(false);
     const [ajustementForm, setAjustementForm] = useState({
-        typeMouvement: 'PRIM_EXC',
+        typeMouvement: 'PRIME_EXCEPTIONNELLE',
         montant: '',
         sens: 'GAIN',
         motif: ''
@@ -120,7 +120,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
             });
             setShowAddVariable(false);
             setAjustementForm({
-                typeMouvement: 'PRIM_EXC',
+                typeMouvement: 'PRIME_EXCEPTIONNELLE',
                 montant: '',
                 sens: 'GAIN',
                 motif: ''
@@ -201,11 +201,14 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     );
 
     const lignesVariables = lignes.filter(l =>
-        ['PRIME_PERF', 'PRIME_EXC', 'PRIME_ASSI', 'ACOMPTE_15', 'AVANCE_SPEC', 'PRET_ENTREPRISE'].includes(l.codeRubrique) ||
+        ['PRIME_PERF', 'PRIME_PERFORMANCE', 'PRIME_EXC', 'PRIM_EXC', 'PRIME_EXCEPTIONNELLE', 'PRIME_ASSI', 'PRIME_ASSIDUITE',
+            'ACOMPTE_15', 'AVANCE_SPEC', 'AVANCE_SPECIALE', 'PRET_ENTREPRISE', 'AUTIMP', 'EXTRA_DEPLACEMENT',
+            'NOTE_DE_FRAIS', 'CALL_PERSO', 'RETENUE_DIVERSE', 'REGULARISATION_CONGE'].includes(l.codeRubrique) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('prime')) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('acompte')) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('avance')) ||
-        (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('pret'))
+        (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('pret')) ||
+        (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('retenue'))
     );
 
     return (

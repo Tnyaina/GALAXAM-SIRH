@@ -340,16 +340,6 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         }
     };
 
-    if (!isDaf) {
-        return (
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-12 text-center">
-                <Lock size={32} className="mx-auto mb-3 text-[var(--color-fg-subtle)] opacity-40" />
-                <p className="text-sm font-semibold text-[var(--color-fg)]">Accès restreint</p>
-                <p className="text-xs text-[var(--color-fg-muted)] mt-1">Cette étape est réservée aux personnes habilitées à la validation finale.</p>
-            </div>
-        );
-    }
-
     return (
         <>
             <SEO title="Contrôle & Validation — Synthèse Mensuelle" description="Contrôle et validation des heures supplémentaires, indemnités et synthèse de pointage" />

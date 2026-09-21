@@ -45,8 +45,8 @@ export default function PopulationStepPage() {
 
     useEffect(() => { loadPopulation(); }, [loadPopulation]);
 
-    const decisionVariant = { INCLUS: 'success', EXCLU: 'default', BLOQUE: 'danger', WARNED: 'warning' };
-    const decisionLabel = { INCLUS: 'Inclus', EXCLU: 'Exclu', BLOQUE: 'Bloqué', WARNED: 'Avertissement' };
+    const decisionVariant = { INCLUS: 'success', INCLUDED: 'success', EXCLU: 'default', EXCLUDED: 'default', BLOQUE: 'danger', BLOCKED: 'danger', WARNED: 'warning' };
+    const decisionLabel = { INCLUS: 'Inclus', INCLUDED: 'Inclus', EXCLU: 'Exclu', EXCLUDED: 'Exclu', BLOQUE: 'Bloqué', BLOCKED: 'Bloqué', WARNED: 'Avertissement' };
 
     const translateReason = (code) => {
         if (!code) return '';
@@ -62,14 +62,19 @@ export default function PopulationStepPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterDecision, setFilterDecision] = useState('ALL');
 
-    const blockedCount = population.filter(p => p.decision === 'BLOQUE').length;
-    const includedCount = population.filter(p => p.decision === 'INCLUS').length;
+    const blockedCount = population.filter(p => p.decision === 'BLOQUE' || p.decision === 'BLOCKED').length;
+    const includedCount = population.filter(p => p.decision === 'INCLUS' || p.decision === 'INCLUDED').length;
     const excludedCount = Math.max(0, population.length - includedCount - blockedCount);
 
     const filteredPopulation = useMemo(() => {
         return population.filter(membre => {
-            if (filterDecision !== 'ALL' && membre.decision !== filterDecision) {
-                return false;
+            if (filterDecision !== 'ALL') {
+                const dec = membre.decision;
+                const isMatch = (filterDecision === 'INCLUS' && (dec === 'INCLUS' || dec === 'INCLUDED'))
+                    || (filterDecision === 'EXCLU' && (dec === 'EXCLU' || dec === 'EXCLUDED'))
+                    || (filterDecision === 'BLOQUE' && (dec === 'BLOQUE' || dec === 'BLOCKED'))
+                    || dec === filterDecision;
+                if (!isMatch) return false;
             }
             if (!searchQuery.trim()) return true;
             const q = searchQuery.toLowerCase().trim();

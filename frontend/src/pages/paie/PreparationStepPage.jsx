@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle2, XCircle, ClipboardList, Snowflake } from 'lucide-react';
+import { CheckCircle2, XCircle, ClipboardList, Snowflake, ShieldCheck, Scale, Users } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import PayrollCampaignHeader from '@/components/paie/PayrollCampaignHeader';
 import PayrollNavigationFooter from '@/components/paie/PayrollNavigationFooter';
@@ -7,6 +8,8 @@ import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
 import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
+import paieConfigService from '@/api/admin/paieConfigService';
+import { formatMoneyAr } from '@/utils/moneyUtils';
 
 /**
  * PreparationStepPage — Étape 1 : Vérification des prérequis de calcul.
@@ -15,6 +18,7 @@ import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
  * - Statut du pointage (gel / snapshot)
  * - Issues bloquantes éventuelles issues du contexte backend
  * - Résumé de la période (dates, code, statut)
+ * - Paramètres réglementaires et fiscaux dynamiques résolus en base
  */
 export default function PreparationStepPage() {
     const { periodId } = useParams();
@@ -27,7 +31,29 @@ export default function PreparationStepPage() {
     const periode = context?.selectedPeriod || context?.currentPeriod;
     const actions = context?.availableActions || {};
 
-    const isPointageGele = periode?.state === 'VALIDEE' || periode?.state === 'CLOTUREE';
+    const [legalConfig, setLegalConfig] = useState(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        const loadConfig = async () => {
+            if (!periode?.startDate) return;
+            try {
+                const cfg = await paieConfigService.getConfigLegaleAt(periode.startDate);
+                if (isMounted) setLegalConfig(cfg);
+            } catch {
+                try {
+                    const active = await paieConfigService.getConfigLegaleActive();
+                    if (isMounted) setLegalConfig(active);
+                } catch {
+                    // Fallback gracieux si aucune config trouvée
+                }
+            }
+        };
+        loadConfig();
+        return () => { isMounted = false; };
+    }, [periode?.startDate]);
+
+    const isPointageGele = periode?.state === 'VALIDEE' || periode?.state === 'PAIE_VALIDEE' || periode?.state === 'CLOTUREE';
     const canCalculate = actions?.CALCULATE?.allowed === true;
     const canAddVariable = actions?.ADD_VARIABLE?.allowed === true;
 
@@ -44,46 +70,59 @@ export default function PreparationStepPage() {
     const checks = [
         {
             id: 'pointage_gele',
-            label: 'Pointage figé (snapshot gelé)',
+            label: 'Snapshot Pointage scellé & figé (DAF)',
             ok: isPointageGele,
             message: isPointageGele
-                ? 'Le pointage de la période est validé et figé par la DAF.'
-                : 'Le pointage n\'est pas encore validé. Rendez-vous dans le module Pointage.',
+                ? 'Le pointage de la période est validé et figé dans pointage_cumul_periode.'
+                : 'Le pointage n’a pas encore été validé par la DAF. Rendez-vous dans le module Pointage pour arbitrer et sceller.',
             icon: Snowflake,
             action: !isPointageGele ? {
                 label: 'Aller au module Pointage',
-                onClick: () => navigate('/pointages')
+                onClick: () => navigate('/pointages?tab=validation')
+            } : null,
+        },
+        {
+            id: 'config_fiscale',
+            label: 'Exercice fiscal & Barème IRSA actif',
+            ok: Boolean(legalConfig),
+            message: legalConfig
+                ? `Exercice ${legalConfig.anneeFiscale || 'CGI'} résolu (Seuil ${formatMoneyAr(legalConfig.seuilExonerationIrsa || 350000)}, Min ${formatMoneyAr(legalConfig.minimumPerceptionIrsa || 2000)}).`
+                : 'Configuration légale et fiscale introuvable pour la date de cette période.',
+            icon: Scale,
+            action: !legalConfig ? {
+                label: 'Configurer les paramètres fiscaux',
+                onClick: () => navigate('/admin/parametres')
             } : null,
         },
         {
             id: 'calc_autorise',
-            label: 'Calcul de paie autorisé',
+            label: 'Moteur de calcul prêt',
             ok: canCalculate,
             message: canCalculate
-                ? 'Le snapshot de pointage est disponible pour le moteur de calcul.'
+                ? 'Le snapshot de pointage est disponible et intègre pour le calcul officiel.'
                 : (actions?.CALCULATE?.reasonCodes || []).map(translateReason).join(', ') || 'Snapshot manquant ou pointage non validé.',
             icon: CheckCircle2,
         },
         {
             id: 'variables_ok',
-            label: 'Saisie des variables autorisée',
+            label: 'Saisie des variables de paie',
             ok: canAddVariable,
             message: canAddVariable
-                ? 'Les variables de paie peuvent être saisies.'
-                : 'La période est clôturée — les variables sont en lecture seule.',
+                ? 'Les variables de paie (primes, acomptes, avances) peuvent être saisies et modifiées.'
+                : 'La période est verrouillée — les variables sont consultables en lecture seule.',
             icon: ClipboardList,
         },
     ];
 
     const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-MG', { day: '2-digit', month: 'long', year: 'numeric' }) : '–';
 
-    const statutVariant = { VALIDEE: 'success', CLOTUREE: 'secondary', EN_COURS: 'warning', A_VALIDER: 'info', BROUILLON: 'default' };
+    const statutVariant = { VALIDEE: 'success', PAIE_VALIDEE: 'primary', CLOTUREE: 'secondary', EN_COURS: 'warning', A_VALIDER: 'info', BROUILLON: 'default' };
 
     return (
         <div className="flex-1 flex flex-col min-h-full">
             <SEO
                 title="Préparation | Paie GALAXAM SIRH"
-                description="Vérification des prérequis pour le calcul de la campagne de paie."
+                description="Vérification des prérequis avant le calcul officiel de la paie."
             />
             <PayrollCampaignHeader
                 context={context}
@@ -96,7 +135,7 @@ export default function PreparationStepPage() {
 
             <div className="flex-1 max-w-4xl mx-auto px-4 py-6 space-y-6 w-full">
 
-                {/* En-tête de la page */}
+                {/* En-tête */}
                 <div className="flex items-start gap-3">
                     <div className="w-10 h-10 bg-gradient-to-br from-[var(--color-brand-400)] to-[var(--color-brand-600)] text-white flex items-center justify-center shrink-0">
                         <ClipboardList size={20} strokeWidth={2} />
@@ -119,7 +158,7 @@ export default function PreparationStepPage() {
                             <div className="flex items-center gap-3 flex-wrap">
                                 <span className="text-sm font-bold font-mono text-[var(--color-fg)]">{periode.code}</span>
                                 <Badge variant={statutVariant[periode.state] || 'default'} dot size="sm">
-                                    {periode.state === 'VALIDEE' ? 'POINTAGE SCELLE' : periode.state}
+                                    {periode.state === 'VALIDEE' ? 'POINTAGE SCELLE' : periode.state === 'PAIE_VALIDEE' ? 'PAIE VALIDEE' : periode.state}
                                 </Badge>
                                 <span className="text-xs text-[var(--color-fg-muted)]">
                                     Cycle : <strong className="text-[var(--color-fg)] font-mono">{formatDate(periode.startDate)} → {formatDate(periode.endDate)}</strong>
@@ -130,22 +169,34 @@ export default function PreparationStepPage() {
                             </div>
                         </div>
 
-                        {/* Paramètres réglementaires actifs */}
+                        {/* Paramètres réglementaires actifs résolus dynamiquement */}
                         <div className="pt-3 border-t border-[var(--color-border-subtle)] grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                             <div className="bg-[var(--color-bg-subtle)]/50 p-2.5 border border-[var(--color-border-subtle)]">
                                 <span className="text-[10px] font-bold uppercase text-[var(--color-fg-muted)] block">Cotisations Sociales</span>
-                                <p className="font-semibold text-[var(--color-fg)] mt-0.5">CNaPS 1% sal. / 13% patr.</p>
-                                <p className="text-[11px] text-[var(--color-fg-subtle)]">Plafond légal 8x SMIG (2 000 000 Ar)</p>
+                                <p className="font-semibold text-[var(--color-fg)] mt-0.5">
+                                    CNaPS {((legalConfig?.tauxCnapsSalarial ?? 0.01) * 100).toFixed(0)}% sal. / {((legalConfig?.tauxCnapsPatronal ?? 0.13) * 100).toFixed(0)}% patr.
+                                </p>
+                                <p className="text-[11px] text-[var(--color-fg-subtle)]">
+                                    Plafond 8x SME ({formatMoneyAr(legalConfig?.plafondCnaps || 2000000)})
+                                </p>
                             </div>
                             <div className="bg-[var(--color-bg-subtle)]/50 p-2.5 border border-[var(--color-border-subtle)]">
                                 <span className="text-[10px] font-bold uppercase text-[var(--color-fg-muted)] block">Santé & Formation</span>
-                                <p className="font-semibold text-[var(--color-fg)] mt-0.5">OSTRA 1% / 5% • FMFP 1%</p>
-                                <p className="text-[11px] text-[var(--color-fg-subtle)]">Médecine inter-entreprises</p>
+                                <p className="font-semibold text-[var(--color-fg)] mt-0.5">
+                                    OSTIE / OMSI • FMFP {((legalConfig?.tauxFmfp ?? 0.01) * 100).toFixed(0)}%
+                                </p>
+                                <p className="text-[11px] text-[var(--color-fg-subtle)]">
+                                    Médecine du travail & formation continue
+                                </p>
                             </div>
                             <div className="bg-[var(--color-bg-subtle)]/50 p-2.5 border border-[var(--color-border-subtle)]">
                                 <span className="text-[10px] font-bold uppercase text-[var(--color-fg-muted)] block">Régime Fiscal IRSA</span>
-                                <p className="font-semibold text-[var(--color-fg)] mt-0.5">Barème Progressif 2026</p>
-                                <p className="text-[11px] text-[var(--color-fg-subtle)]">Seuil exonéré 350 000 Ar • Min 2 000 Ar</p>
+                                <p className="font-semibold text-[var(--color-fg)] mt-0.5">
+                                    {legalConfig?.anneeFiscale ? `Barème LF ${legalConfig.anneeFiscale}` : 'Barème Progressif CGI'}
+                                </p>
+                                <p className="text-[11px] text-[var(--color-fg-subtle)]">
+                                    Seuil {formatMoneyAr(legalConfig?.seuilExonerationIrsa || 350000)} • Min {formatMoneyAr(legalConfig?.minimumPerceptionIrsa || 2000)}
+                                </p>
                             </div>
                         </div>
                     </div>

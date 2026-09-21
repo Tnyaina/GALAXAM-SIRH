@@ -1019,26 +1019,23 @@ public class CongeTauxApplicableService {
         dto.setSalaireBase(salaireBase);
 
         // A. Solde consommable
-        String sqlSolde = "SELECT " +
-                "COALESCE(SUM(CASE " +
-                "  WHEN type_mouvement IN ('ACQUISITION', 'AJUSTEMENT', 'REGULARISATION', 'REPORT') THEN nb_jours " +
-                "  WHEN type_mouvement IN ('PRISE', 'EXPIRATION', 'DEDUCTION') THEN -nb_jours " +
-                "  ELSE 0 END), 0) AS solde, " +
-                "COALESCE(SUM(CASE WHEN type_mouvement IN ('ACQUISITION', 'REPORT') THEN nb_jours ELSE 0 END), 0) AS total_acquis, " +
-                "COALESCE(SUM(CASE WHEN type_mouvement = 'PRISE' THEN nb_jours ELSE 0 END), 0) AS total_pris, " +
-                "MAX(CASE WHEN type_mouvement = 'ACQUISITION' THEN date_mouvement ELSE NULL END) AS derniere_acq " +
-                "FROM mouvement_solde_conge WHERE id_employe = ?";
+        String sqlSolde = "SELECT solde_actuel AS solde, total_acquis, total_pris, derniere_acquisition AS derniere_acq "
+                + "FROM v_solde_conge_employe WHERE id_employe = ?";
         try (PreparedStatement psSolde = c.prepareStatement(sqlSolde)) {
             psSolde.setInt(1, idEmploye);
             try (ResultSet rsSolde = psSolde.executeQuery()) {
                 if (rsSolde.next()) {
-                    dto.setSoldeJours(rsSolde.getBigDecimal("solde"));
-                    dto.setTotalAcquis(rsSolde.getBigDecimal("total_acquis"));
-                    dto.setTotalPris(rsSolde.getBigDecimal("total_pris"));
+                    dto.setSoldeJours(rsSolde.getBigDecimal("solde") != null ? rsSolde.getBigDecimal("solde") : BigDecimal.ZERO);
+                    dto.setTotalAcquis(rsSolde.getBigDecimal("total_acquis") != null ? rsSolde.getBigDecimal("total_acquis") : BigDecimal.ZERO);
+                    dto.setTotalPris(rsSolde.getBigDecimal("total_pris") != null ? rsSolde.getBigDecimal("total_pris") : BigDecimal.ZERO);
                     Date dAcq = rsSolde.getDate("derniere_acq");
                     if (dAcq != null) {
                         dto.setDerniereAcquisition(dAcq.toLocalDate());
                     }
+                } else {
+                    dto.setSoldeJours(BigDecimal.ZERO);
+                    dto.setTotalAcquis(BigDecimal.ZERO);
+                    dto.setTotalPris(BigDecimal.ZERO);
                 }
             }
         }

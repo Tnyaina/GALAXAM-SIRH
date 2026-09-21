@@ -224,7 +224,9 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         if (res && (res.success || res === true)) {
             setIsModalOpen(false);
             setSelectedAnomalie(null);
-            toast.success(res.message || 'Anomalie régularisée avec succès.');
+            toast.success(res.message || 'Pointage régularisé avec succès.');
+            const updatedPeriodes = await periodePaieService.getAllPeriodes();
+            if (updatedPeriodes) setPeriodes(updatedPeriodes);
             return true;
         } else {
             toast.error(res?.error || res?.message || 'Erreur lors de la régularisation.');
