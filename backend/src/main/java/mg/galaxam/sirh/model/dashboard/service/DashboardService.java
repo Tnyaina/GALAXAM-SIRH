@@ -46,8 +46,58 @@ public class DashboardService {
         summary.put("absentsAujourdhui", buildAbsentsAujourdhui(c));
         summary.put("congesQuinzaine", buildCongesQuinzaine(c));
         summary.put("demandesCongeAValider", buildDemandesCongeAValider(c));
+        summary.put("actionsATraiter", buildActionsATraiter(c));
 
         return summary;
+    }
+
+    /**
+     * File d'actions unifiée pour le cockpit. Les compteurs sont construits
+     * côté serveur à partir de l'état métier, au lieu d'être recomposés par
+     * chaque écran React.
+     */
+    public List<Map<String, Object>> buildActionsATraiter(Connection c) throws Exception {
+        List<Map<String, Object>> actions = new ArrayList<>();
+        addActionIfPositive(actions, count(c,
+                "SELECT COUNT(*) FROM demande_conge d JOIN ref_statut_demande_conge s "
+                        + "ON s.id_statut_demande_conge = d.id_statut_demande_conge WHERE s.code = 'EN_ATTENTE'"),
+                "CONGES_A_VALIDER", "Demandes de congé à décider", "Congés & absences", "/conges?tab=demandes", "CONGE_VALIDATE", "WARNING");
+        addActionIfPositive(actions, count(c,
+                "SELECT COUNT(*) FROM workflow_rh w JOIN ref_statut_rh s ON s.id_statut_rh = w.id_statut_rh "
+                        + "WHERE s.code = 'BROUILLON'"),
+                "BROUILLONS_RH", "Brouillons RH à traiter", "Contrats et avenants non finalisés", "/employes", "EMPLOYE_VALIDATE", "WARNING");
+        addActionIfPositive(actions, count(c,
+                "SELECT COUNT(*) FROM pointage_jour p JOIN ref_statut_pointage_jour s "
+                        + "ON s.id_statut_jour = p.id_statut_jour WHERE p.id_periode_paie = "
+                        + "(SELECT pp.id_periode_paie FROM periode_paie pp ORDER BY "
+                        + "CASE WHEN CURRENT_DATE BETWEEN pp.date_debut AND pp.date_fin THEN 0 ELSE 1 END, pp.date_fin DESC LIMIT 1) "
+                        + "AND s.code IN ('ANOMALIE_SAISIE', 'ABSENCE_NON_JUSTIFIEE')"),
+                "ANOMALIES_POINTAGE", "Anomalies de pointage", "À régulariser avant validation de la période", "/pointages?tab=anomalies", "POINTAGE_READ", "DANGER");
+        addActionIfPositive(actions, count(c,
+                "SELECT COUNT(*) FROM contrat_travail ct JOIN ref_statut_rh s ON s.id_statut_rh = ct.id_statut_rh "
+                        + "WHERE s.code = 'ACTIF' AND ct.date_fin IS NOT NULL AND ct.date_fin BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'"),
+                "ECHEANCES_CONTRATS", "Échéances contractuelles", "Contrats à examiner dans les 30 prochains jours", "/employes", "EMPLOYE_READ", "DANGER");
+        return actions;
+    }
+
+    private int count(Connection connection, String sql) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(sql); ResultSet result = statement.executeQuery()) {
+            return result.next() ? result.getInt(1) : 0;
+        }
+    }
+
+    private void addActionIfPositive(List<Map<String, Object>> actions, int count, String code, String label,
+            String description, String destination, String requiredAuthority, String severity) {
+        if (count <= 0) return;
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("code", code);
+        action.put("count", count);
+        action.put("label", label);
+        action.put("description", description);
+        action.put("destination", destination);
+        action.put("requiredAuthority", requiredAuthority);
+        action.put("severity", severity);
+        actions.add(action);
     }
 
     public List<Map<String, Object>> buildDemandesCongeAValider(Connection c) throws Exception {

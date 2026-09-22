@@ -42,8 +42,15 @@ public class NotificationRhScheduler {
     @Autowired
     private NotificationRhService notificationService;
 
-    @Scheduled(cron = "0 30 2 * * ?")
+    @Autowired
+    private SchedulerExecutionRegistry executionRegistry;
+
+    @Scheduled(cron = "0 30 2 * * ?", zone = "Indian/Antananarivo")
     public void genererNotificationsRh() {
+        executionRegistry.runDaily("NOTIFICATIONS_RH", this::genererNotificationsRhInterne);
+    }
+
+    private void genererNotificationsRhInterne() throws Exception {
         log.info("[NotificationRhScheduler] Lancement du cycle de génération des notifications RH (Moteur Java)...");
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -74,9 +81,11 @@ public class NotificationRhScheduler {
             } catch (Exception e) {
                 c.rollback();
                 log.error("[NotificationRhScheduler] Erreur lors de la génération : {}", e.getMessage(), e);
+                throw e;
             }
         } catch (Exception e) {
             log.error("[NotificationRhScheduler] Erreur connexion BDD : {}", e.getMessage(), e);
+            throw e;
         }
     }
 

@@ -22,17 +22,25 @@ public class MouvementRhScheduler {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private SchedulerExecutionRegistry executionRegistry;
+
     /**
      * Exécution automatique chaque jour à minuit (00:00:00).
      * Vérifie et applique tous les mouvements RH validés dont la date d'effet est atteinte.
      */
-    @Scheduled(cron = "0 10 0 * * ?")
+    @Scheduled(cron = "0 10 0 * * ?", zone = "Indian/Antananarivo")
     public void effectuerBasculementMouvementsPlanifies() {
+        executionRegistry.runDaily("MOUVEMENTS_RH", this::effectuerBasculementMouvementsPlanifiesInterne);
+    }
+
+    private void effectuerBasculementMouvementsPlanifiesInterne() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             WorkflowRhService.autoAppliquerMouvementsEchus(c);
             log.info("[SCHEDULER] Mouvements RH échus traités avec succès.");
         } catch (Exception e) {
             log.error("[SCHEDULER] Erreur lors de l'exécution du Scheduler MouvementRhScheduler : {}", e.getMessage(), e);
+            throw e;
         }
     }
 }

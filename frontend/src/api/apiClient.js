@@ -60,6 +60,12 @@ const apiClient = axios.create({
     },
 });
 
+const reportNetworkStatus = (reachable) => {
+    // Événement global consommé par NetworkStatusProvider. Cette vérification
+    // reflète une vraie réponse API, contrairement à navigator.onLine seul.
+    window.dispatchEvent(new CustomEvent('api-network-status', { detail: { reachable } }));
+};
+
 // Intercepteur de requête : Rafraîchissement proactif
 apiClient.interceptors.request.use(
     async (config) => {
@@ -100,9 +106,16 @@ apiClient.interceptors.request.use(
 
 // Intercepteur de réponse : Fallback en cas de 401
 apiClient.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        reportNetworkStatus(true);
+        return response;
+    },
     async (error) => {
         const originalRequest = error.config;
+
+        if (!error.response && error.request) {
+            reportNetworkStatus(false);
+        }
 
         if (
             !originalRequest ||
@@ -220,4 +233,3 @@ export const getErrorMessage = (error, fallback = "Une erreur inattendue est sur
 };
 
 export default apiClient;
-

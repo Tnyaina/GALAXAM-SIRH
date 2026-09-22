@@ -23,12 +23,19 @@ public class AuditLogPurgeScheduler {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private SchedulerExecutionRegistry executionRegistry;
+
     /**
      * Exécuté le 1er de chaque mois à 04:00:00.
      * Supprime les entrées d'audit_log de plus de 365 jours (calculé en Java).
      */
-    @Scheduled(cron = "0 0 4 1 * ?")
+    @Scheduled(cron = "0 0 4 1 * ?", zone = "Indian/Antananarivo")
     public void purgerAnciensLogsAudit() {
+        executionRegistry.runMonthly("PURGE_AUDIT", this::purgerAnciensLogsAuditInterne);
+    }
+
+    private void purgerAnciensLogsAuditInterne() throws Exception {
         Timestamp seuil1An = Timestamp.valueOf(LocalDateTime.now().minusDays(365));
         String sql = "DELETE FROM audit_log WHERE date_action < ?";
         try (Connection c = dataSource.getConnection();
@@ -40,6 +47,7 @@ public class AuditLogPurgeScheduler {
             }
         } catch (Exception e) {
             log.error("[AuditLogPurgeScheduler] Erreur lors de la purge des logs d'audit : {}", e.getMessage(), e);
+            throw e;
         }
     }
 }

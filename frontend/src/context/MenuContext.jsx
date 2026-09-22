@@ -11,7 +11,7 @@ import {
 export const MenuContext = createContext(null);
 
 export function MenuProvider({ children }) {
-    const { isAuthenticated, user } = useAuth();
+    const { isAuthenticated, user, loading: authLoading } = useAuth();
 
     // Initialisation immédiate depuis le cache s'il existe (0ms, aucun flash)
     const [menu, setMenu] = useState(() => {
@@ -30,6 +30,9 @@ export function MenuProvider({ children }) {
     const hasInitialLoadedRef = useRef(false);
 
     const fetchMenu = useCallback(async () => {
+        // Au premier rendu, l'utilisateur peut venir du cache local alors que
+        // le token est encore en cours de refresh. Attendre évite le 403 bruité.
+        if (authLoading) return;
         if (!isAuthenticated) {
             setMenu([]);
             setLoading(false);
@@ -58,10 +61,11 @@ export function MenuProvider({ children }) {
         } finally {
             setLoading(false);
         }
-    }, [isAuthenticated, user, menu.length]);
+    }, [authLoading, isAuthenticated, user, menu.length]);
 
     // Chargement initial ou changement d'utilisateur (SWR: revalidation en arrière-plan)
     useEffect(() => {
+        if (authLoading) return;
         if (isAuthenticated && user) {
             const cached = readMenuCache(user);
             if (Array.isArray(cached) && cached.length > 0) {
@@ -75,7 +79,7 @@ export function MenuProvider({ children }) {
             setLoading(false);
             hasInitialLoadedRef.current = false;
         }
-    }, [isAuthenticated, user]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [authLoading, isAuthenticated, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Écouteur global pour les événements de mutation des menus (ajout, modification, suppression, droits rôles)
     useEffect(() => {

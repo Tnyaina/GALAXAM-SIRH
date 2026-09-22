@@ -33,6 +33,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     // Modal Nouvelle Variable
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(false);
     const [form, setForm] = useState({
         idEmploye: '',
         typeMouvement: '',
@@ -78,6 +79,9 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     }, [chargerDonnees]);
 
     const handleFormChange = (field, val) => {
+        if (field === 'idEmploye' || field === 'typeMouvement') {
+            setDuplicateAcknowledged(false);
+        }
         setForm(prev => {
             const next = { ...prev, [field]: val };
             if (field === 'typeMouvement') {
@@ -102,6 +106,14 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         }
         if (!form.montant || Number(form.montant) <= 0) {
             setFeedbackMsg({ type: 'error', text: 'Veuillez renseigner un montant valide.' });
+            return;
+        }
+        if (!form.motif || form.motif.trim().length < 8) {
+            setFeedbackMsg({ type: 'error', text: 'Ajoutez une justification précise (au moins 8 caractères) pour conserver la trace de cette variable.' });
+            return;
+        }
+        if (possibleDuplicate && !duplicateAcknowledged) {
+            setFeedbackMsg({ type: 'warning', text: 'Une variable similaire existe déjà pour ce collaborateur sur cette période. Confirmez qu’il ne s’agit pas d’un doublon.' });
             return;
         }
 
@@ -156,6 +168,15 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
 
     // Filtrage
     const listVariables = Array.isArray(variables) ? variables : [];
+    // Un même type peut être saisi plusieurs fois (ex. deux primes exceptionnelles).
+    // Le système ne le bloque donc pas : il force une vérification consciente.
+    const possibleDuplicate = Boolean(form.idEmploye && form.typeMouvement && listVariables.some((variable) => {
+        const employeeId = variable.idEmploye ?? variable.id_employe;
+        const type = variable.typeMouvement ?? variable.type_mouvement;
+        return Number(employeeId) === Number(form.idEmploye)
+            && type === form.typeMouvement
+            && !['REJETE', 'ANNULE', 'CANCELLED'].includes(variable.statut);
+    }));
     const filteredVariables = listVariables.filter(v => {
         const matchSens = filterSens === 'ALL' || v.sens === filterSens;
         const q = searchQuery.toLowerCase();
@@ -221,6 +242,11 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                     color="brand"
                 />
             </div>
+
+            <Alert
+                type="info"
+                message="Contrôle de saisie : le type détermine le sens et le régime de la ligne. Chaque variable doit être justifiée ; une ligne similaire est signalée avant enregistrement."
+            />
 
             {/* Barre de filtre et Action */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
@@ -412,16 +438,12 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                             }))}
                         />
 
-                        <Select
-                            label="Sens"
-                            required
-                            value={form.sens}
-                            onChange={(val) => handleFormChange('sens', val)}
-                            options={[
-                                { value: 'GAIN', label: 'Gain (+ brut imposable / indemnité)' },
-                                { value: 'RETENUE', label: 'Retenue (- net à payer)' },
-                            ]}
-                        />
+                        <div>
+                            <span className="text-[11px] font-semibold text-[var(--color-fg-muted)] block mb-1">Sens appliqué</span>
+                            <div className="h-9 px-3 flex items-center border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]">
+                                {form.sens === 'GAIN' ? 'Gain (+ brut / indemnité)' : form.sens === 'RETENUE' ? 'Retenue (- net à payer)' : 'Sélectionnez un type'}
+                            </div>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -439,11 +461,29 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         <Input
                             label="Motif / Justification"
                             type="text"
-                            placeholder="Ex: Prime transport spéciale projet"
+                            required
+                            minLength={8}
+                            placeholder="Ex: Prime transport – mission projet"
                             value={form.motif}
                             onChange={(e) => handleFormChange('motif', e.target.value)}
                         />
                     </div>
+
+                    {possibleDuplicate && (
+                        <div className="border border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10 p-3 space-y-2">
+                            <p className="text-xs font-semibold text-[var(--color-fg)]">Variable similaire déjà enregistrée</p>
+                            <p className="text-[11px] text-[var(--color-fg-muted)]">Même collaborateur et même type sur cette période. Vérifiez le montant et le motif avant de poursuivre.</p>
+                            <label className="flex items-start gap-2 text-[11px] text-[var(--color-fg)] cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={duplicateAcknowledged}
+                                    onChange={(event) => setDuplicateAcknowledged(event.target.checked)}
+                                    className="mt-0.5 accent-[var(--color-brand-600)]"
+                                />
+                                <span>Je confirme qu’il s’agit d’un élément distinct et non d’un doublon.</span>
+                            </label>
+                        </div>
+                    )}
                 </form>
             </Modal>
         </div>

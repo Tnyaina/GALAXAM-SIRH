@@ -24,12 +24,19 @@ public class SessionSecurityScheduler {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private SchedulerExecutionRegistry executionRegistry;
+
     /**
      * Exécuté chaque nuit à 03:30:00.
      * Nettoie les anciennes notifications lues de plus de 90 jours et révoque les refresh tokens expirés.
      */
-    @Scheduled(cron = "0 30 3 * * ?")
+    @Scheduled(cron = "0 30 3 * * ?", zone = "Indian/Antananarivo")
     public void nettoyerSecurite() {
+        executionRegistry.runDaily("SECURITE_SESSIONS", this::nettoyerSecuriteInterne);
+    }
+
+    private void nettoyerSecuriteInterne() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             Timestamp now = Timestamp.valueOf(LocalDateTime.now());
             Timestamp seuil90j = Timestamp.valueOf(LocalDateTime.now().minusDays(90));
@@ -56,6 +63,7 @@ public class SessionSecurityScheduler {
             }
         } catch (Exception e) {
             log.error("[SessionSecurityScheduler] Erreur lors du nettoyage de sécurité : {}", e.getMessage(), e);
+            throw e;
         }
     }
 }

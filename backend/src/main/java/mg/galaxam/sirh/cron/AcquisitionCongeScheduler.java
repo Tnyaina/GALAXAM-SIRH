@@ -37,6 +37,9 @@ public class AcquisitionCongeScheduler {
     @Autowired
     private mg.galaxam.sirh.model.conge.service.CongeService congeService;
 
+    @Autowired
+    private SchedulerExecutionRegistry executionRegistry;
+
     public static class ContratActifInfo {
         int idEmploye;
         int idContrat;
@@ -61,8 +64,12 @@ public class AcquisitionCongeScheduler {
         }
     }
 
-    @Scheduled(cron = "0 0 1 * * ?")
+    @Scheduled(cron = "0 0 1 * * ?", zone = "Indian/Antananarivo")
     public void acquerirCongesMensuels() {
+        executionRegistry.runMonthly("ACQUISITION_CONGES", this::acquerirCongesMensuelsInterne);
+    }
+
+    private void acquerirCongesMensuelsInterne() throws Exception {
         log.info("[AcquisitionCongeScheduler] Vérification de l'acquisition mensuelle des congés (Moteur Java)...");
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -204,9 +211,11 @@ public class AcquisitionCongeScheduler {
             } catch (Exception e) {
                 c.rollback();
                 log.error("[AcquisitionCongeScheduler] Erreur lors de l'acquisition des congés : {}", e.getMessage(), e);
+                throw e;
             }
         } catch (Exception e) {
             log.error("[AcquisitionCongeScheduler] Erreur connexion BDD : {}", e.getMessage(), e);
+            throw e;
         }
     }
 }

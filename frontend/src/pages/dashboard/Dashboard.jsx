@@ -1,23 +1,18 @@
 import { useDashboard } from '@/hooks/useDashboard';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import KpiGrid from '@/components/dashboard/KpiGrid';
-import CongesAValiderWidget from '@/components/dashboard/widgets/CongesAValiderWidget';
 import AbsentsWidget from '@/components/dashboard/widgets/AbsentsWidget';
 import PlanningQuinzaineWidget from '@/components/dashboard/widgets/PlanningQuinzaineWidget';
-import BrouillonsEnAttenteWidget from '@/components/dashboard/widgets/BrouillonsEnAttenteWidget';
 import EcheancesWidget from '@/components/dashboard/widgets/EcheancesWidget';
 import ActiviteRhWidget from '@/components/dashboard/widgets/ActiviteRhWidget';
-import AccesRapidesWidget from '@/components/dashboard/widgets/AccesRapidesWidget';
-import { useAuth } from '@/context/AuthContext';
+import OperationalQueueWidget from '@/components/dashboard/widgets/OperationalQueueWidget';
+import PayrollCycleWidget from '@/components/dashboard/widgets/PayrollCycleWidget';
+import ModuleOverviewWidget from '@/components/dashboard/widgets/ModuleOverviewWidget';
 import HasPermission from '@/components/auth/HasPermission';
 import SEO from '@/components/system/SEO';
 
 export default function Dashboard() {
     const { data, loading, error, refresh, lastRefresh } = useDashboard();
-    const { hasPermission } = useAuth();
-    const canValidateConges = hasPermission('CONGE_VALIDATE');
-    const canValidateEmployes = hasPermission('EMPLOYE_VALIDATE');
-
     const kpis = data?.kpis;
     const alertesCritiques = data?.alertesCritiques || [];
     const alertes7j = data?.alertes7j || [];
@@ -27,7 +22,7 @@ export default function Dashboard() {
     const absentsAujourdhui = data?.absentsAujourdhui || [];
     const congesQuinzaine = data?.congesQuinzaine || [];
     const demandesCongeAValider = data?.demandesCongeAValider || [];
-    const brouillons = data?.brouillons || [];
+    const actionsATraiter = data?.actionsATraiter || [];
 
     const totalAlertesContrats = alertesCritiques.length + alertes7j.length;
 
@@ -47,63 +42,42 @@ export default function Dashboard() {
             <KpiGrid 
                 loading={loading}
                 kpis={kpis}
-                demandesCongeAValiderCount={demandesCongeAValider.length}
+                actionsCount={actionsATraiter.reduce((sum, action) => sum + (Number(action.count) || 0), 0)}
                 absentsAujourdhuiCount={absentsAujourdhui.length}
             />
 
-            {/* Layout principal équilibré : Grille 2 colonnes parfaitement alignée */}
+            {/* Lecture opérationnelle : priorités puis continuité des cycles. */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-                {/* Ligne 1 : Congés à valider (si valideur) & Salariés absents */}
-                <HasPermission authority="CONGE_VALIDATE">
-                    <CongesAValiderWidget 
-                        loading={loading} 
-                        demandesCongeAValider={demandesCongeAValider}
-                        className="h-full"
-                    />
-                </HasPermission>
-                <AbsentsWidget 
-                    loading={loading} 
-                    absentsAujourdhui={absentsAujourdhui}
-                    className={`h-full ${!canValidateConges ? 'lg:col-span-2' : ''}`}
-                />
+                <OperationalQueueWidget loading={loading} actions={actionsATraiter} className="h-full" />
+                <HasPermission authority="PAIE_READ"><PayrollCycleWidget className="h-full" /></HasPermission>
 
-                {/* Ligne 2 : Échéances contrats/essais & Supervision planning quinzaine */}
-                <EcheancesWidget 
+                {/* Anticipation des absences et disponibilité du jour. */}
+                {(loading || congesQuinzaine.length > 0) && <PlanningQuinzaineWidget
+                    loading={loading} 
+                    absences={congesQuinzaine.length > 0 ? congesQuinzaine : absentsAujourdhui}
+                    className="h-full"
+                />}
+
+                {(loading || absentsAujourdhui.length > 0) && <AbsentsWidget loading={loading} absentsAujourdhui={absentsAujourdhui} className="h-full" />}
+                {(loading || totalAlertesContrats > 0 || alertes30j.length > 0) && <EcheancesWidget
                     loading={loading}
                     alertesCritiques={alertesCritiques}
                     alertes7j={alertes7j}
                     alertes30j={alertes30j}
                     totalAlertesContrats={totalAlertesContrats}
                     className="h-full"
-                />
-                <PlanningQuinzaineWidget 
-                    loading={loading} 
-                    absences={congesQuinzaine.length > 0 ? congesQuinzaine : absentsAujourdhui}
-                    className="h-full"
-                />
+                />}
 
-                {/* Ligne 3 : Brouillons en attente (si valideur) & Accès rapides */}
-                <HasPermission authority="EMPLOYE_VALIDATE">
-                    <BrouillonsEnAttenteWidget
-                        loading={loading}
-                        brouillons={brouillons}
-                        className="h-full"
-                    />
-                </HasPermission>
-                <AccesRapidesWidget 
-                    className={`h-full ${!canValidateEmployes ? 'lg:col-span-2' : ''}`}
-                />
-
-                {/* Activité récente (pleine largeur en bas si présente) */}
-                {activite.length > 0 && (
-                    <div className="lg:col-span-2">
-                        <ActiviteRhWidget 
-                            loading={loading}
-                            activite={activite}
-                        />
-                    </div>
-                )}
             </div>
+
+            <ModuleOverviewWidget
+                kpis={kpis}
+                demandesCount={demandesCongeAValider.length}
+                absentsCount={absentsAujourdhui.length}
+            />
+
+            {/* Toujours présent : vide ou rempli, le journal reste à sa place en bas. */}
+            <ActiviteRhWidget loading={loading} activite={activite} />
         </div>
     );
 }

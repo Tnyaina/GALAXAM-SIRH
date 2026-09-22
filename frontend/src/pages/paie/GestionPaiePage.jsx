@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
     Banknote, CalendarRange, ArrowRight, FileText,
     DollarSign, AlertTriangle, ShieldCheck, SlidersHorizontal,
-    CheckCircle2, ChevronRight, Calculator
+    CheckCircle2, ChevronRight, Calculator, TrendingUp, TrendingDown
 } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import Badge from '@/components/ui/data-display/Badge';
@@ -52,6 +52,7 @@ export default function GestionPaiePage() {
 
     const [periodKpis, setPeriodKpis] = useState(null);
     const [kpiLoading, setKpiLoading] = useState(false);
+    const [variableSummary, setVariableSummary] = useState({ count: 0, gains: 0, retenues: 0 });
 
     // Compatibilité et redirection des anciens onglets
     useEffect(() => {
@@ -105,6 +106,28 @@ export default function GestionPaiePage() {
             setPeriodKpis(null);
         }
     }, [activePeriod?.id, loadPeriodKpis]);
+
+    useEffect(() => {
+        let active = true;
+        if (!activePeriod?.id) {
+            setVariableSummary({ count: 0, gains: 0, retenues: 0 });
+            return undefined;
+        }
+        paieService.listerAjustements(activePeriod.id)
+            .then((response) => {
+                if (!active) return;
+                const rows = Array.isArray(response) ? response : (response?.content || response?.items || []);
+                setVariableSummary(rows.reduce((summary, row) => {
+                    const amount = Number(row.montant) || 0;
+                    summary.count += 1;
+                    if (row.sens === 'GAIN') summary.gains += amount;
+                    if (row.sens === 'RETENUE') summary.retenues += amount;
+                    return summary;
+                }, { count: 0, gains: 0, retenues: 0 }));
+            })
+            .catch(() => active && setVariableSummary({ count: 0, gains: 0, retenues: 0 }));
+        return () => { active = false; };
+    }, [activePeriod?.id]);
 
     const continueDestination = useMemo(() => {
         if (currentStepObj?.destination) return currentStepObj.destination;
@@ -217,10 +240,16 @@ export default function GestionPaiePage() {
     }
 
     if (rawTab === 'variables') {
+        const addVariableCapability = context?.availableActions?.ADD_VARIABLE;
         return (
             <Suspense fallback={<SkeletonTable rows={6} cols={6} />}>
                 <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
-                    <VariablesPaieTab idPeriodeActive={activePeriod?.id} />
+                    <VariablesPaieTab
+                        idPeriodeActive={activePeriod?.id}
+                        canMutate={addVariableCapability?.allowed === true}
+                        mutationDisabledReason={(addVariableCapability?.reasonCodes || []).join(', ') || 'La période est en lecture seule.'}
+                        onVariableChanged={() => activePeriod?.id && loadPeriodKpis(activePeriod.id)}
+                    />
                 </div>
             </Suspense>
         );
@@ -403,6 +432,43 @@ export default function GestionPaiePage() {
                     color={(periodKpis?.totalAlertes ?? 0) > 0 ? 'warning' : 'neutral'}
                 />
             </div>
+
+            {activePeriod && (
+                <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
+                    <div className="p-4 border-b border-[var(--color-border-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <h3 className="text-sm font-bold text-[var(--color-fg)]">Contrôles avant calcul</h3>
+                            <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">Les éléments qui influencent directement la paie de {activePeriod.code || activePeriod.libelle}.</p>
+                        </div>
+                        <Button variant="secondary" size="sm" onClick={() => navigate(`/paie/periodes/${activePeriod.id}/variables`)} iconLeft={<SlidersHorizontal size={14} />}>
+                            Vérifier les variables
+                        </Button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[var(--color-border-subtle)]">
+                        <div className="p-4">
+                            <p className="text-[10px] uppercase tracking-wider font-bold text-[var(--color-fg-muted)]">Éléments variables</p>
+                            <p className="mt-1 text-xl font-bold text-[var(--color-fg)]">{variableSummary.count}</p>
+                            <p className="text-xs text-[var(--color-fg-muted)]">à relire avant le calcul</p>
+                        </div>
+                        <div className="p-4">
+                            <p className="text-[10px] uppercase tracking-wider font-bold text-[var(--color-fg-muted)] flex items-center gap-1"><TrendingUp size={13} /> Gains déclarés</p>
+                            <p className="mt-1 text-xl font-bold text-[var(--color-success-600)]">+{formatAr(variableSummary.gains)}</p>
+                            <p className="text-xs text-[var(--color-fg-muted)]">primes et indemnités</p>
+                        </div>
+                        <div className="p-4">
+                            <p className="text-[10px] uppercase tracking-wider font-bold text-[var(--color-fg-muted)] flex items-center gap-1"><TrendingDown size={13} /> Retenues déclarées</p>
+                            <p className="mt-1 text-xl font-bold text-[var(--color-danger-600)]">-{formatAr(variableSummary.retenues)}</p>
+                            <p className="text-xs text-[var(--color-fg-muted)]">acomptes et déductions</p>
+                        </div>
+                    </div>
+                    {(blockers.length > 0 || recalcRequired) && (
+                        <div className="px-4 py-3 bg-[var(--color-warning-500)]/10 text-xs text-[var(--color-fg)]">
+                            {recalcRequired ? 'Le calcul doit être relancé après les dernières modifications. ' : ''}
+                            {blockers.length > 0 ? `${blockers.length} point(s) bloquant(s) doivent être résolus avant validation.` : ''}
+                        </div>
+                    )}
+                </section>
+            )}
 
             {/* ESPACES FONCTIONNELS DE GESTION (V1 Full V3) */}
             <div className="space-y-3 pt-2">

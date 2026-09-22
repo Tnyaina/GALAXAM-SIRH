@@ -64,7 +64,7 @@ export default function Layout({ children }) {
                 <main
                     id="main-content"
                     tabIndex={-1}
-                    className="flex-1 min-h-0 flex flex-col overflow-y-auto p-3.5 sm:p-4.5 bg-[var(--color-bg)] text-[var(--color-fg)] focus:outline-none"
+                    className="flex-1 min-w-0 min-h-0 flex flex-col overflow-y-auto overflow-x-hidden p-3.5 sm:p-4.5 bg-[var(--color-bg)] text-[var(--color-fg)] focus:outline-none"
                 >
                     {children}
                 </main>

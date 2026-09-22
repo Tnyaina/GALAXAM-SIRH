@@ -37,6 +37,9 @@ public class PurgeCongeScheduler {
     @Autowired
     private NotificationRhService notificationService;
 
+    @Autowired
+    private SchedulerExecutionRegistry executionRegistry;
+
     public static class EmployeSoldeAccumulateur {
         public double stockHistoriqueInitial = 0.0;
         public List<PurgeFifoEngine.DroitDate> droitsDates = new ArrayList<>();
@@ -51,12 +54,17 @@ public class PurgeCongeScheduler {
         }
     }
 
-    @Scheduled(cron = "0 0 2 * * ?")
+    @Scheduled(cron = "0 0 2 * * ?", zone = "Indian/Antananarivo")
     public void purgerCongesExpires() {
-        purgerCongesExpires(LocalDate.now());
+        executionRegistry.runDaily("PURGE_CONGES", () -> purgerCongesExpiresInterne(LocalDate.now()));
     }
 
     public void purgerCongesExpires(LocalDate dateReference) {
+        executionRegistry.run("PURGE_CONGES", dateReference != null ? dateReference : LocalDate.now(),
+                () -> purgerCongesExpiresInterne(dateReference));
+    }
+
+    private void purgerCongesExpiresInterne(LocalDate dateReference) throws Exception {
         LocalDate ref = dateReference != null ? dateReference : LocalDate.now();
         log.info("[PurgeCongeScheduler] Lancement de la purge triennale FIFO (Moteur Java) au {}...", ref);
         try (Connection c = dataSource.getConnection()) {
@@ -68,9 +76,11 @@ public class PurgeCongeScheduler {
             } catch (Exception e) {
                 c.rollback();
                 log.error("[PurgeCongeScheduler] Erreur lors de la purge des congés : {}", e.getMessage(), e);
+                throw e;
             }
         } catch (Exception e) {
             log.error("[PurgeCongeScheduler] Erreur connexion BDD : {}", e.getMessage(), e);
+            throw e;
         }
     }
 

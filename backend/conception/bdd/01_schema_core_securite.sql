@@ -6,6 +6,7 @@
 -- 1. Nettoyage préalable (ordre inverse des dépendances)
 DROP TABLE IF EXISTS role_menu CASCADE;
 DROP TABLE IF EXISTS ref_menu CASCADE;
+DROP TABLE IF EXISTS scheduler_execution CASCADE;
 DROP TABLE IF EXISTS audit_log CASCADE;
 DROP TABLE IF EXISTS journal_connexion CASCADE;
 DROP TABLE IF EXISTS utilisateur CASCADE;
@@ -85,7 +86,21 @@ CREATE INDEX idx_audit_table_rec ON audit_log(nom_table, id_enregistrement);
 CREATE INDEX idx_audit_utilisateur ON audit_log(id_utilisateur);
 CREATE INDEX idx_audit_date ON audit_log(date_action DESC);
 
--- 8. Menus Arborescents & Habilitations UI
+-- 8. Journal des traitements planifiés (verrou inter-instances et reprise après incident)
+CREATE TABLE scheduler_execution (
+    job_code VARCHAR(80) NOT NULL,
+    execution_key DATE NOT NULL,
+    status VARCHAR(16) NOT NULL CHECK (status IN ('RUNNING', 'COMPLETED', 'FAILED')),
+    started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 1,
+    error_message TEXT NULL,
+    PRIMARY KEY (job_code, execution_key)
+);
+
+CREATE INDEX idx_scheduler_execution_status ON scheduler_execution(status, started_at DESC);
+
+-- 9. Menus Arborescents & Habilitations UI
 CREATE TABLE ref_menu (
     id_menu VARCHAR(50) PRIMARY KEY,
     libelle VARCHAR(100) NOT NULL,
@@ -102,7 +117,7 @@ CREATE TABLE role_menu (
     PRIMARY KEY (id_role, id_menu)
 );
 
--- 9. Paramètres Globaux
+-- 10. Paramètres Globaux
 CREATE TABLE parametre_global (
     id_parametre SERIAL PRIMARY KEY,
     code_parametre VARCHAR(50) NOT NULL,

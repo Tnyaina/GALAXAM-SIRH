@@ -1,54 +1,46 @@
-import { Users, Briefcase, Calendar, UserCheck, Clock, FileText } from 'lucide-react';
+import { Users, ClipboardCheck, UserCheck, Clock } from 'lucide-react';
 import StatCard from '@/components/ui/data-display/StatCard';
 import { SkeletonStatCard } from '@/components/ui/feedback/Skeleton';
 
 export default function KpiGrid({ 
     loading, 
     kpis, 
-    demandesCongeAValiderCount = 0, 
-    absentsAujourdhuiCount = 0 
+    actionsCount = 0,
+    absentsAujourdhuiCount = 0
 }) {
     return (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {loading ? (
-                Array.from({ length: 6 }).map((_, i) => <SkeletonStatCard key={i} />)
+                Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)
             ) : (
                 <>
                     <StatCard
                         title="Effectif actif"
                         value={kpis?.totalEffectifActif ?? '—'}
+                        subtext={`${kpis?.nouvellesEmbauchesMois ?? 0} arrivée(s) ce mois`}
                         icon={<Users size={18} />}
                         color="brand"
                     />
                     <StatCard
-                        title="Comptabilisé"
-                        value={kpis?.effectifComptabilise ?? '—'}
-                        icon={<Briefcase size={18} />}
-                        color="brand"
-                    />
-                    <StatCard
-                        title="Congés à valider"
-                        value={demandesCongeAValiderCount}
-                        icon={<Calendar size={18} />}
-                        color={demandesCongeAValiderCount > 0 ? 'warning' : 'brand'}
+                        title="Actions à traiter"
+                        value={actionsCount}
+                        subtext={actionsCount > 0 ? 'Ouvrir les priorités opérationnelles' : 'Aucune action en attente'}
+                        icon={<ClipboardCheck size={18} />}
+                        color={actionsCount > 0 ? 'warning' : 'brand'}
                     />
                     <StatCard
                         title="Absents ce jour"
                         value={absentsAujourdhuiCount}
+                        subtext="Congés validés en cours"
                         icon={<UserCheck size={18} />}
                         color={absentsAujourdhuiCount > 0 ? 'info' : 'brand'}
                     />
                     <StatCard
-                        title="Expirations 30j"
+                        title="Échéances à 30 jours"
                         value={kpis?.contratsExpirant30j ?? '—'}
+                        subtext={`${kpis?.essaisEnCours ?? 0} période(s) d’essai en cours`}
                         icon={<Clock size={18} />}
                         color={kpis?.contratsExpirant30j > 0 ? 'warning' : 'brand'}
-                    />
-                    <StatCard
-                        title="Brouillons à valider"
-                        value={kpis?.brouillonsEnAttente ?? '—'}
-                        icon={<FileText size={18} />}
-                        color={kpis?.brouillonsEnAttente > 0 ? 'warning' : 'brand'}
                     />
                 </>
             )}
