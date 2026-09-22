@@ -258,17 +258,14 @@ SELECT setval('ref_site_id_site_seq', (SELECT GREATEST(MAX(id_site), 2) FROM ref
 
 -- Départements
 INSERT INTO ref_departement (id_departement, code_departement, libelle) VALUES
-(1, 'LOG', 'Logistics'),
-(2, 'LMD', 'LMD');
-SELECT setval('ref_departement_id_departement_seq', (SELECT GREATEST(MAX(id_departement), 2) FROM ref_departement));
+(1, 'LOG', 'Logistics');
+SELECT setval('ref_departement_id_departement_seq', (SELECT GREATEST(MAX(id_departement), 1) FROM ref_departement));
 
 -- Services
 INSERT INTO ref_service (id_service, code_service, libelle, id_departement) VALUES
 (1, 'ADM', 'Administration & RH', 1),
-(2, 'OPE', 'Opérations & Transit', 1),
-(3, 'ADM', 'Administration Projet', 2),
-(4, 'OPE', 'Opérations Terrain LMD', 2);
-SELECT setval('ref_service_id_service_seq', (SELECT GREATEST(MAX(id_service), 4) FROM ref_service));
+(2, 'OPE', 'Opérations & Transit', 1);
+SELECT setval('ref_service_id_service_seq', (SELECT GREATEST(MAX(id_service), 2) FROM ref_service));
 
 -- Fonctions
 INSERT INTO ref_fonction (code_fonction, libelle, dispense_pointage) VALUES

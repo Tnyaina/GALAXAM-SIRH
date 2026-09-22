@@ -16,8 +16,11 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
- * Seeder automatique pour garantir la présence d'au moins un compte Administrateur
- * au démarrage de l'application (Résolution du problème de bootstrap initial).
+ * Initialisation automatique du premier compte Administrateur.
+ *
+ * <p>Le bootstrap est idempotent : il ne s'exécute réellement que lorsqu'aucun
+ * administrateur actif n'est présent en base. Les démarrages suivants ne modifient
+ * donc ni les comptes ni les mots de passe déjà configurés.</p>
  */
 @Component
 @Order(1)
@@ -45,15 +48,14 @@ public class AdminAccountSeeder implements CommandLineRunner {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                // 1. Vérifier si le compte administrateur racine (defaultAdminUsername) existe et est actif
+                // 1. Une base déjà administrable ne doit jamais être modifiée au démarrage.
                 String checkAdminSql =
                     "SELECT COUNT(u.id_utilisateur) FROM utilisateur u " +
                     "JOIN ref_role r ON u.id_role = r.id_role " +
-                    "WHERE u.identifiant = ? AND r.code_role = 'ROLE_ADMIN' AND u.est_actif = true";
+                    "WHERE r.code_role = 'ROLE_ADMIN' AND u.est_actif = true";
 
                 boolean adminExists = false;
                 try (PreparedStatement ps = c.prepareStatement(checkAdminSql)) {
-                    ps.setString(1, defaultAdminUsername);
                     try (ResultSet rs = ps.executeQuery()) {
                         if (rs.next() && rs.getInt(1) > 0) {
                             adminExists = true;
@@ -66,7 +68,7 @@ public class AdminAccountSeeder implements CommandLineRunner {
                 }
 
                 if (adminExists) {
-                    logger.info("[AdminAccountSeeder] Compte administrateur actif déjà présent en base.");
+                    logger.info("[AdminAccountSeeder] Un compte administrateur actif est déjà présent en base ; bootstrap ignoré.");
                     c.rollback();
                     return;
                 }
