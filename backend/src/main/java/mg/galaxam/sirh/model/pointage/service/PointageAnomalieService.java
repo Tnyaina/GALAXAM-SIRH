@@ -848,7 +848,12 @@ public class PointageAnomalieService {
                 Map<String, mg.galaxam.sirh.model.paieconfig.ParametreGlobal.ParametreEtat> paramsGlobaux =
                         mg.galaxam.sirh.model.paieconfig.ParametreGlobal.loadEtatMap(c);
                 reductionDeplactRepasConfig = mg.galaxam.sirh.model.paieconfig.ParametreGlobal.getBigDecimal(
-                        paramsGlobaux, "REDUCTION_DEPLACT_REPAS_MIDI", new BigDecimal("1000"), BigDecimal.ZERO);
+                        paramsGlobaux, "REDUCTION_DEPLACT_REPAS_MIDI", null, null);
+                if (reductionDeplactRepasConfig == null || reductionDeplactRepasConfig.signum() < 0) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
+                            "Configuration d'indemnité absente : REDUCTION_DEPLACT_REPAS_MIDI.");
+                }
             }
 
             BigDecimal mntDepJour = BigDecimal.ZERO;

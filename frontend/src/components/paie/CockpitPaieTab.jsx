@@ -124,7 +124,7 @@ export default function CockpitPaieTab({
 
     const chargerReferentielsVariables = async () => {
         try {
-            const types = await paieService.listerTypesMouvements();
+            const types = await paieService.listerTypesMouvements(idPeriodeActive);
             setTypesMouvements(Array.isArray(types) ? types : (types?.content || types?.items || []));
         } catch (err) {
             console.error('Erreur chargement listes variables :', err);

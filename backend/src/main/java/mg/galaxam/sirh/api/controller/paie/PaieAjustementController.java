@@ -18,6 +18,9 @@ import mg.galaxam.sirh.model.paie.PaieAvanceAcompte;
 import mg.galaxam.sirh.model.paie.workflow.PayrollAdjustmentCommand;
 import mg.galaxam.sirh.model.paie.workflow.PayrollAdjustmentCommandRequest;
 import mg.galaxam.sirh.model.paie.workflow.PayrollAdjustmentWorkflowService;
+import mg.galaxam.sirh.model.paie.workflow.PayrollAction;
+import mg.galaxam.sirh.model.paie.workflow.PayrollPeriodUserContext;
+import mg.galaxam.sirh.model.paie.workflow.PayrollPeriodWorkflowService;
 import mg.galaxam.sirh.model.paieconfig.RefTypeMouvementPaie;
 import mg.galaxam.sirh.securite.AuditLog;
 import mg.galaxam.sirh.securite.CustomUserDetails;
@@ -41,12 +44,15 @@ public class PaieAjustementController {
 
     private final DataSource dataSource;
     private final PayrollAdjustmentWorkflowService adjustmentWorkflowService;
+    private final PayrollPeriodWorkflowService periodWorkflowService;
 
     public PaieAjustementController(
             DataSource dataSource,
-            PayrollAdjustmentWorkflowService adjustmentWorkflowService) {
+            PayrollAdjustmentWorkflowService adjustmentWorkflowService,
+            PayrollPeriodWorkflowService periodWorkflowService) {
         this.dataSource = dataSource;
         this.adjustmentWorkflowService = adjustmentWorkflowService;
+        this.periodWorkflowService = periodWorkflowService;
     }
 
     /**
@@ -73,7 +79,7 @@ public class PaieAjustementController {
 
             List<Object> params = new ArrayList<>();
             if (idPeriode != null) {
-                sql.append("AND (paa.id_periode_paie = ? OR paa.id_periode_paie IS NULL) ");
+                sql.append("AND paa.id_periode_paie = ? ");
                 params.add(idPeriode);
             }
             if (idEmploye != null) {
@@ -101,6 +107,10 @@ public class PaieAjustementController {
                         map.put("sens", rs.getString("type_sens"));
                         map.put("categorie", rs.getString("type_categorie"));
                         map.put("montant", rs.getBigDecimal("montant"));
+                        map.put("montantInitial", rs.getBigDecimal("montant_initial"));
+                        map.put("montantImpute", rs.getBigDecimal("montant_impute"));
+                        map.put("soldeRestant", rs.getBigDecimal("solde_restant"));
+                        map.put("provenance", rs.getString("provenance"));
                         map.put("dateDemande", rs.getDate("date_demande"));
                         map.put("datePaiement", rs.getDate("date_paiement"));
                         map.put("motif", rs.getString("motif"));
@@ -122,10 +132,16 @@ public class PaieAjustementController {
      */
     @GetMapping("/types-mouvements")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> listerTypesMouvements() throws Exception {
+    public ResponseEntity<?> listerTypesMouvements(
+            @RequestParam(name = "idPeriode", required = false) Integer idPeriode,
+            Authentication authentication) throws Exception {
+        if (idPeriode != null) {
+            periodWorkflowService.requirePayrollAction(idPeriode, PayrollAction.ADD_VARIABLE,
+                    PayrollPeriodUserContext.from(authentication));
+        }
         try (Connection c = dataSource.getConnection()) {
             List<RefTypeMouvementPaie> types = RefTypeMouvementPaie.listerActifs(c);
-            return ResponseEntity.ok(types);
+            return ResponseEntity.ok(types.stream().filter(RefTypeMouvementPaie::isSaisieManuelleAutorisee).toList());
         }
     }
 
@@ -134,7 +150,9 @@ public class PaieAjustementController {
      */
     @PostMapping
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> creerAjustement(@Valid @RequestBody PaieAjustementRequest req) throws Exception {
+    public ResponseEntity<?> creerAjustement(
+            @Valid @RequestBody PaieAjustementRequest req,
+            Authentication authentication) throws Exception {
         Integer userId = getCurrentUserId();
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -147,9 +165,30 @@ public class PaieAjustementController {
                     typeMvt = RefTypeMouvementPaie.trouverParCode(req.getTypeMouvement().trim(), c);
                 }
 
-                String codeType = typeMvt != null ? typeMvt.getCode() : (req.getTypeMouvement() != null ? req.getTypeMouvement() : "AUTIMP");
-                String sens = typeMvt != null ? typeMvt.getSens() : (req.getSens() != null ? req.getSens() : "RETENUE");
-                Integer idType = typeMvt != null ? typeMvt.getIdTypeMouvement() : null;
+                if (typeMvt == null || !typeMvt.isEstActif()) {
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                            "Le type de mouvement doit être actif et configuré dans le référentiel de paie.");
+                }
+                if (!typeMvt.isSaisieManuelleAutorisee()) {
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                            "Ce type appartient à un owner automatique ou à un domaine non saisissable en Paie.");
+                }
+                if (typeMvt.isPeriodeObligatoire() && req.getIdPeriodePaie() == null) {
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                            "La période de paie est obligatoire pour ce type de mouvement.");
+                }
+                if (typeMvt.isMotifObligatoire() && (req.getMotif() == null || req.getMotif().isBlank())) {
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                            "Le motif ou la source est obligatoire pour ce type de mouvement.");
+                }
+                if (req.getIdPeriodePaie() != null) {
+                    periodWorkflowService.requirePayrollAction(req.getIdPeriodePaie(), PayrollAction.ADD_VARIABLE,
+                            PayrollPeriodUserContext.from(authentication));
+                }
+
+                String codeType = typeMvt.getCode();
+                String sens = typeMvt.getSens();
+                Integer idType = typeMvt.getIdTypeMouvement();
 
                 PaieAvanceAcompte entity = new PaieAvanceAcompte();
                 entity.setIdEmploye(req.getIdEmploye());
@@ -158,6 +197,10 @@ public class PaieAjustementController {
                 entity.setTypeMouvement(codeType);
                 entity.setSens(sens);
                 entity.setMontant(req.getMontant());
+                entity.setMontantInitial(req.getMontant());
+                entity.setMontantImpute(java.math.BigDecimal.ZERO);
+                entity.setSoldeRestant(req.getMontant());
+                entity.setProvenance(typeMvt.getProvenanceDefaut());
                 entity.setDateDemande(req.getDateDemande() != null ? req.getDateDemande() : new java.sql.Date(System.currentTimeMillis()));
                 entity.setMotif(req.getMotif());
                 entity.setModeReglement(req.getModeReglement() != null ? req.getModeReglement() : "VIREMENT");
@@ -213,7 +256,21 @@ public class PaieAjustementController {
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<BusinessDecision> executeCommand(
             @PathVariable("id") int id,
-            @Valid @RequestBody PayrollAdjustmentCommandRequest req) throws Exception {
+            @Valid @RequestBody PayrollAdjustmentCommandRequest req,
+            Authentication authentication) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            PaieAvanceAcompte entity = PaieAvanceAcompte.trouverParId(id, c);
+            if (entity == null) {
+                throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "Ajustement de paie introuvable.");
+            }
+            if (entity.getIdPeriodePaie() == null) {
+                throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                        "Un mouvement sans période ne peut pas être modifié par le workflow de campagne.");
+            }
+            periodWorkflowService.requirePayrollAction(entity.getIdPeriodePaie(), PayrollAction.ADD_VARIABLE,
+                    PayrollPeriodUserContext.from(authentication));
+        }
         Integer userId = getCurrentUserId();
         BusinessDecision decision = adjustmentWorkflowService.execute(
                 id, req.getCommand(), userId, req.getReason(), req.getExpectedVersion());
@@ -260,6 +317,13 @@ public class PaieAjustementController {
                     throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
                             "Ajustement de paie introuvable.");
                 }
+                if (entity.getIdPeriodePaie() == null) {
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                            "Un mouvement sans période ne peut pas être modifié par le workflow de campagne.");
+                }
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                periodWorkflowService.requirePayrollAction(entity.getIdPeriodePaie(), PayrollAction.ADD_VARIABLE,
+                        PayrollPeriodUserContext.from(authentication));
 
                 if ("IMPUTE_PAIE".equalsIgnoreCase(entity.getStatut())) {
                     throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,

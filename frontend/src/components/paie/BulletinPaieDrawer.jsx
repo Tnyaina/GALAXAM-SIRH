@@ -32,13 +32,14 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     const [showPrintModal, setShowPrintModal] = useState(false);
     const [showAddVariable, setShowAddVariable] = useState(false);
     const [showDetailRubriques, setShowDetailRubriques] = useState(false);
+    const [showTaxDetails, setShowTaxDetails] = useState(false);
 
     // Formulaire d'ajout d'ajustement contextuel
     const [typeMouvements, setTypeMouvements] = useState([]);
     const [submittingAjustement, setSubmittingAjustement] = useState(false);
     const [recalculating, setRecalculating] = useState(false);
     const [ajustementForm, setAjustementForm] = useState({
-        typeMouvement: 'PRIME_EXCEPTIONNELLE',
+        typeMouvement: '',
         montant: '',
         sens: 'GAIN',
         motif: ''
@@ -59,9 +60,9 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         }
     }, [idBulletin]);
 
-    const chargerTypesMouvements = useCallback(async () => {
+    const chargerTypesMouvements = useCallback(async (idPeriode) => {
         try {
-            const types = await paieService.listerTypesMouvements();
+            const types = await paieService.listerTypesMouvements(idPeriode);
             setTypeMouvements(Array.isArray(types) ? types : (types?.content || types?.items || []));
         } catch (err) {
             console.error('Erreur chargement types mouvements :', err);
@@ -71,15 +72,21 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     useEffect(() => {
         if (isOpen && idBulletin) {
             chargerBulletin();
-            chargerTypesMouvements();
         } else {
             setData(null);
             setError(null);
             setFeedbackMsg(null);
             setShowAddVariable(false);
             setShowDetailRubriques(false);
+            setShowTaxDetails(false);
         }
-    }, [isOpen, idBulletin, chargerBulletin, chargerTypesMouvements]);
+    }, [isOpen, idBulletin, chargerBulletin]);
+
+    useEffect(() => {
+        if (isOpen && data?.bulletin?.idPeriodePaie) {
+            chargerTypesMouvements(data.bulletin.idPeriodePaie);
+        }
+    }, [isOpen, data?.bulletin?.idPeriodePaie, chargerTypesMouvements]);
 
     const handleAjustementChange = (field, value) => {
         setAjustementForm(prev => {
@@ -96,6 +103,10 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
 
     const handleCreerAjustement = async (e) => {
         e.preventDefault();
+        if (!ajustementForm.typeMouvement) {
+            setFeedbackMsg({ type: 'error', text: 'Sélectionnez un type de variable configuré.' });
+            return;
+        }
         if (!ajustementForm.montant || Number(ajustementForm.montant) <= 0) {
             setFeedbackMsg({ type: 'error', text: 'Veuillez saisir un montant supérieur à 0.' });
             return;
@@ -120,7 +131,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
             });
             setShowAddVariable(false);
             setAjustementForm({
-                typeMouvement: 'PRIME_EXCEPTIONNELLE',
+                typeMouvement: '',
                 montant: '',
                 sens: 'GAIN',
                 motif: ''
@@ -175,6 +186,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
 
     const bulletin = data?.bulletin;
     const explication = data?.explication;
+    const fiscalite = data?.explicationFiscalite;
     const lignes = Array.isArray(data?.lignes) ? data.lignes : [];
 
     const nomAffiche = bulletin ? (bulletin.nomPrenom || [bulletin.nom, bulletin.prenom].filter(Boolean).join(' ') || [bulletin.nomEmploye, bulletin.prenomEmploye].filter(Boolean).join(' ') || 'Employé') : '';
@@ -428,15 +440,13 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                             value={ajustementForm.typeMouvement}
                                             onChange={(val) => handleAjustementChange('typeMouvement', val)}
                                             options={[
-                                                { value: 'PRIM_EXC', label: 'Prime exceptionnelle (+ Gain)' },
-                                                { value: 'ACOMPTE_15', label: 'Acompte quinzaine (- Retenue)' },
-                                                { value: 'AVANCE_SPEC', label: 'Avance spéciale (- Retenue)' },
-                                                { value: 'DED_DIV', label: 'Déduction diverse (- Retenue)' },
+                                                { value: '', label: 'Sélectionner un type configuré' },
                                                 ...(Array.isArray(typeMouvements) ? typeMouvements : []).map(t => ({
                                                     value: t.code,
-                                                    label: `${t.libelle} (${t.sens})`
+                                                    label: `${t.libelle} — ${t.categorie || t.sens}`
                                                 }))
                                             ]}
+                                            required
                                         />
 
                                         <Input
@@ -523,24 +533,68 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                             </div>
 
                             <div className="flex justify-between items-center text-[var(--color-fg-muted)] py-0.5">
-                                <span>- CNaPS Salariale (1% plafonné 8× SMIG)</span>
+                                <span>- {ligneCnaps?.libelleRubrique || 'CNaPS — part salariale'}</span>
                                 <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">{cnapsVal == null ? 'Détail indisponible' : `-${formatAr(cnapsVal)}`}</span>
                             </div>
 
                             <div className="flex justify-between items-center text-[var(--color-fg-muted)] py-0.5">
-                                <span>- Santé OSTIE / AMIT Salariale (1%)</span>
+                                <span>- {ligneOstie?.libelleRubrique || 'Santé — part salariale'}</span>
                                 <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">{ostieVal == null ? 'Détail indisponible' : `-${formatAr(ostieVal)}`}</span>
                             </div>
 
                             <div className="flex justify-between items-center font-bold text-xs py-1 border-t border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-2">
-                                <span className="text-[var(--color-fg)]">= NET IMPOSABLE</span>
-                                <span className="font-mono text-[var(--color-fg)]">{formatAr(netImposable)}</span>
+                                <span className="text-[var(--color-fg)]" title="Revenu après cotisations et traitements fiscaux, avant arrondi de l’assiette IRSA.">= REVENU NET IMPOSABLE</span>
+                                <span className="font-mono text-[var(--color-fg)]">{formatAr(fiscalite?.revenuNetImposable ?? netImposable)}</span>
                             </div>
 
                             <div className="flex justify-between items-center text-[var(--color-fg-muted)] py-0.5">
-                                <span>- IRSA Net (Barème progressif LF 2026 - min 3 000 Ar)</span>
-                                <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">-{formatAr(bulletin.irsaNet)}</span>
+                                <span title="Montant arrondi utilisé par le moteur comme assiette du barème IRSA.">Base imposable IRSA</span>
+                                <span className="font-mono font-semibold text-[var(--color-fg)]">{formatAr(fiscalite?.assietteIrsa ?? bulletin.assietteIrsa ?? bulletin.baseIrsaArrondie)}</span>
                             </div>
+
+                            <div className="flex justify-between items-center text-[var(--color-fg-muted)] py-0.5">
+                                <span>- IRSA dû</span>
+                                <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">-{formatAr(fiscalite?.irsaDu ?? bulletin.irsaDu ?? bulletin.irsaNet)}</span>
+                            </div>
+
+                            {(fiscalite || bulletin.assietteIrsa != null || bulletin.baseIrsaArrondie != null) && (
+                                <div className="border-t border-[var(--color-border-subtle)] pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTaxDetails(value => !value)}
+                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--color-brand-600)] hover:underline focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]"
+                                        aria-expanded={showTaxDetails}
+                                    >
+                                        <Info size={13} aria-hidden="true" />
+                                        {showTaxDetails ? 'Masquer le détail IRSA' : 'Voir le détail du calcul IRSA'}
+                                    </button>
+                                    {showTaxDetails && (
+                                        <div className="mt-2 border border-[var(--color-border-subtle)] bg-[var(--color-surface)]" data-testid="irsa-breakdown">
+                                            {(fiscalite?.detailsTranches || []).map((tranche, index) => (
+                                                <div key={`${tranche.borneInferieure}-${index}`} className="grid grid-cols-[1fr_auto_auto] gap-3 px-3 py-2 border-b last:border-b-0 border-[var(--color-border-subtle)] text-[11px]">
+                                                    <span className="text-[var(--color-fg-muted)]">
+                                                        {formatAr(tranche.borneInferieure)} → {tranche.borneSuperieure == null ? 'au-delà' : formatAr(tranche.borneSuperieure)}
+                                                    </span>
+                                                    <span className="font-mono text-[var(--color-fg-muted)]">
+                                                        {formatAr(tranche.montantTaxable)} × {(Number(tranche.taux) * 100).toLocaleString('fr-FR')} %
+                                                    </span>
+                                                    <span className="font-mono font-semibold text-[var(--color-fg)]">{formatAr(tranche.impotProduit)}</span>
+                                                </div>
+                                            ))}
+                                            {(!fiscalite?.detailsTranches || fiscalite.detailsTranches.length === 0) && (
+                                                <p className="px-3 py-3 text-[11px] text-[var(--color-fg-muted)]">
+                                                    Le détail des tranches n’est pas fourni pour ce bulletin. Aucune tranche n’est reconstruite côté interface.
+                                                </p>
+                                            )}
+                                            <div className="grid grid-cols-2 gap-3 px-3 py-2 bg-[var(--color-bg-subtle)] text-[11px]">
+                                                <span>IRSA calculé</span><span className="text-right font-mono font-semibold">{formatAr(fiscalite?.irsaCalcule ?? bulletin.irsaCalcule ?? bulletin.irsaBrut)}</span>
+                                                <span>Réduction</span><span className="text-right font-mono">-{formatAr(fiscalite?.reductionChargeFamille ?? bulletin.reductionChargeFamille ?? bulletin.reductionEnfants)}</span>
+                                                <span className="font-bold">IRSA dû</span><span className="text-right font-mono font-bold">{formatAr(fiscalite?.irsaDu ?? bulletin.irsaDu ?? bulletin.irsaNet)}</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {Number(bulletin.totalRetenuesAvances) > 0 && (
                                 <div className="flex justify-between items-center text-[var(--color-fg-muted)] py-0.5">

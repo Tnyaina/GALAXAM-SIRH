@@ -3,6 +3,8 @@ package mg.galaxam.sirh.integration.pointage;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.hamcrest.Matchers.is;
 
 import java.sql.Connection;
 import java.sql.Date;
@@ -102,6 +104,41 @@ public class PointageSyntheseServiceIntegrationTest extends BaseIntegrationTest 
                 }
             }
 
+        }
+    }
+
+    @Test
+    @DisplayName("Indemnités — une configuration repas absente produit une erreur métier explicite")
+    void configurationRepasAbsenteEstRejetee() throws Exception {
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "UPDATE parametre_global SET est_actif = FALSE WHERE code_parametre = 'MONTANT_REPAS_MIDI'")) {
+            ps.executeUpdate();
+        }
+        try {
+            SaisiePointageJourDTO dto = new SaisiePointageJourDTO();
+            dto.setIdEmploye(emp.idEmploye);
+            dto.setIdSite(emp.idSite);
+            dto.setDatePointage(lundi.toString());
+            dto.setIdPeriodePaie(idPeriode);
+            dto.setHeureEntreeMatin("08:00");
+            dto.setHeureSortieMatin("12:00");
+            dto.setHeureEntreeAm("13:00");
+            dto.setHeureSortieAm("17:00");
+            dto.setIndemniteRepasRecue(true);
+
+            mockMvc.perform(post("/pointages/saisie/batch")
+                            .header("Authorization", "Bearer " + getPointageToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(toJson(List.of(dto))))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code", is("PAYROLL_ALLOWANCE_CONFIGURATION_MISSING")));
+        } finally {
+            try (Connection c = dataSource.getConnection();
+                 PreparedStatement ps = c.prepareStatement(
+                         "UPDATE parametre_global SET est_actif = TRUE WHERE code_parametre = 'MONTANT_REPAS_MIDI'")) {
+                ps.executeUpdate();
+            }
         }
     }
 

@@ -87,6 +87,10 @@ public enum SirhErrorCode {
             HttpStatus.CONFLICT,
             "Une configuration métier obligatoire est absente ou incomplète."),
 
+    PAYROLL_ALLOWANCE_CONFIGURATION_MISSING(
+            HttpStatus.CONFLICT,
+            "Une configuration d'indemnité repas ou déplacement est absente pour le contexte demandé."),
+
     // =========================================================================
     // POINTAGE & PAIE
     // =========================================================================

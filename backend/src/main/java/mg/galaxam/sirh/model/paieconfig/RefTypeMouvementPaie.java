@@ -22,6 +22,12 @@ public class RefTypeMouvementPaie extends ClassMere {
     private Integer idRubrique;
     private boolean estProratise = false;
     private boolean estPlafonneDixieme = false;
+    private String nature;
+    private String ownerCode;
+    private boolean saisieManuelleAutorisee = true;
+    private boolean periodeObligatoire = true;
+    private boolean motifObligatoire = true;
+    private String provenanceDefaut;
     private boolean estActif = true;
     private Integer ordreAffichage = 10;
     private String description;
@@ -45,8 +51,10 @@ public class RefTypeMouvementPaie extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO ref_type_mouvement_paie (" +
-                     "code, libelle, sens, categorie, id_rubrique, est_proratise, est_plafonne_dixieme, est_actif, ordre_affichage, description" +
-                     ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_type_mouvement";
+                     "code, libelle, sens, categorie, id_rubrique, est_proratise, est_plafonne_dixieme, " +
+                     "nature, owner_code, saisie_manuelle_autorisee, periode_obligatoire, motif_obligatoire, provenance_defaut, " +
+                     "est_actif, ordre_affichage, description" +
+                     ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_type_mouvement";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
@@ -55,9 +63,15 @@ public class RefTypeMouvementPaie extends ClassMere {
             if (idRubrique != null) ps.setInt(5, idRubrique); else ps.setNull(5, java.sql.Types.INTEGER);
             ps.setBoolean(6, estProratise);
             ps.setBoolean(7, estPlafonneDixieme);
-            ps.setBoolean(8, estActif);
-            ps.setInt(9, ordreAffichage != null ? ordreAffichage : 10);
-            ps.setString(10, description);
+            ps.setString(8, nature);
+            ps.setString(9, ownerCode);
+            ps.setBoolean(10, saisieManuelleAutorisee);
+            ps.setBoolean(11, periodeObligatoire);
+            ps.setBoolean(12, motifObligatoire);
+            ps.setString(13, provenanceDefaut);
+            ps.setBoolean(14, estActif);
+            ps.setInt(15, ordreAffichage != null ? ordreAffichage : 10);
+            ps.setString(16, description);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -72,7 +86,9 @@ public class RefTypeMouvementPaie extends ClassMere {
     protected ClassMere modifier(Connection c) throws Exception {
         String sql = "UPDATE ref_type_mouvement_paie SET " +
                      "code = ?, libelle = ?, sens = ?, categorie = ?, id_rubrique = ?, " +
-                     "est_proratise = ?, est_plafonne_dixieme = ?, est_actif = ?, ordre_affichage = ?, description = ?, " +
+                     "est_proratise = ?, est_plafonne_dixieme = ?, nature = ?, owner_code = ?, " +
+                     "saisie_manuelle_autorisee = ?, periode_obligatoire = ?, motif_obligatoire = ?, provenance_defaut = ?, " +
+                     "est_actif = ?, ordre_affichage = ?, description = ?, " +
                      "updated_at = CURRENT_TIMESTAMP WHERE id_type_mouvement = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
@@ -82,10 +98,16 @@ public class RefTypeMouvementPaie extends ClassMere {
             if (idRubrique != null) ps.setInt(5, idRubrique); else ps.setNull(5, java.sql.Types.INTEGER);
             ps.setBoolean(6, estProratise);
             ps.setBoolean(7, estPlafonneDixieme);
-            ps.setBoolean(8, estActif);
-            ps.setInt(9, ordreAffichage != null ? ordreAffichage : 10);
-            ps.setString(10, description);
-            ps.setInt(11, idTypeMouvement);
+            ps.setString(8, nature);
+            ps.setString(9, ownerCode);
+            ps.setBoolean(10, saisieManuelleAutorisee);
+            ps.setBoolean(11, periodeObligatoire);
+            ps.setBoolean(12, motifObligatoire);
+            ps.setString(13, provenanceDefaut);
+            ps.setBoolean(14, estActif);
+            ps.setInt(15, ordreAffichage != null ? ordreAffichage : 10);
+            ps.setString(16, description);
+            ps.setInt(17, idTypeMouvement);
             ps.executeUpdate();
         }
         return this;
@@ -169,6 +191,12 @@ public class RefTypeMouvementPaie extends ClassMere {
         item.setIdRubrique(rs.wasNull() ? null : rubId);
         item.setEstProratise(rs.getBoolean("est_proratise"));
         item.setEstPlafonneDixieme(rs.getBoolean("est_plafonne_dixieme"));
+        item.setNature(rs.getString("nature"));
+        item.setOwnerCode(rs.getString("owner_code"));
+        item.setSaisieManuelleAutorisee(rs.getBoolean("saisie_manuelle_autorisee"));
+        item.setPeriodeObligatoire(rs.getBoolean("periode_obligatoire"));
+        item.setMotifObligatoire(rs.getBoolean("motif_obligatoire"));
+        item.setProvenanceDefaut(rs.getString("provenance_defaut"));
         item.setEstActif(rs.getBoolean("est_actif"));
         item.setOrdreAffichage(rs.getInt("ordre_affichage"));
         item.setDescription(rs.getString("description"));
@@ -201,6 +229,19 @@ public class RefTypeMouvementPaie extends ClassMere {
 
     public boolean isEstPlafonneDixieme() { return estPlafonneDixieme; }
     public void setEstPlafonneDixieme(boolean estPlafonneDixieme) { this.estPlafonneDixieme = estPlafonneDixieme; }
+
+    public String getNature() { return nature; }
+    public void setNature(String nature) { this.nature = nature; }
+    public String getOwnerCode() { return ownerCode; }
+    public void setOwnerCode(String ownerCode) { this.ownerCode = ownerCode; }
+    public boolean isSaisieManuelleAutorisee() { return saisieManuelleAutorisee; }
+    public void setSaisieManuelleAutorisee(boolean value) { this.saisieManuelleAutorisee = value; }
+    public boolean isPeriodeObligatoire() { return periodeObligatoire; }
+    public void setPeriodeObligatoire(boolean value) { this.periodeObligatoire = value; }
+    public boolean isMotifObligatoire() { return motifObligatoire; }
+    public void setMotifObligatoire(boolean value) { this.motifObligatoire = value; }
+    public String getProvenanceDefaut() { return provenanceDefaut; }
+    public void setProvenanceDefaut(String provenanceDefaut) { this.provenanceDefaut = provenanceDefaut; }
 
     public boolean isEstActif() { return estActif; }
     public void setEstActif(boolean estActif) { this.estActif = estActif; }

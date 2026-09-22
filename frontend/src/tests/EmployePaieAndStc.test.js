@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 
 describe('Sprint Paie UI P0/P1 — Règles Métier et Cohérence Interface', () => {
@@ -9,14 +10,12 @@ describe('Sprint Paie UI P0/P1 — Règles Métier et Cohérence Interface', () 
             { code: 'AVANCE_SPECIALE', sens: 'RETENUE', nature: 'Avance exceptionnelle' },
             { code: 'CALL_PERSO', sens: 'RETENUE', nature: 'Communications privées' },
             { code: 'RET_DIV', sens: 'RETENUE', nature: 'Retenue diverse' },
-            { code: 'NOTE_DE_FRAIS', sens: 'GAIN', nature: 'Remboursement de frais professionnels' },
             { code: 'PRIM_EXC', sens: 'GAIN', nature: 'Prime de performance / exceptionnelle' },
         ];
 
-        it('NOTE_DE_FRAIS est strictement classifié comme un GAIN (remboursement) et non une retenue', () => {
+        it('NOTE_DE_FRAIS ne figure pas dans le catalogue de saisie manuelle Paie', () => {
             const frais = TYPES_MOUVEMENTS.find(t => t.code === 'NOTE_DE_FRAIS');
-            expect(frais).toBeDefined();
-            expect(frais.sens).toBe('GAIN');
+            expect(frais).toBeUndefined();
         });
 
         it('ACOMPTE_15 et AVANCE_SPECIALE sont classifiés comme RETENUE sur salaire', () => {
@@ -134,6 +133,19 @@ describe('Sprint Paie UI P0/P1 — Règles Métier et Cohérence Interface', () 
             };
             expect(valResult.statut).toBe('VALIDE');
             expect(valResult.numeroRecu).toBe('STC-2026-0005');
+        });
+    });
+
+    describe('5. Ownership de la fiche employé', () => {
+        it('ne contient plus de commande de création de variable de campagne', () => {
+            const source = readFileSync(
+                new URL('../components/employe/tabs/EmployePaieTab.jsx', import.meta.url),
+                'utf8'
+            );
+
+            expect(source).not.toContain('creerAjustement');
+            expect(source).not.toContain('Nouvelle variable');
+            expect(source).not.toContain('Ajouter un mouvement');
         });
     });
 });

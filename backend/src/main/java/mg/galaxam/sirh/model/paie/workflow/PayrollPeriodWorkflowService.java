@@ -689,7 +689,15 @@ public class PayrollPeriodWorkflowService {
         }
         if ("CLOTUREE".equals(state)) return ActionCapability.denied("PERIOD_CLOSED");
         if (action == PayrollAction.ADD_VARIABLE) {
-            return ActionCapability.permit();
+            if (!List.of("EN_COURS", "VALIDEE").contains(state)) {
+                return ActionCapability.denied("PAYROLL_VARIABLE_STATE_LOCKED");
+            }
+            int calculated = count(connection,
+                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut IN ('CALCULE','VALIDE','CLOTURE')",
+                    periodId);
+            return calculated == 0
+                    ? ActionCapability.permit()
+                    : ActionCapability.denied("PAYROLL_ALREADY_CALCULATED");
         }
         if (!List.of("VALIDEE", "PAIE_VALIDEE").contains(state)) return ActionCapability.denied("POINTAGE_NOT_FROZEN");
 

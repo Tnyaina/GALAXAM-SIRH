@@ -17,6 +17,7 @@ public class BulletinPaieComplet {
     private List<BulletinPaieLigne> lignes = new ArrayList<>();
     private ImpactPret impactPret;
     private List<Integer> idsAvancesImputees = new ArrayList<>();
+    private List<MouvementImputation> imputationsMouvements = new ArrayList<>();
     private ExplicationPaieDTO explication;
     private ExplicationFiscaliteDTO explicationFiscalite;
 
@@ -29,6 +30,8 @@ public class BulletinPaieComplet {
             String nouveauStatut,
             BigDecimal capitalRestantPretApres
     ) {}
+
+    public static record MouvementImputation(Integer idMouvement, BigDecimal montantImpute) {}
 
     /**
      * DTO d'explication canonique backend-driven pour l'affichage transparent et le contrôle
@@ -121,6 +124,8 @@ public class BulletinPaieComplet {
 
     public List<Integer> getIdsAvancesImputees() { return idsAvancesImputees; }
     public void setIdsAvancesImputees(List<Integer> idsAvancesImputees) { this.idsAvancesImputees = idsAvancesImputees; }
+    public List<MouvementImputation> getImputationsMouvements() { return imputationsMouvements; }
+    public void setImputationsMouvements(List<MouvementImputation> imputationsMouvements) { this.imputationsMouvements = imputationsMouvements; }
 
     public ExplicationPaieDTO getExplication() { return explication; }
     public void setExplication(ExplicationPaieDTO explication) { this.explication = explication; }

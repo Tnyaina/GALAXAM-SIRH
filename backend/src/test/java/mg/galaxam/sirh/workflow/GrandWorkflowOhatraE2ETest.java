@@ -79,10 +79,27 @@ public class GrandWorkflowOhatraE2ETest extends BaseIntegrationTest {
     private int idEmpRakoto;
 
     @BeforeEach
-    public void setUp() {
+    public void setUp() throws Exception {
         databaseCleaner.cleanTransactionalData();
         tokenAdmin = userFixtures.getAdminToken();
         tokenAgent = userFixtures.getPointageToken();
+
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "INSERT INTO parametre_global (code_parametre, categorie, valeur, description, date_debut, date_fin, est_actif, est_desactivable) " +
+                             "VALUES (?, 'POINTAGE', ?, 'Fixture historique Ohatra', DATE '2025-12-01', DATE '2025-12-31', TRUE, TRUE) " +
+                             "ON CONFLICT (code_parametre, date_debut) DO UPDATE SET valeur = EXCLUDED.valeur, date_fin = EXCLUDED.date_fin, est_actif = TRUE")) {
+            for (String[] parameter : List.of(
+                    new String[]{"MONTANT_REPAS_MIDI", "2000"},
+                    new String[]{"MONTANT_2ND_REPAS_1", "2000"},
+                    new String[]{"MONTANT_2ND_REPAS_2", "4000"},
+                    new String[]{"REDUCTION_DEPLACT_REPAS_MIDI", "1000"})) {
+                ps.setString(1, parameter[0]);
+                ps.setString(2, parameter[1]);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
 
         // Création de la période de paie 26/12/2025 au 25/01/2026
         idPeriode = employeFixtures.createPeriodePaie("PER-OHATRA-2026", dateDebut, dateFin, "EN_COURS");

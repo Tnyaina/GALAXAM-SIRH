@@ -34,6 +34,10 @@ public class PaieAvanceAcompte extends ClassMere {
     private String typeMouvement; // ACOMPTE_15, AVANCE_SPECIALE, CALL_PERSO, NOTE_DE_FRAIS, PRIME_EXCEPTIONNELLE, RETENUE_DIVERSE
     private String sens = "RETENUE"; // RETENUE, GAIN
     private BigDecimal montant;
+    private BigDecimal montantInitial;
+    private BigDecimal montantImpute = BigDecimal.ZERO;
+    private BigDecimal soldeRestant;
+    private String provenance = "VARIABLE_DAF";
     private Date dateDemande;
     private Date dateAccord;
     private Date datePaiement;
@@ -63,10 +67,10 @@ public class PaieAvanceAcompte extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO paie_avance_acompte (" +
-                "id_employe, id_periode_paie, type_mouvement, sens, montant, " +
+                "id_employe, id_periode_paie, type_mouvement, sens, montant, montant_initial, montant_impute, solde_restant, provenance, " +
                 "date_demande, date_accord, date_paiement, mode_reglement, motif, " +
                 "statut, id_bulletin, cree_par, approuve_par, id_type_mouvement" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_avance";
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_avance";
 
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             int p = 1;
@@ -75,6 +79,10 @@ public class PaieAvanceAcompte extends ClassMere {
             ps.setString(p++, typeMouvement);
             ps.setString(p++, sens != null ? sens : "RETENUE");
             ps.setBigDecimal(p++, montant);
+            ps.setBigDecimal(p++, montantInitial != null ? montantInitial : montant);
+            ps.setBigDecimal(p++, montantImpute != null ? montantImpute : BigDecimal.ZERO);
+            ps.setBigDecimal(p++, soldeRestant != null ? soldeRestant : montant);
+            ps.setString(p++, provenance != null ? provenance : "VARIABLE_DAF");
 
             ps.setDate(p++, dateDemande != null ? dateDemande : new Date(System.currentTimeMillis()));
             ps.setDate(p++, dateAccord);
@@ -187,7 +195,7 @@ public class PaieAvanceAcompte extends ClassMere {
 
     public static List<PaieAvanceAcompte> listerEnAttenteOuApprouves(Integer idPeriode, Connection c) throws Exception {
         List<PaieAvanceAcompte> list = new ArrayList<>();
-        String sql = "SELECT * FROM paie_avance_acompte WHERE (id_periode_paie = ? OR id_periode_paie IS NULL) " +
+        String sql = "SELECT * FROM paie_avance_acompte WHERE id_periode_paie = ? " +
                      "AND statut IN ('EN_ATTENTE', 'APPROUVE') ORDER BY id_employe, date_demande ASC";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idPeriode);
@@ -270,6 +278,10 @@ public class PaieAvanceAcompte extends ClassMere {
         a.setTypeMouvement(rs.getString("type_mouvement"));
         a.setSens(rs.getString("sens"));
         a.setMontant(rs.getBigDecimal("montant"));
+        a.setMontantInitial(rs.getBigDecimal("montant_initial"));
+        a.setMontantImpute(rs.getBigDecimal("montant_impute"));
+        a.setSoldeRestant(rs.getBigDecimal("solde_restant"));
+        a.setProvenance(rs.getString("provenance"));
         a.setDateDemande(rs.getDate("date_demande"));
         a.setDateAccord(rs.getDate("date_accord"));
         a.setDatePaiement(rs.getDate("date_paiement"));
@@ -308,6 +320,14 @@ public class PaieAvanceAcompte extends ClassMere {
 
     public BigDecimal getMontant() { return montant; }
     public void setMontant(BigDecimal montant) { this.montant = montant; }
+    public BigDecimal getMontantInitial() { return montantInitial; }
+    public void setMontantInitial(BigDecimal montantInitial) { this.montantInitial = montantInitial; }
+    public BigDecimal getMontantImpute() { return montantImpute; }
+    public void setMontantImpute(BigDecimal montantImpute) { this.montantImpute = montantImpute; }
+    public BigDecimal getSoldeRestant() { return soldeRestant; }
+    public void setSoldeRestant(BigDecimal soldeRestant) { this.soldeRestant = soldeRestant; }
+    public String getProvenance() { return provenance; }
+    public void setProvenance(String provenance) { this.provenance = provenance; }
 
     public Date getDateDemande() { return dateDemande; }
     public void setDateDemande(Date dateDemande) { this.dateDemande = dateDemande; }

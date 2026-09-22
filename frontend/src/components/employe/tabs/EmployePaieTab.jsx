@@ -3,7 +3,6 @@ import {
     Banknote,
     FileText,
     Receipt,
-    Plus,
     Eye,
     RefreshCw,
     TrendingUp,
@@ -11,9 +10,6 @@ import {
     Calculator
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
-import Input from '@/components/ui/forms/Input';
-import Select from '@/components/ui/forms/Select';
-import Modal from '@/components/ui/overlays/Modal';
 import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
 import { Card, CardTitle } from '@/components/ui/data-display/Card';
@@ -29,7 +25,7 @@ import BulletinPaieDrawer from '@/components/paie/BulletinPaieDrawer';
 import StcPreparationModal from '@/components/paie/stc/StcPreparationModal';
 import StcRecuModal from '@/components/paie/stc/StcRecuModal';
 
-export default function EmployePaieTab({ idEmploye, employe, canWrite = false }) {
+export default function EmployePaieTab({ idEmploye, employe }) {
     const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState(null);
     const [feedbackMsg, setFeedbackMsg] = useState(null);
@@ -42,7 +38,6 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite = false })
 
     // 3. Mouvements et ajustements
     const [mouvements, setMouvements] = useState([]);
-    const [typesMouvements, setTypesMouvements] = useState([]);
 
     // 4. Solde de Tout Compte (STC)
     const [stcList, setStcList] = useState([]);
@@ -54,34 +49,22 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite = false })
     const [isStcPrepOpen, setIsStcPrepOpen] = useState(false);
     const [selectedStcRecuId, setSelectedStcRecuId] = useState(null);
 
-    // Modale Nouveau Mouvement / Variable
-    const [isMouvementModalOpen, setIsMouvementModalOpen] = useState(false);
-    const [submittingMvt, setSubmittingMvt] = useState(false);
-    const [mvtForm, setMvtForm] = useState({
-        typeMouvement: 'ACOMPTE_15',
-        sens: 'RETENUE',
-        montant: '',
-        motif: '',
-    });
-
     const chargerDonnees = useCallback(async () => {
         if (!idEmploye) return;
         setLoading(true);
         setErrorMsg(null);
         try {
-            const [synthRes, bListRes, mvtRes, stcRes, typesRes] = await Promise.all([
+            const [synthRes, bListRes, mvtRes, stcRes] = await Promise.all([
                 paieService.getSynthesePaieEmploye(idEmploye).catch(() => null),
                 paieService.listerBulletinsEmploye(idEmploye).catch(() => []),
                 paieService.listerAjustements(null, idEmploye).catch(() => []),
                 stcService.listerStcEmploye(idEmploye).catch(() => []),
-                paieService.listerTypesMouvements().catch(() => []),
             ]);
 
             setSynthese(synthRes);
             setBulletins(Array.isArray(bListRes) ? bListRes : []);
             setMouvements(Array.isArray(mvtRes) ? mvtRes : (mvtRes?.content || mvtRes?.items || []));
             setStcList(Array.isArray(stcRes) ? stcRes : []);
-            setTypesMouvements(Array.isArray(typesRes) ? typesRes : (typesRes?.content || typesRes?.items || []));
         } catch (err) {
             setErrorMsg(getErrorMessage(err, 'Erreur lors du chargement du dossier paie de l\'employé.'));
         } finally {
@@ -97,55 +80,6 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite = false })
     const handleVoirBulletin = (idBulletin) => {
         setSelectedBulletinId(idBulletin);
         setIsDrawerOpen(true);
-    };
-
-    // Ouvrir la modale d'ajout de mouvement pré-remplie
-    const handleOpenAddMouvement = (defaultType = 'ACOMPTE_15') => {
-        const found = typesMouvements.find(t => t.code === defaultType);
-        setMvtForm({
-            typeMouvement: defaultType,
-            sens: found?.sens || (defaultType === 'NOTE_DE_FRAIS' || defaultType === 'PRIM_EXC' ? 'GAIN' : 'RETENUE'),
-            montant: '',
-            motif: '',
-        });
-        setIsMouvementModalOpen(true);
-    };
-
-    const handleMvtTypeChange = (code) => {
-        const found = typesMouvements.find(t => t.code === code);
-        setMvtForm(prev => ({
-            ...prev,
-            typeMouvement: code,
-            sens: found?.sens || (code === 'NOTE_DE_FRAIS' || code === 'PRIM_EXC' ? 'GAIN' : 'RETENUE'),
-        }));
-    };
-
-    const handleSaveMouvement = async (e) => {
-        e.preventDefault();
-        if (!mvtForm.montant || Number(mvtForm.montant) <= 0) {
-            setFeedbackMsg({ type: 'error', message: 'Veuillez saisir un montant valide.' });
-            return;
-        }
-
-        setSubmittingMvt(true);
-        try {
-            await paieService.creerAjustement({
-                idEmploye: Number(idEmploye),
-                idPeriodePaie: null, // rattaché à la période active par le moteur
-                typeMouvement: mvtForm.typeMouvement,
-                sens: mvtForm.sens,
-                montant: Number(mvtForm.montant),
-                motif: mvtForm.motif || 'Saisie depuis dossier employé',
-                statut: 'APPROUVE',
-            });
-            setIsMouvementModalOpen(false);
-            setFeedbackMsg({ type: 'success', message: 'Mouvement de paie enregistré avec succès.' });
-            await chargerDonnees();
-        } catch (err) {
-            setFeedbackMsg({ type: 'error', message: getErrorMessage(err, 'Erreur lors de la création du mouvement.') });
-        } finally {
-            setSubmittingMvt(false);
-        }
     };
 
     const isContratClos = synthese?.codeStatutContrat === 'CLOTURE' || synthese?.codeStatutContrat === 'ROMPU' || (synthese?.contratActif === false && synthese?.idContrat != null);
@@ -487,55 +421,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite = false })
                         Mouvements &amp; Ajustements de Paie ({mouvements.length})
                     </CardTitle>
 
-                    {canWrite && (
-                        <div className="flex flex-wrap gap-1.5">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="xs"
-                                iconLeft={<Plus size={12} />}
-                                onClick={() => handleOpenAddMouvement('ACOMPTE_15')}
-                            >
-                                Acompte du 15
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="xs"
-                                iconLeft={<Plus size={12} />}
-                                onClick={() => handleOpenAddMouvement('AVANCE_SPECIALE')}
-                            >
-                                Avance Spéciale
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="xs"
-                                iconLeft={<Plus size={12} />}
-                                onClick={() => handleOpenAddMouvement('NOTE_DE_FRAIS')}
-                            >
-                                Note de Frais (Gain)
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="xs"
-                                iconLeft={<Plus size={12} />}
-                                onClick={() => handleOpenAddMouvement('PRIM_EXC')}
-                            >
-                                Prime
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="xs"
-                                iconLeft={<Plus size={12} />}
-                                onClick={() => handleOpenAddMouvement('RET_DIV')}
-                            >
-                                Retenue Divers
-                            </Button>
-                        </div>
-                    )}
+                    <span className="text-xs text-[var(--color-fg-muted)]">Lecture seule — saisie dans la campagne de paie</span>
                 </div>
 
                 {mouvements.length === 0 ? (
@@ -660,96 +546,6 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite = false })
                 />
             )}
 
-            {/* 4. Modale Saisie Nouveau Mouvement */}
-            <Modal
-                isOpen={isMouvementModalOpen}
-                onClose={() => setIsMouvementModalOpen(false)}
-                title="Ajouter un Mouvement / Variable de Paie"
-                icon={<Plus size={18} className="text-[var(--color-brand-600)]" />}
-                size="md"
-                footer={
-                    <div className="flex justify-end gap-2 w-full">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsMouvementModalOpen(false)}
-                            disabled={submittingMvt}
-                        >
-                            Annuler
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="primary"
-                            size="sm"
-                            onClick={handleSaveMouvement}
-                            loading={submittingMvt}
-                        >
-                            Enregistrer le mouvement
-                        </Button>
-                    </div>
-                }
-            >
-                <form onSubmit={handleSaveMouvement} className="space-y-4">
-                    <div>
-                        <span className="text-xs text-[var(--color-fg-muted)] block">Salarié bénéficiaire</span>
-                        <strong className="text-sm text-[var(--color-fg)]">
-                            {synthese?.nomComplet || `${employe?.nom || ''} ${employe?.prenom || ''}`} ({synthese?.matricule || employe?.matricule})
-                        </strong>
-                    </div>
-
-                    <Select
-                        label="Type de Mouvement *"
-                        required
-                        value={mvtForm.typeMouvement}
-                        onChange={(e) => handleMvtTypeChange(e.target.value)}
-                        options={
-                            typesMouvements.length > 0
-                                ? typesMouvements.map(t => ({
-                                    value: t.code,
-                                    label: `${t.libelle} (${t.sens === 'GAIN' ? 'GAIN' : 'RETENUE'})`,
-                                }))
-                                : [
-                                    { value: 'ACOMPTE_15', label: 'Acompte du 15 (RETENUE)' },
-                                    { value: 'AVANCE_SPECIALE', label: 'Avance Spéciale (RETENUE)' },
-                                    { value: 'NOTE_DE_FRAIS', label: 'Note de Frais / Remboursement (GAIN)' },
-                                    { value: 'PRIM_EXC', label: 'Prime Exceptionnelle (GAIN)' },
-                                    { value: 'CALL_PERSO', label: 'Appels Personnels (RETENUE)' },
-                                    { value: 'RET_DIV', label: 'Retenue Diverse (RETENUE)' },
-                                ]
-                        }
-                    />
-
-                    <div className="p-2.5 bg-[var(--color-bg-subtle)]/60 border border-[var(--color-border-subtle)] flex items-center justify-between text-xs">
-                        <span className="text-[var(--color-fg-muted)]">Nature de l'impact :</span>
-                        <Badge
-                            variant={mvtForm.sens === 'GAIN' ? 'success' : 'danger'}
-                            size="xs"
-                            className="font-bold"
-                        >
-                            {mvtForm.sens === 'GAIN' ? '+ GAIN / REMBOURSEMENT' : '- RETENUE SUR SALAIRE'}
-                        </Badge>
-                    </div>
-
-                    <Input
-                        type="number"
-                        label="Montant (Ariary) *"
-                        required
-                        min="1"
-                        placeholder="Ex: 50000"
-                        value={mvtForm.montant}
-                        onChange={(e) => setMvtForm(prev => ({ ...prev, montant: e.target.value }))}
-                    />
-
-                    <Input
-                        type="text"
-                        label="Motif / Justificatif"
-                        placeholder="Ex: Frais kilométriques mission Tamatave, Acompte quinzaine..."
-                        value={mvtForm.motif}
-                        onChange={(e) => setMvtForm(prev => ({ ...prev, motif: e.target.value }))}
-                    />
-                </form>
-            </Modal>
         </div>
     );
 }

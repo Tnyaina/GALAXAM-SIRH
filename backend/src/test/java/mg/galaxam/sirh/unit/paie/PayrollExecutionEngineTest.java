@@ -201,6 +201,41 @@ class PayrollExecutionEngineTest {
     }
 
     @Test
+    @DisplayName("Ownership — prime performance conserve le montant attribué et expose le montant payé")
+    void testPrimePerformanceMontantAttribueDistinctDuMontantPaye() {
+        PayrollCalculationInput input = createStandardInput(new BigDecimal("500000.00"), "PERMANENT");
+        input.setPrimePerformanceBase(new BigDecimal("100000.00"));
+        input.setNbJoursOuvrables(new BigDecimal("20"));
+        input.setNbJoursPresents(new BigDecimal("10"));
+
+        BulletinPaieComplet result = engine.calculer(input);
+        var line = result.trouverLigne("PRIME_PERFORMANCE");
+
+        assertNotNull(line);
+        assertEquals(new BigDecimal("100000.00"), line.getBaseCalcul());
+        assertEquals(new BigDecimal("50000.00"), line.getMontantSalarial());
+    }
+
+    @Test
+    @DisplayName("Ownership — avance plafonnée produit une imputation partielle traçable")
+    void testAvancePlafonneeConserveUneImputationPartielle() {
+        PayrollCalculationInput input = createStandardInput(new BigDecimal("625000.00"), "PERMANENT");
+        PaieAvanceAcompte avance = new PaieAvanceAcompte();
+        avance.setIdAvance(42);
+        avance.setTypeMouvement("AVANCE_SPECIALE");
+        avance.setMontant(new BigDecimal("200000.00"));
+        avance.setMotif("Avance test");
+        input.setAvancesAcomptes(List.of(avance));
+
+        BulletinPaieComplet result = engine.calculer(input);
+        var imputation = result.getImputationsMouvements().get(0);
+
+        assertEquals(42, imputation.idMouvement());
+        assertTrue(imputation.montantImpute().compareTo(avance.getMontant()) < 0);
+        assertTrue(avance.getMontant().subtract(imputation.montantImpute()).compareTo(BigDecimal.ZERO) > 0);
+    }
+
+    @Test
     @DisplayName("Couche Unitaire 2 & 3 - Cotisations Sociales Plafonnées à 8x SME et Net Imposable")
     void testCalculerCotisationsEtNetImposableUnitaire() {
         PayrollCalculationInput in = createStandardInput(new BigDecimal("3000000.00"), "PERMANENT");

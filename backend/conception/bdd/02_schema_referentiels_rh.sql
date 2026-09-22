@@ -222,6 +222,10 @@ CREATE TABLE paie_config_legale (
     diviseur_valorisation_conge_jours INT NOT NULL DEFAULT 30,
     exoneration_hs_irsa_active BOOLEAN NOT NULL DEFAULT TRUE,
     plafond_mensuel_hs_exonerees NUMERIC(5,2) NOT NULL DEFAULT 20.00,
+    source_type VARCHAR(50) DEFAULT 'CGI_MADAGASCAR',
+    source_reference VARCHAR(255),
+    article_reference VARCHAR(80) DEFAULT '01.03.16',
+    publication_date DATE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_dates_config CHECK (date_fin IS NULL OR date_fin > date_debut)
@@ -384,7 +388,8 @@ INSERT INTO paie_config_legale (
     seuil_exoneration_irsa, minimum_perception_irsa, deduction_charge_famille, arrondi_base_irsa,
     duree_hebdo_legale, diviseur_mensuel_heures, seuil_hs_tranche1, plafond_hs_hebdo,
     acquisition_conge_mensuel_jours, diviseur_valorisation_conge_jours,
-    exoneration_hs_irsa_active, plafond_mensuel_hs_exonerees
+    exoneration_hs_irsa_active, plafond_mensuel_hs_exonerees,
+    source_type, source_reference, article_reference, publication_date
 ) VALUES 
 (
     1,
@@ -395,7 +400,8 @@ INSERT INTO paie_config_legale (
     350000.00, 2000.00, 2000.00, 'CENTAINE_INF',
     40.00, 173.33, 8.00, 20.00,
     2.50, 30,
-    TRUE, 20.00
+    TRUE, 20.00,
+    'CGI_MADAGASCAR', 'Code des impôts 2025', '01.03.16', '2024-01-01'
 ),
 (
     3,
@@ -406,7 +412,8 @@ INSERT INTO paie_config_legale (
     350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
     40.00, 173.33, 8.00, 20.00,
     2.50, 30,
-    TRUE, 20.00
+    TRUE, 20.00,
+    'CGI_MADAGASCAR', 'Loi de finances 2026', '01.03.16', '2025-12-31'
 ),
 (
     2,
@@ -417,6 +424,7 @@ INSERT INTO paie_config_legale (
     350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
     40.00, 173.33, 8.00, 20.00,
     2.50, 30,
-    TRUE, 20.00
+    TRUE, 20.00,
+    'CGI_MADAGASCAR', 'Loi de finances 2026', '01.03.16', '2026-02-15'
 );
 SELECT setval('paie_config_legale_id_config_legale_seq', (SELECT GREATEST(MAX(id_config_legale), 3) FROM paie_config_legale));

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { CalendarDays, RefreshCcw, AlertTriangle, LayoutDashboard } from 'lucide-react';
+import { CalendarDays, RefreshCcw, AlertTriangle, LayoutDashboard, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
@@ -59,6 +59,10 @@ export default function PayrollCampaignHeader({
     const currentStep = context?.currentStep;
     const recalcRequired = context?.recalculationRequired === true;
     const recalcReason = context?.recalculationReason;
+    const completedSteps = steps.filter(step => ['COMPLETED', 'LOCKED'].includes(step.state)).length;
+    const progress = steps.length > 0 ? Math.round((completedSteps / steps.length) * 100) : 0;
+    const blockers = context?.issues || [];
+    const population = context?.populationCount ?? context?.employeeCount ?? periode?.employeeCount;
 
     const formatDate = (d) => {
         if (!d) return '–';
@@ -84,10 +88,18 @@ export default function PayrollCampaignHeader({
     return (
         <div className="sticky top-0 z-30 bg-[var(--color-bg)] border-b border-[var(--color-border-subtle)] shadow-sm">
 
+            <div className="px-4 pt-2 text-[10px] text-[var(--color-fg-muted)]" aria-label="Fil d’Ariane">
+                <button type="button" onClick={() => navigate('/paie')} className="hover:text-[var(--color-brand-600)] focus:outline-none focus:underline">Paie</button>
+                <span aria-hidden="true"> / </span>
+                <span>{periode?.label || periode?.code || 'Période'}</span>
+                <span aria-hidden="true"> / </span>
+                <span className="font-semibold text-[var(--color-fg)]">{steps.find(step => step.code === activeStep)?.label || 'Campagne'}</span>
+            </div>
+
             {/* Ligne de titre période & sélecteur */}
             <div className="px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 bg-gradient-to-br from-[var(--color-brand-400)] to-[var(--color-brand-600)] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <div className="w-8 h-8 bg-[var(--color-brand-600)] text-white flex items-center justify-center shrink-0 shadow-sm">
                         <CalendarDays size={16} strokeWidth={2.2} />
                     </div>
                     <div className="min-w-0 flex items-center gap-2.5 flex-wrap">
@@ -125,6 +137,14 @@ export default function PayrollCampaignHeader({
                                 )}
                             </span>
                         )}
+                        {population != null && (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-fg-muted)]">
+                                <Users size={12} aria-hidden="true" /> {population} salariés
+                            </span>
+                        )}
+                        {blockers.length > 0 && (
+                            <Badge variant="danger" size="sm">{blockers.length} bloquant{blockers.length > 1 ? 's' : ''}</Badge>
+                        )}
                     </div>
                 </div>
 
@@ -159,6 +179,15 @@ export default function PayrollCampaignHeader({
                 activeCode={activeStep}
                 loading={loading}
             />
+
+            {steps.length > 0 && (
+                <div className="px-4 py-1.5 bg-[var(--color-surface)] border-t border-[var(--color-border-subtle)] flex items-center gap-3">
+                    <span className="text-[10px] font-semibold text-[var(--color-fg-muted)]">Progression {progress} %</span>
+                    <div className="h-1 flex-1 bg-[var(--color-border-subtle)]" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}>
+                        <div className="h-full bg-[var(--color-brand-500)] transition-[width] duration-150 motion-reduce:transition-none" style={{ width: `${progress}%` }} />
+                    </div>
+                </div>
+            )}
 
             {/* Bannière recalcul */}
             {recalcRequired && (

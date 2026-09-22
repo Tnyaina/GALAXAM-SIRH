@@ -124,6 +124,118 @@ class PaieAjustementControllerIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
+    @DisplayName("Ownership — un type absent du référentiel actif est refusé")
+    void testCreerAjustementRefuseTypeNonConfigure() throws Exception {
+        PaieAjustementRequest req = new PaieAjustementRequest();
+        req.setIdEmploye(employe.idEmploye);
+        req.setIdPeriodePaie(idPeriode);
+        req.setTypeMouvement("TYPE_CLIENT_NON_CONFIGURE");
+        req.setSens("GAIN");
+        req.setMontant(new BigDecimal("10000.00"));
+        req.setMotif("Ne doit jamais contourner le référentiel");
+
+        mockMvc.perform(post("/paie/ajustements")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code", is("VALIDATION_ERROR")));
+    }
+
+    @Test
+    @DisplayName("Ownership — le sens est toujours celui du type configuré")
+    void testCreerAjustementIgnoreSensClientContradictoire() throws Exception {
+        PaieAjustementRequest req = new PaieAjustementRequest();
+        req.setIdEmploye(employe.idEmploye);
+        req.setIdPeriodePaie(idPeriode);
+        req.setTypeMouvement("PRIME_EXCEPTIONNELLE");
+        req.setSens("RETENUE");
+        req.setMontant(new BigDecimal("10000.00"));
+        req.setMotif("Sens résolu depuis le référentiel");
+
+        mockMvc.perform(post("/paie/ajustements")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(req)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.sens", is("GAIN")));
+    }
+
+    @Test
+    @DisplayName("Ownership — une variable de campagne sans période est rejetée")
+    void testVariableSansPeriodeEstRejetee() throws Exception {
+        PaieAjustementRequest req = request("PRIME_EXCEPTIONNELLE", "GAIN");
+        req.setIdPeriodePaie(null);
+
+        mockMvc.perform(post("/paie/ajustements")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .contentType(MediaType.APPLICATION_JSON).content(toJson(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code", is("VALIDATION_ERROR")));
+    }
+
+    @Test
+    @DisplayName("Ownership — une rubrique automatique ne peut pas devenir une variable")
+    void testHeuresSupplementairesManuellesSontRejetees() throws Exception {
+        PaieAjustementRequest req = request("HEURES_SUP_30", "GAIN");
+
+        mockMvc.perform(post("/paie/ajustements")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .contentType(MediaType.APPLICATION_JSON).content(toJson(req)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Ownership — prime assiduité et note de frais ne sont pas exposées en saisie")
+    void testCatalogueExclutTypesNonSaisissables() throws Exception {
+        mockMvc.perform(get("/paie/ajustements/types-mouvements")
+                        .param("idPeriode", String.valueOf(idPeriode))
+                        .header("Authorization", "Bearer " + getAdminToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].code", not(hasItems("PRIME_ASSIDUITE", "NOTE_DE_FRAIS"))));
+    }
+
+    @Test
+    @DisplayName("Ownership — ajout interdit quand la période est en validation")
+    void testVariableInterditeApresVerrouillage() throws Exception {
+        setPeriodeState("A_VALIDER");
+        assertCreationBlocked(request("PRIME_EXCEPTIONNELLE", "GAIN"), "PAYROLL_PERIOD_PREREQUISITE_BLOCKED");
+    }
+
+    @Test
+    @DisplayName("Ownership — ajout interdit après validation Paie")
+    void testVariableInterditeApresValidationPaie() throws Exception {
+        setPeriodeState("PAIE_VALIDEE");
+        assertCreationBlocked(request("PRIME_EXCEPTIONNELLE", "GAIN"), "PAYROLL_PERIOD_PREREQUISITE_BLOCKED");
+    }
+
+    @Test
+    @DisplayName("Ownership — ajout interdit après clôture")
+    void testVariableInterditeApresCloture() throws Exception {
+        setPeriodeState("CLOTUREE");
+        assertCreationBlocked(request("PRIME_EXCEPTIONNELLE", "GAIN"), "STATE_CONFLICT");
+    }
+
+    @Test
+    @DisplayName("Ownership — approbation d'une variable interdite après verrouillage")
+    void testModificationVariableInterditeApresVerrouillage() throws Exception {
+        int idAvance = creerAjustement();
+        int version = getVersion(idAvance);
+        setPeriodeState("A_VALIDER");
+
+        PayrollAdjustmentCommandRequest command = new PayrollAdjustmentCommandRequest();
+        command.setCommand(PayrollAdjustmentCommand.APPROVE);
+        command.setExpectedVersion(version);
+
+        mockMvc.perform(post("/paie/ajustements/" + idAvance + "/commands")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(command)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code", is("PAYROLL_PERIOD_PREREQUISITE_BLOCKED")));
+    }
+
+    @Test
     @DisplayName("P1-01 — POST /{id}/commands APPROVE depuis EN_ATTENTE → APPROUVE")
     void testApproveCommandFromPending() throws Exception {
         // 1. Créer un ajustement en EN_ATTENTE
@@ -246,6 +358,35 @@ class PaieAjustementControllerIntegrationTest extends BaseIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
 
         return objectMapper.readTree(response).get("idAvance").asInt();
+    }
+
+    private PaieAjustementRequest request(String type, String sens) {
+        PaieAjustementRequest req = new PaieAjustementRequest();
+        req.setIdEmploye(employe.idEmploye);
+        req.setIdPeriodePaie(idPeriode);
+        req.setTypeMouvement(type);
+        req.setSens(sens);
+        req.setMontant(new BigDecimal("10000.00"));
+        req.setMotif("Justification test ownership");
+        return req;
+    }
+
+    private void assertCreationBlocked(PaieAjustementRequest req, String expectedCode) throws Exception {
+        mockMvc.perform(post("/paie/ajustements")
+                        .header("Authorization", "Bearer " + getAdminToken())
+                        .contentType(MediaType.APPLICATION_JSON).content(toJson(req)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code", is(expectedCode)));
+    }
+
+    private void setPeriodeState(String state) throws Exception {
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "UPDATE periode_paie SET id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = ?) WHERE id_periode_paie = ?")) {
+            ps.setString(1, state);
+            ps.setInt(2, idPeriode);
+            ps.executeUpdate();
+        }
     }
 
     private int getVersion(int idAvance) throws Exception {

@@ -138,7 +138,12 @@ test.describe.serial('E2E Scénario 5 — Workflow Complet de Paie (Étapes 5.1 
         // Le Drawer latéral doit s'ouvrir
         await expect(page.getByText(/RAZAFY Jean/i)).toBeVisible({ timeout: 10000 });
         await expect(page.getByText(/TOTAL BRUT/i)).toBeVisible();
-        await expect(page.getByText(/NET IMPOSABLE/i)).toBeVisible();
+        await expect(page.getByText(/REVENU NET IMPOSABLE/i)).toBeVisible();
+        await expect(page.getByText(/Base imposable IRSA/i)).toBeVisible();
+        await page.getByRole('button', { name: /Voir le détail du calcul IRSA/i }).click();
+        await expect(page.getByTestId('irsa-breakdown')).toBeVisible();
+        await expect(page.getByText(/IRSA calculé/i)).toBeVisible();
+        await expect(page.getByText(/IRSA dû/i).first()).toBeVisible();
 
         // Vérification du montant Net à Payer officiel pour EMP001 (231 000 Ar)
         await expect(page.getByText('231 000 Ar').first()).toBeVisible();

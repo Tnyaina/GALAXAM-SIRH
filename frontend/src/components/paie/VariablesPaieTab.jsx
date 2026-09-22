@@ -35,8 +35,8 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
     const [submitting, setSubmitting] = useState(false);
     const [form, setForm] = useState({
         idEmploye: '',
-        typeMouvement: 'PRIME_EXCEPTIONNELLE',
-        sens: 'GAIN',
+        typeMouvement: '',
+        sens: '',
         montant: '',
         motif: ''
     });
@@ -47,7 +47,7 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
         try {
             const [ajustementsRes, typesRes] = await Promise.all([
                 paieService.listerAjustements(idPeriodeActive || null),
-                paieService.listerTypesMouvements()
+                paieService.listerTypesMouvements(idPeriodeActive)
             ]);
             setVariables(Array.isArray(ajustementsRes) ? ajustementsRes : (ajustementsRes?.content || ajustementsRes?.items || []));
             const loadedTypes = Array.isArray(typesRes) ? typesRes : (typesRes?.content || typesRes?.items || []);
@@ -55,8 +55,12 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
             if (loadedTypes.length > 0) {
                 setForm(prev => ({
                     ...prev,
-                    typeMouvement: prev.typeMouvement === 'PRIM_EXC' ? (loadedTypes[0].code || 'PRIME_EXCEPTIONNELLE') : prev.typeMouvement,
-                    sens: prev.typeMouvement === 'PRIM_EXC' ? (loadedTypes[0].sens || 'GAIN') : prev.sens
+                    typeMouvement: loadedTypes.some(type => type.code === prev.typeMouvement)
+                        ? prev.typeMouvement
+                        : loadedTypes[0].code,
+                    sens: loadedTypes.some(type => type.code === prev.typeMouvement)
+                        ? prev.sens
+                        : loadedTypes[0].sens
                 }));
             }
         } catch (err) {
@@ -92,6 +96,10 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
             setFeedbackMsg({ type: 'error', text: 'Veuillez sélectionner un employé.' });
             return;
         }
+        if (!form.typeMouvement || !typesMouvements.some(type => type.code === form.typeMouvement)) {
+            setFeedbackMsg({ type: 'error', text: 'Veuillez sélectionner un type configuré.' });
+            return;
+        }
         if (!form.montant || Number(form.montant) <= 0) {
             setFeedbackMsg({ type: 'error', text: 'Veuillez renseigner un montant valide.' });
             return;
@@ -112,8 +120,8 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
             setIsModalOpen(false);
             setForm({
                 idEmploye: '',
-                typeMouvement: typesMouvements[0]?.code || 'PRIME_EXCEPTIONNELLE',
-                sens: typesMouvements[0]?.sens || 'GAIN',
+                typeMouvement: typesMouvements[0]?.code || '',
+                sens: typesMouvements[0]?.sens || '',
                 montant: '',
                 motif: ''
             });
@@ -394,26 +402,10 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
                             required
                             value={form.typeMouvement}
                             onChange={(val) => handleFormChange('typeMouvement', val)}
-                            options={
-                                typesMouvements.length > 0
-                                    ? typesMouvements.map(t => ({
-                                        value: t.code,
-                                        label: `${t.libelle} (${t.sens === 'GAIN' ? '+ Gain Brut' : '- Retenue Net'})`
-                                    }))
-                                    : [
-                                        { value: 'PRIME_EXCEPTIONNELLE', label: 'Prime Exceptionnelle (+ Gain Brut)' },
-                                        { value: 'PRIME_PERFORMANCE', label: 'Prime de Performance (+ Gain Brut)' },
-                                        { value: 'PRIME_ASSIDUITE', label: 'Prime d\'Assiduité (+ Gain Brut)' },
-                                        { value: 'AUTIMP', label: 'Autres Gains Imposables (+ Gain Brut)' },
-                                        { value: 'ACOMPTE_15', label: 'Acompte de Quinzaine (- Retenue Net)' },
-                                        { value: 'AVANCE_SPECIALE', label: 'Avance Spéciale 1/10e (- Retenue Net)' },
-                                        { value: 'CALL_PERSO', label: 'Retenue Télécoms Privées (- Retenue Net)' },
-                                        { value: 'RETENUE_DIVERSE', label: 'Retenue Diverse (- Retenue Net)' },
-                                        { value: 'NOTE_DE_FRAIS', label: 'Remboursement Notes de Frais (+ Net)' },
-                                        { value: 'EXTRA_DEPLACEMENT', label: 'Indemnité Déplacement Extra (+ Net)' },
-                                        { value: 'REGULARISATION_CONGE', label: 'Régularisation Congé au Retour (+ Brut)' },
-                                    ]
-                            }
+                            options={typesMouvements.map(t => ({
+                                value: t.code,
+                                label: `${t.libelle} (${t.sens})`
+                            }))}
                         />
 
                         <Select

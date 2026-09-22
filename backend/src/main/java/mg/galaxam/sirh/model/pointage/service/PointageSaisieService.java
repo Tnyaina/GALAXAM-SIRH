@@ -1,6 +1,8 @@
 package mg.galaxam.sirh.model.pointage.service;
 
 import mg.galaxam.sirh.api.dto.pointage.SaisiePointageJourDTO;
+import mg.galaxam.sirh.common.exception.SirhBusinessException;
+import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
 import mg.galaxam.sirh.model.paie.engine.MoneyRoundingPolicy;
 import mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine;
@@ -35,6 +37,25 @@ import java.util.Set;
 
 @Service
 public class PointageSaisieService {
+
+    private static BigDecimal requireMonetaryParameter(Map<String, String> params, String code) {
+        BigDecimal value = ParametreGlobal.getBigDecimal(params, code, null);
+        if (value == null || value.signum() < 0) {
+            throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
+                    "Configuration d'indemnité absente : " + code + ".");
+        }
+        return value;
+    }
+
+    private static BigDecimal requireMonetaryStateParameter(
+            Map<String, ParametreGlobal.ParametreEtat> params, String code) {
+        BigDecimal value = ParametreGlobal.getBigDecimal(params, code, null, null);
+        if (value == null || value.signum() < 0) {
+            throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
+                    "Configuration d'indemnité absente : " + code + ".");
+        }
+        return value;
+    }
 
     @Autowired
     private DataSource dataSource;
@@ -223,7 +244,7 @@ public class PointageSaisieService {
             // Chargement anticipé des paramètres globaux pour résoudre MONTANT_REPAS_MIDI
             // (nécessaire dès la construction de siteIndemnites pour les sites à tarif repas = 0 comme TMM)
             Map<String, String> globalParams = ParametreGlobal.loadActiveMap(c);
-            BigDecimal mntRepasMidiGlobal = ParametreGlobal.getBigDecimal(globalParams, "MONTANT_REPAS_MIDI", new BigDecimal("2000"));
+            BigDecimal mntRepasMidiGlobal = requireMonetaryParameter(globalParams, "MONTANT_REPAS_MIDI");
 
             BigDecimal montantDeplacementMois = BigDecimal.ZERO;
             BigDecimal montantDeplacementJour = BigDecimal.ZERO;
@@ -1086,14 +1107,14 @@ public class PointageSaisieService {
 
         Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMap(c);
         boolean actif2eRepas1 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_1", true);
-        BigDecimal mntRepas1 = actif2eRepas1 ? ParametreGlobal.getBigDecimal(etatMap, "MONTANT_2ND_REPAS_1", new BigDecimal("2000"), BigDecimal.ZERO) : BigDecimal.ZERO;
+        BigDecimal mntRepas1 = actif2eRepas1 ? requireMonetaryStateParameter(etatMap, "MONTANT_2ND_REPAS_1") : BigDecimal.ZERO;
         String seuilRepas1 = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_1", "19:30", "23:59");
 
         boolean actif2eRepas2 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_2", true);
-        BigDecimal mntRepas2 = actif2eRepas2 ? ParametreGlobal.getBigDecimal(etatMap, "MONTANT_2ND_REPAS_2", new BigDecimal("4000"), BigDecimal.ZERO) : BigDecimal.ZERO;
+        BigDecimal mntRepas2 = actif2eRepas2 ? requireMonetaryStateParameter(etatMap, "MONTANT_2ND_REPAS_2") : BigDecimal.ZERO;
         String seuilRepas2 = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_2", "21:00", "23:59");
 
-        BigDecimal mntRepasMidi = ParametreGlobal.getBigDecimal(etatMap, "MONTANT_REPAS_MIDI", new BigDecimal("2000"), new BigDecimal("2000"));
+        BigDecimal mntRepasMidi = requireMonetaryStateParameter(etatMap, "MONTANT_REPAS_MIDI");
         String debutNuitStr = ParametreGlobal.getString(etatMap, "SEUIL_NUIT_DEBUT", "22:00", "22:00");
         String finNuitStr = ParametreGlobal.getString(etatMap, "SEUIL_NUIT_FIN", "05:00", "05:00");
         LocalTime debutNuit = LocalTime.parse(debutNuitStr.length() == 5 ? debutNuitStr : debutNuitStr.substring(0, 5));
@@ -1168,7 +1189,7 @@ public class PointageSaisieService {
         } catch (Exception ignored) {}
 
         Map<String, String> paramsGlobauxBatch = ParametreGlobal.loadActiveMap(c);
-        BigDecimal reductionDeplactRepasConfig = ParametreGlobal.getBigDecimal(paramsGlobauxBatch, "REDUCTION_DEPLACT_REPAS_MIDI", new BigDecimal("1000"));
+        BigDecimal reductionDeplactRepasConfig = requireMonetaryParameter(paramsGlobauxBatch, "REDUCTION_DEPLACT_REPAS_MIDI");
 
         Map<Integer, BigDecimal> siteDeplacementRefMap = new HashMap<>();
         String sqlSiteDep = "SELECT c.id_site, c.montant_reference FROM site_indemnite_config c " +

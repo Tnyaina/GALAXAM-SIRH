@@ -80,8 +80,10 @@ export const paieService = {
         return response.data;
     },
 
-    listerTypesMouvements: async () => {
-        const response = await apiClient.get('paie/ajustements/types-mouvements');
+    listerTypesMouvements: async (idPeriode = null) => {
+        const response = await apiClient.get('paie/ajustements/types-mouvements', {
+            params: idPeriode ? { idPeriode } : {}
+        });
         return response.data;
     },
 

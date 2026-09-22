@@ -116,7 +116,7 @@ export default function ControleStepPage() {
                 {/* En-tête */}
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-[var(--color-brand-400)] to-[var(--color-brand-600)] text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <div className="w-10 h-10 bg-[var(--color-brand-600)] text-white flex items-center justify-center shrink-0 shadow-sm">
                             <ShieldCheck size={20} strokeWidth={2} />
                         </div>
                         <div>

@@ -86,7 +86,7 @@ export default function PreparationStepPage() {
             label: 'Exercice fiscal & Barème IRSA actif',
             ok: Boolean(legalConfig),
             message: legalConfig
-                ? `Exercice ${legalConfig.anneeFiscale || 'CGI'} résolu (Seuil ${formatMoneyAr(legalConfig.seuilExonerationIrsa || 350000)}, Min ${formatMoneyAr(legalConfig.minimumPerceptionIrsa || 2000)}).`
+                ? `Configuration ${legalConfig.codeVersion || legalConfig.anneeFiscale || 'fiscale'} résolue pour la période.`
                 : 'Configuration légale et fiscale introuvable pour la date de cette période.',
             icon: Scale,
             action: !legalConfig ? {
@@ -137,7 +137,7 @@ export default function PreparationStepPage() {
 
                 {/* En-tête */}
                 <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-[var(--color-brand-400)] to-[var(--color-brand-600)] text-white flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 bg-[var(--color-brand-600)] text-white flex items-center justify-center shrink-0 shadow-sm">
                         <ClipboardList size={20} strokeWidth={2} />
                     </div>
                     <div>
@@ -174,16 +174,20 @@ export default function PreparationStepPage() {
                             <div className="bg-[var(--color-bg-subtle)]/50 p-2.5 border border-[var(--color-border-subtle)]">
                                 <span className="text-[10px] font-bold uppercase text-[var(--color-fg-muted)] block">Cotisations Sociales</span>
                                 <p className="font-semibold text-[var(--color-fg)] mt-0.5">
-                                    CNaPS {((legalConfig?.tauxCnapsSalarial ?? 0.01) * 100).toFixed(0)}% sal. / {((legalConfig?.tauxCnapsPatronal ?? 0.13) * 100).toFixed(0)}% patr.
+                                    {legalConfig?.tauxCnapsSalarial != null && legalConfig?.tauxCnapsPatronal != null
+                                        ? `CNaPS ${(Number(legalConfig.tauxCnapsSalarial) * 100).toLocaleString('fr-FR')} % sal. / ${(Number(legalConfig.tauxCnapsPatronal) * 100).toLocaleString('fr-FR')} % patr.`
+                                        : 'Taux CNaPS résolus par le moteur'}
                                 </p>
                                 <p className="text-[11px] text-[var(--color-fg-subtle)]">
-                                    Plafond 8x SME ({formatMoneyAr(legalConfig?.plafondCnaps || 2000000)})
+                                    Plafond : {formatMoneyAr(legalConfig?.plafondCnaps)}
                                 </p>
                             </div>
                             <div className="bg-[var(--color-bg-subtle)]/50 p-2.5 border border-[var(--color-border-subtle)]">
                                 <span className="text-[10px] font-bold uppercase text-[var(--color-fg-muted)] block">Santé & Formation</span>
                                 <p className="font-semibold text-[var(--color-fg)] mt-0.5">
-                                    OSTIE / OMSI • FMFP {((legalConfig?.tauxFmfp ?? 0.01) * 100).toFixed(0)}%
+                                    {legalConfig?.tauxFmfp != null
+                                        ? `Santé configurée • FMFP ${(Number(legalConfig.tauxFmfp) * 100).toLocaleString('fr-FR')} %`
+                                        : 'Organismes et taux résolus en base'}
                                 </p>
                                 <p className="text-[11px] text-[var(--color-fg-subtle)]">
                                     Médecine du travail & formation continue
@@ -195,7 +199,7 @@ export default function PreparationStepPage() {
                                     {legalConfig?.anneeFiscale ? `Barème LF ${legalConfig.anneeFiscale}` : 'Barème Progressif CGI'}
                                 </p>
                                 <p className="text-[11px] text-[var(--color-fg-subtle)]">
-                                    Seuil {formatMoneyAr(legalConfig?.seuilExonerationIrsa || 350000)} • Min {formatMoneyAr(legalConfig?.minimumPerceptionIrsa || 2000)}
+                                    Minimum applicable : {formatMoneyAr(legalConfig?.minimumPerceptionIrsa)}
                                 </p>
                             </div>
                         </div>

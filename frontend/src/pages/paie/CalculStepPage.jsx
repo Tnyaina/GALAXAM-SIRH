@@ -212,9 +212,9 @@ export default function CalculStepPage() {
                 const indemniteConge = expl.indemniteConge ?? findLigne(['INDEMNITE_CONGE', 'INDEMNITE_CONGE_PAYE'])?.montantSalarial ?? 0;
                 const hs30 = expl.montantHs30 ?? findLigne(['HS_30', 'HEURES_SUP_30'])?.montantSalarial ?? 0;
                 const hs50 = expl.montantHs50 ?? findLigne(['HS_50', 'HEURES_SUP_50'])?.montantSalarial ?? 0;
-                const totalHs = Number(hs30) + Number(hs50);
+                const totalHs = b.totalHeuresSupplementaires ?? b.montantHeuresSupplementaires ?? null;
                 const brut = b.totalGainsBruts ?? 0;
-                const primesEtAutres = Number(brut) - Number(salaireBase) + Number(montantAbsence) + Number(deductionConge) - Number(indemniteConge) - Number(totalHs);
+                const primesEtAutres = b.totalPrimesEtAutres ?? b.totalAutresGainsBruts ?? null;
                 const cnapsSal = b.cotisationCnapsSalariale ?? findLigne(['CNAPS_SAL', 'COTISATION_CNAPS_SAL'])?.montantSalarial ?? 0;
                 const santeSal = b.cotisationSanteSalariale ?? findLigne(['SANTE_SAL', 'OSTIE_SAL', 'COTISATION_OSTIE_SAL'])?.montantSalarial ?? 0;
                 const netImposable = b.revenuNetImposable ?? b.salaireNetImposable ?? 0;
@@ -239,11 +239,11 @@ export default function CalculStepPage() {
                     hs30,
                     hs50,
                     totalHs,
-                    primesEtAutres: Math.max(0, primesEtAutres),
+                    primesEtAutres,
                     brut,
                     cnapsSal,
                     santeSal,
-                    cotisationsSalariales: Number(cnapsSal) + Number(santeSal),
+                    cotisationsSalariales: b.totalCotisationsSalariales ?? null,
                     netImposable,
                     irsa,
                     avancesAcomptes,
@@ -270,13 +270,13 @@ export default function CalculStepPage() {
             const indemniteConge = expl.indemniteConge ?? findLigne(['INDEMNITE_CONGE', 'INDEMNITE_CONGE_PAYE'])?.montantSalarial ?? 0;
             const hs30 = expl.montantHs30 ?? findLigne(['HS_30', 'HEURES_SUP_30'])?.montantSalarial ?? 0;
             const hs50 = expl.montantHs50 ?? findLigne(['HS_50', 'HEURES_SUP_50'])?.montantSalarial ?? 0;
-            const totalHs = Number(hs30) + Number(hs50);
+            const totalHs = b.totalHeuresSupplementaires ?? b.montantHeuresSupplementaires ?? null;
             const brut = b.totalGainsBruts ?? 0;
-            const primesEtAutres = Number(brut) - Number(salaireBase) + Number(montantAbsence) + Number(deductionConge) - Number(indemniteConge) - Number(totalHs);
+            const primesEtAutres = b.totalPrimesEtAutres ?? b.totalAutresGainsBruts ?? null;
             const cnapsSal = complet?.bulletin?.cotisationCnapsSalariale ?? findLigne(['CNAPS_SAL', 'COTISATION_CNAPS_SAL'])?.montantSalarial ?? 0;
             const santeSal = complet?.bulletin?.cotisationSanteSalariale ?? findLigne(['SANTE_SAL', 'OSTIE_SAL', 'COTISATION_OSTIE_SAL'])?.montantSalarial ?? 0;
-            const cotisationsSalariales = b.totalCotisationsSalariales ?? (Number(cnapsSal) + Number(santeSal));
-            const netImposable = b.revenuNetImposable ?? b.salaireNetImposable ?? (Number(brut) - Number(cotisationsSalariales));
+            const cotisationsSalariales = b.totalCotisationsSalariales ?? null;
+            const netImposable = b.revenuNetImposable ?? b.salaireNetImposable ?? null;
             const irsa = b.irsaNet ?? 0;
             const avancesAcomptes = complet?.bulletin?.totalRetenuesAcomptePret ?? 0;
             const netAPayer = b.netAPayer ?? 0;
@@ -297,7 +297,7 @@ export default function CalculStepPage() {
                 hs30,
                 hs50,
                 totalHs,
-                primesEtAutres: Math.max(0, primesEtAutres),
+                primesEtAutres,
                 brut,
                 cnapsSal,
                 santeSal,
@@ -339,7 +339,7 @@ export default function CalculStepPage() {
 
                 {/* En-tête */}
                 <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-[var(--color-brand-400)] to-[var(--color-brand-600)] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <div className="w-10 h-10 bg-[var(--color-brand-600)] text-white flex items-center justify-center shrink-0 shadow-sm">
                         <Calculator size={20} strokeWidth={2} />
                     </div>
                     <div>

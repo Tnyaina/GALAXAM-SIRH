@@ -12,6 +12,7 @@ import mg.galaxam.sirh.model.paie.PaieAvanceAcompte;
 import mg.galaxam.sirh.model.paie.PaiePretEcheance;
 import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
 import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet.ImpactPret;
+import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet.MouvementImputation;
 import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
 
 /**
@@ -37,7 +38,7 @@ public class PayrollExecutionEngine {
 
     public record CotisationsResult(BigDecimal totalCotisationsSalariales, BigDecimal totalCotisationsPatronales) {}
     public record FiscaliteResult(BigDecimal irsaNet, BigDecimal retenueIsi, IrsaCalculator.Result detailIrsa) {}
-    public record RetenuesResult(BigDecimal totalRetenues, ImpactPret impactPret, List<Integer> idsAvancesImputees) {}
+    public record RetenuesResult(BigDecimal totalRetenues, ImpactPret impactPret, List<MouvementImputation> imputations) {}
 
     public PayrollExecutionEngine() { }
 
@@ -92,7 +93,9 @@ public class PayrollExecutionEngine {
         calculerNetAPayer(totalGainsBruts, cotis.totalCotisationsPatronales(), totalIndemnitesNet,
                 netAvantTresorerie, retenues.totalRetenues(), bp, lignes);
 
-        List<Integer> idsAvancesImputees = new ArrayList<>(retenues.idsAvancesImputees());
+        List<Integer> idsAvancesImputees = retenues.imputations().stream()
+                .map(MouvementImputation::idMouvement).toList();
+        idsAvancesImputees = new ArrayList<>(idsAvancesImputees);
         if (input.getIdsMouvementsGains() != null && !input.getIdsMouvementsGains().isEmpty()) {
             idsAvancesImputees.addAll(input.getIdsMouvementsGains());
         }
@@ -100,6 +103,7 @@ public class PayrollExecutionEngine {
         BulletinPaieComplet complet = new BulletinPaieComplet(bp, lignes);
         complet.setImpactPret(retenues.impactPret());
         complet.setIdsAvancesImputees(idsAvancesImputees);
+        complet.setImputationsMouvements(retenues.imputations());
 
         // Construction du DTO d'explication canonique backend-driven
         BigDecimal diviseur = input.getDiviseurMensuelHeuresEffectif();
@@ -722,7 +726,7 @@ public class PayrollExecutionEngine {
                                                    BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal totalAcomptesQuinzaine = BigDecimal.ZERO;
         BigDecimal totalAvancesSpeciales = BigDecimal.ZERO;
-        List<Integer> idsAvancesImputees = new ArrayList<>();
+        List<MouvementImputation> imputations = new ArrayList<>();
 
         // Traitement prioritaire des acomptes de quinzaine (salaire échu)
         BigDecimal soldeDisponibleAcompte = netAvantTresorerie;
@@ -744,8 +748,8 @@ public class PayrollExecutionEngine {
                         totalAcomptesQuinzaine = totalAcomptesQuinzaine.add(mntAcompte);
                         soldeDisponibleAcompte = soldeDisponibleAcompte.subtract(mntAcompte).max(BigDecimal.ZERO);
                     }
-                    if (a.getIdAvance() != null) {
-                        idsAvancesImputees.add(a.getIdAvance());
+                    if (a.getIdAvance() != null && mntAcompte.compareTo(BigDecimal.ZERO) > 0) {
+                        imputations.add(new MouvementImputation(a.getIdAvance(), mntAcompte));
                     }
                 }
             }
@@ -775,8 +779,8 @@ public class PayrollExecutionEngine {
                                 a.getMontant(), null, mntAvanceRetenu, null, 610));
                         totalAvancesSpeciales = totalAvancesSpeciales.add(mntAvanceRetenu);
                     }
-                    if (a.getIdAvance() != null) {
-                        idsAvancesImputees.add(a.getIdAvance());
+                    if (a.getIdAvance() != null && mntAvanceRetenu.compareTo(BigDecimal.ZERO) > 0) {
+                        imputations.add(new MouvementImputation(a.getIdAvance(), mntAvanceRetenu));
                     }
                 }
             }
@@ -850,8 +854,8 @@ public class PayrollExecutionEngine {
                                 a.getMontant(), null, mntRetenu, null, ordre));
                         totalAutresRetenues = totalAutresRetenues.add(mntRetenu);
                     }
-                    if (a.getIdAvance() != null) {
-                        idsAvancesImputees.add(a.getIdAvance());
+                    if (a.getIdAvance() != null && mntRetenu.compareTo(BigDecimal.ZERO) > 0) {
+                        imputations.add(new MouvementImputation(a.getIdAvance(), mntRetenu));
                     }
                 }
             }
@@ -860,7 +864,7 @@ public class PayrollExecutionEngine {
         BigDecimal totalRetenuesTresorerie = totalAcomptesQuinzaine.add(totalAvancesSpeciales).add(montantPrelevePret).add(totalAutresRetenues);
         bp.setTotalRetenuesAcomptePret(totalRetenuesTresorerie);
 
-        return new RetenuesResult(totalRetenuesTresorerie, impactPret, idsAvancesImputees);
+        return new RetenuesResult(totalRetenuesTresorerie, impactPret, imputations);
     }
 
     // =========================================================================

@@ -834,7 +834,12 @@ public class PointageEmployeService {
         regles.put("dureeHebdoLegale", String.valueOf(dureeHebdo));
         kpis.put("dureeHebdoLegale", String.valueOf(dureeHebdo));
 
-        BigDecimal tarifRepasMidi = ParametreGlobal.getBigDecimal(activeParams, "MONTANT_REPAS_MIDI", new BigDecimal("2000"));
+        BigDecimal tarifRepasMidi = ParametreGlobal.getBigDecimal(activeParams, "MONTANT_REPAS_MIDI", null);
+        if (tarifRepasMidi == null || tarifRepasMidi.signum() < 0) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
+                    "Configuration d'indemnité absente : MONTANT_REPAS_MIDI.");
+        }
         kpis.put("tarifRepas", String.format("%,.0f Ar", tarifRepasMidi).replace(',', ' '));
         int nbPresentsVal = (synDto != null && synDto.getNbJoursPresents() > 0) ? synDto.getNbJoursPresents() : totalJoursTravailles;
         kpis.put("nbJoursPresents", String.valueOf(nbPresentsVal));

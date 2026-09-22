@@ -122,6 +122,12 @@ CREATE TABLE ref_type_mouvement_paie (
     id_rubrique INT REFERENCES paie_rubrique(id_rubrique),
     est_proratise BOOLEAN DEFAULT FALSE,
     est_plafonne_dixieme BOOLEAN DEFAULT FALSE,
+    nature VARCHAR(30) NOT NULL DEFAULT 'VARIABLE_DAF',
+    owner_code VARCHAR(30) NOT NULL DEFAULT 'DAF_PAIE',
+    saisie_manuelle_autorisee BOOLEAN NOT NULL DEFAULT TRUE,
+    periode_obligatoire BOOLEAN NOT NULL DEFAULT TRUE,
+    motif_obligatoire BOOLEAN NOT NULL DEFAULT TRUE,
+    provenance_defaut VARCHAR(20) NOT NULL DEFAULT 'VARIABLE_DAF',
     est_actif BOOLEAN DEFAULT TRUE,
     ordre_affichage INT DEFAULT 10,
     description TEXT,
@@ -291,6 +297,10 @@ CREATE TABLE paie_avance_acompte (
     id_type_mouvement INT REFERENCES ref_type_mouvement_paie(id_type_mouvement),
     sens VARCHAR(10) NOT NULL DEFAULT 'RETENUE',
     montant NUMERIC(12,2) NOT NULL,
+    montant_initial NUMERIC(12,2) NOT NULL,
+    montant_impute NUMERIC(12,2) NOT NULL DEFAULT 0,
+    solde_restant NUMERIC(12,2) NOT NULL,
+    provenance VARCHAR(20) NOT NULL DEFAULT 'VARIABLE_DAF',
     date_demande DATE NOT NULL DEFAULT CURRENT_DATE,
     date_accord DATE,
     date_paiement DATE,
@@ -304,8 +314,31 @@ CREATE TABLE paie_avance_acompte (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_avance_sens CHECK (sens IN ('RETENUE', 'GAIN')),
     CONSTRAINT chk_avance_montant CHECK (montant > 0),
+    CONSTRAINT chk_avance_imputation CHECK (montant_initial > 0 AND montant_impute >= 0 AND solde_restant >= 0 AND montant_impute + solde_restant = montant_initial),
     CONSTRAINT chk_avance_statut CHECK (statut IN ('EN_ATTENTE', 'APPROUVE', 'REJETE', 'IMPUTE_PAIE', 'ANNULE'))
 );
+
+CREATE OR REPLACE FUNCTION initialize_paie_avance_imputation()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.montant_initial := COALESCE(NEW.montant_initial, NEW.montant);
+    NEW.montant_impute := COALESCE(NEW.montant_impute, 0);
+    NEW.solde_restant := COALESCE(NEW.solde_restant, NEW.montant_initial - NEW.montant_impute);
+    IF NEW.provenance IS NULL THEN
+        SELECT provenance_defaut INTO NEW.provenance
+        FROM ref_type_mouvement_paie
+        WHERE id_type_mouvement = NEW.id_type_mouvement OR code = NEW.type_mouvement
+        ORDER BY CASE WHEN id_type_mouvement = NEW.id_type_mouvement THEN 0 ELSE 1 END
+        LIMIT 1;
+        NEW.provenance := COALESCE(NEW.provenance, 'VARIABLE_DAF');
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_initialize_paie_avance_imputation
+BEFORE INSERT ON paie_avance_acompte
+FOR EACH ROW EXECUTE FUNCTION initialize_paie_avance_imputation();
 
 CREATE INDEX idx_paie_avance_employe ON paie_avance_acompte(id_employe);
 CREATE INDEX idx_paie_avance_periode ON paie_avance_acompte(id_periode_paie);
@@ -635,17 +668,17 @@ INSERT INTO paie_rubrique (id_rubrique, code, libelle, categorie, type_valeur, s
 SELECT setval('paie_rubrique_id_rubrique_seq', (SELECT GREATEST(MAX(id_rubrique), 37) FROM paie_rubrique));
 
 -- Types de Mouvements Variables
-INSERT INTO ref_type_mouvement_paie (id_type_mouvement, code, libelle, sens, categorie, id_rubrique, est_proratise, est_plafonne_dixieme, est_actif, ordre_affichage, description) VALUES
-(1, 'ACOMPTE_15', 'Acompte de Quinzaine (du 15)', 'RETENUE', 'ACOMPTE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'RETENUE_ACOMPTE_15'), FALSE, FALSE, TRUE, 10, 'Acompte sur salaire échu versé en cours de mois'),
-(2, 'AVANCE_SPECIALE', 'Avance Exceptionnelle sur Salaire', 'RETENUE', 'AVANCE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'RETENUE_AVANCE_SPECIALE'), FALSE, TRUE, TRUE, 20, 'Avance en espèces consentie par employeur (plafonnée au 1/10ème légal Art. 68)'),
-(3, 'CALL_PERSO', 'Retenue Télécommunications Privées (Call Perso)', 'RETENUE', 'RETENUE_DIVERSE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'RETENUE_CALL_PERSO'), FALSE, FALSE, TRUE, 30, 'Prélèvement sur le net pour dépassement forfait téléphonique privé'),
-(4, 'RETENUE_DIVERSE', 'Retenue Diverse sur Salaire', 'RETENUE', 'RETENUE_DIVERSE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REGULARISATION_PAIE'), FALSE, FALSE, TRUE, 40, 'Pénalité ou retenue ponctuelle diverse sur le net à payer'),
-(5, 'PRIME_PERFORMANCE', 'Prime de Performance (Proratisée)', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_PERFORMANCE'), TRUE, FALSE, TRUE, 50, 'Prime soumise au prorata de présence avec malus -25% si retard > 70mn et congés > 1j'),
-(6, 'PRIME_ASSIDUITE', 'Prime d''Assiduité', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_ASSIDUITE'), FALSE, FALSE, TRUE, 60, 'Prime accordée si le total des retards du mois est strictement inférieur à 45 minutes'),
-(7, 'PRIME_EXCEPTIONNELLE', 'Prime Exceptionnelle', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_EXCEPTIONNELLE'), FALSE, FALSE, TRUE, 70, 'Gratification ou prime exceptionnelle brute imposable'),
-(8, 'AUTIMP', 'Autres Gains Imposables (AUTIMP)', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'AUTIMP'), FALSE, FALSE, TRUE, 80, 'Autres primes et indemnités brutes imposables selon modèle paie'),
-(9, 'EXTRA_DEPLACEMENT', 'Indemnité de Déplacement Extra (>19h30 / Mission)', 'GAIN', 'EXTRA', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'EXTRA_DEPLACEMENT'), FALSE, FALSE, TRUE, 90, 'Extra déplacement ou mission exceptionnelle non imposable'),
-(10, 'NOTE_DE_FRAIS', 'Remboursement Notes de Frais', 'GAIN', 'NOTE_DE_FRAIS', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REMBOURSEMENT_NOTE_FRAIS'), FALSE, FALSE, TRUE, 100, 'Remboursement de frais professionnels engagés par le collaborateur'),
-(11, 'REGULARISATION_CONGE', 'Régularisation Congé au Retour (Restitution Absence)', 'GAIN', 'REGULARISATION', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REGULARISATION_PAIE'), FALSE, FALSE, TRUE, 110, 'Restitution d''une retenue d''absence décomptée au taux horaire sur mois antérieur suite au dépôt/validation du titre de congé au retour');
+INSERT INTO ref_type_mouvement_paie (id_type_mouvement, code, libelle, sens, categorie, id_rubrique, est_proratise, est_plafonne_dixieme, nature, owner_code, saisie_manuelle_autorisee, periode_obligatoire, motif_obligatoire, provenance_defaut, est_actif, ordre_affichage, description) VALUES
+(1, 'ACOMPTE_15', 'Acompte sur salaire', 'RETENUE', 'ACOMPTE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'RETENUE_ACOMPTE_15'), FALSE, FALSE, 'ACOMPTE', 'TRESORERIE', TRUE, TRUE, TRUE, 'ACOMPTE', TRUE, 10, 'Acompte versé puis imputé sur une période déterminée'),
+(2, 'AVANCE_SPECIALE', 'Avance exceptionnelle sur salaire', 'RETENUE', 'AVANCE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'RETENUE_AVANCE_SPECIALE'), FALSE, TRUE, 'AVANCE', 'TRESORERIE', TRUE, TRUE, TRUE, 'AVANCE', TRUE, 20, 'Avance employeur avec suivi du solde restant'),
+(3, 'CALL_PERSO', 'Retenue téléphonie personnelle', 'RETENUE', 'RETENUE_DIVERSE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'RETENUE_CALL_PERSO'), FALSE, FALSE, 'RETENUE_NETTE', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 30, 'Retenue nette manuelle avec source décrite dans le motif'),
+(4, 'RETENUE_DIVERSE', 'Retenue exceptionnelle', 'RETENUE', 'RETENUE_DIVERSE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REGULARISATION_PAIE'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 40, 'Retenue exceptionnelle motivée'),
+(5, 'PRIME_PERFORMANCE', 'Prime de performance', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_PERFORMANCE'), TRUE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 50, 'Montant attribué par la DAF puis transformé par le moteur'),
+(6, 'PRIME_ASSIDUITE', 'Prime d''assiduité', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_ASSIDUITE'), FALSE, FALSE, 'AUTOMATIQUE', 'SYSTEME', FALSE, TRUE, FALSE, 'SYSTEME', TRUE, 60, 'Non saisissable tant que le forfait daté n''est pas configuré'),
+(7, 'PRIME_EXCEPTIONNELLE', 'Prime exceptionnelle', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_EXCEPTIONNELLE'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 70, 'Gratification ponctuelle décidée par la DAF'),
+(8, 'AUTIMP', 'Autre gain imposable', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'AUTIMP'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 80, 'Compatibilité historique pour un gain imposable qualifié'),
+(9, 'EXTRA_DEPLACEMENT', 'Déplacement exceptionnel', 'GAIN', 'EXTRA', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'EXTRA_DEPLACEMENT'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 90, 'Exception motivée, distincte du déplacement ordinaire automatique'),
+(10, 'NOTE_DE_FRAIS', 'Remboursement de frais historique', 'GAIN', 'NOTE_DE_FRAIS', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REMBOURSEMENT_NOTE_FRAIS'), FALSE, FALSE, 'DOMAINE_FUTUR', 'FRAIS', FALSE, TRUE, TRUE, 'IMPORT', TRUE, 100, 'Compatibilité historique uniquement, sans création manuelle ordinaire'),
+(11, 'REGULARISATION_CONGE', 'Régularisation de congé antérieur', 'GAIN', 'REGULARISATION', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REGULARISATION_PAIE'), FALSE, FALSE, 'REGULARISATION', 'CONGE_PAIE', TRUE, TRUE, TRUE, 'CONGE', TRUE, 110, 'Motif obligatoire avec référence à la période ou correction concernée');
 
 SELECT setval('ref_type_mouvement_paie_id_type_mouvement_seq', (SELECT GREATEST(MAX(id_type_mouvement), 11) FROM ref_type_mouvement_paie));

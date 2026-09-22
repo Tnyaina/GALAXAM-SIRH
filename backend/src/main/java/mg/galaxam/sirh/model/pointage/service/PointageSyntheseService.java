@@ -4,6 +4,8 @@ import mg.galaxam.sirh.api.dto.pointage.PointageSyntheseMensuelleDTO;
 import mg.galaxam.sirh.api.dto.pointage.PointageTronconSemaineDTO;
 import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
 import mg.galaxam.sirh.model.paieconfig.RefTauxMajoration;
+import mg.galaxam.sirh.common.exception.SirhBusinessException;
+import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine;
 import mg.galaxam.sirh.model.pointage.mapper.PointageTimeBoundaryMapper;
 import mg.galaxam.sirh.model.pointage.calculation.AttendancePeriodCalculator;
@@ -67,6 +69,19 @@ public class PointageSyntheseService {
 
     private static BigDecimal nullToZero(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private static BigDecimal requireAllowanceParameter(
+            Map<String, String> params, String code, int siteId, LocalDate date, int employeeId) {
+        BigDecimal value = ParametreGlobal.getBigDecimal(params, code, null);
+        if (value == null || value.compareTo(BigDecimal.ZERO) < 0) {
+            throw new SirhBusinessException(
+                    SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
+                    "Configuration d'indemnité absente : " + code + ".",
+                    Map.of("type", code, "siteId", siteId, "date", date, "employeeId", employeeId),
+                    List.of());
+        }
+        return value;
     }
 
     private static DailyAttendanceResult.Status statusFromCode(String code) {
@@ -437,9 +452,9 @@ public class PointageSyntheseService {
         // Les journées autonomes sans badge sont des résultats journaliers calculés,
         // jamais une seconde formule de synthèse.
         if (estAutonome) {
-            BigDecimal mealRate = ParametreGlobal.getBigDecimal(params, "MONTANT_REPAS_MIDI", new BigDecimal("2000"));
+            BigDecimal mealRate = requireAllowanceParameter(params, "MONTANT_REPAS_MIDI", idSite, dateDebut, idEmp);
             BigDecimal travelRate = tarifJourDeplacement;
-            BigDecimal travelReduction = ParametreGlobal.getBigDecimal(params, "REDUCTION_DEPLACT_REPAS_MIDI", new BigDecimal("1000"));
+            BigDecimal travelReduction = requireAllowanceParameter(params, "REDUCTION_DEPLACT_REPAS_MIDI", idSite, dateDebut, idEmp);
             for (LocalDate day = dateDebut; !day.isAfter(dateFin); day = day.plusDays(1)) {
                 if (datesAvecPointage.contains(day) || day.getDayOfWeek() == DayOfWeek.SATURDAY
                         || day.getDayOfWeek() == DayOfWeek.SUNDAY) continue;
@@ -1566,15 +1581,28 @@ public class PointageSyntheseService {
             log.warn("Impossible de charger PaieConfigLegale pour seuilHsTranche1, repli sur 8.0 : {}", e.getMessage());
         }
         Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMapAtDate(dateDebutTroncon != null ? Date.valueOf(dateDebutTroncon) : null, c);
-        BigDecimal montantRepasMidiDefaut = ParametreGlobal.getBigDecimal(etatMap, "MONTANT_REPAS_MIDI", new BigDecimal("2000"), new BigDecimal("2000"));
+        BigDecimal montantRepasMidiDefaut = ParametreGlobal.getBigDecimal(etatMap, "MONTANT_REPAS_MIDI", null, BigDecimal.ZERO);
+        if (montantRepasMidiDefaut == null) {
+            Map<String, Object> details = new HashMap<>();
+            details.put("type", "MONTANT_REPAS_MIDI");
+            if (idSite != null) details.put("siteId", idSite);
+            if (dateDebutTroncon != null) details.put("date", dateDebutTroncon);
+            throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
+                    "Configuration d'indemnité absente : MONTANT_REPAS_MIDI.",
+                    details, List.of());
+        }
 
         boolean actif2eRepas1 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_1", true);
-        BigDecimal montant2eRepas1 = actif2eRepas1 ? ParametreGlobal.getBigDecimal(etatMap, "MONTANT_2ND_REPAS_1", new BigDecimal("2000"), BigDecimal.ZERO) : BigDecimal.ZERO;
+        BigDecimal montant2eRepas1 = actif2eRepas1 ? ParametreGlobal.getBigDecimal(etatMap, "MONTANT_2ND_REPAS_1", null, BigDecimal.ZERO) : BigDecimal.ZERO;
+        if (actif2eRepas1 && montant2eRepas1 == null) throw new SirhBusinessException(
+                SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING, "Configuration d'indemnité absente : MONTANT_2ND_REPAS_1.");
         String seuil2eRepas1Str = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_1", "19:30", "23:59");
         LocalTime seuil2eRepas1 = LocalTime.parse(seuil2eRepas1Str.length() == 5 ? seuil2eRepas1Str : seuil2eRepas1Str.substring(0, 5));
 
         boolean actif2eRepas2 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_2", true);
-        BigDecimal montant2eRepas2 = actif2eRepas2 ? ParametreGlobal.getBigDecimal(etatMap, "MONTANT_2ND_REPAS_2", new BigDecimal("4000"), BigDecimal.ZERO) : BigDecimal.ZERO;
+        BigDecimal montant2eRepas2 = actif2eRepas2 ? ParametreGlobal.getBigDecimal(etatMap, "MONTANT_2ND_REPAS_2", null, BigDecimal.ZERO) : BigDecimal.ZERO;
+        if (actif2eRepas2 && montant2eRepas2 == null) throw new SirhBusinessException(
+                SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING, "Configuration d'indemnité absente : MONTANT_2ND_REPAS_2.");
         String seuil2eRepas2Str = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_2", "21:00", "23:59");
         LocalTime seuil2eRepas2 = LocalTime.parse(seuil2eRepas2Str.length() == 5 ? seuil2eRepas2Str : seuil2eRepas2Str.substring(0, 5));
 
