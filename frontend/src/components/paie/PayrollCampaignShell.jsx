@@ -6,15 +6,10 @@ import PayrollPeriodStepper from '@/components/paie/PayrollPeriodStepper';
 import PayrollNavigationFooter from '@/components/paie/PayrollNavigationFooter';
 import PayrollIssuePanel from '@/components/paie/PayrollIssuePanel';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
+import { getPaieStatusVariant } from '@/utils/paieUtils';
+import { fmtDate } from '@/utils/dateUtils';
 
-const STATUT_VARIANTS = {
-    VALIDEE: 'success',
-    PAIE_VALIDEE: 'success',
-    CLOTUREE: 'secondary',
-    EN_COURS: 'warning',
-    A_VALIDER: 'info',
-    BROUILLON: 'default',
-};
+// PRESENTATION ONLY : la map statut → variant est centralisée dans paieUtils.js → PAIE_STATUS_PRESENTATION
 
 /**
  * PayrollCampaignShell — Shell visuel invariant pour les 7 étapes de campagne de paie.
@@ -50,14 +45,11 @@ export default function PayrollCampaignShell({
     const activeStepObj = campaignSteps.find(s => s.code === activeStep);
     const population = context?.populationCount ?? context?.employeeCount ?? activePeriod?.employeeCount;
 
-    const formatDate = (d) => {
-        if (!d) return '–';
-        return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
-    };
+    // formatDate centralisé dans dateUtils.js — fmtDate() retourne DD/MM/YYYY
 
     const periodCode = activePeriod?.code || activePeriod?.label || 'Période';
     const periodDates = activePeriod?.startDate && activePeriod?.endDate
-        ? `${formatDate(activePeriod.startDate)} → ${formatDate(activePeriod.endDate)}`
+        ? `${fmtDate(activePeriod.startDate)} → ${fmtDate(activePeriod.endDate)}`
         : null;
 
     return (
@@ -95,7 +87,7 @@ export default function PayrollCampaignShell({
                                 {periodCode}
                             </h1>
                             {activePeriod?.state && (
-                                <Badge variant={STATUT_VARIANTS[activePeriod.state] || 'default'} size="sm">
+                                <Badge variant={getPaieStatusVariant(activePeriod.state)} size="sm">
                                     {activePeriod.state}
                                 </Badge>
                             )}

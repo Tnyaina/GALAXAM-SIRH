@@ -14,6 +14,7 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
 import paieService from '@/api/paie/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
+import { getErrorMessage } from '@/api/apiClient';
 
 const BulletinPaieDrawer = lazy(() => import('@/components/paie/BulletinPaieDrawer'));
 
@@ -49,7 +50,13 @@ export default function CalculStepPage() {
     const recalcReason = context?.recalculationReason;
     const isStale = recalcRequired;
     const periode = context?.selectedPeriod || context?.currentPeriod;
-    const isReadOnly = Boolean(context?.isReadOnly ?? context?.readOnly ?? ['PAIE_VALIDEE', 'CLOTUREE', 'ARCHIVEE'].includes(periode?.state));
+    // isReadOnly : dérivé du campaign step CALCULATION fourni par le backend.
+    // Si state === 'LOCKED', la période est clôturée et on ne peut plus rien modifier.
+    // Ne pas réimplémenter la liste des statuts ici : le backend est la source de vérité.
+    const calcStep = context?.campaignSteps?.find(s => s.code === 'CALCULATION');
+    // BLOCKED signifie qu'un prérequis manque, pas que la campagne est archivée.
+    // Seul l'état métier fourni par le backend "LOCKED" rend cette étape en lecture seule.
+    const isReadOnly = calcStep?.state === 'LOCKED';
 
     // Charger les résultats existants de la période
     const loadExistingCalculation = useCallback(async () => {
@@ -107,7 +114,7 @@ export default function CalculStepPage() {
                 text: 'Simulation collective exécutée en mémoire. Aucun bulletin n’a été persisté.'
             });
         } catch (err) {
-            setFeedback({ type: 'error', text: err?.response?.data?.message || 'Erreur lors de la simulation.' });
+            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la simulation.') });
         } finally {
             setSimLoading(false);
         }
@@ -134,7 +141,7 @@ export default function CalculStepPage() {
             await refresh();
             await loadExistingCalculation();
         } catch (err) {
-            setFeedback({ type: 'error', text: err?.response?.data?.message || 'Erreur lors de l’exécution du calcul.' });
+            setFeedback({ type: 'error', text: getErrorMessage(err, "Erreur lors de l'exécution du calcul.") });
         } finally {
             setCalcLoading(false);
         }
@@ -199,7 +206,7 @@ export default function CalculStepPage() {
 
                 {/* 1. ÉTAT STALE (CALCUL OBSOLÈTE) */}
                 {isStale && (
-                    <div className="p-4 bg-[var(--color-warning-500)]/10 border-2 border-[var(--color-warning-500)] rounded-md space-y-3">
+                    <div className="p-4 bg-[var(--color-warning-500)]/10 border-2 border-[var(--color-warning-500)] rounded-none space-y-3">
                         <div className="flex items-start gap-3">
                             <AlertTriangle size={20} className="text-[var(--color-warning-600)] shrink-0 mt-0.5" />
                             <div className="flex-1">
@@ -304,7 +311,7 @@ export default function CalculStepPage() {
                 {/* 3. APRÈS CALCUL : SYNTHÈSE DES RÉSULTATS */}
                 {hasBulletins && (
                     <div className="space-y-4">
-                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 rounded-md flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 rounded-none flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-[var(--color-success-50)] dark:bg-[var(--color-success-950)] text-[var(--color-success-600)] rounded-full flex items-center justify-center shrink-0">
                                     <CheckCircle2 size={20} />
@@ -358,7 +365,7 @@ export default function CalculStepPage() {
 
                         {/* 4 KPIs Clés consolidés */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 rounded-md">
+                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 rounded-none">
                                 <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                                     Masse Salariale Brute
                                 </span>
@@ -366,7 +373,7 @@ export default function CalculStepPage() {
                                     {formatMoneyAr(displayKpis?.brut)}
                                 </span>
                             </div>
-                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 rounded-md">
+                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 rounded-none">
                                 <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                                     Cotisations Salariales
                                 </span>
@@ -374,7 +381,7 @@ export default function CalculStepPage() {
                                     {formatMoneyAr(displayKpis?.cotisationsSalariales)}
                                 </span>
                             </div>
-                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 rounded-md">
+                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 rounded-none">
                                 <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                                     Retenue IRSA (DGI)
                                 </span>
@@ -382,7 +389,7 @@ export default function CalculStepPage() {
                                     {formatMoneyAr(displayKpis?.irsa)}
                                 </span>
                             </div>
-                            <div className="bg-[var(--color-surface)] border-2 border-[var(--color-success-500)]/40 p-3.5 rounded-md bg-[var(--color-success-50)]/20">
+                            <div className="bg-[var(--color-surface)] border-2 border-[var(--color-success-500)]/40 p-3.5 rounded-none bg-[var(--color-success-50)]/20">
                                 <span className="text-[11px] font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-400)] uppercase tracking-wider block">
                                     Total Net à Payer
                                 </span>

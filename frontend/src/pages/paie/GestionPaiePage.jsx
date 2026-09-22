@@ -17,19 +17,14 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
 import paieService from '@/api/paie/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
+import { fmtDate } from '@/utils/dateUtils';
+import { getPaieStatusVariant } from '@/utils/paieUtils';
 
 const PeriodePaiePage = lazy(() => import('@/pages/paie/PeriodePaiePage'));
 const ExportsPaieTab = lazy(() => import('@/components/paie/ExportsPaieTab'));
 const VariablesPaieTab = lazy(() => import('@/components/paie/VariablesPaieTab'));
 
-const STATUT_VARIANTS = {
-    VALIDEE: 'success',
-    PAIE_VALIDEE: 'success',
-    CLOTUREE: 'secondary',
-    EN_COURS: 'warning',
-    A_VALIDER: 'info',
-    BROUILLON: 'default',
-};
+// PRESENTATION ONLY : statuts centralisés dans paieUtils.js → PAIE_STATUS_PRESENTATION
 
 /**
  * Centre de Paie (/paie) — Tableau de bord opérationnel de la paie (Maquette V1 Full V3).
@@ -135,92 +130,25 @@ export default function GestionPaiePage() {
         return null;
     }, [currentStepObj, activePeriod]);
 
-    const formatDate = (d) => {
-        if (!d) return '–';
-        return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
-    };
-
+    // formatDate centralisé dans dateUtils.js — fmtDate() retourne DD/MM/YYYY
+    // formatAr alias de formatMoneyAr — centralisé dans moneyUtils.js
     const formatAr = (val) => (val !== undefined && val !== null ? formatMoneyAr(val) : '–');
 
-    // Détermination de la prochaine action logique pour la section "À FAIRE MAINTENANT"
+    // Navigation strictement fournie par le backend. Cette couche choisit seulement
+    // le libellé et l'icône de présentation; elle ne reconstruit aucune transition.
     const nextLogicalAction = useMemo(() => {
-        if (!activePeriod?.id) return null;
-
-        if (recalcRequired) {
-            return {
-                title: 'Recalcul de paie requis',
-                description: recalcReason || 'Des sources de pointage ou des variables ont été modifiées depuis le dernier calcul.',
-                label: 'Aller au calcul',
-                icon: Calculator,
-                onClick: () => navigate(`/paie/periodes/${activePeriod.id}/calcul`),
-                tone: 'warning',
-            };
-        }
-
-        if (currentStepCode === 'PREPARATION') {
-            return {
-                title: 'Vérifier les prérequis de campagne',
-                description: 'Assurez-vous que le snapshot Pointage est figé et que le barème IRSA est actif.',
-                label: 'Ouvrir la préparation',
-                icon: CheckCircle2,
-                onClick: () => navigate(`/paie/periodes/${activePeriod.id}/preparation`),
-                tone: 'brand',
-            };
-        }
-
-        if (currentStepCode === 'CALCULATION' || currentStepCode === 'CALCUL') {
-            return {
-                title: 'Lancer le calcul officiel',
-                description: 'Tous les prérequis sont prêts. Déclenchez le moteur de paie pour l’ensemble des salariés.',
-                label: 'Lancer le calcul',
-                icon: Calculator,
-                onClick: () => navigate(`/paie/periodes/${activePeriod.id}/calcul`),
-                tone: 'brand',
-            };
-        }
-
-        if (currentStepCode === 'CONTROL' || currentStepCode === 'CONTROLE') {
-            return {
-                title: 'Contrôler les bulletins calculés',
-                description: `${periodKpis?.totalBulletins ?? activePeriod.employeeCount ?? 0} bulletins calculés attendent la revue DAF.`,
-                label: 'Ouvrir le contrôle',
-                icon: ShieldCheck,
-                onClick: () => navigate(`/paie/periodes/${activePeriod.id}/controle`),
-                tone: 'info',
-            };
-        }
-
-        if (currentStepCode === 'VALIDATION') {
-            return {
-                title: 'Valider la paie de la période',
-                description: 'Les contrôles sont terminés. Vous pouvez sceller la campagne de paie.',
-                label: 'Valider la paie',
-                icon: CheckCircle2,
-                onClick: () => navigate(`/paie/periodes/${activePeriod.id}/validation`),
-                tone: 'success',
-            };
-        }
-
-        if (currentStepCode === 'OUTPUTS' || currentStepCode === 'SORTIES') {
-            return {
-                title: 'Préparer les sorties et clôturer',
-                description: 'La paie est validée. Générez les ordres de virement et clôturez la période.',
-                label: 'Voir les sorties',
-                icon: FileText,
-                onClick: () => navigate(`/paie/periodes/${activePeriod.id}/sorties`),
-                tone: 'brand',
-            };
-        }
-
+        const nextStep = context?.nextStep;
+        if (!nextStep?.destination) return null;
+        const label = nextStep.code ? `Continuer : ${nextStep.code.replaceAll('_', ' ')}` : 'Continuer la campagne';
         return {
-            title: 'Reprendre la campagne',
-            description: `Étape actuelle : ${currentStepObj?.label || 'Préparation'}`,
-            label: 'Continuer',
+            title: 'Prochaine étape de la campagne',
+            description: 'Destination déterminée par le workflow de paie.',
+            label,
             icon: ArrowRight,
-            onClick: () => continueDestination && navigate(continueDestination),
+            onClick: () => navigate(nextStep.destination),
             tone: 'brand',
         };
-    }, [activePeriod, currentStepCode, currentStepObj, recalcRequired, recalcReason, periodKpis, continueDestination, navigate]);
+    }, [context?.nextStep, navigate]);
 
     // Rendu des sous-vues si compatibilité demandée
     if (rawTab === 'periodes') {
@@ -303,7 +231,7 @@ export default function GestionPaiePage() {
                                 {activePeriod?.code || activePeriod?.label || 'Aucune campagne active'}
                             </h2>
                             {activePeriod?.state && (
-                                <Badge variant={STATUT_VARIANTS[activePeriod.state] || 'default'} size="md">
+                                <Badge variant={getPaieStatusVariant(activePeriod.state)} size="md">
                                     {activePeriod.state}
                                 </Badge>
                             )}
@@ -318,7 +246,7 @@ export default function GestionPaiePage() {
                         {activePeriod && (
                             <p className="text-xs text-[var(--color-fg-muted)] flex items-center gap-3 flex-wrap">
                                 <span>
-                                    Du <strong className="text-[var(--color-fg)]">{formatDate(activePeriod.startDate)}</strong> au <strong className="text-[var(--color-fg)]">{formatDate(activePeriod.endDate)}</strong>
+                                    Du <strong className="text-[var(--color-fg)]">{fmtDate(activePeriod.startDate)}</strong> au <strong className="text-[var(--color-fg)]">{fmtDate(activePeriod.endDate)}</strong>
                                 </span>
                                 <span>· Population : <strong className="text-[var(--color-fg)] font-mono">{activePeriod.employeeCount ?? context?.populationCount ?? '–'}</strong> salariés</span>
                                 {context?.snapshotPointageVersion && (

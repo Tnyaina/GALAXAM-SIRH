@@ -29,10 +29,10 @@ class BackendDrivenFrontendArchitectureTest {
 
         assertThat(router).contains(
                 "/paie/periods/:periodId/:step",
-                "/paie/periods/:periodId/results/:employeeId");
-        assertThat(page).contains(
-                "rawTab === 'bulletins'",
-                "`/paie/periods/${requestedPeriodId}/results`");
+                "LegacyPayrollRedirect",
+                "/paie/periodes/${periodId}/${canonicalStep}");
+        assertThat(page).contains("rawTab === 'bulletins'");
+        assertThat(page).doesNotContain("/paie/periods/");
     }
 
     @Test

@@ -58,4 +58,11 @@ describe('Error Message Extraction & Normalization', () => {
 
         expect(getErrorMessage(err)).toBe('Message convivial déjà normalisé.');
     });
+
+    it('translates known business codes and never exposes a JDBC diagnostic', () => {
+        expect(getErrorMessage({ response: { data: { code: 'MISSING_WORKING_CALENDAR' } } }))
+            .toBe("Le calendrier de travail n'est pas configuré pour cette période.");
+        expect(getErrorMessage({ message: 'SQLException: duplicate key constraint at org.postgresql.Driver' }, 'Opération impossible.'))
+            .toBe('Opération impossible.');
+    });
 });

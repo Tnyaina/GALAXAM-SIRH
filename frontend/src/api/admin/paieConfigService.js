@@ -44,13 +44,19 @@ const paieConfigService = {
         return response.data;
     },
 
-    // ----------------------------------------------------
-    // COTISATIONS SOCIALES & SANTE
-    // ----------------------------------------------------
-    getCotisations: async () => {
-        const response = await apiClient.get('/referentiel/cotisations');
+    /**
+     * Liste les cotisations sociales.
+     * @param {string|null} at - Date ISO (YYYY-MM-DD) d'effectivité optionnelle.
+     *   Si fournie, retourne uniquement les taux actifs à cette date (résolution temporelle).
+     *   Utiliser periode.startDate pour les déclarations historiques.
+     *   Si absente, retourne tous les taux (pour la configuration admin).
+     */
+    getCotisations: async (at = null) => {
+        const params = at ? { at } : {};
+        const response = await apiClient.get('/referentiel/cotisations', { params });
         return response.data;
     },
+
     createCotisation: async (data) => {
         const response = await apiClient.post('/referentiel/cotisations', data);
         return response.data;

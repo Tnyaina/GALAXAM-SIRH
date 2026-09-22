@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { useContractReferentiels } from '@/hooks/useContractReferentiels';
 import useDebounce from '@/hooks/useDebounce';
+import { getErrorMessage } from '@/api/apiClient';
 
 import EmployeStatsCards from '@/components/employe/EmployeStatsCards';
 import EmployeFilterBar from '@/components/employe/EmployeFilterBar';
@@ -228,7 +229,7 @@ export default function EmployeList() {
             loadEmployes();
         } catch (err) {
             console.error('Erreur désactivation:', err);
-            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la désactivation.');
+            setError(getErrorMessage(err, 'Impossible de désactiver cet employé.'));
         } finally {
             setSubmitting(false);
         }
@@ -245,7 +246,7 @@ export default function EmployeList() {
             loadEmployes();
         } catch (err) {
             console.error('Erreur réactivation:', err);
-            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la réactivation.');
+            setError(getErrorMessage(err, 'Impossible de réactiver cet employé.'));
         } finally {
             setSubmitting(false);
         }

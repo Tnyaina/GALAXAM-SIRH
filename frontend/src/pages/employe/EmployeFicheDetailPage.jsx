@@ -16,6 +16,7 @@ import Tabs from '@/components/ui/navigation/Tabs';
 import Breadcrumb from '@/components/ui/navigation/Breadcrumb';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
+import { getErrorMessage } from '@/api/apiClient';
 
 // Lazy loading des sous-onglets & modales de la fiche employé pour optimiser les performances
 const EmployeFormModal = lazy(() => import('./dossier/EmployeFormModal'));
@@ -187,7 +188,7 @@ export default function EmployeFicheDetailPage() {
             loadEmployeDetail();
         } catch (err) {
             console.error('Erreur désactivation:', err);
-            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la désactivation.');
+            setError(getErrorMessage(err, 'Impossible de désactiver cet employé.'));
         } finally {
             setSubmitting(false);
         }
@@ -204,7 +205,7 @@ export default function EmployeFicheDetailPage() {
             loadEmployeDetail();
         } catch (err) {
             console.error('Erreur réactivation:', err);
-            setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || 'Erreur lors de la réactivation.');
+            setError(getErrorMessage(err, 'Impossible de réactiver cet employé.'));
         } finally {
             setSubmitting(false);
         }
@@ -242,7 +243,7 @@ export default function EmployeFicheDetailPage() {
             loadDocuments();
         } catch (err) {
             console.error('Erreur upload document:', err);
-            setDocErrorMsg(err.response?.data || "Erreur lors du téléversement du document.");
+            setDocErrorMsg(getErrorMessage(err, "Impossible d'ajouter ce document."));
         } finally {
             setUploadingDoc(false);
         }

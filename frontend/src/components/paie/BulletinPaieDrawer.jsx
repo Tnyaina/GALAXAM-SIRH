@@ -289,7 +289,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                         {/* ============================================================== */}
                         {/* NIVEAU 1 — COMPRÉHENSION DAF                                  */}
                         {/* ============================================================== */}
-                        <div className="p-4 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-md space-y-3">
+                        <div className="p-4 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-none space-y-3">
                             {/* Identité collaborateur & Signal */}
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2 border-b border-[var(--color-border-subtle)]">
                                 <div>
@@ -406,7 +406,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                         {/* NIVEAU 2 — DÉTAILS MÉTIER                                      */}
                         {/* ============================================================== */}
                         {/* Éléments calculés (Pointage, Congés, HS) */}
-                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 space-y-2.5 rounded-md">
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 space-y-2.5 rounded-none">
                             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
                                 <span className="font-bold text-[var(--color-fg)] text-[11px] uppercase tracking-wider flex items-center gap-1.5">
                                     <Clock size={14} className="text-[var(--color-brand-500)]" />

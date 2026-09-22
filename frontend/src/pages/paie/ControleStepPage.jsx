@@ -14,6 +14,7 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
 import paieService from '@/api/paie/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
+import { getErrorMessage } from '@/api/apiClient';
 
 const BulletinPaieDrawer = lazy(() => import('@/components/paie/BulletinPaieDrawer'));
 
@@ -54,7 +55,7 @@ export default function ControleStepPage() {
             });
             setCockpit(data);
         } catch (err) {
-            setFeedback({ type: 'error', text: err?.response?.data?.message || 'Erreur de chargement des bulletins de paie.' });
+            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur de chargement des bulletins de paie.') });
         } finally {
             setLoading(false);
         }
@@ -69,6 +70,10 @@ export default function ControleStepPage() {
 
     // Calcul des compteurs de revue
     const countTotal = bulletins.length;
+    // PRESENTATION_ONLY : le seuil de 10% est utilisé uniquement pour
+    // mettre en évidence visuelle les bulletins à examiner en priorité.
+    // Il ne bloque pas la validation — la décision appartient au backend (VALIDATE.allowed).
+    // Source : backend aAlerte (champ structuré) ou calcul écart M1 fourni par le cockpit.
     const toExamineBulletins = useMemo(() => {
         return bulletins.filter(b => b.aAlerte || (b.ecartM1Pct != null && Math.abs(b.ecartM1Pct) > 10));
     }, [bulletins]);
@@ -122,7 +127,12 @@ export default function ControleStepPage() {
         URL.revokeObjectURL(url);
     };
 
-    const canContinueToValidation = countTotal > 0 && countBlockers === 0;
+    // canContinueToValidation : dérivé de l'action backend VALIDATE.allowed.
+    // Le backend contrôle que le calcul est à jour, que les bulletins existent
+    // et que la période est dans l'état VALIDEE (pointage gelé).
+    // JAMAIS recalculer cette logique ici.
+    const actions = context?.availableActions || {};
+    const canContinueToValidation = actions?.VALIDATE?.allowed === true;
 
     return (
         <PayrollCampaignShell
@@ -163,7 +173,7 @@ export default function ControleStepPage() {
 
                 {/* 1. KPIs DE REVUE DAF */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-md">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-none">
                         <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                             Conformes
                         </span>
@@ -175,7 +185,7 @@ export default function ControleStepPage() {
                         </div>
                     </div>
 
-                    <div className={`bg-[var(--color-surface)] border p-3 rounded-md ${countToExamine > 0 ? 'border-[var(--color-warning-500)]/60 bg-[var(--color-warning-50)]/15' : 'border-[var(--color-border-subtle)]'}`}>
+                    <div className={`bg-[var(--color-surface)] border p-3 rounded-none ${countToExamine > 0 ? 'border-[var(--color-warning-500)]/60 bg-[var(--color-warning-50)]/15' : 'border-[var(--color-border-subtle)]'}`}>
                         <span className="text-[11px] font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] uppercase tracking-wider block">
                             À examiner
                         </span>
@@ -187,7 +197,7 @@ export default function ControleStepPage() {
                         </div>
                     </div>
 
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-md">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-none">
                         <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                             Examinés
                         </span>
@@ -199,7 +209,7 @@ export default function ControleStepPage() {
                         </div>
                     </div>
 
-                    <div className={`bg-[var(--color-surface)] border p-3 rounded-md ${countBlockers > 0 ? 'border-[var(--color-danger-500)] bg-[var(--color-danger-50)]/20' : 'border-[var(--color-border-subtle)]'}`}>
+                    <div className={`bg-[var(--color-surface)] border p-3 rounded-none ${countBlockers > 0 ? 'border-[var(--color-danger-500)] bg-[var(--color-danger-50)]/20' : 'border-[var(--color-border-subtle)]'}`}>
                         <span className="text-[11px] font-bold text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] uppercase tracking-wider block">
                             Bloquants
                         </span>
@@ -304,7 +314,7 @@ export default function ControleStepPage() {
                         </p>
                     </Card>
                 ) : (
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md overflow-hidden">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none overflow-hidden">
                         <div className="overflow-x-auto">
                             <Table className="w-full text-xs">
                                 <Thead>

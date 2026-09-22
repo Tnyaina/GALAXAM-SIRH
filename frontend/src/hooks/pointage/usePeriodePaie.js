@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import periodePaieService from '@/services/periodePaieService';
+import { getErrorMessage } from '@/api/apiClient';
 
 export function usePeriodePaie() {
     const [periodes, setPeriodes] = useState([]);
@@ -40,7 +41,7 @@ export function usePeriodePaie() {
                 return false;
             }
         } catch (err) {
-            const msg = err.response?.data?.message || "Erreur lors de la création de la période.";
+            const msg = getErrorMessage(err, "Impossible de créer la période de paie.");
             setError(msg);
             return false;
         } finally {
@@ -66,7 +67,7 @@ export function usePeriodePaie() {
                 return false;
             }
         } catch (err) {
-            const msg = err.response?.data?.message || "Erreur lors de la mise à jour du statut.";
+            const msg = getErrorMessage(err, "Impossible de mettre à jour l'état de la période.");
             setError(msg);
             return false;
         } finally {

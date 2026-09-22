@@ -157,7 +157,7 @@ export default function AcomptesAvancesPage() {
 
                 {/* 4 KPIs Clés */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-md">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-none">
                         <span className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                             À approuver
                         </span>
@@ -166,7 +166,7 @@ export default function AcomptesAvancesPage() {
                         </span>
                     </div>
 
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-md">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-none">
                         <span className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                             À verser
                         </span>
@@ -175,7 +175,7 @@ export default function AcomptesAvancesPage() {
                         </span>
                     </div>
 
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-md">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-none">
                         <span className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                             À imputer
                         </span>
@@ -184,7 +184,7 @@ export default function AcomptesAvancesPage() {
                         </span>
                     </div>
 
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-md">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-none">
                         <span className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                             Encours total
                         </span>
@@ -195,7 +195,7 @@ export default function AcomptesAvancesPage() {
                 </div>
 
                 {/* Filtres & Recherche */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2.5 rounded-md">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2.5 rounded-none">
                     <div className="w-full sm:w-72">
                         <Input
                             size="xs"
@@ -235,11 +235,11 @@ export default function AcomptesAvancesPage() {
                 {loading ? (
                     <div className="p-8 text-center text-xs text-[var(--color-fg-muted)]">Chargement des dossiers...</div>
                 ) : filteredDossiers.length === 0 ? (
-                    <div className="p-8 text-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md text-xs text-[var(--color-fg-muted)]">
+                    <div className="p-8 text-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none text-xs text-[var(--color-fg-muted)]">
                         Aucun dossier d'acompte ou d'avance trouvé.
                     </div>
                 ) : (
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md overflow-hidden">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none overflow-hidden">
                         <div className="overflow-x-auto">
                             <Table className="w-full text-xs">
                                 <Thead>
@@ -316,7 +316,7 @@ export default function AcomptesAvancesPage() {
                 {selectedDossier && (
                     <div className="space-y-6 text-xs">
                         {/* Synthèse financière */}
-                        <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-md space-y-2">
+                        <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-2">
                             <div className="flex justify-between">
                                 <span className="text-[var(--color-fg-muted)]">Montant demandé :</span>
                                 <span className="font-mono font-bold text-[var(--color-fg)]">{formatMoneyAr(selectedDossier.montant)}</span>
@@ -360,7 +360,7 @@ export default function AcomptesAvancesPage() {
                             <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">
                                 Parcours du dossier
                             </span>
-                            <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md">
+                            <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none">
                                 <WorkflowTimeline steps={timelineSteps} />
                             </div>
                         </div>

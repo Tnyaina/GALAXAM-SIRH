@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useParams } from "react-router-dom";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import { AuthProvider } from "@/context/AuthContext";
 import { MenuProvider } from "@/context/MenuContext";
@@ -66,7 +66,7 @@ function ActiveCampaignRedirect() {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-success-600)]"></div>
             </div>
         );
     }
@@ -76,6 +76,18 @@ function ActiveCampaignRedirect() {
     }
     const step = (context?.currentStepCode || 'PREPARATION').toLowerCase();
     return <Navigate to={`/paie/periodes/${targetPeriod.id}/${step}`} replace />;
+}
+
+/** Préserve les bookmarks historiques sans les laisser tomber sur un écran vide. */
+function LegacyPayrollRedirect() {
+    const { periodId, step } = useParams();
+    const canonicalStep = {
+        preparation: 'preparation', population: 'population', variables: 'variables',
+        calcul: 'calcul', calculation: 'calcul', controle: 'controle', control: 'controle',
+        validation: 'validation', sorties: 'sorties', outputs: 'sorties', overview: 'preparation',
+        results: 'controle',
+    }[step?.toLowerCase()] || 'preparation';
+    return <Navigate to={`/paie/periodes/${periodId}/${canonicalStep}`} replace />;
 }
 
 // =========================================================================
@@ -158,8 +170,8 @@ export default function Router() {
                         <Route path="/paie/periodes/:periodId/sorties"      element={<SortiesStepPage />} />
 
                         {/* Redirections de compatibilité (anciennes URLs) */}
-                        <Route path="/paie/periods/:periodId/:step" element={<Navigate to="/paie" replace />} />
-                        <Route path="/paie/periods/:periodId/results/:employeeId" element={<Navigate to="/paie" replace />} />
+                        <Route path="/paie/periods/:periodId/:step/:employeeId" element={<LegacyPayrollRedirect />} />
+                        <Route path="/paie/periods/:periodId/:step" element={<LegacyPayrollRedirect />} />
                     </Route>
 
                     <Route element={<ProtectedRoute />}>

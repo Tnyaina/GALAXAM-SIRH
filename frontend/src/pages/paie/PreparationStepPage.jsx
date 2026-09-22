@@ -7,6 +7,7 @@ import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
 import paieConfigService from '@/api/admin/paieConfigService';
 import paieService from '@/api/paie/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
+import { getErrorMessage } from '@/api/apiClient';
 
 /**
  * PreparationStepPage — Étape 1 : Vérification des prérequis de calcul (V1 Full V3).
@@ -53,7 +54,7 @@ export default function PreparationStepPage() {
             .catch(error => {
                 if (!isMounted) return;
                 setReadiness([]);
-                setReadinessError(error?.response?.data?.message || error?.message || 'Readiness indisponible.');
+                setReadinessError(getErrorMessage(error, 'Readiness indisponible.'));
             });
         return () => { isMounted = false; };
     }, [numericPeriodId]);

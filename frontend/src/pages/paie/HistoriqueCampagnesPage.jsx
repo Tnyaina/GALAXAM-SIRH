@@ -10,6 +10,8 @@ import Alert from '@/components/ui/feedback/Alert';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import paieService from '@/api/paie/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
+import { fmtDate } from '@/utils/dateUtils';
+import { getPaieStatusVariant, getPaieStatusLabel } from '@/utils/paieUtils';
 
 /**
  * HistoriqueCampagnesPage — Historique des campagnes de paie (Maquette V1 Full V3).
@@ -53,10 +55,7 @@ export default function HistoriqueCampagnesPage() {
             (p.state || '').toLowerCase().includes(q);
     });
 
-    const formatDate = (d) => {
-        if (!d) return '—';
-        return new Date(d).toLocaleDateString('fr-MG', { day: '2-digit', month: 'short', year: 'numeric' });
-    };
+    // formatDate centralisé dans dateUtils.js — fmtDate() retourne DD/MM/YYYY
 
     const handleOpenCampaign = (p) => {
         // Naviguer vers la première étape ou contrôle selon le statut
@@ -92,7 +91,7 @@ export default function HistoriqueCampagnesPage() {
                 )}
 
                 {/* Barre de recherche */}
-                <div className="flex items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2.5 rounded-md">
+                <div className="flex items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2.5 rounded-none">
                     <div className="w-full sm:w-72">
                         <Input
                             size="xs"
@@ -111,11 +110,11 @@ export default function HistoriqueCampagnesPage() {
                 {loading ? (
                     <div className="p-8 text-center text-xs text-[var(--color-fg-muted)]">Chargement de l'historique...</div>
                 ) : filteredPeriodes.length === 0 ? (
-                    <div className="p-8 text-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md text-xs text-[var(--color-fg-muted)]">
+                    <div className="p-8 text-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none text-xs text-[var(--color-fg-muted)]">
                         Aucune campagne enregistrée dans le système.
                     </div>
                 ) : (
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md overflow-hidden">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none overflow-hidden">
                         <div className="overflow-x-auto">
                             <Table className="w-full text-xs">
                                 <Thead>
@@ -147,7 +146,7 @@ export default function HistoriqueCampagnesPage() {
                                                     </div>
                                                 </Td>
                                                 <Td className="text-[var(--color-fg-muted)] font-mono text-[11px]">
-                                                    {formatDate(p.dateDebut || p.startDate)} → {formatDate(p.dateFin || p.endDate)}
+                                                    {fmtDate(p.dateDebut || p.startDate)} → {fmtDate(p.dateFin || p.endDate)}
                                                 </Td>
                                                 <Td className="text-center">
                                                     <span className="font-medium text-[var(--color-fg)]">
@@ -169,7 +168,7 @@ export default function HistoriqueCampagnesPage() {
                                                     {p.totalNet ? formatMoneyAr(p.totalNet) : '—'}
                                                 </Td>
                                                 <Td className="text-[var(--color-fg-muted)] text-[11px]">
-                                                    {formatDate(p.dateCloture || p.dateValidation || p.updatedAt)}
+                                                    {fmtDate(p.dateCloture || p.dateValidation || p.updatedAt)}
                                                 </Td>
                                                 <Td className="text-center">
                                                     <Button

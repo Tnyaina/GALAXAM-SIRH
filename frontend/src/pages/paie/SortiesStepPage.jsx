@@ -15,6 +15,7 @@ import { Card } from '@/components/ui/data-display/Card';
 import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
 import paieService from '@/api/paie/paieService';
 import periodePaieService from '@/api/pointage/periodePaieService';
+import { getErrorMessage } from '@/api/apiClient';
 
 /**
  * SortiesStepPage — Étape 7 : Sorties de campagne & Clôture (Maquette V1 Full V3).
@@ -43,9 +44,11 @@ export default function SortiesStepPage() {
 
     const actions = context?.availableActions || {};
     const canClose = actions?.CLOSE?.allowed === true;
+    // CAPABILITY : seule source pour autoriser un export. Ce n'est pas un état métier.
+    const canGenerateOutput = actions?.GENERATE_OUTPUT?.allowed === true;
     const periode = context?.selectedPeriod || context?.currentPeriod;
     const isCloturee = periode?.state === 'CLOTUREE';
-    const isValidee = ['VALIDEE', 'PAIE_VALIDEE', 'CLOTUREE'].includes(periode?.state);
+    const isValidee = ['PAIE_VALIDEE', 'CLOTUREE'].includes(periode?.state);
     const codePeriode = periode?.code || `Période #${numericPeriodId}`;
 
     const handleCloturer = useCallback(async () => {
@@ -58,7 +61,7 @@ export default function SortiesStepPage() {
             setConfirmCloseModal(false);
             await refresh();
         } catch (err) {
-            setFeedback({ type: 'error', text: err?.response?.data?.message || 'Erreur lors de la clôture.' });
+            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la clôture.') });
         } finally {
             setActionLoading(false);
         }
@@ -92,7 +95,7 @@ export default function SortiesStepPage() {
                 setFeedback({ type: 'info', text: `Génération du document ${label} transmise.` });
             }
         } catch (err) {
-            setFeedback({ type: 'error', text: err?.response?.data?.message || `Erreur de génération du document ${label}.` });
+            setFeedback({ type: 'error', text: getErrorMessage(err, `Erreur de génération du document ${label}.`) });
         } finally {
             setDownloadingType(null);
         }
@@ -131,7 +134,7 @@ export default function SortiesStepPage() {
 
                 {/* Bannière d'état */}
                 {isCloturee ? (
-                    <div className="p-4 bg-[var(--color-surface)] border-2 border-[var(--color-border-subtle)] rounded-md flex items-center justify-between">
+                    <div className="p-4 bg-[var(--color-surface)] border-2 border-[var(--color-border-subtle)] rounded-none flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-9 h-9 bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] rounded-full flex items-center justify-center">
                                 <Lock size={18} />
@@ -201,7 +204,7 @@ export default function SortiesStepPage() {
                         <div>
                             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
                                 <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <CreditCard size={14} className="text-blue-600" />
+                                    <CreditCard size={14} className="text-[var(--color-sky-600)]" />
                                     Paiement
                                 </span>
                                 <Badge variant={isValidee ? 'success' : 'default'} size="xs">
@@ -217,7 +220,7 @@ export default function SortiesStepPage() {
                                 variant="primary"
                                 size="xs"
                                 className="w-full"
-                                disabled={!isValidee || downloadingType === 'VIREMENT'}
+                                disabled={!canGenerateOutput || downloadingType === 'VIREMENT'}
                                 loading={downloadingType === 'VIREMENT'}
                                 onClick={() => handleDownload('VIREMENT', 'Ordre de virement')}
                                 iconLeft={<Download size={13} />}
@@ -232,10 +235,10 @@ export default function SortiesStepPage() {
                         <div>
                             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
                                 <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <BookOpen size={14} className="text-emerald-600" />
+                                    <BookOpen size={14} className="text-[var(--color-success-600)]" />
                                     Paie
                                 </span>
-                                <Badge variant="success" size="xs">Prêt</Badge>
+                                <Badge variant="default" size="xs">Consultation</Badge>
                             </div>
                             <p className="text-xs text-[var(--color-fg-muted)] mt-2">
                                 Journal de paie mensuel et état nominatif de contrôle complet.
@@ -259,7 +262,7 @@ export default function SortiesStepPage() {
                         <div>
                             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
                                 <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <Receipt size={14} className="text-amber-600" />
+                                    <Receipt size={14} className="text-[var(--color-warning-600)]" />
                                     Fiscal
                                 </span>
                                 <Badge variant={isValidee ? 'success' : 'default'} size="xs">
@@ -275,7 +278,7 @@ export default function SortiesStepPage() {
                                 variant="secondary"
                                 size="xs"
                                 className="flex-1"
-                                disabled={!isValidee || downloadingType === 'SAFI'}
+                                disabled={!canGenerateOutput || downloadingType === 'SAFI'}
                                 loading={downloadingType === 'SAFI'}
                                 onClick={() => handleDownload('SAFI', 'Bordereau IRSA')}
                                 iconLeft={<Download size={13} />}
@@ -286,7 +289,7 @@ export default function SortiesStepPage() {
                                 variant="secondary"
                                 size="xs"
                                 className="flex-1"
-                                disabled={!isValidee || downloadingType === 'ISI'}
+                                disabled={!canGenerateOutput || downloadingType === 'ISI'}
                                 loading={downloadingType === 'ISI'}
                                 onClick={() => handleDownload('ISI', 'EDI-ISI')}
                                 iconLeft={<Download size={13} />}
@@ -301,7 +304,7 @@ export default function SortiesStepPage() {
                         <div>
                             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
                                 <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <Building2 size={14} className="text-purple-600" />
+                                    <Building2 size={14} className="text-[var(--color-purple-600)]" />
                                     Social
                                 </span>
                                 <Badge variant="info" size="xs">Consolidable</Badge>
@@ -328,11 +331,11 @@ export default function SortiesStepPage() {
                         <div>
                             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
                                 <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <Calculator size={14} className="text-teal-600" />
+                                    <Calculator size={14} className="text-[var(--color-brand-600)]" />
                                     Comptabilité
                                 </span>
-                                <Badge variant={isValidee ? 'success' : 'default'} size="xs">
-                                    {isValidee ? 'Écritures prêtes' : 'En attente'}
+                                <Badge variant="default" size="xs">
+                                    Indisponible
                                 </Badge>
                             </div>
                             <p className="text-xs text-[var(--color-fg-muted)] mt-2">
@@ -344,8 +347,8 @@ export default function SortiesStepPage() {
                                 variant="secondary"
                                 size="xs"
                                 className="w-full"
-                                disabled={!isValidee}
-                                onClick={() => setFeedback({ type: 'info', text: 'Export écritures comptables généré.' })}
+                                disabled
+                                title="L'export OD n'est pas encore disponible côté backend."
                                 iconLeft={<Download size={13} />}
                             >
                                 Export OD comptables
@@ -358,10 +361,10 @@ export default function SortiesStepPage() {
                         <div>
                             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
                                 <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <Shield size={14} className="text-emerald-700" />
+                                    <Shield size={14} className="text-[var(--color-success-600)]" />
                                     Audit
                                 </span>
-                                <Badge variant="success" size="xs">Traçabilité OK</Badge>
+                                <Badge variant="default" size="xs">Indisponible</Badge>
                             </div>
                             <p className="text-xs text-[var(--color-fg-muted)] mt-2">
                                 Dossier de scellement de campagne et empreintes d'intégrité DAF.
@@ -372,7 +375,8 @@ export default function SortiesStepPage() {
                                 variant="secondary"
                                 size="xs"
                                 className="w-full"
-                                onClick={() => setFeedback({ type: 'info', text: 'Empreinte SHA-256 de campagne vérifiée et conforme.' })}
+                                disabled
+                                title="Aucun endpoint de certificat d'intégrité n'est disponible."
                                 iconLeft={<Shield size={13} />}
                             >
                                 Certificat d'intégrité

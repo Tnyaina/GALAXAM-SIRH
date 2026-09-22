@@ -189,6 +189,21 @@ const RAW_HTTP_ERRORS = {
     'gateway timeout': "Le serveur a mis trop de temps à répondre."
 };
 
+// Les messages bruts provenant d'une exception JDBC, d'un proxy ou d'une trace
+// ne sont jamais une formulation utilisateur. Les détails restent disponibles
+// dans `error.details` pour les diagnostics, sans être rendus dans l'interface.
+const TECHNICAL_MESSAGE_PATTERN = /\b(sql(exception|state)?|resultset|constraint|stack\s*trace|exception|org\.[\w.]+|java\.|postgres|jdbc|http\s*5\d\d)\b|\bat\s+[\w.$]+\(/i;
+
+const BUSINESS_ERROR_MESSAGES = {
+    MISSING_WORKING_CALENDAR: "Le calendrier de travail n'est pas configuré pour cette période.",
+    POINTAGE_NOT_FROZEN: "Le pointage doit être figé avant de poursuivre la paie.",
+    PAYROLL_NOT_CALCULATED: "La paie doit être calculée avant cette opération.",
+    PAYROLL_NOT_VALIDATED: "Les bulletins doivent être validés avant de générer ce document.",
+    PAYROLL_CALCULATION_STALE: "Le calcul est obsolète. Recalculez la paie avant de poursuivre.",
+    PERIOD_CLOSED: "Cette période est clôturée et ne peut plus être modifiée.",
+    FORBIDDEN: "Vous ne disposez pas des autorisations nécessaires pour cette opération."
+};
+
 /**
  * Compatibilité d'affichage : le backend fournit déjà un message utilisateur et un code stable.
  * Aucun texte technique ou code HTTP brut n'est affiché sans traduction.
@@ -203,6 +218,8 @@ export const cleanUserFacingMessage = (rawMsg, fallback = "Une erreur inattendue
         return fallback !== "Une erreur inattendue est survenue." ? fallback : RAW_HTTP_ERRORS[lower];
     }
 
+    if (TECHNICAL_MESSAGE_PATTERN.test(msg)) return fallback;
+
     return msg;
 };
 
@@ -212,6 +229,9 @@ export const cleanUserFacingMessage = (rawMsg, fallback = "Une erreur inattendue
 export const getErrorMessage = (error, fallback = "Une erreur inattendue est survenue.") => {
     if (!error) return fallback;
     if (typeof error === 'string') return cleanUserFacingMessage(error, fallback);
+
+    const code = error.code || error.response?.data?.code;
+    if (code && BUSINESS_ERROR_MESSAGES[code]) return BUSINESS_ERROR_MESSAGES[code];
 
     let candidate = null;
     if (error.userMessage && typeof error.userMessage === 'string') {

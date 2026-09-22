@@ -163,6 +163,49 @@ public class RefTypeCotisation extends ClassMere {
     }
 
     /**
+     * Retourne les cotisations actives à une date précise (résolution temporelle).
+     * <p>
+     * Utilisé par les déclarations historiques pour s'assurer que les taux affichés
+     * correspondent aux taux en vigueur à la date de la période déclarée, et non
+     * aux taux configurés à la date de consultation.
+     * <p>
+     * Un enregistrement est retenu si :
+     *   date_debut <= :at AND (date_fin IS NULL OR date_fin >= :at) AND est_actif = true
+     *
+     * @param at Date d'effectivité cible (généralement date_debut de la période de paie)
+     * @param c  Connexion JDBC
+     */
+    public static List<RefTypeCotisation> listActiveAt(java.sql.Date at, Connection c) throws Exception {
+        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, est_actif "
+                + "FROM ref_type_cotisation "
+                + "WHERE est_actif = true "
+                + "  AND date_debut <= ? "
+                + "  AND (date_fin IS NULL OR date_fin >= ?) "
+                + "ORDER BY code";
+        List<RefTypeCotisation> list = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, at);
+            ps.setDate(2, at);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    RefTypeCotisation item = new RefTypeCotisation();
+                    item.idTypeCotisation = rs.getInt("id_type_cotisation");
+                    item.code = rs.getString("code");
+                    item.libelle = rs.getString("libelle");
+                    item.tauxSalarial = rs.getBigDecimal("taux_salarial");
+                    item.tauxPatronal = rs.getBigDecimal("taux_patronal");
+                    item.dateDebut = rs.getDate("date_debut");
+                    item.dateFin = rs.getDate("date_fin");
+                    item.portee = rs.getString("portee");
+                    item.estActif = rs.getBoolean("est_actif");
+                    list.add(item);
+                }
+            }
+        }
+        return list;
+    }
+
+    /**
      * Désactive le type de cotisation et cascade la désactivation à toutes ses instances
      * associées dans site_cotisation au sein de la transaction portée par la connexion c.
      *

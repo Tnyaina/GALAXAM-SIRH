@@ -14,6 +14,7 @@ import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
 import paieService from '@/api/paie/paieService';
 import periodePaieService from '@/api/pointage/periodePaieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
+import { getErrorMessage } from '@/api/apiClient';
 
 /**
  * ValidationStepPage — Étape 6 : Validation de la paie (Maquette V1 Full V3).
@@ -76,7 +77,7 @@ export default function ValidationStepPage() {
             setConfirmModalOpen(false);
             await refresh();
         } catch (err) {
-            setFeedback({ type: 'error', text: err?.response?.data?.message || 'Erreur lors de la validation.' });
+            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la validation.') });
         } finally {
             setActionLoading(false);
         }
@@ -96,7 +97,7 @@ export default function ValidationStepPage() {
             setFeedback({ type: 'success', text: 'Période réouverte pour corrections.' });
             await refresh();
         } catch (err) {
-            setFeedback({ type: 'error', text: err?.response?.data?.message || 'Erreur lors de la réouverture.' });
+            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la réouverture.') });
         } finally {
             setActionLoading(false);
         }
@@ -159,7 +160,7 @@ export default function ValidationStepPage() {
 
                 {/* Statut si déjà validée */}
                 {isValidee && (
-                    <div className="p-4 bg-[var(--color-success-500)]/10 border-2 border-[var(--color-success-500)]/40 rounded-md flex items-center justify-between">
+                    <div className="p-4 bg-[var(--color-success-500)]/10 border-2 border-[var(--color-success-500)]/40 rounded-none flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <CheckCircle2 size={24} className="text-[var(--color-success-600)] shrink-0" />
                             <div>
@@ -240,7 +241,7 @@ export default function ValidationStepPage() {
                     </h3>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md">
+                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none">
                             <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
                                 Masse Salariale Brute
                             </span>
@@ -249,7 +250,7 @@ export default function ValidationStepPage() {
                             </span>
                         </div>
 
-                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md">
+                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none">
                             <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
                                 Cotisations Salariales
                             </span>
@@ -258,7 +259,7 @@ export default function ValidationStepPage() {
                             </span>
                         </div>
 
-                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md">
+                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none">
                             <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
                                 Retenue IRSA / ISI
                             </span>
@@ -267,7 +268,7 @@ export default function ValidationStepPage() {
                             </span>
                         </div>
 
-                        <div className="p-3 bg-[var(--color-success-50)]/30 border-2 border-[var(--color-success-500)]/40 rounded-md">
+                        <div className="p-3 bg-[var(--color-success-50)]/30 border-2 border-[var(--color-success-500)]/40 rounded-none">
                             <span className="text-[10px] text-[var(--color-success-700)] dark:text-[var(--color-success-400)] uppercase font-bold block">
                                 Net à Payer Total
                             </span>
@@ -276,7 +277,7 @@ export default function ValidationStepPage() {
                             </span>
                         </div>
 
-                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md">
+                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none">
                             <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
                                 Charges Patronales
                             </span>
@@ -285,7 +286,7 @@ export default function ValidationStepPage() {
                             </span>
                         </div>
 
-                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md">
+                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none">
                             <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
                                 Coût Employeur Global
                             </span>

@@ -709,7 +709,7 @@ export default function CockpitPaieTab({
                                         </Td>
                                         <Td className="text-right">
                                             <button
-                                                onClick={() => navigate(`/paie/periods/${idPeriodeActive}/results/${b.idEmploye}`)}
+                                                onClick={() => setSelectedBulletinId(b.idBulletin)}
                                                 className="px-2.5 py-1 text-xs font-semibold bg-[var(--color-bg-subtle)] hover:bg-[var(--color-surface-hover)] text-[var(--color-fg)] border border-[var(--color-border-subtle)] cursor-pointer inline-flex items-center gap-1.5"
                                                 title="Consulter le bulletin détaillé"
                                             >
@@ -750,7 +750,7 @@ export default function CockpitPaieTab({
                 isOpen={!!selectedBulletinId}
                 onClose={() => {
                     setSelectedBulletinId(null);
-                    if (requestedEmployeeId) navigate(`/paie/periods/${idPeriodeActive}/results`, { replace: true });
+                    if (requestedEmployeeId) navigate(`/paie/periodes/${idPeriodeActive}/controle`, { replace: true });
                 }}
                 idBulletin={selectedBulletinId}
                 onRecalculateSuccess={chargerCockpit}

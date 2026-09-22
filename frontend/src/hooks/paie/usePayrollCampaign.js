@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import periodePaieService from '@/api/pointage/periodePaieService';
+import { getErrorMessage } from '@/api/apiClient';
 
 /**
  * usePayrollCampaign — Hook central Sprint 2B.
@@ -55,7 +56,7 @@ export function usePayrollCampaign(requestedPeriodId = null) {
             setSelectedPeriodeId(resolvedId);
         } catch (err) {
             if (abortRef.current !== token) return;
-            setError(err?.response?.data?.message || err?.message || 'Erreur de chargement.');
+            setError(getErrorMessage(err, 'Erreur de chargement.'));
         } finally {
             if (abortRef.current === token) setLoading(false);
         }

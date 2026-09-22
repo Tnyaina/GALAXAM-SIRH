@@ -23,9 +23,18 @@ public class CotisationController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> getAllCotisations() {
+    public ResponseEntity<?> getAllCotisations(
+            @RequestParam(value = "at", required = false) String at) {
         try (Connection c = dataSource.getConnection()) {
-            List<RefTypeCotisation> list = RefTypeCotisation.listAll(c);
+            List<RefTypeCotisation> list;
+            if (at != null && !at.isBlank()) {
+                // Résolution temporelle : taux en vigueur à la date donnée.
+                // Utiliser la date de début de la période de paie pour les déclarations historiques.
+                java.sql.Date refDate = java.sql.Date.valueOf(at);
+                list = RefTypeCotisation.listActiveAt(refDate, c);
+            } else {
+                list = RefTypeCotisation.listAll(c);
+            }
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();

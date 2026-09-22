@@ -9,103 +9,202 @@ import PageHeader from '@/components/ui/navigation/PageHeader';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
-import SlideOver from '@/components/ui/overlays/SlideOver';
 import { Card } from '@/components/ui/data-display/Card';
-import WorkflowTimeline from '@/components/workflow/WorkflowTimeline';
+import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
+import paieConfigService from '@/api/admin/paieConfigService';
 import paieService from '@/api/paie/paieService';
+import { getErrorMessage } from '@/api/apiClient';
+import { getPaieStatusVariant } from '@/utils/paieUtils';
 
 /**
  * DeclarationsSortiesPage — Espace Déclarations & Sorties (Maquette V1 Full V3).
  *
- * Tabs :
- * - MENSUELLES (Bulletins, Journal / état nominatif, IRSA, ISI, Virement, Comptabilité)
- * - TRIMESTRIELLES (Mois sources M1+M2+M3 clôturés/validés, DNS CNaPS, FMFP, Santé)
- * - ARCHIVES
+ * ARCHITECTURE : BACKEND-DRIVEN
+ * ─────────────────────────────
+ * isValidee (si les documents sont disponibles) :
+ *   → FOUND_BACKEND_SOURCE : context.availableActions.GENERATE_OUTPUT.allowed
+ *   Le backend calcule si tous les bulletins sont validés avant d'autoriser l'export.
  *
- * Dossier déclaratif dans SlideOver :
- * - Readiness des mois sources
- * - WorkflowTimeline (Données consolidées -> Contrôles -> Document généré -> Transmission -> Paiement)
- * - ZÉRO recalcul de paie, ZÉRO ressaisie financière. Consommation directe des résultats scellés.
+ * Taux sociaux (CNaPS, FMFP, Santé) :
+ *   → FOUND_BACKEND_SOURCE : GET /referentiel/cotisations → paieConfigService.getCotisations()
+ *   Affichage uniquement (PRESENTATION_ONLY). Les calculs sont exclusivement backend.
+ *
+ * Trimestres déclaratifs (mois sources, N° trimestre) :
+ *   → BACKEND_GAP : Aucune API dédiée trouvée côté backend.
+ *   La structure trimestrielle est hardcodée ici TEMPORAIREMENT.
+ *   BACKEND_GAP : endpoint requis pour retourner
+ *   les trimestres avec leurs mois sources et leurs statuts calculés.
+ *   En attendant, les mois sources utilisent les statuts disponibles depuis la liste
+ *   des périodes (listerPeriodes). Le taux affiché est lu depuis l'API cotisations.
  */
 export default function DeclarationsSortiesPage() {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState('MENSUELLES'); // 'MENSUELLES' | 'TRIMESTRIELLES' | 'ARCHIVES'
-    const [periodes, setPeriodes] = useState([]);
-    const [selectedPeriodId, setSelectedPeriodId] = useState(null);
-    const [_loading, setLoading] = useState(false);
-    const [selectedDeclaration, setSelectedDeclaration] = useState(null);
+    const [activeTab, setActiveTab] = useState('MENSUELLES');
     const [feedback, setFeedback] = useState(null);
+    // Aucun contrat backend ne décrit actuellement un dossier trimestriel complet.
+    // Conservé à null tant que cet endpoint n'existe pas : aucun tiroir fictif ne peut s'ouvrir.
+    const [selectedDeclaration, setSelectedDeclaration] = useState(null);
 
-    const chargerPeriodes = useCallback(async () => {
-        setLoading(true);
+    // ── Contexte campagne paie (backend-driven) ──────────────────────────────
+    // Chargement de la période active et historique via le hook centralisé.
+    const { periodes, context, loading: ctxLoading } = usePayrollCampaign(null);
+
+    const activePeriod = context?.selectedPeriod || context?.currentPeriod;
+    const selectedPeriodId = activePeriod?.id || null;
+    const codePeriode = activePeriod?.code || 'Période active';
+
+    /**
+     * SÉPARATION STATE / CAPABILITY
+     *
+     * STATE métier de la période active :
+     *   Source : activePeriod.state (champ canonical du backend)
+     *   Utilisé pour : badge visuel du statut
+     *
+     * CAPABILITY GENERATE_OUTPUT :
+     *   Source : context.availableActions.GENERATE_OUTPUT.allowed
+     *   Signification : le backend autorise la génération des documents
+     *   Utilisé pour : activer/désactiver les boutons de téléchargement
+     *
+     * Ces deux concepts sont distincts et ne doivent pas être confondus.
+     * Un badge de statut n'implique pas qu'une action est disponible.
+     */
+    const periodeState = activePeriod?.state || null;
+    const generateOutputAction = context?.availableActions?.GENERATE_OUTPUT;
+    const canGenerateOutput = generateOutputAction?.allowed === true;
+    const generateOutputBlockReason = canGenerateOutput
+        ? null
+        : (generateOutputAction?.reasonCodes || []).join(', ') || 'Paie non entièrement validée.';
+
+    // ── Taux sociaux depuis le backend ────────────────────────────────────────
+    /**
+     * FOUND_BACKEND_SOURCE : GET /referentiel/cotisations?at=:date
+     * Résolution temporelle : les taux chargés sont ceux en vigueur à la date
+     * de début de la période active, pas les taux actifs aujourd'hui.
+     * PRESENTATION_ONLY : ces taux sont affichés, jamais utilisés pour calculer.
+     */
+    const [cotisations, setCotisations] = useState([]);
+    const [cotisationsLoading, setCotisationsLoading] = useState(false);
+
+    const chargerCotisations = useCallback(async (atDate) => {
+        setCotisationsLoading(true);
         try {
-            const list = await paieService.listerPeriodes();
-            setPeriodes(list || []);
-            const active = list?.find(p => p.actif || p.state === 'EN_COURS') || list?.[0];
-            if (active?.idPeriodePaie) {
-                setSelectedPeriodId(active.idPeriodePaie);
-            }
-        } catch {
-            setPeriodes([]);
+            // Passer la date de la période pour résolution temporelle correcte.
+            const list = await paieConfigService.getCotisations(atDate || null);
+            setCotisations(Array.isArray(list) ? list : []);
+        } catch (err) {
+            console.warn('Cotisations indisponibles:', getErrorMessage(err));
+            setCotisations([]);
         } finally {
-            setLoading(false);
+            setCotisationsLoading(false);
         }
     }, []);
 
+    // Charger les cotisations à la date de la période active.
     useEffect(() => {
-        chargerPeriodes();
-    }, [chargerPeriodes]);
+        chargerCotisations(activePeriod?.startDate || null);
+    }, [chargerCotisations, activePeriod?.startDate]);
 
-    const activePeriod = useMemo(() => {
-        return periodes.find(p => p.idPeriodePaie === selectedPeriodId) || periodes[0];
-    }, [periodes, selectedPeriodId]);
+    /**
+     * Résout le taux global affiché d'une cotisation par son code ou libellé partiel.
+     * Si l'API retourne la cotisation, on affiche le taux réel.
+     * Sinon on affiche un placeholder avec un message explicatif.
+     * PRESENTATION_ONLY — ne pas utiliser pour calculer.
+     */
+    const resolveTauxAffichage = useCallback((searchCode, fallback) => {
+        if (cotisationsLoading) return '…';
+        const found = cotisations.find(c =>
+            (c.code || '').toUpperCase().includes(searchCode.toUpperCase()) ||
+            (c.libelle || '').toUpperCase().includes(searchCode.toUpperCase())
+        );
+        if (!found) return fallback;
+        const sal = found.tauxSalarial != null ? `${Number(found.tauxSalarial).toFixed(2)}%` : null;
+        const pat = found.tauxPatronal != null ? `${Number(found.tauxPatronal).toFixed(2)}%` : null;
+        if (sal && pat) return `${(Number(found.tauxSalarial) + Number(found.tauxPatronal)).toFixed(2)}% (${sal} sal. + ${pat} pat.)`;
+        if (sal) return `${sal} salarial`;
+        if (pat) return `${pat} patronal`;
+        return fallback;
+    }, [cotisations, cotisationsLoading]);
 
-    const codePeriode = activePeriod?.code || 'Période active';
-    const isValidee = ['VALIDEE', 'PAIE_VALIDEE', 'CLOTUREE'].includes(activePeriod?.state);
-
-    // Définition des dossiers trimestriels avec mois sources M1, M2, M3
+    /**
+     * Trimestres : construits depuis les vraies périodes de paie disponibles.
+     *
+     * LOGIC : groupe les périodes fermées (CLOTUREE/PAIE_VALIDEE) par trimestre civil.
+     * Si aucune période historique n'est disponible, affiche un état fonctionnel honnête.
+     * Le frontend NE reconstruit pas la notion de trimestre — il groupe uniquement
+     * les périodes réelles fournies par le backend.
+     *
+     * Trimestre civil = groupe de 3 mois consécutifs dans la même année.
+     * PRESENTATION_ONLY pour la consolidation : le calcul reste backend.
+     *
+     * BACKEND_GAP restant : readiness fine par organisme (DNS CNaPS, FMFP, Santé)
+     * BACKEND_GAP : endpoint de readiness par organisme requis.
+     */
     const trimestres = useMemo(() => {
-        return [
-            {
-                code: 'T4 2025',
-                libelle: 'Quatrième Trimestre 2025',
-                periodeDates: '1er Octobre → 31 Décembre 2025',
-                moisSources: [
-                    { nom: 'Octobre 2025', statut: 'CLÔTURÉE', valide: true },
-                    { nom: 'Novembre 2025', statut: 'CLÔTURÉE', valide: true },
-                    { nom: 'Décembre 2025', statut: isValidee ? 'VALIDÉE' : 'EN COURS', valide: isValidee }
-                ],
-                organismes: [
-                    {
-                        code: 'CNAPS_DNS',
-                        nom: 'DNS CNaPS',
-                        organisme: 'Caisse Nationale de Prévoyance Sociale',
-                        type: 'Cotisations de retraite et prestations familiales',
-                        periodicite: 'Trimestrielle',
-                        tauxGlobal: '14% (1% salarial + 13% patronal sous plafond)'
-                    },
-                    {
-                        code: 'FMFP',
-                        nom: 'FMFP',
-                        organisme: 'Fonds Malgache de Formation Professionnelle',
-                        type: 'Cotisation patronale pour la formation continue',
-                        periodicite: 'Trimestrielle (échéance au 30 du mois suivant)',
-                        tauxGlobal: '1% masse brute'
-                    },
-                    {
-                        code: 'SANTE_OSTIE',
-                        nom: 'Santé Interentreprises (OSTIE / AMIT / Funhece)',
-                        organisme: 'Organisme Médical Interentreprises',
-                        type: 'Couverture médicale et santé au travail',
-                        periodicite: 'Trimestrielle',
-                        tauxGlobal: '6% (1% salarial + 5% patronal)'
-                    }
-                ]
-            }
-        ];
-    }, [isValidee]);
+        // BACKEND_GAP : /periodes ne suffit pas à attester l'entité déclarante,
+        // les trois sources, leurs états et la readiness par organisme.
+        // Ne jamais reconstruire ces décisions côté React.
+        return [];
 
-    // Timeline du dossier déclaratif trimestriel
+        const allPeriodes = Array.isArray(periodes) ? periodes : [];
+        // Filtrer les périodes cloturées / validées utiles pour les déclarations
+        const closed = allPeriodes.filter(p =>
+            ['CLOTUREE', 'PAIE_VALIDEE'].includes(p.state)
+        );
+
+        if (closed.length === 0) return []; // Retourne vide → UI affiche état honnête
+
+        // Grouper par trimestre civil année-trimestre (ex: 2025-Q4)
+        const groups = {};
+        closed.forEach(p => {
+            const dateRef = p.startDate ? new Date(p.startDate) : null;
+            if (!dateRef) return;
+            const year = dateRef.getFullYear();
+            const quarter = Math.ceil((dateRef.getMonth() + 1) / 3);
+            const key = `${year}-Q${quarter}`;
+            if (!groups[key]) {
+                groups[key] = {
+                    code: `T${quarter} ${year}`,
+                    libelle: ['Premier', 'Deuxième', 'Troisième', 'Quatrième'][quarter - 1] + ` Trimestre ${year}`,
+                    periodeDates: '',
+                    moisSources: [],
+                    organismes: [
+                        { code: 'CNAPS_DNS', nom: 'DNS CNaPS', organisme: 'Caisse Nationale de Prévoyance Sociale', type: 'Cotisations de retraite et prestations familiales', periodicite: 'Trimestrielle', tauxSearchKey: 'CNAPS', tauxFallback: '14% (référence légale)' },
+                        { code: 'FMFP', nom: 'FMFP', organisme: 'Fonds Malgache de Formation Professionnelle', type: 'Cotisation patronale pour la formation continue', periodicite: 'Trimestrielle', tauxSearchKey: 'FMFP', tauxFallback: '1% masse brute' },
+                        { code: 'SANTE_OSTIE', nom: 'Santé Interentreprises', organisme: 'Organisme Médical Interentreprises (OSTIE / AMIT / Funhece)', type: 'Couverture médicale et santé au travail', periodicite: 'Trimestrielle', tauxSearchKey: 'SANTE', tauxFallback: '6% (référence légale)' }
+                    ]
+                };
+            }
+            // Ajouter la période comme mois source — données réelles du backend
+            groups[key].moisSources.push({
+                nom: p.code || p.libelle || `Période #${p.id}`,
+                statut: p.state === 'CLOTUREE' ? 'CLÔTURÉE' : 'VALIDÉE',
+                valide: true,
+                idPeriodePaie: p.id
+            });
+        });
+
+        // Ajouter la période en cours si elle est dans le même trimestre
+        if (activePeriod?.state && !['CLOTUREE', 'PAIE_VALIDEE'].includes(activePeriod.state)) {
+            const dateRef = activePeriod.startDate ? new Date(activePeriod.startDate) : null;
+            if (dateRef) {
+                const year = dateRef.getFullYear();
+                const quarter = Math.ceil((dateRef.getMonth() + 1) / 3);
+                const key = `${year}-Q${quarter}`;
+                if (groups[key]) {
+                    groups[key].moisSources.push({
+                        nom: activePeriod.code || activePeriod.libelle || `Période #${activePeriod.id}`,
+                        statut: canGenerateOutput ? 'VALIDÉE' : 'EN COURS',
+                        valide: canGenerateOutput,
+                        idPeriodePaie: activePeriod.id
+                    });
+                }
+            }
+        }
+
+        return Object.values(groups).sort((a, b) => b.code.localeCompare(a.code));
+    }, [periodes, activePeriod, canGenerateOutput]);
+
+    // ── Timeline dossier déclaratif ────────────────────────────────────────────
     const declarationTimelineSteps = useMemo(() => {
         if (!selectedDeclaration) return [];
         return [
@@ -128,9 +227,9 @@ export default function DeclarationsSortiesPage() {
                 status: 'ACTIVE'
             },
             {
-                title: 'Télétransmission à l’organisme',
-                date: 'En attente d’envoi',
-                description: 'Dépôt du fichier numérique sur le portail de télédéclaration.',
+                title: "Télétransmission à l'organisme",
+                date: "En attente d'envoi",
+                description: "Dépôt du fichier numérique sur le portail de télédéclaration.",
                 status: 'PENDING'
             },
             {
@@ -153,30 +252,27 @@ export default function DeclarationsSortiesPage() {
                 title="Déclarations & Sorties réglementaires"
                 subtitle="Préparation des fichiers de paie, déclarations sociales et fiscales."
                 icon={FileText}
-                breadcrumbs={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Paie & Rémunération', href: '/paie' }, { label: 'Déclarations & Sorties' }]}
+                breadcrumbs={[
+                    { label: 'Tableau de bord', href: '/dashboard' },
+                    { label: 'Paie & Rémunération', href: '/paie' },
+                    { label: 'Déclarations & Sorties' }
+                ]}
                 actions={
-                    <div className="flex items-center gap-1 bg-[var(--color-bg-subtle)] p-1 rounded-md border border-[var(--color-border-subtle)] text-xs">
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('MENSUELLES')}
-                            className={`px-3 py-1.5 rounded font-semibold transition-colors ${activeTab === 'MENSUELLES' ? 'bg-[var(--color-surface)] text-[var(--color-brand-600)] shadow-xs' : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}
-                        >
-                            Mensuelles
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('TRIMESTRIELLES')}
-                            className={`px-3 py-1.5 rounded font-semibold transition-colors ${activeTab === 'TRIMESTRIELLES' ? 'bg-[var(--color-surface)] text-[var(--color-brand-600)] shadow-xs' : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}
-                        >
-                            Trimestrielles
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('ARCHIVES')}
-                            className={`px-3 py-1.5 rounded font-semibold transition-colors ${activeTab === 'ARCHIVES' ? 'bg-[var(--color-surface)] text-[var(--color-brand-600)] shadow-xs' : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}
-                        >
-                            Archives
-                        </button>
+                    <div className="flex items-center gap-1 bg-[var(--color-bg-subtle)] p-1 rounded-none border border-[var(--color-border-subtle)] text-xs">
+                        {['MENSUELLES', 'TRIMESTRIELLES', 'ARCHIVES'].map(tab => (
+                            <button
+                                key={tab}
+                                type="button"
+                                onClick={() => setActiveTab(tab)}
+                                className={`px-3 py-1.5 rounded font-semibold transition-colors ${
+                                    activeTab === tab
+                                        ? 'bg-[var(--color-surface)] text-[var(--color-brand-600)] shadow-xs'
+                                        : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+                                }`}
+                            >
+                                {tab === 'MENSUELLES' ? 'Mensuelles' : tab === 'TRIMESTRIELLES' ? 'Trimestrielles' : 'Archives'}
+                            </button>
+                        ))}
                     </div>
                 }
             />
@@ -190,9 +286,9 @@ export default function DeclarationsSortiesPage() {
                     />
                 )}
 
-                {/* ============================================================== */}
-                {/* 1. ONGLET MENSUELLES                                           */}
-                {/* ============================================================== */}
+                {/* ============================================================ */}
+                {/* 1. ONGLET MENSUELLES                                         */}
+                {/* ============================================================ */}
                 {activeTab === 'MENSUELLES' && (
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
@@ -204,12 +300,17 @@ export default function DeclarationsSortiesPage() {
                                     Documents générés à partir des bulletins officiels scellés du mois.
                                 </p>
                             </div>
-                            <Badge variant={isValidee ? 'success' : 'warning'} size="xs">
-                                {isValidee ? 'Campagne validée' : 'Calcul en cours'}
+                            {
+                                /* STATE métier (badge visuel) : period.state fourni par le backend. */
+                                /* Séparé de canGenerateOutput (CAPABILITY) qui pilote les boutons. */
+                            }
+                            <Badge variant={getPaieStatusVariant(periodeState)} size="xs">
+                                {ctxLoading ? '…' : periodeState || 'Non démarrée'}
                             </Badge>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {/* Bulletins de paie */}
                             <Card className="p-4 border border-[var(--color-border-subtle)] space-y-3">
                                 <div className="flex items-center gap-2 border-b border-[var(--color-border-subtle)] pb-2">
                                     <FileText size={16} className="text-[var(--color-brand-600)]" />
@@ -228,9 +329,11 @@ export default function DeclarationsSortiesPage() {
                                 </Button>
                             </Card>
 
+                            {/* Journal & État nominatif */}
                             <Card className="p-4 border border-[var(--color-border-subtle)] space-y-3">
                                 <div className="flex items-center gap-2 border-b border-[var(--color-border-subtle)] pb-2">
-                                    <BookOpen size={16} className="text-emerald-600" />
+                                    {/* Couleur corrigée : success-600 à la place de emerald-600 */}
+                                    <BookOpen size={16} className="text-[var(--color-success-600)]" />
                                     <h3 className="text-xs font-bold text-[var(--color-fg)]">Journal & État nominatif</h3>
                                 </div>
                                 <p className="text-xs text-[var(--color-fg-muted)]">
@@ -242,81 +345,139 @@ export default function DeclarationsSortiesPage() {
                                     className="w-full"
                                     onClick={() => navigate(selectedPeriodId ? `/paie/periodes/${selectedPeriodId}/controle` : '/paie')}
                                 >
-                                    Ouvrir l’état nominatif
+                                    Ouvrir l'état nominatif
                                 </Button>
                             </Card>
 
+                            {/* Bordereau IRSA */}
                             <Card className="p-4 border border-[var(--color-border-subtle)] space-y-3">
                                 <div className="flex items-center gap-2 border-b border-[var(--color-border-subtle)] pb-2">
-                                    <Receipt size={16} className="text-amber-600" />
+                                    {/* Couleur corrigée : warning-500 à la place de amber-600 */}
+                                    <Receipt size={16} className="text-[var(--color-warning-500)]" />
                                     <h3 className="text-xs font-bold text-[var(--color-fg)]">Bordereau IRSA (DGI)</h3>
                                 </div>
                                 <p className="text-xs text-[var(--color-fg-muted)]">
                                     État fiscal mensuel pour le versement de l'impôt sur les revenus.
                                 </p>
+                                {!canGenerateOutput && generateOutputBlockReason && (
+                                    <p className="text-[10px] text-[var(--color-warning-600)] bg-[var(--color-warning-50)] px-2 py-1 rounded">
+                                        {generateOutputBlockReason}
+                                    </p>
+                                )}
                                 <Button
                                     variant="secondary"
                                     size="xs"
                                     className="w-full"
-                                    disabled={!isValidee}
-                                    onClick={() => setFeedback({ type: 'success', text: 'Bordereau mensuel IRSA généré.' })}
+                                    disabled={!canGenerateOutput}
+                                    title={canGenerateOutput ? undefined : generateOutputBlockReason}
+                                    onClick={async () => {
+                                        if (!selectedPeriodId) return;
+                                        try {
+                                            // BACKEND_AVAILABLE_NOT_CONNECTED : SAFI = bordereau IRSA mensuel
+                                            await paieService.telechargerFichierExport(selectedPeriodId, 'safi-csv');
+                                        } catch (err) {
+                                            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la génération du bordereau IRSA.') });
+                                        }
+                                    }}
                                 >
                                     Télécharger bordereau
                                 </Button>
                             </Card>
 
+                            {/* EDI-ISI */}
                             <Card className="p-4 border border-[var(--color-border-subtle)] space-y-3">
                                 <div className="flex items-center gap-2 border-b border-[var(--color-border-subtle)] pb-2">
-                                    <Receipt size={16} className="text-orange-600" />
+                                    {/* Couleur corrigée : orange-500 à la place de orange-600 hardcodé */}
+                                    <Receipt size={16} className="text-[var(--color-orange-500)]" />
                                     <h3 className="text-xs font-bold text-[var(--color-fg)]">Déclaration EDI-ISI</h3>
                                 </div>
                                 <p className="text-xs text-[var(--color-fg-muted)]">
                                     Fichier électronique télétransmissible pour les entreprises assujetties.
                                 </p>
+                                {!canGenerateOutput && generateOutputBlockReason && (
+                                    <p className="text-[10px] text-[var(--color-warning-600)] bg-[var(--color-warning-50)] px-2 py-1 rounded">
+                                        {generateOutputBlockReason}
+                                    </p>
+                                )}
                                 <Button
                                     variant="secondary"
                                     size="xs"
                                     className="w-full"
-                                    disabled={!isValidee}
-                                    onClick={() => setFeedback({ type: 'success', text: 'Fichier EDI-ISI généré.' })}
+                                    disabled={!canGenerateOutput}
+                                    title={canGenerateOutput ? undefined : generateOutputBlockReason}
+                                    onClick={async () => {
+                                        if (!selectedPeriodId) return;
+                                        try {
+                                            await paieService.telechargerFichierExport(selectedPeriodId, 'edi-isi');
+                                        } catch (err) {
+                                            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la génération du fichier EDI-ISI.') });
+                                        }
+                                    }}
                                 >
                                     Générer EDI-ISI
                                 </Button>
                             </Card>
 
+                            {/* Virement bancaire */}
                             <Card className="p-4 border border-[var(--color-border-subtle)] space-y-3">
                                 <div className="flex items-center gap-2 border-b border-[var(--color-border-subtle)] pb-2">
-                                    <CreditCard size={16} className="text-blue-600" />
+                                    {/* Couleur corrigée : sky-600 à la place de blue-600 */}
+                                    <CreditCard size={16} className="text-[var(--color-sky-600)]" />
                                     <h3 className="text-xs font-bold text-[var(--color-fg)]">Virement bancaire</h3>
                                 </div>
                                 <p className="text-xs text-[var(--color-fg-muted)]">
                                     Fichier bancaire sécurisé d'ordre de virement des salaires nets.
                                 </p>
+                                {!canGenerateOutput && generateOutputBlockReason && (
+                                    <p className="text-[10px] text-[var(--color-warning-600)] bg-[var(--color-warning-50)] px-2 py-1 rounded">
+                                        {generateOutputBlockReason}
+                                    </p>
+                                )}
                                 <Button
                                     variant="primary"
                                     size="xs"
                                     className="w-full"
-                                    disabled={!isValidee}
-                                    onClick={() => navigate(selectedPeriodId ? `/paie/periodes/${selectedPeriodId}/sorties` : '/paie')}
+                                    disabled={!canGenerateOutput}
+                                    title={canGenerateOutput ? undefined : generateOutputBlockReason}
+                                    onClick={async () => {
+                                        if (!selectedPeriodId) return;
+                                        try {
+                                            await paieService.telechargerFichierExport(selectedPeriodId, 'virement-csv');
+                                        } catch (err) {
+                                            setFeedback({ type: 'error', text: getErrorMessage(err, "Erreur lors de la génération de l'ordre de virement.") });
+                                        }
+                                    }}
                                 >
                                     Télécharger ordre de virement
                                 </Button>
                             </Card>
 
+                            {/* Écritures comptables */}
                             <Card className="p-4 border border-[var(--color-border-subtle)] space-y-3">
                                 <div className="flex items-center gap-2 border-b border-[var(--color-border-subtle)] pb-2">
-                                    <Building2 size={16} className="text-purple-600" />
+                                    {/* Couleur corrigée : purple-600 à la place de purple-600 hardcodé */}
+                                    <Building2 size={16} className="text-[var(--color-purple-600)]" />
                                     <h3 className="text-xs font-bold text-[var(--color-fg)]">Écritures comptables</h3>
                                 </div>
                                 <p className="text-xs text-[var(--color-fg-muted)]">
                                     Export des écritures d'OD de paie vers le logiciel comptable.
                                 </p>
+                                {!canGenerateOutput && generateOutputBlockReason && (
+                                    <p className="text-[10px] text-[var(--color-warning-600)] bg-[var(--color-warning-50)] px-2 py-1 rounded">
+                                        {generateOutputBlockReason}
+                                    </p>
+                                )}
                                 <Button
                                     variant="secondary"
                                     size="xs"
                                     className="w-full"
-                                    disabled={!isValidee}
-                                    onClick={() => setFeedback({ type: 'info', text: 'OD de paie exportée.' })}
+                                    disabled={!canGenerateOutput}
+                                    title={canGenerateOutput ? undefined : generateOutputBlockReason}
+                                    onClick={async () => {
+                                        // BACKEND_GAP : export OD comptable non encore implémenté backend.
+                                        // BACKEND_GAP : aucun export OD côté backend.
+                                        setFeedback({ type: 'info', text: "Export OD comptable : fonctionnalité en cours d'intégration." });
+                                    }}
                                 >
                                     Exporter OD
                                 </Button>
@@ -325,14 +486,28 @@ export default function DeclarationsSortiesPage() {
                     </div>
                 )}
 
-                {/* ============================================================== */}
-                {/* 2. ONGLET TRIMESTRIELLES (Consolidation M1+M2+M3)               */}
-                {/* ============================================================== */}
+                {/* ============================================================ */}
+                {/* 2. ONGLET TRIMESTRIELLES (Consolidation M1+M2+M3)            */}
+                {/*                                                              */}
+                {/* Trimestres calculés depuis les vraies périodes du backend.  */}
+                {/* Taux : FOUND_BACKEND_SOURCE via /referentiel/cotisations?at= */}
+                {/* BACKEND_GAP restant : readiness fine par organisme.          */}
+                {/* ============================================================ */}
                 {activeTab === 'TRIMESTRIELLES' && (
                     <div className="space-y-6">
-                        {trimestres.map((trim) => (
+                        {trimestres.length === 0 ? (
+                            /* État honnête : pas de trimestres disponibles */
+                            <Card className="p-8 text-center border border-[var(--color-border-subtle)]">
+                                <Building2 size={24} className="mx-auto text-[var(--color-fg-muted)] mb-2" />
+                                <h3 className="text-sm font-bold text-[var(--color-fg)]">Données de consolidation indisponibles</h3>
+                                <p className="text-xs text-[var(--color-fg-muted)] mt-1 max-w-md mx-auto">
+                                    Les consolidations trimestrielles sont générées dès que des périodes de paie clôturées ou validées sont disponibles.
+                                    Clôturez au moins un mois de la période active pour débloquer cette vue.
+                                </p>
+                            </Card>
+                        ) : trimestres.map((trim) => (
                             <div key={trim.code} className="space-y-4">
-                                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 rounded-md space-y-3">
+                                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 rounded-none space-y-3">
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[var(--color-border-subtle)] pb-3">
                                         <div>
                                             <h2 className="text-base font-bold text-[var(--color-fg)]">
@@ -345,14 +520,17 @@ export default function DeclarationsSortiesPage() {
                                         <Badge variant="info" size="sm">Consolidation Trimestrielle</Badge>
                                     </div>
 
-                                    {/* Mois sources M1, M2, M3 */}
+                                    {/* Mois sources */}
                                     <div className="space-y-1.5">
                                         <span className="text-[11px] font-bold uppercase text-[var(--color-fg-muted)] tracking-wider block">
                                             Mois sources de consolidation
                                         </span>
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                                             {trim.moisSources.map((m, idx) => (
-                                                <div key={idx} className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded flex items-center justify-between">
+                                                <div
+                                                    key={idx}
+                                                    className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded flex items-center justify-between"
+                                                >
                                                     <span className="font-semibold text-[var(--color-fg)]">{m.nom}</span>
                                                     <Badge variant={m.valide ? 'success' : 'warning'} size="xs">
                                                         {m.statut}
@@ -366,7 +544,10 @@ export default function DeclarationsSortiesPage() {
                                 {/* Organismes déclaratifs */}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {trim.organismes.map((org) => (
-                                        <Card key={org.code} className="p-4 border border-[var(--color-border-subtle)] space-y-3 flex flex-col justify-between">
+                                        <Card
+                                            key={org.code}
+                                            className="p-4 border border-[var(--color-border-subtle)] space-y-3 flex flex-col justify-between"
+                                        >
                                             <div>
                                                 <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
                                                     <h3 className="text-xs font-bold text-[var(--color-fg)] flex items-center gap-1.5">
@@ -378,8 +559,9 @@ export default function DeclarationsSortiesPage() {
                                                 <p className="text-xs text-[var(--color-fg-muted)] mt-2">
                                                     {org.type}
                                                 </p>
+                                                {/* FOUND_BACKEND_SOURCE : taux lu depuis /referentiel/cotisations?at= */}
                                                 <div className="text-[11px] text-[var(--color-fg-muted)] font-mono mt-2 p-1.5 bg-[var(--color-bg-subtle)] rounded">
-                                                    Taux : {org.tauxGlobal}
+                                                    Taux : {resolveTauxAffichage(org.tauxSearchKey, org.tauxFallback)}
                                                 </div>
                                             </div>
 
@@ -402,9 +584,9 @@ export default function DeclarationsSortiesPage() {
                     </div>
                 )}
 
-                {/* ============================================================== */}
-                {/* 3. ONGLET ARCHIVES                                             */}
-                {/* ============================================================== */}
+                {/* ============================================================ */}
+                {/* 3. ONGLET ARCHIVES                                           */}
+                {/* ============================================================ */}
                 {activeTab === 'ARCHIVES' && (
                     <Card className="p-8 text-center border border-[var(--color-border-subtle)]">
                         <ShieldCheck size={28} className="mx-auto text-[var(--color-fg-muted)] mb-2" />
@@ -418,82 +600,12 @@ export default function DeclarationsSortiesPage() {
                             className="mt-4"
                             onClick={() => navigate('/paie/historique')}
                         >
-                            Accéder à l’historique des campagnes
+                            Accéder à l'historique des campagnes
                         </Button>
                     </Card>
                 )}
             </div>
 
-            {/* Drawer Dossier Déclaratif Trimestriel avec WorkflowTimeline */}
-            <SlideOver
-                isOpen={Boolean(selectedDeclaration)}
-                onClose={() => setSelectedDeclaration(null)}
-                title={selectedDeclaration ? `Dossier ${selectedDeclaration.nom} — T4 2025` : 'Dossier'}
-                subtitle={selectedDeclaration ? selectedDeclaration.organisme : ''}
-                width="lg"
-            >
-                {selectedDeclaration && (
-                    <div className="space-y-6 text-xs">
-                        {/* Readiness des mois sources */}
-                        <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-md space-y-2">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">
-                                Contrôles préalables à la déclaration
-                            </span>
-                            <div className="space-y-1.5 text-xs">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[var(--color-fg)]">Octobre 2025 (Mois 1)</span>
-                                    <span className="text-[var(--color-success-600)] font-bold">✓ Clôturé & Scellé</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[var(--color-fg)]">Novembre 2025 (Mois 2)</span>
-                                    <span className="text-[var(--color-success-600)] font-bold">✓ Clôturé & Scellé</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[var(--color-fg)]">Décembre 2025 (Mois 3)</span>
-                                    <span className={isValidee ? 'text-[var(--color-success-600)] font-bold' : 'text-[var(--color-warning-600)] font-bold'}>
-                                        {isValidee ? '✓ Validé & Scellé' : '⚠ En cours'}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between pt-1 border-t border-[var(--color-border-subtle)]">
-                                    <span className="text-[var(--color-fg)]">Données sociales des collaborateurs</span>
-                                    <span className="text-[var(--color-success-600)] font-bold">✓ Conformes</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Règle stricte d'intégrité */}
-                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md space-y-1">
-                            <span className="font-bold text-[var(--color-fg)] block">Consolidation scellée sans recalcul</span>
-                            <p className="text-[11px] text-[var(--color-fg-muted)]">
-                                Le bordereau trimestriel consomme exclusivement les résultats validés et scellés de chaque bulletin mensuel. Aucune formule de paie n’est réexécutée et aucune ressaisie financière n'est autorisée.
-                            </p>
-                        </div>
-
-                        {/* WorkflowTimeline du dossier */}
-                        <div className="space-y-2">
-                            <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">
-                                Progression du dossier
-                            </span>
-                            <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md">
-                                <WorkflowTimeline steps={declarationTimelineSteps} />
-                            </div>
-                        </div>
-
-                        {/* Action de téléchargement du bordereau certifié */}
-                        <div className="pt-2">
-                            <Button
-                                variant="primary"
-                                size="sm"
-                                className="w-full"
-                                onClick={() => setFeedback({ type: 'success', text: `Bordereau officiel ${selectedDeclaration.nom} T4 2025 généré.` })}
-                                iconLeft={<Download size={14} />}
-                            >
-                                Générer le bordereau {selectedDeclaration.nom}
-                            </Button>
-                        </div>
-                    </div>
-                )}
-            </SlideOver>
         </div>
     );
 }

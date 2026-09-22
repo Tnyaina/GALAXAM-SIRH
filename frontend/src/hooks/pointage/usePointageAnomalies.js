@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import pointageAnomalieService from '@/api/pointage/pointageAnomalieService';
 import useDebounce from '@/hooks/useDebounce';
+import { getErrorMessage } from '@/api/apiClient';
 
 export function usePointageAnomalies(initialFilters = {}) {
     const [filters, setFilters] = useState({
@@ -67,7 +68,7 @@ export function usePointageAnomalies(initialFilters = {}) {
             console.error('Erreur régularisation anomalie:', err);
             return {
                 success: false,
-                error: err?.response?.data?.message || err?.message || 'Erreur serveur lors de la régularisation.'
+                error: getErrorMessage(err, 'Erreur serveur lors de la régularisation.')
             };
         }
     };

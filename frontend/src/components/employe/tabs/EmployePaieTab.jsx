@@ -32,7 +32,7 @@ function AccordionSection({ id, icon, title, badge = null, children, defaultOpen
     const variantBorder = variant === 'warning' ? 'border-[var(--color-warning-500)]/40' : variant === 'danger' ? 'border-[var(--color-danger-500)]/40' : 'border-[var(--color-border-subtle)]';
     const iconColor = variant === 'warning' ? 'text-[var(--color-warning-600)]' : variant === 'danger' ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-brand-600)]';
     return (
-        <div className={`bg-[var(--color-surface)] border ${variantBorder} rounded-md overflow-hidden`}>
+        <div className={`bg-[var(--color-surface)] border ${variantBorder} rounded-none overflow-hidden`}>
             <button
                 type="button"
                 id={id}
@@ -116,7 +116,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
             {errorMsg && <Alert type="error" title="Erreur Paie" message={errorMsg} onClose={() => setErrorMsg(null)} />}
 
             {hasStcNeeded && (
-                <div className="flex items-start gap-2.5 p-3 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/40 rounded-md text-xs">
+                <div className="flex items-start gap-2.5 p-3 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/40 rounded-none text-xs">
                     <AlertCircle size={15} className="text-[var(--color-warning-600)] shrink-0 mt-0.5" />
                     <div className="space-y-1 flex-1">
                         <p className="font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]">Solde de Tout Compte à établir</p>

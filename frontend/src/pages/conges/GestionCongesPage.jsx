@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CalendarDays } from 'lucide-react';
 import congeService from '@/api/congeService';
+import { getErrorMessage } from '@/api/apiClient';
 
 // Composants UI du Design System Galaxam
 import PageHeader from '@/components/ui/navigation/PageHeader';
@@ -43,7 +44,7 @@ export default function GestionCongesPage() {
       setReferentiels(resRefs?.data || resRefs || null);
     } catch (err) {
       console.error('Erreur lors du chargement des congés globaux:', err);
-      setError(err?.response?.data?.message || err?.userMessage || 'Impossible de récupérer les données des congés.');
+      setError(getErrorMessage(err, 'Impossible de récupérer les données des congés.'));
     } finally {
       setLoading(false);
     }

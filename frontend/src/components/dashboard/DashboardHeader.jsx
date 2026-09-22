@@ -132,7 +132,7 @@ export default function DashboardHeader({
         const actions = periodContext?.availableActions || activePeriode?.availableActions || {};
         if (actions.EDIT_POINTAGE?.allowed === true) return '/pointages?tab=saisie';
         // Priorité 3 : vue de suivi de la période
-        return `/paie/periods/${activePeriodeId}/overview`;
+        return `/paie/periodes/${activePeriodeId}/preparation`;
     })();
 
     // Widget rappel périodes de paie : affiche les périodes récentes non clôturées (en excluant l'active si déjà affichée)
@@ -223,7 +223,7 @@ export default function DashboardHeader({
                                 return (
                                     <Link
                                         key={pId}
-                                        to={`/paie/periods/${pId}/overview`}
+                                        to={`/paie/periodes/${pId}/preparation`}
                                         className="inline-flex items-center gap-2 px-2.5 py-1 bg-white/10 hover:bg-white/20 border border-white/20 text-xs text-white transition-all group shadow-2xs"
                                         title={p.libelle || p.label || p.code}
                                     >
