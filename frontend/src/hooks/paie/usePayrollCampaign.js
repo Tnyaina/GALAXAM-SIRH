@@ -74,9 +74,9 @@ export function usePayrollCampaign(requestedPeriodId = null) {
     }, [loadData]);
 
     /** Rechargement manuel (bouton Actualiser ou après une action) */
-    const refresh = useCallback(() => {
-        loadData(selectedPeriodeId);
-    }, [selectedPeriodeId, loadData]);
+    const refresh = useCallback((overrideId = null) => {
+        loadData(overrideId || selectedPeriodeId || requestedPeriodId);
+    }, [selectedPeriodeId, requestedPeriodId, loadData]);
 
     return {
         periodes,

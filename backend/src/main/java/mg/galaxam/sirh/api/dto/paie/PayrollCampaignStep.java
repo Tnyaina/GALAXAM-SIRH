@@ -2,6 +2,8 @@ package mg.galaxam.sirh.api.dto.paie;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * Représente l'état d'une étape du workflow de campagne de paie,
  * tel que calculé côté backend et consommé directement par le frontend.
@@ -11,7 +13,7 @@ import java.util.List;
  * @param code        Identifiant sémantique de l'étape (PREPARATION, POPULATION, VARIABLES,
  *                    CALCULATION, CONTROL, VALIDATION, OUTPUTS)
  * @param label       Libellé affiché à la DAF
- * @param state       État de l'étape : COMPLETED | CURRENT | AVAILABLE | WARNING | BLOCKED | LOCKED
+ * @param state       État de l'étape : COMPLETED | CURRENT | AVAILABLE | WARNING | STALE | BLOCKED | LOCKED
  * @param destination URL de navigation canonique pour cette étape (ex: /paie/periodes/42/variables)
  * @param issues      Problèmes bloquants pour cette étape (vides si état OK)
  * @param warnings    Avertissements non bloquants pour cette étape
@@ -29,9 +31,15 @@ public record PayrollCampaignStep(
         warnings = warnings == null ? List.of() : List.copyOf(warnings);
     }
 
-    /** Retourne vrai si cette étape est accessible (cliquable) dans le stepper. */
-    public boolean navigable() {
-        return "COMPLETED".equals(state) || "CURRENT".equals(state)
-                || "AVAILABLE".equals(state) || "WARNING".equals(state);
+    /** La navigation reste possible sur une campagne clôturée, uniquement en lecture. */
+    @JsonProperty("accessible")
+    public boolean accessible() {
+        return !"BLOCKED".equals(state);
+    }
+
+    /** Une étape verrouillée est consultable mais ne doit exposer aucune mutation. */
+    @JsonProperty("readOnly")
+    public boolean readOnly() {
+        return "LOCKED".equals(state);
     }
 }

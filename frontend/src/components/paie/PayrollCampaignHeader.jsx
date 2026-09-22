@@ -5,6 +5,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
 import Select from '@/components/ui/forms/Select';
 import PayrollPeriodStepper from '@/components/paie/PayrollPeriodStepper';
+import PayrollIssuePanel from '@/components/paie/PayrollIssuePanel';
 
 /**
  * PayrollCampaignHeader — Barre de commande supérieure pour les étapes de paie.
@@ -59,9 +60,10 @@ export default function PayrollCampaignHeader({
     const currentStep = context?.currentStep;
     const recalcRequired = context?.recalculationRequired === true;
     const recalcReason = context?.recalculationReason;
-    const completedSteps = steps.filter(step => ['COMPLETED', 'LOCKED'].includes(step.state)).length;
+    const completedSteps = steps.filter(step => step.state === 'COMPLETED').length;
     const progress = steps.length > 0 ? Math.round((completedSteps / steps.length) * 100) : 0;
     const blockers = context?.issues || [];
+    const activeStepContext = steps.find(step => step.code === activeStep);
     const population = context?.populationCount ?? context?.employeeCount ?? periode?.employeeCount;
 
     const formatDate = (d) => {
@@ -180,6 +182,17 @@ export default function PayrollCampaignHeader({
                 loading={loading}
             />
 
+            {activeStepContext?.readOnly && (
+                <div className="border-t border-[var(--color-border-subtle)] p-2">
+                    <PayrollIssuePanel
+                        severity="INFO"
+                        title="Consultation en lecture seule"
+                        message="Cette campagne est verrouillée. Les données restent consultables, mais aucune mutation n’est autorisée."
+                        code="PAYROLL_CAMPAIGN_READ_ONLY"
+                    />
+                </div>
+            )}
+
             {steps.length > 0 && (
                 <div className="px-4 py-1.5 bg-[var(--color-surface)] border-t border-[var(--color-border-subtle)] flex items-center gap-3">
                     <span className="text-[10px] font-semibold text-[var(--color-fg-muted)]">Progression {progress} %</span>
@@ -200,15 +213,14 @@ export default function PayrollCampaignHeader({
                         <span className="font-bold">Recalcul recommandé.</span>
                         {recalcReason && <span className="ml-1">{recalcReason}</span>}
                     </p>
-                    {onRefresh && (
+                    {activePeriodId && (
                         <Button
                             variant="outline"
                             size="xs"
-                            loading={refreshLoading}
-                            onClick={onRefresh}
+                            onClick={() => navigate(`/paie/periodes/${activePeriodId}/calcul`)}
                             className="border-[var(--color-warning-500)]/50 text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]"
                         >
-                            Relancer le calcul
+                            Aller au calcul
                         </Button>
                     )}
                 </div>

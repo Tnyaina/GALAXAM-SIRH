@@ -1,33 +1,34 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-    ShieldCheck, AlertTriangle, Download, Eye, ArrowUpRight, ArrowDownRight,
-    Search, CheckCircle2, FileText
+    ShieldCheck, AlertTriangle, Download, Eye, ArrowRight,
+    Search, CheckCircle2, ChevronRight, Filter, AlertCircle, Clock, ExternalLink
 } from 'lucide-react';
 import SEO from '@/components/system/SEO';
-import PayrollCampaignHeader from '@/components/paie/PayrollCampaignHeader';
-import PayrollNavigationFooter from '@/components/paie/PayrollNavigationFooter';
+import PayrollCampaignShell from '@/components/paie/PayrollCampaignShell';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
-import Select from '@/components/ui/forms/Select';
 import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
-import StatCard from '@/components/ui/data-display/StatCard';
+import { Card } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
 import paieService from '@/api/paie/paieService';
+import { formatMoneyAr } from '@/utils/moneyUtils';
 
 const BulletinPaieDrawer = lazy(() => import('@/components/paie/BulletinPaieDrawer'));
 
 /**
- * ControleStepPage — Étape 5 : Contrôle des bulletins.
+ * ControleStepPage — Étape 5 : État nominatif & Cockpit DAF (Maquette V1 Full V3).
  *
- * Affiche la liste des bulletins calculés avec :
- * - Indicateurs d'anomalies et d'écarts M-1
- * - Filtres par statut, alerte, site
- * - Ouverture du détail d'un bulletin en drawer latéral
- * - Export CSV de l'état de contrôle
+ * Fonctionnalités :
+ * - KPIs de revue : Conformes, À examiner, Examinés, Bloqueurs
+ * - Filtres d'état rapides : [À examiner] [Tous] [Contrôlés]
+ * - Sélecteur de vues : Synthèse (par défaut), Temps, Fiscal & Social
+ * - Table nominative compacte avec colonnes utiles (Salarié, Brut, Cotisations, IRSA/ISI, Net, Signal, Revue, >)
+ * - Clic sur un salarié -> Ouvre le Drawer de revue salarié sans changer de page
+ * - Action principale unique : Continuer vers Validation
  */
 export default function ControleStepPage() {
     const { periodId } = useParams();
@@ -38,7 +39,9 @@ export default function ControleStepPage() {
     const [cockpit, setCockpit] = useState(null);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterAlert, setFilterAlert] = useState('ALL');
+    const [filterTab, setFilterTab] = useState('ALL'); // 'ALL' | 'TO_EXAMINE' | 'REVIEWED'
+    const [activeView, setActiveView] = useState('SYNTHESE'); // 'SYNTHESE' | 'TEMPS' | 'FISCAL'
+    const [reviewedIds, setReviewedIds] = useState(new Set());
     const [feedback, setFeedback] = useState(null);
     const [selectedBulletinId, setSelectedBulletinId] = useState(null);
 
@@ -49,279 +52,423 @@ export default function ControleStepPage() {
         try {
             const data = await paieService.getCockpitPeriode(numericPeriodId, {
                 q: searchQuery || undefined,
-                filter: filterAlert === 'ALL' ? undefined : filterAlert,
-                size: 100,
+                size: 200,
             });
             setCockpit(data);
         } catch (err) {
-            setFeedback({ type: 'error', text: err?.response?.data?.message || 'Erreur de chargement des bulletins.' });
+            setFeedback({ type: 'error', text: err?.response?.data?.message || 'Erreur de chargement des bulletins de paie.' });
         } finally {
             setLoading(false);
         }
-    }, [numericPeriodId, searchQuery, filterAlert]);
+    }, [numericPeriodId, searchQuery]);
 
-    useEffect(() => { chargerBulletins(); }, [chargerBulletins]);
+    useEffect(() => {
+        chargerBulletins();
+    }, [chargerBulletins]);
 
-    const bulletins = Array.isArray(cockpit?.bulletins) ? cockpit.bulletins : [];
-    const nbAlertes = bulletins.filter(b => b.aAlerte).length;
-    const nbTotal = bulletins.length;
+    const bulletins = useMemo(() => Array.isArray(cockpit?.bulletins) ? cockpit.bulletins : [], [cockpit]);
     const periode = context?.selectedPeriod || context?.currentPeriod;
 
-    const formatAr = (v) => v != null
-        ? Number(v).toLocaleString('fr-MG', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' Ar'
-        : '—';
+    // Calcul des compteurs de revue
+    const countTotal = bulletins.length;
+    const toExamineBulletins = useMemo(() => {
+        return bulletins.filter(b => b.aAlerte || (b.ecartM1Pct != null && Math.abs(b.ecartM1Pct) > 10));
+    }, [bulletins]);
+    const countToExamine = toExamineBulletins.length;
+    const countReviewed = reviewedIds.size;
+    const countConform = Math.max(0, countTotal - countToExamine);
+    const countBlockers = context?.issueSummary?.blockerCount ?? 0;
 
-    const ecartClass = (pct) => {
-        if (pct == null) return 'text-[var(--color-fg-muted)]';
-        if (Math.abs(pct) > 10) return 'text-[var(--color-danger-500)] font-bold';
-        if (Math.abs(pct) > 3) return 'text-[var(--color-warning-600)]';
-        return 'text-[var(--color-fg-muted)]';
+    // Filtrage des bulletins selon l'onglet actif
+    const filteredBulletins = useMemo(() => {
+        return bulletins.filter(b => {
+            const isToExamine = b.aAlerte || (b.ecartM1Pct != null && Math.abs(b.ecartM1Pct) > 10);
+            if (filterTab === 'TO_EXAMINE') {
+                return isToExamine;
+            }
+            if (filterTab === 'REVIEWED') {
+                return reviewedIds.has(b.idBulletin);
+            }
+            return true;
+        });
+    }, [bulletins, filterTab, reviewedIds]);
+
+    const handleSelectBulletin = (id) => {
+        setSelectedBulletinId(id);
+        // Marquer comme examiné dans la session
+        setReviewedIds(prev => new Set([...prev, id]));
     };
 
     const handleExportCsv = () => {
         if (!bulletins.length) return;
-        const headers = ['Matricule', 'Salarie', 'Poste', 'Salaire_Base', 'Brut', 'Net', 'IRSA', 'Ecart_M1_Pct', 'Statut'];
+        const headers = ['Matricule', 'Salarie', 'Poste', 'Salaire_Base', 'Brut', 'Cotisations', 'IRSA', 'Net', 'Ecart_M1_Pct', 'Statut'];
         const rows = bulletins.map(b => [
-            b.matricule, `"${b.nomPrenom || b.employeeName || ''}"`, `"${b.intitulePoste || b.nomSite || ''}"`,
-            b.salaireBase, b.totalGainsBruts, b.netAPayer, b.irsaNet,
-            b.ecartM1Pct ?? '', b.statut
+            b.matricule,
+            `"${b.nomPrenom || b.employeeName || ''}"`,
+            `"${b.intitulePoste || b.nomSite || ''}"`,
+            b.salaireBase,
+            b.totalGainsBruts,
+            b.totalCotisationsSalariales || '',
+            b.irsaNet,
+            b.netAPayer,
+            b.ecartM1Pct ?? '',
+            b.statut
         ]);
         const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `controle_paie_${periode?.code || numericPeriodId}.csv`;
+        a.download = `etat_nominatif_${periode?.code || numericPeriodId}.csv`;
         a.click();
         URL.revokeObjectURL(url);
     };
 
+    const canContinueToValidation = countTotal > 0 && countBlockers === 0;
+
     return (
-        <div className="flex-1 flex flex-col min-h-full">
+        <PayrollCampaignShell
+            context={context}
+            periodes={periodes}
+            activeStep="CONTROL"
+            loading={ctxLoading}
+            onRefresh={refresh}
+            title="État nominatif & Contrôle"
+            description="Cockpit de revue de conformité et validation des écarts avant scellement officiel."
+            primaryAction={{
+                label: 'Continuer vers Validation',
+                onClick: () => navigate(`/paie/periodes/${numericPeriodId}/validation`),
+                disabled: !canContinueToValidation,
+                icon: <ArrowRight size={14} />
+            }}
+            secondaryAction={{
+                label: 'Exporter CSV',
+                onClick: handleExportCsv,
+                icon: <Download size={14} />,
+                disabled: bulletins.length === 0
+            }}
+        >
             <SEO
-                title="Contrôle des bulletins | Paie GALAXAM SIRH"
-                description="Contrôle des bulletins de paie calculés : vérification des anomalies et écarts."
-            />
-            <PayrollCampaignHeader
-                context={context}
-                periodes={periodes}
-                onSelectPeriod={(newId) => navigate(`/paie/periodes/${newId}/controle`)}
-                activeStep="CONTROL"
-                loading={ctxLoading}
-                onRefresh={refresh}
+                title="État nominatif & Contrôle | GALAXAM SIRH"
+                description="Contrôle DAF et revue des bulletins de paie."
             />
 
-            <div className="flex-1 max-w-7xl mx-auto px-4 py-6 space-y-5 w-full">
-
-                {/* En-tête */}
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-[var(--color-brand-600)] text-white flex items-center justify-center shrink-0 shadow-sm">
-                            <ShieldCheck size={20} strokeWidth={2} />
-                        </div>
-                        <div>
-                            <h1 className="text-base font-bold text-[var(--color-fg)] tracking-tight">
-                                Étape 5 — Contrôle des bulletins
-                            </h1>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-                                Vérifiez les anomalies et les écarts significatifs avant validation définitive.
-                            </p>
-                        </div>
-                    </div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        iconLeft={<Download size={13} />}
-                        onClick={handleExportCsv}
-                        disabled={!bulletins.length}
-                        id="btn-export-controle-csv"
-                    >
-                        Exporter CSV
-                    </Button>
-                </div>
-
-                {/* KPIs via StatCard */}
-                {!loading && nbTotal > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <StatCard
-                            title="Total Bulletins"
-                            value={nbTotal}
-                            subtext="Collaborateurs calculés"
-                            icon={<FileText size={18} />}
-                            color="brand"
-                        />
-                        <StatCard
-                            title="Alertes Détectées"
-                            value={nbAlertes}
-                            subtext={nbAlertes > 0 ? 'Écarts > 20% ou net négatif' : 'Aucune alerte critique'}
-                            icon={<AlertTriangle size={18} />}
-                            color={nbAlertes > 0 ? 'warning' : 'success'}
-                        />
-                        <StatCard
-                            title="Statut Calculé"
-                            value={bulletins.filter(b => b.statut === 'CALCULE').length}
-                            subtext="En attente de validation DAF"
-                            icon={<ShieldCheck size={18} />}
-                            color="info"
-                        />
-                        <StatCard
-                            title="Statut Validé"
-                            value={bulletins.filter(b => b.statut === 'VALIDE').length}
-                            subtext="Prêts pour clôture"
-                            icon={<CheckCircle2 size={18} />}
-                            color="success"
-                        />
-                    </div>
+            <div className="space-y-5">
+                {feedback && (
+                    <Alert
+                        type={feedback.type}
+                        title={feedback.type === 'error' ? 'Erreur' : 'Information'}
+                        message={feedback.text}
+                        onClose={() => setFeedback(null)}
+                    />
                 )}
 
-                {/* Feedback */}
-                {feedback && <Alert type={feedback.type} message={feedback.text} onClose={() => setFeedback(null)} />}
-
-                {/* Barre de filtres via composants design system */}
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex-1 min-w-[240px]">
-                        <Input
-                            id="controle-search"
-                            type="search"
-                            placeholder="Rechercher un salarié, matricule…"
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            iconLeft={<Search size={14} />}
-                            aria-label="Rechercher dans les bulletins"
-                        />
+                {/* 1. KPIs DE REVUE DAF */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-md">
+                        <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
+                            Conformes
+                        </span>
+                        <div className="flex items-baseline gap-2 mt-1">
+                            <span className="text-xl font-black font-mono text-[var(--color-success-600)]">
+                                {countConform}
+                            </span>
+                            <span className="text-[11px] text-[var(--color-fg-muted)]">/ {countTotal}</span>
+                        </div>
                     </div>
-                    <div className="w-56">
-                        <Select
-                            value={filterAlert}
-                            onChange={val => setFilterAlert(val)}
-                            options={[
-                                { value: 'ALL', label: 'Tous les bulletins' },
-                                { value: 'ALERTS', label: 'Alertes uniquement' },
-                                { value: 'CALCULE', label: 'Calculés' },
-                                { value: 'VALIDE', label: 'Validés' },
-                                { value: 'STC', label: 'STC inclus' },
-                            ]}
-                            aria-label="Filtrer par statut"
-                        />
+
+                    <div className={`bg-[var(--color-surface)] border p-3 rounded-md ${countToExamine > 0 ? 'border-[var(--color-warning-500)]/60 bg-[var(--color-warning-50)]/15' : 'border-[var(--color-border-subtle)]'}`}>
+                        <span className="text-[11px] font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] uppercase tracking-wider block">
+                            À examiner
+                        </span>
+                        <div className="flex items-baseline gap-2 mt-1">
+                            <span className="text-xl font-black font-mono text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]">
+                                {countToExamine}
+                            </span>
+                            <span className="text-[11px] text-[var(--color-fg-muted)]">écarts / alertes</span>
+                        </div>
+                    </div>
+
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 rounded-md">
+                        <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
+                            Examinés
+                        </span>
+                        <div className="flex items-baseline gap-2 mt-1">
+                            <span className="text-xl font-black font-mono text-[var(--color-brand-600)]">
+                                {countReviewed}
+                            </span>
+                            <span className="text-[11px] text-[var(--color-fg-muted)]">consultés</span>
+                        </div>
+                    </div>
+
+                    <div className={`bg-[var(--color-surface)] border p-3 rounded-md ${countBlockers > 0 ? 'border-[var(--color-danger-500)] bg-[var(--color-danger-50)]/20' : 'border-[var(--color-border-subtle)]'}`}>
+                        <span className="text-[11px] font-bold text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] uppercase tracking-wider block">
+                            Bloquants
+                        </span>
+                        <div className="flex items-baseline gap-2 mt-1">
+                            <span className={`text-xl font-black font-mono ${countBlockers > 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                {countBlockers}
+                            </span>
+                            <span className="text-[11px] text-[var(--color-fg-muted)]">bloqueurs</span>
+                        </div>
                     </div>
                 </div>
 
-                {/* Table bulletins */}
-                <div>
-                    {loading ? (
-                        <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
-                            <SkeletonTable rows={8} cols={7} />
+                {/* 2. BARRE D'OUTILS : FILTRES D'ÉTAT & SÉLECTEUR DE VUES — conforme V1 Full V3 */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-1.5">
+                    {/* Filtres par statut */}
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={() => setFilterTab('TO_EXAMINE')}
+                            className={`px-3 py-1 text-xs font-semibold rounded transition-colors flex items-center gap-1.5 ${filterTab === 'TO_EXAMINE'
+                                ? 'bg-[var(--color-warning-500)] text-white shadow-xs'
+                                : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'}`}
+                        >
+                            À examiner
+                            {countToExamine > 0 && (
+                                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/25">
+                                    {countToExamine}
+                                </span>
+                            )}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setFilterTab('ALL')}
+                            className={`px-3 py-1 text-xs font-semibold rounded transition-colors flex items-center gap-1.5 ${filterTab === 'ALL'
+                                ? 'bg-[var(--color-brand-600)] text-white shadow-xs'
+                                : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'}`}
+                        >
+                            Tous
+                            <span className="text-[10px] opacity-80">({countTotal})</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setFilterTab('REVIEWED')}
+                            className={`px-3 py-1 text-xs font-semibold rounded transition-colors flex items-center gap-1.5 ${filterTab === 'REVIEWED'
+                                ? 'bg-[var(--color-brand-600)] text-white shadow-xs'
+                                : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'}`}
+                        >
+                            Contrôlés
+                            <span className="text-[10px] opacity-80">({countReviewed})</span>
+                        </button>
+                    </div>
+
+                    {/* Vues et Recherche */}
+                    <div className="flex items-center gap-2">
+                        {/* Sélecteur de vue */}
+                        <div className="flex items-center border border-[var(--color-border-subtle)] rounded overflow-hidden text-xs">
+                            <button
+                                type="button"
+                                onClick={() => setActiveView('SYNTHESE')}
+                                className={`px-2.5 py-1 font-medium transition-colors ${activeView === 'SYNTHESE' ? 'bg-[var(--color-bg-subtle)] font-bold text-[var(--color-brand-600)]' : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]/50'}`}
+                            >
+                                Synthèse
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveView('TEMPS')}
+                                className={`px-2.5 py-1 font-medium border-l border-[var(--color-border-subtle)] transition-colors ${activeView === 'TEMPS' ? 'bg-[var(--color-bg-subtle)] font-bold text-[var(--color-brand-600)]' : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]/50'}`}
+                            >
+                                Temps
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveView('FISCAL')}
+                                className={`px-2.5 py-1 font-medium border-l border-[var(--color-border-subtle)] transition-colors ${activeView === 'FISCAL' ? 'bg-[var(--color-bg-subtle)] font-bold text-[var(--color-brand-600)]' : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]/50'}`}
+                            >
+                                Fiscal & Social
+                            </button>
                         </div>
-                    ) : bulletins.length === 0 ? (
-                        <div className="py-12 text-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
-                            <ShieldCheck size={32} className="text-[var(--color-fg-subtle)] mx-auto mb-3 opacity-40" />
-                            <p className="text-sm text-[var(--color-fg-muted)]">Aucun bulletin calculé.</p>
-                            <p className="text-xs text-[var(--color-fg-subtle)] mt-1">Lancez le calcul de la paie pour voir les bulletins.</p>
+
+                        {/* Recherche */}
+                        <div className="w-44 sm:w-56">
+                            <Input
+                                size="xs"
+                                placeholder="Recherche nom/matricule..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                leftIcon={<Search size={13} />}
+                            />
                         </div>
-                    ) : (
-                        <Table aria-label="Tableau de contrôle des bulletins">
-                            <Thead>
-                                <Tr>
-                                    <Th>Matricule</Th>
-                                    <Th>Salarié</Th>
-                                    <Th>Poste</Th>
-                                    <Th className="text-right">Salaire Base</Th>
-                                    <Th className="text-right">Brut</Th>
-                                    <Th className="text-right">Net à Payer</Th>
-                                    <Th className="text-right">Écart M-1</Th>
-                                    <Th>Statut</Th>
-                                    <Th></Th>
-                                </Tr>
-                            </Thead>
-                            <Tbody>
-                                {bulletins.map((b) => {
-                                    const nomAffiche = b.nomPrenom || b.employeeName || (b.matricule ? `Matricule ${b.matricule}` : 'Collaborateur');
-                                    return (
-                                        <Tr
-                                            key={b.idBulletin}
-                                            onClick={() => setSelectedBulletinId(b.idBulletin)}
-                                            className={`cursor-pointer ${
-                                                b.aAlerte ? 'bg-[var(--color-warning-500)]/5' : ''
-                                            } ${selectedBulletinId === b.idBulletin ? 'ring-1 ring-inset ring-[var(--color-brand-500)]/30' : ''}`}
-                                            aria-selected={selectedBulletinId === b.idBulletin}
-                                        >
-                                            <Td className="font-mono text-[var(--color-fg-muted)]">{b.matricule || '—'}</Td>
-                                            <Td className="font-semibold text-[var(--color-fg)] whitespace-nowrap">
-                                                {b.aAlerte && <AlertTriangle size={11} className="inline mr-1.5 text-[var(--color-warning-500)]" aria-label="Alerte" />}
-                                                {nomAffiche}
-                                            </Td>
-                                            <Td className="text-[var(--color-fg-muted)] whitespace-nowrap">{b.intitulePoste || '—'}</Td>
-                                            <Td className="font-mono text-right text-[var(--color-fg-muted)]">{formatAr(b.salaireBase)}</Td>
-                                            <Td className="font-mono text-right text-[var(--color-fg)]">{formatAr(b.totalGainsBruts)}</Td>
-                                            <Td className="font-mono text-right font-bold text-[var(--color-fg)]">{formatAr(b.netAPayer)}</Td>
-                                            <Td className={`font-mono text-right ${ecartClass(b.ecartM1Pct)}`}>
-                                                {b.ecartM1Pct != null ? (
-                                                    <span className="inline-flex items-center gap-0.5">
-                                                        {b.ecartM1Pct > 0 ? <ArrowUpRight size={10} /> : b.ecartM1Pct < 0 ? <ArrowDownRight size={10} /> : null}
-                                                        {Math.abs(b.ecartM1Pct).toFixed(1)}%
-                                                    </span>
-                                                ) : '—'}
-                                            </Td>
-                                            <Td>
-                                                <Badge
-                                                    variant={b.statut === 'VALIDE' ? 'success' : b.statut === 'CALCULE' ? 'info' : 'default'}
-                                                    size="xs"
-                                                    dot
-                                                >
-                                                    {b.typeBulletin === 'STC' ? 'STC' : b.statut || '—'}
-                                                </Badge>
-                                            </Td>
-                                            <Td>
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => { e.stopPropagation(); setSelectedBulletinId(b.idBulletin); }}
-                                                    className="p-1 hover:bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] rounded-none transition-colors"
-                                                    aria-label={`Voir le bulletin de ${nomAffiche}`}
-                                                    id={`btn-voir-bulletin-${b.idBulletin}`}
-                                                >
-                                                    <Eye size={13} />
-                                                </button>
-                                            </Td>
-                                        </Tr>
-                                    );
-                                })}
-                            </Tbody>
-                        </Table>
-                    )}
+                    </div>
                 </div>
 
-                {/* Message d'état alertes */}
-                {nbAlertes === 0 && nbTotal > 0 && (
-                    <div className="flex items-center gap-2 p-3 bg-[var(--color-success-500)]/5 border border-[var(--color-success-500)]/20">
-                        <CheckCircle2 size={15} className="text-[var(--color-success-500)] shrink-0" />
-                        <p className="text-xs font-semibold text-[var(--color-fg)]">
-                            Aucune alerte détectée. Les bulletins sont prêts pour validation.
+                {/* 3. TABLE NOMINATIVE COMPACTE */}
+                {loading ? (
+                    <SkeletonTable rows={8} cols={6} />
+                ) : filteredBulletins.length === 0 ? (
+                    <Card className="p-8 text-center border border-[var(--color-border-subtle)]">
+                        <p className="text-xs text-[var(--color-fg-muted)]">
+                            {filterTab === 'TO_EXAMINE'
+                                ? 'Aucun bulletin nécessitant un examen particulier. Tous les éléments sont conformes.'
+                                : 'Aucun bulletin ne correspond aux critères.'}
                         </p>
+                    </Card>
+                ) : (
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <Table className="w-full text-xs">
+                                <Thead>
+                                    <Tr>
+                                        <Th>Salarié</Th>
+                                        {activeView === 'SYNTHESE' && (
+                                            <>
+                                                <Th className="text-right">Brut</Th>
+                                                <Th className="text-right">Cotisations</Th>
+                                                <Th className="text-right">IRSA / ISI</Th>
+                                                <Th className="text-right">Net</Th>
+                                                <Th className="text-center">Signal</Th>
+                                                <Th className="text-center">Revue</Th>
+                                            </>
+                                        )}
+                                        {activeView === 'TEMPS' && (
+                                            <>
+                                                <Th className="text-right">Base</Th>
+                                                <Th className="text-right">Absences</Th>
+                                                <Th className="text-right">Congés</Th>
+                                                <Th className="text-right">HS / Primes</Th>
+                                                <Th className="text-right">Brut</Th>
+                                                <Th className="text-right font-bold">Net</Th>
+                                            </>
+                                        )}
+                                        {activeView === 'FISCAL' && (
+                                            <>
+                                                <Th className="text-right">Brut</Th>
+                                                <Th className="text-right">CNaPS (1%)</Th>
+                                                <Th className="text-right">Santé (1%)</Th>
+                                                <Th className="text-right">IRSA (DGI)</Th>
+                                                <Th className="text-right font-bold">Net à Payer</Th>
+                                            </>
+                                        )}
+                                        <Th className="text-center w-10"></Th>
+                                    </Tr>
+                                </Thead>
+                                <Tbody>
+                                    {filteredBulletins.map((b) => {
+                                        const hasAlert = b.aAlerte;
+                                        const ecart = b.ecartM1Pct;
+                                        const isReviewed = reviewedIds.has(b.idBulletin);
+
+                                        return (
+                                            <Tr
+                                                key={b.idBulletin}
+                                                onClick={() => handleSelectBulletin(b.idBulletin)}
+                                                className="hover:bg-[var(--color-bg-subtle)] cursor-pointer transition-colors"
+                                            >
+                                                <Td className="font-medium text-[var(--color-fg)]">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span>{b.nomPrenom || b.employeeName || b.intitulePoste}</span>
+                                                    </div>
+                                                    <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                                        {b.matricule} • {b.nomSite || 'Siège'}
+                                                    </div>
+                                                </Td>
+
+                                                {/* VUE SYNTHÈSE */}
+                                                {activeView === 'SYNTHESE' && (
+                                                    <>
+                                                        <Td className="text-right font-mono font-medium text-[var(--color-fg)]">
+                                                            {formatMoneyAr(b.totalGainsBruts)}
+                                                        </Td>
+                                                        <Td className="text-right font-mono text-[var(--color-danger-600)]">
+                                                            {b.totalCotisationsSalariales ? `-${formatMoneyAr(b.totalCotisationsSalariales)}` : '—'}
+                                                        </Td>
+                                                        <Td className="text-right font-mono text-[var(--color-danger-600)]">
+                                                            {b.irsaNet ? `-${formatMoneyAr(b.irsaNet)}` : '0 Ar'}
+                                                        </Td>
+                                                        <Td className="text-right font-mono font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
+                                                            {formatMoneyAr(b.netAPayer)}
+                                                        </Td>
+                                                        <Td className="text-center">
+                                                            {hasAlert ? (
+                                                                <Badge variant="warning" size="xs">Anomalie</Badge>
+                                                            ) : ecart != null && Math.abs(ecart) > 10 ? (
+                                                                <Badge variant="warning" size="xs">
+                                                                    {ecart > 0 ? `+${ecart}%` : `${ecart}%`}
+                                                                </Badge>
+                                                            ) : (
+                                                                <span className="text-[10px] text-[var(--color-success-600)]">Conforme</span>
+                                                            )}
+                                                        </Td>
+                                                        <Td className="text-center">
+                                                            {isReviewed ? (
+                                                                <span className="inline-flex items-center gap-1 text-[10px] text-[var(--color-brand-600)] font-medium">
+                                                                    <CheckCircle2 size={12} /> Vu
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[10px] text-[var(--color-fg-muted)]">—</span>
+                                                            )}
+                                                        </Td>
+                                                    </>
+                                                )}
+
+                                                {/* VUE TEMPS */}
+                                                {activeView === 'TEMPS' && (
+                                                    <>
+                                                        <Td className="text-right font-mono">{formatMoneyAr(b.salaireBase)}</Td>
+                                                        <Td className="text-right font-mono text-[var(--color-danger-600)]">
+                                                            {b.retenueAbsence ? `-${formatMoneyAr(b.retenueAbsence)}` : '—'}
+                                                        </Td>
+                                                        <Td className="text-right font-mono">
+                                                            {b.indemniteConge ? `+${formatMoneyAr(b.indemniteConge)}` : '—'}
+                                                        </Td>
+                                                        <Td className="text-right font-mono text-[var(--color-fg)]">
+                                                            {b.majorationHeuresSupplementaires ? `+${formatMoneyAr(b.majorationHeuresSupplementaires)}` : '—'}
+                                                        </Td>
+                                                        <Td className="text-right font-mono font-medium">{formatMoneyAr(b.totalGainsBruts)}</Td>
+                                                        <Td className="text-right font-mono font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
+                                                            {formatMoneyAr(b.netAPayer)}
+                                                        </Td>
+                                                    </>
+                                                )}
+
+                                                {/* VUE FISCAL */}
+                                                {activeView === 'FISCAL' && (
+                                                    <>
+                                                        <Td className="text-right font-mono font-medium">{formatMoneyAr(b.totalGainsBruts)}</Td>
+                                                        <Td className="text-right font-mono text-[var(--color-danger-600)]">
+                                                            {b.cotisationCnapsSalariale ? `-${formatMoneyAr(b.cotisationCnapsSalariale)}` : '—'}
+                                                        </Td>
+                                                        <Td className="text-right font-mono text-[var(--color-danger-600)]">
+                                                            {b.cotisationSanteSalariale ? `-${formatMoneyAr(b.cotisationSanteSalariale)}` : '—'}
+                                                        </Td>
+                                                        <Td className="text-right font-mono text-[var(--color-danger-600)]">
+                                                            {b.irsaNet ? `-${formatMoneyAr(b.irsaNet)}` : '0 Ar'}
+                                                        </Td>
+                                                        <Td className="text-right font-mono font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
+                                                            {formatMoneyAr(b.netAPayer)}
+                                                        </Td>
+                                                    </>
+                                                )}
+
+                                                <Td className="text-center text-[var(--color-fg-muted)]">
+                                                    <ChevronRight size={14} />
+                                                </Td>
+                                            </Tr>
+                                        );
+                                    })}
+                                </Tbody>
+                            </Table>
+                        </div>
                     </div>
                 )}
             </div>
 
-            <PayrollNavigationFooter
-                prevStep={{
-                    label: 'Calcul de la paie',
-                    destination: `/paie/periodes/${numericPeriodId}/calcul`,
-                }}
-                nextStep={{
-                    label: 'Validation & Clôture',
-                    destination: `/paie/periodes/${numericPeriodId}/validation`,
-                    disabled: nbTotal === 0,
-                    disabledReason: 'Aucun bulletin disponible pour validation.',
-                }}
-            />
-
-            {/* Drawer Bulletin */}
+            {/* Modal Drawer du bulletin de paie complet (3 niveaux) */}
             <Suspense fallback={null}>
-                <BulletinPaieDrawer
-                    isOpen={selectedBulletinId !== null}
-                    idBulletin={selectedBulletinId}
-                    onClose={() => setSelectedBulletinId(null)}
-                />
+                {selectedBulletinId && (
+                    <BulletinPaieDrawer
+                        isOpen={Boolean(selectedBulletinId)}
+                        onClose={() => setSelectedBulletinId(null)}
+                        idBulletin={selectedBulletinId}
+                        onRecalculateSuccess={async () => {
+                            await refresh();
+                            await chargerBulletins();
+                        }}
+                    />
+                )}
             </Suspense>
-        </div>
+        </PayrollCampaignShell>
     );
 }

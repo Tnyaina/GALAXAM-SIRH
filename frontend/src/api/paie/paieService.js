@@ -197,7 +197,16 @@ export const paieService = {
         window.URL.revokeObjectURL(downloadUrl);
 
         return true;
-    }
+    },
+
+    /**
+     * Lister toutes les périodes de paie (Historique des campagnes, Déclarations, etc.)
+     * Route backend canonique : GET /api/periodes
+     */
+    listerPeriodes: async () => {
+        const response = await apiClient.get('/periodes');
+        return response.data;
+    },
 };
 
 export default paieService;

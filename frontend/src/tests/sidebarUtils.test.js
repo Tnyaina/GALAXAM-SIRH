@@ -40,11 +40,12 @@ const mockMenu = [
         href: null,
         niveau: 1,
         sousMenus: [
-            { idMenu: 'PAIE_CAMPAGNE', libelle: 'Campagne Active', href: '/paie?tab=campagne', sousMenus: [] },
-            { idMenu: 'PAIE_VARIABLES', libelle: 'Variables & Primes', href: '/paie?tab=variables', sousMenus: [] },
-            { idMenu: 'PAIE_REVUE', libelle: 'Revue des Bulletins', href: '/paie?tab=cockpit', sousMenus: [] },
-            { idMenu: 'PAIE_PERIODES', libelle: 'Historique des Périodes', href: '/paie?tab=periodes', sousMenus: [] },
-            { idMenu: 'PAIE_EXPORTS', libelle: 'Déclarations & Sorties', href: '/paie?tab=exports', sousMenus: [] },
+            { idMenu: 'PAIE_CENTRE', libelle: 'Centre de paie', href: '/paie', rang: 1, sousMenus: [] },
+            { idMenu: 'PAIE_CAMPAGNE', libelle: 'Campagne active', href: '/paie/periodes', rang: 2, sousMenus: [] },
+            { idMenu: 'PAIE_ACOMPTES', libelle: 'Acomptes & avances', href: '/paie/acomptes-avances', rang: 3, sousMenus: [] },
+            { idMenu: 'PAIE_HISTORIQUE', libelle: 'Historique', href: '/paie/historique', rang: 4, sousMenus: [] },
+            { idMenu: 'PAIE_DECLARATIONS', libelle: 'Déclarations & sorties', href: '/paie/declarations', rang: 5, sousMenus: [] },
+            { idMenu: 'PAIE_PARAMETRES', libelle: 'Administration', href: '/admin/parametres?module=paie', rang: 6, sousMenus: [] },
         ],
     },
     {
@@ -71,25 +72,24 @@ describe('sidebarUtils — Résolution d’état actif unique Sprint 2B', () => 
         expect(activeId).toBe('DASHBOARD');
     });
 
-    it('active PAIE_CAMPAGNE pour la racine /paie et pour /paie?tab=campagne', () => {
-        expect(findActiveLeafId(mockMenu, { pathname: '/paie', search: '' })).toBe('PAIE_CAMPAGNE');
-        expect(findActiveLeafId(mockMenu, { pathname: '/paie', search: '?tab=campagne' })).toBe('PAIE_CAMPAGNE');
+    it('active PAIE_CENTRE pour la racine /paie', () => {
+        expect(findActiveLeafId(mockMenu, { pathname: '/paie', search: '' })).toBe('PAIE_CENTRE');
     });
 
-    it('active les bons sous-menus de paie selon l’onglet ou l’étape spécifique', () => {
-        expect(findActiveLeafId(mockMenu, { pathname: '/paie', search: '?tab=variables' })).toBe('PAIE_VARIABLES');
-        expect(findActiveLeafId(mockMenu, { pathname: '/paie', search: '?tab=cockpit' })).toBe('PAIE_REVUE');
-        expect(findActiveLeafId(mockMenu, { pathname: '/paie', search: '?tab=periodes' })).toBe('PAIE_PERIODES');
-        expect(findActiveLeafId(mockMenu, { pathname: '/paie', search: '?tab=exports' })).toBe('PAIE_EXPORTS');
+    it('active les bons sous-menus de paie selon l’espace ou l’étape spécifique', () => {
+        expect(findActiveLeafId(mockMenu, { pathname: '/paie/acomptes-avances', search: '' })).toBe('PAIE_ACOMPTES');
+        expect(findActiveLeafId(mockMenu, { pathname: '/paie/historique', search: '' })).toBe('PAIE_HISTORIQUE');
+        expect(findActiveLeafId(mockMenu, { pathname: '/paie/declarations', search: '' })).toBe('PAIE_DECLARATIONS');
+        expect(findActiveLeafId(mockMenu, { pathname: '/admin/parametres', search: '?module=paie' })).toBe('PAIE_PARAMETRES');
 
-        // Étapes du stepper de campagne
+        // Étapes du stepper de campagne -> PAIE_CAMPAGNE via sous-chemin hiérarchique /paie/periodes
         expect(findActiveLeafId(mockMenu, { pathname: '/paie/periodes/10/preparation', search: '' })).toBe('PAIE_CAMPAGNE');
         expect(findActiveLeafId(mockMenu, { pathname: '/paie/periodes/10/population', search: '' })).toBe('PAIE_CAMPAGNE');
-        expect(findActiveLeafId(mockMenu, { pathname: '/paie/periodes/10/variables', search: '' })).toBe('PAIE_VARIABLES');
+        expect(findActiveLeafId(mockMenu, { pathname: '/paie/periodes/10/variables', search: '' })).toBe('PAIE_CAMPAGNE');
         expect(findActiveLeafId(mockMenu, { pathname: '/paie/periodes/10/calcul', search: '' })).toBe('PAIE_CAMPAGNE');
         expect(findActiveLeafId(mockMenu, { pathname: '/paie/periodes/10/controle', search: '' })).toBe('PAIE_CAMPAGNE');
         expect(findActiveLeafId(mockMenu, { pathname: '/paie/periodes/10/validation', search: '' })).toBe('PAIE_CAMPAGNE');
-        expect(findActiveLeafId(mockMenu, { pathname: '/paie/periodes/10/sorties', search: '' })).toBe('PAIE_EXPORTS');
+        expect(findActiveLeafId(mockMenu, { pathname: '/paie/periodes/10/sorties', search: '' })).toBe('PAIE_CAMPAGNE');
     });
 
     it('active PERS_EMPLOYES pour /employes et pour /employes/42 (sous-fiche)', () => {
@@ -111,6 +111,61 @@ describe('sidebarUtils — Résolution d’état actif unique Sprint 2B', () => 
         expect(hasActiveDescendant(personnelNode, 'PERS_EMPLOYES')).toBe(true);
         expect(hasActiveDescendant(personnelNode, 'PAIE_MODULE')).toBe(false);
         expect(hasActiveDescendant(personnelNode, null)).toBe(false);
+    });
+
+    it('résout de manière générique le premier sous-menu par défaut (rang 1) pour les modules avec onglets sans query string', () => {
+        // Module Congés : sur /conges pur, le premier sous-menu de rang 1 est sélectionné
+        const congesMenu = [
+            {
+                idMenu: 'CONGES_MODULE',
+                libelle: 'Congés & Absences',
+                href: null,
+                sousMenus: [
+                    { idMenu: 'CONGES_SOLDES', libelle: 'Vue Soldes', href: '/conges?tab=soldes', rang: 1, sousMenus: [] },
+                    { idMenu: 'CONGES_DEMANDES', libelle: 'Demandes', href: '/conges?tab=demandes', rang: 2, sousMenus: [] },
+                ],
+            },
+        ];
+
+        expect(findActiveLeafId(congesMenu, { pathname: '/conges', search: '' })).toBe('CONGES_SOLDES');
+        expect(findActiveLeafId(congesMenu, { pathname: '/conges', search: '?tab=demandes' })).toBe('CONGES_DEMANDES');
+    });
+
+    it('résout fidèlement les hiérarchies profondes du module Administration', () => {
+        const adminTree = [
+            {
+                idMenu: 'ADMIN_MODULE',
+                libelle: 'Administration',
+                href: null,
+                sousMenus: [
+                    { idMenu: 'ADMIN_ORGA', libelle: 'Organisation', href: '/admin/organisation', rang: 1, sousMenus: [] },
+                    { idMenu: 'ADMIN_PARAMS', libelle: 'Paramètres Modules', href: '/admin/parametres', rang: 2, sousMenus: [] },
+                    { idMenu: 'ADMIN_SEC', libelle: 'Sécurité', href: '/admin/securite', rang: 3, sousMenus: [] },
+                ],
+            },
+        ];
+
+        // Route exacte
+        expect(findActiveLeafId(adminTree, { pathname: '/admin/organisation', search: '' })).toBe('ADMIN_ORGA');
+        // Sous-route hiérarchique profonde (parent pathname le plus spécifique)
+        expect(findActiveLeafId(adminTree, { pathname: '/admin/organisation/sites/3/editer', search: '' })).toBe('ADMIN_ORGA');
+        expect(findActiveLeafId(adminTree, { pathname: '/admin/parametres/modules/pointage', search: '' })).toBe('ADMIN_PARAMS');
+    });
+
+    it('respecte strictement la priorité conceptuelle (href exact > pathname exact > parent path > fallback rang)', () => {
+        const customMenu = [
+            { idMenu: 'BASE_ROOT', libelle: 'Racine', href: '/espace', rang: 1, sousMenus: [] },
+            { idMenu: 'BASE_TAB_1', libelle: 'Onglet 1', href: '/espace?vue=detail', rang: 2, sousMenus: [] },
+            { idMenu: 'BASE_TAB_2', libelle: 'Onglet 2', href: '/espace?vue=stats', rang: 3, sousMenus: [] },
+            { idMenu: 'BASE_SUB', libelle: 'Sous-page', href: '/espace/dossiers', rang: 4, sousMenus: [] },
+        ];
+
+        // 1. href exact + query exacte
+        expect(findActiveLeafId(customMenu, { pathname: '/espace', search: '?vue=stats' })).toBe('BASE_TAB_2');
+        // 2. pathname exact sans query
+        expect(findActiveLeafId(customMenu, { pathname: '/espace', search: '' })).toBe('BASE_ROOT');
+        // 3. parent pathname le plus spécifique
+        expect(findActiveLeafId(customMenu, { pathname: '/espace/dossiers/123', search: '' })).toBe('BASE_SUB');
     });
 
     it('garantit qu’une seule feuille est active à un instant donné', () => {

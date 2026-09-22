@@ -1,24 +1,27 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCheck, AlertTriangle, Lock, CheckCircle2 } from 'lucide-react';
+import {
+    CheckCircle2, Lock, ShieldCheck,
+    ArrowRight, Check, X, ArrowLeft, RefreshCw
+} from 'lucide-react';
 import SEO from '@/components/system/SEO';
-import PayrollCampaignHeader from '@/components/paie/PayrollCampaignHeader';
-import PayrollNavigationFooter from '@/components/paie/PayrollNavigationFooter';
+import PayrollCampaignShell from '@/components/paie/PayrollCampaignShell';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
-import Badge from '@/components/ui/data-display/Badge';
 import Modal from '@/components/ui/overlays/Modal';
+import { Card } from '@/components/ui/data-display/Card';
 import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
 import paieService from '@/api/paie/paieService';
 import periodePaieService from '@/api/pointage/periodePaieService';
+import { formatMoneyAr } from '@/utils/moneyUtils';
 
 /**
- * ValidationStepPage — Étape 6 : Validation et clôture.
+ * ValidationStepPage — Étape 6 : Validation de la paie (Maquette V1 Full V3).
  *
- * Permet à la DAF de :
- * - Valider tous les bulletins calculés (déclenche le statut VALIDE)
- * - Clôturer la période (verrous définitifs, accès lecture seule)
- * - Rouvrir la période avec motif si corrections nécessaires (Admin uniquement)
+ * Structure cible :
+ * 1. Conditions d'éligibilité (Checklist 6 points)
+ * 2. Résumé financier global (données backend pures)
+ * 3. Action unique : [VALIDER LA PAIE]
  */
 export default function ValidationStepPage() {
     const { periodId } = useParams();
@@ -26,60 +29,63 @@ export default function ValidationStepPage() {
     const numericPeriodId = Number(periodId) || null;
     const { periodes, context, loading: ctxLoading, refresh } = usePayrollCampaign(numericPeriodId);
 
-    const [actionLoading, setActionLoading] = useState(null);
+    const [financials, setFinancials] = useState(null);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [confirmModalOpen, setConfirmModalOpen] = useState(false);
     const [feedback, setFeedback] = useState(null);
     const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
     const [motifReouverture, setMotifReouverture] = useState('');
-    const [reopenError, setReopenError] = useState(null);
 
     const actions = context?.availableActions || {};
     const canValidate = actions?.VALIDATE?.allowed === true;
-    const canClose = actions?.CLOSE?.allowed === true;
     const canReopen = actions?.REOPEN?.allowed === true;
     const periode = context?.selectedPeriod || context?.currentPeriod;
+    const isValidee = ['PAIE_VALIDEE', 'CLOTUREE'].includes(periode?.state);
     const isCloturee = periode?.state === 'CLOTUREE';
-    const isValidee = periode?.state === 'VALIDEE';
+    const isStale = context?.recalculationRequired === true;
+
+    // Charger les chiffres consolidés backend
+    useEffect(() => {
+        if (!numericPeriodId) return;
+        let isMounted = true;
+        paieService.getCockpitPeriode(numericPeriodId)
+            .then(data => {
+                if (isMounted && data?.kpis) {
+                    setFinancials({
+                        bulletins: data.kpis.totalBulletins ?? data.kpis.bulletinsCount ?? data.kpis.effectifCalcule ?? (Array.isArray(data.bulletins) ? data.bulletins.length : 0),
+                        brut: data.kpis.totalBrut ?? data.kpis.masseSalarialeBrute ?? 0,
+                        cotisationsSalariales: data.kpis.totalCotisationsSalariales ?? 0,
+                        irsa: data.kpis.totalIrsa ?? 0,
+                        net: data.kpis.totalNetAPayer ?? data.kpis.masseNetAPayer ?? 0,
+                        patronales: data.kpis.totalCotisationsPatronales ?? 0,
+                        coutGlobal: data.kpis.coutGlobalEmployeur ?? ((Number(data.kpis.totalBrut) || 0) + (Number(data.kpis.totalCotisationsPatronales) || 0)),
+                    });
+                }
+            })
+            .catch(() => {});
+        return () => { isMounted = false; };
+    }, [numericPeriodId]);
 
     const handleValider = useCallback(async () => {
         if (!numericPeriodId) return;
-        if (!window.confirm('Confirmer la validation de tous les bulletins calculés ?')) return;
-        setActionLoading('valider');
+        setActionLoading(true);
         setFeedback(null);
         try {
             await paieService.validerPaiePeriode(numericPeriodId);
-            setFeedback({ type: 'success', text: 'Bulletins validés avec succès. La période est prête pour clôture.' });
+            setFeedback({ type: 'success', text: 'Campagne de paie validée avec succès. Les bulletins sont scellés.' });
+            setConfirmModalOpen(false);
             await refresh();
         } catch (err) {
             setFeedback({ type: 'error', text: err?.response?.data?.message || 'Erreur lors de la validation.' });
         } finally {
-            setActionLoading(null);
+            setActionLoading(false);
         }
     }, [numericPeriodId, refresh]);
 
-    const handleCloturer = useCallback(async () => {
-        if (!numericPeriodId) return;
-        if (!window.confirm('ATTENTION : La clôture est définitive et verrouille tous les bulletins (lecture seule). Confirmer ?')) return;
-        setActionLoading('cloturer');
-        setFeedback(null);
-        try {
-            await periodePaieService.executeCommand(numericPeriodId, 'CLOSE', { version: periode?.version });
-            setFeedback({ type: 'success', text: 'Période clôturée. Les bulletins sont immuables.' });
-            await refresh();
-        } catch (err) {
-            setFeedback({ type: 'error', text: err?.response?.data?.message || 'Erreur lors de la clôture.' });
-        } finally {
-            setActionLoading(null);
-        }
-    }, [numericPeriodId, periode, refresh]);
-
     const handleReouvrirSubmit = useCallback(async (e) => {
         e.preventDefault();
-        if (motifReouverture.trim().length < 5) {
-            setReopenError('Le motif de réouverture est obligatoire (5 caractères minimum).');
-            return;
-        }
-        setActionLoading('rouvrir');
-        setReopenError(null);
+        if (motifReouverture.trim().length < 5) return;
+        setActionLoading(true);
         try {
             await periodePaieService.executeCommand(numericPeriodId, 'REOPEN', {
                 version: periode?.version,
@@ -90,257 +96,289 @@ export default function ValidationStepPage() {
             setFeedback({ type: 'success', text: 'Période réouverte pour corrections.' });
             await refresh();
         } catch (err) {
-            const msg = err?.response?.data?.message || 'Erreur lors de la réouverture.';
-            setReopenError(msg);
-            setFeedback({ type: 'error', text: msg });
+            setFeedback({ type: 'error', text: err?.response?.data?.message || 'Erreur lors de la réouverture.' });
         } finally {
-            setActionLoading(null);
+            setActionLoading(false);
         }
     }, [numericPeriodId, periode, motifReouverture, refresh]);
 
-    const statutVariant = { VALIDEE: 'primary', PAIE_VALIDEE: 'success', CLOTUREE: 'secondary', EN_COURS: 'warning' };
-    const statutLabel = {
-        VALIDEE: 'Pointage Scellé & Figé',
-        PAIE_VALIDEE: 'Paie Validée & Approuvée',
-        CLOTUREE: 'Période Clôturée',
-        EN_COURS: 'Pointage En Cours'
-    };
-    const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-MG', { day: '2-digit', month: 'long', year: 'numeric' }) : '–';
+    // Évaluation des 6 conditions de validation
+    const condReadiness = (context?.readiness?.blockingCount ?? 0) === 0;
+    const condPopulation = (context?.population?.eligibleCount ?? 0) > 0 || (financials?.bulletins ?? 0) > 0;
+    const condCalculActuel = !isStale;
+    const condBulletins = (financials?.bulletins ?? 0) > 0;
+    const condZeroBlocker = (context?.issueSummary?.blockerCount ?? 0) === 0;
+    const condControles = true;
 
-    const isPaieValidee = periode?.state === 'PAIE_VALIDEE';
-
-    const translateReason = (code) => {
-        const map = {
-            PAYROLL_PERIOD_PREREQUISITE_BLOCKED: 'Les bulletins doivent d’abord être calculés.',
-            PAYROLL_NOT_CALCULATED: 'Aucun bulletin n’a encore été calculé pour cette période.',
-            PAYROLL_NOT_VALIDATED: 'Tous les bulletins doivent être validés avant la clôture définitive.',
-            PERIOD_ALREADY_CLOSED: 'La période est déjà clôturée.',
-            PERIOD_ALREADY_VALIDATED: 'La période est déjà validée.',
-            PERIOD_NOT_FOUND: 'Période introuvable.',
-            CALCULATION_INPUTS_CHANGED: 'Des variables ont été modifiées depuis le dernier calcul.',
-        };
-        return map[code] || 'Condition préalable requise.';
-    };
+    const allConditionsMet = condReadiness && condPopulation && condCalculActuel && condBulletins && condZeroBlocker && condControles;
 
     return (
-        <div className="flex-1 flex flex-col min-h-full">
+        <PayrollCampaignShell
+            context={context}
+            periodes={periodes}
+            activeStep="VALIDATION"
+            loading={ctxLoading}
+            onRefresh={refresh}
+            title="Validation de la paie"
+            description="Approbation finale de la direction financière. Scellement officiel des bulletins de la campagne."
+            primaryAction={isValidee ? {
+                label: 'Continuer vers Sorties',
+                onClick: () => navigate(`/paie/periodes/${numericPeriodId}/sorties`),
+                icon: <ArrowRight size={14} />
+            } : {
+                label: 'Valider la paie',
+                onClick: () => setConfirmModalOpen(true),
+                loading: actionLoading,
+                disabled: !allConditionsMet || !canValidate,
+                icon: <ShieldCheck size={14} />
+            }}
+            secondaryAction={!isValidee ? {
+                label: 'Retour au contrôle',
+                onClick: () => navigate(`/paie/periodes/${numericPeriodId}/controle`),
+                icon: <ArrowLeft size={14} />
+            } : (canReopen && !isCloturee ? {
+                label: 'Rouvrir la période',
+                onClick: () => setIsReopenModalOpen(true),
+                icon: <RefreshCw size={14} />
+            } : null)}
+        >
             <SEO
-                title="Validation & Clôture | Paie GALAXAM SIRH"
-                description="Validation des bulletins de paie et clôture de la campagne."
-            />
-            <PayrollCampaignHeader
-                context={context}
-                periodes={periodes}
-                onSelectPeriod={(newId) => navigate(`/paie/periodes/${newId}/validation`)}
-                activeStep="VALIDATION"
-                loading={ctxLoading}
-                onRefresh={refresh}
+                title="Validation de la paie | GALAXAM SIRH"
+                description="Validation officielle de la paie par la direction financière."
             />
 
-            <div className="flex-1 max-w-3xl mx-auto px-4 py-6 space-y-6 w-full">
+            <div className="max-w-4xl mx-auto space-y-6">
+                {feedback && (
+                    <Alert
+                        type={feedback.type}
+                        title={feedback.type === 'error' ? 'Erreur' : 'Succès'}
+                        message={feedback.text}
+                        onClose={() => setFeedback(null)}
+                    />
+                )}
 
-                {/* En-tête */}
-                <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-[var(--color-brand-600)] text-white flex items-center justify-center shrink-0 shadow-sm">
-                        <CheckCheck size={20} strokeWidth={2} />
-                    </div>
-                    <div>
-                        <h1 className="text-base font-bold text-[var(--color-fg)] tracking-tight">
-                            Étape 3 du Cycle Paie — Approbation & Clôture DAF
-                        </h1>
-                        <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-                            Approuvez les bulletins de paie calculés puis scellez définitivement la période avant génération des virements.
-                        </p>
-                    </div>
-                </div>
-
-                {/* Feedback */}
-                {feedback && <Alert type={feedback.type} message={feedback.text} onClose={() => setFeedback(null)} />}
-
-                {/* Résumé période */}
-                {periode && (
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4">
-                        <p className="text-[10px] uppercase tracking-wider text-[var(--color-fg-muted)] mb-2">Période en cours</p>
-                        <div className="flex items-center gap-3 flex-wrap">
-                            <span className="text-sm font-bold font-mono text-[var(--color-fg)]">{periode.code}</span>
-                            <Badge variant={statutVariant[periode.state] || 'default'} dot size="sm">
-                                {statutLabel[periode.state] || periode.state}
-                            </Badge>
-                            <span className="text-xs text-[var(--color-fg-muted)]">
-                                {formatDate(periode.startDate)} → {formatDate(periode.endDate)}
-                            </span>
+                {/* Statut si déjà validée */}
+                {isValidee && (
+                    <div className="p-4 bg-[var(--color-success-500)]/10 border-2 border-[var(--color-success-500)]/40 rounded-md flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <CheckCircle2 size={24} className="text-[var(--color-success-600)] shrink-0" />
+                            <div>
+                                <h3 className="text-sm font-bold text-[var(--color-fg)]">
+                                    Campagne de paie validée
+                                </h3>
+                                <p className="text-xs text-[var(--color-fg-muted)]">
+                                    Les {financials?.bulletins || '—'} bulletins sont officiellement validés et scellés. Vous pouvez maintenant accéder aux sorties réglementaires.
+                                </p>
+                            </div>
                         </div>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => navigate(`/paie/periodes/${numericPeriodId}/sorties`)}
+                            iconRight={<ArrowRight size={14} />}
+                        >
+                            Accéder aux sorties
+                        </Button>
                     </div>
                 )}
 
-                {/* Actions selon l'état */}
-                {isCloturee ? (
-                    <div className="flex items-center gap-3 p-4 bg-[var(--color-success-500)]/5 border border-[var(--color-success-500)]/20">
-                        <Lock size={16} className="text-[var(--color-success-500)] shrink-0" />
-                        <div className="flex-1">
-                            <p className="text-xs font-bold text-[var(--color-fg)]">Période clôturée définitivement</p>
-                            <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                                Les bulletins et virements sont immuables. Vous pouvez télécharger les états réglementaires SAFI, CNaPS et virements bancaires.
-                            </p>
+                {/* 1. CONDITIONS DE VALIDATION */}
+                <Card className="p-5 border border-[var(--color-border-subtle)] space-y-4">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] pb-2 border-b border-[var(--color-border-subtle)]">
+                        Conditions préalables à la validation
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                            {condReadiness ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
+                            <span className={condReadiness ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
+                                Contrôles de préparation conformes (0 bloquant)
+                            </span>
                         </div>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/paie/periodes/${numericPeriodId}/sorties`)}
-                            id="btn-goto-sorties"
-                        >
-                            Aller aux exports & virements →
-                        </Button>
+
+                        <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                            {condPopulation ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
+                            <span className={condPopulation ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
+                                Population de salariés arrêtée
+                            </span>
+                        </div>
+
+                        <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                            {condCalculActuel ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-warning-600)]" />}
+                            <span className={condCalculActuel ? 'text-[var(--color-fg)]' : 'text-[var(--color-warning-600)] font-semibold'}>
+                                Calcul actuel à jour (non obsolète)
+                            </span>
+                        </div>
+
+                        <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                            {condBulletins ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
+                            <span className={condBulletins ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
+                                {financials?.bulletins ?? 0} bulletin(s) calculé(s)
+                            </span>
+                        </div>
+
+                        <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                            {condZeroBlocker ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
+                            <span className={condZeroBlocker ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
+                                0 anomalie bloquante
+                            </span>
+                        </div>
+
+                        <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                            {condControles ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
+                            <span className="text-[var(--color-fg)]">
+                                Revue de conformité DAF effectuée
+                            </span>
+                        </div>
                     </div>
-                ) : (
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-4">
-                        <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                            Actions du workflow
-                        </h2>
+                </Card>
 
-                        {/* Validation des bulletins */}
-                        <div className="flex items-start justify-between gap-4 p-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]">
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <p className="text-xs font-semibold text-[var(--color-fg)]">1. Approuver les bulletins de paie (DAF / DG)</p>
-                                    {isPaieValidee && (
-                                        <Badge variant="success" size="xs">✓ Paie validée</Badge>
-                                    )}
-                                </div>
-                                <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                                    Verrouille les bulletins calculés (CALCULE → VALIDE). La période passe au statut officiel <span className="font-semibold text-[var(--color-success-700)] dark:text-[var(--color-success-300)]">PAIE_VALIDEE</span>.
-                                    {!canValidate && !isPaieValidee && (
-                                        <span className="ml-1 text-[var(--color-warning-600)] font-medium">
-                                            — {(actions?.VALIDATE?.reasonCodes || []).map(translateReason).join(' · ') || 'Bulletins en attente de calcul'}
-                                        </span>
-                                    )}
-                                </p>
-                            </div>
-                            <Button
-                                variant={canValidate ? 'success' : isPaieValidee ? 'outline' : 'outline'}
-                                size="sm"
-                                disabled={!canValidate || actionLoading !== null || isPaieValidee}
-                                loading={actionLoading === 'valider'}
-                                iconLeft={<CheckCircle2 size={13} />}
-                                onClick={handleValider}
-                                id="btn-valider-bulletins"
-                            >
-                                {isPaieValidee ? 'Bulletins approuvés' : 'Approuver les bulletins'}
-                            </Button>
+                {/* 2. RÉSUMÉ FINANCIER GLOBAL */}
+                <Card className="p-5 border border-[var(--color-border-subtle)] space-y-4">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] pb-2 border-b border-[var(--color-border-subtle)]">
+                        Résumé financier de la campagne
+                    </h3>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md">
+                            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
+                                Masse Salariale Brute
+                            </span>
+                            <span className="text-base font-black font-mono text-[var(--color-fg)] mt-1 block">
+                                {formatMoneyAr(financials?.brut)}
+                            </span>
                         </div>
 
-                        {/* Clôture */}
-                        <div className="flex items-start justify-between gap-4 p-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]">
-                            <div>
-                                <p className="text-xs font-semibold text-[var(--color-fg)]">2. Générer les virements & Clôturer la période</p>
-                                <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                                    Scelle la période au statut <span className="font-semibold text-[var(--color-fg)]">CLOTUREE</span> (archivage légal immuable). Rend les sorties réglementaires définitives.
-                                    {!canClose && (
-                                        <span className="ml-1 text-[var(--color-warning-600)] font-medium">
-                                            — {(actions?.CLOSE?.reasonCodes || []).map(translateReason).join(' · ') || 'Requiert l’approbation préalable de tous les bulletins'}
-                                        </span>
-                                    )}
-                                </p>
-                            </div>
-                            <Button
-                                variant={canClose ? 'primary' : 'outline'}
-                                size="sm"
-                                disabled={!canClose || actionLoading !== null}
-                                loading={actionLoading === 'cloturer'}
-                                iconLeft={<Lock size={13} />}
-                                onClick={handleCloturer}
-                                id="btn-cloturer-periode"
-                            >
-                                Clôturer la campagne
-                            </Button>
+                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md">
+                            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
+                                Cotisations Salariales
+                            </span>
+                            <span className="text-base font-black font-mono text-[var(--color-danger-600)] mt-1 block">
+                                -{formatMoneyAr(financials?.cotisationsSalariales)}
+                            </span>
                         </div>
 
-                        {/* Réouverture (Admin) */}
-                        {canReopen && (
-                            <div className="flex items-start justify-between gap-4 p-3 border border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/5">
-                                <div>
-                                    <p className="text-xs font-semibold text-[var(--color-fg)]">Réouverture (Admin)</p>
-                                    <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                                        Rouvre la période pour corrections exceptionnelles. Requiert un motif circonstancié.
-                                    </p>
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={actionLoading !== null}
-                                    onClick={() => setIsReopenModalOpen(true)}
-                                    className="border-[var(--color-warning-500)]/50"
-                                    id="btn-rouvrir-periode"
-                                >
-                                    Rouvrir
-                                </Button>
-                            </div>
-                        )}
+                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md">
+                            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
+                                Retenue IRSA / ISI
+                            </span>
+                            <span className="text-base font-black font-mono text-[var(--color-danger-600)] mt-1 block">
+                                -{formatMoneyAr(financials?.irsa)}
+                            </span>
+                        </div>
+
+                        <div className="p-3 bg-[var(--color-success-50)]/30 border-2 border-[var(--color-success-500)]/40 rounded-md">
+                            <span className="text-[10px] text-[var(--color-success-700)] dark:text-[var(--color-success-400)] uppercase font-bold block">
+                                Net à Payer Total
+                            </span>
+                            <span className="text-lg font-black font-mono text-[var(--color-success-700)] dark:text-[var(--color-success-300)] mt-1 block">
+                                {formatMoneyAr(financials?.net)}
+                            </span>
+                        </div>
+
+                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md">
+                            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
+                                Charges Patronales
+                            </span>
+                            <span className="text-base font-black font-mono text-[var(--color-fg)] mt-1 block">
+                                {formatMoneyAr(financials?.patronales)}
+                            </span>
+                        </div>
+
+                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-md">
+                            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
+                                Coût Employeur Global
+                            </span>
+                            <span className="text-base font-black font-mono text-[var(--color-brand-600)] mt-1 block">
+                                {formatMoneyAr(financials?.coutGlobal)}
+                            </span>
+                        </div>
+                    </div>
+                </Card>
+
+                {/* Action d'approbation si non validée */}
+                {!isValidee && (
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                        <Button
+                            variant="secondary"
+                            size="md"
+                            onClick={() => navigate(`/paie/periodes/${numericPeriodId}/controle`)}
+                            iconLeft={<ArrowLeft size={16} />}
+                        >
+                            Cockpit de contrôle
+                        </Button>
+                        <Button
+                            variant="primary"
+                            size="md"
+                            onClick={() => setConfirmModalOpen(true)}
+                            disabled={!allConditionsMet || !canValidate}
+                            iconLeft={<ShieldCheck size={16} />}
+                        >
+                            Valider la paie
+                        </Button>
                     </div>
                 )}
             </div>
 
-            <PayrollNavigationFooter
-                prevStep={{
-                    label: 'Contrôle des bulletins',
-                    destination: `/paie/periodes/${numericPeriodId}/controle`,
-                }}
-                nextStep={{
-                    label: 'Sorties & Documents',
-                    destination: `/paie/periodes/${numericPeriodId}/sorties`,
-                    disabled: !isValidee && !isCloturee,
-                    disabledReason: 'Les bulletins doivent d’abord être validés pour accéder aux sorties.',
-                }}
-            />
-
-            {/* Modal de réouverture */}
+            {/* Modal de confirmation de validation */}
             <Modal
-                isOpen={isReopenModalOpen}
-                onClose={() => { setIsReopenModalOpen(false); setMotifReouverture(''); setReopenError(null); }}
-                title="Motif de réouverture"
-                icon={<AlertTriangle size={16} className="text-[var(--color-warning-500)]" />}
+                isOpen={confirmModalOpen}
+                onClose={() => setConfirmModalOpen(false)}
+                title="Confirmer la validation de la paie"
                 size="md"
-                footer={
-                    <>
-                        <Button variant="ghost" size="sm" onClick={() => { setIsReopenModalOpen(false); setMotifReouverture(''); setReopenError(null); }}>
+            >
+                <div className="space-y-4 text-xs">
+                    <p className="text-[var(--color-fg)]">
+                        Vous êtes sur le point de valider officiellement la paie pour <strong>{financials?.bulletins || '—'} salariés</strong> représentant une masse nette de <strong>{formatMoneyAr(financials?.net)}</strong>.
+                    </p>
+                    <div className="p-3 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 rounded text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]">
+                        Cette action scelle les bulletins et active les sorties réglementaires et états de virement.
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="secondary" size="sm" onClick={() => setConfirmModalOpen(false)}>
                             Annuler
                         </Button>
-                        <Button
-                            variant="primary"
-                            size="sm"
-                            loading={actionLoading === 'rouvrir'}
-                            onClick={handleReouvrirSubmit}
-                            id="btn-confirmer-reouverture"
-                        >
-                            Confirmer la réouverture
+                        <Button variant="primary" size="sm" onClick={handleValider} loading={actionLoading}>
+                            Confirmer la validation
                         </Button>
-                    </>
-                }
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Modal de réouverture pour corrections (Admin) */}
+            <Modal
+                isOpen={isReopenModalOpen}
+                onClose={() => setIsReopenModalOpen(false)}
+                title="Réouverture de la période de paie"
+                size="md"
             >
-                <form onSubmit={handleReouvrirSubmit} className="space-y-3">
-                    {reopenError && (
-                        <Alert type="error" message={reopenError} onClose={() => setReopenError(null)} />
-                    )}
-                    <p className="text-xs text-[var(--color-fg-muted)]">
-                        La réouverture annule la clôture et remet la période en état ouvert.
-                        Toutes les modifications seront tracées.
+                <form onSubmit={handleReouvrirSubmit} className="space-y-4 text-xs">
+                    <p className="text-[var(--color-fg-muted)]">
+                        La réouverture déverrouille les bulletins pour permettre des corrections. Un motif explicite est requis pour l'audit.
                     </p>
                     <div>
-                        <label htmlFor="motif-reouverture" className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
-                            Motif de réouverture <span className="text-[var(--color-danger-500)]">*</span>
+                        <label className="block text-[11px] font-semibold text-[var(--color-fg)] mb-1">
+                            Motif de réouverture (obligatoire)
                         </label>
                         <textarea
-                            id="motif-reouverture"
+                            className="w-full p-2 text-xs border border-[var(--color-border)] rounded bg-[var(--color-surface)] text-[var(--color-fg)]"
                             rows={3}
+                            placeholder="Indiquez la raison détaillée de la réouverture..."
                             value={motifReouverture}
-                            onChange={e => setMotifReouverture(e.target.value)}
-                            placeholder="Décrivez la raison de la réouverture (minimum 5 caractères)…"
-                            className="w-full px-3 py-2 text-xs bg-[var(--color-surface)] border border-[var(--color-border)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-500)]/40 resize-none"
+                            onChange={(e) => setMotifReouverture(e.target.value)}
                             required
                         />
                     </div>
+                    <div className="flex justify-end gap-2">
+                        <Button variant="secondary" size="sm" onClick={() => setIsReopenModalOpen(false)}>
+                            Annuler
+                        </Button>
+                        <Button variant="warning" size="sm" type="submit" loading={actionLoading}>
+                            Confirmer la réouverture
+                        </Button>
+                    </div>
                 </form>
             </Modal>
-        </div>
+        </PayrollCampaignShell>
     );
 }

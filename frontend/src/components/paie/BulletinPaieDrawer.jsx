@@ -9,7 +9,8 @@ import {
     Clock,
     DollarSign,
     ChevronUp,
-    Info
+    Info,
+    ExternalLink
 } from 'lucide-react';
 import SlideOver from '@/components/ui/overlays/SlideOver';
 import Button from '@/components/ui/forms/Button';
@@ -60,12 +61,12 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         }
     }, [idBulletin]);
 
-    const chargerTypesMouvements = useCallback(async (idPeriode) => {
+    const chargerTypesMouvements = useCallback(async () => {
         try {
-            const types = await paieService.listerTypesMouvements(idPeriode);
+            const types = await paieService.listerTypesMouvements();
             setTypeMouvements(Array.isArray(types) ? types : (types?.content || types?.items || []));
         } catch (err) {
-            console.error('Erreur chargement types mouvements :', err);
+            console.warn('Types mouvements non disponibles :', err?.message);
         }
     }, []);
 
@@ -83,10 +84,10 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     }, [isOpen, idBulletin, chargerBulletin]);
 
     useEffect(() => {
-        if (isOpen && data?.bulletin?.idPeriodePaie) {
-            chargerTypesMouvements(data.bulletin.idPeriodePaie);
+        if (isOpen && showAddVariable && typeMouvements.length === 0) {
+            chargerTypesMouvements();
         }
-    }, [isOpen, data?.bulletin?.idPeriodePaie, chargerTypesMouvements]);
+    }, [isOpen, showAddVariable, typeMouvements.length, chargerTypesMouvements]);
 
     const handleAjustementChange = (field, value) => {
         setAjustementForm(prev => {
@@ -285,18 +286,127 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
 
                 {bulletin && (
                     <div className="space-y-4 text-xs font-sans">
-                        {/* 1. SALAIRE DE BASE CONTRACTUEL (Wireframe 2) */}
-                        <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border)] p-3.5 flex items-center justify-between">
-                            <span className="font-bold text-[var(--color-fg)] uppercase tracking-wider text-xs">
-                                SALAIRE DE BASE CONTRACTUEL
-                            </span>
-                            <span className="font-mono font-black text-base text-[var(--color-fg)]">
-                                {formatAr(bulletin.salaireBase)}
-                            </span>
+                        {/* ============================================================== */}
+                        {/* NIVEAU 1 — COMPRÉHENSION DAF                                  */}
+                        {/* ============================================================== */}
+                        <div className="p-4 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-md space-y-3">
+                            {/* Identité collaborateur & Signal */}
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2 border-b border-[var(--color-border-subtle)]">
+                                <div>
+                                    <div className="font-bold text-sm text-[var(--color-fg)] flex items-center gap-2">
+                                        <span>{nomAffiche}</span>
+                                        <span className="text-xs font-normal text-[var(--color-fg-muted)] font-mono">({bulletin.matricule})</span>
+                                    </div>
+                                    <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                                        {bulletin.typeContrat || 'CDI'} • {bulletin.intitulePoste || 'Poste'} • {bulletin.nomSite || 'Siège'}
+                                    </div>
+                                </div>
+
+                                {/* Signal / Alerte */}
+                                {bulletin.ecartM1Pct != null && Math.abs(bulletin.ecartM1Pct) > 10 && (
+                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--color-warning-500)]/15 border border-[var(--color-warning-500)]/30 rounded text-[11px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] font-semibold">
+                                        <AlertCircle size={13} className="shrink-0" />
+                                        <span>Variation nette importante : {bulletin.ecartM1Pct > 0 ? `+${bulletin.ecartM1Pct}%` : `${bulletin.ecartM1Pct}%`}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Résumé 4 chiffres clés DAF */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                <div className="bg-[var(--color-surface)] p-2 rounded border border-[var(--color-border-subtle)]">
+                                    <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">Brut</span>
+                                    <span className="font-mono font-bold text-xs text-[var(--color-fg)] mt-0.5 block">{formatAr(bulletin.totalGainsBruts)}</span>
+                                </div>
+                                <div className="bg-[var(--color-surface)] p-2 rounded border border-[var(--color-border-subtle)]">
+                                    <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">Cotisations</span>
+                                    <span className="font-mono font-bold text-xs text-[var(--color-danger-600)] mt-0.5 block">
+                                        {bulletin.totalCotisationsSalariales ? `-${formatAr(bulletin.totalCotisationsSalariales)}` : '—'}
+                                    </span>
+                                </div>
+                                <div className="bg-[var(--color-surface)] p-2 rounded border border-[var(--color-border-subtle)]">
+                                    <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">Fiscalité (IRSA)</span>
+                                    <span className="font-mono font-bold text-xs text-[var(--color-danger-600)] mt-0.5 block">
+                                        {bulletin.irsaNet ? `-${formatAr(bulletin.irsaNet)}` : '0 Ar'}
+                                    </span>
+                                </div>
+                                <div className="bg-[var(--color-success-50)]/30 dark:bg-[var(--color-success-950)]/30 p-2 rounded border border-[var(--color-success-500)]/40">
+                                    <span className="text-[10px] text-[var(--color-success-700)] dark:text-[var(--color-success-400)] uppercase font-bold block">Net à Payer</span>
+                                    <span className="font-mono font-black text-xs text-[var(--color-success-700)] dark:text-[var(--color-success-300)] mt-0.5 block">{formatAr(bulletin.netAPayer)}</span>
+                                </div>
+                            </div>
+
+                            {/* Principaux écarts canoniques */}
+                            <div className="bg-[var(--color-surface)] p-2.5 rounded border border-[var(--color-border-subtle)] text-[11px] space-y-1 font-mono">
+                                <span className="font-sans font-bold text-[10px] uppercase text-[var(--color-fg-muted)] tracking-wider block mb-1">
+                                    Principaux écarts sur le mois
+                                </span>
+                                <div className="flex justify-between items-center text-[var(--color-fg)]">
+                                    <span className="font-sans">Salaire de base contractuel</span>
+                                    <span>+{formatAr(bulletin.salaireBase)}</span>
+                                </div>
+                                {Number(bulletin.retenueAbsence || explication?.montantRetenueAbsence) > 0 && (
+                                    <div className="flex justify-between items-center text-[var(--color-danger-600)]">
+                                        <span className="font-sans">Déficit horaire / Absences</span>
+                                        <span>-{formatAr(bulletin.retenueAbsence || explication?.montantRetenueAbsence)}</span>
+                                    </div>
+                                )}
+                                {explication && (explication.nbJoursConge || 0) > 0 && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="font-sans">Congés pris ({explication.nbJoursConge} j - TCONGE)</span>
+                                        <span className={explication.impactNetConge >= 0 ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}>
+                                            {explication.impactNetConge >= 0 ? `+${formatAr(explication.impactNetConge)}` : `-${formatAr(Math.abs(explication.impactNetConge))}`}
+                                        </span>
+                                    </div>
+                                )}
+                                {Number(bulletin.majorationHeuresSupplementaires || (explication ? (explication.montantHs30 || 0) + (explication.montantHs50 || 0) : 0)) > 0 && (
+                                    <div className="flex justify-between items-center text-[var(--color-success-600)]">
+                                        <span className="font-sans">Heures supplémentaires</span>
+                                        <span>+{formatAr(bulletin.majorationHeuresSupplementaires || ((explication.montantHs30 || 0) + (explication.montantHs50 || 0)))}</span>
+                                    </div>
+                                )}
+                                {Number(bulletin.totalPrimesEtAutres || (bulletin.primePerformance || 0) + (bulletin.primeAnciennete || 0) + (bulletin.primeAssiduite || 0)) > 0 && (
+                                    <div className="flex justify-between items-center text-[var(--color-success-600)]">
+                                        <span className="font-sans">Primes exceptionnelles</span>
+                                        <span>+{formatAr(bulletin.totalPrimesEtAutres || ((bulletin.primePerformance || 0) + (bulletin.primeAnciennete || 0) + (bulletin.primeAssiduite || 0)))}</span>
+                                    </div>
+                                )}
+                                {Number(bulletin.totalRetenuesAvances) > 0 && (
+                                    <div className="flex justify-between items-center text-[var(--color-danger-600)]">
+                                        <span className="font-sans">Acomptes & Avances prélevés</span>
+                                        <span>-{formatAr(bulletin.totalRetenuesAvances)}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Liens contextuels vers modules propriétaires (La Paie ne corrige pas les sources) */}
+                            <div className="flex items-center gap-2 pt-1">
+                                <a
+                                    href="/pointages"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--color-brand-600)] hover:underline"
+                                >
+                                    <ExternalLink size={12} />
+                                    Ouvrir Pointage
+                                </a>
+                                <span className="text-[var(--color-fg-muted)]">•</span>
+                                <a
+                                    href="/conges"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--color-brand-600)] hover:underline"
+                                >
+                                    <ExternalLink size={12} />
+                                    Ouvrir Congés
+                                </a>
+                            </div>
                         </div>
 
-                        {/* 2. ÉLÉMENTS CALCULÉS (POINTAGE 26/08 → 25/09) (Wireframe 2) */}
-                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 space-y-2.5">
+                        {/* ============================================================== */}
+                        {/* NIVEAU 2 — DÉTAILS MÉTIER                                      */}
+                        {/* ============================================================== */}
+                        {/* Éléments calculés (Pointage, Congés, HS) */}
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 space-y-2.5 rounded-md">
                             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
                                 <span className="font-bold text-[var(--color-fg)] text-[11px] uppercase tracking-wider flex items-center gap-1.5">
                                     <Clock size={14} className="text-[var(--color-brand-500)]" />
@@ -619,46 +729,64 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                             </div>
                         </div>
 
-                        {/* Bouton pour afficher/masquer le grand livre détaillé des rubriques */}
-                        <div className="pt-1">
+                        {/* ============================================================== */}
+                        {/* NIVEAU 3 — AUDIT TECHNIQUE & TRAÇABILITÉ (Collapsed par défaut) */}
+                        {/* ============================================================== */}
+                        <div className="pt-2 border-t border-[var(--color-border-subtle)]">
                             <button
+                                type="button"
                                 onClick={() => setShowDetailRubriques(!showDetailRubriques)}
-                                className="text-[11px] font-semibold text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] flex items-center gap-1 cursor-pointer"
+                                className="w-full p-2.5 bg-[var(--color-bg-subtle)] hover:bg-[var(--color-border-subtle)] text-[11px] font-bold text-[var(--color-fg)] flex items-center justify-between rounded transition-colors"
                             >
-                                <Info size={13} />
-                                {showDetailRubriques ? 'Masquer la ventilation complète des rubriques' : `Voir la ventilation détaillée (${lignes.length} rubriques)`}
+                                <span className="flex items-center gap-1.5 uppercase tracking-wider text-[10px] text-[var(--color-fg-muted)]">
+                                    <Info size={13} />
+                                    Niveau 3 — Audit technique & Grand livre ({lignes.length} rubriques)
+                                </span>
+                                <span className="text-[10px] font-medium text-[var(--color-brand-600)]">
+                                    {showDetailRubriques ? 'Masquer' : 'Déplier'}
+                                </span>
                             </button>
 
                             {showDetailRubriques && (
-                                <div className="mt-2 border border-[var(--color-border-subtle)] overflow-hidden">
-                                    <table className="w-full text-left text-xs border-collapse">
-                                        <thead>
-                                            <tr className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[10px] text-[var(--color-fg-muted)] uppercase">
-                                                <th className="p-2">Code</th>
-                                                <th className="p-2">Désignation</th>
-                                                <th className="p-2 text-right">Base</th>
-                                                <th className="p-2 text-right">Gain</th>
-                                                <th className="p-2 text-right">Retenue</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-[var(--color-border-subtle)]">
-                                            {lignes.map((l, i) => {
-                                                const isRetenue = l.sens === 'RETENUE';
-                                                const isGain = l.sens === 'GAIN' || l.sens === 'INFO';
-                                                const montantRet = isRetenue ? (l.montantSalarial ?? l.montantRetenue) : (l.montantRetenue && Number(l.montantRetenue) > 0 ? l.montantRetenue : null);
-                                                const montantGn = isGain ? (l.montantSalarial ?? l.montantGain) : (l.montantGain && Number(l.montantGain) > 0 ? l.montantGain : null);
-                                                return (
-                                                    <tr key={i} className="hover:bg-[var(--color-bg-subtle)]/40 font-mono text-[11px]">
-                                                        <td className="p-2 text-[var(--color-fg-subtle)]">{l.codeRubrique}</td>
-                                                        <td className="p-2 font-sans font-medium text-[var(--color-fg)]">{l.libelleRubrique}</td>
-                                                        <td className="p-2 text-right text-[var(--color-fg-muted)]">{formatMoneyAr(l.baseCalcul)}</td>
-                                                        <td className="p-2 text-right text-[var(--color-success-600)] font-bold">{montantGn && Number(montantGn) > 0 ? formatMoneyAr(montantGn) : '—'}</td>
-                                                        <td className="p-2 text-right text-[var(--color-danger-600)] font-bold">{montantRet && Number(montantRet) > 0 ? formatMoneyAr(montantRet) : '—'}</td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                <div className="mt-2 space-y-2">
+                                    {/* Méta-données de traçabilité */}
+                                    <div className="p-2 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded text-[10px] font-mono text-[var(--color-fg-muted)] flex items-center justify-between">
+                                        <span>Snapshot ID: {bulletin.idBulletin}</span>
+                                        <span>Période: {bulletin.codePeriode || 'En cours'}</span>
+                                        <span>Statut: {bulletin.statut}</span>
+                                    </div>
+
+                                    {/* Grand livre des rubriques */}
+                                    <div className="border border-[var(--color-border-subtle)] rounded overflow-hidden">
+                                        <table className="w-full text-left text-xs border-collapse">
+                                            <thead>
+                                                <tr className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[10px] text-[var(--color-fg-muted)] uppercase">
+                                                    <th className="p-2">Code</th>
+                                                    <th className="p-2">Désignation</th>
+                                                    <th className="p-2 text-right">Base</th>
+                                                    <th className="p-2 text-right">Gain</th>
+                                                    <th className="p-2 text-right">Retenue</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                                                {lignes.map((l, i) => {
+                                                    const isRetenue = l.sens === 'RETENUE';
+                                                    const isGain = l.sens === 'GAIN' || l.sens === 'INFO';
+                                                    const montantRet = isRetenue ? (l.montantSalarial ?? l.montantRetenue) : (l.montantRetenue && Number(l.montantRetenue) > 0 ? l.montantRetenue : null);
+                                                    const montantGn = isGain ? (l.montantSalarial ?? l.montantGain) : (l.montantGain && Number(l.montantGain) > 0 ? l.montantGain : null);
+                                                    return (
+                                                        <tr key={i} className="hover:bg-[var(--color-bg-subtle)]/40 font-mono text-[11px]">
+                                                            <td className="p-2 text-[var(--color-fg-subtle)]">{l.codeRubrique}</td>
+                                                            <td className="p-2 font-sans font-medium text-[var(--color-fg)]">{l.libelleRubrique}</td>
+                                                            <td className="p-2 text-right text-[var(--color-fg-muted)]">{formatMoneyAr(l.baseCalcul)}</td>
+                                                            <td className="p-2 text-right text-[var(--color-success-600)] font-bold">{montantGn && Number(montantGn) > 0 ? formatMoneyAr(montantGn) : '—'}</td>
+                                                            <td className="p-2 text-right text-[var(--color-danger-600)] font-bold">{montantRet && Number(montantRet) > 0 ? formatMoneyAr(montantRet) : '—'}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             )}
                         </div>

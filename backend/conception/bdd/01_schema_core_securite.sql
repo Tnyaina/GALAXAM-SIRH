@@ -191,13 +191,14 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 ('POINTAGE_SUIVI',       'Suivi & Anomalies',     'CalendarCheck', '/pointages?tab=suivi',      2, 2, 'POINTAGE'),
 ('POINTAGE_VALIDATION',  'Contrôle & Validation', 'ShieldCheck',   '/pointages?tab=validation', 3, 2, 'POINTAGE');
 
--- Paie (Consolidé Sprint 2B : sous-menus majeurs de gestion de paie)
+-- Paie (Consolidé Sprint UX Paie 1 : sous-menus contextuels sans doublons de stepper)
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
-('PAIE_CAMPAGNE',  'Campagne Active',         'LayoutDashboard',   '/paie?tab=campagne', 1, 2, 'PAIE_MODULE'),
-('PAIE_VARIABLES', 'Variables & Primes',       'SlidersHorizontal', '/paie?tab=variables',2, 2, 'PAIE_MODULE'),
-('PAIE_REVUE',     'Revue des Bulletins',      'Banknote',          '/paie?tab=cockpit',  3, 2, 'PAIE_MODULE'),
-('PAIE_PERIODES',  'Historique des Périodes',  'CalendarRange',     '/paie?tab=periodes', 4, 2, 'PAIE_MODULE'),
-('PAIE_EXPORTS',   'Déclarations & Sorties',   'FileText',          '/paie?tab=exports',  5, 2, 'PAIE_MODULE');
+('PAIE_CENTRE',       'Centre de paie',          'LayoutDashboard',   '/paie',                           1, 2, 'PAIE_MODULE'),
+('PAIE_CAMPAGNE',     'Campagne active',         'CalendarRange',     '/paie/periodes',                  2, 2, 'PAIE_MODULE'),
+('PAIE_ACOMPTES',     'Acomptes & avances',      'SlidersHorizontal', '/paie/acomptes-avances',           3, 2, 'PAIE_MODULE'),
+('PAIE_HISTORIQUE',   'Historique',              'History',           '/paie/historique',                4, 2, 'PAIE_MODULE'),
+('PAIE_DECLARATIONS', 'Déclarations & sorties',  'FileText',          '/paie/declarations',              5, 2, 'PAIE_MODULE'),
+('PAIE_PARAMETRES',   'Administration',          'Settings',          '/admin/parametres?module=paie',   6, 2, 'PAIE_MODULE');
 
 -- Habilitations Menus (Role x Menu) (Archives Finales Sprint 11)
 -- ROLE_ADMIN (id_role = 1) : Accès complet
@@ -214,11 +215,12 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 (1, 'POINTAGE_SUIVI'),
 (1, 'POINTAGE_VALIDATION'),
 (1, 'PAIE_MODULE'),
+(1, 'PAIE_CENTRE'),
 (1, 'PAIE_CAMPAGNE'),
-(1, 'PAIE_VARIABLES'),
-(1, 'PAIE_REVUE'),
-(1, 'PAIE_PERIODES'),
-(1, 'PAIE_EXPORTS'),
+(1, 'PAIE_ACOMPTES'),
+(1, 'PAIE_HISTORIQUE'),
+(1, 'PAIE_DECLARATIONS'),
+(1, 'PAIE_PARAMETRES'),
 (1, 'ADMIN_MODULE'),
 (1, 'ADMIN_SECURITE'),
 (1, 'ADMIN_ORGANISATION'),

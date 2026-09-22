@@ -1,6 +1,7 @@
 import { CheckCircle2, Lock, AlertTriangle, ChevronRight, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import PayrollIssuePanel from '@/components/paie/PayrollIssuePanel';
 
 /**
  * PayrollPeriodStepper — Stepper horizontal backend-driven pour une campagne de paie.
@@ -17,6 +18,7 @@ export default function PayrollPeriodStepper({
     loading = false,
 }) {
     const navigate = useNavigate();
+    const [blockedStep, setBlockedStep] = useState(null);
 
     const stateConfig = useMemo(() => ({
         COMPLETED: {
@@ -53,6 +55,13 @@ export default function PayrollPeriodStepper({
         },
         WARNING: {
             icon: (_n) => <AlertTriangle size={14} className="text-[var(--color-warning-500)] shrink-0" aria-label="Avertissement" />,
+            label: 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] font-semibold',
+            connector: 'bg-[var(--color-border)]',
+            ring: 'ring-[var(--color-warning-500)]/20',
+            dot: 'bg-[var(--color-warning-500)]',
+        },
+        STALE: {
+            icon: (_n) => <AlertTriangle size={14} className="text-[var(--color-warning-500)] shrink-0" aria-label="Calcul obsolète" />,
             label: 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] font-semibold',
             connector: 'bg-[var(--color-border)]',
             ring: 'ring-[var(--color-warning-500)]/20',
@@ -104,7 +113,7 @@ export default function PayrollPeriodStepper({
                     const conf = stateConfig[step.state] || stateConfig.BLOCKED;
                     const isActive = step.code === activeCode;
                     const _isCurrentBusiness = step.code === currentStep;
-                    const navigable = ['COMPLETED', 'CURRENT', 'AVAILABLE', 'WARNING', 'LOCKED'].includes(step.state);
+                    const accessible = step.accessible ?? step.state !== 'BLOCKED';
                     const isLast = index === steps.length - 1;
                     const num = index + 1;
 
@@ -119,13 +128,13 @@ export default function PayrollPeriodStepper({
                         >
                             <button
                                 type="button"
-                                disabled={!navigable}
-                                onClick={() => navigable && navigate(step.destination)}
+                                aria-disabled={!accessible}
+                                onClick={() => accessible ? navigate(step.destination) : setBlockedStep(step)}
                                 title={step.issues?.length > 0 ? step.issues[0] : step.label}
                                 aria-current={isActive ? 'step' : undefined}
                                 className={`
                                     w-full flex items-center gap-2 px-3 py-2.5 transition-colors duration-150
-                                    ${navigable ? 'cursor-pointer hover:bg-[var(--color-bg-subtle)]' : 'cursor-not-allowed opacity-60'}
+                                    ${accessible ? 'cursor-pointer hover:bg-[var(--color-bg-subtle)]' : 'cursor-not-allowed opacity-60'}
                                     ${isActive ? 'bg-[var(--color-brand-500)]/8' : ''}
                                     focus:outline-none focus:ring-1 focus:ring-inset focus:ring-[var(--color-brand-500)]/40
                                 `}
@@ -133,7 +142,7 @@ export default function PayrollPeriodStepper({
                                 {/* Icône d'état */}
                                 {conf.icon(num)}
 
-                                {/* Label & sous-texte */}
+                                {/* Label & sous-texte — conforme V1 Full V3 */}
                                 <span className="flex flex-col min-w-0 text-left flex-1">
                                     <span className={`text-[10px] font-semibold tracking-wide uppercase truncate leading-tight ${conf.label}`}>
                                         {step.label}
@@ -141,6 +150,12 @@ export default function PayrollPeriodStepper({
                                             <span className="sr-only"> (page actuelle)</span>
                                         )}
                                     </span>
+                                    {/* Sous-texte contextuel (subtitle ou issue résumé) — V1 Full V3 */}
+                                    {step.subtitle && !step.warnings?.length && !step.issues?.length && (
+                                        <span className="text-[9px] text-[var(--color-fg-subtle)] truncate leading-tight mt-0.5">
+                                            {step.subtitle}
+                                        </span>
+                                    )}
                                     {step.warnings?.length > 0 && (
                                         <span className="text-[9px] text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] truncate leading-tight mt-0.5">
                                             ⚠ {step.warnings[0]}
@@ -166,6 +181,16 @@ export default function PayrollPeriodStepper({
                     );
                 })}
             </ol>
+            {blockedStep && (
+                <div className="border-t border-[var(--color-border-subtle)] p-2">
+                    <PayrollIssuePanel
+                        severity="BLOCKER"
+                        title={`${blockedStep.label} indisponible`}
+                        message={blockedStep.issues?.[0] || 'Cette étape n’est pas encore accessible dans l’état actuel de la campagne.'}
+                        code={blockedStep.code}
+                    />
+                </div>
+            )}
         </nav>
     );
 }

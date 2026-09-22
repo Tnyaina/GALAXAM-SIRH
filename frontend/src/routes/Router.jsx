@@ -34,6 +34,11 @@ const ControleStepPage     = lazy(() => import("@/pages/paie/ControleStepPage"))
 const ValidationStepPage   = lazy(() => import("@/pages/paie/ValidationStepPage"));
 const SortiesStepPage      = lazy(() => import("@/pages/paie/SortiesStepPage"));
 
+// Sprint UX 2 — Espaces dédiés Paie V1 Full V3
+const AcomptesAvancesPage       = lazy(() => import("@/pages/paie/AcomptesAvancesPage"));
+const DeclarationsSortiesPage   = lazy(() => import("@/pages/paie/DeclarationsSortiesPage"));
+const HistoriqueCampagnesPage   = lazy(() => import("@/pages/paie/HistoriqueCampagnesPage"));
+
 // Module Employés
 const EmployeList = lazy(() => import("@/pages/employe/EmployeList"));
 const EmployeFicheDetailPage = lazy(() => import("@/pages/employe/EmployeFicheDetailPage"));
@@ -51,6 +56,28 @@ const NotFound = lazy(() => import("@/pages/systeme/NotFound"));
 const ServerError = lazy(() => import("@/pages/systeme/ServerError"));
 const Maintenance = lazy(() => import("@/pages/systeme/Maintenance"));
 const NoConnection = lazy(() => import("@/pages/systeme/NoConnection"));
+
+import { usePayrollCampaign } from "@/hooks/paie/usePayrollCampaign";
+
+/**
+ * Redirection automatique vers l'étape active de la campagne courante
+ */
+function ActiveCampaignRedirect() {
+    const { context, loading } = usePayrollCampaign();
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+            </div>
+        );
+    }
+    const targetPeriod = context?.selectedPeriod || context?.currentPeriod;
+    if (!targetPeriod?.id) {
+        return <Navigate to="/paie" replace />;
+    }
+    const step = (context?.currentStepCode || 'PREPARATION').toLowerCase();
+    return <Navigate to={`/paie/periodes/${targetPeriod.id}/${step}`} replace />;
+}
 
 // =========================================================================
 // Composant Principal Router
@@ -111,11 +138,16 @@ export default function Router() {
                     {/* Module Paie & Rémunération (Admin DAF)              */}
                     {/* ---------------------------------------------------- */}
                     <Route element={<ProtectedRoute requiredPermission="PAIE_READ" allowedRoles={["ROLE_ADMIN"]} />}>
-                        {/* Page d'accueil paie (sélecteur de période) */}
+                        {/* Page d'accueil paie : Centre de paie opérationnel */}
                         <Route path="/paie" element={<GestionPaiePage />} />
-                        <Route path="/paie/periodes" element={<Navigate to="/paie?tab=periodes" replace />} />
+                        <Route path="/paie/campagne" element={<ActiveCampaignRedirect />} />
+                        <Route path="/paie/periodes" element={<ActiveCampaignRedirect />} />
+                        <Route path="/paie/acomptes-avances" element={<AcomptesAvancesPage />} />
+                        <Route path="/paie/declarations" element={<DeclarationsSortiesPage />} />
+                        <Route path="/paie/sorties" element={<DeclarationsSortiesPage />} />
+                        <Route path="/paie/historique" element={<HistoriqueCampagnesPage />} />
 
-                        {/* Sprint 2B — Pages d'étapes de campagne */}
+                        {/* Sprint 2B & Sprint UX 2 — Pages d'étapes de campagne sous Shell invariant */}
                         <Route path="/paie/periodes/:periodId/preparation"  element={<PreparationStepPage />} />
                         <Route path="/paie/periodes/:periodId/population"   element={<PopulationStepPage />} />
                         <Route path="/paie/periodes/:periodId/variables"    element={<VariablesStepPage />} />
@@ -126,8 +158,8 @@ export default function Router() {
                         <Route path="/paie/periodes/:periodId/sorties"      element={<SortiesStepPage />} />
 
                         {/* Redirections de compatibilité (anciennes URLs) */}
-                        <Route path="/paie/periods/:periodId/:step" element={<GestionPaiePage />} />
-                        <Route path="/paie/periods/:periodId/results/:employeeId" element={<GestionPaiePage />} />
+                        <Route path="/paie/periods/:periodId/:step" element={<Navigate to="/paie" replace />} />
+                        <Route path="/paie/periods/:periodId/results/:employeeId" element={<Navigate to="/paie" replace />} />
                     </Route>
 
                     <Route element={<ProtectedRoute />}>

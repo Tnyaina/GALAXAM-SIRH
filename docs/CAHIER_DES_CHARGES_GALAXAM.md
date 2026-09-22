@@ -78,12 +78,28 @@ Développer une application web unique et centralisée pour :
 
 * **Calculs salariés (IRSA) :** Salaire de base, pointages et heures supplémentaires (30%, 50%, nuit), indemnités légales de transport et repas, cotisations sociales (CNaPS plafonnée à 8x SME, OSTIE, OMSI) et impôt progressif IRSA selon le barème officiel CGI à 6 tranches avec minimum fiscal de 2 000 Ar et réduction pour charge de famille (2 000 Ar / enfant).
 * **Calcul Consultants & Prestataires Temporaires (ISI 5%) :** Rémunération au forfait ou prestations occasionnelles de services, retenue à la source de 5% au titre de l'Impôt Synthétique Intermittent (ISINT), génération du bordereau de saisie et de l'annexe XML EDI officielle pour téléversement e-Hetra.
-* **Déclarations Mensuelles vs Trimestrielles (Règles Légales Madagascar) :**
+* **Architecture des Déclarations & États Nominatifs (Mensuels vs Trimestriels) :**
 
-  **Mensuelle (avant le 15 du mois M+1) :** Grand-Livre de Paie, bordereau officiel nominatif **État 301 IRSA** conforme au modèle DGI SAFI / e-Hetra Grandes Entreprises (25 colonnes réglementaires), annexe EDI ISI (5%), et ordre de virement bancaire interbancaire collectif aux 10 Ariary inférieurs.
+  Le système distingue rigoureusement deux niveaux de sorties déclaratives et d'états nominatifs :
 
-  **Trimestrielle (par tranche de 3 mois civils : T1 au 30 Avril, T2 au 31 Juillet, T3 au 31 Octobre, T4 au 31 Janvier) :** Déclaration Nominative Trimestrielle des Salaires (**DNTS CNaPS**) et contribution au fonds de formation professionnelle (**FMFP 1% patronal** adossé), ainsi que les bordereaux nominatifs des organismes de santé au travail (**OSTIE, OMSI, AMIT, FUNHECE**) consolidant les mois M1, M2 et M3 de chaque collaborateur.
-* **Workflow Intégré & Continuité Sans Ressaisie (Rupture Contrat ➔ Solde de Tout Compte STC) :**
+  **1. États Nominatifs Mensuels (Liés à la campagne de paie du mois M) :**
+  - **Bulletins de paie individuels certifiés :** Génération PDF avec traçabilité complète des éléments de salaire, des cotisations et de l'impôt (IRSA ou ISI 5%).
+  - **Grand-Livre / Journal de Paie Mensuel :** Récapitulatif nominatif exhaustif par matricule regroupant l'intégralité des rubriques brutes, cotisations sociales, déductions fiscales, acomptes/avances et net à payer.
+  - **État Nominatif Fiscal IRSA (État 301) :** Préparation de l'état nominatif des rémunérations et retenues à la source conforme aux exigences de la Direction Générale des Impôts (DGI Madagascar, modèle e-Hetra / SAFI). Le formatage exact (notamment la matrice réglementaire de 25 colonnes) sera certifié sur la base du spécimen officiel DGI vérifié avant implémentation finale de l'export automatisé.
+  - **Bordereau Nominatif ISI 5% (ISINT) :** Suivi des retenues fiscales à la source pour consultants seniors (+60 ans) et prestataires temporaires, avec extraction pour téléversement e-Hetra.
+  - **Ordre de Virement Bancaire Collectif :** État nominatif récapitulatif des paiements interbancaires avec arrondissement réglementaire aux 10 Ariary inférieurs.
+
+  **2. Déclarations Nominatives Trimestrielles (Consolidation M1 + M2 + M3) :**
+  - **Règle architecturale d'or (Immuabilité & Zéro Ressaisie) :** Une déclaration trimestrielle agrège et consolide les résultats financiers scellés et validés des trois mois civils constituant le trimestre (M1 + M2 + M3). Elle ne doit **JAMAIS recalculer la paie** et ne doit **JAMAIS exiger de ressaisie de montants**.
+  - **Périmètre des Déclarations Trimestrielles :**
+    - **DNTS CNaPS (Déclaration Nominative Trimestrielle des Salaires) :** Consolidation trimestrielle nominative ventilant pour chaque travailleur les salaires bruts réels et plafonnés (plafond mensuel légal 8x SME = 2 101 440 Ar appliqué mois par mois), ainsi que les cotisations 1% salariale et 13% patronale.
+    - **Contribution FMFP 1% Patronal :** Adossée à l'assiette brute trimestrielle plafonnée de la DNTS CNaPS.
+    - **Bordereaux Trimestriels des Organismes de Santé au Travail (OSTIE, OMSI, AMIT, FUNHECE) :** Consolidation nominative des assiettes et cotisations selon l'affiliation de chaque site/entité.
+  - **Gestion Paramétrique des Échéances & Divergence Réglementaire Documentée :**
+    > [!IMPORTANT]
+    > **Divergence constatée sur l'échéance du Troisième Trimestre (T3) :**
+    > Alors que le calendrier fiscal et social habituel retient le 31 octobre pour T3 (après le 30 avril pour T1 et le 31 juillet pour T2), les directives officielles du FMFP prévoient pour le 3ème trimestre une période de déclaration s'étendant du **1er au 30 novembre**.
+    > En conséquence, aucune échéance réglementaire ni périodicité d'organisme de santé n'est hardcodée comme constante dans le code : les dates limites et les règles de périodicité font l'objet d'un paramétrage légal configurable et auditable, assurant la conformité aux évolutions des textes officiels.
 
   - À la clôture ou rupture d'un contrat (démission, licenciement, rupture conventionnelle, fin de contrat, départ retraite), l'action rapide **« Établir le STC »** déverse automatiquement les données contractuelles (salarié, date de départ, motif de rupture, catégorie professionnelle).
   - Le moteur STC calcule instantanément les droits légaux : salaire au prorata du dernier mois, Indemnité Compensatrice de Congés Payés (**ICCP** = solde réel x salaire / diviseur légal), indemnité compensatrice de préavis (dispense payée), indemnité légale de licenciement selon l'ancienneté réelle, et déduction automatique du solde restant dû des prêts d'entreprise.

@@ -69,7 +69,9 @@ export default function SlideOver({
                         </div>
                     </div>
                     <button
+                        type="button"
                         onClick={onClose}
+                        aria-label="Fermer"
                         className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] shrink-0 rounded-none cursor-pointer"
                     >
                         <X size={16} />

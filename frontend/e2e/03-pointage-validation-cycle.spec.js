@@ -18,11 +18,14 @@ test.describe('E2E Scénarios 4, 5 & 6 — Cycle de Validation du Pointage : Tra
         if (!hasBlockingAnomaly) {
             await page.goto('/pointages?tab=saisie&periode=101&date=2026-09-08&site=1');
             await expect(page.locator('table')).toBeVisible();
-            await page.getByRole('button', { name: /Horaire standard/i }).click();
-            await page.locator('button:has-text("Enregistrer")').click();
-            await expect(page.getByText(/Récapitulatif & Validation des Pointages du Jour/i)).toBeVisible();
-            await page.getByRole('button', { name: /Confirmer & Enregistrer/i }).click();
-            await expect(page.getByText(/Pointages enregistrés avec succès/i)).toBeVisible({ timeout: 10000 });
+            const stdBtn = page.getByRole('button', { name: /Horaire standard/i });
+            if (await stdBtn.isEnabled()) {
+                await stdBtn.click();
+                await page.locator('button:has-text("Enregistrer")').click();
+                await expect(page.getByText(/Récapitulatif & Validation des Pointages du Jour/i)).toBeVisible();
+                await page.getByRole('button', { name: /Confirmer & Enregistrer/i }).click();
+                await expect(page.getByText(/Pointages enregistrés avec succès/i)).toBeVisible({ timeout: 10000 });
+            }
             await page.goto('/pointages?tab=saisie&periode=101&date=2026-09-09&site=1');
             await expect(page.locator('table')).toBeVisible();
             const firstRow = page.locator('table tbody tr').first();

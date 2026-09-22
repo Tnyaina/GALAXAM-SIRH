@@ -45,9 +45,9 @@ public record PayrollPeriodContextView(
         List<PayrollCampaignStep> campaignSteps,
 
         /**
-         * Sprint 2B : Vrai si des variables ont été modifiées ou ajoutées depuis le dernier
-         * calcul de paie, ou si le snapshot de pointage a changé. Dans ce cas, le frontend
-         * doit afficher un avertissement invitant à recalculer.
+         * Vrai si une source dont la version est traçable a été modifiée depuis le dernier
+         * calcul. La couverture actuelle porte sur les variables de campagne datées et
+         * les versions de snapshots Pointage rattachées aux bulletins.
          */
         boolean recalculationRequired,
 

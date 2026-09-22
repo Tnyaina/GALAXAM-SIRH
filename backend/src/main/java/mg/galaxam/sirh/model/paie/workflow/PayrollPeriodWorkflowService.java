@@ -128,7 +128,7 @@ public class PayrollPeriodWorkflowService {
             int recalcCount = computeRecalculationCount(selected.id(), selected.state(), connection);
             boolean recalcRequired = recalcCount > 0;
             String recalcReason = recalcRequired
-                    ? recalcCount + " variable(s) modifiée(s) depuis le dernier calcul de la campagne."
+                    ? recalcCount + " source(s) modifiée(s) depuis le dernier calcul de la campagne."
                     : null;
             return new PayrollPeriodContextView(
                     targetDate,
@@ -277,6 +277,8 @@ public class PayrollPeriodWorkflowService {
         int total = count(connection, "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ?", period.id());
         if (total == 0) return "PREPARATION";
 
+        if (computeRecalculationCount(period.id(), state, connection) > 0) return "CALCULATION";
+
         int valide = count(connection,
                 "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut IN ('VALIDE','CLOTURE')", period.id());
         if (valide == total) return "VALIDATION";
@@ -342,13 +344,13 @@ public class PayrollPeriodWorkflowService {
         else varState = "AVAILABLE";
         steps.add(new PayrollCampaignStep("VARIABLES", "Variables", varState, base + "/variables",
                 !paieOk ? frozenIssue : noIssues,
-                recalcNeeded && hasBulletins ? List.of(recalcCount + " variable(s) modifiée(s) après calcul.") : noIssues));
+                recalcNeeded && hasBulletins ? List.of(recalcCount + " source(s) modifiée(s) après calcul.") : noIssues));
 
         // 4. CALCULATION — lancement du moteur de calcul
         String calcState;
         if (!paieOk || !hasSnapshot) calcState = "BLOCKED";
         else if (cloturee) calcState = "LOCKED";
-        else if (recalcNeeded && hasBulletins) calcState = "WARNING";
+        else if (recalcNeeded && hasBulletins) calcState = "STALE";
         else if (hasBulletins) calcState = "COMPLETED";
         else calcState = "AVAILABLE";
         steps.add(new PayrollCampaignStep("CALCULATION", "Calcul", calcState, base + "/calcul",
@@ -359,6 +361,7 @@ public class PayrollPeriodWorkflowService {
         String ctrlState;
         if (!paieOk || !hasBulletins) ctrlState = "BLOCKED";
         else if (cloturee) ctrlState = "LOCKED";
+        else if (recalcNeeded) ctrlState = "STALE";
         else if (allValidated) ctrlState = "COMPLETED";
         else if (someCalcOrValid) ctrlState = "CURRENT";
         else ctrlState = "AVAILABLE";
@@ -367,13 +370,15 @@ public class PayrollPeriodWorkflowService {
 
         // 6. VALIDATION — approbation des bulletins
         String validState;
-        if (!paieOk || !hasBulletins) validState = "BLOCKED";
+        if (!paieOk || !hasBulletins || recalcNeeded) validState = "BLOCKED";
         else if (cloturee) validState = "LOCKED";
         else if (allValidated) validState = "CURRENT";
         else if (someCalcOrValid) validState = "AVAILABLE";
         else validState = "BLOCKED";
         steps.add(new PayrollCampaignStep("VALIDATION", "Validation", validState, base + "/validation",
-                !hasBulletins ? List.of("Aucun bulletin calculé.") : noIssues, noIssues));
+                !hasBulletins ? List.of("Aucun bulletin calculé.")
+                        : recalcNeeded ? List.of("Le calcul est obsolète. Recalculez avant validation.") : noIssues,
+                noIssues));
 
         // 7. OUTPUTS — bulletins de paie et exports réglementaires
         boolean outputAllowed = actions.getOrDefault("GENERATE_OUTPUT",
@@ -390,8 +395,8 @@ public class PayrollPeriodWorkflowService {
     }
 
     /**
-     * Sprint 2B : Compte le nombre de variables (paie_avance_acompte) ajoutées ou modifiées
-     * après le dernier calcul de bulletin pour la période donnée.
+     * Compte les sources de calcul devenues plus récentes que les bulletins : variables
+     * datées et snapshots Pointage versionnés.
      * Retourne 0 si le pointage n'est pas figé, si aucun bulletin n'existe, ou si aucune
      * modification n'est détectée.
      */
@@ -413,7 +418,32 @@ public class PayrollPeriodWorkflowService {
             statement.setInt(2, periodId);
             try (ResultSet result = statement.executeQuery()) {
                 result.next();
-                return result.getInt(1);
+                int changedVariables = result.getInt(1);
+                String staleSnapshotsSql = "SELECT COUNT(*) FROM bulletin_paie b "
+                        + "WHERE b.id_periode_paie = ? "
+                        + "AND b.statut IN ('CALCULE','VALIDE','CLOTURE') "
+                        + "AND b.id_snapshot_pointage IS NOT NULL "
+                        + "AND NOT EXISTS ("
+                        + "  SELECT 1 FROM pointage_cumul_periode p "
+                        + "  WHERE p.id_employe = b.id_employe "
+                        + "  AND p.id_periode_paie = b.id_periode_paie "
+                        + "  AND p.statut_snapshot IN ('GELE','CONSOMME') "
+                        + "  AND p.id_cumul = b.id_snapshot_pointage "
+                        + "  AND p.version_snapshot = b.version_snapshot_pointage "
+                        + "  AND p.version_snapshot = ("
+                        + "    SELECT MAX(latest.version_snapshot) FROM pointage_cumul_periode latest "
+                        + "    WHERE latest.id_employe = b.id_employe "
+                        + "    AND latest.id_periode_paie = b.id_periode_paie "
+                        + "    AND latest.statut_snapshot IN ('GELE','CONSOMME')"
+                        + "  )"
+                        + ")";
+                try (PreparedStatement snapshots = connection.prepareStatement(staleSnapshotsSql)) {
+                    snapshots.setInt(1, periodId);
+                    try (ResultSet stale = snapshots.executeQuery()) {
+                        stale.next();
+                        return changedVariables + stale.getInt(1);
+                    }
+                }
             }
         }
     }
@@ -715,6 +745,10 @@ public class PayrollPeriodWorkflowService {
 
         int calculated = count(connection,
                 "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut = 'CALCULE'", periodId);
+        if (action == PayrollAction.VALIDATE && calculated > 0
+                && computeRecalculationCount(periodId, state, connection) > 0) {
+            return ActionCapability.denied("PAYROLL_CALCULATION_STALE");
+        }
         return calculated > 0
                 ? ActionCapability.permit()
                 : ActionCapability.denied("PAYROLL_NOT_CALCULATED");

@@ -22,7 +22,7 @@ import { getErrorMessage } from '@/api/apiClient';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 
-export default function VariablesPaieTab({ idPeriodeActive }) {
+export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, mutationDisabledReason = '', onVariableChanged }) {
     const [variables, setVariables] = useState([]);
     const [loading, setLoading] = useState(false);
     const [typesMouvements, setTypesMouvements] = useState([]);
@@ -127,6 +127,7 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
             });
             setFeedbackMsg({ type: 'success', text: 'Variable de paie enregistrée avec succès.' });
             await chargerDonnees();
+            onVariableChanged?.();
         } catch (err) {
             setFeedbackMsg({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la création de la variable.') });
         } finally {
@@ -142,6 +143,7 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
             await paieService.supprimerAjustement(idAvance);
             setFeedbackMsg({ type: 'success', text: 'Variable supprimée avec succès.' });
             await chargerDonnees();
+            onVariableChanged?.();
         } catch (err) {
             setFeedbackMsg({
                 type: 'error',
@@ -253,6 +255,8 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
                     onClick={() => setIsModalOpen(true)}
                     iconLeft={<Plus size={14} />}
                     className="w-full sm:w-auto justify-center shrink-0"
+                    disabled={!canMutate}
+                    title={!canMutate ? mutationDisabledReason : undefined}
                 >
                     Nouvelle Variable
                 </Button>
@@ -266,9 +270,9 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
                     icon={SlidersHorizontal}
                     title="Aucune variable de paie"
                     description="Il n’y a aucun élément variable (prime, acompte, retenue) enregistré pour cette période ou ces filtres."
-                    actionLabel="Ajouter une variable"
-                    onAction={() => setIsModalOpen(true)}
-                    actionIcon={<Plus size={14} />}
+                    actionLabel={canMutate ? 'Ajouter une variable' : undefined}
+                    onAction={canMutate ? () => setIsModalOpen(true) : undefined}
+                    actionIcon={canMutate ? <Plus size={14} /> : undefined}
                 />
             ) : (
                 <Table aria-label="Variables de paie">
@@ -341,7 +345,7 @@ export default function VariablesPaieTab({ idPeriodeActive }) {
                                         </Badge>
                                     </Td>
                                     <Td className="text-right">
-                                        {v.statut !== 'IMPUTE_PAIE' && idAvance && (
+                                        {canMutate && v.statut !== 'IMPUTE_PAIE' && idAvance && (
                                             <button
                                                 type="button"
                                                 onClick={() => handleSupprimer(idAvance)}

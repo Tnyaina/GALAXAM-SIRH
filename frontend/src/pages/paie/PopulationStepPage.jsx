@@ -1,33 +1,48 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Users, AlertTriangle, UserX, CheckCircle2, ShieldAlert, Search } from 'lucide-react';
-import SEO from '@/components/system/SEO';
-import PayrollCampaignHeader from '@/components/paie/PayrollCampaignHeader';
-import PayrollNavigationFooter from '@/components/paie/PayrollNavigationFooter';
+import { Search, CheckCircle2, UserX, AlertTriangle } from 'lucide-react';
+import PayrollCampaignShell from '@/components/paie/PayrollCampaignShell';
 import Badge from '@/components/ui/data-display/Badge';
-import StatCard from '@/components/ui/data-display/StatCard';
 import Input from '@/components/ui/forms/Input';
-import Select from '@/components/ui/forms/Select';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
 import paieService from '@/api/paie/paieService';
 
+const DECISION_VARIANTS = {
+    INCLUS: 'success',
+    INCLUDED: 'success',
+    EXCLU: 'default',
+    EXCLUDED: 'default',
+    BLOQUE: 'danger',
+    BLOCKED: 'danger',
+    WARNED: 'warning',
+};
+
+const DECISION_LABELS = {
+    INCLUS: 'Inclus',
+    INCLUDED: 'Inclus',
+    EXCLU: 'Exclu',
+    EXCLUDED: 'Exclu',
+    BLOQUE: 'Bloqué',
+    BLOCKED: 'Bloqué',
+    WARNED: 'Avertissement',
+};
+
 /**
- * PopulationStepPage — Étape 2 : Population de paie.
- *
- * Affiche la liste des salariés inclus dans la campagne de paie active,
- * avec leur statut de décision (INCLUS, EXCLU, BLOQUÉ).
+ * PopulationStepPage — Étape 2 : Population de la campagne (V1 Full V3).
  */
 export default function PopulationStepPage() {
     const { periodId } = useParams();
     const navigate = useNavigate();
     const numericPeriodId = Number(periodId) || null;
-    const { periodes, context, loading: ctxLoading, refresh } = usePayrollCampaign(numericPeriodId);
+    const { periodes, context, loading: ctxLoading } = usePayrollCampaign(numericPeriodId);
 
     const [population, setPopulation] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterDecision, setFilterDecision] = useState('ALL');
 
     const loadPopulation = useCallback(async () => {
         if (!numericPeriodId) return;
@@ -44,23 +59,6 @@ export default function PopulationStepPage() {
     }, [numericPeriodId]);
 
     useEffect(() => { loadPopulation(); }, [loadPopulation]);
-
-    const decisionVariant = { INCLUS: 'success', INCLUDED: 'success', EXCLU: 'default', EXCLUDED: 'default', BLOQUE: 'danger', BLOCKED: 'danger', WARNED: 'warning' };
-    const decisionLabel = { INCLUS: 'Inclus', INCLUDED: 'Inclus', EXCLU: 'Exclu', EXCLUDED: 'Exclu', BLOQUE: 'Bloqué', BLOCKED: 'Bloqué', WARNED: 'Avertissement' };
-
-    const translateReason = (code) => {
-        if (!code) return '';
-        const map = {
-            CAREER_AMBIGUOUS: 'Configuration de carrière ambiguë ou affectations multiples',
-            NO_ACTIVE_CONTRACT: 'Aucun contrat de travail actif pour cette période',
-            CONTRACT_ENDED: 'Contrat clôturé avant le début de la période',
-            INACTIVE_EMPLOYEE: 'Salarié inactif dans le référentiel',
-        };
-        return map[code] || code;
-    };
-
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filterDecision, setFilterDecision] = useState('ALL');
 
     const blockedCount = population.filter(p => p.decision === 'BLOQUE' || p.decision === 'BLOCKED').length;
     const includedCount = population.filter(p => p.decision === 'INCLUS' || p.decision === 'INCLUDED').length;
@@ -80,175 +78,137 @@ export default function PopulationStepPage() {
             const q = searchQuery.toLowerCase().trim();
             const empName = (membre.employeeName || membre.nomPrenom || '').toLowerCase();
             const mat = (membre.matricule || '').toLowerCase();
-            const poste = (membre.intitulePoste || '').toLowerCase();
-            const site = (membre.nomSite || '').toLowerCase();
-            return empName.includes(q) || mat.includes(q) || poste.includes(q) || site.includes(q);
+            const contrat = (membre.typeContrat || membre.contrat || '').toLowerCase();
+            const site = (membre.nomSite || membre.site || '').toLowerCase();
+            return empName.includes(q) || mat.includes(q) || contrat.includes(q) || site.includes(q);
         });
     }, [population, filterDecision, searchQuery]);
 
+    const translateReason = (code) => {
+        if (!code) return 'Éligible';
+        const map = {
+            CAREER_AMBIGUOUS: 'Configuration de carrière ambiguë',
+            NO_ACTIVE_CONTRACT: 'Aucun contrat actif sur la période',
+            CONTRACT_ENDED: 'Contrat expiré avant la période',
+            INACTIVE_EMPLOYEE: 'Salarié inactif',
+        };
+        return map[code] || code;
+    };
+
     return (
-        <div className="flex-1 flex flex-col min-h-full">
-            <SEO
-                title="Population de paie | Paie GALAXAM SIRH"
-                description="Liste des salariés inclus dans la campagne de paie active."
-            />
-            <PayrollCampaignHeader
-                context={context}
-                periodes={periodes}
-                onSelectPeriod={(newId) => navigate(`/paie/periodes/${newId}/population`)}
-                activeStep="POPULATION"
-                loading={ctxLoading}
-                onRefresh={refresh}
-            />
-
-            <div className="flex-1 max-w-5xl mx-auto px-4 py-6 space-y-6 w-full">
-
-                {/* En-tête */}
-                <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-[var(--color-brand-600)] text-white flex items-center justify-center shrink-0 shadow-sm">
-                        <Users size={20} strokeWidth={2} />
+        <PayrollCampaignShell
+            title="Étape 2 — Population de la campagne"
+            subtitle="Vérification des salariés inclus et analyse des exclusions ou blocages."
+            activeStep="POPULATION"
+            context={context}
+            periodes={periodes}
+            loading={ctxLoading}
+            prevStep={{
+                label: 'Préparation',
+                destination: `/paie/periodes/${numericPeriodId}/preparation`,
+            }}
+            nextStep={{
+                label: 'Variables exceptionnelles',
+                destination: `/paie/periodes/${numericPeriodId}/variables`,
+                disabled: blockedCount > 0,
+                disabledReason: blockedCount > 0 ? `${blockedCount} salarié(s) bloqué(s) doivent être résolus.` : undefined,
+            }}
+        >
+            <div className="space-y-4">
+                {/* Barre de synthèse Population (V1 Full V3) */}
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 text-xs flex-wrap">
+                        <span className="flex items-center gap-1.5 font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
+                            <CheckCircle2 size={16} />
+                            {includedCount} inclus
+                        </span>
+                        <span className="flex items-center gap-1.5 font-medium text-[var(--color-fg-muted)]">
+                            <UserX size={16} />
+                            {excludedCount} exclu{excludedCount > 1 ? 's' : ''}
+                        </span>
+                        <span className={`flex items-center gap-1.5 font-bold ${blockedCount > 0 ? 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg-subtle)]'}`}>
+                            <AlertTriangle size={16} />
+                            {blockedCount} bloqué{blockedCount > 1 ? 's' : ''}
+                        </span>
                     </div>
-                    <div>
-                        <h1 className="text-base font-bold text-[var(--color-fg)] tracking-tight">
-                            Étape 2 — Population de paie
-                        </h1>
-                        <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-                            Salariés inclus dans la campagne selon les contrats actifs et affectations de carrière.
-                        </p>
-                    </div>
-                </div>
 
-                {/* KPIs via StatCard */}
-                {!loading && population.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <StatCard
-                            title="Salariés Inclus"
-                            value={includedCount}
-                            subtext="Éligibles au calcul de paie"
-                            icon={<CheckCircle2 size={18} />}
-                            color="success"
-                        />
-                        <StatCard
-                            title="Salariés Exclus"
-                            value={excludedCount}
-                            subtext="Hors champ de la campagne"
-                            icon={<Users size={18} />}
-                            color="neutral"
-                        />
-                        <StatCard
-                            title="Salariés Bloqués"
-                            value={blockedCount}
-                            subtext={blockedCount > 0 ? 'Exigent une régularisation de carrière' : 'Aucun blocage'}
-                            icon={<ShieldAlert size={18} />}
-                            color={blockedCount > 0 ? 'danger' : 'success'}
-                        />
-                    </div>
-                )}
-
-                {/* Alerte population bloquée */}
-                {blockedCount > 0 && (
-                    <div className="flex items-center gap-2.5 p-3.5 bg-[var(--color-danger-500)]/8 border border-[var(--color-danger-500)]/30">
-                        <AlertTriangle size={16} className="text-[var(--color-danger-500)] shrink-0" />
-                        <p className="text-xs text-[var(--color-fg)]">
-                            <span className="font-bold">{blockedCount} salarié(s) bloqué(s)</span> ne peuvent pas être calculés. 
-                            Vérifiez leur contrat et leur affectation dans le dossier collaborateur.
-                        </p>
-                    </div>
-                )}
-
-                {/* Barre de filtres et recherche */}
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex-1 min-w-[240px]">
-                        <Input
-                            id="population-search"
-                            type="search"
-                            placeholder="Rechercher par salarié, matricule, poste, site…"
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            iconLeft={<Search size={14} />}
-                            aria-label="Rechercher dans la population"
-                        />
-                    </div>
-                    <div className="w-56">
-                        <Select
+                    {/* Filtres & Recherche */}
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                        <div className="w-48">
+                            <Input
+                                placeholder="Rechercher salarié..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                iconLeft={<Search size={14} />}
+                                size="sm"
+                            />
+                        </div>
+                        <select
                             value={filterDecision}
-                            onChange={val => setFilterDecision(val)}
-                            options={[
-                                { value: 'ALL', label: `Tous les salariés (${population.length})` },
-                                { value: 'INCLUS', label: `Inclus (${includedCount})` },
-                                { value: 'EXCLU', label: `Exclus (${excludedCount})` },
-                                { value: 'BLOQUE', label: `Bloqués (${blockedCount})` },
-                            ]}
-                            aria-label="Filtrer par décision"
-                        />
+                            onChange={(e) => setFilterDecision(e.target.value)}
+                            className="text-xs bg-[var(--color-bg)] border border-[var(--color-border-subtle)] px-2.5 py-1.5 text-[var(--color-fg)] focus:outline-none"
+                        >
+                            <option value="ALL">Tous ({population.length})</option>
+                            <option value="INCLUS">Inclus ({includedCount})</option>
+                            <option value="EXCLU">Exclus ({excludedCount})</option>
+                            {blockedCount > 0 && <option value="BLOQUE">Bloqués ({blockedCount})</option>}
+                        </select>
                     </div>
                 </div>
 
-                {/* Table population */}
-                <div>
+                {/* Table compacte V1 Full V3 : Salarié, Matricule, Contrat, Site/filiale, Situation, Décision, Raison */}
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-x-auto">
                     {loading ? (
-                        <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
-                            <SkeletonTable rows={5} cols={4} />
-                        </div>
-                    ) : error ? (
-                        <div className="p-6 text-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
-                            <UserX size={24} className="text-[var(--color-danger-500)] mx-auto mb-2" />
-                            <p className="text-xs text-[var(--color-danger-500)]">{error}</p>
-                        </div>
+                        <div className="p-4"><SkeletonTable rows={5} cols={7} /></div>
                     ) : filteredPopulation.length === 0 ? (
-                        <div className="p-8 text-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
-                            <Users size={28} className="text-[var(--color-fg-subtle)] mx-auto mb-2 opacity-40" />
-                            <p className="text-sm text-[var(--color-fg-muted)]">
-                                {population.length === 0 ? 'Aucun salarié résolu pour cette période.' : 'Aucun résultat pour cette recherche ou ce filtre.'}
-                            </p>
-                            <p className="text-xs text-[var(--color-fg-subtle)] mt-1">
-                                {population.length === 0 
-                                    ? 'La population est calculée automatiquement selon les contrats actifs.'
-                                    : 'Modifiez vos critères de recherche pour réinitialiser la vue.'}
-                            </p>
+                        <div className="p-8 text-center text-xs text-[var(--color-fg-muted)]">
+                            Aucun salarié ne correspond aux critères de filtre.
                         </div>
                     ) : (
-                        <Table aria-label="Population de paie">
+                        <Table size="sm" hover>
                             <Thead>
                                 <Tr>
-                                    <Th>Matricule</Th>
                                     <Th>Salarié</Th>
-                                    <Th>Contrat & Régime</Th>
-                                    <Th className="text-right">Décision</Th>
+                                    <Th>Matricule</Th>
+                                    <Th>Contrat</Th>
+                                    <Th>Site / Filiale</Th>
+                                    <Th>Situation</Th>
+                                    <Th>Décision</Th>
+                                    <Th>Raison / Détail</Th>
                                 </Tr>
                             </Thead>
                             <Tbody>
-                                {filteredPopulation.map((membre, i) => {
-                                    const empId = membre.employeeId || membre.idEmploye;
-                                    const empName = membre.employeeName || membre.nomPrenom || (empId ? `Employé #${empId}` : `Salarié #${i + 1}`);
-                                    const contractInfo = [
-                                        membre.contractNumber ? `Contrat ${membre.contractNumber}` : null,
-                                        membre.regime ? `Régime ${membre.regime}` : null,
-                                        [membre.intitulePoste, membre.nomSite].filter(Boolean).join(' / ') || null
-                                    ].filter(Boolean).join(' • ') || 'Standard';
-
-                                    const reason = translateReason(membre.reasonCode || membre.raisonDecision);
+                                {filteredPopulation.map((p, idx) => {
+                                    const dec = p.decision || 'INCLUS';
+                                    const variant = DECISION_VARIANTS[dec] || 'default';
+                                    const label = DECISION_LABELS[dec] || dec;
 
                                     return (
-                                        <Tr key={empId || i}>
-                                            <Td className="font-mono text-[var(--color-fg-muted)] font-semibold">
-                                                {membre.matricule || '—'}
-                                            </Td>
+                                        <Tr key={p.idEmploye || idx}>
                                             <Td className="font-semibold text-[var(--color-fg)]">
-                                                {empName}
+                                                {p.employeeName || p.nomPrenom || '–'}
                                             </Td>
-                                            <Td className="text-[var(--color-fg-muted)]">
-                                                {contractInfo}
+                                            <Td className="font-mono text-xs text-[var(--color-fg-subtle)]">
+                                                {p.matricule || '–'}
                                             </Td>
-                                            <Td className="text-right">
-                                                <Badge variant={decisionVariant[membre.decision] || 'default'} size="xs" dot>
-                                                    {decisionLabel[membre.decision] || membre.decision || '—'}
+                                            <Td className="text-xs">
+                                                <Badge variant="secondary" size="sm">
+                                                    {p.typeContrat || p.contrat || 'CDI'}
                                                 </Badge>
-                                                {membre.decision === 'BLOQUE' && reason && (
-                                                    <p className="text-[10px] text-[var(--color-danger-500)] mt-0.5">
-                                                        {reason}
-                                                    </p>
-                                                )}
+                                            </Td>
+                                            <Td className="text-xs text-[var(--color-fg-muted)]">
+                                                {p.nomSite || p.site || '–'}
+                                            </Td>
+                                            <Td className="text-xs">
+                                                {p.statutEmploye || p.situation || 'Actif'}
+                                            </Td>
+                                            <Td>
+                                                <Badge variant={variant} size="sm">
+                                                    {label}
+                                                </Badge>
+                                            </Td>
+                                            <Td className="text-xs text-[var(--color-fg-muted)] max-w-xs truncate" title={p.motif || p.reason}>
+                                                {translateReason(p.reason || p.motif)}
                                             </Td>
                                         </Tr>
                                     );
@@ -258,17 +218,6 @@ export default function PopulationStepPage() {
                     )}
                 </div>
             </div>
-
-            <PayrollNavigationFooter
-                prevStep={{
-                    label: 'Préparation',
-                    destination: `/paie/periodes/${numericPeriodId}/preparation`,
-                }}
-                nextStep={{
-                    label: 'Variables de paie',
-                    destination: `/paie/periodes/${numericPeriodId}/variables`,
-                }}
-            />
-        </div>
+        </PayrollCampaignShell>
     );
 }
