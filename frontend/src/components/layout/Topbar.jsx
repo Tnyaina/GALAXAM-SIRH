@@ -18,7 +18,7 @@ export default function Topbar({ onMenuClick, title}) {
     };
 
     return (
-        <header className="h-12 shrink-0 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] flex items-center gap-3 px-4">
+        <header className="h-12 shrink-0 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] flex items-center gap-3 px-5 sm:px-6 lg:px-8">
             <Button
                 variant="ghost"
                 size="xs"

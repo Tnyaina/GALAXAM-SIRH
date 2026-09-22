@@ -3,7 +3,7 @@ import { CalendarDays, RefreshCcw, AlertTriangle, LayoutDashboard, Users } from 
 import { useNavigate } from 'react-router-dom';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
-import Select from '@/components/ui/forms/Select';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import PayrollPeriodStepper from '@/components/paie/PayrollPeriodStepper';
 import PayrollIssuePanel from '@/components/paie/PayrollIssuePanel';
 
@@ -107,12 +107,11 @@ export default function PayrollCampaignHeader({
                     <div className="min-w-0 flex items-center gap-2.5 flex-wrap">
                         {/* Sélecteur de période réactif */}
                         {periodOptions.length > 0 ? (
-                            <Select
+                            <SearchSelect
                                 value={activePeriodId ? String(activePeriodId) : ''}
                                 onChange={(val) => onSelectPeriod && onSelectPeriod(Number(val))}
                                 options={periodOptions}
-                                className="text-xs font-semibold max-w-xs"
-                                aria-label="Sélectionner une période"
+                                className="w-64"
                             />
                         ) : (
                             <h2 className="text-sm font-bold text-[var(--color-fg)] truncate">

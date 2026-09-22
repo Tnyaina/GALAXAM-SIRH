@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     UserMinus, ShieldAlert, X, FileSignature, Eye, EyeOff, Calendar, AlertOctagon,
-    Clock, Calculator, ArrowRight, CheckCircle2, HelpCircle, Coins, CalendarDays
+    Clock, Calculator, ArrowRight, CheckCircle2, HelpCircle, CalendarDays
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea, Select } from '@/components/ui/forms/Input';
@@ -295,7 +295,7 @@ export default function RuptureContratModal({
     // Détermination de la durée en mois pour le calcul STC
     const { dureeInfo, moisIndemnite, libelleDuree } = useMemo(() => {
         const d = DUREES_PREAVIS.find(item => item.key === formData.dureePreavisKey) || DUREES_PREAVIS[2];
-        let mois = 0;
+        let mois;
         let libelle = d.label;
 
         if (formData.dureePreavisKey === 'CUSTOM') {

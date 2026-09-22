@@ -15,7 +15,7 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import { fmtDateInput } from '@/utils/paieUtils';
 
 // ---- Helpers ----
-const fmtAr = (v) => v != null ? Number(v).toLocaleString('fr-MG') + ' Ar' : '—';
+const fmtAr = (v) => v != null && v !== '' ? Number(v).toLocaleString('fr-MG', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' Ar' : '—';
 const fmtNb = (v, dec = 2) => v != null ? Number(v).toFixed(dec) : '—';
 const parseSafe = (v, fallback = 0) => { const n = parseFloat(v); return isNaN(n) ? fallback : n; };
 
@@ -247,7 +247,7 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
                                         <input
                                             type="number"
                                             min="0"
-                                            step="1"
+                                            step="0.01"
                                             required
                                             value={t.trancheMin}
                                             disabled={idx === 0}
@@ -258,8 +258,8 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
                                     <Td>
                                         <input
                                             type="number"
-                                            min={parseFloat(t.trancheMin) + 1 || 0}
-                                            step="1"
+                                            min={parseFloat(t.trancheMin) + 0.01 || 0}
+                                            step="0.01"
                                             placeholder={isLast ? "Sans plafond (∞)" : "Requis"}
                                             value={t.trancheMax}
                                             onChange={e => handleFieldChange(idx, 'trancheMax', e.target.value)}

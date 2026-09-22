@@ -195,7 +195,9 @@ public class PeriodePaieController {
                     "Le code, la date de début et la date de fin sont requis.");
         }
 
-        String statutInitial = (String) payload.getOrDefault("statutCode", "EN_COURS");
+        // Une création ne rend jamais la saisie modifiable par elle-même :
+        // l'ouverture explicite (OPEN) constitue la première transition auditée.
+        String statutInitial = (String) payload.getOrDefault("statutCode", "BROUILLON");
         if (!"BROUILLON".equals(statutInitial) && !"EN_COURS".equals(statutInitial)) {
             statutInitial = "EN_COURS";
         }

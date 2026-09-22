@@ -30,6 +30,7 @@ import StatCard from '@/components/ui/data-display/StatCard';
 import { Table, Thead, Th, Tbody, Tr, Td, TableEmpty } from '@/components/ui/data-display/Table';
 import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 
 /**
@@ -367,17 +368,18 @@ export default function CockpitPaieTab({
                             <span className="text-xs font-semibold text-[var(--color-fg-muted)]">
                                 Exercice :
                             </span>
-                            <Select
+                            <SearchSelect
                                 value={String(idPeriodeActive || '')}
                                 onChange={(val) => setIdPeriodeActive(val ? Number(val) : null)}
                                 options={[
                                     { value: '', label: 'Sélectionnez une période' },
                                     ...periodes.map(p => ({
                                         value: String(p.idPeriodePaie || p.id_periode_paie),
-                                        label: `${p.code} (${p.codeStatut || p.statut || 'EN_COURS'})`
+                                        label: [p.code, p.libelle].filter(Boolean).join(' — ') || String(p.idPeriodePaie || p.id_periode_paie),
+                                        sublabel: p.codeStatut || p.statutCode || p.statut || 'EN_COURS'
                                     }))
                                 ]}
-                                className="text-xs font-bold font-mono h-[28px] min-w-[200px]"
+                                className="w-64"
                             />
                         </div>
                         <p className="text-xs text-[var(--color-fg-muted)] mt-1 font-mono">

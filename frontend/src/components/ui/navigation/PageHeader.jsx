@@ -29,7 +29,7 @@ export default function PageHeader({
             ) : null}
 
             {/* 2. Bloc En-tête Format Compact Galaxam */}
-            <div className="relative overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-xs p-3.5 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+            <div className="relative overflow-visible bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-xs p-3.5 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3.5">
                 {/* Décoration d'arrière-plan discrète */}
                 <div className="absolute top-0 right-0 w-48 h-48 bg-[var(--color-brand-500)]/5 rounded-none blur-2xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
 
@@ -58,7 +58,7 @@ export default function PageHeader({
 
                 {/* 3. Boutons d'Action & Outils */}
                 {actions && (
-                    <div className="relative flex flex-wrap items-center gap-2 shrink-0">
+                    <div className="relative z-10 flex flex-wrap items-center gap-2 shrink-0">
                         {actions}
                     </div>
                 )}

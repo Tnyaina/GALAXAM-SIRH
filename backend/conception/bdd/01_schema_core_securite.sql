@@ -194,12 +194,9 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 -- Paie (Consolidé Sprint UX Paie 1 : sous-menus contextuels sans doublons de stepper)
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
 ('PAIE_CENTRE',       'Centre de paie',          'LayoutDashboard',   '/paie',                           1, 2, 'PAIE_MODULE'),
-('PAIE_CAMPAGNE',     'Campagne active',         'CalendarRange',     '/paie/periodes',                  2, 2, 'PAIE_MODULE'),
 ('PAIE_ACOMPTES',     'Acomptes & avances',      'SlidersHorizontal', '/paie/acomptes-avances',           3, 2, 'PAIE_MODULE'),
-('PAIE_HISTORIQUE',   'Historique',              'History',           '/paie/historique',                4, 2, 'PAIE_MODULE'),
-('PAIE_DECLARATIONS', 'Déclarations & sorties',  'FileText',          '/paie/declarations',              5, 2, 'PAIE_MODULE'),
-('PAIE_PARAMETRES',   'Administration',          'Settings',          '/admin/parametres?module=paie',   6, 2, 'PAIE_MODULE');
-
+('PAIE_HISTORIQUE',   'Archives des cycles',     'History',           '/paie?tab=periodes',              4, 2, 'PAIE_MODULE'),
+('PAIE_DECLARATIONS', 'Déclarations & sorties',  'FileText',          '/paie/declarations',              5, 2, 'PAIE_MODULE');
 -- Habilitations Menus (Role x Menu) (Archives Finales Sprint 11)
 -- ROLE_ADMIN (id_role = 1) : Accès complet
 INSERT INTO role_menu (id_role, id_menu) VALUES
@@ -231,7 +228,10 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 INSERT INTO role_menu (id_role, id_menu) VALUES
 (2, 'POINTAGE'),
 (2, 'POINTAGE_JOURNALIER'),
-(2, 'POINTAGE_SUIVI');
+(2, 'POINTAGE_SUIVI'),
+-- La page est accessible pour consultation et préparation ; les commandes
+-- sensibles restent filtrées par droit_validation côté API et interface.
+(2, 'POINTAGE_VALIDATION');
 
 -- Paramètres Globaux Opérationnels RH (Les constantes légales sont portées exclusivement par paie_config_legale)
 INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, description, date_debut, date_fin, est_actif, est_desactivable) VALUES

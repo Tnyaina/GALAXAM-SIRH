@@ -277,7 +277,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
         const clean = p.ecart.trim();
         if (clean.includes('h')) {
             const sign = clean.startsWith('-') ? -1 : 1;
-            const parts = clean.replace(/[+\-]/g, '').split('h');
+            const parts = clean.replace(/[+-]/g, '').split('h');
             const h = parseInt(parts[0], 10) || 0;
             const m = parseInt(parts[1], 10) || 0;
             return acc + sign * (h * 60 + m);

@@ -20,9 +20,9 @@ DELETE FROM ref_menu WHERE id_menu IN ('PAIE_REVUE', 'PAIE_VARIABLES', 'PAIE_EXP
 -- 2. Mise à jour / insertion des sous-menus canoniques V1 Full V3 de PAIE_MODULE
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
     ('PAIE_CENTRE',       'Centre de paie',          'LayoutDashboard',   '/paie',                           1, 2, 'PAIE_MODULE'),
-    ('PAIE_CAMPAGNE',     'Campagne active',         'CalendarRange',     '/paie/periodes',                  2, 2, 'PAIE_MODULE'),
+    ('PAIE_CAMPAGNE',     'Cycles de paie',          'CalendarRange',     '/paie?tab=periodes',              2, 2, 'PAIE_MODULE'),
     ('PAIE_ACOMPTES',     'Acomptes & avances',      'SlidersHorizontal', '/paie/acomptes-avances',           3, 2, 'PAIE_MODULE'),
-    ('PAIE_HISTORIQUE',   'Historique',              'History',           '/paie/historique',                4, 2, 'PAIE_MODULE'),
+    ('PAIE_HISTORIQUE',   'Archives des cycles',     'History',           '/paie?tab=periodes',              4, 2, 'PAIE_MODULE'),
     ('PAIE_DECLARATIONS', 'Déclarations & sorties',  'FileText',          '/paie/declarations',              5, 2, 'PAIE_MODULE'),
     ('PAIE_PARAMETRES',   'Administration',          'Settings',          '/admin/parametres?module=paie',   6, 2, 'PAIE_MODULE')
 ON CONFLICT (id_menu) DO UPDATE SET

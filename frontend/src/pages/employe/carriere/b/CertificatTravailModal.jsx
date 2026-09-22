@@ -261,7 +261,7 @@ export default function CertificatTravailModal({
                                     {emp.dateNaissance && <>, né(e) le <strong>{fmtDateFr(emp.dateNaissance)}</strong></>}
                                     {emp.lieuNaissance && <> à <strong>{emp.lieuNaissance}</strong></>}
                                     {emp.adresse && <>, demeurant {emp.adresse}</>}
-                                    {Boolean(emp.dateNaissance || emp.lieuNaissance || emp.adresse) ? ', a été employé(e)' : ' a été employé(e)'} au sein de notre entreprise du <strong>{dateEntreeTexte}</strong> au <strong>{dateSortieTexte}</strong>, soit une durée totale de <strong>{dureeTotaleTexte}</strong>, dans le cadre d'un contrat de travail à <strong>{typeContratLib}</strong>.
+                                    {(emp.dateNaissance || emp.lieuNaissance || emp.adresse) ? ', a été employé(e)' : ' a été employé(e)'} au sein de notre entreprise du <strong>{dateEntreeTexte}</strong> au <strong>{dateSortieTexte}</strong>, soit une durée totale de <strong>{dureeTotaleTexte}</strong>, dans le cadre d'un contrat de travail à <strong>{typeContratLib}</strong>.
                                 </p>
 
                                 {(postesOccupes.length > 0 || libFonction) && (

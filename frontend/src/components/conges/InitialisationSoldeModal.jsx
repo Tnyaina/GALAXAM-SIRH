@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calendar, Coins, History, Info, AlertTriangle, CheckCircle, FileSpreadsheet } from 'lucide-react';
+import { Calendar, History, AlertTriangle, CheckCircle } from 'lucide-react';
 import congeService from '@/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';

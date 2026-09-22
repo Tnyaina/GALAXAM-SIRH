@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-    FileText, Download, Lock, CheckCircle2,
+    FileText, Download, Lock,
     Users, CreditCard, BookOpen, Receipt, Building2,
-    Calculator, Shield, AlertCircle
+    Calculator, Shield
 } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import PayrollCampaignShell from '@/components/paie/PayrollCampaignShell';

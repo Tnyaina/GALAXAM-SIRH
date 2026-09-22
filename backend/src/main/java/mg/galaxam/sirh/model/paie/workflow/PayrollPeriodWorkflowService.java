@@ -241,8 +241,9 @@ public class PayrollPeriodWorkflowService {
      * <ul>
      *   <li>EDIT_POINTAGE disponible → /pointages?tab=saisie (RH en saisie)</li>
      *   <li>SUBMIT disponible → /pointages?tab=validation (Agent en cours de clôture)</li>
-     *   <li>APPROVE disponible → /paie/periods/{id}/overview (DAF validation)</li>
-     *   <li>CLOSE disponible → /paie/periods/{id}/overview (clôture)</li>
+     *   <li>APPROVE disponible → validation Pointage</li>
+     *   <li>Pointage figé → préparation Paie</li>
+     *   <li>Paie validée / clôturée → sorties de Paie</li>
      *   <li>aucune action → null</li>
      * </ul>
      */
@@ -256,22 +257,30 @@ public class PayrollPeriodWorkflowService {
             return new PayrollPeriodContextView.NextStep("TRANSMISSION", "/pointages?tab=validation");
         }
         if (actions.getOrDefault("APPROVE", ActionCapability.denied("NA")).allowed()) {
-            return new PayrollPeriodContextView.NextStep("VALIDATION", "/paie/periods/" + periodId + "/overview");
+            return new PayrollPeriodContextView.NextStep("VALIDATION_POINTAGE", "/pointages?tab=validation");
         }
         if (actions.getOrDefault("CLOSE", ActionCapability.denied("NA")).allowed()) {
-            return new PayrollPeriodContextView.NextStep("CLOTURE", "/paie/periods/" + periodId + "/overview");
+            return new PayrollPeriodContextView.NextStep("CLOTURE", "/paie/periodes/" + periodId + "/sorties");
         }
-        // Période clôturée ou sans action disponible
-        return new PayrollPeriodContextView.NextStep("COCKPIT", "/paie/periods/" + periodId + "/overview");
+        if ("VALIDEE".equals(state)) {
+            return new PayrollPeriodContextView.NextStep("PREPARATION_PAIE", "/paie/periodes/" + periodId + "/preparation");
+        }
+        return new PayrollPeriodContextView.NextStep(
+                "CLOTUREE".equals(state) || "PAIE_VALIDEE".equals(state) ? "SORTIES" : "POINTAGE",
+                "CLOTUREE".equals(state) || "PAIE_VALIDEE".equals(state)
+                        ? "/paie/periodes/" + periodId + "/sorties"
+                        : "/pointages?tab=saisie");
     }
 
     /**
      * Sprint 2B : Calcule le code de l'étape courante dans le workflow de campagne.
-     * <p>Retourne {@code null} si le pointage n'est pas encore figé.
+     * <p>Le cycle commence au Pointage : le front peut donc toujours orienter
+     * l'utilisateur vers l'étape suivante, même avant le gel DAF.
      */
     private String computeCurrentStep(PeriodState period, Connection connection) throws SQLException {
         String state = period.state();
-        if (!List.of("VALIDEE", "PAIE_VALIDEE", "CLOTUREE").contains(state)) return null;
+        if (List.of("BROUILLON", "EN_COURS").contains(state)) return "POINTAGE";
+        if (List.of("A_VALIDER", "TRANSMIS_DAF").contains(state)) return "VALIDATION_POINTAGE";
         if ("CLOTUREE".equals(state)) return "OUTPUTS";
 
         int total = count(connection, "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ?", period.id());
@@ -322,6 +331,24 @@ public class PayrollPeriodWorkflowService {
         List<String> frozenIssue = List.of("Pointage non figé — en attente de validation DAF.");
 
         List<PayrollCampaignStep> steps = new java.util.ArrayList<>();
+
+        // Le workflow est un cycle unique : Pointage puis Paie. Ces deux étapes
+        // ne sont pas des raccourcis UI, elles suivent le statut canonique de la période.
+        boolean pointageComplete = List.of("VALIDEE", "PAIE_VALIDEE", "CLOTUREE").contains(state);
+        boolean pointageInValidation = List.of("A_VALIDER", "TRANSMIS_DAF").contains(state);
+        String pointageState = pointageComplete ? "COMPLETED"
+                : pointageInValidation ? "COMPLETED"
+                : "EN_COURS".equals(state) ? "CURRENT" : "AVAILABLE";
+        steps.add(new PayrollCampaignStep("POINTAGE", "Pointage — Saisie", pointageState,
+                "/pointages?tab=saisie", noIssues, noIssues));
+
+        String pointageValidationState = pointageComplete ? "COMPLETED"
+                : pointageInValidation ? "CURRENT"
+                : "BROUILLON".equals(state) ? "BLOCKED" : "AVAILABLE";
+        steps.add(new PayrollCampaignStep("VALIDATION_POINTAGE", "Validation Pointage", pointageValidationState,
+                "/pointages?tab=validation",
+                "BROUILLON".equals(state) ? List.of("Ouvrez d’abord la période à la saisie.") : noIssues,
+                noIssues));
 
         // 1. PREPARATION — vérification des prérequis
         steps.add(new PayrollCampaignStep("PREPARATION", "Préparation",

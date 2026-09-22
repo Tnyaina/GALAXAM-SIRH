@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Search, CheckCircle2, UserX, AlertTriangle } from 'lucide-react';
 import PayrollCampaignShell from '@/components/paie/PayrollCampaignShell';
 import Badge from '@/components/ui/data-display/Badge';
@@ -34,25 +34,22 @@ const DECISION_LABELS = {
  */
 export default function PopulationStepPage() {
     const { periodId } = useParams();
-    const navigate = useNavigate();
     const numericPeriodId = Number(periodId) || null;
     const { periodes, context, loading: ctxLoading } = usePayrollCampaign(numericPeriodId);
 
     const [population, setPopulation] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterDecision, setFilterDecision] = useState('ALL');
 
     const loadPopulation = useCallback(async () => {
         if (!numericPeriodId) return;
         setLoading(true);
-        setError(null);
         try {
             const cockpit = await paieService.getCockpitPeriode(numericPeriodId, { light: true });
             setPopulation(Array.isArray(cockpit?.population) ? cockpit.population : []);
-        } catch (err) {
-            setError(err?.response?.data?.message || 'Erreur lors du chargement de la population.');
+        } catch {
+            setPopulation([]);
         } finally {
             setLoading(false);
         }

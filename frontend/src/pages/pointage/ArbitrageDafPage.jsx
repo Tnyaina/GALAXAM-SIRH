@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-    CheckCircle, XCircle, Lock, AlertTriangle, CheckCircle2, Clock,
+    CheckCircle, XCircle, AlertTriangle, CheckCircle2, Clock,
     Users, TrendingUp, Moon, Award, Search,
     Edit3, Calendar, Building2, X, GanttChartSquare,
     LayoutGrid, ShieldCheck, Banknote, RefreshCw, Scale, Eye, Send
@@ -9,6 +9,7 @@ import {
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
 import Select from '@/components/ui/forms/Select';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Input, { Textarea } from '@/components/ui/forms/Input';
 import Pagination from '@/components/ui/navigation/Pagination';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
@@ -351,7 +352,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         {/* Période */}
                         <div className="flex items-center gap-1.5 min-w-[210px]">
                             <Calendar size={14} className="text-[var(--color-brand-500)] shrink-0" />
-                            <Select
+                            <SearchSelect
                                 value={selectedPeriode}
                                 onChange={(val) => {
                                     setSelectedPeriode(val);
@@ -364,10 +365,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 }}
                                 options={periodes.map(p => ({
                                     value: String(p.idPeriodePaie || p.id),
-                                    label: p.libelle || p.code
+                                    label: [p.code, p.libelle].filter(Boolean).join(' — '),
+                                    sublabel: p.statutCode || p.statut || ''
                                 }))}
                                 placeholder="Sélectionner une période..."
-                                className="text-xs h-[32px] font-semibold"
+                                className="w-full"
                             />
                         </div>
 

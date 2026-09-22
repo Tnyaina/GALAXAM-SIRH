@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
     Banknote, CalendarRange, ArrowRight, FileText,
     DollarSign, AlertTriangle, ShieldCheck, SlidersHorizontal,
-    Clock, CheckCircle2, ChevronRight, Settings, Users, Calculator
+    CheckCircle2, ChevronRight, Calculator
 } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import Badge from '@/components/ui/data-display/Badge';
@@ -12,6 +12,7 @@ import SearchSelect from '@/components/ui/forms/SearchSelect';
 import StatCard from '@/components/ui/data-display/StatCard';
 import PayrollPeriodStepper from '@/components/paie/PayrollPeriodStepper';
 import PayrollIssueBadge from '@/components/paie/PayrollIssueBadge';
+import PageHeader from '@/components/ui/navigation/PageHeader';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { usePayrollCampaign } from '@/hooks/paie/usePayrollCampaign';
 import paieService from '@/api/paie/paieService';
@@ -42,7 +43,7 @@ const STATUT_VARIANTS = {
  * - Quelle est la prochaine action logique (« À FAIRE MAINTENANT ») ?
  */
 export default function GestionPaiePage() {
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const rawTab = searchParams.get('tab') || 'centre';
     const requestedPeriodId = Number(searchParams.get('periodId')) || null;
@@ -62,14 +63,14 @@ export default function GestionPaiePage() {
         }
     }, [rawTab, navigate, requestedPeriodId]);
 
-    const activePeriod = context?.selectedPeriod || context?.currentPeriod;
+    const activePeriod = context?.selectedPeriod || context?.currentPeriod || periodes[0] || null;
+    const isCurrentBusinessPeriod = Boolean(context?.currentPeriod?.id && context.currentPeriod.id === activePeriod?.id);
     const campaignSteps = context?.campaignSteps || [];
     const currentStepCode = context?.currentStep;
     const currentStepObj = campaignSteps.find(s => s.code === currentStepCode);
     const recalcRequired = context?.recalculationRequired === true;
     const recalcReason = context?.recalculationReason;
     const blockers = context?.issues || [];
-    const warnings = context?.warnings || [];
 
     // Charger les KPI réels
     const loadPeriodKpis = useCallback(async (periodId) => {
@@ -226,44 +227,40 @@ export default function GestionPaiePage() {
     }
 
     return (
-        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans pb-12 px-2 sm:px-4">
+        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-12 px-2 sm:px-4">
             <SEO
                 title="Centre de Paie | GALAXAM SIRH"
                 description="Tableau de bord opérationnel de gestion de la paie, campagnes actives et déclarations."
             />
 
-            {/* HEADER */}
-            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[var(--color-border-subtle)]">
-                <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">
-                        Paie & Rémunération
-                    </span>
-                    <h1 className="text-2xl font-bold font-serif text-[var(--color-fg)]">Centre de paie</h1>
-                    <p className="text-xs text-[var(--color-fg-muted)]">
-                        Supervision opérationnelle, campagnes actives, acomptes et sorties réglementaires.
-                    </p>
-                </div>
-
-                {/* Sélecteur de période avec SearchSelect */}
-                {periodes.length > 1 && (
-                    <div className="flex items-center gap-2 min-w-[220px] max-w-xs">
+            <PageHeader
+                title="Centre de paie"
+                subtitle="Supervision opérationnelle, campagnes actives, acomptes et sorties réglementaires."
+                icon={Banknote}
+                breadcrumbs={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Paie & Rémunération' }]}
+                actions={periodes.length > 0 && (
+                    <div className="flex items-center gap-2 min-w-[260px]">
+                        <CalendarRange size={16} className="text-[var(--color-brand-600)] shrink-0" aria-hidden="true" />
                         <SearchSelect
-                            placeholder="Sélectionner une période..."
-                            value={activePeriod?.id ? String(activePeriod.id) : ''}
-                            onChange={(val) => selectPeriode(Number(val))}
+                            placeholder="Rechercher une période…"
+                            value={activePeriod?.id ? String(activePeriod.id) : String(periodes[0]?.idPeriodePaie || periodes[0]?.id || '')}
+                            onChange={(val) => val && selectPeriode(Number(val))}
                             options={periodes.map(p => {
                                 const pId = p.idPeriodePaie || p.id_periode_paie || p.id;
                                 const statut = p.statutCode || p.statut || p.state || 'EN_COURS';
                                 return {
                                     value: String(pId),
-                                    label: p.code || p.libelle || String(pId),
+                                    // SearchSelect recherche dans label et sublabel : exposer
+                                    // systématiquement code + libellé, pas l'un au détriment de l'autre.
+                                    label: [p.code, p.libelle].filter(Boolean).join(' — ') || String(pId),
                                     sublabel: statut,
                                 };
                             })}
+                            className="w-full"
                         />
                     </div>
                 )}
-            </header>
+            />
 
             {/* CARTE CAMPAGNE ACTIVE (V1 Full V3) */}
             <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 sm:p-6 shadow-xs relative">
@@ -271,9 +268,9 @@ export default function GestionPaiePage() {
                     <div className="space-y-2">
                         <div className="flex items-center gap-3 flex-wrap">
                             <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-[var(--color-brand-500)]/15 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]">
-                                Campagne en cours
+                                {isCurrentBusinessPeriod ? 'Campagne en cours' : activePeriod ? 'Période sélectionnée' : 'Campagne en cours'}
                             </span>
-                            <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[var(--color-fg)] tracking-tight">
+                            <h2 className="text-2xl sm:text-3xl font-bold text-[var(--color-fg)] tracking-tight">
                                 {activePeriod?.code || activePeriod?.label || 'Aucune campagne active'}
                             </h2>
                             {activePeriod?.state && (
@@ -435,7 +432,7 @@ export default function GestionPaiePage() {
 
                     {/* Historique des Périodes */}
                     <div
-                        onClick={() => navigate('/paie/periodes')}
+                        onClick={() => navigate('/paie?tab=periodes')}
                         className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 cursor-pointer hover:border-[var(--color-brand-500)] hover:shadow-xs transition-all group"
                     >
                         <div className="flex items-center justify-between">

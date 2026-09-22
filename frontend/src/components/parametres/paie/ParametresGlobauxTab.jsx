@@ -241,7 +241,7 @@ function formatValeurAffichage(code, valeur) {
     if (meta?.unite) {
         if (meta.unite === 'Ar') {
             const num = Number(v);
-            return isNaN(num) ? `${v} Ar` : `${num.toLocaleString('fr-MG')} Ar`;
+            return isNaN(num) ? `${v} Ar` : `${num.toLocaleString('fr-MG', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Ar`;
         }
         if (meta.unite === 'heure') return v;
         return `${v} ${meta.unite}`;
@@ -250,7 +250,7 @@ function formatValeurAffichage(code, valeur) {
     const c = String(code).toUpperCase();
     if (c.includes('MONTANT') || c.includes('REDUCTION')) {
         const num = Number(v);
-        return isNaN(num) ? `${v} Ar` : `${num.toLocaleString('fr-MG')} Ar`;
+        return isNaN(num) ? `${v} Ar` : `${num.toLocaleString('fr-MG', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Ar`;
     }
     if (c.includes('HEURE') || (c.includes('DUREE') && !c.includes('MOIS') && !c.includes('JOUR'))) {
         return `${v} h`;
@@ -274,7 +274,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
     const [selectedStatut, setSelectedStatut] = useState('EN_VIGUEUR'); // Par défaut : uniquement les paramètres ayant pris effet (En vigueur)
     const [selectedNature, setSelectedNature] = useState('ALL'); // ALL, RULES, SYSTEM
     const [selectedEtatActif, setSelectedEtatActif] = useState('ALL'); // ALL, ACTIF, INACTIF
-    const [viewMode, setViewMode] = useState('CARDS'); // CARDS, TABLE
+    const [viewMode, setViewMode] = useState('TABLE'); // TABLE par défaut, CARDS disponible
 
     // Actions
     const [togglingId, setTogglingId] = useState(null);
@@ -1012,119 +1012,190 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                 </div>
             )}
 
-            {/* MODALE D'ÉDITION / NOUVELLE VERSION */}
-            <Modal
-                isOpen={showModal}
-                onClose={() => setShowModal(false)}
-                title={isNouvelleVersion ? `Programmer Nouvelle Version : ${formData.codeParametre}` : `Modifier le Paramètre : ${formData.codeParametre}`}
-                size="md"
-                footer={
-                    <>
-                        <Button type="button" onClick={() => setShowModal(false)} variant="ghost" size="sm" disabled={submitting}>
-                            Annuler
-                        </Button>
-                        <Button type="submit" form="param-global-form" variant="primary" size="sm" loading={submitting}>
-                            {isNouvelleVersion ? "Enregistrer Nouvelle Version" : "Enregistrer Modifications"}
-                        </Button>
-                    </>
-                }
-            >
-                <form id="param-global-form" onSubmit={handleSave} className="space-y-4">
-                    {modalError && <Alert type="error" message={modalError} />}
+            {/* MODALE D'ÉDITION / NOUVELLE VERSION AGRANDIE */}
+            {(() => {
+                const meta = PARAMETRE_METADATA[formData.codeParametre];
+                const ModalIcon = meta?.icone || Sliders;
+                const titreHumain = meta?.titre || formData.codeParametre;
 
-                    {/* Encadré d'information sur la portée comptable */}
-                    <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none p-3 text-xs text-[var(--color-fg-muted)] space-y-1">
-                        <div className="font-bold text-[var(--color-fg)] flex items-center gap-1.5">
-                            <ShieldCheck size={14} className="text-[var(--color-brand-500)]" />
-                            {isNouvelleVersion ? "Programmation d'une nouvelle version" : "Règle d'Intégrité & Portée Comptable"}
-                        </div>
-                        <div>
-                            {isNouvelleVersion
-                                ? "Cette nouvelle valeur sera enregistrée avec le statut « Programmé ». Elle ne s'appliquera qu'à compter de la date d'effet choisie et ne remplacera pas la valeur en vigueur actuelle tant que cette date n'est pas atteinte."
-                                : "Les modifications directes s'appliquent immédiatement aux calculs en cours. Les périodes clôturées et archivées restent scellées."}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                        <Input
-                            label="Code Paramètre"
-                            value={formData.codeParametre}
-                            readOnly
-                            disabled
-                        />
-
-                        <Input
-                            label="Domaine / Catégorie"
-                            value={formData.categorie}
-                            readOnly
-                            disabled
-                        />
-
-                        <div className="col-span-1 md:col-span-2">
-                            <Input
-                                label="Valeur du Paramètre"
-                                required
-                                value={formData.valeur}
-                                onChange={(e) => setFormData({ ...formData, valeur: e.target.value })}
-                                placeholder="Ex: 2000 ou 19:30 ou 8"
-                            />
-                        </div>
-
-                        {/* Option d'activation si le paramètre est débrayable */}
-                        {formData.estDesactivable && (
-                            <div className="col-span-1 md:col-span-2 flex items-center justify-between p-3 border rounded-none bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)]">
+                return (
+                    <Modal
+                        isOpen={showModal}
+                        onClose={() => setShowModal(false)}
+                        title={
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] border border-[var(--color-brand-500)]/20">
+                                    <ModalIcon size={18} />
+                                </div>
                                 <div>
-                                    <div className="text-xs font-bold text-[var(--color-fg)]">État d'application de la règle</div>
-                                    <div className="text-[11px] text-[var(--color-fg-muted)]">
-                                        {formData.estActif ? 'La règle est actuellement active et prise en compte dans les calculs.' : 'La règle est coupée — les moteurs ne l\'appliqueront pas.'}
+                                    <div className="text-sm font-bold text-[var(--color-fg)]">
+                                        {isNouvelleVersion ? `Programmer une nouvelle version` : `Modifier le paramètre`}
+                                    </div>
+                                    <div className="text-[11px] font-mono text-[var(--color-fg-muted)]">
+                                        {titreHumain} ({formData.codeParametre})
                                     </div>
                                 </div>
-                                <button
-                                    type="button"
-                                    role="switch"
-                                    aria-checked={formData.estActif}
-                                    onClick={() => setFormData({ ...formData, estActif: !formData.estActif })}
-                                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-none border transition-colors duration-150 ease-in-out focus:outline-none ${
-                                        formData.estActif 
-                                            ? 'bg-[var(--color-success-500)] border-[var(--color-success-600)]' 
-                                            : 'bg-[var(--color-bg-subtle)] border-[var(--color-border)]'
-                                    }`}
-                                >
-                                    <span
-                                        className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-none shadow-xs transform transition duration-150 ease-in-out mt-[2px] ml-[2px] ${
-                                            formData.estActif ? 'translate-x-4 bg-white' : 'translate-x-0 bg-[var(--color-fg-muted)]'
-                                        }`}
-                                    />
-                                </button>
                             </div>
-                        )}
+                        }
+                        size="2xl"
+                        footer={
+                            <div className="flex items-center justify-between w-full">
+                                <div className="text-[11px] text-[var(--color-fg-muted)] flex items-center gap-1.5">
+                                    <ShieldCheck size={14} className="text-[var(--color-brand-500)]" />
+                                    <span>Audit trail garanti • Zéro rupture historique</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Button type="button" onClick={() => setShowModal(false)} variant="ghost" size="sm" disabled={submitting}>
+                                        Annuler
+                                    </Button>
+                                    <Button type="submit" form="param-global-form" variant="primary" size="sm" loading={submitting}>
+                                        {isNouvelleVersion ? "Enregistrer Nouvelle Version" : "Enregistrer Modifications"}
+                                    </Button>
+                                </div>
+                            </div>
+                        }
+                    >
+                        <form id="param-global-form" onSubmit={handleSave} className="space-y-4">
+                            {modalError && <Alert type="error" message={modalError} />}
 
-                        <div className="col-span-1 md:col-span-2">
-                            <Textarea
-                                label="Description du rôle métier"
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                rows={2}
-                            />
-                        </div>
+                            {/* Fiche de synthèse métier & avertissement temporel */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div className="md:col-span-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3 text-xs space-y-1.5">
+                                    <div className="font-bold text-[var(--color-fg)] flex items-center gap-1.5">
+                                        <ShieldCheck size={14} className="text-[var(--color-brand-500)]" />
+                                        <span>Règle d'Intégrité Temporelle</span>
+                                    </div>
+                                    <p className="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
+                                        {isNouvelleVersion
+                                            ? "Cette nouvelle valeur sera enregistrée sous le statut « Programmé ». Elle prendra automatiquement effet dès la date d'application choisie sans altérer les périodes antérieures scellées."
+                                            : "Les ajustements directs prennent effet immédiatement pour les calculs de paie et pointages actifs. Les périodes clôturées conservent leur instantané immuable."}
+                                    </p>
+                                </div>
 
-                        <Input
-                            label="Date Début (Prise d'effet)"
-                            type="date"
-                            required
-                            value={fmtDateInput(formData.dateDebut)}
-                            onChange={(e) => setFormData({ ...formData, dateDebut: e.target.value })}
-                        />
+                                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 text-xs flex flex-col justify-between">
+                                    <span className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
+                                        Nature & Domaine
+                                    </span>
+                                    <div>
+                                        <div className="font-bold text-xs text-[var(--color-fg)]">
+                                            {formData.categorie}
+                                        </div>
+                                        <div className="text-[11px] text-[var(--color-brand-600)] font-medium mt-0.5">
+                                            {formData.estDesactivable ? 'Règle débrayable' : 'Constante système'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                        <Input
-                            label="Date Fin (Optionnel)"
-                            type="date"
-                            value={fmtDateInput(formData.dateFin)}
-                            onChange={(e) => setFormData({ ...formData, dateFin: e.target.value })}
-                        />
-                    </div>
-                </form>
-            </Modal>
+                            {/* Description métier détaillée */}
+                            {(meta?.explication || formData.description) && (
+                                <div className="p-2.5 bg-[var(--color-brand-500)]/5 border border-[var(--color-brand-500)]/20 text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                                    <span className="font-semibold text-[var(--color-brand-600)] mr-1">Rôle opérationnel :</span>
+                                    {meta?.explication || formData.description}
+                                </div>
+                            )}
+
+                            {/* Grille principale des champs */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                                <div>
+                                    <Input
+                                        label="Code Paramètre"
+                                        value={formData.codeParametre}
+                                        readOnly
+                                        disabled
+                                        className="font-mono text-xs"
+                                    />
+                                </div>
+
+                                <div>
+                                    <Input
+                                        label="Domaine d'application"
+                                        value={formData.categorie}
+                                        readOnly
+                                        disabled
+                                    />
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <Input
+                                        label={`Valeur du Paramètre ${meta?.unite ? `(${meta.unite})` : ''}`}
+                                        required
+                                        value={formData.valeur}
+                                        onChange={(e) => setFormData({ ...formData, valeur: e.target.value })}
+                                        placeholder={meta?.unite === 'Ar' ? "Ex: 350000.01 ou 2000" : "Ex: 8 ou 19:30"}
+                                        hint={meta?.unite ? `Unité de compte : ${meta.unite}. Accepte les valeurs décimales (ex: 350000.01).` : "Saisie de la valeur pivot du moteur."}
+                                        className="font-mono font-bold text-sm"
+                                    />
+                                </div>
+
+                                {/* Option d'activation si le paramètre est débrayable */}
+                                {formData.estDesactivable && (
+                                    <div className="md:col-span-2 flex items-center justify-between p-3.5 border bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)]">
+                                        <div>
+                                            <div className="text-xs font-bold text-[var(--color-fg)]">
+                                                État d'application de la règle
+                                            </div>
+                                            <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                                                {formData.estActif 
+                                                    ? 'La règle est actuellement active et prise en compte dans les calculs.' 
+                                                    : 'La règle est coupée — les moteurs ne l\'appliqueront pas.'}
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={formData.estActif}
+                                            onClick={() => setFormData({ ...formData, estActif: !formData.estActif })}
+                                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-none border transition-colors duration-150 ease-in-out focus:outline-none ${
+                                                formData.estActif 
+                                                    ? 'bg-[var(--color-success-500)] border-[var(--color-success-600)]' 
+                                                    : 'bg-[var(--color-bg-subtle)] border-[var(--color-border)]'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-none shadow-xs transform transition duration-150 ease-in-out mt-[2px] ml-[2px] ${
+                                                    formData.estActif ? 'translate-x-4 bg-white' : 'translate-x-0 bg-[var(--color-fg-muted)]'
+                                                }`}
+                                            />
+                                        </button>
+                                    </div>
+                                )}
+
+                                <div>
+                                    <Input
+                                        label="Date Début (Prise d'effet)"
+                                        type="date"
+                                        required
+                                        value={fmtDateInput(formData.dateDebut)}
+                                        onChange={(e) => setFormData({ ...formData, dateDebut: e.target.value })}
+                                        hint={isNouvelleVersion ? "Date future d'entrée en vigueur" : "Début de la période d'application"}
+                                    />
+                                </div>
+
+                                <div>
+                                    <Input
+                                        label="Date Fin (Optionnel)"
+                                        type="date"
+                                        value={fmtDateInput(formData.dateFin)}
+                                        onChange={(e) => setFormData({ ...formData, dateFin: e.target.value })}
+                                        hint="Laisser vide si en vigueur jusqu'à prochaine version"
+                                    />
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <Textarea
+                                        label="Note explicative / Justification de la version"
+                                        value={formData.description}
+                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                        rows={2}
+                                        placeholder="Ex: Mise à jour consécutive au nouvel accord d'entreprise..."
+                                    />
+                                </div>
+                            </div>
+                        </form>
+                    </Modal>
+                );
+            })()}
         </div>
     );
 }

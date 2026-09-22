@@ -1,10 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-    Wallet, Plus, Search, Filter, CheckCircle2, Clock,
-    AlertCircle, ChevronRight, ArrowRight, DollarSign, Calendar
-} from 'lucide-react';
+import { Search, AlertCircle, ChevronRight, Banknote } from 'lucide-react';
 import SEO from '@/components/system/SEO';
+import PageHeader from '@/components/ui/navigation/PageHeader';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Badge from '@/components/ui/data-display/Badge';
@@ -27,7 +24,6 @@ import { formatMoneyAr } from '@/utils/moneyUtils';
  *   avec action Trésorerie explicite [Imputer le reliquat].
  */
 export default function AcomptesAvancesPage() {
-    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [dossiers, setDossiers] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -70,7 +66,6 @@ export default function AcomptesAvancesPage() {
         let totalEncours = 0;
 
         dossiers.forEach(d => {
-            const montant = Number(d.montant) || 0;
             const solde = Number(d.soldeRestant ?? d.montant) || 0;
             totalEncours += solde;
 
@@ -138,27 +133,20 @@ export default function AcomptesAvancesPage() {
     }, [selectedDossier]);
 
     return (
-        <div className="flex-1 flex flex-col min-h-full">
+        <div className="space-y-5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-8 px-2 sm:px-4">
             <SEO
                 title="Acomptes & Avances | GALAXAM SIRH"
                 description="Gestion des dossiers d'acomptes sur salaire, avances et remboursements."
             />
 
-            {/* Header d'espace */}
-            <div className="bg-[var(--color-surface)] border-b border-[var(--color-border-subtle)] px-6 py-4">
-                <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                        <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
-                            Paie & Rémunération
-                        </span>
-                        <h1 className="text-lg font-bold text-[var(--color-fg)]">
-                            Acomptes & Avances sur salaire
-                        </h1>
-                    </div>
-                </div>
-            </div>
+            <PageHeader
+                title="Acomptes & Avances sur salaire"
+                subtitle="Suivi des demandes, versements et imputations sur les campagnes de paie."
+                icon={Banknote}
+                breadcrumbs={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Paie & Rémunération', href: '/paie' }, { label: 'Acomptes & Avances' }]}
+            />
 
-            <div className="flex-1 max-w-6xl mx-auto px-4 py-6 space-y-5 w-full">
+            <div className="space-y-5 w-full">
                 {feedback && (
                     <Alert
                         type={feedback.type}
@@ -182,7 +170,7 @@ export default function AcomptesAvancesPage() {
                         <span className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                             À verser
                         </span>
-                        <span className="text-xl font-black font-mono text-blue-600 mt-1 block">
+                        <span className="text-xl font-black font-mono text-[var(--color-info-600)] mt-1 block">
                             {kpis.aVerser}
                         </span>
                     </div>

@@ -40,26 +40,27 @@ export default function Layout({ children }) {
     const title = findMenuTitleByHref(menu, pathname) || 'Galaxam SIRH';
 
     return (
-        <div className="h-screen flex flex-col bg-[var(--color-bg)] text-[var(--color-fg)]">
+        <div className="h-screen flex overflow-hidden bg-[var(--color-bg)] text-[var(--color-fg)]">
             <a href="#main-content" className="skip-link">
                 Aller au contenu principal
             </a>
-            <Topbar
-                onMenuClick={() => setSidebarOpen(true)}
-                onThemeToggle={() => setIsDarkMode((prev) => !prev)}
-                isDarkMode={isDarkMode}
-                title={title}
+            <Sidebar
+                open={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
+                menu={menu}
+                loading={menuLoading}
+                error={menuError}
             />
 
-            <div className="flex-1 flex overflow-hidden">
-                <Sidebar
-                    open={sidebarOpen}
-                    onClose={() => setSidebarOpen(false)}
-                    menu={menu}
-                    loading={menuLoading}
-                    error={menuError}
+            {/* La topbar, le contenu et le footer vivent dans la colonne de droite :
+                la sidebar conserve ainsi sa pleine hauteur, du haut au bas de l'app. */}
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+                <Topbar
+                    onMenuClick={() => setSidebarOpen(true)}
+                    onThemeToggle={() => setIsDarkMode((prev) => !prev)}
+                    isDarkMode={isDarkMode}
+                    title={title}
                 />
-
                 <main
                     id="main-content"
                     tabIndex={-1}
@@ -67,9 +68,8 @@ export default function Layout({ children }) {
                 >
                     {children}
                 </main>
+                <Footer />
             </div>
-
-            <Footer />
         </div>
     );
 }

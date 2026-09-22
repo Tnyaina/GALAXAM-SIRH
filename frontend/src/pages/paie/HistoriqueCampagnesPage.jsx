@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    History, Calendar, Users, CheckCircle2, Lock,
-    ArrowRight, Search, ShieldCheck
-} from 'lucide-react';
+import { ArrowRight, Search, History } from 'lucide-react';
 import SEO from '@/components/system/SEO';
+import PageHeader from '@/components/ui/navigation/PageHeader';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Badge from '@/components/ui/data-display/Badge';
@@ -37,7 +35,7 @@ export default function HistoriqueCampagnesPage() {
         try {
             const list = await paieService.listerPeriodes();
             setPeriodes(Array.isArray(list) ? list : []);
-        } catch (err) {
+        } catch {
             setFeedback({ type: 'error', text: 'Impossible de charger l’historique des périodes de paie.' });
         } finally {
             setLoading(false);
@@ -71,27 +69,20 @@ export default function HistoriqueCampagnesPage() {
     };
 
     return (
-        <div className="flex-1 flex flex-col min-h-full">
+        <div className="space-y-5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-8 px-2 sm:px-4">
             <SEO
                 title="Historique des campagnes | GALAXAM SIRH"
                 description="Historique complet des campagnes de paie, statuts et scellements."
             />
 
-            {/* Header d'espace */}
-            <div className="bg-[var(--color-surface)] border-b border-[var(--color-border-subtle)] px-6 py-4">
-                <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                        <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
-                            Paie & Rémunération
-                        </span>
-                        <h1 className="text-lg font-bold text-[var(--color-fg)]">
-                            Historique des campagnes de paie
-                        </h1>
-                    </div>
-                </div>
-            </div>
+            <PageHeader
+                title="Historique des campagnes de paie"
+                subtitle="Consultation des campagnes passées, de leurs statuts et de leurs scellements."
+                icon={History}
+                breadcrumbs={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Paie & Rémunération', href: '/paie' }, { label: 'Historique des campagnes' }]}
+            />
 
-            <div className="flex-1 max-w-6xl mx-auto px-4 py-6 space-y-5 w-full">
+            <div className="space-y-5 w-full">
                 {feedback && (
                     <Alert
                         type={feedback.type}

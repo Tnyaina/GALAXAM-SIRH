@@ -67,6 +67,15 @@ export function usePayrollCampaign(requestedPeriodId = null) {
         return () => { abortRef.current = false; };
     }, [requestedPeriodId, loadData]);
 
+    // Lorsqu'aucune période ne couvre la date métier, le Centre de paie doit
+    // néanmoins ouvrir la période la plus récente. Sans cela, une campagne
+    // existante mais hors de la date du jour paraît avoir disparu.
+    useEffect(() => {
+        if (requestedPeriodId || selectedPeriodeId || periodes.length === 0) return;
+        const latestId = periodes[0]?.idPeriodePaie || periodes[0]?.id;
+        if (latestId) loadData(Number(latestId));
+    }, [requestedPeriodId, selectedPeriodeId, periodes, loadData]);
+
     /** Changer de période et recharger le contexte */
     const selectPeriode = useCallback((newPeriodeId) => {
         setSelectedPeriodeId(newPeriodeId);

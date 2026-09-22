@@ -36,12 +36,10 @@ export default function CalculStepPage() {
     const [calcLoading, setCalcLoading] = useState(false);
     const [simLoading, setSimLoading] = useState(false);
     const [result, setResult] = useState(null);
-    const [outcomes, setOutcomes] = useState([]);
     const [existingKpis, setExistingKpis] = useState(null);
     const [existingBulletins, setExistingBulletins] = useState([]);
     const [showResultsTable, setShowResultsTable] = useState(false);
     const [selectedBulletinId, setSelectedBulletinId] = useState(null);
-    const [expandedRowKey, setExpandedRowKey] = useState(null);
     const [feedback, setFeedback] = useState(null);
 
     const actions = context?.availableActions || {};
@@ -103,9 +101,6 @@ export default function CalculStepPage() {
                 patronales: res.totalChargesPatronales ?? res.totalCotisationsPatronales ?? 0,
                 coutGlobal: res.totalCoutGlobal ?? res.coutGlobalEmployeur ?? 0,
             });
-            if (Array.isArray(res.employeeOutcomes)) {
-                setOutcomes(res.employeeOutcomes);
-            }
             setShowResultsTable(true);
             setFeedback({
                 type: 'info',
@@ -135,9 +130,6 @@ export default function CalculStepPage() {
                 patronales: res.totalChargesPatronales ?? res.totalCotisationsPatronales ?? 0,
                 coutGlobal: res.totalCoutGlobal ?? res.coutGlobalEmployeur ?? 0,
             });
-            if (Array.isArray(res.employeeOutcomes)) {
-                setOutcomes(res.employeeOutcomes);
-            }
             setFeedback({ type: 'success', text: 'Calcul de paie réel effectué et persisté avec succès.' });
             await refresh();
             await loadExistingCalculation();

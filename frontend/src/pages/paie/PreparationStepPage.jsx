@@ -20,7 +20,7 @@ export default function PreparationStepPage() {
     const issues = context?.issues || [];
     const warnings = context?.warnings || [];
     const periode = context?.selectedPeriod || context?.currentPeriod;
-    const actions = context?.availableActions || {};
+    const actions = useMemo(() => context?.availableActions || {}, [context?.availableActions]);
 
     const [legalConfig, setLegalConfig] = useState(null);
     const [readiness, setReadiness] = useState([]);
@@ -60,7 +60,6 @@ export default function PreparationStepPage() {
 
     const pointageCheck = readiness.find(check => check.code === 'POINTAGE_FROZEN');
     const isPointageGele = pointageCheck?.status === 'PASS';
-    const canCalculate = actions?.CALCULATE?.allowed === true;
 
     // Construction de la checklist des prérequis V1 Full V3
     const checklistItems = useMemo(() => {

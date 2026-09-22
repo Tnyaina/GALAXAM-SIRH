@@ -187,13 +187,12 @@ CREATE INDEX idx_site_calendrier_ferie_ferie ON site_calendrier_ferie(id_ferie);
 
 CREATE TABLE ref_periode_chomee (
     id_periode SERIAL PRIMARY KEY,
+    libelle VARCHAR(150) NOT NULL,
     id_site INT REFERENCES ref_site(id_site),
     date_debut DATE NOT NULL,
-    date_fin DATE NOT NULL,
-    motif VARCHAR(150) NOT NULL,
+    date_fin DATE,
     est_paye BOOLEAN DEFAULT TRUE,
-    impacte_conge BOOLEAN DEFAULT FALSE,
-    actif BOOLEAN DEFAULT TRUE,
+    taux_paiement NUMERIC(5,2) DEFAULT 100.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

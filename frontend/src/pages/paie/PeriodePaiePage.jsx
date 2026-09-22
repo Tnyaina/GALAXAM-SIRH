@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Fragment, useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     CalendarRange,
     Plus,
@@ -11,10 +11,15 @@ import {
     CheckCheck,
     Archive,
     ShieldCheck,
-    Sparkles
+    Sparkles,
+    SlidersHorizontal,
+    ChevronDown,
+    ChevronUp
 } from 'lucide-react';
 import { usePeriodePaie } from '@/hooks/pointage/usePeriodePaie';
 import periodePaieService from '@/services/periodePaieService';
+import paieService from '@/api/paie/paieService';
+import { formatMoneyAr } from '@/utils/moneyUtils';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -28,6 +33,7 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import HasPermission from '@/components/auth/HasPermission';
 import SEO from '@/components/system/SEO';
+import PageHeader from '@/components/ui/navigation/PageHeader';
 
 const STATUT_CONFIG = {
     'BROUILLON': {
@@ -197,6 +203,7 @@ const computePeriodeForDate = (dateStr) => {
 
 export default function PeriodePaiePage() {
     const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
     const {
         periodes,
         loading,
@@ -208,6 +215,30 @@ export default function PeriodePaiePage() {
     } = usePeriodePaie();
 
     const toast = useToast();
+    const [variablesByPeriod, setVariablesByPeriod] = useState({});
+    const [expandedPeriodId, setExpandedPeriodId] = useState(null);
+
+    // Une période n'est pas qu'un statut : les éléments variables qui la
+    // composent sont visibles directement depuis le registre des cycles.
+    useEffect(() => {
+        let active = true;
+        const loadVariables = async () => {
+            const rows = await Promise.all(periodes.map(async (period) => {
+                const id = period.idPeriodePaie || period.id;
+                try {
+                    const response = await paieService.listerAjustements(id);
+                    const items = Array.isArray(response) ? response : (response?.content || response?.items || []);
+                    return [id, items];
+                } catch {
+                    return [id, []];
+                }
+            }));
+            if (active) setVariablesByPeriod(Object.fromEntries(rows));
+        };
+        if (periodes.length) loadVariables();
+        else setVariablesByPeriod({});
+        return () => { active = false; };
+    }, [periodes]);
 
     // Calcul automatique de la prochaine période suggérée
     const nextSuggestion = useMemo(() => computeNextPeriodeSuggestion(periodes), [periodes]);
@@ -365,6 +396,10 @@ export default function PeriodePaiePage() {
         return { total, enCours, aValider, verrouillees };
     }, [periodes]);
 
+    const activeCycle = useMemo(() => periodes.find((period) =>
+        ['EN_COURS', 'A_VALIDER', 'TRANSMIS_DAF', 'VALIDEE', 'PAIE_VALIDEE'].includes(period.statutCode)
+    ) || null, [periodes]);
+
     const handleCreate = async (e) => {
         e.preventDefault();
         setSubmitting(true);
@@ -423,8 +458,15 @@ export default function PeriodePaiePage() {
     };
 
     return (
-        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-8 px-2 sm:px-4">
             <SEO title="Périodes de Paie & Clôture" description="Gestion des périodes mensuelles de pointage et cycle de paie." />
+
+            <PageHeader
+                title="Périodes de paie & clôture"
+                subtitle="Créez, activez, validez et clôturez les campagnes mensuelles de pointage et de paie."
+                icon={CalendarRange}
+                breadcrumbs={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Paie & Rémunération', href: '/paie' }, { label: 'Périodes de paie' }]}
+            />
 
             {/* Barre d'action de création de période */}
             <div className="flex items-center justify-between bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 shadow-xs">
@@ -469,6 +511,42 @@ export default function PeriodePaiePage() {
                 </div>
             </div>
 
+            {activeCycle && (
+                <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-4 sm:p-5">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-600)]">Cycle actuellement piloté</p>
+                            <h2 className="mt-1 text-lg font-bold text-[var(--color-fg)]">{activeCycle.libelle} <span className="font-mono text-sm font-medium text-[var(--color-fg-muted)]">· {activeCycle.dateDebut} → {activeCycle.dateFin}</span></h2>
+                        </div>
+                        <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => navigate(activeCycle.statutCode === 'VALIDEE'
+                                ? `/paie/periodes/${activeCycle.idPeriodePaie}/preparation`
+                                : activeCycle.statutCode === 'PAIE_VALIDEE'
+                                    ? `/paie/periodes/${activeCycle.idPeriodePaie}/sorties`
+                                    : '/pointages?tab=saisie')}
+                        >
+                            {activeCycle.statutCode === 'VALIDEE' ? 'Préparer la paie' : activeCycle.statutCode === 'PAIE_VALIDEE' ? 'Ouvrir les sorties' : 'Continuer le pointage'}
+                        </Button>
+                    </div>
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 border border-[var(--color-border-subtle)] divide-y sm:divide-y-0 sm:divide-x divide-[var(--color-border-subtle)]">
+                        <div className="p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)]">1. Pointage</p>
+                            <p className="mt-1 text-sm font-semibold text-[var(--color-fg)]">{['EN_COURS', 'BROUILLON'].includes(activeCycle.statutCode) ? 'Saisie en cours' : ['A_VALIDER', 'TRANSMIS_DAF'].includes(activeCycle.statutCode) ? 'Contrôle requis' : 'Figé'}</p>
+                        </div>
+                        <div className="p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)]">2. Paie</p>
+                            <p className="mt-1 text-sm font-semibold text-[var(--color-fg)]">{['EN_COURS', 'BROUILLON', 'A_VALIDER', 'TRANSMIS_DAF'].includes(activeCycle.statutCode) ? 'En attente du Pointage' : activeCycle.statutCode === 'VALIDEE' ? 'À préparer' : 'Validée'}</p>
+                        </div>
+                        <div className="p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)]">3. Variables</p>
+                            <p className="mt-1 text-sm font-semibold text-[var(--color-fg)]">{(variablesByPeriod[activeCycle.idPeriodePaie] || []).length} élément(s) rattaché(s)</p>
+                        </div>
+                    </div>
+                </section>
+            )}
+
             {/* Cartes KPI / Statistiques */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                 <StatCard
@@ -508,10 +586,10 @@ export default function PeriodePaiePage() {
                 <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
                     <div>
                         <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--color-fg)]">
-                            Historique et Statut des Périodes de Paie
+                            Registre des cycles : Pointage → Paie
                         </h2>
                         <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-                            Le verrouillage bloque instantanément toute modification dans la Saisie Quotidienne.
+                            Chaque ligne représente une campagne complète. Le Pointage est figé avant toute préparation de Paie.
                         </p>
                     </div>
                 </div>
@@ -528,15 +606,27 @@ export default function PeriodePaiePage() {
                                     <Th>Date Début</Th>
                                     <Th>Date Fin</Th>
                                     <Th className="text-center">Jours Ouvrables</Th>
-                                    <Th>Statut</Th>
+                                    <Th>Avancement du cycle</Th>
                                     <Th className="text-right">Actions sur le Cycle</Th>
                                 </Tr>
                             </Thead>
                             <Tbody>
                                 {periodes.map(p => {
-                                    const isLocked = p.statutCode === 'VALIDEE' || p.statutCode === 'CLOTUREE';
+                                    const isLocked = p.statutCode === 'PAIE_VALIDEE' || p.statutCode === 'CLOTUREE';
+                                    const periodId = p.idPeriodePaie || p.id;
+                                    const variables = variablesByPeriod[periodId] || [];
+                                    const pointageStatus = p.statutCode === 'BROUILLON' ? 'À ouvrir'
+                                        : p.statutCode === 'EN_COURS' ? 'Saisie en cours'
+                                        : ['A_VALIDER', 'TRANSMIS_DAF'].includes(p.statutCode) ? 'À valider'
+                                        : 'Figé';
+                                    const paieStatus = ['BROUILLON', 'EN_COURS', 'A_VALIDER', 'TRANSMIS_DAF'].includes(p.statutCode)
+                                        ? 'En attente du Pointage'
+                                        : p.statutCode === 'VALIDEE' ? 'À préparer'
+                                        : p.statutCode === 'PAIE_VALIDEE' ? 'Validée'
+                                        : 'Clôturée';
                                     return (
-                                        <Tr key={p.idPeriodePaie} className={isLocked ? 'bg-ink-50/30 dark:bg-[var(--color-bg-subtle)]' : ''}>
+                                        <Fragment key={periodId}>
+                                        <Tr key={periodId} className={isLocked ? 'bg-ink-50/30 dark:bg-[var(--color-bg-subtle)]' : ''}>
                                             <Td className="font-mono font-bold text-brand-600 dark:text-brand-400">
                                                 {p.code}
                                             </Td>
@@ -558,11 +648,31 @@ export default function PeriodePaiePage() {
                                                 </div>
                                             </Td>
                                             <Td>
-                                                <Badge variant={STATUT_CONFIG[p.statutCode]?.variant || 'secondary'}>
-                                                    {STATUT_CONFIG[p.statutCode]?.label || p.statutLibelle}
-                                                </Badge>
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-1.5 text-[10px]">
+                                                        <span className="text-[var(--color-fg-subtle)]">Pointage</span>
+                                                        <Badge variant={['À ouvrir', 'Saisie en cours'].includes(pointageStatus) ? 'info' : pointageStatus === 'À valider' ? 'warning' : 'success'} size="xs">{pointageStatus}</Badge>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 text-[10px]">
+                                                        <span className="text-[var(--color-fg-subtle)]">Paie</span>
+                                                        <Badge variant={paieStatus === 'En attente du Pointage' ? 'secondary' : paieStatus === 'À préparer' ? 'warning' : 'success'} size="xs">{paieStatus}</Badge>
+                                                    </div>
+                                                </div>
                                             </Td>
                                             <Td className="text-right space-x-2">
+                                                <Button
+                                                    size="xs"
+                                                    variant="ghost"
+                                                    icon={expandedPeriodId === periodId ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                                    onClick={() => setExpandedPeriodId(expandedPeriodId === periodId ? null : periodId)}
+                                                >
+                                                    Variables ({variables.length})
+                                                </Button>
+                                                {p.statutCode === 'VALIDEE' && (
+                                                    <Button size="xs" variant="outline" icon={<SlidersHorizontal size={13} />} onClick={() => navigate(`/paie/periodes/${periodId}/variables`)}>
+                                                        Préparer la paie
+                                                    </Button>
+                                                )}
                                                 {Object.entries(WORKFLOW_ACTIONS).map(([command, config]) => {
                                                     if (p.availableActions?.[command]?.allowed !== true) return null;
                                                     const ActionIcon = config.Icon;
@@ -580,6 +690,37 @@ export default function PeriodePaiePage() {
                                                 })}
                                             </Td>
                                         </Tr>
+                                        {expandedPeriodId === periodId && (
+                                            <Tr key={`${periodId}-variables`}>
+                                                <Td colSpan={7} className="bg-[var(--color-bg-subtle)] p-0">
+                                                    <div className="p-3 border-y border-[var(--color-border-subtle)]">
+                                                        <div className="flex items-center justify-between gap-3 mb-2">
+                                                            <div>
+                                                                <p className="text-xs font-semibold text-[var(--color-fg)]">Éléments variables de {p.libelle}</p>
+                                                                <p className="text-[11px] text-[var(--color-fg-muted)]">Primes, retenues, acomptes et autres mouvements rattachés à cette période.</p>
+                                                            </div>
+                                                            <Button size="xs" variant="outline" onClick={() => navigate(`/paie/periodes/${periodId}/variables`)}>Gérer les variables</Button>
+                                                        </div>
+                                                        {variables.length === 0 ? (
+                                                            <p className="text-xs text-[var(--color-fg-muted)] py-2">Aucun élément variable enregistré pour cette période.</p>
+                                                        ) : (
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                                                                {variables.map((variable) => (
+                                                                    <div key={variable.idAvance || variable.idAjustement || variable.id} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2.5 text-xs">
+                                                                        <p className="font-semibold text-[var(--color-fg)] truncate">{variable.libelle || variable.typeMouvement || 'Variable de paie'}</p>
+                                                                        <div className="flex justify-between gap-2 mt-1 text-[var(--color-fg-muted)]">
+                                                                            <span>{variable.nomEmploye || variable.matricule || 'Population'}</span>
+                                                                            <strong className="font-mono text-[var(--color-fg)]">{formatMoneyAr(variable.montant ?? variable.montantDemande ?? 0)}</strong>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </Td>
+                                            </Tr>
+                                        )}
+                                        </Fragment>
                                     );
                                 })}
                                 {periodes.length === 0 && !loading && (

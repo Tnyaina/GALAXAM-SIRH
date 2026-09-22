@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    FileText, Download, CheckCircle2, Clock,
-    AlertCircle, ChevronRight, Layers, Building2,
-    Receipt, CreditCard, BookOpen, ShieldCheck, ExternalLink
+    FileText, Download, ChevronRight, Building2,
+    Receipt, CreditCard, BookOpen, ShieldCheck
 } from 'lucide-react';
 import SEO from '@/components/system/SEO';
+import PageHeader from '@/components/ui/navigation/PageHeader';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
@@ -32,7 +32,7 @@ export default function DeclarationsSortiesPage() {
     const [activeTab, setActiveTab] = useState('MENSUELLES'); // 'MENSUELLES' | 'TRIMESTRIELLES' | 'ARCHIVES'
     const [periodes, setPeriodes] = useState([]);
     const [selectedPeriodId, setSelectedPeriodId] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [_loading, setLoading] = useState(false);
     const [selectedDeclaration, setSelectedDeclaration] = useState(null);
     const [feedback, setFeedback] = useState(null);
 
@@ -143,25 +143,18 @@ export default function DeclarationsSortiesPage() {
     }, [selectedDeclaration]);
 
     return (
-        <div className="flex-1 flex flex-col min-h-full">
+        <div className="space-y-5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-8 px-2 sm:px-4">
             <SEO
                 title="Déclarations & Sorties | GALAXAM SIRH"
                 description="Déclarations sociales et fiscales mensuelles et consolidations trimestrielles."
             />
 
-            {/* Header d'espace */}
-            <div className="bg-[var(--color-surface)] border-b border-[var(--color-border-subtle)] px-6 py-4">
-                <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                        <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
-                            Paie & Rémunération
-                        </span>
-                        <h1 className="text-lg font-bold text-[var(--color-fg)]">
-                            Déclarations & Sorties réglementaires
-                        </h1>
-                    </div>
-
-                    {/* Tabs navigation */}
+            <PageHeader
+                title="Déclarations & Sorties réglementaires"
+                subtitle="Préparation des fichiers de paie, déclarations sociales et fiscales."
+                icon={FileText}
+                breadcrumbs={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Paie & Rémunération', href: '/paie' }, { label: 'Déclarations & Sorties' }]}
+                actions={
                     <div className="flex items-center gap-1 bg-[var(--color-bg-subtle)] p-1 rounded-md border border-[var(--color-border-subtle)] text-xs">
                         <button
                             type="button"
@@ -185,10 +178,10 @@ export default function DeclarationsSortiesPage() {
                             Archives
                         </button>
                     </div>
-                </div>
-            </div>
+                }
+            />
 
-            <div className="flex-1 max-w-6xl mx-auto px-4 py-6 space-y-6 w-full">
+            <div className="space-y-6 w-full">
                 {feedback && (
                     <Alert
                         type={feedback.type}

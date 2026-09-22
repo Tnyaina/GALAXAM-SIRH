@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-    ShieldCheck, AlertTriangle, Download, Eye, ArrowRight,
-    Search, CheckCircle2, ChevronRight, Filter, AlertCircle, Clock, ExternalLink
+    Download, ArrowRight, Search, CheckCircle2, ChevronRight
 } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import PayrollCampaignShell from '@/components/paie/PayrollCampaignShell';
-import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';

@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import PayrollCampaignShell from '@/components/paie/PayrollCampaignShell';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -11,7 +11,6 @@ const VariablesPaieTab = lazy(() => import('@/components/paie/VariablesPaieTab')
  */
 export default function VariablesStepPage() {
     const { periodId } = useParams();
-    const navigate = useNavigate();
     const numericPeriodId = Number(periodId) || null;
     const { periodes, context, loading, refresh, selectedPeriodeId } = usePayrollCampaign(numericPeriodId);
 

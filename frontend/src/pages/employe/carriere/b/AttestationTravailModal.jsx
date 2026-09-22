@@ -277,7 +277,7 @@ export default function AttestationTravailModal({
                                     {emp.nationalite && <>, de nationalité <strong>{emp.nationalite}</strong></>}
                                     {emp.numeroCin && <>, titulaire de la pièce d'identité n° <strong>{emp.numeroCin}</strong></>}
                                     {emp.adresse && <>, demeurant {emp.adresse}</>}
-                                    {Boolean(emp.dateNaissance || emp.lieuNaissance || emp.nationalite || emp.numeroCin || emp.adresse) ? ', est employé(e)' : ' est employé(e)'} au sein de notre entreprise depuis le <strong>{dateEntreeTexte}</strong>, dans le cadre d'un contrat de travail à <strong>{typeContratLib}</strong>.
+                                    {(emp.dateNaissance || emp.lieuNaissance || emp.nationalite || emp.numeroCin || emp.adresse) ? ', est employé(e)' : ' est employé(e)'} au sein de notre entreprise depuis le <strong>{dateEntreeTexte}</strong>, dans le cadre d'un contrat de travail à <strong>{typeContratLib}</strong>.
                                 </p>
 
                                 <p>

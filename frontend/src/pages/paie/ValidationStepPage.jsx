@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-    CheckCircle2, Lock, ShieldCheck,
+    CheckCircle2, ShieldCheck,
     ArrowRight, Check, X, ArrowLeft, RefreshCw
 } from 'lucide-react';
 import SEO from '@/components/system/SEO';

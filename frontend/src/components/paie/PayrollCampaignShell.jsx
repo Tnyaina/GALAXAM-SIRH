@@ -5,6 +5,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import PayrollPeriodStepper from '@/components/paie/PayrollPeriodStepper';
 import PayrollNavigationFooter from '@/components/paie/PayrollNavigationFooter';
 import PayrollIssuePanel from '@/components/paie/PayrollIssuePanel';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 
 const STATUT_VARIANTS = {
     VALIDEE: 'success',
@@ -90,7 +91,7 @@ export default function PayrollCampaignShell({
                             <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">
                                 Campagne Active
                             </span>
-                            <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-fg)] font-serif tracking-tight">
+                            <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-fg)] tracking-tight">
                                 {periodCode}
                             </h1>
                             {activePeriod?.state && (
@@ -117,27 +118,26 @@ export default function PayrollCampaignShell({
                     </div>
 
                     {/* Sélecteur rapide de période si multiple */}
-                    {periodes.length > 1 && (
+                    {periodes.length > 0 && (
                         <div className="shrink-0 flex items-center gap-2">
                             <label htmlFor="select-periode-shell" className="text-xs text-[var(--color-fg-subtle)]">Période :</label>
-                            <select
+                            <SearchSelect
                                 id="select-periode-shell"
+                                placeholder="Rechercher une période…"
                                 value={activePeriod?.id || ''}
-                                onChange={(e) => {
-                                    const newId = e.target.value;
+                                onChange={(newId) => {
                                     if (newId) navigate(`/paie/periodes/${newId}/${activeStep ? activeStep.toLowerCase() : 'preparation'}`);
                                 }}
-                                className="text-xs font-mono bg-[var(--color-bg)] border border-[var(--color-border-subtle)] px-2.5 py-1 text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-500)]"
-                            >
-                                {periodes.map(p => {
+                                className="w-56"
+                                options={periodes.map(p => {
                                     const pId = p.idPeriodePaie || p.id_periode_paie || p.id;
-                                    return (
-                                        <option key={pId} value={pId}>
-                                            {p.code || p.libelle} ({p.statutCode || p.statut || p.state || 'EN_COURS'})
-                                        </option>
-                                    );
+                                    return {
+                                        value: String(pId),
+                                        label: [p.code, p.libelle].filter(Boolean).join(' — ') || String(pId),
+                                        sublabel: p.statutCode || p.statut || p.state || 'EN_COURS',
+                                    };
                                 })}
-                            </select>
+                            />
                         </div>
                     )}
                 </div>

@@ -20,6 +20,7 @@ import {
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import SEO from '@/components/system/SEO';
@@ -275,7 +276,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                     {/* Période */}
                     <div className="flex items-center gap-1.5 min-w-[220px]">
                         <Calendar size={14} className="text-[var(--color-brand-500)] shrink-0" />
-                        <Select
+                        <SearchSelect
                             value={String(selectedPeriodeId || '')}
                             onChange={(val) => {
                                 const pid = String(val);
@@ -295,9 +296,10 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                             }}
                             options={periodes.map(p => ({
                                 value: String(p.idPeriodePaie),
-                                label: p.libelle || p.code
+                                label: [p.code, p.libelle].filter(Boolean).join(' — '),
+                                sublabel: p.statutCode || p.statut || ''
                             }))}
-                            className="text-xs h-[32px]"
+                            className="w-full"
                         />
                     </div>
 
@@ -489,7 +491,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             {/* ---------- SECTION ANOMALIES DE POINTAGE ---------- */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-hidden" id="anomalies">
                 {/* Header & Filtres */}
-                <div className="p-3 border-b border-[var(--color-border-subtle)] flex items-center justify-between flex-wrap gap-3">
+                <div className="p-4 border-b border-[var(--color-border-subtle)] space-y-3">
                     <div>
                         <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
                             <Shield size={14} className="text-[var(--color-brand-500)]" />
@@ -501,9 +503,9 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1.5fr)_repeat(4,minmax(0,1fr))] gap-2 items-end">
                         {/* Recherche Employé */}
-                        <div className="w-44 sm:w-52">
+                        <div className="w-full">
                             <Input
                                 icon={<Search size={13} className="text-[var(--color-fg-muted)]" />}
                                 placeholder="Rechercher nom, matricule…"
@@ -529,7 +531,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 { value: 'INCOMPLET', label: 'Pointage incomplet' },
                                 { value: 'RETARD', label: 'Retards' },
                             ]}
-                            className="text-xs min-w-[135px] h-[28px]"
+                            className="text-xs w-full h-[32px]"
                         />
 
                         {/* Filtre Sévérité */}
@@ -546,7 +548,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 { value: 'MOYENNE', label: 'Moyenne' },
                                 { value: 'FAIBLE', label: 'Faible' },
                             ]}
-                            className="text-xs min-w-[135px] h-[28px]"
+                            className="text-xs w-full h-[32px]"
                         />
 
                         {/* Filtre Statut de Traitement */}
@@ -561,11 +563,11 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 { value: 'TODO', label: 'À régulariser' },
                                 { value: 'DONE', label: 'Déjà régularisés' },
                             ]}
-                            className="text-xs min-w-[130px] h-[28px]"
+                            className="text-xs w-full h-[32px]"
                         />
 
                         {/* Filtre Date précise */}
-                        <div className="relative flex items-center">
+                        <div className="relative flex items-center w-full">
                             <Calendar size={13} className="absolute left-2.5 text-[var(--color-fg-muted)] pointer-events-none" />
                             <input
                                 type="date"
@@ -577,7 +579,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                     setCurrentPage(1);
                                 }}
                                 title="Filtrer par date précise"
-                                className="text-xs pl-7 pr-2 py-1 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] outline-none focus:border-[var(--color-brand-500)] cursor-pointer h-[28px]"
+                                className="w-full text-xs pl-7 pr-2 py-1 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] outline-none focus:border-[var(--color-brand-500)] cursor-pointer h-[32px]"
                             />
                         </div>
 
