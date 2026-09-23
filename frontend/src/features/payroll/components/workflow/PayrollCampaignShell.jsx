@@ -1,9 +1,9 @@
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import SEO from '@/components/system/SEO';
 import Badge from '@/components/ui/data-display/Badge';
+import Button from '@/components/ui/forms/Button';
 import PayrollPeriodStepper from '@/features/payroll/components/workflow/PayrollPeriodStepper';
-import PayrollNavigationFooter from '@/features/payroll/components/workflow/PayrollNavigationFooter';
 import PayrollIssuePanel from '@/features/payroll/components/feedback/PayrollIssuePanel';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import { getPaieStatusVariant } from '@/features/payroll/utils/payrollPresentation';
@@ -191,13 +191,31 @@ export default function PayrollCampaignShell({
                 {children}
             </main>
 
-            {/* 6. Action Bar basse unique */}
-            <PayrollNavigationFooter
-                prevStep={prevStep}
-                nextStep={nextStep}
-                primaryAction={primaryAction}
-                centerContent={footerCenter}
-            />
+            {/* 6. Navigation propre à ce shell de campagne. */}
+            <div className="sticky bottom-0 z-20 mt-auto shrink-0 bg-[var(--color-bg)]/95 backdrop-blur-md border-t border-[var(--color-border-subtle)] px-4 py-3 shadow-lg -mx-3.5 sm:-mx-4.5 -mb-3.5 sm:-mb-4.5">
+                <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+                    <div>
+                        {prevStep && (
+                            <Button variant="outline" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate(prevStep.destination)}>
+                                {prevStep.label ? `Précédent : ${prevStep.label}` : 'Précédent'}
+                            </Button>
+                        )}
+                    </div>
+                    {footerCenter && <div className="text-xs text-[var(--color-fg-muted)] text-center hidden md:block">{footerCenter}</div>}
+                    <div className="flex items-center gap-2.5">
+                        {primaryAction && (
+                            <Button variant={primaryAction.variant || 'primary'} size="sm" loading={primaryAction.loading} disabled={primaryAction.disabled} iconLeft={primaryAction.icon} onClick={primaryAction.onClick} title={primaryAction.disabledReason}>
+                                {primaryAction.label}
+                            </Button>
+                        )}
+                        {nextStep && (
+                            <Button variant={primaryAction ? 'secondary' : 'primary'} size="sm" iconRight={<ArrowRight size={14} />} disabled={nextStep.disabled} title={nextStep.disabledReason || nextStep.label} onClick={() => !nextStep.disabled && navigate(nextStep.destination)}>
+                                {nextStep.label ? `Continuer vers ${nextStep.label}` : 'Suivant'}
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

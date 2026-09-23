@@ -1,21 +1,23 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { User, CreditCard, Phone, Users, ShieldAlert, Building, Check, ArrowRight, ArrowLeft } from 'lucide-react';
+import { User, CreditCard, Award, Phone, Users, Shield, ShieldAlert, Landmark, Building, Check, ArrowRight, ArrowLeft } from 'lucide-react';
 import organisationService from '@/features/organization/api/organisationService';
 import employeService from '@/features/employees/api/employeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
 import Modal from '@/components/ui/overlays/Modal';
 import Alert from '@/components/ui/feedback/Alert';
+import Input, { AutocompleteInput } from '@/components/ui/forms/Input';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
+import { Card } from '@/components/ui/data-display/Card';
+import Badge from '@/components/ui/data-display/Badge';
 import { SkeletonForm } from '@/components/ui/feedback/Skeleton';
-import { VILLES_MADAGASCAR, NATIONALITES_STANDARDS } from '@/constants/madagascarGeo';
+import { AGENCES_BANCAIRES, VILLES_MADAGASCAR, NATIONALITES_STANDARDS } from '@/constants/madagascarGeo';
 
 // Lazy loading des étapes du formulaire collaborateur pour optimiser la taille du bundle et le temps de chargement
 const CiviliteStep = lazy(() => import('@/features/employees/components/form/CiviliteStep'));
-const CinPermisStep = lazy(() => import('@/features/employees/components/form/CinPermisStep'));
 const CoordonneesPhotoStep = lazy(() => import('@/features/employees/components/form/CoordonneesPhotoStep'));
 const FamilleFormStep = lazy(() => import('@/features/employees/components/form/FamilleFormStep'));
 const UrgenceFormStep = lazy(() => import('@/features/employees/components/form/UrgenceFormStep'));
-const CnapsBanqueStep = lazy(() => import('@/features/employees/components/form/CnapsBanqueStep'));
 
 import { formaterDateEmploye, validerEtapeEmploye, validerToutesEtapesEmploye } from '@/features/employees/utils/employeFormValidation';
 
@@ -521,11 +523,26 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
 
                         {/* Step 2: CIN & Permis */}
                         {STEPS[activeStep].id === 'cin' && (
-                            <CinPermisStep
-                                formData={formData}
-                                set={set}
-                                villesStandards={VILLES_MADAGASCAR}
-                            />
+                            <div className="space-y-4">
+                                <Card padding className="space-y-4">
+                                    <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]"><h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5"><CreditCard size={14} className="text-brand-500" />Carte d'Identité Nationale (CIN)</h3><Badge variant="primary" size="xs">Obligatoire</Badge></div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <Input label="N° CIN" required value={formData.cinNumero} onChange={(event) => set('cinNumero', event.target.value)} placeholder="Ex: 101 234 567 890" />
+                                        <Input label="Date de Délivrance" required type="date" value={formData.cinDateDelivrance} onChange={(event) => set('cinDateDelivrance', event.target.value)} />
+                                        <AutocompleteInput label="Lieu de Délivrance" required value={formData.cinLieuDelivrance} onChange={(event) => set('cinLieuDelivrance', event.target.value)} placeholder="Ex: Antananarivo, Toamasina..." options={VILLES_MADAGASCAR} listId="cin-villes-list" />
+                                        <Input label="Duplicata – Date" type="date" value={formData.cinDuplicataDate} onChange={(event) => set('cinDuplicataDate', event.target.value)} />
+                                        <div className="md:col-span-2"><AutocompleteInput label="Duplicata – Lieu" value={formData.cinDuplicataLieu} onChange={(event) => set('cinDuplicataLieu', event.target.value)} placeholder="Lieu de duplicata (Ex: Antananarivo)" options={VILLES_MADAGASCAR} listId="cin-duplicata-villes-list" /></div>
+                                    </div>
+                                </Card>
+                                <Card padding className="space-y-4">
+                                    <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]"><h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5"><Award size={14} className="text-brand-500" />Permis de Conduire</h3><Badge variant="default" size="xs">Optionnel</Badge></div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <Input label="N° Permis" value={formData.permisConduireNumero} onChange={(event) => set('permisConduireNumero', event.target.value)} placeholder="N° de permis" />
+                                        <Input label="Date Délivrance" type="date" value={formData.permisConduireDateDelivrance} onChange={(event) => set('permisConduireDateDelivrance', event.target.value)} />
+                                        <AutocompleteInput label="Lieu Délivrance" value={formData.permisConduireLieuDelivrance} onChange={(event) => set('permisConduireLieuDelivrance', event.target.value)} placeholder="Ex: Antananarivo" options={VILLES_MADAGASCAR} listId="permis-villes-list" />
+                                    </div>
+                                </Card>
+                            </div>
                         )}
 
                         {/* Step 3: Coordonnées & Photo */}
@@ -563,12 +580,10 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
 
                         {/* Step 6: CNaPS & Banque */}
                         {STEPS[activeStep].id === 'banque' && (
-                            <CnapsBanqueStep
-                                formData={formData}
-                                set={set}
-                                setNested={setNested}
-                                banques={banques}
-                            />
+                            <div className="space-y-4">
+                                <Card padding className="space-y-4"><div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]"><h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5"><Shield size={14} className="text-brand-500" />Sécurité Sociale (CNaPS)</h3><Badge variant="default" size="xs">Optionnel</Badge></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><Input label="N° Affiliation CNaPS" value={formData.numAffiliationCnaps} onChange={(event) => set('numAffiliationCnaps', event.target.value)} placeholder="N° CNaPS" /><Input label="Date Déclaration" type="date" value={formData.dateDeclaration} onChange={(event) => set('dateDeclaration', event.target.value)} /></div></Card>
+                                <Card padding className="space-y-4"><div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]"><h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5"><Landmark size={14} className="text-brand-500" />Compte Bancaire Principal</h3><Badge variant="default" size="xs">Optionnel</Badge></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><SearchSelect label="Banque" value={formData.compteBanquePrincipal.idBanque} onChange={(value) => setNested('compteBanquePrincipal', 'idBanque', value)} options={banques.filter((bank) => bank.estActif !== false && bank.actif !== false || String(bank.idBanque) === String(formData.compteBanquePrincipal.idBanque)).map((bank) => ({ value: bank.idBanque, label: bank.nomBanque, sublabel: bank.codeBanque }))} placeholder="Rechercher une banque…" /><AutocompleteInput label="Agence" value={formData.compteBanquePrincipal.agence} onChange={(event) => setNested('compteBanquePrincipal', 'agence', event.target.value)} placeholder="Ex: Ankorondrano" options={AGENCES_BANCAIRES} listId="agences-bancaires-list" /><Input label="N° Compte / RIB" value={formData.compteBanquePrincipal.numCompteRib} onChange={(event) => setNested('compteBanquePrincipal', 'numCompteRib', event.target.value)} placeholder="00000-00000-00000000000-00" /><Input label="Titulaire du Compte" value={formData.compteBanquePrincipal.titulaireCompte} onChange={(event) => setNested('compteBanquePrincipal', 'titulaireCompte', event.target.value)} placeholder="Nom du titulaire" /></div></Card>
+                            </div>
                         )}
                     </Suspense>
                 </form>

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { UserPlus, Users, RefreshCw } from 'lucide-react';
+import { UserPlus, Users, UserCheck, UserX, RefreshCw } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import employeService from '@/features/employees/api/employeService';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
+import StatCard from '@/components/ui/data-display/StatCard';
 import { Select } from '@/components/ui/forms/Input';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
@@ -12,7 +13,6 @@ import { useContractReferentiels } from '@/features/employees/hooks/useContractR
 import useDebounce from '@/hooks/useDebounce';
 import { getErrorMessage } from '@/api/apiClient';
 
-import EmployeStatsCards from '@/features/employees/components/EmployeStatsCards';
 import EmployeFilterBar from '@/features/employees/components/EmployeFilterBar';
 import EmployeTable from '@/features/employees/components/EmployeTable';
 import Pagination from '@/components/ui/navigation/Pagination';
@@ -309,14 +309,12 @@ export default function EmployeList() {
                 </Alert>
             )}
 
-            {/* Stats rapides */}
-            <EmployeStatsCards
-                totalEmployes={displayTotal}
-                totalActifs={totalActifs}
-                totalInactifs={totalInactifs}
-                selectedStatus={statusFilter}
-                onStatusSelect={setStatusFilter}
-            />
+            {/* Indicateurs et filtres de statut de cette liste. */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <StatCard title="Total Collaborateurs" value={displayTotal} subtext="Effectif global de l'entreprise" icon={<Users size={18} />} color="brand" active={statusFilter === 'ALL'} onClick={() => setStatusFilter('ALL')} />
+                <StatCard title="Collaborateurs Actifs" value={totalActifs} subtext="En poste actuellement" icon={<UserCheck size={18} />} color="success" active={statusFilter === 'ACTIVE'} onClick={() => setStatusFilter('ACTIVE')} />
+                <StatCard title="Comptes Inactifs" value={totalInactifs} subtext="Dossiers archivés ou sortis" icon={<UserX size={18} />} color="danger" active={statusFilter === 'INACTIVE'} onClick={() => setStatusFilter('INACTIVE')} />
+            </div>
 
             {/* Barre d'outils : recherche + filtres de structure + multi-tri */}
             <EmployeFilterBar

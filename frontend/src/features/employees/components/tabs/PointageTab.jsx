@@ -26,7 +26,7 @@ import {
     CheckCircle2,
     XCircle
 } from 'lucide-react';
-import pointageEmployeService from '@/features/attendance/api/pointageEmployeService';
+import attendanceService from '@/features/attendance/api/attendanceService';
 import periodePaieService from '@/features/attendance/api/periodePaieService';
 import { useToast } from '@/components/ui/feedback/Toast';
 import Button from '@/components/ui/forms/Button';
@@ -136,7 +136,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
             if (periodView === 'periode' && selectedPeriodeId) {
                 params.idPeriode = selectedPeriodeId;
             }
-            const res = await pointageEmployeService.getFicheEmploye(idEmploye, params);
+            const res = await attendanceService.getFicheEmploye(idEmploye, params);
             setFicheData(res);
             if (res?.idPeriode && periodView === 'periode') {
                 setSelectedPeriodeId(res.idPeriode);
@@ -182,7 +182,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
             if (periodView === 'periode' && selectedPeriodeId) {
                 params.idPeriode = selectedPeriodeId;
             }
-            const blobData = await pointageEmployeService.exportExcel(idEmploye, params);
+            const blobData = await attendanceService.exportExcel(idEmploye, params);
             const blob = new Blob([blobData], {
                 type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             });

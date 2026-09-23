@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import pointageSaisieService from '@/features/attendance/api/pointageSaisieService';
+import attendanceService from '@/features/attendance/api/attendanceService';
 import { isRowDataModified, calculerLignePointageTempsReel } from '@/features/attendance/utils/pointageCalculations';
 import { getTodayDateString } from '@/utils/dateUtils';
 
@@ -49,7 +49,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         setLoading(true);
         setError(null);
         try {
-            const data = await pointageSaisieService.getGrilleSaisie({
+            const data = await attendanceService.getGrilleSaisie({
                 idSite: selectedSite,
                 date: selectedDate
             });
@@ -417,7 +417,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                 return true;
             }
 
-            const res = await pointageSaisieService.enregistrerBatch(payload);
+            const res = await attendanceService.enregistrerBatch(payload);
             if (res && res.success) {
                 await loadData();
                 return true;

@@ -15,8 +15,7 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import Loading from '@/components/ui/feedback/Loading';
 import Alert from '@/components/ui/feedback/Alert';
 import { useToast } from '@/components/ui/feedback/Toast';
-import pointageEmployeService from '@/features/attendance/api/pointageEmployeService';
-import pointageAnomalieService from '@/features/attendance/api/pointageAnomalieService';
+import attendanceService from '@/features/attendance/api/attendanceService';
 import { fmtDate } from '@/utils/dateUtils';
 import { formatHeuresMinutes } from '@/features/attendance/utils/attendanceDisplayUtils';
 
@@ -119,7 +118,7 @@ export default function DafAjustementPointageModal({
         setLoading(true);
         setError('');
         try {
-            const res = await pointageEmployeService.getFicheEmploye(idEmployeEffective, {
+            const res = await attendanceService.getFicheEmploye(idEmployeEffective, {
                 period: 'periode',
                 idPeriode: idPeriodeEffective
             });
@@ -173,7 +172,7 @@ export default function DafAjustementPointageModal({
             };
 
             const idPointage = selectedJour.idPointage || 0;
-            const ok = await pointageAnomalieService.regulariser(idPointage, payload);
+            const ok = await attendanceService.regulariser(idPointage, payload);
             if (ok) {
                 toast({
                     title: 'Pointage rectifié',

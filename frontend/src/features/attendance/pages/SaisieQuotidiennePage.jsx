@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, Clock, Sparkles } from 'lucide-react';
+import { AlertCircle, Calendar, Clock, Sparkles } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { useToast } from '@/components/ui/feedback/Toast';
 import SEO from '@/components/system/SEO';
@@ -8,7 +8,6 @@ import { useAuth } from '@/context/AuthContext';
 import organisationService from '@/features/organization/api/organisationService';
 import { getTodayDateString, isDateInFuture } from '@/utils/dateUtils';
 
-import PointageFerieAlert from '@/features/attendance/components/feedback/PointageFerieAlert';
 import PointageToolbar from '@/features/attendance/components/controls/PointageToolbar';
 import PointageGridTable from '@/features/attendance/components/views/PointageGridTable';
 import usePointageSaisie from '@/features/attendance/hooks/usePointageSaisie';
@@ -441,12 +440,28 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                     </div>
                 )}
 
-                {/* 4. Alert Jour Férié */}
-                <PointageFerieAlert
-                    isFerie={statsJour.isFerie}
-                    libelleFerie={statsJour.libelleFerie}
-                    siteLabel={statsJour.siteLabel}
-                />
+                {/* 4. Information locale à cette grille : pas de composant séparé à rechercher. */}
+                {statsJour.isFerie && (
+                    <div className="bg-[var(--color-warning-500)]/10 border-l-4 border-l-[var(--color-warning-500)] p-4 shadow-xs text-xs text-[var(--color-warning-700)] dark:text-[var(--color-warning-200)]">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-start sm:items-center gap-2.5">
+                                <Calendar size={16} className="text-[var(--color-warning-600)] shrink-0 mt-0.5 sm:mt-0" />
+                                <div>
+                                    <span className="font-bold text-[13px]">
+                                        Jour férié chômé · {statsJour.libelleFerie || 'Férié officiel'}
+                                    </span>
+                                    <span className="text-[12px] opacity-90 block sm:inline sm:ml-2">
+                                        sur le site {statsJour.siteLabel}.
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[11.5px] font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] bg-[var(--color-warning-500)]/15 px-2.5 py-1 border border-[var(--color-warning-500)]/30 shrink-0">
+                                <Sparkles size={13} className="text-[var(--color-warning-600)]" />
+                                <span>Saisie ouverte : les heures saisies compteront en Férié travaillé (+100%)</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* 5. Table de Saisie DOMINANTE (scroll interne) */}
                 {loading ? (

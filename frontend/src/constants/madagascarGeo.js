@@ -142,7 +142,7 @@ export const VILLES_MADAGASCAR = [
  * Référentiel unifié des agences bancaires de Madagascar.
  * Recensé à partir des implantations bancaires officielles (BMOI, BNI, BOA, Société Générale,
  * MCB, SBM, AccèsBanque, Baobab, BGFIBank, BM, SIPEM).
- * Utilisé pour l'autocomplétion prédictive dans les formulaires bancaires collaborateur (CnapsBanqueStep).
+ * Utilisé pour l'autocomplétion prédictive dans le formulaire bancaire du collaborateur.
  */
 export const AGENCES_BANCAIRES = [
     // --- Antananarivo / Analamanga (Quartiers & Agences) ---

@@ -1,4 +1,6 @@
 import { useState, lazy, Suspense } from 'react';
+import { CalendarDays, CheckCircle, Clock, Users } from 'lucide-react';
+import StatCard from '@/components/ui/data-display/StatCard';
 import { SkeletonCard, SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { getErrorMessage } from '@/api/apiClient';
@@ -9,7 +11,6 @@ import { fmtDateInput } from '@/utils/dateUtils';
 import { useSoldesOverview } from '@/features/leave/hooks/useSoldesOverview';
 
 // Sous-composants
-import SoldesKpiBar from './soldes/SoldesKpiBar';
 import SoldesGantt from './soldes/SoldesGantt';
 import SoldesTable from './soldes/SoldesTable';
 
@@ -241,13 +242,13 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], refe
   // Rendu : synthèse, planning, tableau et modales.
   return (
     <div className="space-y-6">
-      {/* Barre de KPIs */}
-      <SoldesKpiBar
-        kpiEnAttente={kpiEnAttente}
-        kpiAbsentsAuj={kpiAbsentsAuj}
-        kpiValideCeMois={kpiValideCeMois}
-        kpiTotalDemandes={kpiTotalDemandes}
-      />
+      {/* KPIs propres à cette vue de soldes. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="En attente de validation" value={kpiEnAttente} icon={<Clock size={20} />} color="warning" subtext="À traiter par le manager / RH" borderTop={false} />
+        <StatCard title="Absents aujourd'hui" value={kpiAbsentsAuj} icon={<Users size={20} />} color="danger" subtext="Salariés actuellement en congé" borderTop={false} />
+        <StatCard title="Validées ce mois" value={kpiValideCeMois} icon={<CheckCircle size={20} />} color="success" subtext="Demandes approuvées sur la période" borderTop={false} />
+        <StatCard title="Total demandes" value={kpiTotalDemandes} icon={<CalendarDays size={20} />} color="brand" subtext="Toutes demandes confondues sur l'année" borderTop={false} />
+      </div>
 
       {/* Planning Gantt Interactif */}
       <SoldesGantt

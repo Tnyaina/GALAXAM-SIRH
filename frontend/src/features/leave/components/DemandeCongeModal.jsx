@@ -1,6 +1,7 @@
-import { Calendar } from 'lucide-react';
+import { Calendar, ChevronDown, ShieldAlert } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Alert from '@/components/ui/feedback/Alert';
 import Badge from '@/components/ui/data-display/Badge';
 import { useToast } from '@/components/ui/feedback/Toast';
@@ -11,9 +12,7 @@ import Modal from '@/components/ui/overlays/Modal';
 import { useDemandeCongeForm } from '@/features/leave/hooks/useDemandeCongeForm';
 
 // Sections UI
-import TypeCongeSection from './formulaire/TypeCongeSection';
 import DatesCongeSection from './formulaire/DatesCongeSection';
-import OptionsRHSection from './formulaire/OptionsRHSection';
 import ConflitsPostePreview from './formulaire/ConflitsPostePreview';
 
 export default function DemandeCongeModal({ 
@@ -57,7 +56,7 @@ export default function DemandeCongeModal({
     isExceptionnel, isMaternite,
     
     // Méthodes
-    handleSubmit, inputErrorClass
+    handleSubmit
   } = useDemandeCongeForm({ 
     idEmployeProp, 
     initialDemande, 
@@ -148,19 +147,42 @@ export default function DemandeCongeModal({
               )
             )}
 
-            {/* Section 1 : Type de congé */}
-            <TypeCongeSection
-              idTypeConge={idTypeConge}
-              setIdTypeConge={setIdTypeConge}
-              idMotifEvenementFamilial={idMotifEvenementFamilial}
-              setIdMotifEvenementFamilial={setIdMotifEvenementFamilial}
-              typesConge={typesConge}
-              motifsFamiliaux={motifsFamiliaux}
-              isExceptionnel={isExceptionnel}
-              fieldErrors={fieldErrors}
-              setFieldErrors={setFieldErrors}
-              inputErrorClass={inputErrorClass}
-            />
+            {/* Section 1 : type de congé et, si nécessaire, motif familial. */}
+            <div className="space-y-1.5">
+              <SearchSelect
+                label="Type de congé / absence"
+                required
+                value={idTypeConge}
+                onChange={(value) => {
+                  setIdTypeConge(value);
+                  setIdMotifEvenementFamilial('');
+                  setFieldErrors((current) => ({ ...current, idTypeConge: null }));
+                }}
+                options={typesConge
+                  .filter((type) => type.estActif !== false && type.actif !== false || String(type.idTypeConge) === String(idTypeConge))
+                  .map((type) => ({ value: type.idTypeConge, label: type.libelle, sublabel: `${type.estPaye ? 'Rémunéré' : 'Sans solde'}${type.soumisDelaiPreavis ? ' · Préavis requis' : ''}` }))}
+                placeholder="Sélectionner un type de congé…"
+                error={fieldErrors.idTypeConge}
+              />
+            </div>
+            {isExceptionnel && (
+              <div className="pl-3 border-l-2 border-[var(--color-warning-500)] space-y-1.5 mt-4">
+                <SearchSelect
+                  label="Motif d'événement familial"
+                  required
+                  value={idMotifEvenementFamilial}
+                  onChange={(value) => {
+                    setIdMotifEvenementFamilial(value);
+                    setFieldErrors((current) => ({ ...current, idMotifEvenementFamilial: null }));
+                  }}
+                  options={motifsFamiliaux
+                    .filter((motif) => motif.estActif !== false && motif.actif !== false || String(motif.idMotif) === String(idMotifEvenementFamilial))
+                    .map((motif) => ({ value: motif.idMotif, label: motif.libelle, sublabel: `${motif.nbJoursAutorises} jours autorisés` }))}
+                  placeholder="Sélectionner un motif…"
+                  error={fieldErrors.idMotifEvenementFamilial}
+                />
+              </div>
+            )}
 
             {/* Section 2 : Dates */}
             <DatesCongeSection
@@ -225,19 +247,21 @@ export default function DemandeCongeModal({
               </div>
             </div>
 
-            {/* Section 4 : Options avancées RH */}
-            <OptionsRHSection
-              showOptionsAvancees={showOptionsAvancees}
-              setShowOptionsAvancees={setShowOptionsAvancees}
-              derogationSoldeNegatif={derogationSoldeNegatif}
-              setDerogationSoldeNegatif={setDerogationSoldeNegatif}
-              derogationDelaiPreavis={derogationDelaiPreavis}
-              setDerogationDelaiPreavis={setDerogationDelaiPreavis}
-              derogationContinuiteService={derogationContinuiteService}
-              setDerogationContinuiteService={setDerogationContinuiteService}
-              estRemunere={estRemunere}
-              setEstRemunere={setEstRemunere}
-            />
+            {/* Section 4 : options RH propres à ce formulaire. */}
+            <div className="border border-[var(--color-border-subtle)] mt-4">
+              <button type="button" onClick={() => setShowOptionsAvancees((value) => !value)} aria-expanded={showOptionsAvancees} className="w-full flex items-center justify-between px-4 py-3 text-left">
+                <span className="text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)] flex items-center gap-1.5"><ShieldAlert className="w-4 h-4 text-warning-500" />Options avancées — RH uniquement</span>
+                <ChevronDown className={`w-4 h-4 text-[var(--color-fg-muted)] transition-transform ${showOptionsAvancees ? 'rotate-180' : ''}`} />
+              </button>
+              {showOptionsAvancees && (
+                <div className="px-4 pb-4 pt-1 border-t border-[var(--color-border-subtle)] space-y-3">
+                  {setEstRemunere && <label className="flex items-start gap-3 cursor-pointer p-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]"><input type="checkbox" checked={estRemunere ?? true} onChange={(event) => setEstRemunere(event.target.checked)} className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0" /><span className="text-sm font-medium text-[var(--color-fg)]">Congé rémunéré (indemnisé sur les droits acquis)<span className="block text-xs text-[var(--color-fg-muted)] mt-0.5 font-normal">Coché : l'absence donne droit à l'indemnité légale de congés payés. Décoché : congé sans solde.</span></span></label>}
+                  <label className="flex items-start gap-3 cursor-pointer"><input type="checkbox" checked={derogationSoldeNegatif} onChange={(event) => setDerogationSoldeNegatif(event.target.checked)} className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0" /><span className="text-sm text-[var(--color-fg)]">Autoriser le dépassement de solde (prise par anticipation)<span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">Autorise la demande même si le solde actuel est insuffisant ou si l'ancienneté est &lt; 1 an.</span></span></label>
+                  <label className="flex items-start gap-3 cursor-pointer"><input type="checkbox" checked={derogationDelaiPreavis} onChange={(event) => setDerogationDelaiPreavis(event.target.checked)} className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0" /><span className="text-sm text-[var(--color-fg)]">Dérogation de préavis<span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">Autorise le dépôt ou la validation si le délai de préavis habituel n'est pas respecté.</span></span></label>
+                  <label className="flex items-start gap-3 cursor-pointer"><input type="checkbox" checked={derogationContinuiteService} onChange={(event) => setDerogationContinuiteService(event.target.checked)} className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0" /><span className="text-sm text-[var(--color-fg)]">Continuité d'activité : autoriser les absences simultanées<span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">Autorise le congé même si d'autres collaborateurs occupant le même poste sont déjà absents.</span></span></label>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Colonne Droite (Grand Aperçu Gantt & Continuité de Service) */}

@@ -5,7 +5,7 @@ import SEO from '@/components/system/SEO';
 import WorkflowStepper from '@/components/ui/navigation/WorkflowStepper';
 import { useAuth } from '@/context/AuthContext';
 import periodePaieService from '@/features/attendance/api/periodePaieService';
-import pointageAnomalieService from '@/features/attendance/api/pointageAnomalieService';
+import attendanceService from '@/features/attendance/api/attendanceService';
 
 // Lazy-loading des etapes du cockpit
 const SaisieQuotidiennePage    = lazy(() => import('@/features/attendance/pages/SaisieQuotidiennePage'));
@@ -88,7 +88,7 @@ export default function GestionPointagesPage() {
 
                 if (target?.idPeriodePaie) {
                     try {
-                        const res = await pointageAnomalieService.getAnomalies({
+                        const res = await attendanceService.getAnomalies({
                             idPeriodePaie: target.idPeriodePaie,
                             pageSize: 1
                         });

@@ -16,7 +16,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Loading from '@/components/ui/feedback/Loading';
 import Alert from '@/components/ui/feedback/Alert';
-import pointageEmployeService from '@/features/attendance/api/pointageEmployeService';
+import attendanceService from '@/features/attendance/api/attendanceService';
 import { formatMonnaie, formatHeuresMinutes, formatHeuresDecimal, formatDualHours, getStatutPointageBadge } from '@/features/attendance/utils/attendanceDisplayUtils';
 import { fmtDate } from '@/utils/dateUtils';
 
@@ -49,7 +49,7 @@ export default function PointageDetailHebdoModal({
             if (idPeriodePaie) {
                 params.idPeriode = idPeriodePaie;
             }
-            const res = await pointageEmployeService.getFicheEmploye(idEmploye, params);
+            const res = await attendanceService.getFicheEmploye(idEmploye, params);
             setFicheData(res);
         } catch (err) {
             console.error('Erreur chargement détail pointage:', err);

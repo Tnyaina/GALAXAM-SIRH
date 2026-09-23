@@ -7,18 +7,17 @@ import PageHeader from '@/components/ui/navigation/PageHeader';
 import Tabs from '@/components/ui/navigation/Tabs';
 import Button from '@/components/ui/forms/Button';
 import EmptyState from '@/components/ui/data-display/EmptyState';
+import StatCard from '@/components/ui/data-display/StatCard';
 import Alert from '@/components/ui/feedback/Alert';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Pagination from '@/components/ui/navigation/Pagination';
 import SEO from '@/components/system/SEO';
 import useDebounce from '@/hooks/useDebounce';
 
-import SupervisionKpiCards from '@/features/employees/components/carriere/supervision/SupervisionKpiCards';
 import SupervisionAlertsPanel from '@/features/employees/components/carriere/supervision/SupervisionAlertsPanel';
 import SupervisionFilterBar from '@/features/employees/components/carriere/supervision/SupervisionFilterBar';
 import SupervisionEmployeeGroup from '@/features/employees/components/carriere/supervision/SupervisionEmployeeGroup';
 import SupervisionCompareModal from '@/features/employees/components/carriere/supervision/SupervisionCompareModal';
-import SupervisionLegend from '@/features/employees/components/carriere/supervision/SupervisionLegend';
 import SupervisionMouvementsTab from '@/features/employees/components/carriere/supervision/SupervisionMouvementsTab';
 
 const VALID_MAIN_TABS = ['contrats', 'mouvements'];
@@ -254,14 +253,14 @@ export default function CarrieresSupervisionPage() {
                     {/* Notifications d'Erreur */}
                     {error && <Alert type="error" onClose={() => setError(null)}>{error}</Alert>}
 
-                    {/* Bandeau KPI Cliquables (Filtres Rapides) */}
-                    <SupervisionKpiCards
-                        stats={stats}
-                        selectedStatut={selectedStatut}
-                        selectedEcheance={selectedEcheance}
-                        doublonsOnly={doublonsOnly}
-                        onFilterClick={handleKpiFilterClick}
-                    />
+                    {/* Indicateurs-filtres propres à cette supervision. */}
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+                        <StatCard title="Contrats au total" value={stats.totalContrats ?? 0} subtext="Tous statuts confondus" color="neutral" active={selectedStatut === 'ALL' && !doublonsOnly && !selectedEcheance} onClick={() => handleKpiFilterClick({ statut: 'ALL', doublons: false, echeance: '' })} />
+                        <StatCard title="Contrats actifs" value={stats.contratsActifs ?? 0} subtext="En cours d'exécution" color="success" active={selectedStatut === 'ACTIF' && !doublonsOnly && !selectedEcheance} onClick={() => handleKpiFilterClick({ statut: 'ACTIF', doublons: false, echeance: '' })} />
+                        <StatCard title="Planifiés / À signer" value={stats.enAttenteSignature ?? 0} subtext="Effet futur ou brouillon" color="brand" active={selectedStatut === 'PENDING' && !doublonsOnly && !selectedEcheance} onClick={() => handleKpiFilterClick({ statut: 'PENDING', doublons: false, echeance: '' })} />
+                        <StatCard title="Échéances < 60 jours" value={stats.echeances60Jours ?? 0} subtext="Essai ou fin de contrat" color="warning" active={selectedEcheance === '60J' && !doublonsOnly} onClick={() => handleKpiFilterClick({ statut: 'ALL', doublons: false, echeance: '60J' })} />
+                        <StatCard title="Doublons potentiels" value={stats.doublonsPotentiels ?? 0} subtext="Dossiers à vérifier" color="danger" active={doublonsOnly} onClick={() => handleKpiFilterClick({ statut: 'ALL', doublons: true, echeance: '' })} />
+                    </div>
 
                     {/* Alertes Prioritaires (« À TRAITER EN PRIORITÉ ») */}
                     <SupervisionAlertsPanel
@@ -334,8 +333,24 @@ export default function CarrieresSupervisionPage() {
                         </div>
                     )}
 
-                    {/* Légende Repère Couleur */}
-                    <SupervisionLegend />
+                    {/* Légende locale : elle n'est utile que sur cet écran de supervision. */}
+                    <div className="flex items-center gap-4 flex-wrap text-xs text-[var(--color-fg-muted)] px-1 pt-2">
+                        <span className="font-extrabold uppercase tracking-wider text-[var(--color-fg)]">
+                            Repère couleur :
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="w-3 h-1 bg-[var(--color-brand-500)] inline-block" />
+                            En attente de signature
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="w-3 h-1 bg-warning-500 inline-block" />
+                            Échéance proche (&lt; 60 j)
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="w-3 h-1 bg-danger-500 inline-block" />
+                            Doublon potentiel à vérifier
+                        </span>
+                    </div>
 
                     {/* Modale de Comparaison des Doublons */}
                     <SupervisionCompareModal

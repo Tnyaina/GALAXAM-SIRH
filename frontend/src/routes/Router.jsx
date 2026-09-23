@@ -1,10 +1,12 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useParams } from "react-router-dom";
+import { HelpCircle, ServerCrash, ShieldAlert, WifiOff, Wrench } from "lucide-react";
 import ProtectedRoute from "@/routes/ProtectedRoute";
 import { AuthProvider } from "@/context/AuthContext";
 import { MenuProvider } from "@/context/MenuContext";
 import Layout from "@/components/layout/Layout";
 import Loading from "@/components/ui/feedback/Loading";
+import StatusPage from "@/components/system/StatusPage";
 
 // =========================================================================
 // Lazy loading des pages (Code-Splitting)
@@ -49,12 +51,29 @@ const OrganisationAdminPanel = lazy(() => import("@/features/organization/pages/
 const ReferentielsRhAdminPanel = lazy(() => import("@/features/administration/pages/referentiels/ReferentielsRhAdminPanel"));
 const ParametresModulesPanel = lazy(() => import("@/features/administration/pages/modules/ParametresModulesPanel"));
 
-// Pages Système & Erreurs
-const Unauthorized = lazy(() => import("@/pages/systeme/Unauthorized"));
-const NotFound = lazy(() => import("@/pages/systeme/NotFound"));
-const ServerError = lazy(() => import("@/pages/systeme/ServerError"));
-const Maintenance = lazy(() => import("@/pages/systeme/Maintenance"));
-const NoConnection = lazy(() => import("@/pages/systeme/NoConnection"));
+// Pages système : un même écran paramétré, sans wrappers de route redondants.
+const SYSTEM_PAGES = {
+    noConnection: {
+        icon: WifiOff, title: "Connexion perdue", tone: "warning",
+        description: "Vérifiez votre connexion internet, puis réessayez.", actionLabel: "Réessayer", actionHref: "/"
+    },
+    maintenance: {
+        code: "503", icon: Wrench, title: "Maintenance en cours", tone: "warning",
+        description: "Le service est temporairement indisponible le temps d'une mise à jour. Merci de réessayer dans quelques minutes.", actionLabel: "Actualiser la page", actionHref: "/"
+    },
+    serverError: {
+        code: "500", icon: ServerCrash, title: "Erreur serveur", tone: "danger",
+        description: "Une erreur inattendue est survenue de notre côté. Notre équipe a été notifiée, merci de réessayer dans un instant.", actionLabel: "Réessayer", actionHref: "/"
+    },
+    unauthorized: {
+        code: "403", icon: ShieldAlert, title: "Accès refusé (403)", tone: "danger",
+        description: "Vos droits d'accès actuels ne vous permettent pas d'accéder à cette page ou d'effectuer cette opération.", actionLabel: "Retour au tableau de bord", actionHref: "/dashboard"
+    },
+    notFound: {
+        code: "404", icon: HelpCircle, title: "Page introuvable", tone: "neutral",
+        description: "La page que vous recherchez n'existe pas ou a été déplacée.", actionLabel: "Retour à l'accueil", actionHref: "/"
+    }
+};
 
 import { usePayrollCampaign } from "@/features/payroll/hooks/usePayrollCampaign";
 
@@ -105,9 +124,9 @@ export default function Router() {
                     {/* Routes Publiques / Hors Session                      */}
                     {/* ---------------------------------------------------- */}
                     <Route path="/" element={<Login />} />
-                    <Route path="/maintenance" element={<Maintenance />} />
-                    <Route path="/hors-ligne" element={<NoConnection />} />
-                    <Route path="/erreur-serveur" element={<ServerError />} />
+                    <Route path="/maintenance" element={<StatusPage {...SYSTEM_PAGES.maintenance} />} />
+                    <Route path="/hors-ligne" element={<StatusPage {...SYSTEM_PAGES.noConnection} />} />
+                    <Route path="/erreur-serveur" element={<StatusPage {...SYSTEM_PAGES.serverError} />} />
 
                     {/* ---------------------------------------------------- */}
                     {/* Routes Protégées Standard (Authentifié + Layout)    */}
@@ -176,7 +195,7 @@ export default function Router() {
 
                     <Route element={<ProtectedRoute />}>
                         {/* 403 à l'intérieur du Layout pour garder le menu latéral */}
-                        <Route path="/non-autorise" element={<Unauthorized />} />
+                        <Route path="/non-autorise" element={<StatusPage {...SYSTEM_PAGES.unauthorized} />} />
                     </Route>
 
                     {/* ---------------------------------------------------- */}
@@ -215,7 +234,7 @@ export default function Router() {
                         path="*"
                         element={
                             <Layout>
-                                <NotFound />
+                                <StatusPage {...SYSTEM_PAGES.notFound} />
                             </Layout>
                         }
                     />

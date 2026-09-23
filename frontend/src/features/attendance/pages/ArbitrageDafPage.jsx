@@ -20,7 +20,7 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import organisationService from '@/features/organization/api/organisationService';
 import periodePaieService from '@/features/attendance/api/periodePaieService';
 import pointageSyntheseService from '@/features/attendance/api/pointageSyntheseService';
-import pointageSaisieService from '@/features/attendance/api/pointageSaisieService';
+import attendanceService from '@/features/attendance/api/attendanceService';
 import { formatMonnaie, formatHeuresMinutes, formatHeuresDecimal, getAttendanceBadgeClass } from '@/features/attendance/utils/attendanceDisplayUtils';
 import { isDateInFuture } from '@/utils/dateUtils';
 import { getErrorMessage } from '@/api/apiClient';
@@ -215,7 +215,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
             const results = await Promise.all(
                 days.map(date =>
-                    pointageSaisieService.getGrilleSaisie({ idSite: siteParam, date })
+                    attendanceService.getGrilleSaisie({ idSite: siteParam, date })
                         .then(res => ({ date, rows: res?.grilleData || res?.employes || (Array.isArray(res) ? res : []) }))
                         .catch(() => ({ date, rows: [] }))
                 )

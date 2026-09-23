@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import pointageAnomalieService from '@/features/attendance/api/pointageAnomalieService';
+import attendanceService from '@/features/attendance/api/attendanceService';
 import useDebounce from '@/hooks/useDebounce';
 import { getErrorMessage } from '@/api/apiClient';
 
@@ -33,7 +33,7 @@ export function usePointageAnomalies(initialFilters = {}) {
                 ...filters,
                 search: debouncedSearch
             };
-            const data = await pointageAnomalieService.getAnomalies(queryParams, { signal });
+            const data = await attendanceService.getAnomalies(queryParams, { signal });
             if (data) {
                 setAnomalies(data.anomalies || []);
                 setStats(data.stats || { total: 0, incomplets: 0, retards: 0, absences: 0, critiques: 0, hautes: 0, moyennes: 0, faibles: 0, bloquantes: 0 });
@@ -60,7 +60,7 @@ export function usePointageAnomalies(initialFilters = {}) {
 
     const regulariser = async (idPointage, payload) => {
         try {
-            const res = await pointageAnomalieService.regulariser(idPointage, payload);
+            const res = await attendanceService.regulariser(idPointage, payload);
             if (res && (res.success || res.status === 200)) {
                 await loadAnomalies();
                 return res;

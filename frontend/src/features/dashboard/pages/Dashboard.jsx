@@ -1,19 +1,23 @@
+import { Link } from 'react-router-dom';
+import { Building2, CalendarDays, ChevronRight, ClipboardCheck, Clock, Clock3, UserCheck, Users, WalletCards } from 'lucide-react';
 import { useDashboard } from '@/features/dashboard/hooks/useDashboard';
 import DashboardHeader from '@/features/dashboard/components/layout/DashboardHeader';
-import KpiGrid from '@/features/dashboard/components/views/KpiGrid';
+import StatCard from '@/components/ui/data-display/StatCard';
+import { SkeletonStatCard } from '@/components/ui/feedback/Skeleton';
 import AbsentsWidget from '@/features/dashboard/components/views/widgets/AbsentsWidget';
 import PlanningQuinzaineWidget from '@/features/dashboard/components/views/widgets/PlanningQuinzaineWidget';
 import EcheancesWidget from '@/features/dashboard/components/views/widgets/EcheancesWidget';
 import ActiviteRhWidget from '@/features/dashboard/components/views/widgets/ActiviteRhWidget';
 import OperationalQueueWidget from '@/features/dashboard/components/views/widgets/OperationalQueueWidget';
 import PayrollCycleWidget from '@/features/dashboard/components/views/widgets/PayrollCycleWidget';
-import ModuleOverviewWidget from '@/features/dashboard/components/views/widgets/ModuleOverviewWidget';
 import HasPermission from '@/features/auth/components/HasPermission';
 import SEO from '@/components/system/SEO';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Dashboard() {
     // Hook métier
     const { data, loading, error, refresh, lastRefresh } = useDashboard();
+    const { hasPermission } = useAuth();
 
     // Données dérivées
     const kpis = data?.kpis;
@@ -28,6 +32,13 @@ export default function Dashboard() {
     const actionsATraiter = data?.actionsATraiter || [];
 
     const totalAlertesContrats = alertesCritiques.length + alertes7j.length;
+    const modules = [
+        { icon: Building2, title: 'Organisation', text: 'Sites, structures et paramètres', to: '/parametres/organisation', visible: hasPermission('ORGANISATION_READ') },
+        { icon: Users, title: 'Employés', text: `${kpis?.totalEffectifActif ?? 0} actif(s) · ${kpis?.contratsExpirant30j ?? 0} échéance(s)`, to: '/employes', visible: hasPermission('EMPLOYE_READ') },
+        { icon: CalendarDays, title: 'Congés & absences', text: `${absentsAujourdhui.length} absent(s) · ${demandesCongeAValider.length} à valider`, to: '/conges', visible: hasPermission('CONGE_READ') },
+        { icon: Clock3, title: 'Pointage', text: 'Saisie, anomalies et validation', to: '/pointages?tab=suivi', visible: hasPermission('POINTAGE_READ') },
+        { icon: WalletCards, title: 'Paie', text: 'Cycle, variables et bulletins', to: '/paie', visible: hasPermission('PAIE_READ') },
+    ].filter((module) => module.visible);
 
     // Rendu
     return (
@@ -43,12 +54,17 @@ export default function Dashboard() {
                 totalAlertesContrats={totalAlertesContrats}
             />
 
-            <KpiGrid 
-                loading={loading}
-                kpis={kpis}
-                actionsCount={actionsATraiter.reduce((sum, action) => sum + (Number(action.count) || 0), 0)}
-                absentsAujourdhuiCount={absentsAujourdhui.length}
-            />
+            {/* Indicateurs propres au tableau de bord : lecture directe, sans composant intermédiaire. */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {loading ? Array.from({ length: 4 }).map((_, index) => <SkeletonStatCard key={index} />) : (
+                    <>
+                        <StatCard title="Effectif actif" value={kpis?.totalEffectifActif ?? '—'} subtext={`${kpis?.nouvellesEmbauchesMois ?? 0} arrivée(s) ce mois`} icon={<Users size={18} />} color="brand" />
+                        <StatCard title="Actions à traiter" value={actionsATraiter.reduce((sum, action) => sum + (Number(action.count) || 0), 0)} subtext={actionsATraiter.length > 0 ? 'Ouvrir les priorités opérationnelles' : 'Aucune action en attente'} icon={<ClipboardCheck size={18} />} color={actionsATraiter.length > 0 ? 'warning' : 'brand'} />
+                        <StatCard title="Absents ce jour" value={absentsAujourdhui.length} subtext="Congés validés en cours" icon={<UserCheck size={18} />} color={absentsAujourdhui.length > 0 ? 'info' : 'brand'} />
+                        <StatCard title="Échéances à 30 jours" value={kpis?.contratsExpirant30j ?? '—'} subtext={`${kpis?.essaisEnCours ?? 0} période(s) d’essai en cours`} icon={<Clock size={18} />} color={kpis?.contratsExpirant30j > 0 ? 'warning' : 'brand'} />
+                    </>
+                )}
+            </div>
 
             {/* Lecture opérationnelle : priorités puis continuité des cycles. */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
@@ -74,11 +90,24 @@ export default function Dashboard() {
 
             </div>
 
-            <ModuleOverviewWidget
-                kpis={kpis}
-                demandesCount={demandesCongeAValider.length}
-                absentsCount={absentsAujourdhui.length}
-            />
+            {modules.length > 0 && (
+                <section>
+                    <div className="mb-3">
+                        <h2 className="text-sm font-bold text-[var(--color-fg)]">Domaines du SIRH</h2>
+                        <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">Accès direct et état synthétique de chaque périmètre.</p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+                        {modules.map(({ icon: Icon, title, text, to }) => (
+                            <Link key={title} to={to} className="group min-h-28 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 hover:border-[var(--color-brand-500)] hover:shadow-xs transition-all flex flex-col">
+                                <span className="w-8 h-8 flex items-center justify-center bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)]"><Icon size={17} /></span>
+                                <span className="mt-3 text-xs font-bold text-[var(--color-fg)]">{title}</span>
+                                <span className="mt-1 text-[11px] leading-relaxed text-[var(--color-fg-muted)]">{text}</span>
+                                <ChevronRight size={14} className="mt-auto self-end text-[var(--color-fg-subtle)] group-hover:text-[var(--color-brand-600)] group-hover:translate-x-0.5 transition-transform" />
+                            </Link>
+                        ))}
+                    </div>
+                </section>
+            )}
 
             {/* Toujours présent : vide ou rempli, le journal reste à sa place en bas. */}
             <ActiviteRhWidget loading={loading} activite={activite} />
