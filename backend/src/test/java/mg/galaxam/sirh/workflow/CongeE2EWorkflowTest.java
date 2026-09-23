@@ -2,8 +2,8 @@ package mg.galaxam.sirh.workflow;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import mg.galaxam.sirh.BaseIntegrationTest;
-import mg.galaxam.sirh.api.dto.contrat.EmbaucheInitialeRequest;
-import mg.galaxam.sirh.api.dto.contrat.ValiderWorkflowRequest;
+import mg.galaxam.sirh.contrat.api.dto.EmbaucheInitialeRequest;
+import mg.galaxam.sirh.contrat.api.dto.ValiderWorkflowRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

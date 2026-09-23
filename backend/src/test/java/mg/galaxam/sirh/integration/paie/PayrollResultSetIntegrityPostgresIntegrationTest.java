@@ -13,7 +13,7 @@ import java.sql.SQLException;
 import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.BaseIntegrationTest;
-import mg.galaxam.sirh.model.paieconfig.RefTypeMouvementPaie;
+import mg.galaxam.sirh.paieconfig.persistence.RefTypeMouvementPaie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

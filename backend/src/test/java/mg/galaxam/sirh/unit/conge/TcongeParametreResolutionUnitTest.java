@@ -2,7 +2,7 @@ package mg.galaxam.sirh.unit.conge;
 
 import java.util.HashMap;
 import java.util.Map;
-import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
+import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

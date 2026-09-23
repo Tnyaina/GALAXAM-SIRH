@@ -1,15 +1,15 @@
 package mg.galaxam.sirh.integration.pointage;
 
 import mg.galaxam.sirh.BaseIntegrationTest;
-import mg.galaxam.sirh.api.dto.pointage.SaisiePointageJourDTO;
+import mg.galaxam.sirh.pointage.api.dto.SaisiePointageJourDTO;
 import mg.galaxam.sirh.fixtures.TestEmployeFixtures;
-import mg.galaxam.sirh.model.pointage.calculation.DaySpecialType;
-import mg.galaxam.sirh.model.pointage.calculation.NightWorkType;
-import mg.galaxam.sirh.model.pointage.calculation.OvertimeTier;
-import mg.galaxam.sirh.model.pointage.calculation.QualifiedTimeBucket;
-import mg.galaxam.sirh.model.pointage.service.PointageSyntheseService;
-import mg.galaxam.sirh.model.paie.service.PayrollService;
-import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.pointage.domain.calculation.DaySpecialType;
+import mg.galaxam.sirh.pointage.domain.calculation.NightWorkType;
+import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
+import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
+import mg.galaxam.sirh.paie.application.PayrollService;
+import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

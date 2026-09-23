@@ -3,8 +3,8 @@ package mg.galaxam.sirh.unit.paie;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
-import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
-import mg.galaxam.sirh.model.paie.engine.OvertimePayCalculator;
+import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.paie.domain.engine.OvertimePayCalculator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -108,7 +108,7 @@ class OvertimePayCalculatorTest {
                 true, new BigDecimal("0.40"),
                 false, BigDecimal.ZERO,
                 true, new BigDecimal("0.30"),
-                mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.CUMUL_ADDITIF
+                mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.CUMUL_ADDITIF
         );
         assertEquals(new BigDecimal("3400.00"), montantCumul);
 
@@ -119,7 +119,7 @@ class OvertimePayCalculatorTest {
                 true, new BigDecimal("0.40"),
                 false, BigDecimal.ZERO,
                 true, new BigDecimal("0.30"),
-                mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM
+                mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM
         );
         assertEquals(new BigDecimal("2800.00"), montantMax);
     }
@@ -144,7 +144,7 @@ class OvertimePayCalculatorTest {
                 true, new BigDecimal("0.40"),
                 false, BigDecimal.ZERO,
                 true, new BigDecimal("0.30"),
-                mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.CUMUL_ADDITIF
+                mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.CUMUL_ADDITIF
         );
         // 1h * 2000 * (1.00 + 0.30 + 0.40 + 0.30) = 4 000 Ar
         assertEquals(new BigDecimal("4000.00"), montantCumul);
@@ -156,7 +156,7 @@ class OvertimePayCalculatorTest {
                 true, new BigDecimal("0.40"),
                 false, BigDecimal.ZERO,
                 true, new BigDecimal("0.30"),
-                mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM
+                mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM
         );
         assertEquals(new BigDecimal("3400.00"), montantMax);
     }
@@ -221,7 +221,7 @@ class OvertimePayCalculatorTest {
                 false, BigDecimal.ZERO,
                 true, new BigDecimal("1.00"),
                 true, new BigDecimal("0.30"),
-                mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.CUMUL_ADDITIF
+                mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.CUMUL_ADDITIF
         );
         assertEquals(new BigDecimal("4600.00"), montantCumul);
 
@@ -231,7 +231,7 @@ class OvertimePayCalculatorTest {
                 false, BigDecimal.ZERO,
                 true, new BigDecimal("1.00"),
                 true, new BigDecimal("0.30"),
-                mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM
+                mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM
         );
         assertEquals(new BigDecimal("4000.00"), montantMax);
     }
@@ -255,7 +255,7 @@ class OvertimePayCalculatorTest {
                 false, BigDecimal.ZERO,
                 true, new BigDecimal("1.00"),
                 true, new BigDecimal("0.30"),
-                mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.CUMUL_ADDITIF
+                mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.CUMUL_ADDITIF
         );
         assertEquals(new BigDecimal("5200.00"), montantCumul);
 
@@ -265,7 +265,7 @@ class OvertimePayCalculatorTest {
                 false, BigDecimal.ZERO,
                 true, new BigDecimal("1.00"),
                 true, new BigDecimal("0.30"),
-                mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM
+                mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM
         );
         assertEquals(new BigDecimal("4600.00"), montantMax);
     }
@@ -289,7 +289,7 @@ class OvertimePayCalculatorTest {
                 true, new BigDecimal("0.40"), // Dimanche
                 true, new BigDecimal("1.00"), // Férié (prime sur dimanche)
                 false, BigDecimal.ZERO,
-                mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM
+                mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM
         );
         // 1h * 2000 * (1.00 + max(0.40, 1.00)) = 4 000 Ar (Facteur 2.00)
         assertEquals(new BigDecimal("4000.00"), montantHeure);
@@ -314,7 +314,7 @@ class OvertimePayCalculatorTest {
                 true, new BigDecimal("0.40"), // Dimanche
                 true, new BigDecimal("1.00"), // Férié (absorbe dimanche et nuit)
                 true, new BigDecimal("0.30"),  // Nuit
-                mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM
+                mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM
         );
         // 1h * 2000 * (1.00 + max(0.40, 1.00, 0.30)) = 4 000 Ar (Facteur 2.00)
         assertEquals(new BigDecimal("4000.00"), montantMax);
@@ -325,7 +325,7 @@ class OvertimePayCalculatorTest {
                 true, new BigDecimal("0.40"),
                 true, new BigDecimal("1.00"),
                 true, new BigDecimal("0.30"),
-                mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.CUMUL_ADDITIF
+                mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.CUMUL_ADDITIF
         );
         // 1h * 2000 * (1.00 + 0.40 + 1.00 + 0.30) = 5 400 Ar (Facteur 2.70)
         assertEquals(new BigDecimal("5400.00"), montantCumul);

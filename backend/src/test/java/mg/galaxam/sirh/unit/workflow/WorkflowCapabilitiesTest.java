@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.sql.Date;
 import java.time.LocalDate;
-import mg.galaxam.sirh.model.conge.VDemandeCongeCpl;
+import mg.galaxam.sirh.conge.persistence.VDemandeCongeCpl;
 import org.junit.jupiter.api.Test;
 
 class WorkflowCapabilitiesTest {

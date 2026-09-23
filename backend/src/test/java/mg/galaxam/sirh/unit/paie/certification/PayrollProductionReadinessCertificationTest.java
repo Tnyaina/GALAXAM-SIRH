@@ -13,12 +13,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import mg.galaxam.sirh.model.paie.BulletinPaie;
-import mg.galaxam.sirh.model.paie.BulletinPaieLigne;
-import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
-import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
-import mg.galaxam.sirh.model.paie.engine.IrsaCalculator;
-import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
+import mg.galaxam.sirh.paie.persistence.BulletinPaie;
+import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
+import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
+import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator;
+import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
 
 /**
  * MISSION — PAYROLL PRODUCTION READINESS GATE

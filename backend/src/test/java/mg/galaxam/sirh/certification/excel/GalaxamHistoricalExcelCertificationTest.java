@@ -18,13 +18,13 @@ import java.util.List;
 import java.util.Map;
 
 import mg.galaxam.sirh.BaseIntegrationTest;
-import mg.galaxam.sirh.model.paie.BulletinPaie;
-import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
-import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
-import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
-import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceCalculator;
-import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceContext;
-import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceResult;
+import mg.galaxam.sirh.paie.persistence.BulletinPaie;
+import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
+import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
+import mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceCalculator;
+import mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceContext;
+import mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceResult;
 import mg.galaxam.sirh.oracle.AttendanceIndependentOracle;
 import mg.galaxam.sirh.oracle.PayrollIndependentOracle;
 import org.junit.jupiter.api.BeforeEach;
@@ -345,7 +345,7 @@ public class GalaxamHistoricalExcelCertificationTest extends BaseIntegrationTest
         in.setNbEnfantsEligibles(0);
         in.setTranchesIrsa(createIrsa2025Tranches());
 
-        mg.galaxam.sirh.model.paie.PaieAvanceAcompte cp = new mg.galaxam.sirh.model.paie.PaieAvanceAcompte();
+        mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte cp = new mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte();
         cp.setIdAvance(1);
         cp.setTypeMouvement("ACOMPTE");
         cp.setMontant(raketaka.getCallPersoAmount());
@@ -741,13 +741,13 @@ public class GalaxamHistoricalExcelCertificationTest extends BaseIntegrationTest
     // UTILITAIRES PRIVÉS
     // =========================================================================
 
-    private List<mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche> createIrsa2025Tranches() {
-        List<mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche> tranches = new ArrayList<>();
-        tranches.add(new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("0.00"), new BigDecimal("350000.00"), new BigDecimal("0.00")));
-        tranches.add(new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("350000.00"), new BigDecimal("400000.00"), new BigDecimal("0.05")));
-        tranches.add(new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("400000.00"), new BigDecimal("500000.00"), new BigDecimal("0.10")));
-        tranches.add(new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("500000.00"), new BigDecimal("600000.00"), new BigDecimal("0.15")));
-        tranches.add(new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("600000.00"), null, new BigDecimal("0.20")));
+    private List<mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche> createIrsa2025Tranches() {
+        List<mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche> tranches = new ArrayList<>();
+        tranches.add(new mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche(new BigDecimal("0.00"), new BigDecimal("350000.00"), new BigDecimal("0.00")));
+        tranches.add(new mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche(new BigDecimal("350000.00"), new BigDecimal("400000.00"), new BigDecimal("0.05")));
+        tranches.add(new mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche(new BigDecimal("400000.00"), new BigDecimal("500000.00"), new BigDecimal("0.10")));
+        tranches.add(new mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche(new BigDecimal("500000.00"), new BigDecimal("600000.00"), new BigDecimal("0.15")));
+        tranches.add(new mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche(new BigDecimal("600000.00"), null, new BigDecimal("0.20")));
         return tranches;
     }
 

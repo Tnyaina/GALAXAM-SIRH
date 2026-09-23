@@ -12,10 +12,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import mg.galaxam.sirh.model.paie.BulletinPaie;
-import mg.galaxam.sirh.model.paie.PayrollCanonicalConcept;
-import mg.galaxam.sirh.model.paie.engine.IrsaCalculator;
-import mg.galaxam.sirh.model.paie.engine.MoneyRoundingPolicy;
+import mg.galaxam.sirh.paie.persistence.BulletinPaie;
+import mg.galaxam.sirh.paie.persistence.PayrollCanonicalConcept;
+import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator;
+import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
 
 class IrsaBoundaryCertificationTest {
 

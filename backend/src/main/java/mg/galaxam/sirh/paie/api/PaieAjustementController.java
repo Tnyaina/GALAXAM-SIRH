@@ -1,0 +1,363 @@
+package mg.galaxam.sirh.paie.api;
+
+import mg.galaxam.sirh.paie.persistence.*;
+import mg.galaxam.sirh.paie.domain.engine.*;
+import mg.galaxam.sirh.paie.domain.dto.*;
+import mg.galaxam.sirh.paie.domain.dto.export.*;
+import mg.galaxam.sirh.paie.application.*;
+import mg.galaxam.sirh.paie.application.workflow.*;
+import mg.galaxam.sirh.paie.application.export.*;
+import mg.galaxam.sirh.paie.api.dto.*;
+import mg.galaxam.sirh.paie.api.dto.stc.*;
+
+import jakarta.validation.Valid;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import javax.sql.DataSource;
+import mg.galaxam.sirh.common.dto.BusinessDecision;
+import mg.galaxam.sirh.paie.api.dto.PaieAjustementRequest;
+import mg.galaxam.sirh.common.exception.SirhBusinessException;
+import mg.galaxam.sirh.common.exception.SirhErrorCode;
+import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
+import mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentCommand;
+import mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentCommandRequest;
+import mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentWorkflowService;
+import mg.galaxam.sirh.paie.application.workflow.PayrollAction;
+import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
+import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
+import mg.galaxam.sirh.paieconfig.persistence.RefTypeMouvementPaie;
+import mg.galaxam.sirh.securite.AuditLog;
+import mg.galaxam.sirh.securite.CustomUserDetails;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * Contrôleur REST pour la saisie et la gestion des variables de paie, acomptes, avances et primes.
+ * Base URL : /api/v1/paie/ajustements
+ *
+ * <p>Le workflow des ajustements passe désormais par {@link PayrollAdjustmentWorkflowService} :
+ * le client demande une commande ({@link PayrollAdjustmentCommand}), le backend décide la transition.
+ */
+@RestController
+@RequestMapping({"/api/v1/paie/ajustements", "/v1/paie/ajustements", "/paie/ajustements"})
+public class PaieAjustementController {
+
+    private final DataSource dataSource;
+    private final PayrollAdjustmentWorkflowService adjustmentWorkflowService;
+    private final PayrollPeriodWorkflowService periodWorkflowService;
+
+    public PaieAjustementController(
+            DataSource dataSource,
+            PayrollAdjustmentWorkflowService adjustmentWorkflowService,
+            PayrollPeriodWorkflowService periodWorkflowService) {
+        this.dataSource = dataSource;
+        this.adjustmentWorkflowService = adjustmentWorkflowService;
+        this.periodWorkflowService = periodWorkflowService;
+    }
+
+    /**
+     * Liste les ajustements, primes et avances filtrés par période et/ou employé.
+     */
+    @GetMapping
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> listerAjustements(
+            @RequestParam(name = "idPeriode", required = false) Integer idPeriode,
+            @RequestParam(name = "idEmploye", required = false) Integer idEmploye) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            StringBuilder sql = new StringBuilder(
+                    "SELECT paa.*, " +
+                    "e.matricule, TRIM(CONCAT(COALESCE(e.nom, ''), ' ', COALESCE(e.prenom, ''))) AS nom_complet, " +
+                    "COALESCE(rtmp.code, paa.type_mouvement) AS type_code, " +
+                    "COALESCE(rtmp.libelle, paa.type_mouvement) AS type_libelle, " +
+                    "COALESCE(rtmp.sens, paa.sens) AS type_sens, " +
+                    "rtmp.categorie AS type_categorie " +
+                    "FROM paie_avance_acompte paa " +
+                    "JOIN employe e ON paa.id_employe = e.id_employe " +
+                    "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement " +
+                    "WHERE 1=1 "
+            );
+
+            List<Object> params = new ArrayList<>();
+            if (idPeriode != null) {
+                sql.append("AND paa.id_periode_paie = ? ");
+                params.add(idPeriode);
+            }
+            if (idEmploye != null) {
+                sql.append("AND paa.id_employe = ? ");
+                params.add(idEmploye);
+            }
+            sql.append("ORDER BY paa.date_demande DESC, paa.id_avance DESC");
+
+            List<Map<String, Object>> resultats = new ArrayList<>();
+            try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
+                for (int i = 0; i < params.size(); i++) {
+                    ps.setObject(i + 1, params.get(i));
+                }
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("idAvance", rs.getInt("id_avance"));
+                        map.put("idEmploye", rs.getInt("id_employe"));
+                        map.put("matricule", rs.getString("matricule"));
+                        map.put("nomComplet", rs.getString("nom_complet"));
+                        map.put("idPeriodePaie", rs.getObject("id_periode_paie"));
+                        map.put("idTypeMouvement", rs.getObject("id_type_mouvement"));
+                        map.put("typeMouvement", rs.getString("type_code"));
+                        map.put("typeLibelle", rs.getString("type_libelle"));
+                        map.put("sens", rs.getString("type_sens"));
+                        map.put("categorie", rs.getString("type_categorie"));
+                        map.put("montant", rs.getBigDecimal("montant"));
+                        map.put("montantInitial", rs.getBigDecimal("montant_initial"));
+                        map.put("montantImpute", rs.getBigDecimal("montant_impute"));
+                        map.put("soldeRestant", rs.getBigDecimal("solde_restant"));
+                        map.put("provenance", rs.getString("provenance"));
+                        map.put("dateDemande", rs.getDate("date_demande"));
+                        map.put("datePaiement", rs.getDate("date_paiement"));
+                        map.put("motif", rs.getString("motif"));
+                        map.put("statut", rs.getString("statut"));
+                        Timestamp uAt = rs.getTimestamp("updated_at");
+                        map.put("version", uAt != null ? (int) (uAt.getTime() % Integer.MAX_VALUE) : 1);
+                        map.put("idBulletin", rs.getObject("id_bulletin"));
+                        map.put("modeReglement", rs.getString("mode_reglement"));
+                        resultats.add(map);
+                    }
+                }
+            }
+            return ResponseEntity.ok(resultats);
+        }
+    }
+
+    /**
+     * Liste les types de mouvements de paie actifs (primes, déductions, acomptes).
+     */
+    @GetMapping("/types-mouvements")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> listerTypesMouvements(
+            @RequestParam(name = "idPeriode", required = false) Integer idPeriode,
+            Authentication authentication) throws Exception {
+        if (idPeriode != null) {
+            periodWorkflowService.requirePayrollAction(idPeriode, PayrollAction.ADD_VARIABLE,
+                    PayrollPeriodUserContext.from(authentication));
+        }
+        try (Connection c = dataSource.getConnection()) {
+            List<RefTypeMouvementPaie> types = RefTypeMouvementPaie.listerActifs(c);
+            return ResponseEntity.ok(types.stream().filter(RefTypeMouvementPaie::isSaisieManuelleAutorisee).toList());
+        }
+    }
+
+    /**
+     * Enregistre un nouvel ajustement, avance ou prime.
+     */
+    @PostMapping
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> creerAjustement(
+            @Valid @RequestBody PaieAjustementRequest req,
+            Authentication authentication) throws Exception {
+        Integer userId = getCurrentUserId();
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                // 1. Résolution du type de mouvement
+                RefTypeMouvementPaie typeMvt = null;
+                if (req.getIdTypeMouvement() != null) {
+                    typeMvt = RefTypeMouvementPaie.trouverParId(req.getIdTypeMouvement(), c);
+                } else if (req.getTypeMouvement() != null && !req.getTypeMouvement().isBlank()) {
+                    typeMvt = RefTypeMouvementPaie.trouverParCode(req.getTypeMouvement().trim(), c);
+                }
+
+                if (typeMvt == null || !typeMvt.isEstActif()) {
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                            "Le type de mouvement doit être actif et configuré dans le référentiel de paie.");
+                }
+                if (!typeMvt.isSaisieManuelleAutorisee()) {
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                            "Ce type appartient à un owner automatique ou à un domaine non saisissable en Paie.");
+                }
+                if (typeMvt.isPeriodeObligatoire() && req.getIdPeriodePaie() == null) {
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                            "La période de paie est obligatoire pour ce type de mouvement.");
+                }
+                if (typeMvt.isMotifObligatoire() && (req.getMotif() == null || req.getMotif().isBlank())) {
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                            "Le motif ou la source est obligatoire pour ce type de mouvement.");
+                }
+                if (req.getIdPeriodePaie() != null) {
+                    periodWorkflowService.requirePayrollAction(req.getIdPeriodePaie(), PayrollAction.ADD_VARIABLE,
+                            PayrollPeriodUserContext.from(authentication));
+                }
+
+                String codeType = typeMvt.getCode();
+                String sens = typeMvt.getSens();
+                Integer idType = typeMvt.getIdTypeMouvement();
+
+                PaieAvanceAcompte entity = new PaieAvanceAcompte();
+                entity.setIdEmploye(req.getIdEmploye());
+                entity.setIdPeriodePaie(req.getIdPeriodePaie());
+                entity.setIdTypeMouvement(idType);
+                entity.setTypeMouvement(codeType);
+                entity.setSens(sens);
+                entity.setMontant(req.getMontant());
+                entity.setMontantInitial(req.getMontant());
+                entity.setMontantImpute(java.math.BigDecimal.ZERO);
+                entity.setSoldeRestant(req.getMontant());
+                entity.setProvenance(typeMvt.getProvenanceDefaut());
+                entity.setDateDemande(req.getDateDemande() != null ? req.getDateDemande() : new java.sql.Date(System.currentTimeMillis()));
+                entity.setMotif(req.getMotif());
+                entity.setModeReglement(req.getModeReglement() != null ? req.getModeReglement() : "VIREMENT");
+                // P1-01 : Le statut initial est toujours EN_ATTENTE — le client ne décide pas.
+                // L'approbation passe par POST /{id}/commands avec commande APPROVE.
+                entity.setStatut("EN_ATTENTE");
+                entity.setCreePar(userId);
+
+                entity.save(c);
+                AuditLog.audit(c, "CREATION", "paie_avance_acompte", String.valueOf(entity.getIdAvance()), null, entity);
+
+                int version = 1;
+                try (PreparedStatement psVer = c.prepareStatement("SELECT updated_at FROM paie_avance_acompte WHERE id_avance = ?")) {
+                    psVer.setInt(1, entity.getIdAvance());
+                    try (ResultSet rsVer = psVer.executeQuery()) {
+                        if (rsVer.next()) {
+                            Timestamp ts = rsVer.getTimestamp("updated_at");
+                            if (ts != null) {
+                                version = (int) (ts.getTime() % Integer.MAX_VALUE);
+                            }
+                        }
+                    }
+                }
+
+                c.commit();
+
+                Map<String, Object> resp = new HashMap<>();
+                resp.put("success", true);
+                resp.put("message", "Ajustement créé avec succès.");
+                resp.put("idAvance", entity.getIdAvance());
+                resp.put("typeMouvement", codeType);
+                resp.put("sens", sens);
+                resp.put("montant", entity.getMontant());
+                resp.put("statut", entity.getStatut());
+                resp.put("version", version);
+
+                return ResponseEntity.status(HttpStatus.CREATED).body(resp);
+            } catch (Exception ex) {
+                c.rollback();
+                throw ex;
+            }
+        }
+    }
+
+    /**
+     * Exécute une commande métier sur un ajustement de paie.
+     *
+     * <p>Remplace l'ancien endpoint PUT /{id}/statut (mutation directe d'état).
+     * Le client fournit une commande explicite (APPROVE, REJECT, CANCEL) ;
+     * le backend décide si la transition est autorisée.
+     */
+    @PostMapping("/{id}/commands")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<BusinessDecision> executeCommand(
+            @PathVariable("id") int id,
+            @Valid @RequestBody PayrollAdjustmentCommandRequest req,
+            Authentication authentication) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            PaieAvanceAcompte entity = PaieAvanceAcompte.trouverParId(id, c);
+            if (entity == null) {
+                throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "Ajustement de paie introuvable.");
+            }
+            if (entity.getIdPeriodePaie() == null) {
+                throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                        "Un mouvement sans période ne peut pas être modifié par le workflow de campagne.");
+            }
+            periodWorkflowService.requirePayrollAction(entity.getIdPeriodePaie(), PayrollAction.ADD_VARIABLE,
+                    PayrollPeriodUserContext.from(authentication));
+        }
+        Integer userId = getCurrentUserId();
+        BusinessDecision decision = adjustmentWorkflowService.execute(
+                id, req.getCommand(), userId, req.getReason(), req.getExpectedVersion());
+        return ResponseEntity.ok(decision);
+    }
+
+    /**
+     * @deprecated Cet endpoint appliquait directement un statut arbitraire fourni par le client,
+     * violant le principe « le backend décide ». Utilisez POST /{id}/commands.
+     *
+     * <p>Retourne 410 Gone pour détecter les consommateurs obsolètes.
+     */
+    @PutMapping("/{id}/statut")
+    @Deprecated(forRemoval = true)
+    public ResponseEntity<Map<String, String>> changerStatutDeprecated(@PathVariable("id") int id) {
+        return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
+                "code", "ENDPOINT_DEPRECATED",
+                "message", "Cet endpoint est déprécié (P1-01). Utilisez POST /paie/ajustements/"
+                        + id + "/commands avec une commande explicite (APPROVE, REJECT, CANCEL).",
+                "newEndpoint", "/paie/ajustements/" + id + "/commands"));
+    }
+
+    /**
+     * @deprecated Cet endpoint appliquait directement un statut arbitraire fourni par le client.
+     * Retourne 410 Gone pour détecter les consommateurs obsolètes utilisant PATCH.
+     */
+    @PatchMapping("/{id}/statut")
+    @Deprecated(forRemoval = true)
+    public ResponseEntity<Map<String, String>> changerStatutPatchDeprecated(@PathVariable("id") int id) {
+        return changerStatutDeprecated(id);
+    }
+
+    /**
+     * Supprime un ajustement (si non encore imputé).
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> supprimerAjustement(@PathVariable("id") int id) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                PaieAvanceAcompte entity = PaieAvanceAcompte.trouverParId(id, c);
+                if (entity == null) {
+                    throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
+                            "Ajustement de paie introuvable.");
+                }
+                if (entity.getIdPeriodePaie() == null) {
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                            "Un mouvement sans période ne peut pas être modifié par le workflow de campagne.");
+                }
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                periodWorkflowService.requirePayrollAction(entity.getIdPeriodePaie(), PayrollAction.ADD_VARIABLE,
+                        PayrollPeriodUserContext.from(authentication));
+
+                if ("IMPUTE_PAIE".equalsIgnoreCase(entity.getStatut())) {
+                    throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
+                            "Impossible de supprimer un mouvement déjà imputé sur un bulletin de paie.");
+                }
+
+                entity.delete(c);
+                AuditLog.audit(c, "SUPPRESSION", "paie_avance_acompte", String.valueOf(id), entity, null);
+
+                c.commit();
+                return ResponseEntity.ok(Map.of("success", true, "message", "Ajustement supprimé avec succès."));
+            } catch (Exception ex) {
+                c.rollback();
+                throw ex;
+            }
+        }
+    }
+
+    private Integer getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof CustomUserDetails ud) {
+            return ud.getIdUtilisateur();
+        }
+        return 1;
+    }
+
+}

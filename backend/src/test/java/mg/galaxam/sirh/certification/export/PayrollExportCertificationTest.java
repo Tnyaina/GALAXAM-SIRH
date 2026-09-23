@@ -22,13 +22,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import mg.galaxam.sirh.BaseIntegrationTest;
 import mg.galaxam.sirh.certification.dataset.CertificationDataset;
 import mg.galaxam.sirh.fixtures.TestEmployeFixtures.CreatedEmploye;
-import mg.galaxam.sirh.model.paie.BulletinPaie;
-import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
-import mg.galaxam.sirh.model.paie.dto.export.DntsRowDto;
-import mg.galaxam.sirh.model.paie.dto.export.SafiRowDto;
-import mg.galaxam.sirh.model.paie.dto.export.VirementRowDto;
-import mg.galaxam.sirh.model.paie.service.PayrollService;
-import mg.galaxam.sirh.model.paie.service.export.PaieExportService;
+import mg.galaxam.sirh.paie.persistence.BulletinPaie;
+import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
+import mg.galaxam.sirh.paie.domain.dto.export.DntsRowDto;
+import mg.galaxam.sirh.paie.domain.dto.export.SafiRowDto;
+import mg.galaxam.sirh.paie.domain.dto.export.VirementRowDto;
+import mg.galaxam.sirh.paie.application.PayrollService;
+import mg.galaxam.sirh.paie.application.export.PaieExportService;
 import mg.galaxam.sirh.oracle.PayrollIndependentOracle;
 
 @DisplayName("CERTIFICATION EXPORTS & JOURNAL DE PAIE — SAFI ODS/CSV, DNTS, VIREMENT, IMMUTABILITÉ")

@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-import mg.galaxam.sirh.model.pointage.calculation.*;
+import mg.galaxam.sirh.pointage.domain.calculation.*;
 import org.junit.jupiter.api.Test;
 
 class AttendanceCalculationPipelineTest {

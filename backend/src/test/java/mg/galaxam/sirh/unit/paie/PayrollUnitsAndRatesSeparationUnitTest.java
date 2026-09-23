@@ -8,13 +8,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import mg.galaxam.sirh.model.paie.BulletinPaie;
-import mg.galaxam.sirh.model.paie.BulletinPaieLigne;
-import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
-import mg.galaxam.sirh.model.paie.dto.PayrollAttendanceInput;
-import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
-import mg.galaxam.sirh.model.paie.engine.MoneyRoundingPolicy;
-import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
+import mg.galaxam.sirh.paie.persistence.BulletinPaie;
+import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
+import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
+import mg.galaxam.sirh.paie.domain.dto.PayrollAttendanceInput;
+import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
+import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -50,11 +50,11 @@ public class PayrollUnitsAndRatesSeparationUnitTest {
         in.setMinimumPerceptionIrsa(new BigDecimal("3000.00"));
         in.setDeductionParEnfant(new BigDecimal("2000.00"));
         in.setTranchesIrsa(List.of(
-                new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("0"), new BigDecimal("350000"), BigDecimal.ZERO),
-                new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("350000"), new BigDecimal("400000"), new BigDecimal("0.05")),
-                new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("400000"), new BigDecimal("500000"), new BigDecimal("0.10")),
-                new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("500000"), new BigDecimal("600000"), new BigDecimal("0.15")),
-                new mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche(new BigDecimal("600000"), null, new BigDecimal("0.20"))
+                new mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche(new BigDecimal("0"), new BigDecimal("350000"), BigDecimal.ZERO),
+                new mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche(new BigDecimal("350000"), new BigDecimal("400000"), new BigDecimal("0.05")),
+                new mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche(new BigDecimal("400000"), new BigDecimal("500000"), new BigDecimal("0.10")),
+                new mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche(new BigDecimal("500000"), new BigDecimal("600000"), new BigDecimal("0.15")),
+                new mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche(new BigDecimal("600000"), null, new BigDecimal("0.20"))
         ));
         in.setTauxCnapsSalarial(new BigDecimal("0.01"));
         in.setTauxCnapsPatronal(new BigDecimal("0.13"));

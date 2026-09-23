@@ -10,8 +10,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
-import mg.galaxam.sirh.model.conge.engine.PurgeFifoEngine;
-import mg.galaxam.sirh.model.dashboard.service.NotificationRhService;
+import mg.galaxam.sirh.conge.domain.PurgeFifoEngine;
+import mg.galaxam.sirh.dashboard.application.NotificationRhService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -88,8 +88,8 @@ public class PurgeCongeScheduler {
         LocalDate ref = dateReference != null ? dateReference : LocalDate.now();
 
         // 1. Calcul de la date seuil de prescription (dynamisée depuis parametre_global, défaut 36 mois)
-        java.util.Map<String, String> params = mg.galaxam.sirh.model.paieconfig.ParametreGlobal.loadActiveMap(c);
-        int moisPrescription = mg.galaxam.sirh.model.paieconfig.ParametreGlobal.getInt(params, "DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS", 36);
+        java.util.Map<String, String> params = mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.loadActiveMap(c);
+        int moisPrescription = mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.getInt(params, "DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS", 36);
         LocalDate seuilPrescription = ref.minusMonths(moisPrescription);
 
         // 2. Extraction brute des mouvements sans logique complexe en SQL

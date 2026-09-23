@@ -7,7 +7,7 @@ import java.time.LocalDate;
 import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.BaseIntegrationTest;
-import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
+import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

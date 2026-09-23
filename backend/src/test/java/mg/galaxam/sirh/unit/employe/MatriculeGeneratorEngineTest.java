@@ -2,7 +2,7 @@ package mg.galaxam.sirh.unit.employe;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import mg.galaxam.sirh.model.employe.engine.MatriculeGeneratorEngine;
+import mg.galaxam.sirh.contrat.domain.MatriculeGeneratorEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

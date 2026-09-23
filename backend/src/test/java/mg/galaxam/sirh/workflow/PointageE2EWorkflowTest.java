@@ -12,7 +12,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import mg.galaxam.sirh.BaseIntegrationTest;
-import mg.galaxam.sirh.api.dto.pointage.SaisiePointageJourDTO;
+import mg.galaxam.sirh.pointage.api.dto.SaisiePointageJourDTO;
 import mg.galaxam.sirh.fixtures.TestEmployeFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

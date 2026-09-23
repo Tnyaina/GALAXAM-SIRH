@@ -3,7 +3,7 @@ package mg.galaxam.sirh.unit.paie;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
-import mg.galaxam.sirh.api.dto.paie.PayrollCampaignStep;
+import mg.galaxam.sirh.paie.api.dto.PayrollCampaignStep;
 import org.junit.jupiter.api.Test;
 
 class PayrollCampaignStepTest {

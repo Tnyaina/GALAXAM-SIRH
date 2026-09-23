@@ -5,8 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import mg.galaxam.sirh.model.paie.dto.PayrollAttendanceInput;
-import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.paie.domain.dto.PayrollAttendanceInput;
+import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

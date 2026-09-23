@@ -16,8 +16,8 @@ import java.util.HashMap;
 import java.util.Map;
 import mg.galaxam.sirh.BaseIntegrationTest;
 import mg.galaxam.sirh.fixtures.TestEmployeFixtures;
-import mg.galaxam.sirh.model.conge.service.CongeService;
-import mg.galaxam.sirh.model.paie.service.StcService;
+import mg.galaxam.sirh.conge.application.CongeService;
+import mg.galaxam.sirh.paie.application.StcService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -475,7 +475,7 @@ public class CongeServiceIntegrationTest extends BaseIntegrationTest {
 
         int idDemande;
         try (Connection c = dataSource.getConnection()) {
-            mg.galaxam.sirh.model.conge.DemandeConge d = new mg.galaxam.sirh.model.conge.DemandeConge();
+            mg.galaxam.sirh.conge.persistence.DemandeConge d = new mg.galaxam.sirh.conge.persistence.DemandeConge();
             d.setIdEmploye(emp.idEmploye);
             d.setIdTypeConge(resolveTypeCongeId("ANNUEL"));
             d.setDateDebut(Date.valueOf(debut));
@@ -526,7 +526,7 @@ public class CongeServiceIntegrationTest extends BaseIntegrationTest {
 
         int idDemande;
         try (Connection c = dataSource.getConnection()) {
-            mg.galaxam.sirh.model.conge.DemandeConge d = new mg.galaxam.sirh.model.conge.DemandeConge();
+            mg.galaxam.sirh.conge.persistence.DemandeConge d = new mg.galaxam.sirh.conge.persistence.DemandeConge();
             d.setIdEmploye(emp.idEmploye);
             d.setIdTypeConge(resolveTypeCongeId("ANNUEL"));
             d.setDateDebut(Date.valueOf(ven));
@@ -562,7 +562,7 @@ public class CongeServiceIntegrationTest extends BaseIntegrationTest {
         LocalDate jour = LocalDate.of(2026, 10, 15);
         int idDemande;
         try (Connection c = dataSource.getConnection()) {
-            mg.galaxam.sirh.model.conge.DemandeConge d = new mg.galaxam.sirh.model.conge.DemandeConge();
+            mg.galaxam.sirh.conge.persistence.DemandeConge d = new mg.galaxam.sirh.conge.persistence.DemandeConge();
             d.setIdEmploye(emp.idEmploye);
             d.setIdTypeConge(resolveTypeCongeId("ANNUEL"));
             d.setDateDebut(Date.valueOf(jour));

@@ -1,15 +1,15 @@
 package mg.galaxam.sirh.unit.pointage;
 
-import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceResult;
-import mg.galaxam.sirh.model.pointage.calculation.DaySpecialType;
-import mg.galaxam.sirh.model.pointage.calculation.NightWorkType;
-import mg.galaxam.sirh.model.pointage.calculation.OvertimeProjectionEngine;
-import mg.galaxam.sirh.model.pointage.calculation.OvertimeTier;
-import mg.galaxam.sirh.model.pointage.calculation.QualifiedTimeBucket;
-import mg.galaxam.sirh.model.pointage.calculation.TemporalBucket;
-import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceCalculator;
-import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceContext;
-import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceResult;
+import mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceResult;
+import mg.galaxam.sirh.pointage.domain.calculation.DaySpecialType;
+import mg.galaxam.sirh.pointage.domain.calculation.NightWorkType;
+import mg.galaxam.sirh.pointage.domain.calculation.OvertimeProjectionEngine;
+import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
+import mg.galaxam.sirh.pointage.domain.calculation.TemporalBucket;
+import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceCalculator;
+import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceContext;
+import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

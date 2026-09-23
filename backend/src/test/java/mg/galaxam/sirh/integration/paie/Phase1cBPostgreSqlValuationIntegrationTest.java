@@ -2,10 +2,10 @@ package mg.galaxam.sirh.integration.paie;
 
 import mg.galaxam.sirh.BaseIntegrationTest;
 import mg.galaxam.sirh.fixtures.TestEmployeFixtures;
-import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
-import mg.galaxam.sirh.model.paie.engine.OvertimePayCalculator;
-import mg.galaxam.sirh.model.paie.service.PayrollService;
-import mg.galaxam.sirh.model.pointage.service.PointageSyntheseService;
+import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.paie.domain.engine.OvertimePayCalculator;
+import mg.galaxam.sirh.paie.application.PayrollService;
+import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,12 +19,12 @@ import java.sql.ResultSet;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
-import mg.galaxam.sirh.model.paie.BulletinPaieLigne;
-import mg.galaxam.sirh.model.paie.engine.BucketValuationResult;
-import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
-import mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy;
-import mg.galaxam.sirh.model.pointage.calculation.OvertimeTier;
+import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
+import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
+import mg.galaxam.sirh.paie.domain.engine.BucketValuationResult;
+import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
+import mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy;
+import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
 
 /**
  * Test d'intégration PostgreSQL réel pour la valorisation monétaire Phase 1C-B (Section 27).
@@ -136,7 +136,7 @@ public class Phase1cBPostgreSqlValuationIntegrationTest extends BaseIntegrationT
         // Dimanche à partir du 01/10/2026 = 50% (0.50)
         int cfgId;
         try (Connection c = dataSource.getConnection()) {
-            mg.galaxam.sirh.model.paieconfig.PaieConfigLegale config = mg.galaxam.sirh.model.paieconfig.PaieConfigLegale.findActiveAt(c, LocalDate.of(2026, 10, 1));
+            mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale config = mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale.findActiveAt(c, LocalDate.of(2026, 10, 1));
             assertThat(config).isNotNull();
             cfgId = config.getIdConfigLegale();
 
@@ -211,8 +211,8 @@ public class Phase1cBPostgreSqlValuationIntegrationTest extends BaseIntegrationT
         BigDecimal expectedSept = hSept.multiply(hourlyRate).multiply(new BigDecimal("0.40"));
         BigDecimal expectedOct = hOct.multiply(hourlyRate).multiply(new BigDecimal("0.50"));
 
-        assertThat(bucketSept.sundayPremiumAmount()).isEqualByComparingTo(mg.galaxam.sirh.model.paie.engine.MoneyRoundingPolicy.amount(expectedSept));
-        assertThat(bucketOct.sundayPremiumAmount()).isEqualByComparingTo(mg.galaxam.sirh.model.paie.engine.MoneyRoundingPolicy.amount(expectedOct));
+        assertThat(bucketSept.sundayPremiumAmount()).isEqualByComparingTo(mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy.amount(expectedSept));
+        assertThat(bucketOct.sundayPremiumAmount()).isEqualByComparingTo(mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy.amount(expectedOct));
 
         // Simulation d'une modification future en 2028 (taux C = 60%)
         try (Connection c = dataSource.getConnection();

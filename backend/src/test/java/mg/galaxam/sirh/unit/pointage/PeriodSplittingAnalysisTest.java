@@ -1,6 +1,6 @@
 package mg.galaxam.sirh.unit.pointage;
 
-import mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine;
+import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

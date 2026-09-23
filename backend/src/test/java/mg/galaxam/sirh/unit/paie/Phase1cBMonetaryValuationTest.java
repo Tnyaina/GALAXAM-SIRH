@@ -1,12 +1,12 @@
 package mg.galaxam.sirh.unit.paie;
 
-import mg.galaxam.sirh.model.paie.engine.BucketValuationResult;
-import mg.galaxam.sirh.model.paie.engine.OvertimePayCalculator;
-import mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy;
-import mg.galaxam.sirh.model.pointage.calculation.DaySpecialType;
-import mg.galaxam.sirh.model.pointage.calculation.NightWorkType;
-import mg.galaxam.sirh.model.pointage.calculation.OvertimeTier;
-import mg.galaxam.sirh.model.pointage.calculation.QualifiedTimeBucket;
+import mg.galaxam.sirh.paie.domain.engine.BucketValuationResult;
+import mg.galaxam.sirh.paie.domain.engine.OvertimePayCalculator;
+import mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy;
+import mg.galaxam.sirh.pointage.domain.calculation.DaySpecialType;
+import mg.galaxam.sirh.pointage.domain.calculation.NightWorkType;
+import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -263,7 +263,7 @@ class Phase1cBMonetaryValuationTest {
 
         // 2. Sous arbitrage MAX_PREMIUM : Dimanche 40% > Nuit 30%
         // Base HS = 2000, HS30 = 600, Dimanche = 800 -> Total = 3 400 Ar
-        OvertimePayCalculator.Rates ratesMax = standardRates.withCollisionPolicy(mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM);
+        OvertimePayCalculator.Rates ratesMax = standardRates.withCollisionPolicy(mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM);
         OvertimePayCalculator.Result rMax = calculator.calculate(List.of(b), RATE, ratesMax, 1);
         assertThat(rMax.hs30()).isEqualByComparingTo("2600.00");
         assertThat(rMax.dimanche()).isEqualByComparingTo("800.00");
@@ -272,7 +272,7 @@ class Phase1cBMonetaryValuationTest {
 
         // 3. Sous convention d'entreprise plus favorable (CUMUL_ADDITIF) :
         // Base 1.0 + HS 0.30 + Nuit 0.30 + Dim 0.40 = 2.00 -> 4 000 Ar
-        OvertimePayCalculator.Rates ratesCumul = standardRates.withCollisionPolicy(mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.CUMUL_ADDITIF);
+        OvertimePayCalculator.Rates ratesCumul = standardRates.withCollisionPolicy(mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.CUMUL_ADDITIF);
         OvertimePayCalculator.Result rCumul = calculator.calculate(List.of(b), RATE, ratesCumul, 1);
         assertThat(rCumul.hs30()).isEqualByComparingTo("2600.00");
         assertThat(rCumul.nuit()).isEqualByComparingTo("600.00");
@@ -296,7 +296,7 @@ class Phase1cBMonetaryValuationTest {
     @Test
     @DisplayName("V21: Férié tombant Dimanche avec politique explicite MAX_PREMIUM -> Férié (+100%) retient 2 000 Ar")
     void v21_sundayHolidayWithMaxPremiumPolicy() {
-        OvertimePayCalculator.Rates ratesMax = standardRates.withCollisionPolicy(mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM);
+        OvertimePayCalculator.Rates ratesMax = standardRates.withCollisionPolicy(mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM);
         QualifiedTimeBucket b = bucket(60, OvertimeTier.REGULAR, DaySpecialType.SUNDAY_AND_PUBLIC_HOLIDAY, NightWorkType.NONE);
 
         OvertimePayCalculator.Result r = calculator.calculate(List.of(b), RATE, ratesMax, 1);
@@ -456,7 +456,7 @@ class Phase1cBMonetaryValuationTest {
 
         // 3. Avec MAX_PREMIUM : Férié (+100%) prime sur Dimanche (+40%) et Nuit (+30%)
         // Base HS = 2000 + HS30 = 600 + Férié = 2000 = 4 600 Ar
-        OvertimePayCalculator.Rates ratesMax = standardRates.withCollisionPolicy(mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM);
+        OvertimePayCalculator.Rates ratesMax = standardRates.withCollisionPolicy(mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.MAX_PREMIUM);
         OvertimePayCalculator.Result r = calculator.calculate(List.of(b), RATE, ratesMax, 1);
         BucketValuationResult d = r.bucketDetails().get(0);
 
@@ -481,7 +481,7 @@ class Phase1cBMonetaryValuationTest {
                 OvertimeTier.REGULAR, DaySpecialType.SUNDAY, NightWorkType.NONE, 1, 102);
 
         // Résolveur dynamique : Dimanche à 40% jusqu'au 30/09, puis 50% dès le 01/10
-        mg.galaxam.sirh.model.paie.engine.TemporalRateResolver resolver = date -> {
+        mg.galaxam.sirh.paie.domain.engine.TemporalRateResolver resolver = date -> {
             BigDecimal dimancheRate = date.isAfter(java.time.LocalDate.of(2026, 9, 30))
                     ? new BigDecimal("0.50")
                     : new BigDecimal("0.40");
@@ -492,7 +492,7 @@ class Phase1cBMonetaryValuationTest {
                     null,
                     dimancheRate,
                     new BigDecimal("1.00"),
-                    mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy.UNRESOLVED,
+                    mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy.UNRESOLVED,
                     null
             );
         };

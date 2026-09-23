@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 import mg.galaxam.sirh.BaseIntegrationTest;
-import mg.galaxam.sirh.api.dto.pointage.SaisiePointageJourDTO;
+import mg.galaxam.sirh.pointage.api.dto.SaisiePointageJourDTO;
 import mg.galaxam.sirh.fixtures.TestEmployeFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -179,7 +179,7 @@ public class PointageSaisieServiceIntegrationTest extends BaseIntegrationTest {
                     if (rs.next()) {
                         LocalDate debut = LocalDate.now().minusDays(15);
                         LocalDate fin = LocalDate.now().plusDays(15);
-                        int joursOuvrables = new mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine()
+                        int joursOuvrables = new mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine()
                                 .compterJoursOuvrables(debut, fin, empTmm.idSite, c);
                         double montantAttendu = new BigDecimal("53200")
                                 .divide(BigDecimal.valueOf(joursOuvrables), 2, RoundingMode.HALF_UP)

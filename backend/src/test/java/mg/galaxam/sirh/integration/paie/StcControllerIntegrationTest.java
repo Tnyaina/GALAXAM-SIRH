@@ -7,7 +7,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
 import mg.galaxam.sirh.BaseIntegrationTest;
-import mg.galaxam.sirh.api.dto.paie.stc.StcCalculRequest;
+import mg.galaxam.sirh.paie.api.dto.stc.StcCalculRequest;
 import mg.galaxam.sirh.fixtures.TestEmployeFixtures.CreatedEmploye;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

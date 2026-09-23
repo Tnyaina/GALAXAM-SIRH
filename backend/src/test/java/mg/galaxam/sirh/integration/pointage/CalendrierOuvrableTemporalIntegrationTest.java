@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import mg.galaxam.sirh.BaseIntegrationTest;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.fixtures.TestEmployeFixtures.CreatedEmploye;
-import mg.galaxam.sirh.model.pointage.engine.CalendrierOuvrableEngine;
+import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

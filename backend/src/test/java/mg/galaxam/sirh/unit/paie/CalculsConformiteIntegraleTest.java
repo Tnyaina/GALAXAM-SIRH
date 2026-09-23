@@ -7,25 +7,25 @@ import java.sql.Date;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import mg.galaxam.sirh.model.conge.engine.CongeCalculateurEngine;
-import mg.galaxam.sirh.model.paie.BulletinPaie;
-import mg.galaxam.sirh.model.paie.BulletinPaieLigne;
-import mg.galaxam.sirh.model.paie.PaieAvanceAcompte;
-import mg.galaxam.sirh.model.paie.PaiePretEcheance;
-import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
-import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
-import mg.galaxam.sirh.model.paie.engine.IrsaCalculator;
-import mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche;
-import mg.galaxam.sirh.model.paie.engine.MoneyRoundingPolicy;
-import mg.galaxam.sirh.model.paie.engine.OvertimePayCalculator;
-import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
-import mg.galaxam.sirh.model.paie.engine.SocialContributionCalculator;
-import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceCalculator;
-import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceContext;
-import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceResult;
-import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceCalculator;
-import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceContext;
-import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceResult;
+import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
+import mg.galaxam.sirh.paie.persistence.BulletinPaie;
+import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
+import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
+import mg.galaxam.sirh.paie.persistence.PaiePretEcheance;
+import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
+import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator;
+import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche;
+import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
+import mg.galaxam.sirh.paie.domain.engine.OvertimePayCalculator;
+import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
+import mg.galaxam.sirh.paie.domain.engine.SocialContributionCalculator;
+import mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceCalculator;
+import mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceContext;
+import mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceResult;
+import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceCalculator;
+import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceContext;
+import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -602,17 +602,17 @@ public class CalculsConformiteIntegraleTest {
     @DisplayName("6. Moteur STC & Ancienneté : Prorata, ICCP, Préavis & Licenciement")
     class StcEtAncienneteTests {
 
-        private final mg.galaxam.sirh.model.contrat.engine.AncienneteEngine ancienneteEngine =
-                new mg.galaxam.sirh.model.contrat.engine.AncienneteEngine();
+        private final mg.galaxam.sirh.contrat.domain.AncienneteEngine ancienneteEngine =
+                new mg.galaxam.sirh.contrat.domain.AncienneteEngine();
 
         @Test
         @DisplayName("6.1 Calcul Ancienneté en chaîne continue de contrats (CDD puis CDI)")
         void testCalculAncienneteChaineContinue() {
             // Contrat 1 (CDD) : 01/01/2024 au 30/06/2024 (6 mois)
             // Contrat 2 (CDI) : 01/07/2024 au 30/06/2026 (24 mois), précédent = Contrat 1
-            var c1 = new mg.galaxam.sirh.model.contrat.engine.AncienneteEngine.IntervalleContrat(
+            var c1 = new mg.galaxam.sirh.contrat.domain.AncienneteEngine.IntervalleContrat(
                     1, LocalDate.of(2024, 1, 1), LocalDate.of(2024, 6, 30), null);
-            var c2 = new mg.galaxam.sirh.model.contrat.engine.AncienneteEngine.IntervalleContrat(
+            var c2 = new mg.galaxam.sirh.contrat.domain.AncienneteEngine.IntervalleContrat(
                     2, LocalDate.of(2024, 7, 1), LocalDate.of(2026, 6, 30), 1);
 
             var bilan = ancienneteEngine.evaluerAnciennete(List.of(c1, c2), 2, LocalDate.of(2026, 6, 30));

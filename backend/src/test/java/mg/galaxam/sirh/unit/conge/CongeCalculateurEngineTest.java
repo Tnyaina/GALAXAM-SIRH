@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import mg.galaxam.sirh.model.conge.engine.CongeCalculateurEngine;
+import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

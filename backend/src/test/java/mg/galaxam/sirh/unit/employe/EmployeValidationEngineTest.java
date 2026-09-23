@@ -5,8 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.sql.Date;
 import java.time.LocalDate;
-import mg.galaxam.sirh.api.dto.employe.EmployeRequest;
-import mg.galaxam.sirh.model.employe.engine.EmployeValidationEngine;
+import mg.galaxam.sirh.contrat.api.dto.EmployeRequest;
+import mg.galaxam.sirh.contrat.domain.EmployeValidationEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

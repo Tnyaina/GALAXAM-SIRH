@@ -25,10 +25,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import mg.galaxam.sirh.BaseIntegrationTest;
 import mg.galaxam.sirh.certification.dataset.CertificationDataset;
 import mg.galaxam.sirh.fixtures.TestEmployeFixtures.CreatedEmploye;
-import mg.galaxam.sirh.model.paie.BulletinPaie;
-import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
-import mg.galaxam.sirh.model.paie.dto.PayrollBatchResult;
-import mg.galaxam.sirh.model.paie.service.PayrollService;
+import mg.galaxam.sirh.paie.persistence.BulletinPaie;
+import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
+import mg.galaxam.sirh.paie.domain.dto.PayrollBatchResult;
+import mg.galaxam.sirh.paie.application.PayrollService;
 import mg.galaxam.sirh.oracle.PayrollIndependentOracle;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;

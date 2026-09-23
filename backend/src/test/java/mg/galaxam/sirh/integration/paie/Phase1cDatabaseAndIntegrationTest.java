@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.BaseIntegrationTest;
-import mg.galaxam.sirh.model.paieconfig.RefTauxMajoration;
+import mg.galaxam.sirh.paieconfig.persistence.RefTauxMajoration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

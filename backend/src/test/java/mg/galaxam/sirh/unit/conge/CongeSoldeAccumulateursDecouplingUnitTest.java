@@ -3,9 +3,9 @@ package mg.galaxam.sirh.unit.conge;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import mg.galaxam.sirh.model.conge.engine.CongeModeReprise;
-import mg.galaxam.sirh.model.conge.engine.CongeSituationEmployeDTO;
-import mg.galaxam.sirh.model.conge.engine.ReferencePeriodPolicy;
+import mg.galaxam.sirh.conge.domain.CongeModeReprise;
+import mg.galaxam.sirh.conge.domain.CongeSituationEmployeDTO;
+import mg.galaxam.sirh.conge.domain.ReferencePeriodPolicy;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

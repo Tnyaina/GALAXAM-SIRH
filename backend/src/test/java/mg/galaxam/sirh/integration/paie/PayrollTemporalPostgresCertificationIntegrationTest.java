@@ -15,10 +15,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
-import mg.galaxam.sirh.model.paie.engine.IrsaBracketResolver;
-import mg.galaxam.sirh.model.paie.engine.IrsaCalculator;
-import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
-import mg.galaxam.sirh.model.paieconfig.RefTauxMajoration;
+import mg.galaxam.sirh.paie.domain.engine.IrsaBracketResolver;
+import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator;
+import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
+import mg.galaxam.sirh.paieconfig.persistence.RefTauxMajoration;
 
 @SpringBootTest
 @ActiveProfiles("test")

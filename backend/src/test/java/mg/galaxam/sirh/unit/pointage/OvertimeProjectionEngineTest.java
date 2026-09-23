@@ -1,11 +1,11 @@
 package mg.galaxam.sirh.unit.pointage;
 
-import mg.galaxam.sirh.model.pointage.calculation.DaySpecialType;
-import mg.galaxam.sirh.model.pointage.calculation.NightWorkType;
-import mg.galaxam.sirh.model.pointage.calculation.OvertimeProjectionEngine;
-import mg.galaxam.sirh.model.pointage.calculation.OvertimeTier;
-import mg.galaxam.sirh.model.pointage.calculation.QualifiedTimeBucket;
-import mg.galaxam.sirh.model.pointage.calculation.TemporalBucket;
+import mg.galaxam.sirh.pointage.domain.calculation.DaySpecialType;
+import mg.galaxam.sirh.pointage.domain.calculation.NightWorkType;
+import mg.galaxam.sirh.pointage.domain.calculation.OvertimeProjectionEngine;
+import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
+import mg.galaxam.sirh.pointage.domain.calculation.TemporalBucket;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

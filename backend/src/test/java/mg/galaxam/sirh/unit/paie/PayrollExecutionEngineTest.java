@@ -4,13 +4,13 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.util.ArrayList;
 import java.util.List;
-import mg.galaxam.sirh.model.paie.BulletinPaie;
-import mg.galaxam.sirh.model.paie.PaieAvanceAcompte;
-import mg.galaxam.sirh.model.paie.PaiePretEcheance;
-import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
-import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
-import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
-import mg.galaxam.sirh.model.paie.engine.IrsaCalculator.Tranche;
+import mg.galaxam.sirh.paie.persistence.BulletinPaie;
+import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
+import mg.galaxam.sirh.paie.persistence.PaiePretEcheance;
+import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
+import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
+import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -189,7 +189,7 @@ class PayrollExecutionEngineTest {
         in.setHeuresHs30(new BigDecimal("10.0")); // 10h à +30%
         in.setPrimePerformanceBase(new BigDecimal("50000.00"));
         BulletinPaie bp = engine.initialiserEnTete(in);
-        List<mg.galaxam.sirh.model.paie.BulletinPaieLigne> lignes = new ArrayList<>();
+        List<mg.galaxam.sirh.paie.persistence.BulletinPaieLigne> lignes = new ArrayList<>();
 
         BigDecimal brut = engine.calculerSalaireBrut(in, bp, lignes);
 
@@ -242,7 +242,7 @@ class PayrollExecutionEngineTest {
         // Plafond 8x SME = 8 * 262 680 = 2 101 440 Ar
         in.setEstPlafonneSante(true);
         BulletinPaie bp = engine.initialiserEnTete(in);
-        List<mg.galaxam.sirh.model.paie.BulletinPaieLigne> lignes = new ArrayList<>();
+        List<mg.galaxam.sirh.paie.persistence.BulletinPaieLigne> lignes = new ArrayList<>();
 
         BigDecimal brut = new BigDecimal("3000000.00");
         var cotis = engine.calculerCotisationsSociales(brut, in, bp, lignes);
@@ -264,7 +264,7 @@ class PayrollExecutionEngineTest {
     void testCalculerFiscaliteIrsaUnitaire() {
         PayrollCalculationInput in = createStandardInput(new BigDecimal("360000.00"), "PERMANENT");
         BulletinPaie bp = engine.initialiserEnTete(in);
-        List<mg.galaxam.sirh.model.paie.BulletinPaieLigne> lignes = new ArrayList<>();
+        List<mg.galaxam.sirh.paie.persistence.BulletinPaieLigne> lignes = new ArrayList<>();
 
         // Net imposable = 360 000 Ar.
         // Tranche 1 (0 à 350k) = 0 Ar.
@@ -281,7 +281,7 @@ class PayrollExecutionEngineTest {
     @DisplayName("Couche Unitaire 6 & 7 - Retenues Plafonnées et Net à Payer Arrondi à la dizaine d'Ariary")
     void testCalculerNetAPayerEtArrondiUnitaire() {
         BulletinPaie bp = new BulletinPaie();
-        List<mg.galaxam.sirh.model.paie.BulletinPaieLigne> lignes = new ArrayList<>();
+        List<mg.galaxam.sirh.paie.persistence.BulletinPaieLigne> lignes = new ArrayList<>();
 
         BigDecimal brut = new BigDecimal("854234.00");
         BigDecimal patronal = new BigDecimal("120000.00");

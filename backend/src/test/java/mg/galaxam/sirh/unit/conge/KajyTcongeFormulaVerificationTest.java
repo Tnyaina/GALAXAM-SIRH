@@ -1,6 +1,6 @@
 package mg.galaxam.sirh.unit.conge;
 
-import mg.galaxam.sirh.model.conge.engine.CongeCalculateurEngine;
+import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
 import org.apache.poi.hssf.usermodel.HSSFRow;
 import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;

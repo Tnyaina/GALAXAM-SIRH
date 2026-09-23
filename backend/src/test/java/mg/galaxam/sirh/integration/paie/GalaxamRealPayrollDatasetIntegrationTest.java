@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.BaseIntegrationTest;
-import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
+import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

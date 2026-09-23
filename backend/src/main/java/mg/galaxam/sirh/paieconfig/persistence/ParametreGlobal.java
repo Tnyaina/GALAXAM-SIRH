@@ -1,0 +1,484 @@
+package mg.galaxam.sirh.paieconfig.persistence;
+
+import bean.ClassMere;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ParametreGlobal extends ClassMere {
+
+    private Integer idParametre;
+    private String codeParametre;
+    private String valeur;
+    private String description;
+    private String categorie;
+    private Date dateDebut;
+    private Date dateFin;
+    private Boolean estActif = true;
+    private Boolean estDesactivable = false;
+
+    public ParametreGlobal() {
+        this.setNomTable("PARAMETRE_GLOBAL");
+    }
+
+    @Override
+    public Integer getTuppleID() {
+        return idParametre;
+    }
+
+    @Override
+    public String getAttributIDName() {
+        return "id_parametre";
+    }
+
+    @Override
+    protected ClassMere inserer(Connection c) throws Exception {
+        String sql = "INSERT INTO parametre_global (code_parametre, valeur, description, categorie, date_debut, date_fin, est_actif, est_desactivable) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_parametre";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, codeParametre);
+            ps.setString(2, valeur);
+            ps.setString(3, description);
+            ps.setString(4, categorie);
+            ps.setDate(5, dateDebut);
+            ps.setDate(6, dateFin);
+            ps.setBoolean(7, estActif != null ? estActif : true);
+            ps.setBoolean(8, estDesactivable != null ? estDesactivable : false);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    this.idParametre = rs.getInt(1);
+                }
+            }
+        }
+        return this;
+    }
+
+    @Override
+    protected ClassMere modifier(Connection c) throws Exception {
+        String sql = "UPDATE parametre_global SET code_parametre = ?, valeur = ?, description = ?, categorie = ?, date_debut = ?, date_fin = ?, est_actif = ?, est_desactivable = ? " +
+                     "WHERE id_parametre = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, codeParametre);
+            ps.setString(2, valeur);
+            ps.setString(3, description);
+            ps.setString(4, categorie);
+            ps.setDate(5, dateDebut);
+            ps.setDate(6, dateFin);
+            ps.setBoolean(7, estActif != null ? estActif : true);
+            ps.setBoolean(8, estDesactivable != null ? estDesactivable : false);
+            ps.setInt(9, idParametre);
+            ps.executeUpdate();
+        }
+        return this;
+    }
+
+    @Override
+    protected void supprimer(Connection c) throws Exception {
+        String sql = "DELETE FROM parametre_global WHERE id_parametre = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idParametre);
+            ps.executeUpdate();
+        }
+    }
+
+    @Override
+    public ClassMere rechercherParId(String id, Connection c) throws Exception {
+        if (id == null || id.isBlank()) return null;
+        return rechercherParId(Integer.parseInt(id), c);
+    }
+
+    public ClassMere rechercherParId(Integer id, Connection c) throws Exception {
+        String sql = "SELECT id_parametre, code_parametre, valeur, description, categorie, date_debut, date_fin, " +
+                     "COALESCE(est_actif, TRUE) AS est_actif, COALESCE(est_desactivable, FALSE) AS est_desactivable " +
+                     "FROM parametre_global WHERE id_parametre = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    ParametreGlobal item = new ParametreGlobal();
+                    item.idParametre = rs.getInt("id_parametre");
+                    item.codeParametre = rs.getString("code_parametre");
+                    item.valeur = rs.getString("valeur");
+                    item.description = rs.getString("description");
+                    item.categorie = rs.getString("categorie");
+                    item.dateDebut = rs.getDate("date_debut");
+                    item.dateFin = rs.getDate("date_fin");
+                    item.estActif = rs.getBoolean("est_actif");
+                    item.estDesactivable = rs.getBoolean("est_desactivable");
+                    return item;
+                }
+            }
+        }
+        return null;
+    }
+
+    public static List<ParametreGlobal> listAll(Connection c) throws Exception {
+        String sql = "SELECT id_parametre, code_parametre, valeur, description, categorie, date_debut, date_fin, " +
+                     "COALESCE(est_actif, TRUE) AS est_actif, COALESCE(est_desactivable, FALSE) AS est_desactivable " +
+                     "FROM parametre_global ORDER BY categorie ASC, code_parametre ASC";
+        List<ParametreGlobal> list = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                ParametreGlobal item = new ParametreGlobal();
+                item.idParametre = rs.getInt("id_parametre");
+                item.codeParametre = rs.getString("code_parametre");
+                item.valeur = rs.getString("valeur");
+                item.description = rs.getString("description");
+                item.categorie = rs.getString("categorie");
+                item.dateDebut = rs.getDate("date_debut");
+                item.dateFin = rs.getDate("date_fin");
+                item.estActif = rs.getBoolean("est_actif");
+                item.estDesactivable = rs.getBoolean("est_desactivable");
+                list.add(item);
+            }
+        }
+        return list;
+    }
+
+    public static List<ParametreGlobal> listByCategorie(String categorie, Connection c) throws Exception {
+        if (categorie == null || categorie.isBlank()) return listAll(c);
+        String sql = "SELECT id_parametre, code_parametre, valeur, description, categorie, date_debut, date_fin, " +
+                     "COALESCE(est_actif, TRUE) AS est_actif, COALESCE(est_desactivable, FALSE) AS est_desactivable " +
+                     "FROM parametre_global WHERE UPPER(categorie) = UPPER(?) ORDER BY code_parametre ASC";
+        List<ParametreGlobal> list = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, categorie.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ParametreGlobal item = new ParametreGlobal();
+                    item.idParametre = rs.getInt("id_parametre");
+                    item.codeParametre = rs.getString("code_parametre");
+                    item.valeur = rs.getString("valeur");
+                    item.description = rs.getString("description");
+                    item.categorie = rs.getString("categorie");
+                    item.dateDebut = rs.getDate("date_debut");
+                    item.dateFin = rs.getDate("date_fin");
+                    item.estActif = rs.getBoolean("est_actif");
+                    item.estDesactivable = rs.getBoolean("est_desactivable");
+                    list.add(item);
+                }
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Représente l'état complet d'un paramètre (valeur, actif/inactif, désactivable).
+     */
+    public static class ParametreEtat {
+        private final String codeParametre;
+        private final String valeur;
+        private final boolean estActif;
+        private final boolean estDesactivable;
+
+        public ParametreEtat(String codeParametre, String valeur, boolean estActif, boolean estDesactivable) {
+            this.codeParametre = codeParametre;
+            this.valeur = valeur;
+            this.estActif = estActif;
+            this.estDesactivable = estDesactivable;
+        }
+
+        public String getCodeParametre() { return codeParametre; }
+        public String getValeur() { return valeur; }
+        public boolean isEstActif() { return estActif; }
+        public boolean isEstDesactivable() { return estDesactivable; }
+    }
+
+    /**
+     * Charge l'état complet de tous les paramètres en vigueur à ce jour.
+     */
+    public static java.util.Map<String, ParametreEtat> loadEtatMap(Connection c) {
+        return loadEtatMapAtDate(new Date(System.currentTimeMillis()), c);
+    }
+
+    /**
+     * Charge l'état complet des paramètres à une date donnée.
+     */
+    public static java.util.Map<String, ParametreEtat> loadEtatMapAtDate(Date dateRef, Connection c) {
+        java.util.Map<String, ParametreEtat> map = new java.util.HashMap<>();
+        Date d = (dateRef != null) ? dateRef : new Date(System.currentTimeMillis());
+        String sql = "SELECT code_parametre, valeur, COALESCE(est_actif, TRUE) AS est_actif, COALESCE(est_desactivable, FALSE) AS est_desactivable " +
+                     "FROM parametre_global " +
+                     "WHERE date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) " +
+                     "ORDER BY date_debut ASC, id_parametre ASC";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, d);
+            ps.setDate(2, d);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String code = rs.getString("code_parametre").toUpperCase();
+                    map.put(code, new ParametreEtat(
+                        code,
+                        rs.getString("valeur"),
+                        rs.getBoolean("est_actif"),
+                        rs.getBoolean("est_desactivable")
+                    ));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[PARAMETRE GLOBAL] Erreur loadEtatMap: " + e.getMessage());
+        }
+        return map;
+    }
+
+    /**
+     * Charge les paramètres actifs (valeur uniquement) sous forme de Map clé-valeur.
+     * Tout paramètre désactivé (est_actif = FALSE) est exclu.
+     */
+    public static java.util.Map<String, String> loadActiveMap(Connection c) {
+        return loadActiveMapAtDate(new Date(System.currentTimeMillis()), c);
+    }
+
+    public static java.util.Map<String, String> loadActiveMapAtDate(Date dateRef, Connection c) {
+        if (dateRef == null) {
+            throw new IllegalArgumentException("La date métier des paramètres globaux est obligatoire.");
+        }
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        String sql = "SELECT code_parametre, valeur FROM parametre_global " +
+                     "WHERE date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) " +
+                     "AND COALESCE(est_actif, TRUE) = TRUE " +
+                     "ORDER BY code_parametre, date_debut DESC, id_parametre DESC";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, dateRef);
+            ps.setDate(2, dateRef);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String code = rs.getString("code_parametre").toUpperCase();
+                    if (!seen.add(code)) {
+                        throw new IllegalStateException(
+                                "Plusieurs valeurs du paramètre " + code + " sont applicables au " + dateRef + ".");
+                    }
+                    map.put(code, rs.getString("valeur"));
+                }
+            }
+        } catch (Exception e) {
+            if (e instanceof RuntimeException runtime) throw runtime;
+            throw new IllegalStateException("Impossible de charger les paramètres au " + dateRef + ".", e);
+        }
+        return map;
+    }
+
+    public static java.util.Map<String, String> loadActiveMapByCategorie(String categorie, Connection c) {
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        String sql = "SELECT code_parametre, valeur FROM parametre_global " +
+                     "WHERE UPPER(categorie) = UPPER(?) AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) " +
+                     "AND COALESCE(est_actif, TRUE) = TRUE " +
+                     "ORDER BY date_debut ASC, id_parametre ASC";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, categorie.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    map.put(rs.getString("code_parametre").toUpperCase(), rs.getString("valeur"));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[PARAMETRE GLOBAL] Erreur de chargement catégorie " + categorie + ": " + e.getMessage());
+        }
+        return map;
+    }
+
+    /**
+     * Vérifie si un paramètre est actif en distinguant INTROUVABLE (repli fallback) d'INACTIF (coupure volontaire).
+     * @param defaultIfMissing Fallback technique si la clé n'existe pas en base
+     */
+    public static boolean isActif(java.util.Map<String, ParametreEtat> etatMap, String code, boolean defaultIfMissing) {
+        if (etatMap == null || code == null) return defaultIfMissing;
+        ParametreEtat p = etatMap.get(code.toUpperCase());
+        if (p == null) return defaultIfMissing; // INTROUVABLE -> repli technique
+        return p.isEstActif();                  // TROUVÉ -> respecte le choix explicite actif/inactif
+    }
+
+    /**
+     * Récupère un double en distinguant le cas 'INTROUVABLE' (fallback technique) du cas 'INACTIF' (coupure).
+     */
+    public static double getDouble(java.util.Map<String, ParametreEtat> etatMap, String code, double fallbackIfMissing, double valueWhenInactive) {
+        if (etatMap == null || code == null) return fallbackIfMissing;
+        ParametreEtat p = etatMap.get(code.toUpperCase());
+        if (p == null) return fallbackIfMissing;       // Absent en base -> fallback technique
+        if (!p.isEstActif()) return valueWhenInactive; // Volontairement inactif -> coupure
+        try {
+            return Double.parseDouble(p.getValeur());
+        } catch (Exception e) {
+            return fallbackIfMissing;
+        }
+    }
+
+    /**
+     * Récupère un int en distinguant le cas 'INTROUVABLE' du cas 'INACTIF'.
+     */
+    public static int getInt(java.util.Map<String, ParametreEtat> etatMap, String code, int fallbackIfMissing, int valueWhenInactive) {
+        if (etatMap == null || code == null) return fallbackIfMissing;
+        ParametreEtat p = etatMap.get(code.toUpperCase());
+        if (p == null) return fallbackIfMissing;
+        if (!p.isEstActif()) return valueWhenInactive;
+        try {
+            return Integer.parseInt(p.getValeur());
+        } catch (Exception e) {
+            return fallbackIfMissing;
+        }
+    }
+
+    /**
+     * Récupère un String en distinguant le cas 'INTROUVABLE' du cas 'INACTIF'.
+     */
+    public static String getString(java.util.Map<String, ParametreEtat> etatMap, String code, String fallbackIfMissing, String valueWhenInactive) {
+        if (etatMap == null || code == null) return fallbackIfMissing;
+        ParametreEtat p = etatMap.get(code.toUpperCase());
+        if (p == null) return fallbackIfMissing;
+        if (!p.isEstActif()) return valueWhenInactive;
+        return p.getValeur();
+    }
+
+    /**
+     * Clôture la version précédente d'un paramètre global à la veille de la nouvelle date d'effet.
+     */
+    public static void cloturerPrecedent(String codeParametre, Date dateDebutNouveau, Connection c) throws Exception {
+        if (codeParametre == null || dateDebutNouveau == null) return;
+        String closeSql = "UPDATE parametre_global SET date_fin = ? " +
+                          "WHERE UPPER(code_parametre) = UPPER(?) " +
+                          "AND (date_fin IS NULL OR date_fin >= ?) " +
+                          "AND date_debut < ?";
+        try (PreparedStatement ps = c.prepareStatement(closeSql)) {
+            ps.setDate(1, java.sql.Date.valueOf(dateDebutNouveau.toLocalDate().minusDays(1)));
+            ps.setString(2, codeParametre.trim());
+            ps.setDate(3, dateDebutNouveau);
+            ps.setDate(4, dateDebutNouveau);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Retourne la valeur active d'un paramètre global à ce jour.
+     */
+    public static String getActiveValue(String codeParametre, Connection c) {
+        if (codeParametre == null || codeParametre.isBlank()) return null;
+        String sql = "SELECT valeur FROM parametre_global WHERE UPPER(code_parametre) = UPPER(?) " +
+                     "AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) " +
+                     "ORDER BY date_debut DESC LIMIT 1";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, codeParametre.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getString(1);
+            }
+        } catch (Exception e) {
+            System.err.println("[PARAMETRE GLOBAL] Erreur getActiveValue: " + e.getMessage());
+        }
+        return null;
+    }
+
+    // Helper static getters typés
+    public static double getDouble(java.util.Map<String, String> params, String key, double defaultValue) {
+        if (params == null || key == null) return defaultValue;
+        try {
+            String val = params.get(key.toUpperCase());
+            return val != null ? Double.parseDouble(val.trim()) : defaultValue;
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    public static java.math.BigDecimal getBigDecimal(java.util.Map<String, String> params, String key,
+                                                      java.math.BigDecimal defaultValue) {
+        if (params == null || key == null) return defaultValue;
+        String value = params.get(key.toUpperCase());
+        if (value == null || value.isBlank()) return defaultValue;
+        try {
+            return new java.math.BigDecimal(value.trim());
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    public static java.math.BigDecimal getBigDecimal(java.util.Map<String, ParametreEtat> params, String code,
+                                                      java.math.BigDecimal defaultValue,
+                                                      java.math.BigDecimal valueWhenInactive) {
+        if (params == null || code == null) return defaultValue;
+        ParametreEtat parameter = params.get(code.toUpperCase());
+        if (parameter == null) return defaultValue;
+        if (!parameter.isEstActif()) return valueWhenInactive;
+        try {
+            return new java.math.BigDecimal(parameter.getValeur().trim());
+        } catch (RuntimeException e) {
+            return defaultValue;
+        }
+    }
+
+    public static int getInt(java.util.Map<String, String> params, String key, int defaultValue) {
+        if (params == null || key == null) return defaultValue;
+        try {
+            String val = params.get(key.toUpperCase());
+            return val != null ? Integer.parseInt(val.trim()) : defaultValue;
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    /**
+     * Résolution stricte d'un entier strictement positif sans fallback silencieux.
+     * Lève des erreurs explicites en cas d'absence ou de valeur non valide.
+     */
+    public static int requirePositiveInt(java.util.Map<String, String> params, String key) {
+        if (params == null || key == null) {
+            throw new IllegalStateException("TCONGE_REFERENCE_DURATION_MISSING: paramètre " + key + " non chargé.");
+        }
+        String val = params.get(key.toUpperCase());
+        if (val == null || val.trim().isEmpty()) {
+            throw new IllegalStateException("TCONGE_REFERENCE_DURATION_MISSING: le paramètre obligatoire " + key + " est introuvable ou vide.");
+        }
+        int parsed;
+        try {
+            parsed = Integer.parseInt(val.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException("TCONGE_REFERENCE_DURATION_INVALID: la valeur du paramètre " + key + " ('" + val + "') n'est pas un entier valide.", e);
+        }
+        if (parsed <= 0) {
+            throw new IllegalStateException("TCONGE_REFERENCE_DURATION_INVALID: la valeur du paramètre " + key + " doit être strictement positive (obtenu: " + parsed + ").");
+        }
+        return parsed;
+    }
+
+    public static String getString(java.util.Map<String, String> params, String key, String defaultValue) {
+        if (params == null || key == null) return defaultValue;
+        String val = params.get(key.toUpperCase());
+        return (val != null && !val.trim().isEmpty()) ? val.trim() : defaultValue;
+    }
+
+    public static java.time.LocalTime getLocalTime(java.util.Map<String, String> params, String key, java.time.LocalTime defaultValue) {
+        if (params == null || key == null) return defaultValue;
+        try {
+            String val = params.get(key.toUpperCase());
+            if (val == null || val.trim().isEmpty()) return defaultValue;
+            String s = val.trim();
+            if (s.length() == 5) s += ":00";
+            return java.time.LocalTime.parse(s);
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
+
+    // Getters / Setters
+    public Integer getIdParametre() { return idParametre; }
+    public void setIdParametre(Integer idParametre) { this.idParametre = idParametre; }
+    public String getCodeParametre() { return codeParametre; }
+    public void setCodeParametre(String codeParametre) { this.codeParametre = codeParametre; }
+    public String getValeur() { return valeur; }
+    public void setValeur(String valeur) { this.valeur = valeur; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public String getCategorie() { return categorie; }
+    public void setCategorie(String categorie) { this.categorie = categorie; }
+    public Date getDateDebut() { return dateDebut; }
+    public void setDateDebut(Date dateDebut) { this.dateDebut = dateDebut; }
+    public Date getDateFin() { return dateFin; }
+    public void setDateFin(Date dateFin) { this.dateFin = dateFin; }
+    public Boolean getEstActif() { return estActif != null ? estActif : true; }
+    public void setEstActif(Boolean estActif) { this.estActif = estActif; }
+    public Boolean getEstDesactivable() { return estDesactivable != null ? estDesactivable : false; }
+    public void setEstDesactivable(Boolean estDesactivable) { this.estDesactivable = estDesactivable; }
+}

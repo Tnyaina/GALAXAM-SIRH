@@ -3,7 +3,7 @@ package mg.galaxam.sirh.common.exception;
 import org.springframework.http.HttpStatus;
 import java.util.List;
 import java.util.Map;
-import mg.galaxam.sirh.api.dto.common.BusinessIssue;
+import mg.galaxam.sirh.common.dto.BusinessIssue;
 
 /**
  * Exception pour violation de règle métier ou validation fonctionnelle (HTTP 400 Bad Request par défaut).

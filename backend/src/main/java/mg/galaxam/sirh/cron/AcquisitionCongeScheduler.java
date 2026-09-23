@@ -10,9 +10,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
-import mg.galaxam.sirh.model.conge.engine.CongeCalculateurEngine;
-import mg.galaxam.sirh.model.paieconfig.PaieConfigLegale;
-import mg.galaxam.sirh.model.paieconfig.ParametreGlobal;
+import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
+import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
+import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,7 +35,7 @@ public class AcquisitionCongeScheduler {
     private CongeCalculateurEngine congeCalculateurEngine;
 
     @Autowired
-    private mg.galaxam.sirh.model.conge.service.CongeService congeService;
+    private mg.galaxam.sirh.conge.application.CongeService congeService;
 
     @Autowired
     private SchedulerExecutionRegistry executionRegistry;

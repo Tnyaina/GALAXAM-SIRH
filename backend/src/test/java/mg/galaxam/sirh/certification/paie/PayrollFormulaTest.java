@@ -10,9 +10,9 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import mg.galaxam.sirh.model.paie.engine.IrsaCalculator;
-import mg.galaxam.sirh.model.paie.engine.MoneyRoundingPolicy;
-import mg.galaxam.sirh.model.paie.engine.SocialContributionCalculator;
+import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator;
+import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
+import mg.galaxam.sirh.paie.domain.engine.SocialContributionCalculator;
 import mg.galaxam.sirh.oracle.PayrollIndependentOracle;
 
 @DisplayName("CERTIFICATION PAIE — FORMULES UNITAIRES, BARÈMES & FRONTIÈRES")
@@ -35,7 +35,7 @@ public class PayrollFormulaTest {
     @DisplayName("1. Taux horaire de base et diviseur légal 173.33")
     void testDiviseurHoraireLegal() {
         BigDecimal salaireBase = new BigDecimal("800000.00");
-        BigDecimal diviseur = mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES;
+        BigDecimal diviseur = mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES;
 
         // 800 000 / 173.33 = 4615.47337... -> 4615.4744 intermediate, 4615.47 amount
         BigDecimal tauxHoraire = salaireBase.divide(diviseur, 4, RoundingMode.HALF_UP);
@@ -49,11 +49,11 @@ public class PayrollFormulaTest {
         BigDecimal base = new BigDecimal("600000.00");
         
         // Trentième congé
-        BigDecimal trentieme = base.divide(mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine.DIVISEUR_JOURS_TRENTIEME, 2, RoundingMode.HALF_UP);
+        BigDecimal trentieme = base.divide(mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine.DIVISEUR_JOURS_TRENTIEME, 2, RoundingMode.HALF_UP);
         assertEquals(new BigDecimal("20000.00"), trentieme, "Trentième légal = 20 000.00 Ar/jour");
 
         // Heure d'absence
-        BigDecimal heureAbsence = base.divide(mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES, 4, RoundingMode.HALF_UP);
+        BigDecimal heureAbsence = base.divide(mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES, 4, RoundingMode.HALF_UP);
         assertEquals(new BigDecimal("3461.6050"), heureAbsence, "Heure d'absence = 3461.6050 Ar/h");
         
         // 8h d'absence

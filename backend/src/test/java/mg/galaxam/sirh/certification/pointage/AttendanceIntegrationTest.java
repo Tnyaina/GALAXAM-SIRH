@@ -19,10 +19,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import mg.galaxam.sirh.BaseIntegrationTest;
-import mg.galaxam.sirh.api.dto.pointage.SaisiePointageJourDTO;
+import mg.galaxam.sirh.pointage.api.dto.SaisiePointageJourDTO;
 import mg.galaxam.sirh.fixtures.TestEmployeFixtures;
-import mg.galaxam.sirh.model.pointage.service.PointageEmployeService;
-import mg.galaxam.sirh.model.pointage.service.PointageSyntheseService;
+import mg.galaxam.sirh.pointage.application.PointageEmployeService;
+import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
 import mg.galaxam.sirh.oracle.AttendanceIndependentOracle;
 
 @DisplayName("CERTIFICATION POINTAGE INTÉGRATION — PIPELINE COMPLET & SNAPSHOT POSTGRESQL")

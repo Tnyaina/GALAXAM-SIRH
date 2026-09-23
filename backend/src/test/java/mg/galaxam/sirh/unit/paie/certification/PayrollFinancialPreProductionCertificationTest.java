@@ -7,12 +7,12 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import mg.galaxam.sirh.model.paie.BulletinPaie;
-import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
-import mg.galaxam.sirh.model.paie.dto.PayrollAttendanceInput;
-import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
-import mg.galaxam.sirh.model.paie.engine.IrsaCalculator;
-import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
+import mg.galaxam.sirh.paie.persistence.BulletinPaie;
+import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
+import mg.galaxam.sirh.paie.domain.dto.PayrollAttendanceInput;
+import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator;
+import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
 import mg.galaxam.sirh.unit.paie.certification.FinancialCertificationIndependentOracle.IrsaTrancheDef;
 import mg.galaxam.sirh.unit.paie.certification.FinancialCertificationIndependentOracle.OracleInput;
 import mg.galaxam.sirh.unit.paie.certification.FinancialCertificationIndependentOracle.OracleResult;
@@ -116,8 +116,8 @@ public class PayrollFinancialPreProductionCertificationTest {
         assertEquals(0, expected.compareTo(actual), "Expected: " + expected + " but was: " + actual);
     }
 
-    private static mg.galaxam.sirh.model.paie.PaieAvanceAcompte makeAcompte(String type, BigDecimal montant) {
-        mg.galaxam.sirh.model.paie.PaieAvanceAcompte a = new mg.galaxam.sirh.model.paie.PaieAvanceAcompte();
+    private static mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte makeAcompte(String type, BigDecimal montant) {
+        mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte a = new mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte();
         a.setTypeMouvement(type);
         a.setMontant(montant);
         a.setStatut("APPROUVE");

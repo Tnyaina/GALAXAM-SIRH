@@ -6,14 +6,14 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import mg.galaxam.sirh.model.paie.BulletinPaie;
-import mg.galaxam.sirh.model.paie.BulletinPaieLigne;
-import mg.galaxam.sirh.model.paie.dto.BulletinPaieComplet;
-import mg.galaxam.sirh.model.paie.dto.PayrollAttendanceInput;
-import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
-import mg.galaxam.sirh.model.paie.engine.IrsaCalculator;
-import mg.galaxam.sirh.model.paie.engine.MoneyRoundingPolicy;
-import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
+import mg.galaxam.sirh.paie.persistence.BulletinPaie;
+import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
+import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
+import mg.galaxam.sirh.paie.domain.dto.PayrollAttendanceInput;
+import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator;
+import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
+import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -123,7 +123,7 @@ public class PayrollGoldenMasterFinalizationIntegrationTest {
         in.setAttendanceInput(att);
 
         // Variables / Ajustement : Retenue CALL PERSO 21 470 Ar
-        mg.galaxam.sirh.model.paie.PaieAvanceAcompte callPerso = new mg.galaxam.sirh.model.paie.PaieAvanceAcompte();
+        mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte callPerso = new mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte();
         callPerso.setIdAvance(1);
         callPerso.setTypeMouvement("CALL_PERSO");
         callPerso.setSens("RETENUE");

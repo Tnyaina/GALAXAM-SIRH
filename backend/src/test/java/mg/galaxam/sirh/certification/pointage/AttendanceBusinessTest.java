@@ -12,12 +12,12 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceCalculator;
-import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceContext;
-import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceResult;
-import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceCalculator;
-import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceContext;
-import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceResult;
+import mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceCalculator;
+import mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceContext;
+import mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceResult;
+import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceCalculator;
+import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceContext;
+import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceResult;
 import mg.galaxam.sirh.oracle.AttendanceIndependentOracle;
 
 @DisplayName("CERTIFICATION POINTAGE — CALCULS MÉTIER & ORACLE INDÉPENDANT")

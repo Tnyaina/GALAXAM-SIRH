@@ -1,6 +1,6 @@
 package mg.galaxam.sirh.unit.paie;
 
-import mg.galaxam.sirh.model.paie.engine.MoneyRoundingPolicy;
+import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
 import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;

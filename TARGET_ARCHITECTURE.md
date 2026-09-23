@@ -6,8 +6,10 @@ Le paquet ou dossier d'un domaine est son propriétaire. Un élément transverse
 
 ```text
 backend/src/main/java/mg/galaxam/sirh/
-  api/{controller,dto}/<domaine>     frontière HTTP et contrats publics
-  model/<domaine>/{service,engine,dto,workflow}
+  <domaine>/api/                     frontière HTTP et contrats publics
+  <domaine>/application/             cas d'usage et frontière transactionnelle
+  <domaine>/domain/                  objets et règles métier sans JDBC/HTTP
+  <domaine>/persistence/             SQL JDBC explicite et mapping ResultSet
   securite/                          authentification et autorisation
   common/                            erreur et transaction réellement transverses
   config/                            infrastructure Spring
@@ -24,6 +26,7 @@ frontend/src/
 ## Conventions
 
 - Un contrôleur appelle le service ou workflow propriétaire ; aucun calcul métier n'est dupliqué dans React.
+- JDBC reste explicite : aucun ORM n'est requis. Les `Connection`, `PreparedStatement` et `ResultSet` appartiennent à `persistence`, tandis que `application` possède la transaction.
 - Un `engine` est conservé lorsqu'il a un invariant autonome et un test utile ; il n'est pas créé pour une simple délégation.
 - Les DTO HTTP restent sous `api/dto/<domaine>`. Les objets de calcul internes restent dans le domaine.
 - Les tables sont définies dans l'un des six schémas canoniques, par domaine. Une évolution productive est ajoutée sous `backend/conception/bdd/migrations/`, jamais en réécrivant un historique déjà déployé.
@@ -33,9 +36,9 @@ frontend/src/
 
 | Modification | Emplacement canonique |
 | --- | --- |
-| Calcul IRSA | `backend/src/main/java/mg/galaxam/sirh/model/paie/engine/IrsaCalculator.java` |
-| Workflow paie | `backend/src/main/java/mg/galaxam/sirh/model/paie/workflow/PayrollPeriodWorkflowService.java` |
+| Calcul IRSA | `backend/src/main/java/mg/galaxam/sirh/paie/domain/engine/IrsaCalculator.java` |
+| Workflow paie | `backend/src/main/java/mg/galaxam/sirh/paie/application/workflow/PayrollPeriodWorkflowService.java` |
 | Tableau pointage | `frontend/src/pages/pointage/GestionPointagesPage.jsx` puis `components/pointage` |
 | Périodes de paie côté React | `frontend/src/api/pointage/periodePaieService.js` |
 | Monnaie/date UI | `frontend/src/utils/moneyUtils.js`, `frontend/src/utils/dateUtils.js` |
-| Contrat/carrière | `backend/.../model/contrat` et `frontend/src/components/carriere` |
+| Contrat/carrière | `backend/src/main/java/mg/galaxam/sirh/contrat/` et `frontend/src/components/carriere` |

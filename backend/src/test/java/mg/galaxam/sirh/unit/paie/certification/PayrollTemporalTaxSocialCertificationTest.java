@@ -12,11 +12,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import mg.galaxam.sirh.model.paie.BulletinPaie;
-import mg.galaxam.sirh.model.paie.dto.PayrollCalculationInput;
-import mg.galaxam.sirh.model.paie.engine.IrsaCalculator;
-import mg.galaxam.sirh.model.paie.engine.PayrollExecutionEngine;
-import mg.galaxam.sirh.model.paie.engine.SocialContributionCalculator;
+import mg.galaxam.sirh.paie.persistence.BulletinPaie;
+import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
+import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator;
+import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
+import mg.galaxam.sirh.paie.domain.engine.SocialContributionCalculator;
 
 /**
  * Suite de tests de contre-certification temporelle :
@@ -581,8 +581,8 @@ public class PayrollTemporalTaxSocialCertificationTest {
     // =========================================================================
     // HELPERS
     // =========================================================================
-    private static mg.galaxam.sirh.model.paie.dto.PayrollAttendanceInput makeAttendance(long unpaidMinutes) {
-        return new mg.galaxam.sirh.model.paie.dto.PayrollAttendanceInput(
+    private static mg.galaxam.sirh.paie.domain.dto.PayrollAttendanceInput makeAttendance(long unpaidMinutes) {
+        return new mg.galaxam.sirh.paie.domain.dto.PayrollAttendanceInput(
                 1, 1, 1001, 202512, java.time.Instant.now(), 10000L, 0L, 0L, 0L, 0L, 0L, 0L,
                 unpaidMinutes, (int) Math.min(unpaidMinutes, Integer.MAX_VALUE),
                 new BigDecimal("21"), new BigDecimal("21"), BigDecimal.ZERO, BigDecimal.ZERO,

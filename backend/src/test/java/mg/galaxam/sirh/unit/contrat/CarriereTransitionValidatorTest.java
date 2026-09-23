@@ -3,7 +3,7 @@ package mg.galaxam.sirh.unit.contrat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import mg.galaxam.sirh.model.contrat.engine.CarriereTransitionValidator;
+import mg.galaxam.sirh.contrat.domain.CarriereTransitionValidator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

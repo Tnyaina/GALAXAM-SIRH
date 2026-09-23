@@ -2,7 +2,7 @@ package mg.galaxam.sirh.cron;
 
 import java.sql.Connection;
 import javax.sql.DataSource;
-import mg.galaxam.sirh.model.contrat.WorkflowRhService;
+import mg.galaxam.sirh.contrat.application.WorkflowRhService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

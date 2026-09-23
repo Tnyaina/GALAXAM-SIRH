@@ -1,10 +1,10 @@
 package mg.galaxam.sirh.unit.pointage;
 
-import mg.galaxam.sirh.model.pointage.calculation.DailyAttendanceResult;
-import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceCalculator;
-import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceContext;
-import mg.galaxam.sirh.model.pointage.calculation.WeeklyAttendanceResult;
-import mg.galaxam.sirh.model.pointage.calculation.WeeklyPriorState;
+import mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceResult;
+import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceCalculator;
+import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceContext;
+import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceResult;
+import mg.galaxam.sirh.pointage.domain.calculation.WeeklyPriorState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

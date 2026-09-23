@@ -2,7 +2,7 @@ package mg.galaxam.sirh.unit.pointage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import mg.galaxam.sirh.model.pointage.mapper.PointageTimeBoundaryMapper;
+import mg.galaxam.sirh.pointage.domain.mapper.PointageTimeBoundaryMapper;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 

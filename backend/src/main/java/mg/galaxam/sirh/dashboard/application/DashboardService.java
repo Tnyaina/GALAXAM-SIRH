@@ -1,0 +1,497 @@
+package mg.galaxam.sirh.dashboard.application;
+
+import org.springframework.stereotype.Service;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+public class DashboardService {
+
+    private final DataSource dataSource;
+
+    public DashboardService(DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
+    /**
+     * Génère la synthèse complète des KPIs, alertes RH et activités récentes.
+     */
+    public Map<String, Object> getDashboardSummary() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            return getDashboardSummary(c);
+        }
+    }
+
+    public Map<String, Object> getDashboardSummary(Connection c) throws Exception {
+        Map<String, Object> summary = new LinkedHashMap<>();
+
+        summary.put("kpis", buildKpis(c));
+        summary.put("alertesCritiques", buildAlertesCritiques(c));
+        summary.put("alertes7j", buildAlertes7j(c));
+        summary.put("alertes30j", buildAlertes30j(c));
+        summary.put("brouillons", buildBrouillons(c));
+        summary.put("activiteRecente", buildActiviteRecente(c));
+        summary.put("absentsAujourdhui", buildAbsentsAujourdhui(c));
+        summary.put("congesQuinzaine", buildCongesQuinzaine(c));
+        summary.put("demandesCongeAValider", buildDemandesCongeAValider(c));
+        summary.put("actionsATraiter", buildActionsATraiter(c));
+
+        return summary;
+    }
+
+    /**
+     * File d'actions unifiée pour le cockpit. Les compteurs sont construits
+     * côté serveur à partir de l'état métier, au lieu d'être recomposés par
+     * chaque écran React.
+     */
+    public List<Map<String, Object>> buildActionsATraiter(Connection c) throws Exception {
+        List<Map<String, Object>> actions = new ArrayList<>();
+        addActionIfPositive(actions, count(c,
+                "SELECT COUNT(*) FROM demande_conge d JOIN ref_statut_demande_conge s "
+                        + "ON s.id_statut_demande_conge = d.id_statut_demande_conge WHERE s.code = 'EN_ATTENTE'"),
+                "CONGES_A_VALIDER", "Demandes de congé à décider", "Congés & absences", "/conges?tab=demandes", "CONGE_VALIDATE", "WARNING");
+        addActionIfPositive(actions, count(c,
+                "SELECT COUNT(*) FROM workflow_rh w JOIN ref_statut_rh s ON s.id_statut_rh = w.id_statut_rh "
+                        + "WHERE s.code = 'BROUILLON'"),
+                "BROUILLONS_RH", "Brouillons RH à traiter", "Contrats et avenants non finalisés", "/employes", "EMPLOYE_VALIDATE", "WARNING");
+        addActionIfPositive(actions, count(c,
+                "SELECT COUNT(*) FROM pointage_jour p JOIN ref_statut_pointage_jour s "
+                        + "ON s.id_statut_jour = p.id_statut_jour WHERE p.id_periode_paie = "
+                        + "(SELECT pp.id_periode_paie FROM periode_paie pp ORDER BY "
+                        + "CASE WHEN CURRENT_DATE BETWEEN pp.date_debut AND pp.date_fin THEN 0 ELSE 1 END, pp.date_fin DESC LIMIT 1) "
+                        + "AND s.code IN ('ANOMALIE_SAISIE', 'ABSENCE_NON_JUSTIFIEE')"),
+                "ANOMALIES_POINTAGE", "Anomalies de pointage", "À régulariser avant validation de la période", "/pointages?tab=anomalies", "POINTAGE_READ", "DANGER");
+        addActionIfPositive(actions, count(c,
+                "SELECT COUNT(*) FROM contrat_travail ct JOIN ref_statut_rh s ON s.id_statut_rh = ct.id_statut_rh "
+                        + "WHERE s.code = 'ACTIF' AND ct.date_fin IS NOT NULL AND ct.date_fin BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'"),
+                "ECHEANCES_CONTRATS", "Échéances contractuelles", "Contrats à examiner dans les 30 prochains jours", "/employes", "EMPLOYE_READ", "DANGER");
+        return actions;
+    }
+
+    private int count(Connection connection, String sql) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(sql); ResultSet result = statement.executeQuery()) {
+            return result.next() ? result.getInt(1) : 0;
+        }
+    }
+
+    private void addActionIfPositive(List<Map<String, Object>> actions, int count, String code, String label,
+            String description, String destination, String requiredAuthority, String severity) {
+        if (count <= 0) return;
+        Map<String, Object> action = new LinkedHashMap<>();
+        action.put("code", code);
+        action.put("count", count);
+        action.put("label", label);
+        action.put("description", description);
+        action.put("destination", destination);
+        action.put("requiredAuthority", requiredAuthority);
+        action.put("severity", severity);
+        actions.add(action);
+    }
+
+    public List<Map<String, Object>> buildDemandesCongeAValider(Connection c) throws Exception {
+        List<Map<String, Object>> demandes = new ArrayList<>();
+        String sql = "SELECT d.id_demande_conge, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, e.matricule, " +
+                "tc.libelle AS type_conge, d.date_debut, d.date_fin, d.nb_jours_decomptes, d.commentaire " +
+                "FROM demande_conge d " +
+                "JOIN employe e ON d.id_employe = e.id_employe " +
+                "JOIN ref_type_conge tc ON d.id_type_conge = tc.id_type_conge " +
+                "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
+                "WHERE rsd.code = 'EN_ATTENTE' " +
+                "ORDER BY d.created_at DESC";
+        try (PreparedStatement ps = c.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("idDemandeConge", rs.getInt("id_demande_conge"));
+                row.put("idEmploye", rs.getInt("id_employe"));
+                row.put("nomPrenom", rs.getString("nom_prenom"));
+                row.put("matricule", rs.getString("matricule"));
+                row.put("typeConge", rs.getString("type_conge"));
+                row.put("dateDebut", rs.getDate("date_debut"));
+                row.put("dateFin", rs.getDate("date_fin"));
+                row.put("nbJoursDecomptes", rs.getBigDecimal("nb_jours_decomptes"));
+                row.put("commentaire", rs.getString("commentaire"));
+                demandes.add(row);
+            }
+        }
+        return demandes;
+    }
+
+    public List<Map<String, Object>> buildAbsentsAujourdhui(Connection c) throws Exception {
+        List<Map<String, Object>> absents = new ArrayList<>();
+        String sql = "SELECT d.id_demande_conge, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, e.matricule, " +
+                "tc.libelle AS type_conge, d.date_debut, d.date_fin, d.nb_jours_decomptes, " +
+                "s.libelle AS nom_site, s.id_site " +
+                "FROM demande_conge d " +
+                "JOIN employe e ON d.id_employe = e.id_employe " +
+                "JOIN ref_type_conge tc ON d.id_type_conge = tc.id_type_conge " +
+                "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
+                "LEFT JOIN LATERAL (" +
+                "  SELECT aff_sub.id_site FROM employe_affectation_carriere aff_sub " +
+                "  WHERE aff_sub.id_employe = e.id_employe AND aff_sub.id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') " +
+                "  ORDER BY aff_sub.date_debut DESC, aff_sub.id_affectation DESC LIMIT 1" +
+                ") aff ON TRUE " +
+                "LEFT JOIN ref_site s ON aff.id_site = s.id_site " +
+                "WHERE rsd.code = 'VALIDE' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin " +
+                "ORDER BY d.date_fin ASC";
+        try (PreparedStatement ps = c.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("idDemandeConge", rs.getInt("id_demande_conge"));
+                row.put("idEmploye", rs.getInt("id_employe"));
+                row.put("nomPrenom", rs.getString("nom_prenom"));
+                row.put("matricule", rs.getString("matricule"));
+                row.put("typeConge", rs.getString("type_conge"));
+                row.put("dateDebut", rs.getDate("date_debut"));
+                row.put("dateFin", rs.getDate("date_fin"));
+                row.put("nbJoursDecomptes", rs.getBigDecimal("nb_jours_decomptes"));
+                row.put("nomSite", rs.getString("nom_site"));
+                row.put("idSite", rs.getObject("id_site"));
+                absents.add(row);
+            }
+        }
+        return absents;
+    }
+
+    public List<Map<String, Object>> buildCongesQuinzaine(Connection c) throws Exception {
+        List<Map<String, Object>> conges = new ArrayList<>();
+        String sql = "SELECT d.id_demande_conge, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, e.matricule, " +
+                "tc.libelle AS type_conge, d.date_debut, d.date_fin, d.nb_jours_decomptes, " +
+                "s.libelle AS nom_site, s.id_site " +
+                "FROM demande_conge d " +
+                "JOIN employe e ON d.id_employe = e.id_employe " +
+                "JOIN ref_type_conge tc ON d.id_type_conge = tc.id_type_conge " +
+                "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge " +
+                "LEFT JOIN LATERAL (" +
+                "  SELECT aff_sub.id_site FROM employe_affectation_carriere aff_sub " +
+                "  WHERE aff_sub.id_employe = e.id_employe AND aff_sub.id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF') " +
+                "  ORDER BY aff_sub.date_debut DESC, aff_sub.id_affectation DESC LIMIT 1" +
+                ") aff ON TRUE " +
+                "LEFT JOIN ref_site s ON aff.id_site = s.id_site " +
+                "WHERE rsd.code = 'VALIDE' " +
+                "AND d.date_fin >= ? AND d.date_debut <= ? " +
+                "ORDER BY d.date_debut ASC";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(LocalDate.now()));
+            ps.setDate(2, Date.valueOf(LocalDate.now().plusDays(15)));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("idDemandeConge", rs.getInt("id_demande_conge"));
+                    row.put("idEmploye", rs.getInt("id_employe"));
+                    row.put("nomPrenom", rs.getString("nom_prenom"));
+                    row.put("matricule", rs.getString("matricule"));
+                    row.put("typeConge", rs.getString("type_conge"));
+                    row.put("dateDebut", rs.getDate("date_debut"));
+                    row.put("dateFin", rs.getDate("date_fin"));
+                    row.put("nbJoursDecomptes", rs.getBigDecimal("nb_jours_decomptes"));
+                    row.put("nomSite", rs.getString("nom_site"));
+                    row.put("idSite", rs.getObject("id_site"));
+                    conges.add(row);
+                }
+            }
+        }
+        return conges;
+    }
+
+    public Map<String, Object> buildKpis(Connection c) throws Exception {
+        Map<String, Object> kpis = new LinkedHashMap<>();
+
+        try (PreparedStatement ps = c.prepareStatement("SELECT COUNT(*) FROM employe WHERE est_actif = TRUE")) {
+            ResultSet rs = ps.executeQuery();
+            kpis.put("totalEffectifActif", rs.next() ? rs.getInt(1) : 0);
+        }
+
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT COUNT(DISTINCT ct.id_employe) FROM contrat_travail ct " +
+                        "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                        "WHERE rsc.code = 'ACTIF' AND ct.comptabilise_effectif = TRUE")) {
+            ResultSet rs = ps.executeQuery();
+            kpis.put("effectifComptabilise", rs.next() ? rs.getInt(1) : 0);
+        }
+
+        LocalDate debutMois = LocalDate.now().withDayOfMonth(1);
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT COUNT(*) FROM employe WHERE est_actif = TRUE AND created_at >= ?")) {
+            ps.setTimestamp(1, Timestamp.valueOf(debutMois.atStartOfDay()));
+            ResultSet rs = ps.executeQuery();
+            kpis.put("nouvellesEmbauchesMois", rs.next() ? rs.getInt(1) : 0);
+        }
+
+        LocalDate today = LocalDate.now();
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT COUNT(*) FROM contrat_travail ct " +
+                        "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                        "WHERE rsc.code = 'ACTIF' AND ct.date_fin IS NOT NULL AND ct.date_fin BETWEEN ? AND ?")) {
+            ps.setDate(1, Date.valueOf(today));
+            ps.setDate(2, Date.valueOf(today.plusDays(30)));
+            ResultSet rs = ps.executeQuery();
+            kpis.put("contratsExpirant30j", rs.next() ? rs.getInt(1) : 0);
+        }
+
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT COUNT(*) FROM contrat_travail ct " +
+                        "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                        "JOIN contrat_periode_essai cpe ON ct.id_contrat = cpe.id_contrat " +
+                        "WHERE rsc.code = 'ACTIF' AND cpe.statut = 'EN_COURS'")) {
+            ResultSet rs = ps.executeQuery();
+            kpis.put("essaisEnCours", rs.next() ? rs.getInt(1) : 0);
+        }
+
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT COUNT(*) FROM workflow_rh wf " +
+                        "JOIN ref_statut_rh rsw ON wf.id_statut_rh = rsw.id_statut_rh " +
+                        "WHERE rsw.code = 'BROUILLON'")) {
+            ResultSet rs = ps.executeQuery();
+            kpis.put("brouillonsEnAttente", rs.next() ? rs.getInt(1) : 0);
+        }
+
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT COUNT(*) FROM demande_conge d " +
+                        "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge "
+                        +
+                        "WHERE rsd.code = 'EN_ATTENTE'")) {
+            ResultSet rs = ps.executeQuery();
+            kpis.put("demandesCongeEnAttente", rs.next() ? rs.getInt(1) : 0);
+        }
+
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT COUNT(*) FROM demande_conge d " +
+                        "JOIN ref_statut_demande_conge rsd ON d.id_statut_demande_conge = rsd.id_statut_demande_conge "
+                        +
+                        "WHERE rsd.code = 'VALIDE' AND CURRENT_DATE BETWEEN d.date_debut AND d.date_fin")) {
+            ResultSet rs = ps.executeQuery();
+            kpis.put("employesEnCongeAujourdhui", rs.next() ? rs.getInt(1) : 0);
+        }
+
+        return kpis;
+    }
+
+    public List<Map<String, Object>> buildAlertesCritiques(Connection c) throws Exception {
+        List<Map<String, Object>> alertes = new ArrayList<>();
+
+        String sqlContratsJ = "SELECT ct.id_contrat, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
+                "e.matricule, ct.date_fin, rtc.libelle AS type_contrat, ct.numero_contrat " +
+                "FROM contrat_travail ct " +
+                "JOIN employe e ON ct.id_employe = e.id_employe " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
+                "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE AND ct.date_fin = CURRENT_DATE " +
+                "ORDER BY e.nom";
+        try (PreparedStatement ps = c.prepareStatement(sqlContratsJ);
+                ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("typeAlerte", "CONTRAT_EXPIRE_J");
+                row.put("priorite", "CRITIQUE");
+                row.put("idEmploye", rs.getInt("id_employe"));
+                row.put("nomPrenom", rs.getString("nom_prenom"));
+                row.put("matricule", rs.getString("matricule"));
+                row.put("typeContrat", rs.getString("type_contrat"));
+                row.put("numeroContrat", rs.getString("numero_contrat"));
+                row.put("dateEcheance", rs.getDate("date_fin"));
+                row.put("joursRestants", 0);
+                alertes.add(row);
+            }
+        }
+
+        String sqlEssaisJ = "SELECT e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
+                "e.matricule, ct.date_fin_essai " +
+                "FROM contrat_travail ct " +
+                "JOIN employe e ON ct.id_employe = e.id_employe " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                "JOIN contrat_periode_essai cpe ON ct.id_contrat = cpe.id_contrat " +
+                "WHERE rsc.code = 'ACTIF' AND cpe.statut = 'EN_COURS' AND ct.date_fin_essai = ? " +
+                "ORDER BY e.nom";
+        try (PreparedStatement ps = c.prepareStatement(sqlEssaisJ)) {
+            ps.setDate(1, Date.valueOf(LocalDate.now()));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("typeAlerte", "ESSAI_EXPIRE_J");
+                    row.put("priorite", "CRITIQUE");
+                    row.put("idEmploye", rs.getInt("id_employe"));
+                    row.put("nomPrenom", rs.getString("nom_prenom"));
+                    row.put("matricule", rs.getString("matricule"));
+                    row.put("dateEcheance", rs.getDate("date_fin_essai"));
+                    row.put("joursRestants", 0);
+                    alertes.add(row);
+                }
+            }
+        }
+
+        return alertes;
+    }
+
+    public List<Map<String, Object>> buildAlertes7j(Connection c) throws Exception {
+        List<Map<String, Object>> alertes = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+
+        String sqlContrats7j = "SELECT ct.id_contrat, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
+                "e.matricule, ct.date_fin, rtc.libelle AS type_contrat, ct.numero_contrat, " +
+                "(ct.date_fin - ?) AS jours_restants " +
+                "FROM contrat_travail ct " +
+                "JOIN employe e ON ct.id_employe = e.id_employe " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
+                "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE " +
+                "AND ct.date_fin > ? AND ct.date_fin <= ? " +
+                "ORDER BY ct.date_fin ASC";
+        try (PreparedStatement ps = c.prepareStatement(sqlContrats7j)) {
+            ps.setDate(1, Date.valueOf(today));
+            ps.setDate(2, Date.valueOf(today));
+            ps.setDate(3, Date.valueOf(today.plusDays(7)));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("typeAlerte", "CONTRAT_ECHEANCE_7J");
+                    row.put("priorite", "HAUTE");
+                    row.put("idEmploye", rs.getInt("id_employe"));
+                    row.put("nomPrenom", rs.getString("nom_prenom"));
+                    row.put("matricule", rs.getString("matricule"));
+                    row.put("typeContrat", rs.getString("type_contrat"));
+                    row.put("numeroContrat", rs.getString("numero_contrat"));
+                    row.put("dateEcheance", rs.getDate("date_fin"));
+                    row.put("joursRestants", rs.getInt("jours_restants"));
+                    alertes.add(row);
+                }
+            }
+        }
+
+        return alertes;
+    }
+
+    public List<Map<String, Object>> buildAlertes30j(Connection c) throws Exception {
+        List<Map<String, Object>> alertes = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+
+        String sqlContrats30j = "SELECT ct.id_contrat, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
+                "e.matricule, ct.date_fin, rtc.libelle AS type_contrat, ct.numero_contrat, " +
+                "(ct.date_fin - ?) AS jours_restants " +
+                "FROM contrat_travail ct " +
+                "JOIN employe e ON ct.id_employe = e.id_employe " +
+                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
+                "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE " +
+                "AND ct.date_fin > ? AND ct.date_fin <= ? " +
+                "ORDER BY ct.date_fin ASC";
+        try (PreparedStatement ps = c.prepareStatement(sqlContrats30j)) {
+            ps.setDate(1, Date.valueOf(today));
+            ps.setDate(2, Date.valueOf(today.plusDays(7)));
+            ps.setDate(3, Date.valueOf(today.plusDays(30)));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("typeAlerte", "CONTRAT_ECHEANCE_30J");
+                    row.put("priorite", "NORMALE");
+                    row.put("idEmploye", rs.getInt("id_employe"));
+                    row.put("nomPrenom", rs.getString("nom_prenom"));
+                    row.put("matricule", rs.getString("matricule"));
+                    row.put("typeContrat", rs.getString("type_contrat"));
+                    row.put("numeroContrat", rs.getString("numero_contrat"));
+                    row.put("dateEcheance", rs.getDate("date_fin"));
+                    row.put("joursRestants", rs.getInt("jours_restants"));
+                    alertes.add(row);
+                }
+            }
+        }
+
+        return alertes;
+    }
+
+    public List<Map<String, Object>> buildBrouillons(Connection c) throws Exception {
+        List<Map<String, Object>> brouillons = new ArrayList<>();
+
+        String sql = "SELECT id_workflow, libelle_type_evenement AS type_evenement, " +
+                "id_employe, nom_prenom_employe AS nom_prenom, matricule_employe AS matricule, " +
+                "numero_contrat_cible AS reference_dossier, " +
+                "date_effet, " +
+                "created_at AS date_creation " +
+                "FROM v_workflow_rh_cpl " +
+                "WHERE code_statut_workflow = 'BROUILLON' " +
+                "ORDER BY created_at ASC";
+        Instant now = Instant.now();
+        try (PreparedStatement ps = c.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("idWorkflow", rs.getInt("id_workflow"));
+                row.put("typeEvenement", rs.getString("type_evenement"));
+                row.put("referenceDossier", rs.getString("reference_dossier"));
+                row.put("idEmploye", rs.getInt("id_employe"));
+                row.put("nomPrenom", rs.getString("nom_prenom"));
+                row.put("matricule", rs.getString("matricule"));
+                row.put("dateEffet", rs.getDate("date_effet"));
+                Timestamp dateCreation = rs.getTimestamp("date_creation");
+                row.put("dateCreation", dateCreation);
+                long joursAttente = dateCreation != null ? Duration.between(dateCreation.toInstant(), now).toDays() : 0;
+                row.put("joursAttente", joursAttente);
+                brouillons.add(row);
+            }
+        }
+
+        return brouillons;
+    }
+
+    public List<Map<String, Object>> buildActiviteRecente(Connection c) throws Exception {
+        List<Map<String, Object>> activite = new ArrayList<>();
+
+        String sql = "SELECT * FROM (" +
+                "    SELECT id_workflow AS id, 'CARRIERE' AS source_type, " +
+                "           libelle_type_evenement AS type_evenement, " +
+                "           id_employe, nom_prenom_employe AS nom_prenom, matricule_employe AS matricule, " +
+                "           numero_contrat_cible AS reference_dossier, " +
+                "           code_statut_workflow AS statut_code, libelle_statut_workflow AS statut_libelle, " +
+                "           date_effet, updated_at AS date_action " +
+                "    FROM v_workflow_rh_cpl " +
+                "    WHERE code_statut_workflow IN ('ACTIF', 'PLANIFIE', 'ANNULE', 'VALIDE') " +
+                "    UNION ALL " +
+                "    SELECT id_demande_conge AS id, 'CONGE' AS source_type, " +
+                "           'Demande de congé' AS type_evenement, " +
+                "           dc.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, e.matricule, " +
+                "           'Congé #' || id_demande_conge AS reference_dossier, " +
+                "           sc.code AS statut_code, sc.libelle AS statut_libelle, " +
+                "           dc.date_debut AS date_effet, dc.updated_at AS date_action " +
+                "    FROM demande_conge dc " +
+                "    JOIN employe e ON dc.id_employe = e.id_employe " +
+                "    JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
+                "    WHERE sc.code IN ('VALIDE', 'REFUSE', 'ANNULE', 'EN_ATTENTE') " +
+                ") AS combined " +
+                "ORDER BY date_action DESC " +
+                "LIMIT 8";
+
+        try (PreparedStatement ps = c.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("id", rs.getInt("id"));
+                row.put("sourceType", rs.getString("source_type"));
+                row.put("typeEvenement", rs.getString("type_evenement"));
+                row.put("referenceDossier", rs.getString("reference_dossier"));
+                row.put("idEmploye", rs.getInt("id_employe"));
+                row.put("nomPrenom", rs.getString("nom_prenom"));
+                row.put("matricule", rs.getString("matricule"));
+                row.put("statutCode", rs.getString("statut_code"));
+                row.put("statutLibelle", rs.getString("statut_libelle"));
+                row.put("dateEffet", rs.getDate("date_effet"));
+                row.put("dateAction", rs.getTimestamp("date_action"));
+                activite.add(row);
+            }
+        }
+
+        return activite;
+    }
+}

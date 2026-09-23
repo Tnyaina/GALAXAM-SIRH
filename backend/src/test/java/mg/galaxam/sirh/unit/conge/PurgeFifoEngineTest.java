@@ -2,7 +2,7 @@ package mg.galaxam.sirh.unit.conge;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import mg.galaxam.sirh.model.conge.engine.PurgeFifoEngine;
+import mg.galaxam.sirh.conge.domain.PurgeFifoEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

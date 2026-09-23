@@ -2,10 +2,10 @@ package mg.galaxam.sirh.unit.pointage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import mg.galaxam.sirh.api.dto.pointage.FichePointageEmployeDTO;
-import mg.galaxam.sirh.api.dto.pointage.PointageJourDTO;
-import mg.galaxam.sirh.api.dto.pointage.PointageTronconSemaineDTO;
-import mg.galaxam.sirh.model.pointage.service.PointageExcelExportService;
+import mg.galaxam.sirh.pointage.api.dto.FichePointageEmployeDTO;
+import mg.galaxam.sirh.pointage.api.dto.PointageJourDTO;
+import mg.galaxam.sirh.pointage.api.dto.PointageTronconSemaineDTO;
+import mg.galaxam.sirh.pointage.application.PointageExcelExportService;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;

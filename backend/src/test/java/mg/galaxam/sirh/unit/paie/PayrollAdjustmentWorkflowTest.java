@@ -2,9 +2,9 @@ package mg.galaxam.sirh.unit.paie;
 
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
-import mg.galaxam.sirh.model.paie.workflow.PayrollAdjustmentCommand;
-import mg.galaxam.sirh.model.paie.workflow.PayrollAdjustmentWorkflowService;
-import mg.galaxam.sirh.model.paie.workflow.PayrollAdjustmentWorkflowService.AdjustmentState;
+import mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentCommand;
+import mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentWorkflowService;
+import mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentWorkflowService.AdjustmentState;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
