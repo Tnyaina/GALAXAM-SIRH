@@ -7,15 +7,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import mg.galaxam.sirh.conge.domain.CongeCutoverOpeningRequestDTO;
-import mg.galaxam.sirh.conge.domain.CongeModeReprise;
 import mg.galaxam.sirh.conge.domain.CongeSituationEmployeDTO;
-import mg.galaxam.sirh.conge.domain.ReferencePeriodPolicy;
-import mg.galaxam.sirh.conge.domain.TauxCongeResolution;
-import mg.galaxam.sirh.conge.domain.TcongeApplicableRateStatus;
 import mg.galaxam.sirh.conge.domain.TcongeConfigurationDTO;
-import mg.galaxam.sirh.conge.domain.TcongeReferenceStatus;
-import mg.galaxam.sirh.conge.domain.TcongeSourceProvenance;
 import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +21,138 @@ import org.springframework.stereotype.Service;
 @Service
 public class CongeTauxApplicableService {
 
+    public enum CongeModeReprise { FULL_HISTORY, AGGREGATED_OPENING, MINIMAL_OPENING, NEW_HIRE }
+
+    /** Contrat HTTP local au workflow de reprise/cutover TCONGE. */
+    public static class CutoverOpeningRequest {
+        private Integer idEmploye;
+        private LocalDate dateCutover;
+        private CongeModeReprise modeReprise = CongeModeReprise.AGGREGATED_OPENING;
+        private BigDecimal soldeJours;
+        private BigDecimal tauxJournalierApplicable;
+        private LocalDate dateDebutReference;
+        private BigDecimal cumulDroitsOuverture;
+        private BigDecimal cumulValorisationOuverture;
+        private String sourceReprise = "REPRISE_CUTOVER";
+        private String commentaire;
+
+        public Integer getIdEmploye() { return idEmploye; }
+        public void setIdEmploye(Integer idEmploye) { this.idEmploye = idEmploye; }
+        public LocalDate getDateCutover() { return dateCutover; }
+        public void setDateCutover(LocalDate dateCutover) { this.dateCutover = dateCutover; }
+        public CongeModeReprise getModeReprise() { return modeReprise; }
+        public void setModeReprise(CongeModeReprise modeReprise) { this.modeReprise = modeReprise; }
+        public BigDecimal getSoldeJours() { return soldeJours; }
+        public void setSoldeJours(BigDecimal soldeJours) { this.soldeJours = soldeJours; }
+        public BigDecimal getTauxJournalierApplicable() { return tauxJournalierApplicable; }
+        public void setTauxJournalierApplicable(BigDecimal tauxJournalierApplicable) { this.tauxJournalierApplicable = tauxJournalierApplicable; }
+        public LocalDate getDateDebutReference() { return dateDebutReference; }
+        public void setDateDebutReference(LocalDate dateDebutReference) { this.dateDebutReference = dateDebutReference; }
+        public BigDecimal getCumulDroitsOuverture() { return cumulDroitsOuverture; }
+        public void setCumulDroitsOuverture(BigDecimal cumulDroitsOuverture) { this.cumulDroitsOuverture = cumulDroitsOuverture; }
+        public BigDecimal getCumulValorisationOuverture() { return cumulValorisationOuverture; }
+        public void setCumulValorisationOuverture(BigDecimal cumulValorisationOuverture) { this.cumulValorisationOuverture = cumulValorisationOuverture; }
+        public String getSourceReprise() { return sourceReprise; }
+        public void setSourceReprise(String sourceReprise) { this.sourceReprise = sourceReprise; }
+        public String getCommentaire() { return commentaire; }
+        public void setCommentaire(String commentaire) { this.commentaire = commentaire; }
+    }
+    public enum TcongeApplicableRateStatus { NONE, ACTIVE }
+    public enum TcongeReferenceStatus { MISSING, ACTIVE, CLOSED_AWAITING_ACTIVATION }
+    public enum TcongeSourceProvenance {
+        KAJY_MIGRATION, CALCUL_PERIODE_REFERENCE, INITIALISATION_BASE_30, REPRISE_CUTOVER
+    }
+
+    /** Résultat immuable d'une résolution temporelle TCONGE. */
+    public static final class TauxCongeResolution {
+        private final BigDecimal tauxJournalier;
+        private final TcongeSourceProvenance sourceProvenance;
+        private final LocalDate dateEffet;
+        private final LocalDate dateFin;
+        private final Integer idPeriodeReference;
+        private final Integer idTauxApplicable;
+
+        public TauxCongeResolution(BigDecimal tauxJournalier, TcongeSourceProvenance sourceProvenance,
+                LocalDate dateEffet, LocalDate dateFin, Integer idPeriodeReference, Integer idTauxApplicable) {
+            if (tauxJournalier == null || tauxJournalier.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Le taux journalier de congé doit être strictement positif.");
+            }
+            if (sourceProvenance == null) {
+                throw new IllegalArgumentException("La source de provenance du TCONGE est obligatoire.");
+            }
+            this.tauxJournalier = tauxJournalier;
+            this.sourceProvenance = sourceProvenance;
+            this.dateEffet = dateEffet;
+            this.dateFin = dateFin;
+            this.idPeriodeReference = idPeriodeReference;
+            this.idTauxApplicable = idTauxApplicable;
+        }
+
+        public BigDecimal getTauxJournalier() { return tauxJournalier; }
+        public TcongeSourceProvenance getSourceProvenance() { return sourceProvenance; }
+        public LocalDate getDateEffet() { return dateEffet; }
+        public LocalDate getDateFin() { return dateFin; }
+        public Integer getIdPeriodeReference() { return idPeriodeReference; }
+        public Integer getIdTauxApplicable() { return idTauxApplicable; }
+    }
+
+    public static LocalDate calculerDateFinReference(LocalDate dateDebut) {
+        if (dateDebut == null) {
+            throw new IllegalArgumentException("La date de début de la période de référence est obligatoire.");
+        }
+        return dateDebut.plusMonths(12).minusDays(1);
+    }
+
     private static final Logger log = LoggerFactory.getLogger(CongeTauxApplicableService.class);
+
+    public List<Map<String, Object>> listerPeriodesReference(int idEmploye, Connection c) throws SQLException {
+        String sql = "SELECT id_periode_reference, date_debut, date_fin, statut, taux_calcule_cloture, " +
+                "cumul_droits_cloture, cumul_valorisation_cloture FROM conge_periode_reference " +
+                "WHERE id_employe = ? ORDER BY date_debut DESC";
+        List<Map<String, Object>> result = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    result.add(Map.of(
+                            "idPeriodeReference", rs.getInt("id_periode_reference"),
+                            "dateDebut", rs.getDate("date_debut").toString(),
+                            "dateFin", rs.getDate("date_fin").toString(),
+                            "statut", rs.getString("statut"),
+                            "tauxCalculeCloture", zeroSiNull(rs.getBigDecimal("taux_calcule_cloture")),
+                            "cumulDroitsCloture", zeroSiNull(rs.getBigDecimal("cumul_droits_cloture")),
+                            "cumulValorisationCloture", zeroSiNull(rs.getBigDecimal("cumul_valorisation_cloture"))));
+                }
+            }
+        }
+        return result;
+    }
+
+    private static BigDecimal zeroSiNull(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
+    }
+
+    public void enregistrerOuMettreAJourTauxMigration(int idEmploye, BigDecimal tauxMigration,
+            LocalDate dateEffet, String motif, Integer currentUserId, Connection c) throws Exception {
+        String closeSql = "UPDATE conge_taux_applicable SET date_fin = ? WHERE id_employe = ? " +
+                "AND (date_fin IS NULL OR date_fin > ?) AND date_effet < ?";
+        try (PreparedStatement ps = c.prepareStatement(closeSql)) {
+            ps.setDate(1, Date.valueOf(dateEffet));
+            ps.setInt(2, idEmploye);
+            ps.setDate(3, Date.valueOf(dateEffet));
+            ps.setDate(4, Date.valueOf(dateEffet));
+            ps.executeUpdate();
+        }
+        String deleteSql = "DELETE FROM conge_taux_applicable WHERE id_employe = ? " +
+                "AND date_effet >= ? AND source_provenance = 'KAJY_MIGRATION'";
+        try (PreparedStatement ps = c.prepareStatement(deleteSql)) {
+            ps.setInt(1, idEmploye);
+            ps.setDate(2, Date.valueOf(dateEffet));
+            ps.executeUpdate();
+        }
+        enregistrerTauxApplicableMigration(idEmploye, tauxMigration, dateEffet, null,
+                motif != null ? motif : "Reprise historique TCONGE Excel", currentUserId, c);
+    }
 
     /**
      * Résolution stricte as-of du taux applicable à une date donnée.
@@ -791,7 +915,7 @@ public class CongeTauxApplicableService {
      * Crée la période de référence bornée avec ses cumuls d'ouverture,
      * le taux TCONGE applicable de cutover, et le mouvement d'ajustement du solde consommable.
      */
-    public int enregistrerCutoverSnapshot(CongeCutoverOpeningRequestDTO req,
+    public int enregistrerCutoverSnapshot(CutoverOpeningRequest req,
                                          Integer idUtilisateur,
                                          Connection c) throws SQLException {
         if (req == null) {
@@ -825,7 +949,7 @@ public class CongeTauxApplicableService {
         }
 
         LocalDate dateDebut = req.getDateDebutReference();
-        LocalDate dateFin = ReferencePeriodPolicy.calculerDateFinReference(dateDebut);
+        LocalDate dateFin = calculerDateFinReference(dateDebut);
 
         // 1. Vérifier l'absence de chevauchement de référence
         verifierAbsenceChevauchementReference(req.getIdEmploye(), dateDebut, dateFin, null, c);

@@ -6,12 +6,12 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -143,7 +143,8 @@ public class DemandeConge extends ClassMere {
                     }
                 }
             }
-            BigDecimal nouveauSolde = soldeDisponible.add(joursDejaImputes).subtract(nbJoursDecomptes);
+            BigDecimal nouveauSolde = CONGE_ENGINE.calculerSoldeProjete(
+                    soldeDisponible.add(joursDejaImputes), nbJoursDecomptes, true);
             if (nouveauSolde.compareTo(BigDecimal.ZERO) < 0) {
                 throw new IllegalArgumentException(
                         "Solde de congé insuffisant (" + soldeDisponible.add(joursDejaImputes) + "j disponibles pour " + nbJoursDecomptes
@@ -214,8 +215,8 @@ public class DemandeConge extends ClassMere {
             int delaiCourt = getParamGlobalInt("DELAI_PREAVIS_COURT_JOURS", 2, c);
             int delaiLong = getParamGlobalInt("DELAI_PREAVIS_LONG_JOURS", 15, c);
 
-            int preavisRequis = (nbJoursDecomptes.compareTo(BigDecimal.valueOf(seuilLong)) > 0) ? delaiLong
-                    : delaiCourt;
+            int preavisRequis = CONGE_ENGINE.calculerPreavisRequis(
+                    nbJoursDecomptes, true, seuilLong, delaiCourt, delaiLong);
 
             if (joursPreavis < preavisRequis) {
                 throw new IllegalArgumentException("Le préavis minimum requis pour cette demande est de "
@@ -266,20 +267,43 @@ public class DemandeConge extends ClassMere {
         // 7. Contrôle Pool Annuel Partagé 10j/an (Art. 88 : EXCEPTIONNEL + PATERNITE)
         if (typeConge.getIdPoolCongeAnnuel() != null) {
             int annee = dateDebut.toLocalDate().getYear();
-            List<VPoolCongeAnnuelConsommation> pools = VPoolCongeAnnuelConsommation.listParEmployeEtAnnee(idEmploye,
+            List<RefPoolCongeAnnuel.Consommation> pools = RefPoolCongeAnnuel.listerConsommations(idEmploye,
                     annee, c);
             BigDecimal consommeActuel = BigDecimal.ZERO;
-            for (VPoolCongeAnnuelConsommation p : pools) {
+            for (RefPoolCongeAnnuel.Consommation p : pools) {
                 if (typeConge.getIdPoolCongeAnnuel().equals(p.getIdPool()) && p.getJoursConsommes() != null) {
                     consommeActuel = consommeActuel.add(p.getJoursConsommes());
                 }
             }
-            BigDecimal totalApresDemande = consommeActuel.add(nbJoursDecomptes);
-            if (totalApresDemande.compareTo(BigDecimal.valueOf(10)) > 0 && !derogationSoldeNegatif) {
+            BigDecimal joursDejaPrisEnCompte = BigDecimal.ZERO;
+            if (this.idDemandeConge != null) {
+                String sqlOld = "SELECT dc.nb_jours_decomptes FROM demande_conge dc " +
+                        "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
+                        "JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
+                        "WHERE dc.id_demande_conge = ? AND tc.id_pool_conge_annuel = ? " +
+                        "AND EXTRACT(year FROM dc.date_debut) = ? " +
+                        "AND sc.code IN ('VALIDE', 'EN_ATTENTE')";
+                try (PreparedStatement psOld = c.prepareStatement(sqlOld)) {
+                    psOld.setInt(1, this.idDemandeConge);
+                    psOld.setInt(2, typeConge.getIdPoolCongeAnnuel());
+                    psOld.setInt(3, annee);
+                    try (ResultSet rsOld = psOld.executeQuery()) {
+                        if (rsOld.next()) {
+                            joursDejaPrisEnCompte = rsOld.getBigDecimal(1);
+                            if (joursDejaPrisEnCompte == null) joursDejaPrisEnCompte = BigDecimal.ZERO;
+                        }
+                    }
+                }
+            }
+            BigDecimal consommeActuelHorsCourante = consommeActuel.subtract(joursDejaPrisEnCompte);
+            RefPoolCongeAnnuel pool = RefPoolCongeAnnuel.rechercherParId(typeConge.getIdPoolCongeAnnuel(), c);
+            BigDecimal plafond = pool != null && pool.getPlafondJoursAn() != null
+                    ? pool.getPlafondJoursAn() : CongeCalculateurEngine.PLAFOND_POOL_ANNUEL_FAMILIAL;
+            BigDecimal totalApresDemande = consommeActuelHorsCourante.add(nbJoursDecomptes);
+            if (totalApresDemande.compareTo(plafond) > 0 && !derogationSoldeNegatif) {
                 throw new IllegalArgumentException(
-                        "Le quota du pool annuel des permissions exceptionnelles (10 jours/an Art. 88) est dépassé pour l'année "
-                                +
-                                annee + ". (Consommé: " + consommeActuel + "j, Demandé: " + nbJoursDecomptes
+                        "Le quota du pool annuel des permissions exceptionnelles (" + plafond + " jours/an) est dépassé pour l'année "
+                                + annee + ". (Consommé: " + consommeActuelHorsCourante + "j, Demandé: " + nbJoursDecomptes
                                 + "j). Dérogation RH requise.");
             }
         }
@@ -403,284 +427,6 @@ public class DemandeConge extends ClassMere {
             return "BROUILLON";
         RefStatutDemandeConge st = RefStatutDemandeConge.rechercherParId(idStatutDemandeConge, c);
         return st != null ? st.getCode() : "BROUILLON";
-    }
-
-    /**
-     * Valide la demande de congé, vérifie les soldes et génère le mouvement PRISE
-     * si applicable.
-     */
-    public DemandeConge valider(Integer idValideur, Connection c) throws Exception {
-        if (this.idDemandeConge == null) {
-            throw new IllegalArgumentException("ID de demande de congé obligatoire pour la validation.");
-        }
-
-        // 1. Verrouillage pessimiste strict de la demande pour sérialiser les validations concurrentes
-        String sqlLock = "SELECT s.code, dc.id_statut_demande_conge FROM demande_conge dc " +
-                         "JOIN ref_statut_demande_conge s ON dc.id_statut_demande_conge = s.id_statut_demande_conge " +
-                         "WHERE dc.id_demande_conge = ? FOR UPDATE";
-        try (PreparedStatement psLock = c.prepareStatement(sqlLock)) {
-            psLock.setInt(1, this.idDemandeConge);
-            try (ResultSet rsLock = psLock.executeQuery()) {
-                if (!rsLock.next()) {
-                    throw new IllegalArgumentException("Demande de congé introuvable (ID: " + this.idDemandeConge + ").");
-                }
-                String statutCourant = rsLock.getString("code");
-                this.idStatutDemandeConge = rsLock.getInt("id_statut_demande_conge");
-                if (!"EN_ATTENTE".equalsIgnoreCase(statutCourant) && !"BROUILLON".equalsIgnoreCase(statutCourant)) {
-                    throw new IllegalStateException("Seule une demande au statut EN_ATTENTE ou BROUILLON peut être validée (Statut actuel : " + statutCourant + ").");
-                }
-            }
-        }
-
-        // 1.bis Verrouillage pessimiste du salarié pour sérialiser le décompte de solde face à d'autres demandes concurrentes du même salarié
-        if (this.idEmploye != null) {
-            try (PreparedStatement psLockEmp = c.prepareStatement("SELECT id_employe FROM employe WHERE id_employe = ? FOR UPDATE")) {
-                psLockEmp.setInt(1, this.idEmploye);
-                try (ResultSet rsEmp = psLockEmp.executeQuery()) {
-                    if (!rsEmp.next()) {
-                        throw new IllegalArgumentException("Employé introuvable pour la validation du congé (ID: " + this.idEmploye + ").");
-                    }
-                }
-            }
-        }
-
-        // Re-contrôle strict de toutes les règles métier et de la couverture contractuelle avant validation
-        this.controler(c);
-
-        RefTypeConge typeConge = RefTypeConge.rechercherParId(idTypeConge, c);
-        if (typeConge == null) {
-            throw new IllegalArgumentException("Type de congé non valide.");
-        }
-
-        // Si le type de congé entame le solde acquis (ex: ANNUEL), vérifier le solde et
-        // générer le mouvement PRISE
-        if (typeConge.isDecompteSoldeAcquis()) {
-            VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
-            BigDecimal soldeDisponible = solde != null && solde.getSoldeActuel() != null ? solde.getSoldeActuel()
-                    : BigDecimal.ZERO;
-            BigDecimal nouveauSolde = soldeDisponible.subtract(nbJoursDecomptes);
-
-            Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMap(c);
-            if (nouveauSolde.compareTo(BigDecimal.ZERO) < 0) {
-                if (!derogationSoldeNegatif) {
-                    throw new IllegalArgumentException(
-                            "Solde de congé insuffisant (" + soldeDisponible + "j disponibles pour " + nbJoursDecomptes
-                                    + "j demandés). Veuillez autoriser la prise par anticipation (dépassement de solde) pour valider cette demande.");
-                }
-                boolean anticipationActive = ParametreGlobal.isActif(etatMap, "PLAFOND_SOLDE_CONGE_NEGATIF", true);
-                if (!anticipationActive) {
-                    throw new IllegalArgumentException("La prise de congés par anticipation (dépassement de solde) est actuellement désactivée dans les paramètres RH.");
-                }
-                int plafondNegatif = ParametreGlobal.getInt(etatMap, "PLAFOND_SOLDE_CONGE_NEGATIF", -10, 0);
-                if (nouveauSolde.compareTo(BigDecimal.valueOf(plafondNegatif)) < 0) {
-                    throw new IllegalArgumentException("Le dépassement maximal autorisé pour une prise par anticipation est de "
-                            + Math.abs(plafondNegatif) + " jours (" + nouveauSolde.abs() + "j requis).");
-                }
-            }
-
-            // Génération du mouvement de solde PRISE (débit)
-            MouvementSoldeConge prise = new MouvementSoldeConge();
-            prise.setIdEmploye(idEmploye);
-            prise.setTypeMouvement("PRISE");
-            prise.setNbJours(nbJoursDecomptes.negate());
-            prise.setIdDemandeConge(idDemandeConge);
-            prise.setCommentaire("Prise de congé " + typeConge.getLibelle() + " (Demande #" + idDemandeConge + ")");
-            prise.setCreatedBy(idValideur);
-            try {
-                prise.save(c);
-            } catch (SQLException ePrise) {
-                if (ePrise.getMessage() != null && (ePrise.getMessage().toLowerCase().contains("duplicate") || ePrise.getMessage().toLowerCase().contains("unique") || ePrise.getMessage().contains("idx_uniq_mouvement_prise_demande"))) {
-                    throw new IllegalStateException("Conflit de validation concurrente : cette demande a déjà généré un mouvement de solde.");
-                }
-                throw ePrise;
-            }
-
-            // Trigger alerte SOLDE_CONGE_NEGATIF ou SOLDE_CONGE_FAIBLE
-            boolean alerteFaibleActive = ParametreGlobal.isActif(etatMap, "SEUIL_ALERTE_SOLDE_CONGE_FAIBLE", true);
-            int seuilFaible = ParametreGlobal.getInt(etatMap, "SEUIL_ALERTE_SOLDE_CONGE_FAIBLE", 3, 0);
-            if (nouveauSolde.compareTo(BigDecimal.ZERO) < 0) {
-                creerNotificationRh("SOLDE_CONGE_NEGATIF", "HAUTE", "Solde Négatif sous Dérogation",
-                        "Le solde de congé de l'employé est passé en négatif (" + nouveauSolde
-                                + "j) suite à une dérogation RH.",
-                        "/conges/soldes", idEmploye, c);
-            } else if (alerteFaibleActive && nouveauSolde.compareTo(BigDecimal.valueOf(seuilFaible)) <= 0) {
-                creerNotificationRh("SOLDE_CONGE_FAIBLE", "NORMALE", "Solde de Congé Faible",
-                        "Le solde de congé disponible est faible (" + nouveauSolde + "j restants).",
-                        "/conges/soldes", idEmploye, c);
-            }
-        }
-
-        // Trigger alerte POOL_EXCEPTIONNEL_EPUISE
-        if (typeConge.getIdPoolCongeAnnuel() != null) {
-            int annee = dateDebut.toLocalDate().getYear();
-            List<VPoolCongeAnnuelConsommation> pools = VPoolCongeAnnuelConsommation.listParEmployeEtAnnee(idEmploye,
-                    annee, c);
-            BigDecimal consomme = BigDecimal.ZERO;
-            for (VPoolCongeAnnuelConsommation p : pools) {
-                if (typeConge.getIdPoolCongeAnnuel().equals(p.getIdPool()) && p.getJoursConsommes() != null) {
-                    consomme = consomme.add(p.getJoursConsommes());
-                }
-            }
-            if (consomme.compareTo(BigDecimal.valueOf(10)) >= 0) {
-                creerNotificationRh("POOL_EXCEPTIONNEL_EPUISE", "HAUTE", "Quota Pool 10j/an Atteint",
-                        "Le quota annuel de 10 jours de permissions exceptionnelles (Art. 88) pour l'année " + annee
-                                + " est épuisé pour cet employé.",
-                        "/conges/soldes", idEmploye, c);
-            }
-        }
-
-        RefStatutDemandeConge statutValide = RefStatutDemandeConge.rechercherParCode("VALIDE", c);
-        if (statutValide == null) {
-            throw new IllegalStateException("Statut VALIDE non trouvé dans le référentiel.");
-        }
-        this.idStatutDemandeConge = statutValide.getIdStatutDemandeConge();
-        this.validePar = idValideur;
-        this.dateValidation = new Timestamp(System.currentTimeMillis());
-
-        return (DemandeConge) this.update(c);
-    }
-
-    /**
-     * Refuse la demande de congé avec un motif de refus explicite.
-     */
-    public DemandeConge refuser(Integer idValideur, String motifRefus, Connection c) throws Exception {
-        String statutCourant = getStatutCode(c);
-        if (!"EN_ATTENTE".equals(statutCourant)) {
-            throw new IllegalStateException("Seule une demande en attente de validation peut être refusée.");
-        }
-        if (motifRefus == null || motifRefus.isBlank()) {
-            throw new IllegalArgumentException("Le motif de refus est obligatoire.");
-        }
-
-        RefStatutDemandeConge statutRefuse = RefStatutDemandeConge.rechercherParCode("REFUSE", c);
-        if (statutRefuse == null) {
-            throw new IllegalStateException("Statut REFUSE non trouvé dans le référentiel.");
-        }
-        this.idStatutDemandeConge = statutRefuse.getIdStatutDemandeConge();
-        this.validePar = idValideur;
-        this.dateValidation = new Timestamp(System.currentTimeMillis());
-        this.motifRefus = motifRefus.trim();
-
-        return (DemandeConge) this.update(c);
-    }
-
-    /**
-     * Annule une demande de congé. Si elle était validée et imputait le solde,
-     * génère le mouvement ANNULATION (crédit).
-     */
-    public DemandeConge annuler(Integer idUtilisateur, Connection c) throws Exception {
-        return annuler(idUtilisateur, null, c);
-    }
-
-    public DemandeConge annuler(Integer idUtilisateur, String motifAnnulation, Connection c) throws Exception {
-        if (this.idDemandeConge == null) {
-            throw new IllegalArgumentException("ID de demande de congé obligatoire pour l'annulation.");
-        }
-
-        String sqlLock = "SELECT s.code, dc.id_statut_demande_conge, dc.id_employe, dc.date_debut, dc.date_fin FROM demande_conge dc " +
-                         "JOIN ref_statut_demande_conge s ON dc.id_statut_demande_conge = s.id_statut_demande_conge " +
-                         "WHERE dc.id_demande_conge = ? FOR UPDATE";
-        String statutCourant;
-        Date dateDebutLock = this.dateDebut;
-        Date dateFinLock = this.dateFin;
-        Integer idEmployeLock = this.idEmploye;
-        try (PreparedStatement psLock = c.prepareStatement(sqlLock)) {
-            psLock.setInt(1, this.idDemandeConge);
-            try (ResultSet rsLock = psLock.executeQuery()) {
-                if (!rsLock.next()) {
-                    throw new IllegalArgumentException("Demande de congé introuvable (ID: " + this.idDemandeConge + ").");
-                }
-                statutCourant = rsLock.getString("code");
-                this.idStatutDemandeConge = rsLock.getInt("id_statut_demande_conge");
-                dateDebutLock = rsLock.getDate("date_debut");
-                dateFinLock = rsLock.getDate("date_fin");
-                idEmployeLock = rsLock.getInt("id_employe");
-                if ("ANNULE".equalsIgnoreCase(statutCourant) || "REFUSE".equalsIgnoreCase(statutCourant)) {
-                    throw new IllegalStateException("Une demande de congé déjà refusée ou annulée ne peut plus être annulée.");
-                }
-            }
-        }
-
-        // Sécurisation Phase 2A-2C (RG-CONGE) : Interdire l'annulation d'un congé sur une période clôturée ou payée
-        if (dateDebutLock != null && dateFinLock != null) {
-            String sqlCheckPeriode = "SELECT p.code, r.code AS statut_code FROM periode_paie p " +
-                    "JOIN ref_statut_periode_paie r ON p.id_statut_periode = r.id_statut_periode " +
-                    "WHERE p.date_debut <= ? AND p.date_fin >= ? " +
-                    "  AND r.code IN ('CLOTUREE', 'PAIE_VALIDEE')";
-            try (PreparedStatement psP = c.prepareStatement(sqlCheckPeriode)) {
-                psP.setDate(1, dateFinLock);
-                psP.setDate(2, dateDebutLock);
-                try (ResultSet rsP = psP.executeQuery()) {
-                    if (rsP.next()) {
-                        String pCode = rsP.getString("code");
-                        throw new IllegalStateException("Action interdite : Impossible d'annuler un congé sur une période de paie déjà validée ou clôturée ("
-                                + pCode + "). Une régularisation explicite RH/DAF est requise.");
-                    }
-                }
-            }
-
-            if (idEmployeLock != null) {
-                String sqlCheckBulletin = "SELECT b.id_bulletin, b.statut, p.code AS p_code FROM bulletin_paie b " +
-                        "JOIN periode_paie p ON b.id_periode_paie = p.id_periode_paie " +
-                        "WHERE b.id_employe = ? AND p.date_debut <= ? AND p.date_fin >= ? " +
-                        "  AND b.statut IN ('VALIDE', 'CLOTURE')";
-                try (PreparedStatement psB = c.prepareStatement(sqlCheckBulletin)) {
-                    psB.setInt(1, idEmployeLock);
-                    psB.setDate(2, dateFinLock);
-                    psB.setDate(3, dateDebutLock);
-                    try (ResultSet rsB = psB.executeQuery()) {
-                        if (rsB.next()) {
-                            String bStatut = rsB.getString("statut");
-                            String pCode = rsB.getString("p_code");
-                            throw new IllegalStateException("Action interdite : Impossible d'annuler un congé rattaché à un bulletin de paie déjà "
-                                    + bStatut + " (Période " + pCode + "). Une régularisation explicite RH/DAF est requise.");
-                        }
-                    }
-                }
-            }
-        }
-
-        RefTypeConge typeConge = RefTypeConge.rechercherParId(idTypeConge, c);
-
-        String cleanMotif = (motifAnnulation != null && !motifAnnulation.trim().isEmpty()) ? motifAnnulation.trim() : null;
-
-        // Si la demande était VALIDÉE et imputait le solde acquis, générer un mouvement
-        // de restitution (ANNULATION)
-        if ("VALIDE".equals(statutCourant) && typeConge != null && typeConge.isDecompteSoldeAcquis()) {
-            MouvementSoldeConge annulation = new MouvementSoldeConge();
-            annulation.setIdEmploye(idEmploye);
-            annulation.setTypeMouvement("ANNULATION");
-            annulation.setNbJours(nbJoursDecomptes); // Restitution créditeur (+)
-            annulation.setIdDemandeConge(idDemandeConge);
-            String commentaireRestitution = "Restitution suite à l'annulation de la demande #" + idDemandeConge;
-            if (cleanMotif != null) {
-                commentaireRestitution += " : " + cleanMotif;
-            }
-            annulation.setCommentaire(commentaireRestitution);
-            annulation.setCreatedBy(idUtilisateur);
-            annulation.save(c);
-        }
-
-        RefStatutDemandeConge statutAnnule = RefStatutDemandeConge.rechercherParCode("ANNULE", c);
-        if (statutAnnule == null) {
-            throw new IllegalStateException("Statut ANNULE non trouvé dans le référentiel.");
-        }
-        this.idStatutDemandeConge = statutAnnule.getIdStatutDemandeConge();
-        if (cleanMotif != null) {
-            this.motifRefus = cleanMotif;
-        }
-
-        return (DemandeConge) this.update(c);
-    }
-
-    /**
-     * @deprecated Utiliser {@link mg.galaxam.sirh.dashboard.application.NotificationRhService#creer} via CongeService.
-     * Cette méthode statique délègue directement à {@link mg.galaxam.sirh.dashboard.application.NotificationRhService#creer}.
-     */
-    @Deprecated
-    public static void creerNotificationRh(String typeAlerte, String priorite, String titre, String message,
-            String lien, Integer idEmploye, Connection c) {
-        mg.galaxam.sirh.dashboard.application.NotificationRhService.creer(c, typeAlerte, priorite, titre, message, lien, idEmploye);
     }
 
     private int getParamGlobalInt(String code, int defaultValue, Connection c) {

@@ -3,9 +3,7 @@ import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 import { 
   formatDateForInput, 
-  isDateAnterieure, 
-  evaluerPreavis, 
-  calculerDateFinAutomatique 
+  isDateAnterieure
 } from '@/features/leave/utils/congeBusinessRules';
 
 export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDateDebut, initialDateFin, referentiels, isOpen, onClose, onSuccess }) {
@@ -33,6 +31,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   // Simulation, Conflits de poste & Continuité de service
   const [conflitReport, setConflitReport] = useState(null);
   const [checkingConflits, setCheckingConflits] = useState(false);
+  const [simulationReport, setSimulationReport] = useState(null);
 
   // Simulation & State
   const [nbJoursDecomptes, setNbJoursDecomptes] = useState(0);
@@ -50,8 +49,14 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   const isExceptionnel = selectedType && selectedType.code === 'EXCEPTIONNEL';
   const isMaternite = selectedType && selectedType.code === 'MATERNITE';
 
-  // Évaluation du préavis via l'utilitaire métier
-  const preavisInfo = evaluerPreavis(dateDebut, nbJoursDecomptes, selectedType);
+  // Le backend est l'unique propriétaire de la règle de préavis.
+  const preavisInfo = simulationReport ? {
+    isDepasse: simulationReport.violations?.includes('LEAVE_NOTICE_NOT_RESPECTED')
+      || simulationReport.warnings?.includes('LEAVE_NOTICE_NOT_RESPECTED'),
+    preavisRequis: simulationReport.joursPreavisRequis || 0,
+    joursConstates: simulationReport.joursPreavisConstates || 0,
+    isRetroactif: Number(simulationReport.joursPreavisConstates) < 0,
+  } : { isDepasse: false, preavisRequis: 0, joursConstates: 0, isRetroactif: false };
 
   // Effet : initialise le formulaire à l'ouverture, en création ou en édition.
   useEffect(() => {
@@ -127,43 +132,44 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
     }
   }, [estDemiJournee, dateDebut]);
 
-  // Pré-remplissage des durées fixes légales (ex: Paternité 3j, Maternité 98j, Événements familiaux)
+  // Simulation canonique : durée fixe, décompte, solde, préavis et quota viennent du backend.
   useEffect(() => {
-    if (estDemiJournee) return;
-
-    const motif = isExceptionnel && idMotifEvenementFamilial
-      ? motifsFamiliaux.find((m) => String(m.idMotif) === String(idMotifEvenementFamilial))
-      : null;
-
-    const dFinCalculee = calculerDateFinAutomatique(
-      dateDebut,
-      selectedType,
-      motif,
-      extensionPathologiqueMaternite
-    );
-
-    if (dFinCalculee) {
-      setDateFin(dFinCalculee);
+    let active = true;
+    if (!dateDebut || !idTypeConge || (!dateFin && !selectedType?.dureeFixeJours && !idMotifEvenementFamilial)) {
+      setSimulationReport(null);
+      return () => { active = false; };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idTypeConge, idMotifEvenementFamilial, dateDebut, extensionPathologiqueMaternite, estDemiJournee]);
+    const timer = setTimeout(async () => {
+      try {
+        const report = await congeService.simulerDemande({
+          idEmploye: Number(idEmployeProp || selectedEmployeId) || null,
+          idTypeConge: Number(idTypeConge),
+          idMotifEvenementFamilial: idMotifEvenementFamilial ? Number(idMotifEvenementFamilial) : null,
+          dateDebut,
+          dateFin: estDemiJournee ? dateDebut : (dateFin || null),
+          estDemiJournee,
+          derogationSoldeNegatif,
+          derogationDelaiPreavis,
+          extensionPathologiqueMaternite,
+        });
+        if (!active) return;
+        setSimulationReport(report);
+        setNbJoursDecomptes(Number(report.nbJours || 0));
+        if (report.dateFin && formatDateForInput(report.dateFin) !== dateFin) {
+          setDateFin(formatDateForInput(report.dateFin));
+        }
+      } catch {
+        if (active) setSimulationReport(null);
+      }
+    }, 180);
+    return () => { active = false; clearTimeout(timer); };
+  }, [dateDebut, dateFin, idTypeConge, idMotifEvenementFamilial, estDemiJournee,
+    extensionPathologiqueMaternite, derogationSoldeNegatif, derogationDelaiPreavis,
+    idEmployeProp, selectedEmployeId, selectedType?.dureeFixeJours]);
 
   // Analyse serveur de continuité de service & simulation des jours (backend-driven)
   useEffect(() => {
     let isMounted = true;
-    if (estDemiJournee) {
-      if (dateDebut) {
-        setNbJoursDecomptes(0.5);
-        setNbJoursWeekEnd(0);
-        setNbJoursOuvres(0.5);
-        setFieldErrors((prev) => ({ ...prev, dateFin: null }));
-      } else {
-        setNbJoursDecomptes(0);
-        setNbJoursWeekEnd(0);
-        setNbJoursOuvres(0);
-      }
-    }
-
     if (dateDebut && dateFin) {
       const dDebut = new Date(dateDebut);
       const dFin = new Date(dateFin);
@@ -188,11 +194,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
               setNbJoursWeekEnd(Number(report.nbJoursWeekEnd || 0));
             }
           } catch {
-            if (isMounted) {
-              const diffTime = dFin.getTime() - dDebut.getTime();
-              const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24)) + 1;
-              setNbJoursDecomptes(diffDays);
-            }
+            // Le formulaire n'invente pas de décompte si le backend est indisponible.
           } finally {
             if (isMounted) setCheckingConflits(false);
           }
@@ -313,7 +315,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
     preavisInfo,
 
     nbJoursDecomptes, nbJoursWeekEnd, nbJoursOuvres,
-    conflitReport, checkingConflits,
+    conflitReport, simulationReport, checkingConflits,
     loading, error, fieldErrors, setFieldErrors,
 
     typesConge, motifsFamiliaux, selectedType,

@@ -49,7 +49,7 @@ export default function DemandeCongeModal({
 
     // Variables calculées & Conflits
     nbJoursDecomptes, nbJoursWeekEnd, nbJoursOuvres,
-    conflitReport, checkingConflits,
+    conflitReport, simulationReport, checkingConflits,
     loading, error, fieldErrors, setFieldErrors,
     
     typesConge, motifsFamiliaux, selectedType,
@@ -204,7 +204,7 @@ export default function DemandeCongeModal({
               preavisInfo={preavisInfo}
               derogationDelaiPreavis={derogationDelaiPreavis}
               setDerogationDelaiPreavis={setDerogationDelaiPreavis}
-              conflitReport={conflitReport}
+              simulationReport={simulationReport}
               derogationSoldeNegatif={derogationSoldeNegatif}
               setDerogationSoldeNegatif={setDerogationSoldeNegatif}
               setShowOptionsAvancees={setShowOptionsAvancees}

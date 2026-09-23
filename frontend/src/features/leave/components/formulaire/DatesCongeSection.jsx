@@ -1,6 +1,5 @@
 import { AlertTriangle, Info, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
-import { evaluerSuffisanceSolde } from '@/features/leave/utils/congeBusinessRules';
 
 export default function DatesCongeSection({
   dateDebut, setDateDebut,
@@ -14,17 +13,15 @@ export default function DatesCongeSection({
   preavisInfo,
   derogationDelaiPreavis,
   setDerogationDelaiPreavis,
-  conflitReport,
+  simulationReport,
   derogationSoldeNegatif,
   setDerogationSoldeNegatif,
   setShowOptionsAvancees,
   fieldErrors, setFieldErrors
 }) {
-  const { isSoldeInsuffisant, soldeNum } = evaluerSuffisanceSolde(
-    conflitReport?.soldeDisponible,
-    nbJoursDecomptes,
-    selectedType?.decompteSoldeAcquis
-  );
+  const soldeNum = Number(simulationReport?.soldeAvant || 0);
+  const isSoldeInsuffisant = simulationReport?.violations?.includes('LEAVE_BALANCE_INSUFFICIENT')
+    || simulationReport?.warnings?.includes('LEAVE_BALANCE_INSUFFICIENT');
 
   return (
     <>
@@ -225,7 +222,7 @@ export default function DatesCongeSection({
         )}
 
         {/* ── Contrôle Solde Disponible en Temps Réel ──────────────────── */}
-        {selectedType?.decompteSoldeAcquis && conflitReport?.soldeDisponible !== undefined && (
+        {selectedType?.decompteSoldeAcquis && simulationReport?.soldeAvant !== undefined && (
           <div className={`mt-3 p-3 border ${
             isSoldeInsuffisant
               ? 'border-warning-500/40 bg-warning-500/10'

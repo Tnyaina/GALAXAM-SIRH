@@ -10,10 +10,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
 import java.util.Map;
 import javax.sql.DataSource;
-import mg.galaxam.sirh.conge.domain.PurgeFifoEngine;
+import mg.galaxam.sirh.conge.application.CongeService;
 import mg.galaxam.sirh.dashboard.application.NotificationRhService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +34,7 @@ public class NotificationRhScheduler {
     private DataSource dataSource;
 
     @Autowired
-    private PurgeFifoEngine purgeFifoEngine;
+    private CongeService congeService;
 
     @Autowired
     private SchedulerExecutionRegistry executionRegistry;
@@ -375,68 +374,19 @@ public class NotificationRhScheduler {
 
     private void genererAlerteExpirationProche(Connection c) throws Exception {
         LocalDate seuil30Jours = LocalDate.now().plusDays(30).minusMonths(36);
-
-        String sql = "SELECT m.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
-                     "m.id_mouvement, m.type_mouvement, m.nb_jours, m.date_mouvement, m.commentaire " +
-                     "FROM mouvement_solde_conge m " +
-                     "JOIN employe e ON m.id_employe = e.id_employe " +
-                     "JOIN contrat_travail ct ON ct.id_employe = e.id_employe " +
-                     "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
-                     "WHERE rsc.code = 'ACTIF' " +
-                     "ORDER BY m.date_mouvement ASC, m.id_mouvement ASC";
-
-        Map<Integer, PurgeCongeScheduler.EmployeSoldeAccumulateur> soldesMap = new HashMap<>();
-        Map<Integer, String> nomsMap = new HashMap<>();
-
-        try (PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                int idEmploye = rs.getInt("id_employe");
-                nomsMap.putIfAbsent(idEmploye, rs.getString("nom_prenom"));
-                int idMouvement = rs.getInt("id_mouvement");
-                String typeMouvement = rs.getString("type_mouvement");
-                double nbJours = rs.getDouble("nb_jours");
-                Date dMvt = rs.getDate("date_mouvement");
-                LocalDate dateMvt = dMvt != null ? dMvt.toLocalDate() : LocalDate.now();
-                String commentaire = rs.getString("commentaire");
-
-                PurgeCongeScheduler.EmployeSoldeAccumulateur acc = soldesMap.computeIfAbsent(idEmploye, k -> new PurgeCongeScheduler.EmployeSoldeAccumulateur());
-
-                // RG-CONGE-06 : Priorité 1 stock historique [SOLDE_INITIAL], Priorité 2 droits datés
-                if ("AJUSTEMENT".equals(typeMouvement) && commentaire != null && commentaire.startsWith("[SOLDE_INITIAL]")) {
-                    acc.stockHistoriqueInitial += nbJours;
-                } else if ("ACQUISITION".equals(typeMouvement) || "BONIFICATION".equals(typeMouvement)) {
-                    acc.droitsDates.add(new PurgeFifoEngine.DroitDate(idMouvement, dateMvt, nbJours));
-                    if (dateMvt.isBefore(seuil30Jours)) {
-                        acc.acquisAnciens += nbJours;
-                    }
-                } else if ("PRISE".equals(typeMouvement)) {
-                    acc.totalPris += (-nbJours);
-                } else if ("ANNULATION".equals(typeMouvement)) {
-                    acc.totalAnnulations += nbJours;
-                } else if ("AJUSTEMENT".equals(typeMouvement) && nbJours < 0) {
-                    acc.totalAjustementsNegatifs += (-nbJours);
-                } else if ("EXPIRATION".equals(typeMouvement)) {
-                    acc.totalDejaExpire += (-nbJours);
+        for (Map.Entry<Integer, Double> entry : congeService.calculerExpirationsPotentielles(seuil30Jours, c).entrySet()) {
+            int idEmploye = entry.getKey();
+            String nomPrenom = "Employé #" + idEmploye;
+            try (PreparedStatement ps = c.prepareStatement("SELECT nom || ' ' || prenom FROM employe WHERE id_employe = ?")) {
+                ps.setInt(1, idEmploye);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) nomPrenom = rs.getString(1);
                 }
             }
-        }
-
-        for (Map.Entry<Integer, PurgeCongeScheduler.EmployeSoldeAccumulateur> entry : soldesMap.entrySet()) {
-            int idEmploye = entry.getKey();
-            PurgeCongeScheduler.EmployeSoldeAccumulateur acc = entry.getValue();
-
-            PurgeFifoEngine.ImputationResult imputation = purgeFifoEngine.calculerImputation(
-                    acc.stockHistoriqueInitial, acc.droitsDates, acc.getConsommationNette());
-            double joursRisques = purgeFifoEngine.calculerJoursAExpierFifo(imputation, seuil30Jours, acc.totalDejaExpire);
-
-            if (joursRisques > 0.001) {
-                String nomPrenom = nomsMap.get(idEmploye);
-                insererNotification(c, null, "CONGE_EXPIRATION_PROCHE", "HAUTE",
-                    "Expiration de congés imminente - " + nomPrenom,
-                    "Attention, " + String.format("%.2f", joursRisques) + " jours de congés acquis par " + nomPrenom + " il y a presque 3 ans risquent d'expirer dans les 30 prochains jours s'ils ne sont pas pris.",
-                    "/employes/" + idEmploye + "?tab=conges", idEmploye);
-            }
+            insererNotification(c, null, "CONGE_EXPIRATION_PROCHE", "HAUTE",
+                "Expiration de congés imminente - " + nomPrenom,
+                "Attention, " + String.format("%.2f", entry.getValue()) + " jours de congés acquis par " + nomPrenom + " il y a presque 3 ans risquent d'expirer dans les 30 prochains jours s'ils ne sont pas pris.",
+                "/employes/" + idEmploye + "?tab=conges", idEmploye);
         }
     }
 

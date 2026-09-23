@@ -220,12 +220,8 @@ const congeService = {
    * Simule le décompte continu en jours calendaires stricts (date_fin - date_debut + 1)
    */
   // Dans congeService.js
-  simulerDemande: async (dateDebut, dateFin, estDemiJournee = false) => {
-    const response = await apiClient.post('/conges/demandes/simuler', {
-      dateDebut,
-      dateFin,
-      estDemiJournee: Boolean(estDemiJournee),
-    });
+  simulerDemande: async (demande) => {
+    const response = await apiClient.post('/conges/demandes/simuler', demande);
     return response.data;
   },
 

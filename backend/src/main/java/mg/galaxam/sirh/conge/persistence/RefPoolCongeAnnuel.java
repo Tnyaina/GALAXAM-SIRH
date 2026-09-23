@@ -135,6 +135,45 @@ public class RefPoolCongeAnnuel extends ClassMere {
         return list;
     }
 
+    /** Projection locale de la consommation annuelle d'un pool pour un employé. */
+    public static final class Consommation {
+        private final Integer idEmploye;
+        private final Integer idPool;
+        private final Integer annee;
+        private final BigDecimal joursConsommes;
+
+        public Consommation(Integer idEmploye, Integer idPool, Integer annee, BigDecimal joursConsommes) {
+            this.idEmploye = idEmploye;
+            this.idPool = idPool;
+            this.annee = annee;
+            this.joursConsommes = joursConsommes != null ? joursConsommes : BigDecimal.ZERO;
+        }
+
+        public Integer getIdEmploye() { return idEmploye; }
+        public Integer getIdPool() { return idPool; }
+        public Integer getAnnee() { return annee; }
+        public BigDecimal getJoursConsommes() { return joursConsommes; }
+    }
+
+    public static List<Consommation> listerConsommations(Integer idEmploye, Integer annee, Connection c) throws Exception {
+        List<Consommation> list = new ArrayList<>();
+        if (idEmploye == null) return list;
+        String sql = "SELECT id_employe, id_pool, annee, jours_consommes "
+                + "FROM v_pool_conge_annuel_consommation "
+                + "WHERE id_employe = ? AND annee = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmploye);
+            ps.setInt(2, annee != null ? annee : java.time.Year.now().getValue());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new Consommation(rs.getInt("id_employe"), rs.getInt("id_pool"),
+                            rs.getInt("annee"), rs.getBigDecimal("jours_consommes")));
+                }
+            }
+        }
+        return list;
+    }
+
     private static RefPoolCongeAnnuel mapResultSet(ResultSet rs) throws Exception {
         RefPoolCongeAnnuel obj = new RefPoolCongeAnnuel();
         obj.setIdPool(rs.getInt("id_pool"));

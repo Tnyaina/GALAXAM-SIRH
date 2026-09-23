@@ -9,10 +9,7 @@ import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.LinkedHashMap;
 import java.util.Map;
-import java.time.LocalDate;
-import java.time.ZoneId;
 import mg.galaxam.sirh.common.dto.ActionCapability;
 
 public class VDemandeCongeCpl extends ClassMere {
@@ -60,6 +57,7 @@ public class VDemandeCongeCpl extends ClassMere {
 
     private Timestamp createdAt;
     private Timestamp updatedAt;
+    private Map<String, ActionCapability> availableActions = Map.of();
 
     public VDemandeCongeCpl() {
         this.setNomTable("V_DEMANDE_CONGE_CPL");
@@ -425,21 +423,12 @@ public class VDemandeCongeCpl extends ClassMere {
         return "VALIDE".equalsIgnoreCase(codeStatutDemande);
     }
 
-    /** Message unique des décisions de gestion de la demande. */
+    /** Décisions calculées par CongeService avec l'état et les permissions courantes. */
     public Map<String, ActionCapability> getAvailableActions() {
-        boolean pending = "EN_ATTENTE".equalsIgnoreCase(codeStatutDemande);
-        boolean approved = "VALIDE".equalsIgnoreCase(codeStatutDemande);
-        boolean futureOrToday = dateDebut != null && !dateDebut.toLocalDate().isBefore(
-                LocalDate.now(ZoneId.of("Indian/Antananarivo")));
-        Map<String, ActionCapability> actions = new LinkedHashMap<>();
-        actions.put("APPROVE", pending ? ActionCapability.permit() : ActionCapability.denied("INVALID_STATE"));
-        actions.put("REJECT", pending ? ActionCapability.permit() : ActionCapability.denied("INVALID_STATE"));
-        actions.put("EDIT", pending ? ActionCapability.permit() : ActionCapability.denied("INVALID_STATE"));
-        actions.put("CANCEL", pending || approved
-                ? ActionCapability.permit() : ActionCapability.denied("INVALID_STATE"));
-        actions.put("MODIFY_DATES", approved && futureOrToday
-                ? ActionCapability.permit()
-                : ActionCapability.denied(approved ? "LEAVE_ALREADY_STARTED" : "INVALID_STATE"));
-        return Map.copyOf(actions);
+        return availableActions;
+    }
+
+    public void setAvailableActions(Map<String, ActionCapability> availableActions) {
+        this.availableActions = availableActions != null ? Map.copyOf(availableActions) : Map.of();
     }
 }

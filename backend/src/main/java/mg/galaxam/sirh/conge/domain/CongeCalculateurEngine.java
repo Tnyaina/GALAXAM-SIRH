@@ -3,6 +3,8 @@ package mg.galaxam.sirh.conge.domain;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.stereotype.Component;
 
 /**
@@ -11,6 +13,49 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class CongeCalculateurEngine {
+
+    public static final String LEAVE_BALANCE_INSUFFICIENT = "LEAVE_BALANCE_INSUFFICIENT";
+    public static final String LEAVE_NOTICE_NOT_RESPECTED = "LEAVE_NOTICE_NOT_RESPECTED";
+    public static final String LEAVE_POOL_EXCEEDED = "LEAVE_POOL_EXCEEDED";
+
+    /**
+     * Données déjà résolues par le service (référentiel, ledger et paramètres).
+     * Le moteur ne charge rien en base et ne modifie aucun état.
+     */
+    public record SimulationInput(
+            LocalDate dateDebut,
+            LocalDate dateFin,
+            boolean estDemiJournee,
+            BigDecimal soldeAvant,
+            boolean decompteSoldeAcquis,
+            boolean derogationSoldeNegatif,
+            boolean soumisDelaiPreavis,
+            boolean derogationDelaiPreavis,
+            LocalDate dateDemande,
+            int seuilPreavisLong,
+            int delaiPreavisCourt,
+            int delaiPreavisLong,
+            BigDecimal consommationPool,
+            BigDecimal plafondPool) {
+    }
+
+    /** Résultat canonique, explicable et directement sérialisable par Spring. */
+    public record SimulationResult(
+            LocalDate dateDebut,
+            LocalDate dateFin,
+            BigDecimal nbJours,
+            BigDecimal soldeAvant,
+            BigDecimal soldeApres,
+            BigDecimal quotaAvant,
+            BigDecimal quotaApres,
+            int joursPreavisConstates,
+            int joursPreavisRequis,
+            List<String> warnings,
+            List<String> violations,
+            List<String> requirements,
+            boolean requiresOverride,
+            boolean canSubmit) {
+    }
 
     /** Taux d'acquisition mensuel légal : 2,5 jours calendaires par mois de service effectif */
     public static final BigDecimal TAUX_ACQUISITION_MENSUEL = new BigDecimal("2.5");
@@ -149,5 +194,64 @@ public class CongeCalculateurEngine {
         BigDecimal total = (consommationActuelle != null ? consommationActuelle : BigDecimal.ZERO)
                 .add(demandeJours != null ? demandeJours : BigDecimal.ZERO);
         return total.compareTo(PLAFOND_POOL_ANNUEL_FAMILIAL) <= 0;
+    }
+
+    public BigDecimal calculerSoldeProjete(BigDecimal soldeAvant, BigDecimal jours, boolean decompteSoldeAcquis) {
+        BigDecimal solde = soldeAvant != null ? soldeAvant : BigDecimal.ZERO;
+        if (!decompteSoldeAcquis) return solde;
+        return solde.subtract(jours != null ? jours : BigDecimal.ZERO);
+    }
+
+    public int calculerPreavisRequis(BigDecimal nbJours, boolean soumis, int seuilLong,
+            int delaiCourt, int delaiLong) {
+        if (!soumis) return 0;
+        BigDecimal jours = nbJours != null ? nbJours : BigDecimal.ZERO;
+        return jours.compareTo(BigDecimal.valueOf(seuilLong)) > 0 ? delaiLong : delaiCourt;
+    }
+
+    public LocalDate calculerDateFinFixe(LocalDate dateDebut, BigDecimal dureeJours) {
+        if (dateDebut == null || dureeJours == null || dureeJours.compareTo(BigDecimal.ZERO) <= 0) return null;
+        return dateDebut.plusDays(dureeJours.longValueExact() - 1L);
+    }
+
+    public SimulationResult simuler(SimulationInput input) {
+        if (input == null) throw new IllegalArgumentException("Les données de simulation sont obligatoires.");
+        BigDecimal nbJours = calculerNombreJours(input.dateDebut(), input.dateFin(), input.estDemiJournee());
+        BigDecimal soldeAvant = input.soldeAvant() != null ? input.soldeAvant() : BigDecimal.ZERO;
+        BigDecimal soldeApres = calculerSoldeProjete(soldeAvant, nbJours, input.decompteSoldeAcquis());
+        BigDecimal quotaAvant = input.consommationPool();
+        BigDecimal quotaApres = quotaAvant != null ? quotaAvant.add(nbJours) : null;
+
+        LocalDate dateDemande = input.dateDemande() != null ? input.dateDemande() : LocalDate.now();
+        int preavisConstate = Math.toIntExact(ChronoUnit.DAYS.between(dateDemande, input.dateDebut()));
+        int preavisRequis = calculerPreavisRequis(nbJours, input.soumisDelaiPreavis(),
+                input.seuilPreavisLong(), input.delaiPreavisCourt(), input.delaiPreavisLong());
+
+        List<String> warnings = new ArrayList<>();
+        List<String> violations = new ArrayList<>();
+        List<String> requirements = new ArrayList<>();
+        boolean override = false;
+
+        if (input.decompteSoldeAcquis() && soldeApres.compareTo(BigDecimal.ZERO) < 0) {
+            (input.derogationSoldeNegatif() ? warnings : violations).add(LEAVE_BALANCE_INSUFFICIENT);
+            requirements.add("BALANCE_OVERRIDE");
+            override = true;
+        }
+        if (input.soumisDelaiPreavis() && preavisConstate < preavisRequis) {
+            (input.derogationDelaiPreavis() ? warnings : violations).add(LEAVE_NOTICE_NOT_RESPECTED);
+            requirements.add("NOTICE_OVERRIDE");
+            override = true;
+        }
+        if (quotaApres != null && input.plafondPool() != null
+                && quotaApres.compareTo(input.plafondPool()) > 0) {
+            (input.derogationSoldeNegatif() ? warnings : violations).add(LEAVE_POOL_EXCEEDED);
+            requirements.add("POOL_OVERRIDE");
+            override = true;
+        }
+
+        return new SimulationResult(input.dateDebut(), input.dateFin(), nbJours, soldeAvant, soldeApres,
+                quotaAvant, quotaApres, preavisConstate, preavisRequis,
+                List.copyOf(warnings), List.copyOf(violations), List.copyOf(requirements),
+                override, violations.isEmpty());
     }
 }

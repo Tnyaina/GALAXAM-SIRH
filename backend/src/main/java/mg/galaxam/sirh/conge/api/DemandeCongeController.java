@@ -5,7 +5,6 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
@@ -47,24 +46,22 @@ public class DemandeCongeController {
 
     @PostMapping("/simuler")
     @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> simulerDemande(@RequestBody Map<String, String> req) {
-        if (!req.containsKey("dateDebut") || !req.containsKey("dateFin")) {
-            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Les dates dateDebut et dateFin sont requises pour la simulation.");
+    public ResponseEntity<?> simulerDemande(@RequestBody Map<String, Object> req) {
+        if (req.get("dateDebut") == null || req.get("idTypeConge") == null) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le type de congé et la dateDebut sont requis pour la simulation.");
         }
 
-        try {
-            Date dateDebut = Date.valueOf(req.get("dateDebut"));
-            Date dateFin = Date.valueOf(req.get("dateFin"));
-            boolean estDemiJournee = req.containsKey("estDemiJournee")
-                    && Boolean.parseBoolean(req.get("estDemiJournee").toString());
-            BigDecimal nbJours = congeService.simulerNombreJours(dateDebut, dateFin, estDemiJournee);
-
-            Map<String, Object> resp = new HashMap<>();
-            resp.put("dateDebut", dateDebut);
-            resp.put("dateFin", dateFin);
-            resp.put("estDemiJournee", estDemiJournee);
-            resp.put("nbJoursDecomptes", nbJours);
-            return ResponseEntity.ok(resp);
+        try (Connection c = dataSource.getConnection()) {
+            Date dateDebut = Date.valueOf(req.get("dateDebut").toString());
+            Date dateFin = req.get("dateFin") != null && !req.get("dateFin").toString().isBlank()
+                    ? Date.valueOf(req.get("dateFin").toString()) : null;
+            Integer idEmploye = optionalInt(req.get("idEmploye"));
+            Integer idTypeConge = optionalInt(req.get("idTypeConge"));
+            Integer idMotif = optionalInt(req.get("idMotifEvenementFamilial"));
+            return ResponseEntity.ok(congeService.simulerDemande(
+                    idEmploye, idTypeConge, idMotif, dateDebut, dateFin,
+                    bool(req.get("estDemiJournee")), bool(req.get("derogationSoldeNegatif")),
+                    bool(req.get("derogationDelaiPreavis")), bool(req.get("extensionPathologiqueMaternite")), c));
         } catch (Exception e) {
             log.warn("Erreur simulation congé : {}", e.getMessage());
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
@@ -162,6 +159,7 @@ public class DemandeCongeController {
 
                 congeService.creerDemande(d, getCurrentUserId(), c);
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(d.getIdDemandeConge(), c);
+                enrichirActions(cpl, c);
                 return ResponseEntity.status(HttpStatus.CREATED).body(cpl);
         });
     }
@@ -314,6 +312,7 @@ public class DemandeCongeController {
                 }
 
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(d.getIdDemandeConge(), c);
+                enrichirActions(cpl, c);
                 return ResponseEntity.ok(cpl);
         });
     }
@@ -327,6 +326,7 @@ public class DemandeCongeController {
             int offset = (page - 1) * size;
             long total = VDemandeCongeCpl.countParEmploye(idEmploye, c);
             List<VDemandeCongeCpl> list = VDemandeCongeCpl.listParEmploye(idEmploye, c, size, offset);
+            for (VDemandeCongeCpl demande : list) enrichirActions(demande, c);
 
             PageDTO<VDemandeCongeCpl> pageDto = new PageDTO<>(list, total, page, size);
             return ResponseEntity.ok(pageDto);
@@ -343,6 +343,7 @@ public class DemandeCongeController {
             VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(id, c);
             if (cpl == null)
                 throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_NON_TROUVE);
+            enrichirActions(cpl, c);
             return ResponseEntity.ok(cpl);
         } catch (Exception e) {
             e.printStackTrace();
@@ -359,6 +360,7 @@ public class DemandeCongeController {
             int offset = (page - 1) * size;
             long total = VDemandeCongeCpl.countAll(c, "EN_ATTENTE", q);
             List<VDemandeCongeCpl> list = VDemandeCongeCpl.listAll(c, "EN_ATTENTE", q, size, offset);
+            for (VDemandeCongeCpl demande : list) enrichirActions(demande, c);
 
             PageDTO<VDemandeCongeCpl> pageDto = new PageDTO<>(list, total, page, size);
             return ResponseEntity.ok(pageDto);
@@ -379,6 +381,7 @@ public class DemandeCongeController {
             int offset = (page - 1) * size;
             long total = VDemandeCongeCpl.countAll(c, statut, q, idTypeConge);
             List<VDemandeCongeCpl> list = VDemandeCongeCpl.listAll(c, statut, q, idTypeConge, size, offset);
+            for (VDemandeCongeCpl demande : list) enrichirActions(demande, c);
 
             PageDTO<VDemandeCongeCpl> pageDto = new PageDTO<>(list, total, page, size);
             return ResponseEntity.ok(pageDto);
@@ -432,6 +435,7 @@ public class DemandeCongeController {
                         d.getIdEmploye());
 
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(id, c);
+                enrichirActions(cpl, c);
                 return ResponseEntity.ok(cpl);
         });
     }
@@ -470,6 +474,7 @@ public class DemandeCongeController {
                         d.getIdEmploye());
 
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(id, c);
+                enrichirActions(cpl, c);
                 return ResponseEntity.ok(cpl);
         });
     }
@@ -527,6 +532,7 @@ public class DemandeCongeController {
                         d.getIdEmploye());
 
                 VDemandeCongeCpl cpl = VDemandeCongeCpl.rechercherParId(id, c);
+                enrichirActions(cpl, c);
                 return ResponseEntity.ok(cpl);
         });
     }
@@ -537,5 +543,24 @@ public class DemandeCongeController {
             return ud.getIdUtilisateur();
         }
         return null;
+    }
+
+    private void enrichirActions(VDemandeCongeCpl demande, Connection c) throws Exception {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean admin = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        boolean write = admin || auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "CONGE_WRITE".equals(a.getAuthority()));
+        boolean validate = admin || auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "CONGE_VALIDATE".equals(a.getAuthority()));
+        congeService.appliquerActionsDisponibles(demande, write, validate, c);
+    }
+
+    private static Integer optionalInt(Object value) {
+        return value == null || value.toString().isBlank() ? null : Integer.valueOf(value.toString());
+    }
+
+    private static boolean bool(Object value) {
+        return value != null && Boolean.parseBoolean(value.toString());
     }
 }

@@ -5,10 +5,10 @@ import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.conge.application.CongeTauxApplicableService;
 import mg.galaxam.sirh.conge.persistence.MouvementSoldeConge;
-import mg.galaxam.sirh.conge.persistence.VPoolCongeAnnuelConsommation;
+import mg.galaxam.sirh.conge.persistence.RefPoolCongeAnnuel;
 import mg.galaxam.sirh.conge.persistence.VSoldeCongeEmploye;
-import mg.galaxam.sirh.conge.domain.CongeCutoverOpeningRequestDTO;
 import mg.galaxam.sirh.conge.domain.CongeSituationEmployeDTO;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,9 +31,6 @@ public class CongeSoldeController {
 
     @Autowired
     private DataSource dataSource;
-
-    @Autowired
-    private mg.galaxam.sirh.cron.PurgeCongeScheduler purgeCongeScheduler;
 
     @Autowired
     private mg.galaxam.sirh.conge.application.CongeService congeService;
@@ -68,9 +65,17 @@ public class CongeSoldeController {
     @PostMapping("/purge-expiration")
     @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> declencherPurgeManuelle() {
-        try {
-            purgeCongeScheduler.purgerCongesExpires();
-            return ResponseEntity.ok(Map.of("success", true, "message", "Purge triennale des congés exécutée avec succès."));
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                int nbPurges = congeService.executerPurge(java.time.LocalDate.now(), c);
+                c.commit();
+                return ResponseEntity.ok(Map.of("success", true, "nbPurges", nbPurges,
+                        "message", "Purge triennale des congés exécutée avec succès."));
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
         } catch (Exception e) {
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
@@ -140,7 +145,7 @@ public class CongeSoldeController {
             @PathVariable Integer idEmploye,
             @RequestParam(value = "annee", required = false) Integer annee) {
         try (Connection c = dataSource.getConnection()) {
-            List<VPoolCongeAnnuelConsommation> list = VPoolCongeAnnuelConsommation.listParEmployeEtAnnee(idEmploye, annee, c);
+            List<RefPoolCongeAnnuel.Consommation> list = RefPoolCongeAnnuel.listerConsommations(idEmploye, annee, c);
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             e.printStackTrace();
@@ -212,7 +217,8 @@ public class CongeSoldeController {
                 if (req.containsKey("tauxJournalierMigration") && req.get("tauxJournalierMigration") != null && !req.get("tauxJournalierMigration").toString().isBlank()) {
                     BigDecimal tauxMigration = new BigDecimal(req.get("tauxJournalierMigration").toString());
                     if (tauxMigration.compareTo(BigDecimal.ZERO) > 0) {
-                        enregistrerOuMettreAJourTauxMigration(idEmploye, tauxMigration, dateArrete, motif, currentUserId, c);
+                        congeTauxApplicableService.enregistrerOuMettreAJourTauxMigration(
+                                idEmploye, tauxMigration, dateArrete, motif, currentUserId, c);
                     }
                 }
                 c.commit();
@@ -255,7 +261,7 @@ public class CongeSoldeController {
 
     @PostMapping("/solde/cutover-opening")
     @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> enregistrerCutoverOpening(@RequestBody CongeCutoverOpeningRequestDTO req) {
+    public ResponseEntity<?> enregistrerCutoverOpening(@RequestBody CongeTauxApplicableService.CutoverOpeningRequest req) {
         if (req.getIdEmploye() == null || req.getSoldeJours() == null || req.getTauxJournalierApplicable() == null || req.getDateDebutReference() == null) {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                     mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
@@ -301,7 +307,8 @@ public class CongeSoldeController {
                 String commentaire = req.containsKey("commentaire") && req.get("commentaire") != null ? req.get("commentaire").toString() : null;
                 Integer currentUserId = getCurrentUserId();
 
-                enregistrerOuMettreAJourTauxMigration(idEmploye, taux, dateEffet, commentaire, currentUserId, c);
+                congeTauxApplicableService.enregistrerOuMettreAJourTauxMigration(
+                        idEmploye, taux, dateEffet, commentaire, currentUserId, c);
                 c.commit();
 
                 return ResponseEntity.ok(Map.of(
@@ -320,32 +327,6 @@ public class CongeSoldeController {
                     mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
                     "Impossible d'enregistrer le taux de migration : " + e.getMessage());
         }
-    }
-
-    private void enregistrerOuMettreAJourTauxMigration(int idEmploye, BigDecimal tauxMigration, java.time.LocalDate dateEffet, String motif, Integer currentUserId, Connection c) throws Exception {
-        String sqlClose = "UPDATE conge_taux_applicable SET date_fin = ? WHERE id_employe = ? AND (date_fin IS NULL OR date_fin > ?) AND date_effet < ?";
-        try (java.sql.PreparedStatement psClose = c.prepareStatement(sqlClose)) {
-            psClose.setDate(1, java.sql.Date.valueOf(dateEffet));
-            psClose.setInt(2, idEmploye);
-            psClose.setDate(3, java.sql.Date.valueOf(dateEffet));
-            psClose.setDate(4, java.sql.Date.valueOf(dateEffet));
-            psClose.executeUpdate();
-        }
-        String sqlDel = "DELETE FROM conge_taux_applicable WHERE id_employe = ? AND date_effet >= ? AND source_provenance = 'KAJY_MIGRATION'";
-        try (java.sql.PreparedStatement psDel = c.prepareStatement(sqlDel)) {
-            psDel.setInt(1, idEmploye);
-            psDel.setDate(2, java.sql.Date.valueOf(dateEffet));
-            psDel.executeUpdate();
-        }
-        congeTauxApplicableService.enregistrerTauxApplicableMigration(
-                idEmploye,
-                tauxMigration,
-                dateEffet,
-                null,
-                motif != null ? motif : "Reprise historique TCONGE Excel",
-                currentUserId,
-                c
-        );
     }
 
     private Integer getCurrentUserId() {
