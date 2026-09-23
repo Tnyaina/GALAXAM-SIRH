@@ -70,7 +70,7 @@ export default function Login() {
             <SEO title="Connexion" description="Connectez-vous à l'intranet RH de Galaxam." />
             <div className="w-full max-w-md">
                 <Card shadow="sm" bordered className="border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
-                    <CardBody className="px-8 py-10 sm:px-10">
+                    <CardBody className="px-8 py-10 sm:px-10 sm:pb-12">
                         {/* Logo et Nom de l'application */}
                         <div className="flex flex-col items-center gap-4">
                             <img
@@ -155,7 +155,7 @@ export default function Login() {
                                 size="lg"
                                 loading={loading}
                                 disabled={loading}
-                                className="w-full mt-2"
+                                className="w-full mt-3"
                             >
                                 Se connecter
                             </Button>

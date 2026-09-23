@@ -7,13 +7,40 @@ import Tabs from '@/components/ui/navigation/Tabs';
 import Alert from '@/components/ui/feedback/Alert';
 import { useToast } from '@/components/ui/feedback/Toast';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import Modal from '@/components/ui/overlays/Modal';
+import Button from '@/components/ui/forms/Button';
+import Input, { Checkbox } from '@/components/ui/forms/Input';
 
 import TypesContratList from './referentiels/TypesContratList';
-import TypeContratFormModal from './referentiels/TypeContratFormModal';
 import TypesIntervenantList from './referentiels/TypesIntervenantList';
-import TypeIntervenantFormModal from './referentiels/TypeIntervenantFormModal';
 import BanquesList from './referentiels/BanquesList';
-import BanqueFormModal from './referentiels/BanqueFormModal';
+
+function TypeContratFormModal({ isOpen, onClose, onSubmit, formData, setFormData, actionError, submitting = false }) {
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Modifier le Type de Contrat" icon={<FileText size={18} />} size="md" footer={<><Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>Annuler</Button><Button type="submit" form="contrat-form" variant="primary" size="sm" loading={submitting}>Enregistrer</Button></>}>
+            <form id="contrat-form" onSubmit={onSubmit} className="space-y-4">
+                {actionError && <Alert type="error" message={actionError} />}
+                <Input label="Code du Contrat" required disabled value={formData.code} onChange={(event) => setFormData({ ...formData, code: event.target.value.toUpperCase() })} placeholder="Ex: CDI, CDD, STAGE, INTERIM" />
+                <Input label="Libellé Complet" required value={formData.libelle} onChange={(event) => setFormData({ ...formData, libelle: event.target.value })} placeholder="Ex: Contrat de Travail à Durée Indéterminée" />
+                <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-1"><Checkbox label="Date de fin obligatoire lors de la saisie d'un contrat" checked={formData.exigeDateFin} onChange={(event) => setFormData({ ...formData, exigeDateFin: event.target.checked })} /><p className="text-[11px] text-[var(--color-fg-muted)] ml-6">Cochez cette option pour les contrats temporaires (CDD, stage, prestation) nécessitant impérativement un terme défini.</p></div>
+            </form>
+        </Modal>
+    );
+}
+
+function TypeIntervenantFormModal({ isOpen, onClose, onSubmit, formData, setFormData, actionError, submitting = false }) {
+    const toggles = [
+        ['soumisIrsa', "Soumis à l'Impôt IRSA (Salariés / Traitements)"],
+        ['soumisIsi5', 'Soumis au prélèvement libératoire ISI 5% (Prestataires / Honoraires)'],
+        ['soumisCnaps', 'Cotise à la CNaPS (Caisse Nationale de Prévoyance Sociale)'],
+        ['soumisSante', 'Cotise aux organismes de santé interentreprises (OSTIE, FUNRECO, etc.)'],
+    ];
+    return <Modal isOpen={isOpen} onClose={onClose} title="Modifier le Type d'Intervenant" icon={<UserCheck size={18} />} size="md" footer={<><Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>Annuler</Button><Button type="submit" form="intervenant-form" variant="primary" size="sm" loading={submitting}>Enregistrer</Button></>}><form id="intervenant-form" onSubmit={onSubmit} className="space-y-4">{actionError && <Alert type="error" message={actionError} />}<Input label="Code du Type d'Intervenant" required disabled value={formData.code} onChange={(event) => setFormData({ ...formData, code: event.target.value.toUpperCase() })} placeholder="Ex: SALARIE, CONSULTANT, STAGIAIRE" /><Input label="Libellé Complet" required value={formData.libelle} onChange={(event) => setFormData({ ...formData, libelle: event.target.value })} placeholder="Ex: Salarié National de Droit Commun" /><div className="space-y-2 pt-2 border-t border-[var(--color-border-subtle)]"><p className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Régime Fiscal & Cotisations Sociales</p><div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-2.5">{toggles.map(([field, label]) => <Checkbox key={field} label={label} checked={formData[field]} onChange={(event) => setFormData({ ...formData, [field]: event.target.checked })} />)}</div></div></form></Modal>;
+}
+
+function BanqueFormModal({ isOpen, onClose, onSubmit, editingBanque, formData, setFormData, actionError, submitting = false }) {
+    return <Modal isOpen={isOpen} onClose={onClose} title={editingBanque ? 'Modifier la Banque' : 'Nouvelle Banque Partenaire'} icon={<Landmark size={18} />} size="md" footer={<><Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>Annuler</Button><Button type="submit" form="banque-form" variant="primary" size="sm" loading={submitting}>{editingBanque ? 'Enregistrer' : 'Créer la banque'}</Button></>}><form id="banque-form" onSubmit={onSubmit} className="space-y-4">{actionError && <Alert type="error" message={actionError} />}<Input label="Code Banque (5 chiffres normalisés)" required disabled={!!editingBanque} value={formData.codeBanque} onChange={(event) => setFormData({ ...formData, codeBanque: event.target.value.toUpperCase() })} placeholder="Ex: 00004, 00005" /><Input label="Raison Sociale / Nom de la Banque" required value={formData.nomBanque} onChange={(event) => setFormData({ ...formData, nomBanque: event.target.value })} placeholder="Ex: Bank of Africa Madagascar" /><Input label="Code SWIFT / BIC (Optionnel)" value={formData.codeSwift} onChange={(event) => setFormData({ ...formData, codeSwift: event.target.value.toUpperCase() })} placeholder="Ex: AFRIMGM1" /></form></Modal>;
+}
 
 export default function ReferentielsRhTab() {
     // Contexte et navigation

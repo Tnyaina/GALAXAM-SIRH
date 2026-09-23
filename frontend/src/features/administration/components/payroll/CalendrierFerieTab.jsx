@@ -7,15 +7,20 @@ import { fmtDateInput } from '@/utils/dateUtils';
 import Tabs from '@/components/ui/navigation/Tabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
+import FormModal from '@/components/ui/overlays/FormModal';
+import Input, { Checkbox } from '@/components/ui/forms/Input';
 import { useToast } from '@/components/ui/feedback/Toast';
 import useConfirm from '@/hooks/useConfirm';
 
 import JoursFeriesList from './feries/JoursFeriesList';
-import JoursFerieFormModal from './feries/JoursFerieFormModal';
 import SiteFeriesList from './feries/SiteFeriesList';
 import SiteFerieFormModal from './feries/SiteFerieFormModal';
 import PeriodeChomeeList from './feries/PeriodeChomeeList';
 import PeriodeChomeeFormModal from './feries/PeriodeChomeeFormModal';
+
+function JoursFerieFormModal({ isOpen, onClose, onSubmit, editingFerie, formData, setFormData, actionError, submitting = false }) {
+    return <FormModal isOpen={isOpen} onClose={onClose} onSubmit={onSubmit} title={editingFerie ? 'Modifier le Jour Férié' : 'Nouveau Jour Férié'} icon={<Calendar size={18} />} size="md" isEdit={!!editingFerie} loading={submitting} error={actionError}><div className="space-y-4"><Input label="Date exacte du jour férié" type="date" required value={fmtDateInput(formData.dateFerie)} onChange={(event) => setFormData({ ...formData, dateFerie: event.target.value })} /><Input label="Libellé / Fête célébrée" required value={formData.libelle} onChange={(event) => setFormData({ ...formData, libelle: event.target.value })} placeholder="Ex: Fête Nationale de l'Indépendance" /><div className="space-y-2 p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none"><Checkbox label="Jour férié chômé et payé" checked={formData.estChome} onChange={(event) => setFormData({ ...formData, estChome: event.target.checked })} /><Checkbox label="Férié national (applicable d'office à l'ensemble des sites)" checked={formData.estNational} onChange={(event) => setFormData({ ...formData, estNational: event.target.checked })} /></div></div></FormModal>;
+}
 
 export default function CalendrierFerieTab() {
     // Contexte, navigation et confirmation
