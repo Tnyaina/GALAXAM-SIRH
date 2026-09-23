@@ -49,6 +49,7 @@ const TYPE_OPTIONS = [
 ];
 
 export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjustementSuccess }) {
+  // État local
   const [filterType, setFilterType] = useState('ALL');
   const [showModalAjustement, setShowModalAjustement] = useState(false);
   const [nbJours, setNbJours] = useState('');
@@ -56,6 +57,7 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Données dérivées
   const safeMouvements = Array.isArray(mouvements) ? mouvements : (mouvements?.items || mouvements?.content || mouvements?.data || []);
   const filteredMouvements = safeMouvements.filter((mvt) => {
     if (!mvt) return false;
@@ -69,6 +71,7 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
     return mvt.typeMouvement === filterType;
   });
 
+  // Actions utilisateur
   const handleAjustementSubmit = async (e) => {
     e.preventDefault();
     if (!nbJours || !commentaire.trim()) {
@@ -95,6 +98,7 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
     }
   };
 
+  // Rendu
   return (
     <Card padding bordered className="space-y-4 font-sans">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[var(--color-border-subtle)]">

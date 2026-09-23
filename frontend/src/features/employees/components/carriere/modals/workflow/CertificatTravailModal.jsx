@@ -16,6 +16,7 @@ export default function CertificatTravailModal({
     signataire,
     dateDebutInitiale = null,
 }) {
+    // État local : animation, options du document et chargement.
     const [mounted, setMounted] = useState(false);
     const [typeAnciennete, setTypeAnciennete] = useState('globale'); // 'contrat' | 'globale'
     const [loadingData, setLoadingData] = useState(true);
@@ -23,8 +24,10 @@ export default function CertificatTravailModal({
     const [docData, setDocData] = useState(null);
     const printRef = useRef(null);
 
+    // Données dérivées et référence DOM du document.
     const idContrat = contrat?.idContrat;
 
+    // Chargement et actions utilisateur
     const chargerDonnees = useCallback(async () => {
         if (!idContrat) return;
         setLoadingData(true);
@@ -38,6 +41,7 @@ export default function CertificatTravailModal({
         }
     }, [idContrat, typeAnciennete]);
 
+    // Effets : chargent à l'ouverture et ferment avec Échap.
     useEffect(() => {
         if (isOpen) {
             chargerDonnees();
@@ -73,8 +77,10 @@ export default function CertificatTravailModal({
         window.print();
     };
 
+    // Rendu : garde de fermeture.
     if (!isOpen) return null;
 
+    // Données d'en-tête officiel
     // Données d'en-tête officiel
     const ent = docData?.entreprise || {
         nom: filiale?.libelle || filiale?.raisonSociale || contrat?.libelleFiliale || 'GALAXAM LOGISTICS',

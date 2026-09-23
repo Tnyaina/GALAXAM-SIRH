@@ -38,14 +38,16 @@ import { getPaieStatusVariant } from '@/features/payroll/utils/payrollPresentati
  *   des périodes (listerPeriodes). Le taux affiché est lu depuis l'API cotisations.
  */
 export default function DeclarationsSortiesPage() {
+    // Contexte et hook métier
     const navigate = useNavigate();
+
+    // État local
     const [activeTab, setActiveTab] = useState('MENSUELLES');
     const [feedback, setFeedback] = useState(null);
 
-    // ── Contexte campagne paie (backend-driven) ──────────────────────────────
-    // Chargement de la période active et historique via le hook centralisé.
     const { context, loading: ctxLoading } = usePayrollCampaign(null);
 
+    // Données dérivées
     const activePeriod = context?.selectedPeriod || context?.currentPeriod;
     const selectedPeriodId = activePeriod?.id || null;
     const codePeriode = activePeriod?.code || 'Période active';
@@ -72,7 +74,6 @@ export default function DeclarationsSortiesPage() {
         ? null
         : (generateOutputAction?.reasonCodes || []).join(', ') || 'Paie non entièrement validée.';
 
-    // ── Taux sociaux depuis le backend ────────────────────────────────────────
     /**
      * FOUND_BACKEND_SOURCE : GET /referentiel/cotisations?at=:date
      * Résolution temporelle : les taux chargés sont ceux en vigueur à la date
@@ -82,6 +83,7 @@ export default function DeclarationsSortiesPage() {
     const [cotisations, setCotisations] = useState([]);
     const [cotisationsLoading, setCotisationsLoading] = useState(false);
 
+    // Effets
     const chargerCotisations = useCallback(async (atDate) => {
         setCotisationsLoading(true);
         try {

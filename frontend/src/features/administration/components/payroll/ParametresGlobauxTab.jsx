@@ -263,6 +263,7 @@ function formatValeurAffichage(code, valeur) {
 }
 
 export default function ParametresGlobauxTab({ fixedCategory = null }) {
+    // État local : données, filtres, version et modale d'édition.
     const toast = useToast();
     const [parametres, setParametres] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -309,6 +310,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
         }
     }, [fixedCategory]);
 
+    // Effet : charge les paramètres à l'ouverture ou au changement de périmètre.
     useEffect(() => {
         loadParametres();
     }, [loadParametres]);
@@ -501,6 +503,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
         );
     }
 
+    // Rendu
     return (
         <div className="space-y-4">
             {error && <Alert type="error" message={error} />}

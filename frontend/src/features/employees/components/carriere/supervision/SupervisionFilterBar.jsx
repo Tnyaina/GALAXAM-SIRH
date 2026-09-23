@@ -21,6 +21,7 @@ function SupervisionFilterBar({
     onResetFilters,
     hasActiveFilters
 }) {
+    // Données dérivées : options présentées dans les filtres.
     const siteOptions = useMemo(() => [
         { value: '', label: 'Tous les sites d\'affectation' },
         ...sites
@@ -50,6 +51,7 @@ function SupervisionFilterBar({
         { value: 'ESSAI', label: 'Période d\'essai en cours' },
     ], []);
 
+    // Rendu
     return (
         <div className="space-y-2">
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-4 flex flex-wrap items-center gap-2.5">

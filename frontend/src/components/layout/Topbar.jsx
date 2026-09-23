@@ -8,15 +8,19 @@ import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 
 export default function Topbar({ onMenuClick, title}) {
+    // Contexte et navigation
     const { user, logout, hasPermission } = useAuth();
     const navigate = useNavigate();
+    // État local
     const [showDropdown, setShowDropdown] = useState(false);
 
+    // Action utilisateur
     const handleLogout = async () => {
         await logout();
         navigate('/', { replace: true });
     };
 
+    // Rendu
     return (
         <header className="h-12 shrink-0 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] flex items-center gap-3 px-5 sm:px-6 lg:px-8">
             <Button

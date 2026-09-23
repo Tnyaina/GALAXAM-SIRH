@@ -12,6 +12,7 @@ import Modal from '@/components/ui/overlays/Modal';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function MajorationsParametresTab() {
+    // État local : paramètres, erreur et modale.
     const todayStr = fmtDateInput(new Date());
 
     const [majorations, setMajorations] = useState([]);
@@ -47,6 +48,7 @@ export default function MajorationsParametresTab() {
         }
     };
 
+    // Effet : charge les majorations et la configuration légale.
     useEffect(() => {
         loadData();
     }, []);
@@ -82,6 +84,7 @@ export default function MajorationsParametresTab() {
         );
     }
 
+    // Rendu
     return (
         <div className="space-y-6">
             {error && <Alert type="error" message={error} />}

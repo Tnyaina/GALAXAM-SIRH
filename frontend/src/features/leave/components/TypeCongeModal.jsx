@@ -23,12 +23,15 @@ const EMPTY_FORM = {
 };
 
 export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData = null }) {
+  // Contexte
+  const toast = useToast();
+
+  // État local
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
-  const toast = useToast();
-
+  // Effet : préremplit le formulaire ou rétablit le formulaire vide à son ouverture.
   useEffect(() => {
     if (!isOpen) return;
     if (initialData) {
@@ -53,13 +56,15 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
     setLoading(false);
   }, [initialData, isOpen]);
 
+  // Données dérivées
+  const dureeEtPlafondEnConflit =
+    formData.dureeFixeJours !== '' && formData.plafondJoursEpisode !== '';
+
+  // Actions utilisateur
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setFieldErrors((prev) => ({ ...prev, [field]: null }));
   };
-
-  const dureeEtPlafondEnConflit =
-    formData.dureeFixeJours !== '' && formData.plafondJoursEpisode !== '';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -111,6 +116,7 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
     }
   };
 
+  // Rendu
   return (
     <Modal
       isOpen={isOpen}

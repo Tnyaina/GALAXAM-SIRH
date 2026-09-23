@@ -28,7 +28,7 @@ function InfoRow({ label, value, highlight = false, badge = null }) {
     );
 }
 
-export default function RecapitulatifBrouillonModal({
+export default function WorkflowDraftSummaryModal({
     isOpen,
     onClose,
     workflowCpl,
@@ -38,10 +38,12 @@ export default function RecapitulatifBrouillonModal({
     onEdit,
     onActionSuccess,
 }) {
+    // Contexte et droits d'accès
     const { hasPermission } = useAuth();
     const effectiveCanValidate = canValidate || hasPermission('EMPLOYE_VALIDATE');
     const effectiveCanWrite = canWrite || hasPermission('EMPLOYE_WRITE');
 
+    // État local : brouillon, mode annulation et soumission.
     const [activeWf, setActiveWf] = useState(workflowCpl);
     const [isCancelling, setIsCancelling] = useState(Boolean(initialCancelMode));
     const [commentaireValidation, setCommentaireValidation] = useState('');
@@ -49,6 +51,7 @@ export default function RecapitulatifBrouillonModal({
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
 
+    // Effets : synchronisent le brouillon fourni et le mode d'ouverture.
     useEffect(() => {
         setActiveWf(workflowCpl);
         setIsCancelling(Boolean(initialCancelMode));
@@ -66,6 +69,7 @@ export default function RecapitulatifBrouillonModal({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onClose]);
 
+    // Données dérivées
     const currentWf = activeWf || workflowCpl;
 
     const handleValiderConfirm = async () => {

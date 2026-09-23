@@ -86,10 +86,12 @@ export function evaluateEnfantIrsaEligibility(enfant, config = {}) {
  * Intègre la Loi de Finances (LF) en vigueur avec fallback sécurisé.
  */
 export function useFiscalConfig() {
+    // État local : configuration fiscale en cache et état de requête.
     const [configData, setConfigData] = useState(() => memoryCachedConfig);
     const [loading, setLoading] = useState(!memoryCachedConfig);
     const [error, setError] = useState(null);
 
+    // Chargement résilient de la loi de finances active.
     const fetchConfig = useCallback(async (forceRefresh = false) => {
         const now = Date.now();
         if (!forceRefresh && memoryCachedConfig && now - memoryCacheTimestamp < CACHE_TTL_MS) {

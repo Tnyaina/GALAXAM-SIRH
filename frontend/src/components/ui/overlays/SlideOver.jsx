@@ -13,6 +13,7 @@ const widths = {
  * Utilise strictement le Design System Galaxam (bordures nettes, tokens sémantiques).
  */
 export default function SlideOver({
+    // Effets d'accessibilité, actions de fermeture et rendu du panneau.
     isOpen,
     onClose,
     title,

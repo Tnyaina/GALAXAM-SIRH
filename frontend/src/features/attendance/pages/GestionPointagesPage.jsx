@@ -12,6 +12,13 @@ const SaisieQuotidiennePage    = lazy(() => import('@/features/attendance/pages/
 const SuiviAnomaliesPage       = lazy(() => import('@/features/attendance/pages/SuiviAnomaliesPage'));
 const ArbitrageDafPage         = lazy(() => import('@/features/attendance/pages/ArbitrageDafPage'));
 
+const normalizePointageStep = (tab) => {
+    if (tab === 'saisie') return 'saisie';
+    if (tab === 'suivi' || tab === 'anomalies') return 'suivi';
+    if (tab === 'arbitrage' || tab === 'validation' || tab === 'synthese') return 'arbitrage';
+    return 'saisie';
+};
+
 /**
  * GestionPointagesPage — Orchestrateur du cockpit Pointage lineaire.
  *
@@ -20,27 +27,41 @@ const ArbitrageDafPage         = lazy(() => import('@/features/attendance/pages/
  *   DAF   : ① Saisie (readonly) → ② Suivi (readonly) → ③ Arbitrage DAF
  */
 export default function GestionPointagesPage() {
+    // Contexte et navigation
     const [searchParams, setSearchParams] = useSearchParams();
     const { hasPermission } = useAuth();
-    const isDaf = hasPermission('POINTAGE_VALIDATE');
 
-    // Normalisation du tab : supporte les anciens alias (validation, arbitrage, anomalies, synthese)
-    const rawTab = (searchParams.get('tab') || 'saisie').toLowerCase();
-    const normalizeStep = (tab) => {
-        if (tab === 'saisie') return 'saisie';
-        if (tab === 'suivi' || tab === 'anomalies') return 'suivi';
-        if (tab === 'arbitrage' || tab === 'validation' || tab === 'synthese') return 'arbitrage';
-        return 'saisie';
-    };
-    const activeStep = normalizeStep(rawTab);
-
+    // État local
     const [allPeriodes, setAllPeriodes] = useState([]);
     const [activePeriode, setActivePeriode] = useState(null);
     const [anomaliesCount, setAnomaliesCount] = useState(0);
 
+    // Données dérivées
+    const isDaf = hasPermission('POINTAGE_VALIDATE');
+    const activeStep = normalizePointageStep((searchParams.get('tab') || 'saisie').toLowerCase());
     const paramPeriodeId = searchParams.get('periode');
 
-    // Chargement et synchronisation de la période active avec l'URL
+    const steps = useMemo(() => [
+        {
+            id: 'saisie',
+            label: 'Saisie',
+            sublabel: null,
+            status: activeStep === 'saisie' ? 'active' : 'pending'
+        },
+        {
+            id: 'suivi',
+            label: 'Suivi & Anomalies',
+            sublabel: anomaliesCount > 0 ? `${anomaliesCount} anom.` : null,
+            status: activeStep === 'suivi' ? 'active' : 'pending'
+        },
+        {
+            id: 'arbitrage',
+            label: isDaf ? 'Contrôle & Validation' : 'Synthèse & Contrôle',
+            status: activeStep === 'arbitrage' ? 'active' : 'pending'
+        }
+    ], [activeStep, anomaliesCount, isDaf]);
+
+    // Effets
     useEffect(() => {
         let isMounted = true;
         const fetchData = async () => {
@@ -86,6 +107,7 @@ export default function GestionPointagesPage() {
         return () => { isMounted = false; };
     }, [paramPeriodeId, setSearchParams]);
 
+    // Actions
     const handlePeriodeChange = (newPeriodeId) => {
         const found = allPeriodes.find(p => String(p.idPeriodePaie) === String(newPeriodeId));
         if (found) {
@@ -110,31 +132,7 @@ export default function GestionPointagesPage() {
         });
     };
 
-    // Le stepper décrit uniquement la navigation ; le backend porte les décisions de workflow.
-    const steps = useMemo(() => {
-        const allSteps = [
-            {
-                id: 'saisie',
-                label: 'Saisie',
-                sublabel: null,
-                status: activeStep === 'saisie' ? 'active' : 'pending'
-            },
-            {
-                id: 'suivi',
-                label: 'Suivi & Anomalies',
-                sublabel: anomaliesCount > 0 ? `${anomaliesCount} anom.` : null,
-                status: activeStep === 'suivi' ? 'active' : 'pending'
-            },
-            {
-                id: 'arbitrage',
-                label: isDaf ? 'Contrôle & Validation' : 'Synthèse & Contrôle',
-                status: activeStep === 'arbitrage' ? 'active' : 'pending'
-            }
-        ];
-
-        return allSteps;
-    }, [activeStep, isDaf, anomaliesCount]);
-
+    // Rendu
     return (
         <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO

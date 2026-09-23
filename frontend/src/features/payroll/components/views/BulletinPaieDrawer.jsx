@@ -27,6 +27,7 @@ import BulletinPaiePrintView from './BulletinPaiePrintView';
  * Conforme au Wireframe Écran 2 du Rapport d'Audit.
  */
 export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onRecalculateSuccess }) {
+    // État local : bulletin, vues de détail, ajustement et retours d'action.
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState(null);
     const [error, setError] = useState(null);
@@ -70,6 +71,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         }
     }, []);
 
+    // Effets : chargent le bulletin à l'ouverture et nettoient les états de vue.
     useEffect(() => {
         if (isOpen && idBulletin) {
             chargerBulletin();
@@ -224,6 +226,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('retenue'))
     );
 
+    // Rendu
     return (
         <>
             <SlideOver

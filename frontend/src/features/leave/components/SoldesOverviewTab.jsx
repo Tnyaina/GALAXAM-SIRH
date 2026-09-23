@@ -18,9 +18,10 @@ const DemandeCongeModal = lazy(() => import('./DemandeCongeModal'));
 const ValidationModals = lazy(() => import('./validation/ValidationModals'));
 
 export default function SoldesOverviewTab({ loading, demandesGlobales = [], referentiels, onReload }) {
+  // Contexte
   const toast = useToast();
 
-  // Modal de création / édition directe
+  // État local : uniquement les modales ; les données de soldes vivent dans useSoldesOverview.
   const [demandeModalState, setDemandeModalState] = useState({
     isOpen: false,
     idEmploye: null,
@@ -40,8 +41,9 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], refe
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState(null);
 
+  // Logique métier et données dérivées
   const {
-    // Mode et Filtres
+    // Mode et filtres
     viewMode,
     setViewMode,
     filterMode,
@@ -103,7 +105,7 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], refe
     kpiTotalDemandes
   } = useSoldesOverview(demandesGlobales);
 
-  // État de chargement initial (Skeletons)
+  // Rendu : garde de chargement initial
   if (loading && !planningLoading) {
     return (
       <div className="space-y-6">
@@ -119,6 +121,7 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], refe
     );
   }
 
+  // Actions utilisateur
   const handleCellClick = (idEmploye, dateDebut, dateFin) => {
     setDemandeModalState({
       isOpen: true,
@@ -235,6 +238,7 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], refe
     if (onReload) onReload();
   };
 
+  // Rendu : synthèse, planning, tableau et modales.
   return (
     <div className="space-y-6">
       {/* Barre de KPIs */}

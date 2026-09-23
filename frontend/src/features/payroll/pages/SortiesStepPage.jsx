@@ -32,16 +32,19 @@ import { getErrorMessage } from '@/api/apiClient';
  * Action de clôture uniquement si le backend l'autorise (CLOSE.allowed).
  */
 export default function SortiesStepPage() {
+    // Contexte et hook métier
     const { periodId } = useParams();
     const navigate = useNavigate();
     const numericPeriodId = Number(periodId) || null;
     const { periodes, context, loading: ctxLoading, refresh } = usePayrollCampaign(numericPeriodId);
 
+    // État local
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmCloseModal, setConfirmCloseModal] = useState(false);
     const [downloadingType, setDownloadingType] = useState(null);
     const [feedback, setFeedback] = useState(null);
 
+    // Données dérivées
     const actions = context?.availableActions || {};
     const canClose = actions?.CLOSE?.allowed === true;
     // CAPABILITY : seule source pour autoriser un export. Ce n'est pas un état métier.
@@ -51,6 +54,7 @@ export default function SortiesStepPage() {
     const isValidee = ['PAIE_VALIDEE', 'CLOTUREE'].includes(periode?.state);
     const codePeriode = periode?.code || `Période #${numericPeriodId}`;
 
+    // Actions
     const handleCloturer = useCallback(async () => {
         if (!numericPeriodId) return;
         setActionLoading(true);
@@ -101,6 +105,7 @@ export default function SortiesStepPage() {
         }
     };
 
+    // Rendu
     return (
         <PayrollCampaignShell
             context={context}

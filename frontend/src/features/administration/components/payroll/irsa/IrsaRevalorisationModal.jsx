@@ -15,7 +15,7 @@ export default function IrsaRevalorisationModal({
     submitting = false,
     actionError = null
 }) {
-    // Tomorrow date as min valid application date
+    // Données dérivées : date minimale et date d'application par défaut.
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = tomorrow.toISOString().split('T')[0];
@@ -24,11 +24,12 @@ export default function IrsaRevalorisationModal({
     const nextYear = new Date().getFullYear() + 1;
     const defaultDate = `${nextYear}-01-01` > tomorrowStr ? `${nextYear}-01-01` : tomorrowStr;
 
+    // État local : nouvelle date, tranches clonées et erreur de validation.
     const [nouvelleDateDebut, setNouvelleDateDebut] = useState(defaultDate);
     const [tranches, setTranches] = useState([]);
     const [localError, setLocalError] = useState(null);
 
-    // Clone active tranches when modal opens
+    // Effet : clone les tranches à l'ouverture de la modale.
     useEffect(() => {
         if (isOpen) {
             setLocalError(null);
@@ -54,7 +55,7 @@ export default function IrsaRevalorisationModal({
         }
     }, [isOpen, currentTranches, defaultDate]);
 
-    // Handle change of a field in a tranche
+    // Actions utilisateur sur les tranches et la soumission.
     const handleTrancheChange = (index, field, value) => {
         setLocalError(null);
         setTranches(prev => {

@@ -23,7 +23,7 @@ export default function EmployeFilterBar({
     onResetFilters,
     totalFound = 0,
 }) {
-    // Filtrer les services selon le département sélectionné
+    // Données dérivées : services compatibles, libellés et options de filtres.
     const filteredServices = useMemo(() => {
         if (!serviceFilter && !departementFilter) return services;
         return services.filter(s => !departementFilter || String(s.idDepartement || s.id_departement) === String(departementFilter));
@@ -90,6 +90,7 @@ export default function EmployeFilterBar({
         { value: 'ANCIENNETE_ASC', label: 'Tri : Ancienneté (Récents)' },
     ], []);
 
+    // Rendu
     return (
         <div className="p-3 sm:p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-3 font-sans shadow-2xs">
             {/* Grille principale : 6 colonnes symétriques sur desktop */}

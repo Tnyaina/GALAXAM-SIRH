@@ -30,11 +30,13 @@ const BulletinPaieDrawer = lazy(() => import('@/features/payroll/components/view
  * - Action principale unique : Continuer vers Validation
  */
 export default function ControleStepPage() {
+    // Contexte et hook métier
     const { periodId } = useParams();
     const navigate = useNavigate();
     const numericPeriodId = Number(periodId) || null;
     const { periodes, context, loading: ctxLoading, refresh } = usePayrollCampaign(numericPeriodId);
 
+    // État local
     const [cockpit, setCockpit] = useState(null);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -44,29 +46,11 @@ export default function ControleStepPage() {
     const [feedback, setFeedback] = useState(null);
     const [selectedBulletinId, setSelectedBulletinId] = useState(null);
 
-    const chargerBulletins = useCallback(async () => {
-        if (!numericPeriodId) return;
-        setLoading(true);
-        setFeedback(null);
-        try {
-            const data = await paieService.getCockpitPeriode(numericPeriodId, {
-                q: searchQuery || undefined,
-                size: 200,
-            });
-            setCockpit(data);
-        } catch (err) {
-            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur de chargement des bulletins de paie.') });
-        } finally {
-            setLoading(false);
-        }
-    }, [numericPeriodId, searchQuery]);
-
-    useEffect(() => {
-        chargerBulletins();
-    }, [chargerBulletins]);
-
+    // Données dérivées
     const bulletins = useMemo(() => Array.isArray(cockpit?.bulletins) ? cockpit.bulletins : [], [cockpit]);
     const periode = context?.selectedPeriod || context?.currentPeriod;
+    const actions = context?.availableActions || {};
+    const canContinueToValidation = actions?.VALIDATE?.allowed === true;
 
     // Calcul des compteurs de revue
     const countTotal = bulletins.length;
@@ -96,6 +80,29 @@ export default function ControleStepPage() {
         });
     }, [bulletins, filterTab, reviewedIds]);
 
+    // Effets
+    const chargerBulletins = useCallback(async () => {
+        if (!numericPeriodId) return;
+        setLoading(true);
+        setFeedback(null);
+        try {
+            const data = await paieService.getCockpitPeriode(numericPeriodId, {
+                q: searchQuery || undefined,
+                size: 200,
+            });
+            setCockpit(data);
+        } catch (err) {
+            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur de chargement des bulletins de paie.') });
+        } finally {
+            setLoading(false);
+        }
+    }, [numericPeriodId, searchQuery]);
+
+    useEffect(() => {
+        chargerBulletins();
+    }, [chargerBulletins]);
+
+    // Actions
     const handleSelectBulletin = (id) => {
         setSelectedBulletinId(id);
         // Marquer comme examiné dans la session
@@ -127,13 +134,7 @@ export default function ControleStepPage() {
         URL.revokeObjectURL(url);
     };
 
-    // canContinueToValidation : dérivé de l'action backend VALIDATE.allowed.
-    // Le backend contrôle que le calcul est à jour, que les bulletins existent
-    // et que la période est dans l'état VALIDEE (pointage gelé).
-    // JAMAIS recalculer cette logique ici.
-    const actions = context?.availableActions || {};
-    const canContinueToValidation = actions?.VALIDATE?.allowed === true;
-
+    // Rendu
     return (
         <PayrollCampaignShell
             context={context}

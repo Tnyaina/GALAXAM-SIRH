@@ -739,6 +739,7 @@ function getMajorationsForConfig(config, majorationsList) {
 // COMPOSANT PRINCIPAL
 // ==============================
 export default function ReglementationFiscaleTab() {
+    // État local : réglementation, formulaires, archives et confirmations.
     const [configs, setConfigs] = useState([]);
     const [baremesIrsa, setBaremesIrsa] = useState([]);
     const [majorations, setMajorations] = useState([]);
@@ -776,6 +777,7 @@ export default function ReglementationFiscaleTab() {
         }
     };
 
+    // Effet : charge la réglementation fiscale à l'ouverture.
     useEffect(() => { load(); }, []);
 
     const activeConfig = configs.find(c => getStatut(c) === 'EN_VIGUEUR');
@@ -1004,6 +1006,7 @@ export default function ReglementationFiscaleTab() {
 
     if (loading) return <div className="p-4"><SkeletonTable rows={4} columns={4} /></div>;
 
+    // Rendu
     return (
         <div className="space-y-5">
             {error && <Alert type="error" message={error} />}

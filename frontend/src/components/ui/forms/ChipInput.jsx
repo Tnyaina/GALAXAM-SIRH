@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 
 export function ChipInput({ tags = [], onChange, placeholder = 'Ajouter une valeur...' }) {
+    // État local
     const [input, setInput] = useState('');
 
+    // Actions utilisateur
     const addTag = () => {
         const trimmed = input.trim();
         if (trimmed && !tags.includes(trimmed)) {
@@ -25,6 +27,7 @@ export function ChipInput({ tags = [], onChange, placeholder = 'Ajouter une vale
         }
     };
 
+    // Rendu
     return (
         <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] focus-within:border-[var(--color-brand-500)] rounded-none">
             {tags.map((tag, index) => (

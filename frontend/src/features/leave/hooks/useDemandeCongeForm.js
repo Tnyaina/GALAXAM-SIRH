@@ -9,6 +9,7 @@ import {
 } from '@/features/leave/utils/congeBusinessRules';
 
 export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDateDebut, initialDateFin, referentiels, isOpen, onClose, onSuccess }) {
+  // État local : formulaire, dérogations, simulation et validation.
   const [selectedEmployeId, setSelectedEmployeId] = useState('');
   const [idTypeConge, setIdTypeConge] = useState('');
   const [idMotifEvenementFamilial, setIdMotifEvenementFamilial] = useState('');
@@ -41,6 +42,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
 
+  // Données dérivées : référentiels actifs et règles applicables.
   const typesConge = (referentiels?.typesConge || []).filter(t => t.estActif !== false && t.actif !== false || String(t.idTypeConge) === String(idTypeConge));
   const motifsFamiliaux = (referentiels?.motifsFamiliaux || []).filter(m => m.estActif !== false && m.actif !== false || String(m.idMotif) === String(idMotifEvenementFamilial));
 
@@ -51,6 +53,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   // Évaluation du préavis via l'utilitaire métier
   const preavisInfo = evaluerPreavis(dateDebut, nbJoursDecomptes, selectedType);
 
+  // Effet : initialise le formulaire à l'ouverture, en création ou en édition.
   useEffect(() => {
     if (isOpen) {
       if (initialDemande) {

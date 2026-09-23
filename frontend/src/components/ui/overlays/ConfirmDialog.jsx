@@ -18,6 +18,7 @@ export default function ConfirmDialog({
     loading = false,
     children
 }) {
+  // Effets, actions et rendu de la boîte de confirmation.
     // Fermeture sur la touche Échap
     useEffect(() => {
         const handleKeyDown = (e) => {

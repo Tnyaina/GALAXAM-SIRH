@@ -16,6 +16,7 @@ import SiteCotisationsList from './cotisations/SiteCotisationsList';
 import SiteCotisationFormModal from './cotisations/SiteCotisationFormModal';
 
 export default function CotisationsIrsaTab() {
+    // Contexte, navigation et confirmation
     const [searchParams, setSearchParams] = useSearchParams();
     const subSection = searchParams.get('subtab') || 'cotisations';
 
@@ -30,6 +31,7 @@ export default function CotisationsIrsaTab() {
 
     const todayStr = fmtDateInput(new Date());
 
+    // État local : données, filtres et modales.
     const [cotisations, setCotisations] = useState([]);
     const [siteCotisations, setSiteCotisations] = useState([]);
     const [sites, setSites] = useState([]);
@@ -76,6 +78,7 @@ export default function CotisationsIrsaTab() {
         }
     };
 
+    // Effet : charge les cotisations et leurs déclinaisons par site.
     useEffect(() => {
         loadData();
     }, []);
@@ -231,6 +234,7 @@ export default function CotisationsIrsaTab() {
         );
     }
 
+    // Rendu
     return (
         <div className="space-y-6">
             {error && <Alert type="error" message={error} />}

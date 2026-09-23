@@ -15,9 +15,10 @@ export default function PointageFichePrintModal({
     employe,
     ficheData
 }) {
+    // Référence DOM de la zone imprimable
     const printRef = useRef(null);
 
-    // Récupération prioritaire des métadonnées backend-driven ou repli sur l'objet employe
+    // Données dérivées : métadonnées backend prioritaires, puis repli sur le collaborateur.
     const nom = employe?.nom || (ficheData?.nom ? ficheData.nom : (ficheData?.nomComplet ? ficheData.nomComplet.split(' ')[0] : 'Employe'));
     const prenom = employe?.prenom || (ficheData?.prenom ? ficheData.prenom : (ficheData?.nomComplet ? ficheData.nomComplet.split(' ').slice(1).join(' ') : ''));
     const pInitial = prenom ? prenom.trim().charAt(0).toUpperCase() : 'P';
@@ -31,6 +32,7 @@ export default function PointageFichePrintModal({
     const nomClean = nom.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]/g, '_');
     const docRefName = `Pointage_${nomClean}_${pInitial}_${matClean}_${perClean}`;
 
+    // Effet : donne un nom explicite au document pendant l'impression.
     useEffect(() => {
         if (isOpen) {
             const prevTitle = document.title;
@@ -41,6 +43,7 @@ export default function PointageFichePrintModal({
         }
     }, [isOpen, docRefName]);
 
+    // Rendu : garde d'ouverture et de données.
     if (!isOpen || !ficheData) return null;
 
     const nomComplet = ficheData?.nomComplet && ficheData.nomComplet !== 'Collaborateur'
@@ -64,6 +67,7 @@ export default function PointageFichePrintModal({
     const bilans = ficheData.bilansHebdo || [];
     const pointages = ficheData.pointagesData || [];
 
+    // Actions et fonctions de présentation propres au document.
     const handlePrint = () => {
         window.print();
     };

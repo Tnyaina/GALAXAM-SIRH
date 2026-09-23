@@ -44,19 +44,23 @@ export default function DafAjustementPointageModal({
     initialDate = null,
     onSuccess
 }) {
+    // Données dérivées des deux signatures de props prises en charge par la modale.
     const idEmployeEffective = employe?.idEmploye || propIdEmploye;
     const employeNomEffective = employe ? `${employe.nom || ''} ${employe.prenom || ''}`.trim() : (propEmployeNom || 'Salarié');
     const matriculeEffective = employe?.matricule || propMatricule || '';
     const idPeriodeEffective = propIdPeriode || propIdPeriodePaie || employe?.idPeriodePaie;
 
+    // Contexte
     const { toast } = useToast();
+
+    // État local
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
     const [pointagesList, setPointagesList] = useState([]);
     const [selectedJour, setSelectedJour] = useState(null);
 
-    // Formulaire d'ajustement du jour sélectionné
+    // État du formulaire d'ajustement du jour sélectionné
     const [formData, setFormData] = useState({
         heureEntreeMatin: '',
         heureSortieMatin: '',
@@ -70,6 +74,7 @@ export default function DafAjustementPointageModal({
         motifAjustement: ''
     });
 
+    // Actions et chargement des données
     const handleSelectJour = useCallback((ptg) => {
         setSelectedJour(ptg);
         const cleanTime = (val) => (val && val !== '-' && val !== '—') ? val : '';
@@ -136,6 +141,7 @@ export default function DafAjustementPointageModal({
         }
     }, [idEmployeEffective, idPeriodeEffective, initialDate, handleSelectJour]);
 
+    // Effet : recharge la fiche à l'ouverture de la modale.
     useEffect(() => {
         if (isOpen) {
             setSelectedJour(null);
@@ -190,6 +196,7 @@ export default function DafAjustementPointageModal({
         }
     };
 
+    // Rendu
     return (
         <Modal
             isOpen={isOpen}

@@ -32,7 +32,11 @@ export default function InitialisationSoldeModal({
   employe,
   soldeData = null
 }) {
-  // Mode de reprise (Section 24) : AGGREGATED_OPENING ou MINIMAL_OPENING
+  // Contexte
+  const toast = useToast();
+
+  // État local
+  // Mode de reprise : AGGREGATED_OPENING ou MINIMAL_OPENING.
   const [modeReprise, setModeReprise] = useState('AGGREGATED_OPENING');
 
   // Données communes
@@ -49,8 +53,7 @@ export default function InitialisationSoldeModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const toast = useToast();
-
+  // Données dérivées
   const salaireBase = Number(
     soldeData?.salaireBase ||
     employe?.salaireBase ||
@@ -59,11 +62,12 @@ export default function InitialisationSoldeModal({
     0
   );
 
-  // Date de fin calculée automatiquement côté frontend pour prévisualisation
+  // Données dérivées : prévisualisation de la période de référence.
   const dateFinCalculee = useMemo(() => {
     return calculerDateFinAutomatique(dateDebutReference);
   }, [dateDebutReference]);
 
+  // Effet : initialise le formulaire à chaque ouverture de modale.
   useEffect(() => {
     if (!isOpen) return;
 
@@ -98,6 +102,7 @@ export default function InitialisationSoldeModal({
     setError(null);
   }, [isOpen, soldeData, employe, salaireBase]);
 
+  // Action utilisateur
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -173,6 +178,7 @@ export default function InitialisationSoldeModal({
     }
   };
 
+  // Rendu
   return (
     <Modal
       isOpen={isOpen}

@@ -4,11 +4,13 @@ import { useNetworkStatus } from '@/context/networkStatus';
 
 /** Affiche une information unique, quel que soit l'écran actuellement ouvert. */
 export default function NetworkStatusBanner() {
+    // Contexte, référence et état local.
     const { online, serverReachable } = useNetworkStatus();
     const wasUnavailable = useRef(false);
     const [showRestored, setShowRestored] = useState(false);
     const unavailable = !online || !serverReachable;
 
+    // Effet : affiche temporairement le retour de connexion.
     useEffect(() => {
         if (unavailable) {
             wasUnavailable.current = true;
@@ -22,6 +24,7 @@ export default function NetworkStatusBanner() {
         return () => window.clearTimeout(timeout);
     }, [unavailable]);
 
+    // Rendu : indisponibilité, restauration ou absence de bannière.
     if (unavailable) {
         return (
             <div role="alert" className="fixed inset-x-0 bottom-0 z-[100] flex items-center justify-center gap-2 border-t border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/15 px-4 py-2.5 text-xs font-medium text-[var(--color-fg)] shadow-lg">

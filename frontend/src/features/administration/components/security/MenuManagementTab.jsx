@@ -16,7 +16,10 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import { useMenu } from '@/hooks/useMenu';
 
 export default function MenuManagementTab() {
+    // Contexte : actualisation du menu global après une modification.
     const { refreshMenu } = useMenu();
+
+    // État local : menus, recherche, formulaire et confirmation.
     const [menus, setMenus] = useState([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
@@ -61,6 +64,7 @@ export default function MenuManagementTab() {
         }
     };
 
+    // Effet : charge les menus à l'ouverture.
     useEffect(() => {
         loadData();
     }, []);
@@ -202,6 +206,7 @@ export default function MenuManagementTab() {
         );
     }
 
+    // Rendu
     return (
         <div className="space-y-6">
             {/* Notifications */}

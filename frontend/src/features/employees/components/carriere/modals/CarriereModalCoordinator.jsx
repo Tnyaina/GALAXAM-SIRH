@@ -4,7 +4,7 @@ import Loading from '@/components/ui/feedback/Loading';
 // Chargement différé (lazy loading) des 9 modales de carrière pour réduire la taille du bundle initial
 const EmbaucheModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/EmbaucheModal'));
 const TransitionModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/TransitionModal'));
-const RecapitulatifBrouillonModal = lazy(() => import('@/features/employees/pages/carriere/RecapitulatifBrouillonModal'));
+const WorkflowDraftSummaryModal = lazy(() => import('@/features/employees/components/carriere/modals/WorkflowDraftSummaryModal'));
 const ConfirmationEssaiModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/ConfirmationEssaiModal'));
 const RenouvellementEssaiModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/RenouvellementEssaiModal'));
 const RuptureContratModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/RuptureContratModal'));
@@ -57,7 +57,7 @@ export default function CarriereModalCoordinator({
             )}
 
             {isRecapModalOpen && (
-                <RecapitulatifBrouillonModal
+                <WorkflowDraftSummaryModal
                     isOpen={isRecapModalOpen}
                     onClose={() => {
                         setIsRecapModalOpen(false);

@@ -11,9 +11,11 @@ import galaxamLogo from '@/assets/logo/galaxam-logo.png';
 import SEO from '@/components/system/SEO';
 
 export default function Login() {
+    // Contexte et navigation
     const navigate = useNavigate();
     const { login, isAuthenticated, user, hasPermission } = useAuth();
 
+    // État local
     const [identifiant, setIdentifiant] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -21,6 +23,7 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    // Effets
     useEffect(() => {
         if (isAuthenticated && user) {
             const redirectPath = hasPermission('EMPLOYE_READ')
@@ -32,6 +35,7 @@ export default function Login() {
         }
     }, [isAuthenticated, user, hasPermission, navigate]);
 
+    // Actions
     const handleIdentifiantChange = (e) => {
         if (error) setError('');
         setIdentifiant(e.target.value);
@@ -60,6 +64,7 @@ export default function Login() {
         }
     };
 
+    // Rendu
     return (
         <main id="main-content" tabIndex={-1} className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg)] px-4 py-12 focus:outline-none">
             <SEO title="Connexion" description="Connectez-vous à l'intranet RH de Galaxam." />

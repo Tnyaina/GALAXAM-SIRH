@@ -11,6 +11,7 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import Modal from '@/components/ui/overlays/Modal';
 
 export default function CareerReferenceDataManagementTab() {
+    // État local : référentiels, retours d'action et modales.
     const [categoriesPro, setCategoriesPro] = useState([]);
     const [modesPaie, setModesPaie] = useState([]);
     const [motifsMouvement, setMotifsMouvement] = useState([]);
@@ -49,6 +50,7 @@ export default function CareerReferenceDataManagementTab() {
         }
     };
 
+    // Effet : charge les référentiels de carrière à l'ouverture.
     useEffect(() => {
         loadData();
     }, []);
@@ -92,6 +94,7 @@ export default function CareerReferenceDataManagementTab() {
         }
     };
 
+    // Rendu
     return (
         <div className="space-y-8">
             {/* Notifications */}

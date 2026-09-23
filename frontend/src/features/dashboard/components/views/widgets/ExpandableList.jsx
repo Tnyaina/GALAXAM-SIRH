@@ -1,10 +1,14 @@
 import { useState } from 'react';
 
 export default function ExpandableList({ items = [], renderItem, initialCount = 5, maxHeight = 'max-h-[300px]' }) {
+    // État local
     const [expanded, setExpanded] = useState(false);
+
+    // Données dérivées
     const visible = expanded ? items : items.slice(0, initialCount);
     const hidden = items.length - visible.length;
 
+    // Rendu
     return (
         <div className="space-y-1">
             <div className={`${expanded ? `${maxHeight} overflow-y-auto pr-1` : ''} divide-y divide-[var(--color-border-subtle)]`}>

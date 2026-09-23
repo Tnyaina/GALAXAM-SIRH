@@ -33,14 +33,16 @@ export default function PointageGridTable({
     isReadOnly = false,
     onToggleHoraireContinu
 }) {
+    // Données dérivées : pagination de la grille reçue du parent.
     const startIndex = (currentPage - 1) * pageSize;
     const paginatedData = grilleData.slice(startIndex, startIndex + pageSize);
 
-    // État de sélection multiple (Bulk actions)
+    // État local : sélection multiple et modale d'absence collective.
     const [selectedEmpIds, setSelectedEmpIds] = useState(new Set());
     const [showCollectiveAbsenceModal, setShowCollectiveAbsenceModal] = useState(false);
     const [collectiveMotif, setCollectiveMotif] = useState('');
 
+    // Actions utilisateur de sélection et d'application collective.
     const toggleSelectRow = (idEmploye) => {
         setSelectedEmpIds(prev => {
             const next = new Set(prev);
@@ -98,8 +100,10 @@ export default function PointageGridTable({
         handleClearSelection();
     };
 
+    // Fonction de présentation locale.
     const fmtMoney = (val) => formatMonnaie(val);
 
+    // Rendu
     return (
         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden flex flex-col">
             {/* Barre combinée : Filtres de statut à gauche + Info & Légende à droite */}

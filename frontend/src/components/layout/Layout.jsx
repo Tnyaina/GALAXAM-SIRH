@@ -18,17 +18,20 @@ const getInitialTheme = () => {
 };
 
 export default function Layout({ children }) {
+    // Contexte, état local et navigation courante.
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(getInitialTheme);
     const { pathname } = useLocation();
     const { isAuthenticated } = useAuth();
     const { menu, loading: menuLoading, error: menuError } = useMenu();
 
+    // Effet : applique et mémorise le thème.
     useEffect(() => {
         document.documentElement.classList.toggle('dark', isDarkMode);
         window.localStorage.setItem(THEME_STORAGE_KEY, isDarkMode ? 'dark' : 'light');
     }, [isDarkMode]);
 
+    // Rendu : garde non authentifiée.
     if (!isAuthenticated) {
         return (
             <main id="main-content" tabIndex={-1} className="min-h-screen">
@@ -37,6 +40,7 @@ export default function Layout({ children }) {
         );
     }
 
+    // Donnée dérivée et rendu authentifié.
     const title = findMenuTitleByHref(menu, pathname) || 'Galaxam SIRH';
 
     return (

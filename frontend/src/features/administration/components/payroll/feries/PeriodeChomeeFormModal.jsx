@@ -16,19 +16,22 @@ export default function PeriodeChomeeFormModal({
     actionError,
     submitting = false
 }) {
-    // Reset form when modal opens
+    // Effet : garde l'initialisation au niveau du parent du formulaire.
     useEffect(() => {
         if (isOpen && !editingPeriode) {
             // Default initialization is handled by parent, but we can ensure portee is correct
         }
     }, [isOpen, editingPeriode]);
 
+    // Données dérivées
     const isSite = formData.idSite !== '' && formData.idSite !== null;
 
+    // Actions utilisateur
     const handleChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
+    // Rendu
     return (
         <Modal
             isOpen={isOpen}

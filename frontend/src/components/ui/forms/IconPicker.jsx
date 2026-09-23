@@ -14,6 +14,7 @@ export default function IconPicker({
     disabled = false,
     className = ''
 }) {
+    // État local et références DOM.
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('ALL');
@@ -21,7 +22,7 @@ export default function IconPicker({
     const containerRef = useRef(null);
     const searchInputRef = useRef(null);
 
-    // Fermeture lors d'un clic exterieur
+    // Effet : fermeture au clic extérieur et focus à l'ouverture.
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (containerRef.current && !containerRef.current.contains(event.target)) {
@@ -39,7 +40,7 @@ export default function IconPicker({
         };
     }, [isOpen]);
 
-    // Filtrage dynamique selon la recherche et la categorie
+    // Données dérivées : icônes filtrées.
     const filteredIcons = useMemo(() => {
         let list = AVAILABLE_ICON_NAMES;
 
@@ -66,6 +67,7 @@ export default function IconPicker({
         return list;
     }, [search, selectedCategory]);
 
+    // Action utilisateur
     const handleSelect = (iconName) => {
         if (onChange) {
             onChange(iconName);

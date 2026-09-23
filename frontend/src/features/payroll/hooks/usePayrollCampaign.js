@@ -21,6 +21,7 @@ import { getErrorMessage } from '@/api/apiClient';
  * }}
  */
 export function usePayrollCampaign(requestedPeriodId = null) {
+    // État local : périodes, contexte de campagne et requête active.
     const [periodes, setPeriodes] = useState([]);
     const [context, setContext] = useState(null);
     const [selectedPeriodeId, setSelectedPeriodeId] = useState(null);
@@ -28,6 +29,7 @@ export function usePayrollCampaign(requestedPeriodId = null) {
     const [error, setError] = useState(null);
     const abortRef = useRef(null);
 
+    // Chargement centralisé et protection contre les réponses obsolètes.
     const loadData = useCallback(async (periodeId) => {
         // Annuler une éventuelle requête précédente en vol
         if (abortRef.current) abortRef.current = false;

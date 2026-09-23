@@ -13,12 +13,14 @@ const getMonday = (d) => {
 };
 
 export function useSoldesOverview(demandesGlobales = []) {
+  // État local : mode, navigation, recherche, pagination et planning.
   // Modes d'affichage
   const [viewMode, setViewMode] = useState('MOIS'); // 'MOIS' | 'SEMAINE'
   const [filterMode, setFilterMode] = useState('TOUS'); // 'TOUS' | 'ABSENTS'
 
   // Navigation Mensuelle
   const [currentMonth, setCurrentMonth] = useState(() => getTodayDateString().slice(0, 7)); // YYYY-MM
+  // Données dérivées : calendrier mensuel et hebdomadaire.
   const [yearStr, monthStr] = currentMonth.split('-');
   const year = parseInt(yearStr, 10);
   const month = parseInt(monthStr, 10);
@@ -46,7 +48,7 @@ export function useSoldesOverview(demandesGlobales = []) {
   const weekEndStr = weekDaysArray[6].date;
   const isSemaineActuelle = fmtDateInput(getMonday(new Date())) === fmtDateInput(currentWeekMonday);
 
-  // Handlers de navigation
+  // Actions de navigation
   const handlePrevMonth = () => {
     let m = month - 1;
     let y = year;

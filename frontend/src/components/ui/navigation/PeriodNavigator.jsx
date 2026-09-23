@@ -10,6 +10,7 @@ import { getTodayDateString, isDateInFuture } from '@/utils/dateUtils';
  * - Mois : "< Août 2026 >"
  */
 export default function PeriodNavigator({
+    // Rendu et actions de navigation entre périodes.
     viewPeriod = 'jour', // 'jour' | 'semaine' | 'mois'
     selectedDate,        // Format 'YYYY-MM-DD'
     onDateChange,        // Callback (newDateStr)

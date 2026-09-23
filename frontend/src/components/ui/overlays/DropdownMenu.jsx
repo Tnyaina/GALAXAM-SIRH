@@ -5,6 +5,7 @@ import { MoreVertical } from 'lucide-react';
  * DropdownMenu — Menu contextuel déroulant (Actions, filtres, options).
  */
 export function DropdownMenu({
+    // État local, effet de fermeture et rendu du menu.
     trigger,
     children,
     align = 'right', // 'right' | 'left'

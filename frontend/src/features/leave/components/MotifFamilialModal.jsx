@@ -9,6 +9,10 @@ import Alert from '@/components/ui/feedback/Alert';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initialData = null }) {
+  // Contexte
+  const toast = useToast();
+
+  // État local
   const [formData, setFormData] = useState({
     code: '',
     libelle: '',
@@ -18,8 +22,7 @@ export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initial
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const toast = useToast();
-
+  // Effet : préremplit le formulaire en édition et le réinitialise en création.
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -39,6 +42,7 @@ export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initial
     setError(null);
   }, [initialData, isOpen]);
 
+  // Actions utilisateur
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -78,6 +82,7 @@ export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initial
     }
   };
 
+  // Rendu
   return (
     <Modal
       isOpen={isOpen}
@@ -141,4 +146,3 @@ export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initial
     </Modal>
   );
 }
-

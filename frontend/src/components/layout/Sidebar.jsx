@@ -130,6 +130,7 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar, 
 }
 
 export default function Sidebar({ open, onClose, menu = [], loading, error }) {
+    // Contexte, navigation et état local de la barre latérale.
     const location = useLocation();
     const sorted = sortByRang(menu);
     const activeLeafId = useMemo(() => findActiveLeafId(menu, location), [menu, location]);

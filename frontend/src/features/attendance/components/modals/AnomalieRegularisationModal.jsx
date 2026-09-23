@@ -35,6 +35,7 @@ export default function AnomalieRegularisationModal({
     anomalie,
     onSuccess
 }) {
+    // État local : onglet, soumission et formulaire de régularisation.
     const [activeTab, setActiveTab] = useState('HEURES'); // 'HEURES' ou 'ABSENCE'
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -60,8 +61,10 @@ export default function AnomalieRegularisationModal({
     // Motif global obligatoire
     const [motifAjustement, setMotifAjustement] = useState('');
 
+    // Données dérivées du contexte de l'anomalie.
     const siteEstContinu = Boolean(anomalie?.siteHoraireContinu);
 
+    // Actions utilisateur
     const handleModeChange = (mode) => {
         setModePresence(mode);
         if (mode === 'MATIN_SEUL') {
@@ -85,7 +88,7 @@ export default function AnomalieRegularisationModal({
         }
     };
 
-    // Initialisation lors de l'ouverture
+    // Effet : initialise le formulaire à chaque anomalie ouverte.
     useEffect(() => {
         if (!anomalie) return;
         setError('');
@@ -146,7 +149,7 @@ export default function AnomalieRegularisationModal({
         setMotifAjustement(anomalie.motifAjustement || '');
     }, [anomalie, isOpen, siteEstContinu]);
 
-    // Calcul des heures travaillées en temps réel (Mode 1)
+    // Données dérivées : calcul des heures et simulation de solde.
     const calculHeures = useMemo(() => {
         const toMins = (t) => {
             if (!t || !t.includes(':')) return null;
@@ -208,6 +211,7 @@ export default function AnomalieRegularisationModal({
     const soldeSuffisant = soldeRestant >= nbJoursAImputer;
     const soldeApresImputation = Math.round((soldeRestant - nbJoursAImputer) * 100) / 100;
 
+    // Action de sauvegarde
     const handleSubmit = async (e) => {
         if (e) e.preventDefault();
         setError('');

@@ -13,6 +13,7 @@ import { useState, useEffect } from 'react';
  * @returns {*} Valeur debouncée
  */
 export function useDebounce(value, delay = 350) {
+  // État local et effet de temporisation de la valeur.
   const [debouncedValue, setDebouncedValue] = useState(value);
 
   useEffect(() => {

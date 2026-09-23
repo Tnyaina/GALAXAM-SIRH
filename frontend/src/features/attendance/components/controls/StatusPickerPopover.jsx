@@ -61,17 +61,19 @@ export default function StatusPickerPopover({
     onStatusChange,
     disabled = false
 }) {
+    // État local
     const [isOpen, setIsOpen] = useState(false);
     const [selectedStatut, setSelectedStatut] = useState(currentStatus || 'PRESENT');
     const [motif, setMotif] = useState(currentMotif || '');
     const [position, setPosition] = useState({ top: 0, left: 0, openAbove: false });
 
+    // Références DOM et données dérivées
     const triggerRef = useRef(null);
     const popoverRef = useRef(null);
 
     const isAutonome = Boolean(row?.estAutonome || row?.dispensePointage);
 
-    // Synchronisation avec les props
+    // Effets : synchronise les props, la position et la fermeture du popover.
     useEffect(() => {
         setSelectedStatut(currentStatus || 'PRESENT');
     }, [currentStatus]);
@@ -80,6 +82,7 @@ export default function StatusPickerPopover({
         setMotif(currentMotif || '');
     }, [currentMotif]);
 
+    // Actions utilisateur et géométrie de l'interface.
     const updatePosition = useCallback(() => {
         if (!triggerRef.current) return;
         const rect = triggerRef.current.getBoundingClientRect();
@@ -150,6 +153,7 @@ export default function StatusPickerPopover({
         };
     }, [isOpen, updatePosition]);
 
+    // Données dérivées pour l'affichage du statut courant.
     const isMotifValid = selectedStatut !== 'ABSENCE_JUSTIFIEE' || Boolean(motif.trim());
 
     const handleApply = (statutToApply = selectedStatut) => {
@@ -187,6 +191,7 @@ export default function StatusPickerPopover({
         'Période verrouillée'
     ) : 'Cliquer pour modifier le statut du jour';
 
+    // Rendu
     return (
         <>
             <button

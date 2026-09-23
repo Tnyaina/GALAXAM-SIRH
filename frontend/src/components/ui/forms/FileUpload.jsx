@@ -2,11 +2,13 @@ import { useState, useRef } from 'react';
 import { Upload, X, FileText, AlertCircle } from 'lucide-react';
 
 export function FileUpload({ onFileSelect, accept = '.pdf,.png,.jpg', maxMb = 10, label = 'Déposez votre document ici' }) {
+    // État local et référence du champ natif.
     const [dragOver, setDragOver] = useState(false);
     const [file, setFile] = useState(null);
     const [error, setError] = useState('');
     const inputRef = useRef(null);
 
+    // Actions utilisateur : validation du fichier et glisser-déposer.
     const handleFile = (f) => {
         if (!f) return;
         if (f.size > maxMb * 1024 * 1024) {
@@ -26,6 +28,7 @@ export function FileUpload({ onFileSelect, accept = '.pdf,.png,.jpg', maxMb = 10
         }
     };
 
+    // Rendu
     return (
         <div className="space-y-2">
             <input

@@ -6,6 +6,7 @@ import contratService from '@/features/employees/api/contratService';
  * Réduit le code dupliqué et gère automatiquement le rafraîchissement des données RH.
  */
 export function useCarriere(idEmploye) {
+    // État local : dossier de carrière complet et état de chargement.
     const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState('');
 
@@ -32,6 +33,7 @@ export function useCarriere(idEmploye) {
         maxRenouvellements: 1,     // valeur de MAX_RENOUVELLEMENTS_ESSAI (configurable)
     });
 
+    // Chargement centralisé du dossier carrière.
     const loadCarriereData = useCallback(async (opts = {}) => {
         if (!idEmploye) return;
         if (!opts?.silent) setLoading(true);

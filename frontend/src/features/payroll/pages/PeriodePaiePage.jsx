@@ -202,6 +202,7 @@ const computePeriodeForDate = (dateStr) => {
 };
 
 export default function PeriodePaiePage() {
+    // Contexte, navigation et hook métier
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const {
@@ -214,12 +215,12 @@ export default function PeriodePaiePage() {
         executeCommand
     } = usePeriodePaie();
 
+    // État local
     const toast = useToast();
     const [variablesByPeriod, setVariablesByPeriod] = useState({});
     const [expandedPeriodId, setExpandedPeriodId] = useState(null);
 
-    // Une période n'est pas qu'un statut : les éléments variables qui la
-    // composent sont visibles directement depuis le registre des cycles.
+    // Effets
     useEffect(() => {
         let active = true;
         const loadVariables = async () => {
@@ -240,10 +241,9 @@ export default function PeriodePaiePage() {
         return () => { active = false; };
     }, [periodes]);
 
-    // Calcul automatique de la prochaine période suggérée
+    // Données dérivées
     const nextSuggestion = useMemo(() => computeNextPeriodeSuggestion(periodes), [periodes]);
 
-    // Modale de Création
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [newPeriode, setNewPeriode] = useState({
@@ -253,7 +253,7 @@ export default function PeriodePaiePage() {
         dateFin: ''
     });
 
-    // Détection de l'action "create" dans l'URL pour ouvrir directement la modale
+    // Effets de synchronisation URL
     useEffect(() => {
         const action = searchParams.get('action');
         if (action === 'create') {
@@ -278,6 +278,7 @@ export default function PeriodePaiePage() {
         }
     }, [searchParams, nextSuggestion, setSearchParams]);
 
+    // Actions
     const handleOpenCreateWithSuggestion = () => {
         setNewPeriode({
             code: nextSuggestion.code,
@@ -348,7 +349,6 @@ export default function PeriodePaiePage() {
         setIsCreateModalOpen(true);
     };
 
-    // Simulation server-driven des jours ouvrables (Backend-Driven)
     const [simulation, setSimulation] = useState(null);
     const [simulating, setSimulating] = useState(false);
 
@@ -376,7 +376,6 @@ export default function PeriodePaiePage() {
         }
     }, [newPeriode.dateDebut, newPeriode.dateFin]);
 
-    // Modale de Confirmation de Statut (pour Rouvrir, Valider, Clôturer)
     const [confirmAction, setConfirmAction] = useState({
         isOpen: false,
         periode: null,
@@ -387,7 +386,7 @@ export default function PeriodePaiePage() {
         confirmLabel: 'Confirmer'
     });
 
-    // Statistiques des périodes
+    // Données dérivées
     const stats = useMemo(() => {
         const total = periodes.length;
         const enCours = periodes.filter(p => p.statutCode === 'EN_COURS').length;
@@ -457,6 +456,7 @@ export default function PeriodePaiePage() {
         }
     };
 
+    // Rendu
     return (
         <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-8 px-2 sm:px-4">
             <SEO title="Périodes de Paie & Clôture" description="Gestion des périodes mensuelles de pointage et cycle de paie." />

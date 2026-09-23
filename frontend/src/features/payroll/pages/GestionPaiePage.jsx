@@ -38,6 +38,7 @@ const VariablesPaieTab = lazy(() => import('@/features/payroll/components/tabs/V
  * - Quelle est la prochaine action logique (« À FAIRE MAINTENANT ») ?
  */
 export default function GestionPaiePage() {
+    // Contexte, navigation et hook métier
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const rawTab = searchParams.get('tab') || 'centre';
@@ -45,11 +46,21 @@ export default function GestionPaiePage() {
 
     const { periodes, context, loading, selectPeriode } = usePayrollCampaign(requestedPeriodId);
 
+    // État local
     const [periodKpis, setPeriodKpis] = useState(null);
     const [kpiLoading, setKpiLoading] = useState(false);
     const [variableSummary, setVariableSummary] = useState({ count: 0, gains: 0, retenues: 0 });
 
-    // Compatibilité et redirection des anciens onglets
+    // Données dérivées
+    const activePeriod = context?.selectedPeriod || context?.currentPeriod || periodes[0] || null;
+    const isCurrentBusinessPeriod = Boolean(context?.currentPeriod?.id && context.currentPeriod.id === activePeriod?.id);
+    const campaignSteps = context?.campaignSteps || [];
+    const currentStepCode = context?.currentStep;
+    const currentStepObj = campaignSteps.find(s => s.code === currentStepCode);
+    const recalcRequired = context?.recalculationRequired === true;
+    const blockers = context?.issues || [];
+
+    // Effets
     useEffect(() => {
         if (rawTab === 'validation') {
             navigate('/pointages?tab=validation', { replace: true });
@@ -59,15 +70,7 @@ export default function GestionPaiePage() {
         }
     }, [rawTab, navigate, requestedPeriodId]);
 
-    const activePeriod = context?.selectedPeriod || context?.currentPeriod || periodes[0] || null;
-    const isCurrentBusinessPeriod = Boolean(context?.currentPeriod?.id && context.currentPeriod.id === activePeriod?.id);
-    const campaignSteps = context?.campaignSteps || [];
-    const currentStepCode = context?.currentStep;
-    const currentStepObj = campaignSteps.find(s => s.code === currentStepCode);
-    const recalcRequired = context?.recalculationRequired === true;
-    const blockers = context?.issues || [];
-
-    // Charger les KPI réels
+    // Chargements
     const loadPeriodKpis = useCallback(async (periodId) => {
         if (!periodId) {
             setPeriodKpis(null);
@@ -149,7 +152,7 @@ export default function GestionPaiePage() {
         };
     }, [context?.nextStep, navigate]);
 
-    // Rendu des sous-vues si compatibilité demandée
+    // Rendu
     if (rawTab === 'periodes') {
         return (
             <Suspense fallback={<SkeletonTable rows={6} cols={6} />}>

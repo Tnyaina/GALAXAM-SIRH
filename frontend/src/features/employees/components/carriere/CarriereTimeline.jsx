@@ -29,11 +29,14 @@ export default function CarriereTimeline({
     onOpenContrat,
     onOpenStc,
 }) {
+    // État local
     const [modeAffichage, setModeAffichage] = useState('tables'); // 'tables' par défaut | 'parcours'
 
+    // Données dérivées : liste fiable des contrats à afficher.
     const safeContrats = Array.isArray(contratsList) ? contratsList : (contratsList?.items || contratsList?.content || []);
     const displayContrats = safeContrats.filter(ct => ct && ct.codeStatutContrat !== 'BROUILLON');
 
+    // Rendu
     return (
         <div className="space-y-3.5">
             <TimelineBanners

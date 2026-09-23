@@ -12,11 +12,13 @@ import { getErrorMessage } from '@/api/apiClient';
  * Modale Quittance Libératoire Financière Officielle du STC (Article 53 Code du Travail - Loi 2003-044).
  */
 export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = null }) {
+    // État local
     const [recu, setRecu] = useState(initialRecu);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const printAreaRef = useRef(null);
 
+    // Effet : charge le reçu seulement à l'ouverture, sauf s'il est déjà fourni.
     useEffect(() => {
         if (!isOpen) {
             setRecu(null);
@@ -46,12 +48,15 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
         }
     }, [isOpen, idStc, initialRecu]);
 
+    // Action utilisateur
     const handlePrint = () => {
         window.print();
     };
 
+    // Rendu : garde de fermeture.
     if (!isOpen) return null;
 
+    // Rendu : document officiel et actions de la modale.
     return (
         <Modal
             isOpen={isOpen}

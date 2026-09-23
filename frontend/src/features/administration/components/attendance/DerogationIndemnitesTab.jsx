@@ -15,6 +15,7 @@ import pointageParametreService from '@/features/administration/api/pointagePara
 import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function DerogationIndemnitesTab() {
+    // Contexte : hook métier centralisant données et actions de dérogation.
     const {
         derogations,
         indemnites,
@@ -36,6 +37,7 @@ export default function DerogationIndemnitesTab() {
     } = useDerogationIndemnites();
 
     const toast = useToast();
+    // État local : confirmation de suppression uniquement.
     const [confirmDelete, setConfirmDelete] = useState({
         isOpen: false,
         derogation: null,
@@ -58,6 +60,7 @@ export default function DerogationIndemnitesTab() {
 
     if (loading) return <SkeletonTable rows={5} cols={7} />;
 
+    // Rendu
     return (
         <div className="space-y-6">
             {/* Bannière explicative */}
@@ -268,4 +271,3 @@ export default function DerogationIndemnitesTab() {
         </div>
     );
 }
-

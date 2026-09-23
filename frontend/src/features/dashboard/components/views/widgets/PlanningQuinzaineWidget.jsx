@@ -7,13 +7,16 @@ import { fmtDate } from '../../dashboardPresentation';
 import SkeletonListRows from './SkeletonListRows';
 
 export default function PlanningQuinzaineWidget({ loading, absences = [], sites = [], className = '' }) {
+    // État local
     const [selectedSiteFilter, setSelectedSiteFilter] = useState('ALL');
 
+    // Données dérivées
     const filteredAbsences = useMemo(() => {
         if (selectedSiteFilter === 'ALL') return absences;
         return absences.filter(a => String(a.idSite || a.nomSite) === String(selectedSiteFilter));
     }, [absences, selectedSiteFilter]);
 
+    // Rendu
     return (
         <Card className={`flex flex-col ${className}`}>
             <CardHeader className="min-h-[56px] flex items-center">

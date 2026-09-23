@@ -4,9 +4,10 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 export function useDemandesValidation({ onReload: parentReload } = {}) {
+  // Contexte
   const toast = useToast();
 
-  // ── Filtres ────────────────────────────────────────────────────────────────
+  // État local : filtres, pagination et données serveur.
   const [activeStatut,       setActiveStatut]       = useState('EN_ATTENTE');
   const [selectedTypeConge,  setSelectedTypeConge]  = useState('');
   const [searchRaw,          setSearchRaw]          = useState('');
@@ -21,7 +22,7 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
   // Debounce de 350 ms
   const searchTerm = useDebounce(searchRaw, 350);
 
-  // Charger les données depuis le serveur
+  // Chargement serveur et actions exposées au composant.
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -43,6 +44,7 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
     }
   }, [currentPage, pageSize, activeStatut, selectedTypeConge, searchTerm]);
 
+  // Effets : chargement, remise à zéro de pagination et garde de pagination.
   useEffect(() => {
     loadData();
   }, [loadData]);

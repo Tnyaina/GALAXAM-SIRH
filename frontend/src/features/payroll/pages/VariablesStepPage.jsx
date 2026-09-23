@@ -10,17 +10,21 @@ const VariablesPaieTab = lazy(() => import('@/features/payroll/components/tabs/V
  * VariablesStepPage — Étape 3 : Variables exceptionnelles (V1 Full V3).
  */
 export default function VariablesStepPage() {
+    // Contexte et hook métier
     const { periodId } = useParams();
     const numericPeriodId = Number(periodId) || null;
     const { periodes, context, loading, refresh, selectedPeriodeId } = usePayrollCampaign(numericPeriodId);
 
-    const handleVariableChange = () => refresh();
-
+    // Données dérivées
     const activePeriodId = numericPeriodId || selectedPeriodeId;
     const addVariableCapability = context?.availableActions?.ADD_VARIABLE;
     const canMutate = addVariableCapability?.allowed === true;
     const mutationDisabledReason = (addVariableCapability?.reasonCodes || []).join(', ') || 'La période est en lecture seule.';
 
+    // Actions
+    const handleVariableChange = () => refresh();
+
+    // Rendu
     return (
         <PayrollCampaignShell
             title="Étape 3 — Variables exceptionnelles"

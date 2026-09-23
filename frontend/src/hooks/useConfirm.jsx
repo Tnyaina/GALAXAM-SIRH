@@ -27,6 +27,7 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
  *   );
  */
 export function useConfirm() {
+    // État local et actions de confirmation réutilisables.
     const [state, setState] = useState({
         isOpen: false,
         title: 'Confirmation',

@@ -16,12 +16,12 @@ const DemandeCongeModal = lazy(() => import('@/features/leave/components/Demande
 const ValidationModals = lazy(() => import('./validation/ValidationModals'));
 
 export default function DemandesValidationTab({ referentiels, onReload: parentReload }) {
+  // Contexte et logique métier
   const toast = useToast();
   const { hasPermission } = useAuth();
   const canValidate = hasPermission('CONGE_VALIDATE');
   const canWrite = hasPermission('CONGE_WRITE');
 
-  // 1. Initialisation du Hook Logique
   const {
     demandes,
     totalElements,
@@ -44,7 +44,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
     loadData
   } = useDemandesValidation({ onReload: parentReload });
 
-  // 2. Gestion d'états locaux purs de l'UI (modales)
+  // État local : filtres et données viennent du hook ; ce composant ne conserve que l'UI des modales.
   const [showDemandeModal, setShowDemandeModal] = useState(false);
   const [selectedDemande, setSelectedDemande] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -56,15 +56,15 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState(null);
 
-  // Handlers pour les modales
-  const openValider = (d) => { setSelectedDemande(d); setActionError(null); setShowValiderModal(true); };
-  const openRefus = (d) => { setSelectedDemande(d); setActionError(null); setMotifRefus(''); setShowRefusModal(true); };
-  const openAnnuler = (d) => { setSelectedDemande(d); setActionError(null); setMotifAnnulation(''); setShowAnnulerModal(true); };
-  const openDetail = (d) => { setSelectedDemande(d); setShowDetailModal(true); };
-  const openModifier = (d) => { setSelectedDemande(d); setShowDemandeModal(true); };
-  const closeDetail = () => { setShowDetailModal(false); setSelectedDemande(null); };
+  // Actions utilisateur
+  const handleOpenValidation = (demande) => { setSelectedDemande(demande); setActionError(null); setShowValiderModal(true); };
+  const handleOpenRefusal = (demande) => { setSelectedDemande(demande); setActionError(null); setMotifRefus(''); setShowRefusModal(true); };
+  const handleOpenCancellation = (demande) => { setSelectedDemande(demande); setActionError(null); setMotifAnnulation(''); setShowAnnulerModal(true); };
+  const handleOpenDetail = (demande) => { setSelectedDemande(demande); setShowDetailModal(true); };
+  const handleOpenEdit = (demande) => { setSelectedDemande(demande); setShowDemandeModal(true); };
+  const handleCloseDetail = () => { setShowDetailModal(false); setSelectedDemande(null); };
 
-  const onConfirmValider = async (justificatifFourni, estRemunere, derogationSoldeNegatif) => {
+  const handleConfirmValidation = async (justificatifFourni, estRemunere, derogationSoldeNegatif) => {
     if (!selectedDemande) return;
     try {
       setActionLoading(true);
@@ -82,7 +82,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
     }
   };
 
-  const onConfirmRefus = async () => {
+  const handleConfirmRefusal = async () => {
     if (!motifRefus.trim()) { setActionError('Le motif de refus est obligatoire.'); return; }
     try {
       setActionLoading(true);
@@ -99,7 +99,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
     }
   };
 
-  const onConfirmAnnuler = async () => {
+  const handleConfirmCancellation = async () => {
     if (!selectedDemande) return;
     if (!motifAnnulation.trim()) {
       setActionError("Le motif d'annulation est obligatoire.");
@@ -120,7 +120,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
     }
   };
 
-  // 3. Rendu Conditionnel
+  // Rendu : état de chargement initial
   if (loading && demandes.length === 0) {
     return (
       <div className="space-y-4">
@@ -130,7 +130,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
     );
   }
 
-  // 4. Rendu Principal (Assemblage)
+  // Rendu : contenu et modales de la fonctionnalité
   return (
     <div className="space-y-5">
       {/* Filtres */}
@@ -160,10 +160,10 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
         setCurrentPage={setCurrentPage}
         setPageSize={setPageSize}
         canValidate={canValidate}
-        onOpenDetail={openDetail}
-        onOpenRefus={openRefus}
-        onOpenValider={openValider}
-        onOpenModifier={openModifier}
+        onOpenDetail={handleOpenDetail}
+        onOpenRefus={handleOpenRefusal}
+        onOpenValider={handleOpenValidation}
+        onOpenModifier={handleOpenEdit}
       />
 
       {/* Toutes les Modales d'action (Lazy Loaded) */}
@@ -173,25 +173,25 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
             selectedDemande={selectedDemande}
 
             showDetailModal={showDetailModal}
-            onCloseDetail={closeDetail}
-            onOpenValider={openValider}
-            onOpenRefus={openRefus}
-            onOpenModifier={openModifier}
-            onOpenAnnuler={openAnnuler}
+            onCloseDetail={handleCloseDetail}
+            onOpenValider={handleOpenValidation}
+            onOpenRefus={handleOpenRefusal}
+            onOpenModifier={handleOpenEdit}
+            onOpenAnnuler={handleOpenCancellation}
 
             showValiderModal={showValiderModal}
             onCloseValider={() => { setShowValiderModal(false); setSelectedDemande(null); }}
-            onConfirmValider={onConfirmValider}
+            onConfirmValider={handleConfirmValidation}
 
             showRefusModal={showRefusModal}
             onCloseRefus={() => { setShowRefusModal(false); setSelectedDemande(null); setMotifRefus(''); }}
-            onConfirmRefus={onConfirmRefus}
+            onConfirmRefus={handleConfirmRefusal}
             motifRefus={motifRefus}
             setMotifRefus={setMotifRefus}
 
             showAnnulerModal={showAnnulerModal}
             onCloseAnnuler={() => { setShowAnnulerModal(false); setSelectedDemande(null); setMotifAnnulation(''); }}
-            onConfirmAnnuler={onConfirmAnnuler}
+            onConfirmAnnuler={handleConfirmCancellation}
             motifAnnulation={motifAnnulation}
             setMotifAnnulation={setMotifAnnulation}
 

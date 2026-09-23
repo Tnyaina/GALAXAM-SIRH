@@ -16,19 +16,20 @@ export default function Pagination({
     onPageSizeChange,
     className = '',
 }) {
+    // Données dérivées : bornes et nombre de pages.
     const count = totalItems !== undefined ? totalItems : (totalElements !== undefined ? totalElements : 0);
     const totalPages = Math.max(1, Math.ceil(count / pageSize));
     const startItem = count === 0 ? 0 : (currentPage - 1) * pageSize + 1;
     const endItem = Math.min(currentPage * pageSize, count);
 
-    // Sécurité ajustement : si currentPage dépasse totalPages (ex: filtre modifié ou suppression)
+    // Effet : ramène une page invalide dans les bornes.
     useEffect(() => {
         if (currentPage > totalPages && totalPages > 0 && onPageChange) {
             onPageChange(1);
         }
     }, [currentPage, totalPages, onPageChange]);
 
-    // Génération des numéros de page avec ellipsis
+    // Fonction de présentation locale.
     const getPageNumbers = () => {
         const pages = [];
         const maxVisible = 5;
@@ -47,6 +48,7 @@ export default function Pagination({
         return pages;
     };
 
+    // Rendu
     return (
         <div
             className={`

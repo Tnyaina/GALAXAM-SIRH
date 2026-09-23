@@ -17,6 +17,7 @@ import SitesList from './sites/SitesList';
 import SiteFormModal from './sites/SiteFormModal';
 
 export default function FilialesSitesTab() {
+    // Contexte et navigation
     const [searchParams, setSearchParams] = useSearchParams();
     const activeSubTab = searchParams.get('subtab') || 'filiales';
     const toast = useToast();
@@ -30,6 +31,7 @@ export default function FilialesSitesTab() {
         });
     };
 
+    // État local
     const [filiales, setFiliales] = useState([]);
     const [sites, setSites] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -40,7 +42,7 @@ export default function FilialesSitesTab() {
     const [filterFilialeId, setFilterFilialeId] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
-    // Confirmation dialog state
+    // État de confirmation
     const [confirmState, setConfirmState] = useState({
         isOpen: false,
         title: '',
@@ -68,6 +70,7 @@ export default function FilialesSitesTab() {
         heureDebutApresMidi: '13:00', heureFinApresMidi: '16:30'
     });
 
+    // Chargement des données
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -86,11 +89,12 @@ export default function FilialesSitesTab() {
         }
     };
 
+    // Effet : charge les filiales et sites à l'ouverture de l'onglet.
     useEffect(() => {
         loadData();
     }, []);
 
-    // Filiale Handlers
+    // Actions utilisateur : filiales, sites et confirmations.
     const handleOpenCreateFiliale = () => {
         setSelectedFiliale(null);
         setFilialeFormData({ codeFiliale: '', raisonSociale: '', nif: '', stat: '', seuilEffectifAlerte: 19 });

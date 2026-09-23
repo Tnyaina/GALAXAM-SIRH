@@ -16,6 +16,7 @@ import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 
 export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCapability, outputs = [] }) {
+    // État local : téléchargement, aperçu et message de retour.
     const [downloading, setDownloading] = useState(null);
     const [previewType, setPreviewType] = useState(null);
     const [previewData, setPreviewData] = useState([]);
@@ -74,6 +75,7 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
         }
     };
 
+    // Rendu
     return (
         <div className="space-y-5">
             {feedback && (

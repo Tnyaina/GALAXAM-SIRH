@@ -16,9 +16,11 @@ export function useCarriereModals({
     refreshData,
     onEmployeUpdated
 }) {
+    // Contexte et navigation
     const [, setSearchParams] = useSearchParams();
     const toast = useToast();
 
+    // État local : modales de carrière et éléments sélectionnés.
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [editInitialData, setEditInitialData] = useState(null);
 

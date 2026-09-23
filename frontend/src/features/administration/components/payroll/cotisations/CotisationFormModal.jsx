@@ -14,8 +14,10 @@ export default function CotisationFormModal({
     actionError,
     submitting = false,
 }) {
+    // État local
     const [localError, setLocalError] = useState(null);
 
+    // Actions utilisateur : validation avant délégation de sauvegarde au parent.
     const handleSubmit = (e) => {
         e.preventDefault();
         setLocalError(null);
@@ -39,8 +41,10 @@ export default function CotisationFormModal({
         onSubmit(e);
     };
 
+    // Données dérivées
     const portee = formData.portee || 'SITE';
 
+    // Rendu
     return (
         <FormModal
             isOpen={isOpen}

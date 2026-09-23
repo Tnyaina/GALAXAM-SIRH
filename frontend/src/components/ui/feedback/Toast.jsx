@@ -19,6 +19,7 @@ const borders = {
 };
 
 export function ToastProvider({ children }) {
+  // État local et actions de la file de notifications.
   const [toasts, setToasts] = useState([]);
 
   const toastFn = useCallback(({ title, message, type = 'info', duration = 4000 }) => {

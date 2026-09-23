@@ -24,6 +24,7 @@ function apiAssetPath(source) {
 
 /** Charge une image privée via le client API afin d'envoyer le JWT et de gérer son renouvellement. */
 export default function AuthenticatedImage({ src, fallback = null, onError, ...imageProps }) {
+    // État local, effet de chargement authentifié et rendu de repli.
     const [objectUrl, setObjectUrl] = useState(null);
     const [failed, setFailed] = useState(false);
 

@@ -67,6 +67,7 @@ function KpiCard({ label, value, sublabel, highlight = false, mono = true }) {
 }
 
 export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
+    // État local : synthèse, documents ouverts et retours d'action.
     const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState(null);
     const [feedbackMsg, setFeedbackMsg] = useState(null);
@@ -101,6 +102,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
         }
     }, [idEmploye]);
 
+    // Effet : charge le dossier paie du collaborateur sélectionné.
     useEffect(() => { chargerDonnees(); }, [chargerDonnees]);
 
     const handleVoirBulletin = (idBulletin) => { setSelectedBulletinId(idBulletin); setIsDrawerOpen(true); };
@@ -110,6 +112,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
 
     if (loading) return <div className="space-y-4 p-4"><SkeletonTable rows={4} columns={4} /></div>;
 
+    // Rendu
     return (
         <div className="space-y-3">
             {feedbackMsg && <Alert type={feedbackMsg.type} message={feedbackMsg.message} onClose={() => setFeedbackMsg(null)} />}

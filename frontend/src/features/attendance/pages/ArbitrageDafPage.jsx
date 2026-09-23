@@ -35,11 +35,13 @@ const PointageGanttView = lazy(() => import('@/features/attendance/components/vi
  * Synthese mensuelle + Vue Gantt pour investigation + Actions : Valider / Rejeter.
  */
 export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode = null }) {
+    // Contexte, navigation et hook métier
     const [searchParams, setSearchParams] = useSearchParams();
     const { hasPermission } = useAuth();
     const { toast } = useToast();
     const isDaf = hasPermission('POINTAGE_VALIDATE');
 
+    // État local
     const [periodes, setPeriodes] = useState([]);
     const [selectedPeriode, setSelectedPeriode] = useState(() => searchParams.get('periode') || (activePeriode?.idPeriodePaie ? String(activePeriode.idPeriodePaie) : ''));
     const [selectedEmployeToAdjust, setSelectedEmployeToAdjust] = useState(null);
@@ -75,6 +77,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const [ganttData, setGanttData] = useState({});
     const [loadingGantt, setLoadingGantt] = useState(false);
 
+    // Effets
     useEffect(() => {
         const init = async () => {
             try {
@@ -146,6 +149,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
     useEffect(() => { loadData(); }, [loadData]);
 
+    // Données dérivées
     const currentPeriodeObj = useMemo(() =>
         periodes.find(p => p.idPeriodePaie === Number(selectedPeriode)) || null,
         [periodes, selectedPeriode]);
@@ -240,6 +244,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         }
     }, [selectedSemaine, viewMode, loadGanttData]);
 
+    // Actions
     const handleValiderPeriode = async () => {
         if (!selectedPeriode) return;
         setProcessing(true);
@@ -341,6 +346,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         }
     };
 
+    // Rendu
     return (
         <>
             <SEO title="Contrôle & Validation — Synthèse Mensuelle" description="Contrôle et validation des heures supplémentaires, indemnités et synthèse de pointage" />

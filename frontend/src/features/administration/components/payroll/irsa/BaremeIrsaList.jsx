@@ -40,12 +40,14 @@ function groupByExercice(tranches) {
 }
 
 export default function BaremeIrsaList({ tranchesIrsa = [], onOpenCreate, onOpenEdit, onOpenRevaloriser }) {
+    // Données dérivées : exercices fiscaux regroupés.
     const groups = useMemo(() => groupByExercice(tranchesIrsa), [tranchesIrsa]);
 
-    // Initialisation de l'accordéon :
+    // État local : accordéons ouverts.
     // Les groupes EN_VIGUEUR et PROGRAMME sont ouverts par défaut, les ARCHIVÉS sont repliés
     const [openGroups, setOpenGroups] = useState(new Set());
 
+    // Effet : ouvre les exercices en vigueur ou programmés par défaut.
     useEffect(() => {
         const initial = new Set();
         groups.forEach(g => {
@@ -60,6 +62,7 @@ export default function BaremeIrsaList({ tranchesIrsa = [], onOpenCreate, onOpen
         setOpenGroups(initial);
     }, [groups]);
 
+    // Action utilisateur
     const toggleGroup = (key) => {
         setOpenGroups(prev => {
             const next = new Set(prev);
@@ -72,6 +75,7 @@ export default function BaremeIrsaList({ tranchesIrsa = [], onOpenCreate, onOpen
         });
     };
 
+    // Rendu
     return (
         <div className="space-y-4">
             {/* En-tête global */}

@@ -16,7 +16,7 @@ export default function PointageRecapModal({
     selectedDate = '',
     siteLabel = ''
 }) {
-    // Raccourci clavier : validation immédiate avec la touche Entrée
+    // Effet : raccourci clavier de validation immédiate avec Entrée.
     useEffect(() => {
         if (!isOpen || saving) return;
 
@@ -31,6 +31,7 @@ export default function PointageRecapModal({
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, saving, onConfirm]);
+    // Données dérivées pour le récapitulatif journalier.
     const safeData = Array.isArray(grilleData) ? grilleData : [];
 
     const fmtMoney = (val) => formatMonnaie(val);
@@ -63,6 +64,7 @@ export default function PointageRecapModal({
     const repasConfig = siteIndemnites.find(i => i.code === 'REPAS');
     const montantRepasBase = repasConfig?.montantJour || repasConfig?.montantReference || 0;
 
+    // Rendu
     return (
         <Modal
             isOpen={isOpen}

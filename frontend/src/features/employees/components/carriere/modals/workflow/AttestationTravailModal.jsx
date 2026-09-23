@@ -16,6 +16,7 @@ export default function AttestationTravailModal({
     signataire,
     dateDebutInitiale = null,
 }) {
+    // État local : animation, options de document et chargement.
     const [mounted, setMounted] = useState(false);
     const [typeAnciennete, setTypeAnciennete] = useState('globale'); // 'contrat' | 'globale'
     const [inclureSalaire, setInclureSalaire] = useState(false);
@@ -24,8 +25,10 @@ export default function AttestationTravailModal({
     const [docData, setDocData] = useState(null);
     const printRef = useRef(null);
 
+    // Données dérivées et référence DOM du document.
     const idEmp = employe?.idEmploye || contrat?.idEmploye;
 
+    // Chargement et actions utilisateur
     const chargerDonnees = useCallback(async () => {
         if (!idEmp) return;
         setLoadingData(true);
@@ -39,6 +42,7 @@ export default function AttestationTravailModal({
         }
     }, [idEmp, typeAnciennete, inclureSalaire]);
 
+    // Effets : chargent à l'ouverture et ferment avec Échap.
     useEffect(() => {
         if (isOpen) {
             chargerDonnees();

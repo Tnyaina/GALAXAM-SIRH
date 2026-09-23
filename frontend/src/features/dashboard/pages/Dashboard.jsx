@@ -12,7 +12,10 @@ import HasPermission from '@/features/auth/components/HasPermission';
 import SEO from '@/components/system/SEO';
 
 export default function Dashboard() {
+    // Hook métier
     const { data, loading, error, refresh, lastRefresh } = useDashboard();
+
+    // Données dérivées
     const kpis = data?.kpis;
     const alertesCritiques = data?.alertesCritiques || [];
     const alertes7j = data?.alertes7j || [];
@@ -26,6 +29,7 @@ export default function Dashboard() {
 
     const totalAlertesContrats = alertesCritiques.length + alertes7j.length;
 
+    // Rendu
     return (
         <div className="space-y-4 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <SEO title="Tableau de bord" description="Vue d'ensemble et indicateurs clés RH." />

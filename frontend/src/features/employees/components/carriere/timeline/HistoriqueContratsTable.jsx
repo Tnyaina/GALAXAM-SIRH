@@ -14,12 +14,14 @@ export default function HistoriqueContratsTable({
     onOpenContrat,
     onOpenStc,
 }) {
+    // Données dérivées stables
     const today = new Date().setHours(0, 0, 0, 0);
     const hasContratActif = Boolean(contratActif) || displayContrats.some(ct => Boolean(ct.isActif) && !ct.isAnnule);
 
-    // Par défaut : NON AFFICHER les contrats annulés
+    // État local : les contrats annulés restent masqués par défaut.
     const [showAnnules, setShowAnnules] = useState(false);
 
+    // Fonctions et données dérivées de présentation.
     const getTypeContratBadgeVariant = () => 'default';
 
     const nbAnnules = useMemo(() => {
@@ -41,6 +43,7 @@ export default function HistoriqueContratsTable({
         });
     }, [displayContrats, showAnnules]);
 
+    // Rendu
     return (
         <div className="space-y-3 pt-4">
             <div className="flex items-center justify-between pb-2 border-b border-ink-150 dark:border-ink-700">

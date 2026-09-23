@@ -7,11 +7,13 @@ import { useAuth } from '@/context/AuthContext';
  * Gère le chargement, le refresh, et les états de loading/erreur.
  */
 export function useDashboard() {
+    // État local du serveur
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [lastRefresh, setLastRefresh] = useState(null);
 
+    // Action de chargement réutilisée par le premier affichage et le rafraîchissement.
     const load = useCallback(async (signal) => {
         setLoading(true);
         setError(null);
@@ -28,6 +30,7 @@ export function useDashboard() {
         }
     }, []);
 
+    // Effet : charge les données et annule la requête au démontage.
     useEffect(() => {
         const controller = new AbortController();
         load(controller.signal);
@@ -42,11 +45,15 @@ export function useDashboard() {
  * Intègre l'Optimistic UI et la gestion du Rollback.
  */
 export function useNotifications() {
+    // Contexte
     const { isAuthenticated, hasPermission } = useAuth();
+
+    // État local du serveur
     const [notifications, setNotifications] = useState([]);
     const [totalNonLues, setTotalNonLues] = useState(0);
     const [loading, setLoading] = useState(true);
 
+    // Actions de chargement et de mise à jour optimiste
     const load = useCallback(async (isBackground = false, signal) => {
         if (!isAuthenticated || !hasPermission('EMPLOYE_READ')) {
             setLoading(false);
@@ -120,6 +127,7 @@ export function useNotifications() {
         }
     };
 
+    // Effet : charge, rafraîchit périodiquement et nettoie les abonnements.
     useEffect(() => {
         const controller = new AbortController();
         load(false, controller.signal);

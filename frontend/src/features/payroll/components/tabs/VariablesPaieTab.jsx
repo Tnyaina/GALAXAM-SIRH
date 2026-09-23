@@ -23,6 +23,7 @@ import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 
 export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, mutationDisabledReason = '', onVariableChanged }) {
+    // État local : variables, filtres, formulaire et retours d'action.
     const [variables, setVariables] = useState([]);
     const [loading, setLoading] = useState(false);
     const [typesMouvements, setTypesMouvements] = useState([]);
@@ -74,6 +75,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         }
     }, [idPeriodeActive]);
 
+    // Effet : recharge les variables quand la période active change.
     useEffect(() => {
         chargerDonnees();
     }, [chargerDonnees]);
@@ -208,6 +210,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         REJETE: { label: 'Rejeté', variant: 'danger' },
     };
 
+    // Rendu
     return (
         <div className="space-y-4">
             {feedbackMsg && (

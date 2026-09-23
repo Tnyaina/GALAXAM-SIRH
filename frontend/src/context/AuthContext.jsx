@@ -22,6 +22,7 @@ const parseJwt = (token) => {
 };
 
 export const AuthProvider = ({ children }) => {
+    // État local, effets de session et actions d'authentification.
     const [user, setUser] = useState(() => {
         try {
             const saved = localStorage.getItem('galaxam-user');

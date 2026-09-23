@@ -22,6 +22,7 @@ export function invalidateContractReferentiels() {
  * @param {number|string|null} excludeEmployeId - ID employé à exclure de la liste des responsables N+1
  */
 export function useContractReferentiels(enabled = true, _excludeEmployeId = null) {
+    // État local : cache de référentiels et état de chargement.
     const [referentiels, setReferentiels] = useState(cacheData || {
         filiales: [],
         sites: [],
@@ -38,6 +39,7 @@ export function useContractReferentiels(enabled = true, _excludeEmployeId = null
     const [loading, setLoading] = useState(!cacheData);
     const [error, setError] = useState(null);
 
+    // Chargement centralisé avec cache mémoire.
     const fetchAll = useCallback(async (force = false) => {
         const isExpired = Date.now() - cacheTimestamp > CACHE_TTL_MS;
 
@@ -95,6 +97,7 @@ export function useContractReferentiels(enabled = true, _excludeEmployeId = null
         }
     }, []);
 
+    // Effet : charge seulement lorsque le formulaire propriétaire est visible.
     useEffect(() => {
         if (enabled) {
             fetchAll();

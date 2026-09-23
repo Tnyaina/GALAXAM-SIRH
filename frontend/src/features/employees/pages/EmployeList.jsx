@@ -18,18 +18,16 @@ import EmployeTable from '@/features/employees/components/EmployeTable';
 import Pagination from '@/components/ui/navigation/Pagination';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 
-const EmployeFormModal = lazy(() => import('./dossier/EmployeFormModal'));
+const EmployeeFormModal = lazy(() => import('@/features/employees/components/modals/EmployeeFormModal'));
 
 export default function EmployeList() {
+    // Contexte, navigation et hook métier
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const { hasPermission } = useAuth();
-    const canWrite = hasPermission('EMPLOYE_WRITE');
-    const canValidate = hasPermission('EMPLOYE_VALIDATE');
-
-    // Référentiels de structure (Sites, Départements, Services)
     const { sites = [], departements = [], services = [] } = useContractReferentiels(true);
 
+    // État local
     const [rawEmployes, setRawEmployes] = useState([]);
     const [totalElements, setTotalElements] = useState(0);
     const [statsCounts, setStatsCounts] = useState({ total: 0, actifs: 0, inactifs: 0 });
@@ -66,6 +64,11 @@ export default function EmployeList() {
     const [error, setError] = useState('');
     const toast = useToast();
 
+    // Données dérivées
+    const canWrite = hasPermission('EMPLOYE_WRITE');
+    const canValidate = hasPermission('EMPLOYE_VALIDATE');
+
+    // Effets
     const loadEmployes = useCallback(async () => {
         setLoading(true);
         try {
@@ -372,7 +375,7 @@ export default function EmployeList() {
             {/* Modale d'édition / création d'employé */}
             {isFormOpen && (
                 <Suspense fallback={null}>
-                    <EmployeFormModal
+                    <EmployeeFormModal
                         isOpen={isFormOpen}
                         onClose={() => setIsFormOpen(false)}
                         onSave={handleSaveForm}

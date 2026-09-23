@@ -24,6 +24,7 @@ import { formatMoneyAr } from '@/utils/moneyUtils';
  *   avec action Trésorerie explicite [Imputer le reliquat].
  */
 export default function AcomptesAvancesPage() {
+    // État local
     const [loading, setLoading] = useState(false);
     const [dossiers, setDossiers] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -31,6 +32,7 @@ export default function AcomptesAvancesPage() {
     const [selectedDossier, setSelectedDossier] = useState(null);
     const [feedback, setFeedback] = useState(null);
 
+    // Effets
     const chargerDossiers = useCallback(async () => {
         setLoading(true);
         try {
@@ -58,7 +60,7 @@ export default function AcomptesAvancesPage() {
         chargerDossiers();
     }, [chargerDossiers]);
 
-    // KPIs calculés sur les données réelles
+    // Données dérivées
     const kpis = useMemo(() => {
         let aApprouver = 0;
         let aVerser = 0;
@@ -132,6 +134,7 @@ export default function AcomptesAvancesPage() {
         ];
     }, [selectedDossier]);
 
+    // Rendu
     return (
         <div className="space-y-5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-8 px-2 sm:px-4">
             <SEO

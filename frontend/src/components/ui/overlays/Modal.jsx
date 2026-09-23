@@ -6,6 +6,7 @@ import { X } from 'lucide-react';
  * Fermeture sur Échap, clic extérieur, dimensions strictes, fond sémantique.
  */
 export default function Modal({
+    // Effets d'accessibilité, actions de fermeture et rendu de la modale.
     isOpen,
     onClose,
     title,

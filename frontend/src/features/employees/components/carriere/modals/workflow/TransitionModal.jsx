@@ -27,8 +27,10 @@ export default function TransitionModal({
     initialData = null,
     onSuccess,
 }) {
+    // État local : onglet d'aperçu.
     const [previewTab, setPreviewTab] = useState('comparatif'); // 'comparatif' | 'document'
 
+    // Contexte : référentiels requis pour le formulaire de transition.
     const {
         formData, setField,
         submitting, errorMsg,
@@ -49,6 +51,7 @@ export default function TransitionModal({
         affectationActive, contratActif, initialData, onSuccess
     });
 
+    // Effet : remet l'aperçu comparatif à l'ouverture.
     useEffect(() => {
         if (!isOpen) return;
         const handleKeyDown = (e) => {
@@ -64,6 +67,7 @@ export default function TransitionModal({
     const stepAffectation = exigeNouveauContrat ? 3 : 2;
     const stepMotif = exigeNouveauContrat ? 4 : 3;
 
+    // Rendu
     return (
         <div 
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}

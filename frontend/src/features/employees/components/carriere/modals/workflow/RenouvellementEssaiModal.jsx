@@ -79,10 +79,12 @@ export default function RenouvellementEssaiModal({
     initialData = null,
     onSuccess,
 }) {
+    // Données dérivées des droits et du mode d'édition.
     const isEditMode = !!initialData;
     const _wfId = initialData?.idWorkflow || initialData?.workflow?.idWorkflow;
     const isActionAllowed = isEditMode || etatEssai?.canRenew !== false;
 
+    // État local : formulaire de renouvellement, aperçu et soumission.
     const [dureeProlongationMois, setDureeProlongationMois] = useState('2');
     const [dateFinInitiale, setDateFinInitiale] = useState('');
     const [dateEffet, setDateEffet] = useState('');
@@ -94,6 +96,7 @@ export default function RenouvellementEssaiModal({
     const [showPreviewMobile, setShowPreviewMobile] = useState(false);
     const [mounted, setMounted] = useState(false);
 
+    // Effets : initialise les dates, recalcule l'échéance et gère l'ouverture.
     useEffect(() => {
         if (isOpen) {
             const dateFinEssaiContrat = contratActif?.dateFinEssai

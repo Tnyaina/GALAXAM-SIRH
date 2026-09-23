@@ -5,8 +5,10 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import { fmtDateInput } from '@/utils/dateUtils';
 
 export function useDerogationIndemnites() {
+    // Données dérivées et contexte
     const todayStr = fmtDateInput(new Date());
 
+    // État local : données serveur, filtres et formulaire.
     const [derogations, setDerogations] = useState([]);
     const [indemnites, setIndemnites] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -31,6 +33,7 @@ export function useDerogationIndemnites() {
 
     const toast = useToast();
 
+    // Chargement et actions exposées au composant propriétaire.
     const loadData = useCallback(async () => {
         setLoading(true);
         setError(null);

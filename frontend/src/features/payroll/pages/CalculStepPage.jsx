@@ -29,11 +29,13 @@ const BulletinPaieDrawer = lazy(() => import('@/features/payroll/components/view
  * Règle stricte : Zéro recalcul mathématique dans React.
  */
 export default function CalculStepPage() {
+    // Contexte et hook métier
     const { periodId } = useParams();
     const navigate = useNavigate();
     const numericPeriodId = Number(periodId) || null;
     const { periodes, context, loading: ctxLoading, refresh } = usePayrollCampaign(numericPeriodId);
 
+    // État local
     const [calcLoading, setCalcLoading] = useState(false);
     const [simLoading, setSimLoading] = useState(false);
     const [result, setResult] = useState(null);
@@ -43,6 +45,7 @@ export default function CalculStepPage() {
     const [selectedBulletinId, setSelectedBulletinId] = useState(null);
     const [feedback, setFeedback] = useState(null);
 
+    // Données dérivées
     const actions = context?.availableActions || {};
     const canCalculate = actions?.CALCULATE?.allowed === true;
     const canSimulate = actions?.SIMULATE?.allowed === true;
@@ -57,7 +60,7 @@ export default function CalculStepPage() {
     // Seul l'état métier fourni par le backend "LOCKED" rend cette étape en lecture seule.
     const isReadOnly = calcStep?.state === 'LOCKED';
 
-    // Charger les résultats existants de la période
+    // Effets
     const loadExistingCalculation = useCallback(async () => {
         if (!numericPeriodId) return;
         try {
@@ -91,6 +94,7 @@ export default function CalculStepPage() {
         loadExistingCalculation();
     }, [loadExistingCalculation]);
 
+    // Actions
     const handleSimuler = useCallback(async () => {
         if (!numericPeriodId) return;
         setSimLoading(true);

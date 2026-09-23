@@ -28,15 +28,18 @@ export default function PointageDetailHebdoModal({
     periodeLibelle = '',
     onAjusterPointage = null
 }) {
+    // État local
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [ficheData, setFicheData] = useState(null);
     const [activeTab, setActiveTab] = useState('hebdo'); // 'hebdo' | 'quotidien'
 
+    // Données dérivées du collaborateur et de la fiche retournée par l'API.
     const idEmploye = employe?.idEmploye;
     const employeNom = employe ? `${employe.nom || ''} ${employe.prenom || ''}`.trim() : 'Collaborateur';
     const matricule = employe?.matricule || '—';
 
+    // Chargement de la fiche détaillée
     const loadData = useCallback(async () => {
         if (!isOpen || !idEmploye) return;
         setLoading(true);
@@ -56,6 +59,7 @@ export default function PointageDetailHebdoModal({
         }
     }, [isOpen, idEmploye, idPeriodePaie]);
 
+    // Effet : recharge et réinitialise l'onglet à chaque ouverture.
     useEffect(() => {
         if (isOpen) {
             loadData();
@@ -66,6 +70,7 @@ export default function PointageDetailHebdoModal({
         }
     }, [isOpen, loadData]);
 
+    // Données dérivées de la fiche
     const recap = ficheData?.recap || ficheData?.recapitulatif || {};
     const kpis = ficheData?.kpis || {};
     const regles = ficheData?.reglesAppliquees || {};
@@ -77,6 +82,7 @@ export default function PointageDetailHebdoModal({
     const totalIndemnitesStr = kpis.totalIndemnitesMois || recap.totalIndemnites;
     const totalIndemnites = (Number(recap.montantTotalRepas) || 0) + (Number(recap.montantTotalDeplacement) || 0);
 
+    // Rendu
     return (
         <Modal
             isOpen={isOpen}

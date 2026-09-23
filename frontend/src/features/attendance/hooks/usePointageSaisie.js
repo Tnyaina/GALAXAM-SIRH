@@ -4,9 +4,11 @@ import { isRowDataModified, calculerLignePointageTempsReel } from '@/features/at
 import { getTodayDateString } from '@/utils/dateUtils';
 
 export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateString()) {
+    // État local : site et date sélectionnés.
     const [selectedSite, setSelectedSite] = useState(initialSiteId);
     const [selectedDate, setSelectedDate] = useState(initialDate);
 
+    // Effets : synchronisent les valeurs initiales fournies par le parent.
     useEffect(() => {
         if (initialDate && initialDate !== selectedDate) {
             setSelectedDate(initialDate);
@@ -18,6 +20,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
             setSelectedSite(initialSiteId);
         }
     }, [initialSiteId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // État local : grille, paramètres et états de requête.
     const [grilleData, setGrilleData] = useState([]);
     const [initialGrilleData, setInitialGrilleData] = useState([]);
     const [siteParams, setSiteParams] = useState(null);

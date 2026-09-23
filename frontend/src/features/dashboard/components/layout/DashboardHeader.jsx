@@ -39,14 +39,23 @@ export default function DashboardHeader({
     demandesCongeAValiderCount = 0,
     totalAlertesContrats = 0
 }) {
+    // Contexte
     const { user } = useAuth();
     const toast = useToast();
-    const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-    // Contexte backend-driven : périodes + actions disponibles
+    // État local
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [periodContext, setPeriodContext] = useState(null);
     const [periodes, setPeriodes] = useState([]);
 
+    // Données dérivées : message de bienvenue et période active fournie par le backend.
+    const now = new Date();
+    const greeting =
+        now.getHours() < 12 ? 'Bonjour' :
+            now.getHours() < 18 ? 'Bon après-midi' : 'Bonsoir';
+
+    // Effets
+    // Charge le contexte de période sans déduire son statut côté navigateur.
     useEffect(() => {
         let isMounted = true;
         const fetchContext = async () => {
@@ -70,11 +79,7 @@ export default function DashboardHeader({
         return () => { isMounted = false; };
     }, [lastRefresh]);
 
-    const now = new Date();
-    const greeting =
-        now.getHours() < 12 ? 'Bonjour' :
-            now.getHours() < 18 ? 'Bon après-midi' : 'Bonsoir';
-
+    // Surveille la connectivité afin d'actualiser le tableau de bord au retour du réseau.
     useEffect(() => {
         const handleOnline = () => {
             setIsOnline(true);
@@ -100,6 +105,7 @@ export default function DashboardHeader({
         };
     }, [refresh, toast]);
 
+    // Actions utilisateur
     const handleRefresh = async () => {
         await refresh();
         toast({
@@ -110,6 +116,7 @@ export default function DashboardHeader({
         });
     };
 
+    // Données dérivées de navigation
     // P1-02 : Période active = exclusivement periodContext.selectedPeriod fourni par le backend.
     // Aucun fallback local (periodes.find, periodes[0]) : le backend est le seul décisionnaire.
     // Si selectedPeriod est null → l'absence de widget indique explicitement qu'aucune période n'est active.
@@ -143,6 +150,7 @@ export default function DashboardHeader({
         })
         .slice(0, 3);
 
+    // Rendu
     return (
         <>
             {/* Conteneur unifié Header + Rappel périodes (même pattern vert brand) */}

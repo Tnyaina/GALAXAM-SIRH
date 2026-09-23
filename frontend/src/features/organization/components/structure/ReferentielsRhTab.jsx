@@ -16,6 +16,7 @@ import BanquesList from './referentiels/BanquesList';
 import BanqueFormModal from './referentiels/BanqueFormModal';
 
 export default function ReferentielsRhTab() {
+    // Contexte et navigation
     const [searchParams, setSearchParams] = useSearchParams();
     const activeSection = searchParams.get('subtab') || 'contrats'; // 'contrats' | 'intervenants' | 'banques'
     const toast = useToast();
@@ -29,6 +30,7 @@ export default function ReferentielsRhTab() {
         });
     };
 
+    // État local
     const [typesContrat, setTypesContrat] = useState([]);
     const [typesIntervenant, setTypesIntervenant] = useState([]);
     const [banques, setBanques] = useState([]);
@@ -38,7 +40,7 @@ export default function ReferentielsRhTab() {
     const [actionError, setActionError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
-    // Confirmation de statut (désactivation / activation)
+    // État de confirmation (désactivation / activation)
     const [confirmState, setConfirmState] = useState({
         isOpen: false,
         title: '',
@@ -66,6 +68,7 @@ export default function ReferentielsRhTab() {
     const [editingBanque, setEditingBanque] = useState(null);
     const [banqueFormData, setBanqueFormData] = useState({ codeBanque: '', nomBanque: '', codeSwift: '' });
 
+    // Chargement des référentiels
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -86,11 +89,12 @@ export default function ReferentielsRhTab() {
         }
     };
 
+    // Effet : charge les référentiels à l'ouverture de l'onglet.
     useEffect(() => {
         loadData();
     }, []);
 
-    // Handlers Type Contrat
+    // Actions utilisateur : types de contrat, intervenants et banques.
     const handleOpenEditContrat = (tc) => {
         setEditingContrat(tc);
         setContratFormData({ code: tc.code, libelle: tc.libelle, exigeDateFin: tc.exigeDateFin !== false });

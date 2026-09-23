@@ -25,11 +25,13 @@ import { getErrorMessage } from '@/api/apiClient';
  * 3. Action unique : [VALIDER LA PAIE]
  */
 export default function ValidationStepPage() {
+    // Contexte et hook métier
     const { periodId } = useParams();
     const navigate = useNavigate();
     const numericPeriodId = Number(periodId) || null;
     const { periodes, context, loading: ctxLoading, refresh } = usePayrollCampaign(numericPeriodId);
 
+    // État local
     const [financials, setFinancials] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
@@ -37,6 +39,7 @@ export default function ValidationStepPage() {
     const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
     const [motifReouverture, setMotifReouverture] = useState('');
 
+    // Données dérivées
     const actions = context?.availableActions || {};
     const canValidate = actions?.VALIDATE?.allowed === true;
     const canReopen = actions?.REOPEN?.allowed === true;
@@ -45,7 +48,15 @@ export default function ValidationStepPage() {
     const isCloturee = periode?.state === 'CLOTUREE';
     const isStale = context?.recalculationRequired === true;
 
-    // Charger les chiffres consolidés backend
+    const condReadiness = (context?.readiness?.blockingCount ?? 0) === 0;
+    const condPopulation = (context?.population?.eligibleCount ?? 0) > 0 || (financials?.bulletins ?? 0) > 0;
+    const condCalculActuel = !isStale;
+    const condBulletins = (financials?.bulletins ?? 0) > 0;
+    const condZeroBlocker = (context?.issueSummary?.blockerCount ?? 0) === 0;
+    const condControles = true;
+    const allConditionsMet = condReadiness && condPopulation && condCalculActuel && condBulletins && condZeroBlocker && condControles;
+
+    // Effets
     useEffect(() => {
         if (!numericPeriodId) return;
         let isMounted = true;
@@ -67,6 +78,7 @@ export default function ValidationStepPage() {
         return () => { isMounted = false; };
     }, [numericPeriodId]);
 
+    // Actions
     const handleValider = useCallback(async () => {
         if (!numericPeriodId) return;
         setActionLoading(true);
@@ -103,16 +115,7 @@ export default function ValidationStepPage() {
         }
     }, [numericPeriodId, periode, motifReouverture, refresh]);
 
-    // Évaluation des 6 conditions de validation
-    const condReadiness = (context?.readiness?.blockingCount ?? 0) === 0;
-    const condPopulation = (context?.population?.eligibleCount ?? 0) > 0 || (financials?.bulletins ?? 0) > 0;
-    const condCalculActuel = !isStale;
-    const condBulletins = (financials?.bulletins ?? 0) > 0;
-    const condZeroBlocker = (context?.issueSummary?.blockerCount ?? 0) === 0;
-    const condControles = true;
-
-    const allConditionsMet = condReadiness && condPopulation && condCalculActuel && condBulletins && condZeroBlocker && condControles;
-
+    // Rendu
     return (
         <PayrollCampaignShell
             context={context}

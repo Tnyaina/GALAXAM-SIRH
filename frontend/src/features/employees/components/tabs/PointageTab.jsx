@@ -42,7 +42,10 @@ import { getPeriodeLabelForFilename } from '@/features/attendance/utils/attendan
 const PointageFichePrintModal = lazy(() => import('@/features/attendance/components/modals/PointageFichePrintModal'));
 
 export default function PointageTab({ idEmploye, employe = null }) {
+    // Contexte
     const { toast } = useToast();
+
+    // État local : période, fiche, détail et export.
     const [periodView, setPeriodView] = useState('periode');
     const [selectedDate, setSelectedDate] = useState(() => getTodayDateString());
     const [selectedPeriodeId, setSelectedPeriodeId] = useState(null);
@@ -58,6 +61,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const [exportingExcel, setExportingExcel] = useState(false);
     const dropdownRef = useRef(null);
 
+    // Effets : chargent les périodes, la fiche et synchronisent la sélection.
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -298,6 +302,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
 
     const currIndexInList = periodesList.findIndex(p => p.idPeriodePaie === selectedPeriodeId);
 
+    // Rendu
     return (
         <div className="space-y-6 print:m-0 print:p-0">
             {/* 1. Barre d'outils supérieure : Sélecteur de Période, Bascule Période/Mois/Semaine/Jour et Actions */}

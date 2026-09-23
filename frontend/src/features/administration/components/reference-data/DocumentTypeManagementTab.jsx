@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/feedback/Toast';
 const CATEGORIES = ['Administratif', 'Identité', 'Recrutement', 'Contrat', 'Formation', 'Paie', 'Autre'];
 
 export default function DocumentTypeManagementTab() {
+    // État local : référentiel, formulaire et confirmation.
     const [types, setTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -56,6 +57,7 @@ export default function DocumentTypeManagementTab() {
         }
     };
 
+    // Effet : charge les types de document à l'ouverture.
     useEffect(() => {
         loadData();
     }, []);
@@ -142,6 +144,7 @@ export default function DocumentTypeManagementTab() {
         });
     };
 
+    // Rendu
     return (
         <div className="space-y-6">
             {/* Notifications */}

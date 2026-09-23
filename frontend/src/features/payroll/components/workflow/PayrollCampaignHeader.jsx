@@ -54,7 +54,10 @@ export default function PayrollCampaignHeader({
     onRefresh,
     refreshLoading = false,
 }) {
+    // Contexte et navigation
     const navigate = useNavigate();
+
+    // Données dérivées de la campagne et de la période choisie.
     const periode = context?.selectedPeriod || context?.currentPeriod;
     const steps = context?.campaignSteps || [];
     const currentStep = context?.currentStep;
@@ -87,6 +90,7 @@ export default function PayrollCampaignHeader({
         });
     }, [periodes]);
 
+    // Rendu
     return (
         <div className="sticky top-0 z-30 bg-[var(--color-bg)] border-b border-[var(--color-border-subtle)] shadow-sm">
 

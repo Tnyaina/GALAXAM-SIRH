@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import pointageSyntheseService from '@/features/attendance/api/pointageSyntheseService';
 
 export function usePointageSynthese(initialPeriodeId = 1, initialSiteId = 0) {
+    // État local : périmètre et résultat de synthèse.
     const [selectedPeriode, setSelectedPeriode] = useState(initialPeriodeId);
     const [selectedSite, setSelectedSite] = useState(initialSiteId);
     const [syntheseData, setSyntheseData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    // Chargement de synthèse
     const loadSynthese = useCallback(async () => {
         if (!selectedPeriode) return;
         setLoading(true);

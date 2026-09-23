@@ -17,8 +17,10 @@ export default function IrsaTrancheModal({
     actionError,
     submitting = false,
 }) {
+    // État local
     const [localError, setLocalError] = useState(null);
 
+    // Données dérivées : bornes, duplications et chevauchements de tranches.
     const minVal = parseFloat(formData.trancheMin);
     const maxVal = formData.trancheMax !== '' && formData.trancheMax !== null && formData.trancheMax !== undefined ? parseFloat(formData.trancheMax) : null;
     const numTranche = parseInt(formData.numeroTranche, 10);
@@ -64,6 +66,7 @@ export default function IrsaTrancheModal({
 
     const isIntervalInvalid = maxVal !== null && !isNaN(maxVal) && !isNaN(minVal) && maxVal <= minVal;
 
+    // Action utilisateur : valide le barème avant sauvegarde par le parent.
     const handleSubmit = (e) => {
         e.preventDefault();
         setLocalError(null);
@@ -109,6 +112,7 @@ export default function IrsaTrancheModal({
         onSubmit(e);
     };
 
+    // Rendu
     return (
         <Modal
             isOpen={isOpen}

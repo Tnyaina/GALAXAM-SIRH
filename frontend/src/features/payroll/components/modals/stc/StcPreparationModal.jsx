@@ -63,6 +63,7 @@ export default function StcPreparationModal({
     indemnitePreavisInitiale = null,
     onStcValide,
 }) {
+    // État local : étape, préparation, calcul, formulaire et reçu.
     // Étape UI courante : 'PREPARATION' | 'SIMULATION' | 'VALIDE'
     const [step, setStep] = useState('PREPARATION');
     const [loadingPrep, setLoadingPrep] = useState(false);
@@ -95,6 +96,7 @@ export default function StcPreparationModal({
         desactiverEmploye: false,
     });
 
+    // Chargement et actions utilisateur
     const chargerDonneesPreparatoires = useCallback(async () => {
         if (!idEmploye) return;
         setLoadingPrep(true);
@@ -131,6 +133,7 @@ export default function StcPreparationModal({
         }
     }, [idEmploye, dateDepartInitiale, motifInitial, moisPreavisInitial, indemnitePreavisInitiale]);
 
+    // Effet : charge la préparation du STC à l'ouverture.
     useEffect(() => {
         if (isOpen && idEmploye) {
             chargerDonneesPreparatoires();
@@ -220,6 +223,7 @@ export default function StcPreparationModal({
         ? `Simulation STC — ${prepData?.nomComplet || nomEmploye || ''}`
         : `Préparation Solde de Tout Compte — ${prepData?.nomComplet || nomEmploye || ''}`;
 
+    // Rendu
     return (
         <>
             <Modal

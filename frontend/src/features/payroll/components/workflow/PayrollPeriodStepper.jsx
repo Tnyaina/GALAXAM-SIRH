@@ -17,9 +17,13 @@ export default function PayrollPeriodStepper({
     activeCode = null,
     loading = false,
 }) {
+    // Contexte et navigation
     const navigate = useNavigate();
+
+    // État local : détail de l'étape bloquée ouverte par l'utilisateur.
     const [blockedStep, setBlockedStep] = useState(null);
 
+    // Données dérivées : apparence de chaque état fourni par le backend.
     const stateConfig = useMemo(() => ({
         COMPLETED: {
             icon: (_n) => <CheckCircle2 size={15} className="text-[var(--color-success-500)] shrink-0" aria-label="Complété" />,
@@ -88,6 +92,7 @@ export default function PayrollPeriodStepper({
         },
     }), []);
 
+    // Rendu : gardes d'affichage.
     if (loading) {
         return (
             <div className="flex items-center gap-2 p-3 text-xs text-[var(--color-fg-muted)]">
@@ -99,6 +104,7 @@ export default function PayrollPeriodStepper({
 
     if (!steps || steps.length === 0) return null;
 
+    // Rendu : étapes et explication éventuelle d'un blocage.
     return (
         <nav
             role="navigation"

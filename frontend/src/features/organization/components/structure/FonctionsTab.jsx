@@ -12,6 +12,7 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import FonctionFormModal from './fonctions/FonctionFormModal';
 
 export default function FonctionsTab() {
+    // État local
     const [fonctions, setFonctions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -21,7 +22,7 @@ export default function FonctionsTab() {
     const [showInactive, setShowInactive] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    // Confirmation dialog state
+    // État de confirmation et de modale
     const [confirmState, setConfirmState] = useState({
         isOpen: false,
         title: '',
@@ -40,6 +41,7 @@ export default function FonctionsTab() {
         dispensePointage: false
     });
 
+    // Chargement des données
     const loadData = async () => {
         setLoading(true);
         setError(null);
@@ -54,10 +56,12 @@ export default function FonctionsTab() {
         }
     };
 
+    // Effet : charge les fonctions à l'ouverture de l'onglet.
     useEffect(() => {
         loadData();
     }, []);
 
+    // Actions utilisateur
     const handleOpenCreate = () => {
         setEditingFonction(null);
         setFormData({ codeFonction: '', libelle: '', dispensePointage: false });
@@ -141,6 +145,7 @@ export default function FonctionsTab() {
         });
     };
 
+    // Données dérivées
     const filteredFonctions = fonctions.filter(f =>
         (showInactive || f.estActif !== false) &&
         (f.codeFonction?.toLowerCase().includes(search.toLowerCase()) ||

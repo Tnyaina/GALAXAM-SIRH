@@ -3,11 +3,13 @@ import periodePaieService from '@/features/attendance/api/periodePaieService';
 import { getErrorMessage } from '@/api/apiClient';
 
 export function usePeriodePaie() {
+    // État local : périodes et retours d'action.
     const [periodes, setPeriodes] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [successMsg, setSuccessMsg] = useState(null);
 
+    // Chargement et actions de workflow de période.
     const loadPeriodes = useCallback(async () => {
         setLoading(true);
         setError(null);

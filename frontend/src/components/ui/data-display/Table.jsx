@@ -8,6 +8,7 @@ import { ChevronUp, ChevronDown } from 'lucide-react';
    - toolbar     : contenu affiché au-dessus du <table> (ex: <TableSelectionBar />)
    ============================================================================ */
 export function Table({ children, className = '', maxHeight, toolbar, divided = false, style, ...props }) {
+    // Rendu de la primitive de table partagée.
   return (
     <div
       className={`relative border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-sm rounded-none ${maxHeight ? 'overflow-auto' : 'overflow-x-auto'

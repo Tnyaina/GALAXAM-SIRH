@@ -41,11 +41,13 @@ export default function ValidationModals({
   actionLoading,
   actionError
 }) {
+  // État local : informations complémentaires demandées lors de la validation.
   const [justificatifFourni, setJustificatifFourni] = useState(false);
   const [estRemunere, setEstRemunere] = useState(true);
   const [derogationSoldeNegatif, setDerogationSoldeNegatif] = useState(false);
   const [soldeEmploye, setSoldeEmploye] = useState(null);
 
+  // Effets : réinitialise et charge le solde pour la demande sélectionnée.
   useEffect(() => {
     let isMounted = true;
     const fetchSolde = async () => {
@@ -81,6 +83,7 @@ export default function ValidationModals({
   const joursDebites = estRemunere ? joursDemandes : 0;
   const soldeApres = soldeAvant != null ? (Number(soldeAvant) - joursDebites) : null;
 
+  // Rendu
   return (
     <>
       {/* ── Modal : Detail demande ─────────────────────────────────────────── */}

@@ -4,6 +4,7 @@ import useDebounce from '@/hooks/useDebounce';
 import { getErrorMessage } from '@/api/apiClient';
 
 export function usePointageAnomalies(initialFilters = {}) {
+    // État local : filtres, données d'anomalies et chargement.
     const [filters, setFilters] = useState({
         idSite: 0,
         idPeriodePaie: 0,
@@ -22,6 +23,7 @@ export function usePointageAnomalies(initialFilters = {}) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    // Chargement annulable
     const loadAnomalies = useCallback(async (signal) => {
         if (!(Number(filters.idPeriodePaie) > 0) && !filters.datePointage) return;
         setLoading(true);

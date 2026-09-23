@@ -10,6 +10,7 @@ import ServicesList from './services/ServicesList';
 import ServiceFormModal from './services/ServiceFormModal';
 
 export default function DepartementsServicesTab() {
+    // État local
     const [departements, setDepartements] = useState([]);
     const [services, setServices] = useState([]);
     const [selectedDepartement, setSelectedDepartement] = useState(null);
@@ -22,7 +23,7 @@ export default function DepartementsServicesTab() {
     const [showInactive, setShowInactive] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    // Confirmation dialog state
+    // État de confirmation
     const [confirmState, setConfirmState] = useState({
         isOpen: false,
         title: '',
@@ -47,6 +48,7 @@ export default function DepartementsServicesTab() {
         codeService: '', libelle: '', idDepartement: ''
     });
 
+    // Chargements de données
     const loadDepartements = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -81,6 +83,7 @@ export default function DepartementsServicesTab() {
         }
     };
 
+    // Effets : charge les départements puis les services du département sélectionné.
     useEffect(() => {
         loadDepartements();
     }, [loadDepartements]);
@@ -93,7 +96,7 @@ export default function DepartementsServicesTab() {
         }
     }, [selectedDepartement]);
 
-    // Department Handlers
+    // Actions utilisateur : départements, services et confirmations.
     const handleOpenCreateDept = () => {
         setEditingDept(null);
         setDeptFormData({ codeDepartement: '', libelle: '', dateFinPrevue: '' });

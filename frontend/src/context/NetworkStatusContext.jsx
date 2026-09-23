@@ -7,6 +7,7 @@ import { NetworkStatusContext } from '@/context/networkStatus';
  * par les réponses API réelles (et non seulement par navigator.onLine).
  */
 export function NetworkStatusProvider({ children }) {
+    // État local, effets réseau et rendu du contexte partagé.
     const [online, setOnline] = useState(() => navigator.onLine);
     const [serverReachable, setServerReachable] = useState(() => navigator.onLine);
 

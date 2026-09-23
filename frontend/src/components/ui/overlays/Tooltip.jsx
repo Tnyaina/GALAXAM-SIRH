@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 export function Tooltip({ children, content, position = 'top' }) {
+    // État local et rendu de l'infobulle.
     const [visible, setVisible] = useState(false);
 
     const positionClasses = {

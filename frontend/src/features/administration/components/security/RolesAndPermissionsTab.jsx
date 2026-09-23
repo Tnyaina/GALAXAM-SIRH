@@ -15,6 +15,7 @@ import RolePermissionsMatrix from './roles/RolePermissionsMatrix';
 import RoleMenusTree from './roles/RoleMenusTree';
 
 export default function RolesAndPermissionsTab() {
+    // Contexte et navigation
     const { refreshMenu } = useMenu();
     const [searchParams, setSearchParams] = useSearchParams();
     const rightTab = searchParams.get('subtab') || 'permissions'; // 'permissions' | 'menus'
@@ -28,6 +29,7 @@ export default function RolesAndPermissionsTab() {
         });
     };
 
+    // État local : rôles, permissions, formulaire et confirmation.
     const [roles, setRoles] = useState([]);
     const [showInactive, setShowInactive] = useState(false);
     const [modules, setModules] = useState([]);
@@ -100,6 +102,7 @@ export default function RolesAndPermissionsTab() {
         }
     };
 
+    // Effets : chargent les rôles puis le détail du rôle sélectionné.
     useEffect(() => {
         loadMasterData();
     }, []);
@@ -326,6 +329,7 @@ export default function RolesAndPermissionsTab() {
         );
     }
 
+    // Rendu
     return (
         <div className="space-y-6">
             {/* Notifications */}

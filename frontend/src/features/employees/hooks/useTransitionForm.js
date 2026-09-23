@@ -19,6 +19,7 @@ export function useTransitionForm({
     initialData = null,
     onSuccess,
 }) {
+    // Données dérivées et contexte de référentiels.
     const isEditMode = !!initialData;
 
     const {
@@ -29,6 +30,7 @@ export function useTransitionForm({
 
     const typesEvenementList = useMemo(() => typesEvenementRh || [], [typesEvenementRh]);
 
+    // État local : formulaire, aperçu et soumission.
     const [formData, setFormData] = useState({
         codeTypeEvenement: '', idFiliale: '', idTypeContrat: '', idTypeIntervenant: '',
         dateEffet: '', dateDebut: '', dateFin: '', dateSignature: '', comptabiliseEffectif: true,

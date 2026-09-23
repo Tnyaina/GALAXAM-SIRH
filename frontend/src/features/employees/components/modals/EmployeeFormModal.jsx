@@ -46,7 +46,8 @@ const EMPTY_FORM = {
 // Formatage de date délégué à l'utilitaire pur (défini au niveau module pour la stabilité des hooks)
 const fmtDate = formaterDateEmploye;
 
-export default function EmployeFormModal({ isOpen, onClose, onSave, employeData, isSubmitting }) {
+export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData, isSubmitting }) {
+    // État local : progression, données du formulaire, photo et génération du matricule.
     const [activeStep, setActiveStep] = useState(0);
     const [banques, setBanques] = useState([]);
     const [errorMsg, setErrorMsg] = useState('');
@@ -68,6 +69,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
         } 
     };
 
+    // Effets : initialisent le formulaire et chargent les banques à l'ouverture.
     useEffect(() => { 
         loadBanques(); 
     }, []);
@@ -365,6 +367,7 @@ export default function EmployeFormModal({ isOpen, onClose, onSave, employeData,
         }
     };
 
+    // Rendu
     return (
         <Modal
             isOpen={isOpen}

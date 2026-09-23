@@ -4,6 +4,7 @@ import pointageParametreService from '@/features/administration/api/pointagePara
 import { useToast } from '@/components/ui/feedback/Toast';
 
 export function useToleranceArrivee() {
+    // État local : sites, tolérances et édition en cours.
     const [sites, setSites] = useState([]);
     const [tolerances, setTolerances] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -12,8 +13,10 @@ export function useToleranceArrivee() {
     const [editHeure, setEditHeure] = useState('');
     const [saving, setSaving] = useState(false);
 
+    // Contexte
     const toast = useToast();
 
+    // Chargement et actions d'édition.
     const loadData = useCallback(async () => {
         setLoading(true);
         setError(null);

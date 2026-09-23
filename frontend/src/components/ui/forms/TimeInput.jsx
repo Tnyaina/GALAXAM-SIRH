@@ -15,15 +15,18 @@ export default function TimeInput({
     className = '',
     inputRef
 }) {
+    // Référence et état local du texte saisi.
     const internalRef = useRef(null);
     const refToUse = inputRef || internalRef;
 
     const [inputValue, setInputValue] = useState(value || '');
 
+    // Effet : synchronise la valeur contrôlée fournie par le parent.
     useEffect(() => {
         setInputValue(value || '');
     }, [value]);
 
+    // Actions utilisateur : formatage et validation de l'heure.
     const handleChange = (e) => {
         let raw = e.target.value.replace(/[^0-9]/g, '');
 
@@ -59,6 +62,7 @@ export default function TimeInput({
         }
     };
 
+    // Rendu
     return (
         <div className={`relative inline-flex items-center group ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}>
             <input

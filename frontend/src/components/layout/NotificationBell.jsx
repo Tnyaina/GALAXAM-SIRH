@@ -100,6 +100,7 @@ function SkeletonNotifList() {
 }
 
 export default function NotificationBell() {
+    // État local, références et actions du panneau de notifications.
     const [open, setOpen] = useState(false);
     const panelRef = useRef(null);
     const btnRef = useRef(null);

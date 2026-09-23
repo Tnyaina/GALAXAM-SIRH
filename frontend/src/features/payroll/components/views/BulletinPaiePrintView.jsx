@@ -9,12 +9,14 @@ import { fmtDate } from '@/utils/dateUtils';
  * Compatible impression papier ou export PDF du navigateur via window.print().
  */
 export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
+    // Rendu : rien à imprimer sans bulletin complet.
     const printRef = useRef(null);
 
     if (!bulletinComplet || !bulletinComplet.bulletin) {
         return null;
     }
 
+    // Données dérivées du bulletin et de ses lignes.
     const { bulletin, lignes = [] } = bulletinComplet;
 
     const handlePrint = () => {
@@ -23,6 +25,7 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
 
     const formatAr = (val) => formatMoneyAr(val);
 
+    // Rendu : document imprimable.
     return (
         <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm overflow-y-auto flex flex-col items-center p-4 sm:p-6 print:p-0 print:bg-white print:static">
             {/* Barre d'actions non imprimable */}

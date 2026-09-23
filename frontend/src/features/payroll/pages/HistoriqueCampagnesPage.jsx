@@ -25,12 +25,16 @@ import { fmtDate } from '@/utils/dateUtils';
  * - Action [Ouvrir] (ouvre la campagne directement en READ ONLY si clôturée)
  */
 export default function HistoriqueCampagnesPage() {
+    // Contexte et navigation
     const navigate = useNavigate();
+
+    // État local
     const [periodes, setPeriodes] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [feedback, setFeedback] = useState(null);
 
+    // Effets
     const chargerCampagnes = useCallback(async () => {
         setLoading(true);
         try {
@@ -47,6 +51,7 @@ export default function HistoriqueCampagnesPage() {
         chargerCampagnes();
     }, [chargerCampagnes]);
 
+    // Données dérivées
     const filteredPeriodes = periodes.filter(p => {
         if (!searchQuery.trim()) return true;
         const q = searchQuery.toLowerCase();
@@ -56,6 +61,7 @@ export default function HistoriqueCampagnesPage() {
 
     // formatDate centralisé dans dateUtils.js — fmtDate() retourne DD/MM/YYYY
 
+    // Actions
     const handleOpenCampaign = (p) => {
         // Naviguer vers la première étape ou contrôle selon le statut
         const isClosed = p.state === 'CLOTUREE';
@@ -66,6 +72,7 @@ export default function HistoriqueCampagnesPage() {
         }
     };
 
+    // Rendu
     return (
         <div className="space-y-5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-8 px-2 sm:px-4">
             <SEO

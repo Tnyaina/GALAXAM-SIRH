@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import useDebounce from '@/hooks/useDebounce';
 
 export default function UserManagementTab() {
+    // État local : utilisateurs, recherche, formulaires et confirmations.
     const [users, setUsers] = useState([]);
     const [roles, setRoles] = useState([]);
     const [search, setSearch] = useState('');
@@ -70,6 +71,7 @@ export default function UserManagementTab() {
         }
     };
 
+    // Effet : charge utilisateurs et rôles à l'ouverture.
     useEffect(() => {
         loadData();
     }, []);
@@ -229,6 +231,7 @@ export default function UserManagementTab() {
         );
     }
 
+    // Rendu
     return (
         <div className="space-y-6">
             {/* Notifications */}

@@ -18,8 +18,10 @@ export default function DepartementsList({
     onToggleStatus,
     onToggleDeptStatus,
 }) {
+    // État local
     const [search, setSearch] = useState('');
 
+    // Données dérivées : compatibilité avec les deux anciennes signatures de props.
     const handleCreate = onOpenCreateDept || onOpenCreate;
     const handleEdit = onOpenEditDept || onOpenEdit;
     const handleToggle = onToggleDeptStatus || onToggleStatus;
@@ -29,6 +31,7 @@ export default function DepartementsList({
         d.libelle?.toLowerCase().includes(search.toLowerCase())
     );
 
+    // Rendu
     return (
         <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-4 space-y-3.5 flex flex-col h-full">
             {/* Header */}

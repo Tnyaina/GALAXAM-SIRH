@@ -58,10 +58,12 @@ export default function SoldesGantt({
   onLeaveClick,
   planningLoading = false
 }) {
+  // Contexte
   const { hasPermission } = useAuth();
   const canViewEmploye = hasPermission('EMPLOYE_READ');
 
   // État de glisser-déposer (drag-to-select) pour choisir directement un intervalle
+  // État local : interaction de glisser-déposer dans le planning.
   const [dragState, setDragState] = useState({
     isDragging: false,
     idEmploye: null,
@@ -72,6 +74,7 @@ export default function SoldesGantt({
   });
 
   // Gestion du relâchement de la souris n'importe où sur l'écran
+  // Effet : réinitialise l'interaction lorsque le planning change.
   useEffect(() => {
     const handleGlobalMouseUp = () => {
       if (dragState.isDragging) {
@@ -160,6 +163,7 @@ export default function SoldesGantt({
     return `${j1} ${m1} — ${j2} ${m2} ${y}`;
   })() : '';
 
+  // Rendu
   return (
     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-4 select-none">
       {/* ── En-tête & Barre d'outils du Planning ── */}

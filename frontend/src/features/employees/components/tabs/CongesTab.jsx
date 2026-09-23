@@ -27,6 +27,7 @@ const formatDateOnly = (dateString) => {
 };
 
 export default function CongesTab({ idEmploye, employe, canWrite = false }) {
+    // Contexte : données et actions congés du collaborateur.
   const [soldeEmploye, setSoldeEmploye] = useState(null);
   const [situationData, setSituationData] = useState(null);
   const [mouvements, setMouvements] = useState([]);
@@ -118,6 +119,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
   };
 
   if (loading && !soldeEmploye) {
+    // Rendu
     return (
       <div className="p-8 flex justify-center">
         <Loading size="md" label="Chargement des congés du collaborateur..." />

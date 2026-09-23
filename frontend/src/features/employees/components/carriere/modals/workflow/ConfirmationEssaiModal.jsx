@@ -60,10 +60,12 @@ export default function ConfirmationEssaiModal({
     initialData = null,
     onSuccess,
 }) {
+    // Données dérivées des droits et du mode d'édition.
     const isEditMode = !!initialData;
     const _wfId = initialData?.idWorkflow || initialData?.workflow?.idWorkflow;
     const isActionAllowed = isEditMode || etatEssai?.canConfirm !== false;
 
+    // État local : formulaire de confirmation, aperçu et soumission.
     const [dateEffet, setDateEffet] = useState('');
     const [commentaire, setCommentaire] = useState('Période d\'essai concluante. Confirmation définitive à l\'emploi.');
     const [errorMsg, setErrorMsg] = useState('');
@@ -71,6 +73,7 @@ export default function ConfirmationEssaiModal({
     const [showPreviewMobile, setShowPreviewMobile] = useState(false);
     const [mounted, setMounted] = useState(false);
 
+    // Effets : initialise le formulaire et gère l'animation d'ouverture.
     useEffect(() => {
         if (isOpen) {
             const defaultDate = contratActif?.dateFinEssai

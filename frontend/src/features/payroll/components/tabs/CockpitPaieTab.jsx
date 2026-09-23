@@ -46,6 +46,7 @@ export default function CockpitPaieTab({
     view = 'overview',
     requestedEmployeeId = null
 }) {
+    // Navigation et état local : cockpit, filtres, modales et retours d'action.
     const navigate = useNavigate();
     const [urlParams, setUrlParams] = useSearchParams();
     const [cockpit, setCockpit] = useState(null);
@@ -98,6 +99,7 @@ export default function CockpitPaieTab({
         }
     }, [idPeriodeActive, currentPage, pageSize, debouncedSearch, filterSite, filterAlert]);
 
+    // Effets : synchronisent l'URL, chargent le cockpit et ses références.
     useEffect(() => {
         setUrlParams(previous => {
             const next = new URLSearchParams(previous);
@@ -324,6 +326,7 @@ export default function CockpitPaieTab({
         URL.revokeObjectURL(url);
     };
 
+    // Rendu
     return (
         <div className="space-y-4">
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">

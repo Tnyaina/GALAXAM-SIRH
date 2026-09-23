@@ -19,8 +19,8 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import { getErrorMessage } from '@/api/apiClient';
 
 // Lazy loading des sous-onglets & modales de la fiche employé pour optimiser les performances
-const EmployeFormModal = lazy(() => import('./dossier/EmployeFormModal'));
-const CarriereTab = lazy(() => import('./carriere/CarriereTab'));
+const EmployeeFormModal = lazy(() => import('@/features/employees/components/modals/EmployeeFormModal'));
+const CarriereTab = lazy(() => import('@/features/employees/components/carriere/CarriereTabContent'));
 const FichePersonnelleTab = lazy(() => import('@/features/employees/components/tabs/FichePersonnelleTab'));
 const DocumentsRhTab = lazy(() => import('@/features/employees/components/tabs/DocumentsRhTab'));
 const FamilleContactsTab = lazy(() => import('@/features/employees/components/tabs/FamilleContactsTab'));
@@ -38,24 +38,27 @@ const TabLoader = () => (
 );
 
 export default function EmployeFicheDetailPage() {
+    // Contexte, navigation et hook métier
     const { id, section } = useParams();
     const navigate = useNavigate();
     const { hasPermission } = useAuth();
-    const canWrite = hasPermission('EMPLOYE_WRITE');
-    const canValidate = hasPermission('EMPLOYE_VALIDATE');
-    const canReadConges = hasPermission('CONGE_READ');
-    const canReadPointages = hasPermission('POINTAGE_READ');
-    const canReadPaie = hasPermission('PAIE_READ') || hasPermission('ROLE_ADMIN');
-    const canWritePaie = hasPermission('PAIE_WRITE') || hasPermission('ROLE_ADMIN');
-
+    // État local
     const [detailData, setDetailData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const toast = useToast();
 
     const [searchParams, setSearchParams] = useSearchParams();
+    // Données dérivées
+    const canWrite = hasPermission('EMPLOYE_WRITE');
+    const canValidate = hasPermission('EMPLOYE_VALIDATE');
+    const canReadConges = hasPermission('CONGE_READ');
+    const canReadPointages = hasPermission('POINTAGE_READ');
+    const canReadPaie = hasPermission('PAIE_READ') || hasPermission('ROLE_ADMIN');
+    const canWritePaie = hasPermission('PAIE_WRITE') || hasPermission('ROLE_ADMIN');
     const tabFromUrl = section || searchParams.get('tab');
 
+    // Actions
     const handleTabChange = (tabId) => {
         if (section) {
             navigate(`/employes/${id}/${tabId}`);
@@ -495,7 +498,7 @@ export default function EmployeFicheDetailPage() {
             {/* Modale Édition Employé (Lazy) */}
             {isFormOpen && (
                 <Suspense fallback={null}>
-                    <EmployeFormModal
+                    <EmployeeFormModal
                         isOpen={isFormOpen}
                         onClose={() => setIsFormOpen(false)}
                         onSave={handleSaveForm}

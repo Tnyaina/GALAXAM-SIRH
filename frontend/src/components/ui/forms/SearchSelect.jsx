@@ -12,14 +12,15 @@ export default function SearchSelect({
   className = '',
   disabled = false,
 }) {
+  // État local et référence DOM.
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Trouver l'option sélectionnée
+  // Données dérivées : sélection et options visibles.
   const selectedOption = options.find((opt) => String(opt.value) === String(value));
 
-  // Fermeture du dropdown lors d'un clic extérieur
+  // Effet : fermeture lors d'un clic extérieur.
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -30,6 +31,7 @@ export default function SearchSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Actions utilisateur
   const handleSelect = (opt) => {
     setIsOpen(false);
     setSearchQuery('');
@@ -58,6 +60,7 @@ export default function SearchSelect({
     return optLabel.includes(query) || optSublabel.includes(query);
   });
 
+  // Rendu
   return (
     <div className={`space-y-1.5 relative ${className}`} ref={dropdownRef}>
       {label && (

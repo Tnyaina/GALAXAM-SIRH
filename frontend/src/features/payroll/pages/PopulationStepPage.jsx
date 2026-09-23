@@ -29,34 +29,33 @@ const DECISION_LABELS = {
     WARNED: 'Avertissement',
 };
 
+const getPopulationReasonLabel = (code) => {
+    if (!code) return 'Éligible';
+    const labels = {
+        CAREER_AMBIGUOUS: 'Configuration de carrière ambiguë',
+        NO_ACTIVE_CONTRACT: 'Aucun contrat actif sur la période',
+        CONTRACT_ENDED: 'Contrat expiré avant la période',
+        INACTIVE_EMPLOYEE: 'Salarié inactif',
+    };
+    return labels[code] || code;
+};
+
 /**
  * PopulationStepPage — Étape 2 : Population de la campagne (V1 Full V3).
  */
 export default function PopulationStepPage() {
+    // Contexte et hook métier
     const { periodId } = useParams();
     const numericPeriodId = Number(periodId) || null;
     const { periodes, context, loading: ctxLoading } = usePayrollCampaign(numericPeriodId);
 
+    // État local
     const [population, setPopulation] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterDecision, setFilterDecision] = useState('ALL');
 
-    const loadPopulation = useCallback(async () => {
-        if (!numericPeriodId) return;
-        setLoading(true);
-        try {
-            const cockpit = await paieService.getCockpitPeriode(numericPeriodId, { light: true });
-            setPopulation(Array.isArray(cockpit?.population) ? cockpit.population : []);
-        } catch {
-            setPopulation([]);
-        } finally {
-            setLoading(false);
-        }
-    }, [numericPeriodId]);
-
-    useEffect(() => { loadPopulation(); }, [loadPopulation]);
-
+    // Données dérivées
     const blockedCount = population.filter(p => p.decision === 'BLOQUE' || p.decision === 'BLOCKED').length;
     const includedCount = population.filter(p => p.decision === 'INCLUS' || p.decision === 'INCLUDED').length;
     const excludedCount = Math.max(0, population.length - includedCount - blockedCount);
@@ -81,17 +80,23 @@ export default function PopulationStepPage() {
         });
     }, [population, filterDecision, searchQuery]);
 
-    const translateReason = (code) => {
-        if (!code) return 'Éligible';
-        const map = {
-            CAREER_AMBIGUOUS: 'Configuration de carrière ambiguë',
-            NO_ACTIVE_CONTRACT: 'Aucun contrat actif sur la période',
-            CONTRACT_ENDED: 'Contrat expiré avant la période',
-            INACTIVE_EMPLOYEE: 'Salarié inactif',
-        };
-        return map[code] || code;
-    };
+    // Effets
+    const loadPopulation = useCallback(async () => {
+        if (!numericPeriodId) return;
+        setLoading(true);
+        try {
+            const cockpit = await paieService.getCockpitPeriode(numericPeriodId, { light: true });
+            setPopulation(Array.isArray(cockpit?.population) ? cockpit.population : []);
+        } catch {
+            setPopulation([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [numericPeriodId]);
 
+    useEffect(() => { loadPopulation(); }, [loadPopulation]);
+
+    // Rendu
     return (
         <PayrollCampaignShell
             title="Étape 2 — Population de la campagne"
@@ -205,7 +210,7 @@ export default function PopulationStepPage() {
                                                 </Badge>
                                             </Td>
                                             <Td className="text-xs text-[var(--color-fg-muted)] max-w-xs truncate" title={p.motif || p.reason}>
-                                                {translateReason(p.reason || p.motif)}
+                                                {getPopulationReasonLabel(p.reason || p.motif)}
                                             </Td>
                                         </Tr>
                                     );

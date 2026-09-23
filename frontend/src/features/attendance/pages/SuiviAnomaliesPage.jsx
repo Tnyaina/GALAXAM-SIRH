@@ -37,13 +37,14 @@ import { getErrorMessage } from '@/api/apiClient';
 const AnomalieRegularisationModal = lazy(() => import('@/features/attendance/components/modals/AnomalieRegularisationModal'));
 
 export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onTabChange }) {
+    // Contexte, navigation et hook métier
     const [searchParams, setSearchParams] = useSearchParams();
     const { hasPermission } = useAuth();
     const toastContext = useToast();
     const toast = toastContext?.toast || toastContext;
     const isDaf = hasPermission('POINTAGE_VALIDATE');
 
-    // Sélecteurs de contexte (Période & Site)
+    // État local
     const [periodes, setPeriodes] = useState([]);
     const [selectedPeriodeId, setSelectedPeriodeId] = useState('');
     const [sites, setSites] = useState([]);
@@ -81,7 +82,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         regulariser
     } = usePointageAnomalies();
 
-    // Chargement initial des référentiels (périodes & sites)
+    // Effets
     useEffect(() => {
         const init = async () => {
             try {
@@ -137,6 +138,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     }, [selectedPeriodeId, selectedSiteId, searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Période courante
+    // Données dérivées
     const currentPeriodeObj = useMemo(() =>
         periodes.find(p => String(p.idPeriodePaie) === String(selectedPeriodeId)) || null,
     [periodes, selectedPeriodeId]);
@@ -210,6 +212,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     }, [filteredAnomalies, currentPage, pageSize]);
 
     // Gestion de l'ouverture de la modale de régularisation
+    // Actions
     const handleOpenRegularisation = (anomalie) => {
         setSelectedAnomalie(anomalie);
         setIsModalOpen(true);
@@ -263,6 +266,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         }
     };
 
+    // Rendu
     return (
         <div className="space-y-4 font-sans animate-in fade-in duration-300">
             <SEO

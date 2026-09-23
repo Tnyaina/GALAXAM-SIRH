@@ -14,22 +14,25 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 
 export default function ParametresCongesTab() {
-  const [activeSubTab, setActiveSubTab] = useState('types');
+  // Contexte
   const toast = useToast();
   const { confirm, ConfirmModal } = useConfirm();
 
+  // État local
+  const [activeSubTab, setActiveSubTab] = useState('types');
   const [types, setTypes] = useState([]);
   const [motifs, setMotifs] = useState([]);
   const [showInactive, setShowInactive] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Modals state
+  // État des modales
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showMotifModal, setShowMotifModal] = useState(false);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [purging, setPurging] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
+  // Chargement des données
   const fetchParametres = async () => {
     setLoading(true);
     try {
@@ -45,11 +48,13 @@ export default function ParametresCongesTab() {
     }
   };
 
+  // Effet : charge les référentiels à l'ouverture de l'onglet.
   useEffect(() => {
     fetchParametres();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Actions utilisateur
   const handleEditType = (item) => {
     setSelectedItem(item);
     setShowTypeModal(true);
@@ -137,6 +142,7 @@ export default function ParametresCongesTab() {
     }
   };
 
+  // Rendu
   return (
     <div className="space-y-6 ">
       <div className="flex flex-col md:flex-row gap-6">

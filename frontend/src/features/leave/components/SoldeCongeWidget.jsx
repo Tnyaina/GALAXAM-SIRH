@@ -11,11 +11,13 @@ export default function SoldeCongeWidget({
   canWrite = false,
   onOpenInitModal
 }) {
+  // État local
   const [showDetailAccumulateurs, setShowDetailAccumulateurs] = useState(false);
 
+  // Rendu : le widget est inutile sans une des deux sources de solde.
   if (!soldeData && !situationData) return null;
 
-  // A. Solde consommable
+  // Données dérivées : solde consommable
   const soldeActuel = Number(
     situationData?.soldeJours !== undefined && situationData?.soldeJours !== null
       ? situationData.soldeJours
@@ -35,14 +37,14 @@ export default function SoldeCongeWidget({
   const totalCumule = totalAcquis + totalBonification;
   const totalExpire = Number(soldeData?.totalExpire || 0);
 
-  // B. TCONGE applicable
+  // Données dérivées : TCONGE applicable
   const tauxConge = situationData?.tauxApplicable?.montant !== undefined
     ? Number(situationData.tauxApplicable.montant)
     : Number(soldeData?.tauxJournalierConge || 0);
 
   const sourceTaux = situationData?.tauxApplicable?.source || soldeData?.sourceTauxConge || null;
 
-  // C. Période de référence & cycle
+  // Données dérivées : période de référence et cycle
   const refCycle = situationData?.periodeReference || null;
 
   // Pool partagé permissions exceptionnelles (10j / an max)
@@ -112,6 +114,7 @@ export default function SoldeCongeWidget({
     }
   }
 
+  // Fonctions de présentation locales au widget
   const getSoldeColor = () => {
     if (soldeActuel < 0) return 'danger';
     if (soldeActuel > 0) return 'brand';
@@ -134,6 +137,7 @@ export default function SoldeCongeWidget({
     }
   };
 
+  // Rendu
   return (
     <div className="space-y-4">
       {/* ── Bandeau Statut Éligibilité Légale au Congé Annuel (Art. 83) ── */}

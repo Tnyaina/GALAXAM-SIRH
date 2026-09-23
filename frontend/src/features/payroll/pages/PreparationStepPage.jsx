@@ -13,20 +13,24 @@ import { getErrorMessage } from '@/api/apiClient';
  * PreparationStepPage — Étape 1 : Vérification des prérequis de calcul (V1 Full V3).
  */
 export default function PreparationStepPage() {
+    // Contexte et hook métier
     const { periodId } = useParams();
     const navigate = useNavigate();
     const numericPeriodId = Number(periodId) || null;
     const { periodes, context, loading } = usePayrollCampaign(numericPeriodId);
 
+    // Données dérivées
     const issues = context?.issues || [];
     const warnings = context?.warnings || [];
     const periode = context?.selectedPeriod || context?.currentPeriod;
     const actions = useMemo(() => context?.availableActions || {}, [context?.availableActions]);
 
+    // État local
     const [legalConfig, setLegalConfig] = useState(null);
     const [readiness, setReadiness] = useState([]);
     const [readinessError, setReadinessError] = useState(null);
 
+    // Effets
     useEffect(() => {
         let isMounted = true;
         const loadConfig = async () => {
@@ -139,6 +143,7 @@ export default function PreparationStepPage() {
     const nbWarnings = checklistItems.filter(i => i.status === 'WARNING').length + warnings.length;
     const nbBlockers = checklistItems.filter(i => i.status === 'BLOCKING').length + issues.length;
 
+    // Rendu
     return (
         <PayrollCampaignShell
             title="Étape 1 — Préparation de la campagne"

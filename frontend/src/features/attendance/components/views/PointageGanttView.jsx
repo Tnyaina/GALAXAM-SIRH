@@ -24,16 +24,21 @@ export default function PointageGanttView({
     _isReadOnly = false,
     onCellClick = null
 }) {
+    // Contexte et navigation
     const navigate = useNavigate();
+
+    // État local et référence DOM du détail au survol.
     const [tooltip, setTooltip] = useState(null);
     const tooltipRef = useRef(null);
 
+    // Effet : ferme le détail au clic extérieur.
     useEffect(() => {
         const close = () => setTooltip(null);
         window.addEventListener('click', close);
         return () => window.removeEventListener('click', close);
     }, []);
 
+    // Données dérivées : jours, collaborateurs et possibilité de navigation.
     const weekDays = selectedSemaine ? buildWeekDays(selectedSemaine.dateDebut, selectedSemaine.dateFin) : [];
     const employees = buildEmployeeList(ganttData, weekDays);
 
@@ -41,6 +46,7 @@ export default function PointageGanttView({
     const hasPrev = currentIdx > 0;
     const hasNext = currentIdx < semaines.length - 1;
 
+    // Actions utilisateur
     const handlePrev = () => { if (hasPrev) onSelectSemaine(semaines[currentIdx - 1]); };
     const handleNext = () => { if (hasNext) onSelectSemaine(semaines[currentIdx + 1]); };
 
@@ -55,6 +61,7 @@ export default function PointageGanttView({
         setTooltip({ emp, day, cellData: effectiveData, x: rect.left, y: rect.bottom + 6 });
     };
 
+    // Rendu
     return (
         <div className="space-y-2.5">
             {/* Navigation semaine */}

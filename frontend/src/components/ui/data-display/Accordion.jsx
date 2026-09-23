@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 export function AccordionItem({ title, subtitle, children, defaultOpen = false }) {
+    // État local et rendu d'une section repliable.
     const [open, setOpen] = useState(defaultOpen);
 
     return (

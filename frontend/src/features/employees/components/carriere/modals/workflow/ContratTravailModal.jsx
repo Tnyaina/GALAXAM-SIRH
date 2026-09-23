@@ -16,9 +16,11 @@ export default function ContratTravailModal({
     loadingAffectation = false,
     filiale,
 }) {
+    // État local et référence DOM du document imprimable.
     const [mounted, setMounted] = useState(false);
     const printRef = useRef(null);
 
+    // Effets : animent l'ouverture et permettent la fermeture par Échap.
     useEffect(() => {
         if (isOpen) {
             const t = setTimeout(() => setMounted(true), 10);
@@ -36,8 +38,10 @@ export default function ContratTravailModal({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, onClose]);
 
+    // Rendu : garde de fermeture.
     if (!isOpen) return null;
 
+    // Données dérivées du contrat, de l'affectation et de la filiale.
     const getVal = (...keys) => {
         for (const k of keys) {
             if (k !== undefined && k !== null && String(k).trim() !== '') {
@@ -109,6 +113,7 @@ export default function ContratTravailModal({
     const dureeEssaiMois = contrat?.dureeEssaiMois;
     const dateFinEssai = contrat?.dateFinEssai ? fmtDateFr(contrat?.dateFinEssai) : null;
 
+    // Action utilisateur
     const handlePrint = () => {
         window.print();
     };

@@ -165,6 +165,7 @@ export default function RuptureContratModal({
     onSuccess,
     onOpenStc,
 }) {
+    // État local : références, formulaire de rupture, aperçu et soumission.
     const [mounted, setMounted] = useState(false);
     const [loadingRef, setLoadingRef] = useState(true);
     const [showPreviewMobile, setShowPreviewMobile] = useState(false);
@@ -219,6 +220,7 @@ export default function RuptureContratModal({
     }, []);
 
     // Initialisation intelligente des valeurs par défaut selon le profil
+    // Effets : chargent les références et initialisent le brouillon à l'ouverture.
     useEffect(() => {
         if (isOpen) {
             loadReferentiels();
@@ -294,6 +296,7 @@ export default function RuptureContratModal({
     }, [isOpen, onClose]);
 
     // Détermination de la durée en mois pour le calcul STC
+    // Données dérivées : ancienneté et indemnité estimée.
     const { dureeInfo, moisIndemnite, libelleDuree } = useMemo(() => {
         const d = DUREES_PREAVIS.find(item => item.key === formData.dureePreavisKey) || DUREES_PREAVIS[2];
         let mois;
@@ -465,6 +468,7 @@ export default function RuptureContratModal({
 
     if (!isOpen) return null;
 
+    // Rendu
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-5 bg-black/60 backdrop-blur-[3px]">
             <div className="absolute inset-0" onClick={onClose} />

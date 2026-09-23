@@ -20,6 +20,7 @@ import useConfirm from '@/hooks/useConfirm';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function IndemnitesSitesTab() {
+    // Contexte, navigation et confirmation
     const [searchParams, setSearchParams] = useSearchParams();
     const subSection = searchParams.get('subtab') || 'indemnites';
 
@@ -34,6 +35,7 @@ export default function IndemnitesSitesTab() {
 
     const todayStr = fmtDateInput(new Date());
 
+    // État local : données, filtres et modales.
     const [indemnites, setIndemnites] = useState([]);
     const [siteIndemnites, setSiteIndemnites] = useState([]);
     const [sites, setSites] = useState([]);
@@ -79,6 +81,7 @@ export default function IndemnitesSitesTab() {
         }
     };
 
+    // Effet : charge les indemnités et leurs déclinaisons par site.
     useEffect(() => {
         loadData();
     }, []);
@@ -228,6 +231,7 @@ export default function IndemnitesSitesTab() {
         );
     }
 
+    // Rendu
     return (
         <div className="space-y-6">
             {/* Notifications */}

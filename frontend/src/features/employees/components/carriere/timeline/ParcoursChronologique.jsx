@@ -33,10 +33,14 @@ export default function ParcoursChronologique({
     onOpenCertificat,
     onOpenAttestation
 }) {
-    const [ordreDecroissant, setOrdreDecroissant] = useState(true);
+    // Contexte
     const { hasPermission } = useAuth();
     const canSeePaie = hasPermission('PAIE_READ');
 
+    // État local
+    const [ordreDecroissant, setOrdreDecroissant] = useState(true);
+
+    // Données dérivées : contrats, workflows, évolutions et chapitres de carrière.
     const safeContrats = useMemo(() => {
         const list = Array.isArray(contratsList) ? [...contratsList] : (contratsList?.items || contratsList?.content || []);
         return list.filter(ct => ct && ct.codeStatutContrat !== 'BROUILLON');

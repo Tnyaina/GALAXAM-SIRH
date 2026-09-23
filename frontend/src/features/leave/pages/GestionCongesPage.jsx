@@ -16,19 +16,27 @@ const SoldesOverviewTab     = lazy(() => import('@/features/leave/components/Sol
 const DemandesValidationTab = lazy(() => import('@/features/leave/components/DemandesValidationTab'));
 
 export default function GestionCongesPage() {
+  // Contexte et navigation
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'soldes';
 
-  const handleTabChange = (tabId) => {
-    setSearchParams({ tab: tabId });
-  };
-
-  // Data states
+  // État local
   const [demandesGlobales, setDemandesGlobales] = useState([]);
   const [referentiels, setReferentiels]         = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
 
+  // Données dérivées
+  const activeTab = searchParams.get('tab') || 'soldes';
+  const demandesList = Array.isArray(demandesGlobales)
+    ? demandesGlobales
+    : (demandesGlobales?.items || demandesGlobales?.content || demandesGlobales?.data || []);
+  const nbEnAttente = demandesList.filter((demande) => demande.availableActions?.APPROVE?.allowed === true).length;
+  const tabsList = [
+    { id: 'soldes', label: 'Soldes & Planning prévisionnel' },
+    { id: 'demandes', label: 'Demandes & Validations', badge: nbEnAttente > 0 ? nbEnAttente : undefined }
+  ];
+
+  // Effets
   const loadGlobalData = async () => {
     setLoading(true);
     setError(null);
@@ -54,26 +62,12 @@ export default function GestionCongesPage() {
     loadGlobalData();
   }, []);
 
-  const demandesList = Array.isArray(demandesGlobales) 
-    ? demandesGlobales 
-    : (demandesGlobales?.items || demandesGlobales?.content || demandesGlobales?.data || []);
+  // Actions
+  const handleTabChange = (tabId) => {
+    setSearchParams({ tab: tabId });
+  };
 
-  const nbEnAttente = demandesList.filter(
-    (d) => d.availableActions?.APPROVE?.allowed === true
-  ).length;
-
-  const tabsList = [
-    {
-      id: 'soldes',
-      label: 'Soldes & Planning prévisionnel',
-    },
-    {
-      id: 'demandes',
-      label: 'Demandes & Validations',
-      badge: nbEnAttente > 0 ? nbEnAttente : undefined,
-    }
-  ];
-
+  // Rendu
   return (
     <div className="space-y-4 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans pb-8">
       <SEO title="Congés & Absences" description="Gestion des demandes de congés et soldes." />

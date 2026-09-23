@@ -18,6 +18,7 @@ import PeriodeChomeeList from './feries/PeriodeChomeeList';
 import PeriodeChomeeFormModal from './feries/PeriodeChomeeFormModal';
 
 export default function CalendrierFerieTab() {
+    // Contexte, navigation et confirmation
     const [searchParams, setSearchParams] = useSearchParams();
     const subSection = searchParams.get('subtab') || 'feries';
 
@@ -32,6 +33,7 @@ export default function CalendrierFerieTab() {
 
     const todayStr = fmtDateInput(new Date());
 
+    // État local : données, filtres et modales.
     const [feries, setFeries] = useState([]);
     const [siteFeries, setSiteFeries] = useState([]);
     const [periodes, setPeriodes] = useState([]);
@@ -117,6 +119,7 @@ export default function CalendrierFerieTab() {
         }
     };
 
+    // Effet : charge le calendrier et ses référentiels à l'ouverture.
     useEffect(() => {
         loadData();
     }, []);
@@ -332,6 +335,7 @@ export default function CalendrierFerieTab() {
         );
     }
 
+    // Rendu
     return (
         <div className="space-y-6">
             {error && <Alert type="error" message={error} />}

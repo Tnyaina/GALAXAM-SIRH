@@ -21,18 +21,21 @@ export default function EmbaucheModal({
     initialData = null,
     onSuccess,
 }) {
+    // Données dérivées de l'historique contractuel.
     const isEditMode = !!initialData;
     const hasHistory = Array.isArray(contratsList) && contratsList.length > 0;
     const dernierContrat = hasHistory
         ? (contratsList.find(ct => ct && ct.codeStatutContrat !== 'BROUILLON' && ct.codeStatutContrat !== 'ANNULE') || contratsList[0])
         : null;
 
+    // Contexte : référentiels nécessaires à l'embauche.
     const {
         filiales, sites, departements, services, fonctions,
         typesContrat, typesIntervenant, categoriesPro, modesPaie, responsables,
         loading: loadingRef,
     } = useContractReferentiels(isOpen, idEmploye);
 
+    // État local : formulaire, aperçu et soumission.
     const [formData, setFormData] = useState({
         codeTypeEvenement: hasHistory ? 'REPRISE_ANCIENNETE' : 'EMBAUCHE_INITIALE',
         idFiliale: '', idTypeContrat: '', idTypeIntervenant: '', dateDebut: '', dateFin: '',
@@ -48,6 +51,7 @@ export default function EmbaucheModal({
     const [showPreviewMobile, setShowPreviewMobile] = useState(false);
     const [mounted, setMounted] = useState(false);
 
+    // Effets : initialise le formulaire, les référentiels et l'animation d'ouverture.
     useEffect(() => {
         if (isOpen) {
             const t = setTimeout(() => setMounted(true), 10);
