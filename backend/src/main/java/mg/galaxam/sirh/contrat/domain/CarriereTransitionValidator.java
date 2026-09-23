@@ -92,7 +92,6 @@ public final class CarriereTransitionValidator {
 
         validerMatrice(sourceCode, eventCode, targetCode, targetIntervenant, dureeEssaiMois);
 
-        String source = normalize(sourceCode);
         String event = normalize(eventCode);
 
         if ("RENOUVELLEMENT_CDD".equals(event)) {

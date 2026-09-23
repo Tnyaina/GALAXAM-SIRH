@@ -172,7 +172,6 @@ public class PointageEmployeService {
         LocalTime hDebutAm = LocalTime.of(13, 0);
         LocalTime hFinAm = LocalTime.of(17, 0);
         LocalTime hPlafondTolerance = LocalTime.of(7, 30);
-        Integer resolvedIdSite = null;
         String empMatricule = "—";
         String empNom = null;
         String empPrenom = null;
@@ -194,7 +193,6 @@ public class PointageEmployeService {
                     if (rsSite.getString("site_nom") != null) empSiteNom = rsSite.getString("site_nom");
                     if (rsSite.getString("fonction_nom") != null) empFonction = rsSite.getString("fonction_nom");
                     if (rsSite.getString("code_categorie") != null) empCategorie = rsSite.getString("code_categorie");
-                    resolvedIdSite = (Integer) rsSite.getObject("id_site");
 
                     if (rsSite.getTime("heure_debut_matin") != null) hDebutMatin = rsSite.getTime("heure_debut_matin").toLocalTime();
                     if (rsSite.getTime("heure_fin_matin") != null) hFinMatin = rsSite.getTime("heure_fin_matin").toLocalTime();
