@@ -316,7 +316,7 @@ export default function ParametresCongesTab() {
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-2">
                     <ShieldAlert className="w-5 h-5 text-warning-500" />
-                    <CardTitle>Quota des Événements Familiaux (10 jours/an)</CardTitle>
+                    <CardTitle>Quota annuel des Événements Familiaux</CardTitle>
                   </div>
                   <div className="flex items-center gap-3">
                     <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer hover:text-[var(--color-fg)] px-2 py-1 rounded-none hover:bg-[var(--color-bg-subtle)]">

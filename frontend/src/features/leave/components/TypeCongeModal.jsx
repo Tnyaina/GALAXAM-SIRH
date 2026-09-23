@@ -295,7 +295,7 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
             <p className="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
               <strong>Plafond par demande (épisode)</strong> : durée continue maximale d'un arrêt (ex : 30 jours pour Maladie).
               <br />
-              <strong>Congés d'événements familiaux</strong> : rattachés automatiquement au pool annuel légal partagé de 10 jours/an.
+              <strong>Congés d'événements familiaux</strong> : rattachés au pool annuel partagé et à son plafond configuré.
             </p>
           </div>
         </div>

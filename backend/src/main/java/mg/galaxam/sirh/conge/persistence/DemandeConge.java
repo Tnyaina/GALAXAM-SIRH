@@ -264,17 +264,17 @@ public class DemandeConge extends ClassMere {
             }
         }
 
-        // 7. Contrôle Pool Annuel Partagé 10j/an (Art. 88 : EXCEPTIONNEL + PATERNITE)
+        // 7. Contrôle du pool annuel configuré en BDD.
+        // VALIDE = consommé, EN_ATTENTE = réservé ; le contrôle porte sur le total engagé.
         if (typeConge.getIdPoolCongeAnnuel() != null) {
             int annee = dateDebut.toLocalDate().getYear();
-            List<RefPoolCongeAnnuel.Consommation> pools = RefPoolCongeAnnuel.listerConsommations(idEmploye,
-                    annee, c);
-            BigDecimal consommeActuel = BigDecimal.ZERO;
-            for (RefPoolCongeAnnuel.Consommation p : pools) {
-                if (typeConge.getIdPoolCongeAnnuel().equals(p.getIdPool()) && p.getJoursConsommes() != null) {
-                    consommeActuel = consommeActuel.add(p.getJoursConsommes());
-                }
+            RefPoolCongeAnnuel.verrouillerQuota(idEmploye, c);
+            RefPoolCongeAnnuel.Consommation consommation = RefPoolCongeAnnuel.rechercherConsommation(
+                    idEmploye, typeConge.getIdPoolCongeAnnuel(), annee, c);
+            if (consommation == null || consommation.getPlafond() == null) {
+                throw new IllegalStateException("Configuration du pool annuel introuvable.");
             }
+            BigDecimal engagesActuels = consommation.getJoursEngages();
             BigDecimal joursDejaPrisEnCompte = BigDecimal.ZERO;
             if (this.idDemandeConge != null) {
                 String sqlOld = "SELECT dc.nb_jours_decomptes FROM demande_conge dc " +
@@ -295,15 +295,14 @@ public class DemandeConge extends ClassMere {
                     }
                 }
             }
-            BigDecimal consommeActuelHorsCourante = consommeActuel.subtract(joursDejaPrisEnCompte);
-            RefPoolCongeAnnuel pool = RefPoolCongeAnnuel.rechercherParId(typeConge.getIdPoolCongeAnnuel(), c);
-            BigDecimal plafond = pool != null && pool.getPlafondJoursAn() != null
-                    ? pool.getPlafondJoursAn() : CongeCalculateurEngine.PLAFOND_POOL_ANNUEL_FAMILIAL;
-            BigDecimal totalApresDemande = consommeActuelHorsCourante.add(nbJoursDecomptes);
+            BigDecimal engagesHorsDemandeCourante = engagesActuels.subtract(joursDejaPrisEnCompte);
+            BigDecimal plafond = consommation.getPlafond();
+            BigDecimal totalApresDemande = engagesHorsDemandeCourante.add(nbJoursDecomptes);
             if (totalApresDemande.compareTo(plafond) > 0 && !derogationSoldeNegatif) {
                 throw new IllegalArgumentException(
                         "Le quota du pool annuel des permissions exceptionnelles (" + plafond + " jours/an) est dépassé pour l'année "
-                                + annee + ". (Consommé: " + consommeActuelHorsCourante + "j, Demandé: " + nbJoursDecomptes
+                                + annee + ". (Engagé hors demande courante: " + engagesHorsDemandeCourante
+                                + "j, Demandé: " + nbJoursDecomptes
                                 + "j). Dérogation RH requise.");
             }
         }

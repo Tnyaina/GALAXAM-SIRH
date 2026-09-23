@@ -82,8 +82,9 @@ class CongeCalculateurEngineTest {
 
     @Test
     void poolAccepteLaLimiteEtRefuseLeDepassement() {
-        assertTrue(engine.verifierEligibilitePoolFamilial(new BigDecimal("8"), new BigDecimal("2")));
-        assertFalse(engine.verifierEligibilitePoolFamilial(new BigDecimal("8"), new BigDecimal("2.5")));
+        BigDecimal plafondConfigure = new BigDecimal("10");
+        assertTrue(engine.verifierEligibilitePool(new BigDecimal("8"), new BigDecimal("2"), plafondConfigure));
+        assertFalse(engine.verifierEligibilitePool(new BigDecimal("8"), new BigDecimal("2.5"), plafondConfigure));
     }
 
     @Test

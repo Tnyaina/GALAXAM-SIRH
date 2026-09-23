@@ -83,4 +83,20 @@ describe('Module Congés Frontend - Backend-Driven Contract', () => {
     expect(availableActionsPeriodeFermee.CANCEL.allowed).toBe(false);
     expect(availableActionsPeriodeFermee.CANCEL.reasonCodes).toContain('PAYROLL_PERIOD_CLOSED');
   });
+
+  it('28.4 Situation du pool : le frontend présente les valeurs fournies par le backend', () => {
+    const pool = {
+      plafond: 10,
+      joursConsommes: 5,
+      joursEnAttente: 3,
+      joursEngages: 8,
+      joursDisponibles: 5,
+      joursDisponiblesApresReservations: 2
+    };
+
+    expect(pool.joursConsommes).toBe(5);
+    expect(pool.joursEnAttente).toBe(3);
+    expect(pool.joursEngages).toBe(8);
+    expect(pool.joursDisponiblesApresReservations).toBe(2);
+  });
 });

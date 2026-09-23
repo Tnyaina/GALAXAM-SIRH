@@ -141,37 +141,81 @@ public class RefPoolCongeAnnuel extends ClassMere {
         private final Integer idPool;
         private final Integer annee;
         private final BigDecimal joursConsommes;
+        private final BigDecimal joursEnAttente;
+        private final BigDecimal plafond;
 
-        public Consommation(Integer idEmploye, Integer idPool, Integer annee, BigDecimal joursConsommes) {
+        public Consommation(Integer idEmploye, Integer idPool, Integer annee, BigDecimal joursConsommes,
+                            BigDecimal joursEnAttente, BigDecimal plafond) {
             this.idEmploye = idEmploye;
             this.idPool = idPool;
             this.annee = annee;
             this.joursConsommes = joursConsommes != null ? joursConsommes : BigDecimal.ZERO;
+            this.joursEnAttente = joursEnAttente != null ? joursEnAttente : BigDecimal.ZERO;
+            this.plafond = plafond;
         }
 
         public Integer getIdEmploye() { return idEmploye; }
         public Integer getIdPool() { return idPool; }
         public Integer getAnnee() { return annee; }
         public BigDecimal getJoursConsommes() { return joursConsommes; }
+        public BigDecimal getJoursEnAttente() { return joursEnAttente; }
+        public BigDecimal getJoursEngages() { return joursConsommes.add(joursEnAttente); }
+        public BigDecimal getPlafond() { return plafond; }
+        public BigDecimal getJoursDisponibles() {
+            return plafond != null ? plafond.subtract(joursConsommes) : null;
+        }
+        public BigDecimal getJoursDisponiblesApresReservations() {
+            return plafond != null ? plafond.subtract(getJoursEngages()) : null;
+        }
     }
 
     public static List<Consommation> listerConsommations(Integer idEmploye, Integer annee, Connection c) throws Exception {
         List<Consommation> list = new ArrayList<>();
         if (idEmploye == null) return list;
-        String sql = "SELECT id_employe, id_pool, annee, jours_consommes "
-                + "FROM v_pool_conge_annuel_consommation "
-                + "WHERE id_employe = ? AND annee = ?";
+        int anneeEffective = annee != null ? annee : java.time.Year.now().getValue();
+        String sql = "SELECT ? AS id_employe, p.id_pool, ? AS annee, "
+                + "COALESCE(v.jours_consommes, 0) AS jours_consommes, "
+                + "COALESCE(v.jours_en_attente, 0) AS jours_en_attente, p.plafond_jours_an "
+                + "FROM ref_pool_conge_annuel p "
+                + "LEFT JOIN v_pool_conge_annuel_consommation v "
+                + "ON v.id_pool = p.id_pool AND v.id_employe = ? AND v.annee = ? "
+                + "ORDER BY p.id_pool";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
-            ps.setInt(2, annee != null ? annee : java.time.Year.now().getValue());
+            ps.setInt(2, anneeEffective);
+            ps.setInt(3, idEmploye);
+            ps.setInt(4, anneeEffective);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(new Consommation(rs.getInt("id_employe"), rs.getInt("id_pool"),
-                            rs.getInt("annee"), rs.getBigDecimal("jours_consommes")));
+                            rs.getInt("annee"), rs.getBigDecimal("jours_consommes"),
+                            rs.getBigDecimal("jours_en_attente"), rs.getBigDecimal("plafond_jours_an")));
                 }
             }
         }
         return list;
+    }
+
+    public static Consommation rechercherConsommation(Integer idEmploye, Integer idPool, Integer annee,
+                                                       Connection c) throws Exception {
+        for (Consommation consommation : listerConsommations(idEmploye, annee, c)) {
+            if (idPool.equals(consommation.getIdPool())) return consommation;
+        }
+        return null;
+    }
+
+    /**
+     * Sérialise les mutations de quota d'un employé. Le verrou est conservé jusqu'au commit
+     * de la transaction JDBC appelante et empêche deux réservations concurrentes de dépasser le pool.
+     */
+    public static void verrouillerQuota(Integer idEmploye, Connection c) throws Exception {
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT id_employe FROM employe WHERE id_employe = ? FOR UPDATE")) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new IllegalArgumentException("Employé introuvable.");
+            }
+        }
     }
 
     private static RefPoolCongeAnnuel mapResultSet(ResultSet rs) throws Exception {

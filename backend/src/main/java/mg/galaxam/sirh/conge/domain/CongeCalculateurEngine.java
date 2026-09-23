@@ -60,9 +60,6 @@ public class CongeCalculateurEngine {
     /** Taux d'acquisition mensuel légal : 2,5 jours calendaires par mois de service effectif */
     public static final BigDecimal TAUX_ACQUISITION_MENSUEL = new BigDecimal("2.5");
 
-    /** Plafond annuel partagé pour les permissions exceptionnelles & paternité (Art. 88) */
-    public static final BigDecimal PLAFOND_POOL_ANNUEL_FAMILIAL = new BigDecimal("10.0");
-
     /** Plafond d'arrêt maladie continu avec maintien de salaire (Art. 13) */
     public static final int PLAFOND_MALADIE_MAINTIEN_JOURS = 30;
 
@@ -187,13 +184,12 @@ public class CongeCalculateurEngine {
         return totalJours.compareTo(BigDecimal.valueOf(PLAFOND_MALADIE_MAINTIEN_JOURS)) > 0;
     }
 
-    /**
-     * Vérifie si une demande sur le pool annuel familial (10j/an) est admissible.
-     */
-    public boolean verifierEligibilitePoolFamilial(BigDecimal consommationActuelle, BigDecimal demandeJours) {
-        BigDecimal total = (consommationActuelle != null ? consommationActuelle : BigDecimal.ZERO)
+    /** Vérifie une projection de pool contre le plafond fourni par la configuration persistée. */
+    public boolean verifierEligibilitePool(BigDecimal joursEngages, BigDecimal demandeJours, BigDecimal plafond) {
+        if (plafond == null) throw new IllegalArgumentException("Le plafond du pool est obligatoire.");
+        BigDecimal total = (joursEngages != null ? joursEngages : BigDecimal.ZERO)
                 .add(demandeJours != null ? demandeJours : BigDecimal.ZERO);
-        return total.compareTo(PLAFOND_POOL_ANNUEL_FAMILIAL) <= 0;
+        return total.compareTo(plafond) <= 0;
     }
 
     public BigDecimal calculerSoldeProjete(BigDecimal soldeAvant, BigDecimal jours, boolean decompteSoldeAcquis) {

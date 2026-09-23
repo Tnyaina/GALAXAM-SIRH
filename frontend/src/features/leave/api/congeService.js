@@ -93,7 +93,7 @@ const congeService = {
   },
 
   /**
-   * Récupère la liste des pools annuels partagés (PERMISSIONS_FAMILIALES 10j/an)
+   * Récupère la liste des pools annuels partagés et leurs plafonds configurés.
    */
   getPools: async () => {
     const response = await apiClient.get('/conges/referentiels/pools');
@@ -137,7 +137,7 @@ const congeService = {
   },
 
   /**
-   * Récupère la consommation annuelle du pool d'un employé (ex: 10j permissions exceptionnelles)
+   * Récupère consommation, réservations et engagement annuel du pool d'un employé.
    */
   getConsommationPool: async (idEmploye, annee = null) => {
     const response = await apiClient.get(`/conges/pool-consommation/employe/${idEmploye}`, {

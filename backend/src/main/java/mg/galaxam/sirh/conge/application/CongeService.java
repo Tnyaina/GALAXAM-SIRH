@@ -480,13 +480,9 @@ public class CongeService {
         if (idEmploye != null && type.getIdPoolCongeAnnuel() != null) {
             RefPoolCongeAnnuel pool = RefPoolCongeAnnuel.rechercherParId(type.getIdPoolCongeAnnuel(), c);
             plafondPool = pool != null ? pool.getPlafondJoursAn() : null;
-            consommationPool = BigDecimal.ZERO;
-            for (RefPoolCongeAnnuel.Consommation p : RefPoolCongeAnnuel.listerConsommations(
-                    idEmploye, dateDebut.toLocalDate().getYear(), c)) {
-                if (type.getIdPoolCongeAnnuel().equals(p.getIdPool()) && p.getJoursConsommes() != null) {
-                    consommationPool = consommationPool.add(p.getJoursConsommes());
-                }
-            }
+            RefPoolCongeAnnuel.Consommation consommation = RefPoolCongeAnnuel.rechercherConsommation(
+                    idEmploye, type.getIdPoolCongeAnnuel(), dateDebut.toLocalDate().getYear(), c);
+            consommationPool = consommation != null ? consommation.getJoursEngages() : BigDecimal.ZERO;
         }
 
         int seuilLong = getParamGlobalInt("SEUIL_JOURS_PREAVIS_LONG", 3, c);
@@ -649,9 +645,9 @@ public class CongeService {
         if (type.getIdPoolCongeAnnuel() != null) {
             RefPoolCongeAnnuel pool = RefPoolCongeAnnuel.rechercherParId(type.getIdPoolCongeAnnuel(), c);
             BigDecimal plafond = pool != null ? pool.getPlafondJoursAn() : null;
-            BigDecimal consomme = consommationPool(d.getIdEmploye(), type.getIdPoolCongeAnnuel(),
+            BigDecimal engage = engagementPool(d.getIdEmploye(), type.getIdPoolCongeAnnuel(),
                     d.getDateDebut().toLocalDate().getYear(), c);
-            if (plafond != null && consomme.compareTo(plafond) >= 0) {
+            if (plafond != null && engage.compareTo(plafond) >= 0) {
                 NotificationRhService.creer(c, "POOL_EXCEPTIONNEL_EPUISE", "HAUTE", "Quota annuel atteint",
                         "Le quota annuel de " + plafond + " jours est atteint.", "/conges/soldes", d.getIdEmploye());
             }
@@ -664,15 +660,10 @@ public class CongeService {
         return (DemandeConge) d.update(c);
     }
 
-    private BigDecimal consommationPool(int idEmploye, int idPool, int annee, Connection c) throws Exception {
-        BigDecimal total = BigDecimal.ZERO;
-        for (RefPoolCongeAnnuel.Consommation consommation
-                : RefPoolCongeAnnuel.listerConsommations(idEmploye, annee, c)) {
-            if (consommation.getIdPool() == idPool && consommation.getJoursConsommes() != null) {
-                total = total.add(consommation.getJoursConsommes());
-            }
-        }
-        return total;
+    private BigDecimal engagementPool(int idEmploye, int idPool, int annee, Connection c) throws Exception {
+        RefPoolCongeAnnuel.Consommation consommation = RefPoolCongeAnnuel.rechercherConsommation(
+                idEmploye, idPool, annee, c);
+        return consommation != null ? consommation.getJoursEngages() : BigDecimal.ZERO;
     }
 
     public DemandeConge refuserDemande(int idDemande, Integer currentUserId, String motifRefus, Connection c)

@@ -47,10 +47,12 @@ export default function SoldeCongeWidget({
   // Données dérivées : période de référence et cycle
   const refCycle = situationData?.periodeReference || null;
 
-  // Pool partagé permissions exceptionnelles (10j / an max)
-  const poolJoursConsommes = consommationPool && consommationPool.length > 0
-    ? Number(consommationPool[0].joursConsommes || 0)
-    : 0;
+  // Valeurs calculées par le backend à partir du plafond persisté.
+  const poolSituation = consommationPool?.[0] || {};
+  const poolJoursConsommes = Number(poolSituation.joursConsommes || 0);
+  const poolJoursEnAttente = Number(poolSituation.joursEnAttente || 0);
+  const poolJoursEngages = Number(poolSituation.joursEngages || 0);
+  const poolPlafond = Number(poolSituation.plafond || 0);
 
   // Ancienneté et éligibilité légale
   const dateDebut = employe?.dateEmbauche || employe?.dateDebutContratActif || employe?.dateDebut;
@@ -322,10 +324,10 @@ export default function SoldeCongeWidget({
         {/* 4. Quota Événements Familiaux */}
         <StatCard
           title="Événements Familiaux"
-          value={`${formatJours(poolJoursConsommes)} / 10 j`}
+          value={`${formatJours(poolJoursConsommes)} / ${formatJours(poolPlafond)} j`}
           icon={<ShieldAlert size={20} />}
-          color={poolJoursConsommes >= 10 ? 'danger' : poolJoursConsommes >= 7 ? 'warning' : 'neutral'}
-          subtext="Mariage, décès, naissance (non déduit du solde)"
+          color={poolPlafond > 0 && poolJoursEngages >= poolPlafond ? 'danger' : poolJoursEnAttente > 0 ? 'warning' : 'neutral'}
+          subtext={`${formatJours(poolJoursEnAttente)} j réservés • ${formatJours(poolJoursEngages)} j engagés`}
         />
       </div>
 
