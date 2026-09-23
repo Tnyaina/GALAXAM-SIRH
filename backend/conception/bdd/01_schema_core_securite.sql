@@ -209,6 +209,7 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 -- Paie (Consolidé Sprint UX Paie 1 : sous-menus contextuels sans doublons de stepper)
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
 ('PAIE_CENTRE',       'Centre de paie',          'LayoutDashboard',   '/paie',                           1, 2, 'PAIE_MODULE'),
+('PAIE_CAMPAGNE',     'Cycles de paie',          'CalendarRange',     '/paie?tab=periodes',              2, 2, 'PAIE_MODULE'),
 ('PAIE_ACOMPTES',     'Acomptes & avances',      'SlidersHorizontal', '/paie/acomptes-avances',           3, 2, 'PAIE_MODULE'),
 ('PAIE_HISTORIQUE',   'Archives des cycles',     'History',           '/paie?tab=periodes',              4, 2, 'PAIE_MODULE'),
 ('PAIE_DECLARATIONS', 'Déclarations & sorties',  'FileText',          '/paie/declarations',              5, 2, 'PAIE_MODULE');
@@ -232,7 +233,6 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 (1, 'PAIE_ACOMPTES'),
 (1, 'PAIE_HISTORIQUE'),
 (1, 'PAIE_DECLARATIONS'),
-(1, 'PAIE_PARAMETRES'),
 (1, 'ADMIN_MODULE'),
 (1, 'ADMIN_SECURITE'),
 (1, 'ADMIN_ORGANISATION'),
