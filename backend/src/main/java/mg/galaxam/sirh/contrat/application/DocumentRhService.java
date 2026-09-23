@@ -1,11 +1,12 @@
 package mg.galaxam.sirh.contrat.application;
 
-import mg.galaxam.sirh.contrat.persistence.*;
-import mg.galaxam.sirh.contrat.domain.*;
-import mg.galaxam.sirh.contrat.api.dto.*;
 
-import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO;
-import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.*;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.AttestationTravailDTO;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.CertificatTravailDTO;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.EmployeDocumentDTO;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.EntrepriseInfoDTO;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.PosteHistoriqueDTO;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.SignataireDTO;
 import mg.galaxam.sirh.contrat.persistence.ContratTravail;
 import mg.galaxam.sirh.contrat.persistence.EmployeAffectationCarriere;
 import mg.galaxam.sirh.contrat.persistence.Employe;
@@ -15,7 +16,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
-import javax.sql.DataSource;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,10 +35,7 @@ public class DocumentRhService {
     private static final DateTimeFormatter FMT_FR = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.FRENCH);
     private static final DateTimeFormatter FMT_COURT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    private final DataSource dataSource;
-
-    public DocumentRhService(DataSource dataSource) {
-        this.dataSource = dataSource;
+    public DocumentRhService() {
     }
 
     public static String formatDateFr(LocalDate d) {
@@ -606,7 +603,6 @@ public class DocumentRhService {
                 p.createRun().setText(formaterLignePoste(premier));
 
                 // Ajouter des paragraphes pour les autres postes
-                XWPFParagraph currentP = p;
                 for (int j = 1; j < postes.size(); j++) {
                     XWPFParagraph nextP = doc.createParagraph();
                     nextP.createRun().setText(formaterLignePoste(postes.get(j)));

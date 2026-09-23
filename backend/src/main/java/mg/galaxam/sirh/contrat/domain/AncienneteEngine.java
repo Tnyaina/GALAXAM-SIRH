@@ -1,7 +1,5 @@
 package mg.galaxam.sirh.contrat.domain;
 
-import mg.galaxam.sirh.contrat.persistence.*;
-import mg.galaxam.sirh.contrat.api.dto.*;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

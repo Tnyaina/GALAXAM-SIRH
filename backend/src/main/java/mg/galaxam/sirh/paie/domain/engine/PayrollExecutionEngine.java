@@ -1,14 +1,5 @@
 package mg.galaxam.sirh.paie.domain.engine;
 
-import mg.galaxam.sirh.paie.persistence.*;
-import mg.galaxam.sirh.paie.domain.engine.*;
-import mg.galaxam.sirh.paie.domain.dto.*;
-import mg.galaxam.sirh.paie.domain.dto.export.*;
-import mg.galaxam.sirh.paie.application.*;
-import mg.galaxam.sirh.paie.application.workflow.*;
-import mg.galaxam.sirh.paie.application.export.*;
-import mg.galaxam.sirh.paie.api.dto.*;
-import mg.galaxam.sirh.paie.api.dto.stc.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -677,7 +668,6 @@ public class PayrollExecutionEngine {
 
     public BigDecimal calculerIndemnitesNonImposables(PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal totalIndemnitesNet = BigDecimal.ZERO;
-        BigDecimal nbJoursOuvrables = zeroIfNull(input.getNbJoursOuvrables());
 
         // 6.1 Indemnité repas (consommée directement du snapshot Pointage)
         BigDecimal montantRepas = zeroIfNull(input.getIndemniteRepas());

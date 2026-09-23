@@ -1,12 +1,7 @@
 package mg.galaxam.sirh.contrat.api;
 
-import mg.galaxam.sirh.contrat.persistence.*;
-import mg.galaxam.sirh.contrat.domain.*;
-import mg.galaxam.sirh.contrat.application.*;
-import mg.galaxam.sirh.contrat.api.dto.*;
 
 import java.util.List;
-import javax.sql.DataSource;
 import mg.galaxam.sirh.common.dto.PageDTO;
 import mg.galaxam.sirh.contrat.api.dto.EmbaucheInitialeRequest;
 import mg.galaxam.sirh.contrat.api.dto.TransitionCarriereRequest;
@@ -30,9 +25,6 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 public class WorkflowRhController {
-
-    @Autowired
-    private DataSource dataSource;
 
     @Autowired
     private WorkflowRhService workflowRhService;

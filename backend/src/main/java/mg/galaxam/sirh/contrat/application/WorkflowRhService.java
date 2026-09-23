@@ -1,24 +1,23 @@
 package mg.galaxam.sirh.contrat.application;
 
-import mg.galaxam.sirh.contrat.persistence.*;
-import mg.galaxam.sirh.contrat.domain.*;
-import mg.galaxam.sirh.contrat.api.dto.*;
 
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import mg.galaxam.sirh.contrat.api.dto.EmbaucheInitialeRequest;
 import mg.galaxam.sirh.contrat.api.dto.TransitionCarriereRequest;
 import mg.galaxam.sirh.contrat.api.dto.ValiderWorkflowRequest;
 import mg.galaxam.sirh.contrat.domain.CarriereTransitionValidator;
+import mg.galaxam.sirh.contrat.persistence.ContratTravail;
+import mg.galaxam.sirh.contrat.persistence.EmployeAffectationCarriere;
+import mg.galaxam.sirh.contrat.persistence.WorkflowRh;
+import mg.galaxam.sirh.contrat.persistence.WorkflowRhCPL;
 import mg.galaxam.sirh.dashboard.application.NotificationRhService;
 import mg.galaxam.sirh.securite.AuditLog;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -28,9 +27,6 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class WorkflowRhService {
-
-    @Autowired
-    private NotificationRhService notificationService;
 
     /**
      * ÉTAPE 1 — Créer un brouillon d'embauche initiale.

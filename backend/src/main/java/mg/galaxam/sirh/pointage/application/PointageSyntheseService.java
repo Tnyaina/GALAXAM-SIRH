@@ -248,7 +248,7 @@ public class PointageSyntheseService {
         }
         BigDecimal seuilHeuresJour = ParametreGlobal.getBigDecimal(
                 params, "SEUIL_HEURES_JOUR", dureeHebdoLegale.divide(BigDecimal.valueOf(5), 2, RoundingMode.HALF_UP));
-        Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMapAtDate(dateDebut != null ? Date.valueOf(dateDebut) : null, c);
+
         // Résolution de l'horaire continu du site (TRUE = TNR / continu, FALSE = TMM / discontinu)
         boolean siteHoraireContinu;
         if (horaireContinu != null) {
@@ -332,13 +332,6 @@ public class PointageSyntheseService {
         BigDecimal montantRepasTotal = BigDecimal.ZERO;
         BigDecimal totalTrajets = BigDecimal.ZERO;
         BigDecimal totalMntDeplacement = BigDecimal.ZERO;
-        // CORRECTION : accumuler en minutes entières (long) pour éviter les erreurs
-        // d'arrondi flottant cumulées (ex : 139h56 vs 139h57).
-        // La conversion en décimales ne se fait qu'UNE SEULE FOIS à la fin.
-        long cumulMinutesTravaillees = 0;
-        long cumulMinutesNuit = 0;
-        long cumulMinutesDimanche = 0;
-        long cumulMinutesFerie = 0;
         int totalMinsRetard = 0;
         int nbAnomalies = 0;
 
@@ -385,7 +378,6 @@ public class PointageSyntheseService {
                     } else if ("DIMANCHE_TRAVAILLE".equals(stCode) || (isSunday && th > 0)) {
                         presents++;
                         dimanchesTravailles++;
-                        cumulMinutesDimanche += workedMinutes;
                     } else if ("CONGE".equals(stCode)) {
                         conges++;
                     } else if ("ABSENCE_NON_JUSTIFIEE".equals(stCode) || "ABSENCE_JUSTIFIEE".equals(stCode)) {
@@ -395,13 +387,10 @@ public class PointageSyntheseService {
                     } else if ("FERIE_TRAVAILLE".equals(stCode)) {
                         presents++;
                         feriesTravailles++;
-                        cumulMinutesFerie += workedMinutes;
                     } else if ("ANOMALIE_SAISIE".equals(stCode)) {
                         nbAnomalies++;
                     }
 
-                    cumulMinutesTravaillees += workedMinutes;
-                    cumulMinutesNuit += nightMinutes;
                     totalMinsRetard += (estAutonome ? 0 : ret);
 
                     // Saisie quotidienne est la vérité finale depuis pointage_indemnite_jour
@@ -477,8 +466,6 @@ public class PointageSyntheseService {
         }
 
         // Calcul de la compensation hebdomadaire par tronçon
-        long totalHs30Minutes = 0;
-        long totalHs50Minutes = 0;
         long totalHsBrutesMinutes = 0;
         long totalRetardCompenseMinutes = 0;
         long totalDeficitMinutes = 0;
@@ -540,8 +527,6 @@ public class PointageSyntheseService {
                     new WeeklyAttendanceContext(lundi, expectedMinutes, firstBandMinutes, !isCadre,
                             seuilHeuresJour.multiply(BigDecimal.valueOf(60)).longValueExact(), priorState), jours);
             weeklyResults.add(res);
-            totalHs30Minutes += res.overtime30Minutes();
-            totalHs50Minutes += res.overtime50Minutes();
 
             // Résultat unique du moteur hebdomadaire : affichage et paie utilisent
             // exactement la même compensation, y compris pour les jours sans badge.
@@ -1571,15 +1556,6 @@ public class PointageSyntheseService {
 
         Map<String, String> params = ParametreGlobal.loadActiveMapAtDate(Date.valueOf(dateDebutTroncon), c);
         BigDecimal seuilHeuresJour = ParametreGlobal.getBigDecimal(params, "SEUIL_HEURES_JOUR", new BigDecimal("8"));
-        BigDecimal seuilHsTranche1 = new BigDecimal("8");
-        try {
-            mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale leg = mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale.findActiveAt(c, dateDebutTroncon);
-            if (leg != null && leg.getSeuilHsTranche1() != null) {
-                seuilHsTranche1 = leg.getSeuilHsTranche1();
-            }
-        } catch (Exception e) {
-            log.warn("Impossible de charger PaieConfigLegale pour seuilHsTranche1, repli sur 8.0 : {}", e.getMessage());
-        }
         Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMapAtDate(dateDebutTroncon != null ? Date.valueOf(dateDebutTroncon) : null, c);
         BigDecimal montantRepasMidiDefaut = ParametreGlobal.getBigDecimal(etatMap, "MONTANT_REPAS_MIDI", null, BigDecimal.ZERO);
         if (montantRepasMidiDefaut == null) {
@@ -1596,15 +1572,11 @@ public class PointageSyntheseService {
         BigDecimal montant2eRepas1 = actif2eRepas1 ? ParametreGlobal.getBigDecimal(etatMap, "MONTANT_2ND_REPAS_1", null, BigDecimal.ZERO) : BigDecimal.ZERO;
         if (actif2eRepas1 && montant2eRepas1 == null) throw new SirhBusinessException(
                 SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING, "Configuration d'indemnité absente : MONTANT_2ND_REPAS_1.");
-        String seuil2eRepas1Str = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_1", "19:30", "23:59");
-        LocalTime seuil2eRepas1 = LocalTime.parse(seuil2eRepas1Str.length() == 5 ? seuil2eRepas1Str : seuil2eRepas1Str.substring(0, 5));
 
         boolean actif2eRepas2 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_2", true);
         BigDecimal montant2eRepas2 = actif2eRepas2 ? ParametreGlobal.getBigDecimal(etatMap, "MONTANT_2ND_REPAS_2", null, BigDecimal.ZERO) : BigDecimal.ZERO;
         if (actif2eRepas2 && montant2eRepas2 == null) throw new SirhBusinessException(
                 SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING, "Configuration d'indemnité absente : MONTANT_2ND_REPAS_2.");
-        String seuil2eRepas2Str = ParametreGlobal.getString(etatMap, "SEUIL_2ND_REPAS_2", "21:00", "23:59");
-        LocalTime seuil2eRepas2 = LocalTime.parse(seuil2eRepas2Str.length() == 5 ? seuil2eRepas2Str : seuil2eRepas2Str.substring(0, 5));
 
         // Compter les jours ouvrés du tronçon via le moteur centralisé
         int nbOuvrables = (calendrierEngine != null)
@@ -1937,46 +1909,5 @@ public class PointageSyntheseService {
         result.put("nbSemaines", nbSemainesCalculees);
         result.put("message", nbSemainesCalculees + " semaine(s) calculee(s) et actualisee(s) avec succes.");
         return result;
-    }
-
-    /**
-     * Charge l'état cumulé des tronçons antérieurs de la même semaine civile
-     * pour garantir la continuité du calcul (compensation, tranches HS, déficit)
-     * sans modifier rétroactivement les périodes clôturées.
-     */
-    private WeeklyPriorState chargerEtatHebdomadaireAnterieur(int idEmp, LocalDate lundi, LocalDate debutTroncon, int idPeriode, Connection c) {
-        if (c == null || idEmp <= 0 || lundi == null || debutTroncon == null) return WeeklyPriorState.NONE;
-        String sql = """
-            SELECT seuil_heures_troncon, total_heures_travaillees, heures_hs_brutes,
-                   heures_hs_nettes, heures_deficit, heures_hs_30, heures_hs_50
-            FROM pointage_semaine_calcule
-            WHERE id_employe = ?
-              AND (debut_semaine = ? OR (debut_semaine >= ? AND debut_semaine < ?))
-              AND id_periode_paie != ?
-            ORDER BY id_semaine_calcule DESC LIMIT 1
-        """;
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, idEmp);
-            ps.setDate(2, Date.valueOf(lundi));
-            ps.setDate(3, Date.valueOf(lundi));
-            ps.setDate(4, Date.valueOf(debutTroncon));
-            ps.setInt(5, idPeriode);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    long expected = hoursToMinutes(rs.getBigDecimal("seuil_heures_troncon"));
-                    long worked = hoursToMinutes(rs.getBigDecimal("total_heures_travaillees"));
-                    long surplus = hoursToMinutes(rs.getBigDecimal("heures_hs_brutes"));
-                    long grossOT = hoursToMinutes(rs.getBigDecimal("heures_hs_nettes"));
-                    long compensated = Math.max(0, surplus - grossOT);
-                    long deficit = hoursToMinutes(rs.getBigDecimal("heures_deficit"));
-                    long ot30 = hoursToMinutes(rs.getBigDecimal("heures_hs_30"));
-                    long ot50 = hoursToMinutes(rs.getBigDecimal("heures_hs_50"));
-                    return new WeeklyPriorState(expected, worked, surplus, compensated, deficit, grossOT, ot30, ot50);
-                }
-            }
-        } catch (Exception e) {
-            log.warn("Impossible de charger l'état hebdomadaire antérieur pour l'employé {} sur la semaine {} : {}", idEmp, lundi, e.getMessage());
-        }
-        return WeeklyPriorState.NONE;
     }
 }

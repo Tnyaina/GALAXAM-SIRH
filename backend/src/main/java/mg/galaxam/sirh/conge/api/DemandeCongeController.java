@@ -11,7 +11,6 @@ import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.dto.PageDTO;
 import mg.galaxam.sirh.conge.persistence.DemandeConge;
-import mg.galaxam.sirh.conge.persistence.RefStatutDemandeConge;
 import mg.galaxam.sirh.conge.persistence.RefTypeConge;
 import mg.galaxam.sirh.conge.persistence.VDemandeCongeCpl;
 import mg.galaxam.sirh.dashboard.application.NotificationRhService;

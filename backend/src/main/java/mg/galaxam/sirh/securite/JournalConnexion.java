@@ -82,6 +82,8 @@ public class JournalConnexion extends ClassMere {
     public Integer getIdJournal() { return idJournal; }
     public Integer getIdUtilisateur() { return idUtilisateur; }
     public void setIdUtilisateur(Integer idUtilisateur) { this.idUtilisateur = idUtilisateur; }
+    public Timestamp getDateHeure() { return dateHeure; }
+    public void setDateHeure(Timestamp dateHeure) { this.dateHeure = dateHeure; }
     public String getStatut() { return statut; }
     public void setStatut(String statut) { this.statut = statut; }
 }

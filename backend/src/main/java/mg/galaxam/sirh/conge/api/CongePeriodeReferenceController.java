@@ -13,7 +13,6 @@ import mg.galaxam.sirh.conge.api.dto.ActiverTauxCalculeRequest;
 import mg.galaxam.sirh.conge.api.dto.CreerPeriodeReferenceRequest;
 import mg.galaxam.sirh.conge.domain.TcongeConfigurationDTO;
 import mg.galaxam.sirh.conge.application.CongeTauxApplicableService;
-import mg.galaxam.sirh.conge.application.CongeTauxApplicableService.PeriodeReferenceData;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;

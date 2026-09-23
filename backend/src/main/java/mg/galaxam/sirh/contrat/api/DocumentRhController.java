@@ -1,9 +1,5 @@
 package mg.galaxam.sirh.contrat.api;
 
-import mg.galaxam.sirh.contrat.persistence.*;
-import mg.galaxam.sirh.contrat.domain.*;
-import mg.galaxam.sirh.contrat.application.*;
-import mg.galaxam.sirh.contrat.api.dto.*;
 
 import java.io.IOException;
 import java.nio.file.Files;

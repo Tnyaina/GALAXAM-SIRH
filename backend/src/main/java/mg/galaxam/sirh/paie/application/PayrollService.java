@@ -1,14 +1,5 @@
 package mg.galaxam.sirh.paie.application;
 
-import mg.galaxam.sirh.paie.persistence.*;
-import mg.galaxam.sirh.paie.domain.engine.*;
-import mg.galaxam.sirh.paie.domain.dto.*;
-import mg.galaxam.sirh.paie.domain.dto.export.*;
-import mg.galaxam.sirh.paie.application.*;
-import mg.galaxam.sirh.paie.application.workflow.*;
-import mg.galaxam.sirh.paie.application.export.*;
-import mg.galaxam.sirh.paie.api.dto.*;
-import mg.galaxam.sirh.paie.api.dto.stc.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -18,7 +9,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Savepoint;
-import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.Instant;
@@ -52,7 +42,6 @@ import mg.galaxam.sirh.pointage.domain.calculation.DaySpecialType;
 import mg.galaxam.sirh.pointage.domain.calculation.NightWorkType;
 import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
-import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche;
 import mg.galaxam.sirh.paie.domain.engine.TaxConfigurationResolver;
 import mg.galaxam.sirh.common.transaction.TransactionRunner;
 import mg.galaxam.sirh.paie.api.dto.PayrollPopulationMember;

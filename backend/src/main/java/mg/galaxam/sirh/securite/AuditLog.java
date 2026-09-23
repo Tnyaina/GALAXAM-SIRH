@@ -5,7 +5,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Timestamp;
-import java.sql.Types;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.security.core.Authentication;

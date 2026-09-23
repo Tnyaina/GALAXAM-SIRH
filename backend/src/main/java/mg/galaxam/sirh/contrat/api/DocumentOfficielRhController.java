@@ -1,11 +1,8 @@
 package mg.galaxam.sirh.contrat.api;
 
-import mg.galaxam.sirh.contrat.persistence.*;
-import mg.galaxam.sirh.contrat.domain.*;
-import mg.galaxam.sirh.contrat.application.*;
-import mg.galaxam.sirh.contrat.api.dto.*;
 
-import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.*;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.AttestationTravailDTO;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.CertificatTravailDTO;
 import mg.galaxam.sirh.contrat.application.DocumentRhService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;

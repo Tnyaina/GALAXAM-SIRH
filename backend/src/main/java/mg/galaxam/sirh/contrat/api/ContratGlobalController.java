@@ -1,9 +1,5 @@
 package mg.galaxam.sirh.contrat.api;
 
-import mg.galaxam.sirh.contrat.persistence.*;
-import mg.galaxam.sirh.contrat.domain.*;
-import mg.galaxam.sirh.contrat.application.*;
-import mg.galaxam.sirh.contrat.api.dto.*;
 
 import java.io.PrintWriter;
 import java.sql.Connection;
@@ -21,7 +17,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import mg.galaxam.sirh.common.dto.PageDTO;
 import mg.galaxam.sirh.contrat.api.dto.ContratTravailGlobalDTO;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;

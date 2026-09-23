@@ -1,9 +1,5 @@
 package mg.galaxam.sirh.contrat.api;
 
-import mg.galaxam.sirh.contrat.persistence.*;
-import mg.galaxam.sirh.contrat.domain.*;
-import mg.galaxam.sirh.contrat.application.*;
-import mg.galaxam.sirh.contrat.api.dto.*;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -23,7 +19,6 @@ import mg.galaxam.sirh.contrat.persistence.WorkflowRhCPL;
 import mg.galaxam.sirh.common.transaction.TransactionRunner;
 import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;

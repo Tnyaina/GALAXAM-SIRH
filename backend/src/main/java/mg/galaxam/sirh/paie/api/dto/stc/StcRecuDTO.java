@@ -3,8 +3,6 @@ package mg.galaxam.sirh.paie.api.dto.stc;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * DTO officiel pour la Quittance Libératoire de Solde de Tout Compte (STC).

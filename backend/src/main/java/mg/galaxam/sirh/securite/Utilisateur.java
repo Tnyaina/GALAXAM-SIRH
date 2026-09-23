@@ -8,7 +8,6 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
-import mg.galaxam.sirh.admin.persistence.RefRole;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 public class Utilisateur extends ClassMere {

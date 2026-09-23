@@ -35,9 +35,6 @@ public class PurgeCongeScheduler {
     private PurgeFifoEngine purgeFifoEngine;
 
     @Autowired
-    private NotificationRhService notificationService;
-
-    @Autowired
     private SchedulerExecutionRegistry executionRegistry;
 
     public static class EmployeSoldeAccumulateur {
@@ -155,17 +152,15 @@ public class PurgeCongeScheduler {
                     psIn.setString(4, "Purge légale FIFO (droits datés de +" + moisPrescription + " mois prescrits)");
                     psIn.executeUpdate();
 
-                    if (notificationService != null) {
-                        try {
-                            notificationService.creer(c, "ALERTE_ECHEANCE", "HAUTE",
-                                "Congés expirés purgés (FIFO)",
-                                "Attention, " + String.format("%.2f", joursAExpirer)
-                                    + " jours de congés acquis il y a plus de " + moisPrescription + " mois ont atteint leur limite d'utilisation et ont été expirés.",
-                                "/employes/" + idEmploye + "?tab=conges",
-                                idEmploye);
-                        } catch (Exception eNotif) {
-                            log.warn("[PurgeCongeScheduler] Impossible de créer la notification pour l'employé ID {}: {}", idEmploye, eNotif.getMessage());
-                        }
+                    try {
+                        NotificationRhService.creer(c, "ALERTE_ECHEANCE", "HAUTE",
+                            "Congés expirés purgés (FIFO)",
+                            "Attention, " + String.format("%.2f", joursAExpirer)
+                                + " jours de congés acquis il y a plus de " + moisPrescription + " mois ont atteint leur limite d'utilisation et ont été expirés.",
+                            "/employes/" + idEmploye + "?tab=conges",
+                            idEmploye);
+                    } catch (Exception eNotif) {
+                        log.warn("[PurgeCongeScheduler] Impossible de créer la notification pour l'employé ID {}: {}", idEmploye, eNotif.getMessage());
                     }
 
                     log.info("[PurgeCongeScheduler] Employé ID {} : {} jours expirés purgés selon FIFO.", idEmploye, joursAExpirer);

@@ -1,14 +1,5 @@
 package mg.galaxam.sirh.paie.application.export;
 
-import mg.galaxam.sirh.paie.persistence.*;
-import mg.galaxam.sirh.paie.domain.engine.*;
-import mg.galaxam.sirh.paie.domain.dto.*;
-import mg.galaxam.sirh.paie.domain.dto.export.*;
-import mg.galaxam.sirh.paie.application.*;
-import mg.galaxam.sirh.paie.application.workflow.*;
-import mg.galaxam.sirh.paie.application.export.*;
-import mg.galaxam.sirh.paie.api.dto.*;
-import mg.galaxam.sirh.paie.api.dto.stc.*;
 
 import mg.galaxam.sirh.paie.domain.dto.export.SafiRowDto;
 import org.springframework.stereotype.Service;
@@ -97,7 +88,6 @@ public class SafiOdsExportService {
                 ") rf_def ON TRUE " +
                 "WHERE pp.id_periode_paie = ?";
 
-        String codePeriode = "PER";
         String libellePeriode = "PÉRIODE";
         String raisonSociale = "GALAXAM LOGISTICS";
         String nif = "3000019434";
@@ -107,7 +97,6 @@ public class SafiOdsExportService {
             ps.setInt(1, idPeriode);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    if (rs.getString("code_periode") != null) codePeriode = rs.getString("code_periode");
                     if (rs.getString("libelle_periode") != null) libellePeriode = rs.getString("libelle_periode");
                     if (rs.getString("raison_sociale") != null) raisonSociale = rs.getString("raison_sociale");
                     if (rs.getString("nif") != null) nif = rs.getString("nif");
@@ -407,12 +396,10 @@ public class SafiOdsExportService {
     private static class ZipEntryData {
         String name;
         byte[] data;
-        int method;
 
         ZipEntryData(String name, byte[] data, int method) {
             this.name = name;
             this.data = data;
-            this.method = method;
         }
     }
 }

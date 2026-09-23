@@ -348,7 +348,6 @@ public class PointageExcelExportService {
 
                     HebdoRowHolder holder = new HebdoRowHolder();
                     holder.row = rH;
-                    holder.excelR = excelR;
                     holder.dto = b;
                     hebdoHolders.add(holder);
                 }
@@ -670,18 +669,7 @@ public class PointageExcelExportService {
 
     private static class HebdoRowHolder {
         Row row;
-        int excelR;
         PointageTronconSemaineDTO dto;
-    }
-
-    private int parseRetardMinutes(String ecartStr, boolean ecartPositif) {
-        if (ecartPositif || ecartStr == null || !ecartStr.contains("-")) return 0;
-        try {
-            String digits = ecartStr.replaceAll("[^0-9]", "");
-            return digits.isEmpty() ? 0 : Integer.parseInt(digits);
-        } catch (Exception e) {
-            return 0;
-        }
     }
 
     private void createMetaCell(Row row, int col, String value, CellStyle style) {

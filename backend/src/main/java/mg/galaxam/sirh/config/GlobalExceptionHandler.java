@@ -2,7 +2,6 @@ package mg.galaxam.sirh.config;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.stream.Collectors;
 import mg.galaxam.sirh.common.dto.ApiErrorResponse;
 import mg.galaxam.sirh.common.dto.BusinessIssue;
@@ -82,7 +81,6 @@ public class GlobalExceptionHandler {
 
         SirhErrorCode code = SirhErrorCode.DATA_INTEGRITY_VIOLATION;
         String userFriendlyMessage = code.getDefaultMessage();
-        String constraintName = null;
 
         // P1-06 : Extraction du SQLSTATE via SQLException (standard JDBC) — ne jamais parser le message texte.
         Throwable cause = ex.getMostSpecificCause();
@@ -108,7 +106,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiErrorResponse> handleMaxUploadSize(MaxUploadSizeExceededException ex, HttpServletRequest request) {
         log.warn("Fichier trop volumineux sur [{}]", request.getRequestURI());
-        return problem(HttpStatus.PAYLOAD_TOO_LARGE, SirhErrorCode.FILE_TOO_LARGE.name(),
+        return problem(HttpStatus.CONTENT_TOO_LARGE, SirhErrorCode.FILE_TOO_LARGE.name(),
                 "Le fichier sélectionné est trop volumineux. La taille maximale autorisée est de 10 Mo.", request);
     }
 

@@ -784,7 +784,7 @@ public class DemandeConge extends ClassMere {
     public ClassMere rechercherParId(String id, Connection c) throws Exception {
         if (id == null || id.isBlank())
             return null;
-        return rechercherParId(Integer.parseInt(id), c);
+        return DemandeConge.rechercherParId(Integer.parseInt(id), c);
     }
 
     public static DemandeConge rechercherParId(Integer id, Connection c) throws Exception {

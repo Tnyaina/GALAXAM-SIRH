@@ -280,7 +280,7 @@ public class CongeService {
 
     public DemandeConge validerDemande(int idDemande, Integer currentUserId, String commentaireValidation, Connection c)
             throws Exception {
-        DemandeConge d = new DemandeConge().rechercherParId(idDemande, c);
+        DemandeConge d = DemandeConge.rechercherParId(idDemande, c);
         if (d == null) {
             throw new IllegalArgumentException("Demande de congé introuvable (ID: " + idDemande + ").");
         }
@@ -291,7 +291,7 @@ public class CongeService {
 
     public DemandeConge refuserDemande(int idDemande, Integer currentUserId, String motifRefus, Connection c)
             throws Exception {
-        DemandeConge d = new DemandeConge().rechercherParId(idDemande, c);
+        DemandeConge d = DemandeConge.rechercherParId(idDemande, c);
         if (d == null) {
             throw new IllegalArgumentException("Demande de congé introuvable (ID: " + idDemande + ").");
         }
@@ -302,7 +302,7 @@ public class CongeService {
 
     public DemandeConge annulerDemande(int idDemande, Integer currentUserId, String motifAnnulation, Connection c)
             throws Exception {
-        DemandeConge d = new DemandeConge().rechercherParId(idDemande, c);
+        DemandeConge d = DemandeConge.rechercherParId(idDemande, c);
         if (d == null) {
             throw new IllegalArgumentException("Demande de congé introuvable (ID: " + idDemande + ").");
         }
@@ -707,11 +707,9 @@ public class CongeService {
                     "AND dc.id_employe IN ("
             );
 
-            int countEmps = 0;
-            for (Integer id : empMap.keySet()) {
-                if (countEmps > 0) sqlDemandes.append(",");
+            for (int i = 0; i < empMap.size(); i++) {
+                if (i > 0) sqlDemandes.append(",");
                 sqlDemandes.append("?");
-                countEmps++;
             }
             sqlDemandes.append(") ORDER BY dc.date_debut ASC");
 

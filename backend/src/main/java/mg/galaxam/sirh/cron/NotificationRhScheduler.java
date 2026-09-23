@@ -10,9 +10,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.conge.domain.PurgeFifoEngine;
@@ -38,9 +36,6 @@ public class NotificationRhScheduler {
 
     @Autowired
     private PurgeFifoEngine purgeFifoEngine;
-
-    @Autowired
-    private NotificationRhService notificationService;
 
     @Autowired
     private SchedulerExecutionRegistry executionRegistry;
@@ -522,6 +517,6 @@ public class NotificationRhScheduler {
         }
 
         // 3. INSERT via source unique de vérité
-        notificationService.creer(c, typeAlerte, priorite, titre, message, lien, idEmploye, idUtilisateur, cibleRole);
+        NotificationRhService.creer(c, typeAlerte, priorite, titre, message, lien, idEmploye, idUtilisateur, cibleRole);
     }
 }

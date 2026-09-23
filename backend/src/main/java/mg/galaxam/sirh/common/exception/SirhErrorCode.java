@@ -24,7 +24,7 @@ public enum SirhErrorCode {
             "L'opération ne respecte pas une contrainte d'intégrité des données."),
 
     FILE_TOO_LARGE(
-            HttpStatus.PAYLOAD_TOO_LARGE,
+            HttpStatus.CONTENT_TOO_LARGE,
             "Le fichier sélectionné dépasse la taille autorisée."),
 
     PARAMETER_FORMAT_INVALID(
@@ -246,7 +246,7 @@ public enum SirhErrorCode {
     // CONFIGURATION LÉGALE MANQUANTE (P1-03)
     // =========================================================================
     LEGAL_CONFIG_MISSING(
-            HttpStatus.UNPROCESSABLE_ENTITY,
+            HttpStatus.UNPROCESSABLE_CONTENT,
             "Configuration légale manquante pour la date demandée. LEGAL_REVIEW_REQUIRED.");
 
     private final HttpStatus httpStatus;

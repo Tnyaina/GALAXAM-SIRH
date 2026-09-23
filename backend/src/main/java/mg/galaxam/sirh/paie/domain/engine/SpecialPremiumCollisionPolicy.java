@@ -1,14 +1,5 @@
 package mg.galaxam.sirh.paie.domain.engine;
 
-import mg.galaxam.sirh.paie.persistence.*;
-import mg.galaxam.sirh.paie.domain.engine.*;
-import mg.galaxam.sirh.paie.domain.dto.*;
-import mg.galaxam.sirh.paie.domain.dto.export.*;
-import mg.galaxam.sirh.paie.application.*;
-import mg.galaxam.sirh.paie.application.workflow.*;
-import mg.galaxam.sirh.paie.application.export.*;
-import mg.galaxam.sirh.paie.api.dto.*;
-import mg.galaxam.sirh.paie.api.dto.stc.*;
 
 /**
  * Politique d'arbitrage en cas de collision de sujétions/majorations spéciales (Nuit, Dimanche, Jour Férié).

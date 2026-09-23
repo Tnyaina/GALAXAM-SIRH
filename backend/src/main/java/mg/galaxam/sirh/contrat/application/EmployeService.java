@@ -1,8 +1,5 @@
 package mg.galaxam.sirh.contrat.application;
 
-import mg.galaxam.sirh.contrat.persistence.*;
-import mg.galaxam.sirh.contrat.domain.*;
-import mg.galaxam.sirh.contrat.api.dto.*;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -31,15 +28,12 @@ public class EmployeService {
     private final DataSource dataSource;
     private final EmployeValidationEngine validationEngine;
     private final MatriculeGeneratorEngine matriculeEngine;
-    private final NotificationRhService notificationService;
 
     public EmployeService(DataSource dataSource, EmployeValidationEngine validationEngine,
-                          MatriculeGeneratorEngine matriculeEngine,
-                          NotificationRhService notificationService) {
+                          MatriculeGeneratorEngine matriculeEngine) {
         this.dataSource = dataSource;
         this.validationEngine = validationEngine;
         this.matriculeEngine = matriculeEngine;
-        this.notificationService = notificationService;
     }
 
     public Map<String, Long> getStats(String q) throws Exception {
@@ -213,7 +207,7 @@ public class EmployeService {
                 AuditLog.audit(c, "CREATION", "employe", String.valueOf(empId), null, emp);
 
                 // Notification RH via source unique de vérité
-                notificationService.creer(c, "EMPLOYE_CREE", "INFO",
+                NotificationRhService.creer(c, "EMPLOYE_CREE", "INFO",
                     "Nouvel employé - " + emp.getNom() + " " + emp.getPrenom(),
                     "La fiche de l'employé " + emp.getNom() + " " + emp.getPrenom()
                         + " a été créée. Pensez à ajouter un contrat et les documents obligatoires.",

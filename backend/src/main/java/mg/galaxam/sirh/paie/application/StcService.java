@@ -1,14 +1,5 @@
 package mg.galaxam.sirh.paie.application;
 
-import mg.galaxam.sirh.paie.persistence.*;
-import mg.galaxam.sirh.paie.domain.engine.*;
-import mg.galaxam.sirh.paie.domain.dto.*;
-import mg.galaxam.sirh.paie.domain.dto.export.*;
-import mg.galaxam.sirh.paie.application.*;
-import mg.galaxam.sirh.paie.application.workflow.*;
-import mg.galaxam.sirh.paie.application.export.*;
-import mg.galaxam.sirh.paie.api.dto.*;
-import mg.galaxam.sirh.paie.api.dto.stc.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -19,12 +10,10 @@ import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.Period;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
-import mg.galaxam.sirh.paie.api.dto.stc.*;
 import mg.galaxam.sirh.conge.persistence.VSoldeCongeEmploye;
 import mg.galaxam.sirh.contrat.domain.AncienneteEngine;
 import mg.galaxam.sirh.contrat.persistence.EmployeEnfant;
@@ -39,6 +28,10 @@ import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
 import mg.galaxam.sirh.paie.domain.engine.IsiCalculator;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche;
+import mg.galaxam.sirh.paie.api.dto.stc.StcCalculRequest;
+import mg.galaxam.sirh.paie.api.dto.stc.StcCalculResultDTO;
+import mg.galaxam.sirh.paie.api.dto.stc.StcPreparationDTO;
+import mg.galaxam.sirh.paie.api.dto.stc.StcRecuDTO;
 import mg.galaxam.sirh.paie.domain.engine.IrsaBracketResolver;
 import mg.galaxam.sirh.paie.domain.engine.TaxConfigurationResolver;
 import mg.galaxam.sirh.securite.AuditLog;
@@ -53,11 +46,9 @@ public class StcService {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StcService.class);
 
-    private final DataSource dataSource;
     private final AncienneteEngine ancienneteEngine;
 
     public StcService(DataSource dataSource, Object ignoredLegacyCalculator, AncienneteEngine ancienneteEngine) {
-        this.dataSource = dataSource;
         this.ancienneteEngine = ancienneteEngine != null ? ancienneteEngine : new AncienneteEngine();
     }
 

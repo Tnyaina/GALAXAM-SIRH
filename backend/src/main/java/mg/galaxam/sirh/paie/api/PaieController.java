@@ -1,14 +1,5 @@
 package mg.galaxam.sirh.paie.api;
 
-import mg.galaxam.sirh.paie.persistence.*;
-import mg.galaxam.sirh.paie.domain.engine.*;
-import mg.galaxam.sirh.paie.domain.dto.*;
-import mg.galaxam.sirh.paie.domain.dto.export.*;
-import mg.galaxam.sirh.paie.application.*;
-import mg.galaxam.sirh.paie.application.workflow.*;
-import mg.galaxam.sirh.paie.application.export.*;
-import mg.galaxam.sirh.paie.api.dto.*;
-import mg.galaxam.sirh.paie.api.dto.stc.*;
 
 import jakarta.validation.Valid;
 import mg.galaxam.sirh.paie.api.dto.ActionPaiePeriodeRequest;
@@ -19,9 +10,6 @@ import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.persistence.BulletinPaie;
 import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
 import mg.galaxam.sirh.paie.domain.dto.PayrollBatchResult;
-import mg.galaxam.sirh.paie.domain.dto.export.DntsRowDto;
-import mg.galaxam.sirh.paie.domain.dto.export.SafiRowDto;
-import mg.galaxam.sirh.paie.domain.dto.export.VirementRowDto;
 import mg.galaxam.sirh.paie.application.PayrollService;
 import mg.galaxam.sirh.paie.application.workflow.PayrollAction;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
@@ -29,7 +17,6 @@ import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
 import mg.galaxam.sirh.paie.application.export.PaieExportService;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

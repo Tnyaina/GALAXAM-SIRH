@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
-import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,19 +76,7 @@ public class AcquisitionCongeScheduler {
                 LocalDate today = LocalDate.now();
                 boolean isDernierJourMois = today.plusDays(1).getMonth() != today.getMonth();
 
-                // 1. Chargement de la configuration légale active (taux d'acquisition mensuel)
-                PaieConfigLegale configLegale = null;
-                try {
-                    configLegale = PaieConfigLegale.findActiveAt(c, today);
-                } catch (Exception e) {
-                    log.warn("[AcquisitionCongeScheduler] Impossible de charger PaieConfigLegale : {}", e.getMessage());
-                }
-
-                double tauxAcquisitionMensuel = (configLegale != null && configLegale.getAcquisitionCongeMensuelJours() != null)
-                        ? configLegale.getAcquisitionCongeMensuelJours().doubleValue()
-                        : CongeCalculateurEngine.TAUX_ACQUISITION_MENSUEL.doubleValue();
-
-                // 2. Chargement des paramètres d'organisation interne (plafond de cumul et bonification)
+                // Chargement des paramètres d'organisation interne (plafond de cumul et bonification)
                 Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMap(c);
                 double plafondCumulSolde = ParametreGlobal.getDouble(etatMap, "PLAFOND_CUMUL_SOLDE_CONGE_JOURS", 90.0, 90.0);
                 boolean bonificationActive = ParametreGlobal.isActif(etatMap, "SEUIL_ANCIENNETE_BONIFICATION_ANS", true);

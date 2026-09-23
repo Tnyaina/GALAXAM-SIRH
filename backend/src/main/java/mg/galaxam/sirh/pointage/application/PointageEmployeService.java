@@ -173,7 +173,6 @@ public class PointageEmployeService {
         LocalTime hFinAm = LocalTime.of(17, 0);
         LocalTime hPlafondTolerance = LocalTime.of(7, 30);
         Integer resolvedIdSite = null;
-        boolean siteHoraireContinu = false;
         String empMatricule = "—";
         String empNom = null;
         String empPrenom = null;
@@ -196,7 +195,6 @@ public class PointageEmployeService {
                     if (rsSite.getString("fonction_nom") != null) empFonction = rsSite.getString("fonction_nom");
                     if (rsSite.getString("code_categorie") != null) empCategorie = rsSite.getString("code_categorie");
                     resolvedIdSite = (Integer) rsSite.getObject("id_site");
-                    siteHoraireContinu = rsSite.getBoolean("site_horaire_continu");
 
                     if (rsSite.getTime("heure_debut_matin") != null) hDebutMatin = rsSite.getTime("heure_debut_matin").toLocalTime();
                     if (rsSite.getTime("heure_fin_matin") != null) hFinMatin = rsSite.getTime("heure_fin_matin").toLocalTime();
@@ -217,21 +215,6 @@ public class PointageEmployeService {
         result.setFonction(empFonction);
         result.setCategorie(empCategorie);
 
-        BigDecimal refDeplacementSite = BigDecimal.ZERO;
-        if (resolvedIdSite != null && resolvedIdSite > 0) {
-            String sqlSI = "SELECT c.montant_reference FROM site_indemnite_config c " +
-                           "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
-                           "WHERE c.id_site = ? AND i.code IN ('DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE LIMIT 1";
-            try (Connection cSI = dataSource.getConnection();
-                 PreparedStatement psSI = cSI.prepareStatement(sqlSI)) {
-                psSI.setInt(1, resolvedIdSite);
-                try (ResultSet rsSI = psSI.executeQuery()) {
-                    if (rsSI.next()) {
-                        refDeplacementSite = zeroIfNull(rsSI.getBigDecimal("montant_reference")).max(BigDecimal.ZERO);
-                    }
-                }
-            } catch (Exception ignored) {}
-        }
         // Calculs dynamique des règles
         long pauseMins = Duration.between(hFinMatin, hDebutAm).toMinutes();
         long dureeJourMins = Duration.between(hDebutMatin, hFinMatin).toMinutes() + Duration.between(hDebutAm, hFinAm).toMinutes();
@@ -369,7 +352,6 @@ public class PointageEmployeService {
                     r.horaireContinuJour = Boolean.TRUE.equals(rs.getObject("horaire_continu_jour"));
 
                     boolean depAccorde = Boolean.TRUE.equals(rs.getObject("dep_accorde"));
-                    r.indemniteDeplacementRecue = depAccorde;
                     BigDecimal depQte = zeroIfNull(rs.getBigDecimal("dep_quantite"));
                     String depFrac = rs.getString("dep_fraction");
                     if (depAccorde) {
@@ -443,17 +425,6 @@ public class PointageEmployeService {
         int cumulMinutesEcart = 0;
 
         LocalDate today = LocalDate.now();
-
-        int nbJoursOuvrablesPeriode = 0;
-        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
-            boolean isWeekend = CalendrierOuvrableEngine.isWeekend(d);
-            boolean isAvantEmbauche = (dateEmbauche != null && d.isBefore(dateEmbauche));
-            boolean isApresDepart = (dateDepart != null && d.isAfter(dateDepart));
-            boolean isFerie = feriesChomes != null && feriesChomes.contains(d);
-            if (!isWeekend && !isAvantEmbauche && !isApresDepart && !isFerie) {
-                nbJoursOuvrablesPeriode++;
-            }
-        }
 
         for (LocalDate curr = startDate; !curr.isAfter(endDate); curr = curr.plusDays(1)) {
             boolean isWeekend = CalendrierOuvrableEngine.isWeekend(curr);
@@ -682,7 +653,6 @@ public class PointageEmployeService {
             try (PreparedStatement psCar = c.prepareStatement(sqlCarriere)) {
                 psCar.setInt(1, idEmploye);
                 try (ResultSet rsCar = psCar.executeQuery()) {
-                    boolean foundCovering = false;
                     while (rsCar.next()) {
                         Date dDeb = rsCar.getDate("date_debut");
                         Date dFin = rsCar.getDate("date_fin");
@@ -944,7 +914,6 @@ public class PointageEmployeService {
         int minutesRetard;
         boolean deplacementMatin;
         boolean deplacementAm;
-        boolean indemniteDeplacementRecue;
         boolean indemniteRepasRecue;
         BigDecimal montantRepas = BigDecimal.ZERO;
         BigDecimal montantDeplacement = BigDecimal.ZERO;

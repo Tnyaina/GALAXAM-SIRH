@@ -1,9 +1,5 @@
 package mg.galaxam.sirh.contrat.api;
 
-import mg.galaxam.sirh.contrat.persistence.*;
-import mg.galaxam.sirh.contrat.domain.*;
-import mg.galaxam.sirh.contrat.application.*;
-import mg.galaxam.sirh.contrat.api.dto.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,7 +16,6 @@ import java.util.UUID;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
-import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
