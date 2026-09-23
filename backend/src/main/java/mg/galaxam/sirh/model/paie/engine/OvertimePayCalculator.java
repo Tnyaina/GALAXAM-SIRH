@@ -49,27 +49,8 @@ public final class OvertimePayCalculator {
             this(rateHs30, rateHs50, rateNuit, null, rateDimanche, rateFerie, SpecialPremiumCollisionPolicy.UNRESOLVED, null);
         }
 
-        public Rates(
-                BigDecimal rateHs30,
-                BigDecimal rateHs50,
-                BigDecimal rateNuitHabituel,
-                BigDecimal rateNuitOccasionnel,
-                BigDecimal rateDimanche,
-                BigDecimal rateFerie,
-                SpecialDayCollisionPolicy collisionPolicy,
-                NightWorkClassifier nightClassifier
-        ) {
-            this(rateHs30, rateHs50, rateNuitHabituel, rateNuitOccasionnel, rateDimanche, rateFerie,
-                    collisionPolicy != null ? collisionPolicy.toPremiumPolicy() : SpecialPremiumCollisionPolicy.UNRESOLVED,
-                    nightClassifier);
-        }
-
         public Rates withCollisionPolicy(SpecialPremiumCollisionPolicy policy) {
             return new Rates(rateHs30, rateHs50, rateNuitHabituel, rateNuitOccasionnel, rateDimanche, rateFerie, policy, nightClassifier);
-        }
-
-        public Rates withCollisionPolicy(SpecialDayCollisionPolicy policy) {
-            return withCollisionPolicy(policy != null ? policy.toPremiumPolicy() : SpecialPremiumCollisionPolicy.UNRESOLVED);
         }
 
         public Rates withNightClassifier(NightWorkClassifier classifier) {
@@ -400,22 +381,6 @@ public final class OvertimePayCalculator {
 
         factor = factor.add(specialAddition);
         return MoneyRoundingPolicy.amount(nz(hourlyRate).multiply(factor));
-    }
-
-    public BigDecimal calculateCombinedHourRate(
-            BigDecimal hourlyRate,
-            BigDecimal majorationHs,
-            boolean isSunday,
-            BigDecimal majorationDimanche,
-            boolean isHoliday,
-            BigDecimal majorationFerie,
-            boolean isNight,
-            BigDecimal majorationNuit,
-            SpecialDayCollisionPolicy collisionPolicy
-    ) {
-        return calculateCombinedHourRate(hourlyRate, majorationHs, isSunday, majorationDimanche,
-                isHoliday, majorationFerie, isNight, majorationNuit,
-                collisionPolicy != null ? collisionPolicy.toPremiumPolicy() : SpecialPremiumCollisionPolicy.MAX_PREMIUM);
     }
 
     public BigDecimal calculateCombinedHourRate(

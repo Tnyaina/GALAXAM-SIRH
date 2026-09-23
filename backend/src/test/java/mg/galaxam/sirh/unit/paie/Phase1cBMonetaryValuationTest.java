@@ -2,7 +2,7 @@ package mg.galaxam.sirh.unit.paie;
 
 import mg.galaxam.sirh.model.paie.engine.BucketValuationResult;
 import mg.galaxam.sirh.model.paie.engine.OvertimePayCalculator;
-import mg.galaxam.sirh.model.paie.engine.SpecialDayCollisionPolicy;
+import mg.galaxam.sirh.model.paie.engine.SpecialPremiumCollisionPolicy;
 import mg.galaxam.sirh.model.pointage.calculation.DaySpecialType;
 import mg.galaxam.sirh.model.pointage.calculation.NightWorkType;
 import mg.galaxam.sirh.model.pointage.calculation.OvertimeTier;
@@ -32,7 +32,7 @@ class Phase1cBMonetaryValuationTest {
             new BigDecimal("0.30"), // Nuit occasionnelle
             new BigDecimal("0.40"), // Dimanche
             new BigDecimal("1.00"), // Férié chômé légal
-            SpecialDayCollisionPolicy.UNRESOLVED,
+            SpecialPremiumCollisionPolicy.UNRESOLVED,
             null
     );
 
@@ -123,7 +123,7 @@ class Phase1cBMonetaryValuationTest {
                 new BigDecimal("0.30"), new BigDecimal("0.50"),
                 new BigDecimal("0.30"), new BigDecimal("0.50"), // Occasionnel à 50%
                 new BigDecimal("0.40"), new BigDecimal("1.00"),
-                SpecialDayCollisionPolicy.UNRESOLVED, null
+                SpecialPremiumCollisionPolicy.UNRESOLVED, null
         );
         QualifiedTimeBucket b = bucket(120, OvertimeTier.REGULAR, DaySpecialType.STANDARD, NightWorkType.OCCASIONNEL);
         OvertimePayCalculator.Result r = calculator.calculate(List.of(b), RATE, ratesWithOcc, 1);

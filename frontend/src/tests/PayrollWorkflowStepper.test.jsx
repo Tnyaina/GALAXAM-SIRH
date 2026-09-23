@@ -3,7 +3,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
-import PayrollPeriodStepper from '@/components/paie/PayrollPeriodStepper';
+import PayrollPeriodStepper from '@/features/payroll/components/workflow/PayrollPeriodStepper';
 
 const steps = [
     { code: 'PREPARATION', label: 'Préparation', state: 'COMPLETED', accessible: true, destination: '/preparation', issues: [], warnings: [] },

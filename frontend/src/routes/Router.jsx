@@ -11,43 +11,43 @@ import Loading from "@/components/ui/feedback/Loading";
 // =========================================================================
 
 // Page publique & Authentification
-const Login = lazy(() => import("@/pages/auth/Login"));
+const Login = lazy(() => import("@/features/auth/pages/Login"));
 
 // Module Dashboard
-const Dashboard = lazy(() => import("@/pages/dashboard/Dashboard"));
+const Dashboard = lazy(() => import("@/features/dashboard/pages/Dashboard"));
 
 // Module Pointage & Présence
-const GestionPointagesPage = lazy(() => import("@/pages/pointage/GestionPointagesPage"));
+const GestionPointagesPage = lazy(() => import("@/features/attendance/pages/GestionPointagesPage"));
 
 // Module Congés & Absences
-const GestionCongesPage = lazy(() => import("@/pages/conges/GestionCongesPage"));
+const GestionCongesPage = lazy(() => import("@/features/leave/pages/GestionCongesPage"));
 
 // Module Paie & Rémunération
-const GestionPaiePage = lazy(() => import("@/pages/paie/GestionPaiePage"));
+const GestionPaiePage = lazy(() => import("@/features/payroll/pages/GestionPaiePage"));
 
 // Sprint 2B — Pages d'étapes de campagne de paie
-const PreparationStepPage  = lazy(() => import("@/pages/paie/PreparationStepPage"));
-const PopulationStepPage   = lazy(() => import("@/pages/paie/PopulationStepPage"));
-const VariablesStepPage    = lazy(() => import("@/pages/paie/VariablesStepPage"));
-const CalculStepPage       = lazy(() => import("@/pages/paie/CalculStepPage"));
-const ControleStepPage     = lazy(() => import("@/pages/paie/ControleStepPage"));
-const ValidationStepPage   = lazy(() => import("@/pages/paie/ValidationStepPage"));
-const SortiesStepPage      = lazy(() => import("@/pages/paie/SortiesStepPage"));
+const PreparationStepPage  = lazy(() => import("@/features/payroll/pages/PreparationStepPage"));
+const PopulationStepPage   = lazy(() => import("@/features/payroll/pages/PopulationStepPage"));
+const VariablesStepPage    = lazy(() => import("@/features/payroll/pages/VariablesStepPage"));
+const CalculStepPage       = lazy(() => import("@/features/payroll/pages/CalculStepPage"));
+const ControleStepPage     = lazy(() => import("@/features/payroll/pages/ControleStepPage"));
+const ValidationStepPage   = lazy(() => import("@/features/payroll/pages/ValidationStepPage"));
+const SortiesStepPage      = lazy(() => import("@/features/payroll/pages/SortiesStepPage"));
 
 // Sprint UX 2 — Espaces dédiés Paie V1 Full V3
-const AcomptesAvancesPage       = lazy(() => import("@/pages/paie/AcomptesAvancesPage"));
-const DeclarationsSortiesPage   = lazy(() => import("@/pages/paie/DeclarationsSortiesPage"));
+const AcomptesAvancesPage       = lazy(() => import("@/features/payroll/pages/AcomptesAvancesPage"));
+const DeclarationsSortiesPage   = lazy(() => import("@/features/payroll/pages/DeclarationsSortiesPage"));
 
 // Module Employés
-const EmployeList = lazy(() => import("@/pages/employe/EmployeList"));
-const EmployeFicheDetailPage = lazy(() => import("@/pages/employe/EmployeFicheDetailPage"));
-const CarrieresSupervisionPage = lazy(() => import("@/pages/employe/CarrieresSupervisionPage"));
+const EmployeList = lazy(() => import("@/features/employees/pages/EmployeList"));
+const EmployeFicheDetailPage = lazy(() => import("@/features/employees/pages/EmployeFicheDetailPage"));
+const CarrieresSupervisionPage = lazy(() => import("@/features/employees/pages/CarrieresSupervisionPage"));
 
 // Administration / Paramètres
-const SecuriteAdminPanel = lazy(() => import("@/pages/parametres/securite/SecuriteAdminPanel"));
-const OrganisationAdminPanel = lazy(() => import("@/pages/parametres/organisation/OrganisationAdminPanel"));
-const ReferentielsRhAdminPanel = lazy(() => import("@/pages/parametres/referentiels/ReferentielsRhAdminPanel"));
-const ParametresModulesPanel = lazy(() => import("@/pages/parametres/modules/ParametresModulesPanel"));
+const SecuriteAdminPanel = lazy(() => import("@/features/administration/pages/securite/SecuriteAdminPanel"));
+const OrganisationAdminPanel = lazy(() => import("@/features/organization/pages/OrganisationAdminPanel"));
+const ReferentielsRhAdminPanel = lazy(() => import("@/features/administration/pages/referentiels/ReferentielsRhAdminPanel"));
+const ParametresModulesPanel = lazy(() => import("@/features/administration/pages/modules/ParametresModulesPanel"));
 
 // Pages Système & Erreurs
 const Unauthorized = lazy(() => import("@/pages/systeme/Unauthorized"));
@@ -56,7 +56,7 @@ const ServerError = lazy(() => import("@/pages/systeme/ServerError"));
 const Maintenance = lazy(() => import("@/pages/systeme/Maintenance"));
 const NoConnection = lazy(() => import("@/pages/systeme/NoConnection"));
 
-import { usePayrollCampaign } from "@/hooks/paie/usePayrollCampaign";
+import { usePayrollCampaign } from "@/features/payroll/hooks/usePayrollCampaign";
 
 /**
  * Redirection automatique vers l'étape active de la campagne courante

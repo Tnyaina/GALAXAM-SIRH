@@ -139,7 +139,7 @@ describe('Sprint Paie UI P0/P1 — Règles Métier et Cohérence Interface', () 
     describe('5. Ownership de la fiche employé', () => {
         it('ne contient plus de commande de création de variable de campagne', () => {
             const source = readFileSync(
-                new URL('../components/employe/tabs/EmployePaieTab.jsx', import.meta.url),
+                new URL('../features/employees/components/tabs/EmployePaieTab.jsx', import.meta.url),
                 'utf8'
             );
 

@@ -116,6 +116,39 @@ export function fmtDateFr(d) {
 }
 
 /**
+ * Calcule l'âge révolu pour une date civile, sans décalage de fuseau horaire.
+ */
+export function calculateAge(dateNaissance, referenceDate = new Date()) {
+    const birthDate = fmtDateInput(dateNaissance);
+    const reference = fmtDateInput(referenceDate);
+    if (!birthDate || !reference) return null;
+    const [birthYear, birthMonth, birthDay] = birthDate.split('-').map(Number);
+    const [referenceYear, referenceMonth, referenceDay] = reference.split('-').map(Number);
+    let age = referenceYear - birthYear;
+    if (referenceMonth < birthMonth || (referenceMonth === birthMonth && referenceDay < birthDay)) age--;
+    return age >= 0 ? age : null;
+}
+
+/**
+ * Formate une date/heure en temps relatif pour les notifications et journaux UI.
+ */
+export function fmtRelative(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
+    const diffMinutes = Math.floor((new Date() - date) / 60000);
+    if (diffMinutes < 0) return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+    if (diffMinutes < 1) return "À l'instant";
+    if (diffMinutes < 60) return `Il y a ${diffMinutes} min`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `Il y a ${diffHours}h`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return 'Hier';
+    if (diffDays < 7) return `Il y a ${diffDays} jours`;
+    return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+}
+
+/**
  * Vérifie si une date est strictement antérieure à aujourd'hui (00:00:00).
  * Indique une demande de congé rétroactive ou une régularisation passée.
  * 
@@ -200,4 +233,3 @@ export function isWeekInFuture(dateDebutSemaine) {
     if (!dateDebutSemaine) return false;
     return isDateInFuture(dateDebutSemaine);
 }
-

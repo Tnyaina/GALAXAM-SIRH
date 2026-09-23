@@ -1,5 +1,5 @@
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { fmtDateInput } from '@/utils/paieUtils';
+import { fmtDateInput } from '@/utils/dateUtils';
 
 /**
  * DatePicker — Champ de saisie et sélection de date standardisé Galaxam.

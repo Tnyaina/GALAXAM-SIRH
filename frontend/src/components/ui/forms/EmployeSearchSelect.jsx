@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, User, X, AlertTriangle } from 'lucide-react';
-import employeService from '@/api/employe/employeService';
+import employeService from '@/features/employees/api/employeService';
 import { useDebounce } from '@/hooks/useDebounce';
 
 export default function EmployeSearchSelect({

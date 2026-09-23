@@ -39,6 +39,12 @@ export function formatMoneyAr(val) {
     return num.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).replace(/\u202F/g, ' ') + ' Ar';
 }
 
+/** Format d'affichage des indemnités de pointage : entier arrondi, zéro explicite. */
+export function formatRoundedMoneyAr(val) {
+    if (!val || isNaN(val) || Number(val) === 0) return '0 Ar';
+    return new Intl.NumberFormat('fr-FR').format(Math.round(Number(val))) + ' Ar';
+}
+
 /**
  * Formate un montant monétaire selon la locale malgache officielle (fr-MG) avec devise MGA.
  * 
