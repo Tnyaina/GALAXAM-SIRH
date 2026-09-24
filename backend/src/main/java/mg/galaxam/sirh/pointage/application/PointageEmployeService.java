@@ -164,7 +164,8 @@ public class PointageEmployeService {
                 "s.id_site, s.code_site, COALESCE(s.libelle, 'Siège') AS site_nom, " +
                 "COALESCE(s.horaire_continu, FALSE) AS site_horaire_continu, " +
                 "s.heure_debut_matin, s.heure_fin_matin, " +
-                "s.heure_debut_apres_midi, s.heure_fin_apres_midi, t.heure_plafond, " +
+                "s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
+                "CASE WHEN s.plancher_arrivee_actif = TRUE THEN s.heure_entree_minimale_valorisee ELSE NULL END AS heure_plafond, " +
                 "COALESCE(f.libelle, 'Collaborateur') AS fonction_nom, " +
                 "COALESCE(cp.code, '—') AS code_categorie " +
                 "FROM employe e " +
@@ -173,7 +174,6 @@ public class PointageEmployeService {
                 "LEFT JOIN ref_site s ON c.id_site = s.id_site " +
                 "LEFT JOIN ref_fonction f ON c.id_fonction = f.id_fonction " +
                 "LEFT JOIN ref_categorie_professionnelle cp ON c.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
-                "LEFT JOIN ref_tolerance_arrivee_pointage t ON s.id_site = t.id_site AND t.est_actif = TRUE " +
                 "WHERE e.id_employe = ? " +
                 "ORDER BY c.date_debut DESC LIMIT 1";
 

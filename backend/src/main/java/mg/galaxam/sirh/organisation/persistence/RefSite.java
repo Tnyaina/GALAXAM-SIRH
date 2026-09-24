@@ -22,6 +22,8 @@ public class RefSite extends ClassMere {
     private Time heureFinMatin;
     private Time heureDebutApresMidi;
     private Time heureFinApresMidi;
+    private boolean plancherArriveeActif;
+    private Time heureEntreeMinimaleValorisee;
     private boolean estActif;
     private String filialeRaisonSociale; // Pour affichage
 
@@ -29,6 +31,7 @@ public class RefSite extends ClassMere {
         this.setNomTable("REF_SITE");
         this.estActif = true;
         this.horaireContinu = true;
+        this.plancherArriveeActif = false;
     }
 
     @Override
@@ -49,6 +52,9 @@ public class RefSite extends ClassMere {
         if (libelle == null || libelle.isBlank()) {
             throw new IllegalArgumentException("Le libellé du site est obligatoire.");
         }
+        if (plancherArriveeActif && heureEntreeMinimaleValorisee == null) {
+            throw new IllegalArgumentException("L'heure d'entrée minimale valorisée est obligatoire lorsque le plancher d'arrivée est actif.");
+        }
         this.codeSite = this.codeSite.trim().toUpperCase();
 
         RefSite existant = rechercherParCode(this.codeSite, c);
@@ -60,8 +66,9 @@ public class RefSite extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO ref_site (code_site, libelle, id_filiale_rattachement, horaire_continu, " +
-                     "heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi, est_actif) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                     "heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi, " +
+                     "plancher_arrivee_actif, heure_entree_minimale_valorisee, est_actif) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, codeSite);
             ps.setString(2, libelle);
@@ -71,7 +78,9 @@ public class RefSite extends ClassMere {
             ps.setTime(6, heureFinMatin);
             ps.setTime(7, heureDebutApresMidi);
             ps.setTime(8, heureFinApresMidi);
-            ps.setBoolean(9, estActif);
+            ps.setBoolean(9, plancherArriveeActif);
+            ps.setTime(10, heureEntreeMinimaleValorisee);
+            ps.setBoolean(11, estActif);
             ps.executeUpdate();
 
             try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -86,7 +95,8 @@ public class RefSite extends ClassMere {
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
         String sql = "UPDATE ref_site SET code_site = ?, libelle = ?, id_filiale_rattachement = ?, horaire_continu = ?, " +
-                     "heure_debut_matin = ?, heure_fin_matin = ?, heure_debut_apres_midi = ?, heure_fin_apres_midi = ?, est_actif = ? " +
+                     "heure_debut_matin = ?, heure_fin_matin = ?, heure_debut_apres_midi = ?, heure_fin_apres_midi = ?, " +
+                     "plancher_arrivee_actif = ?, heure_entree_minimale_valorisee = ?, est_actif = ? " +
                      "WHERE id_site = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, codeSite);
@@ -97,8 +107,10 @@ public class RefSite extends ClassMere {
             ps.setTime(6, heureFinMatin);
             ps.setTime(7, heureDebutApresMidi);
             ps.setTime(8, heureFinApresMidi);
-            ps.setBoolean(9, estActif);
-            ps.setInt(10, idSite);
+            ps.setBoolean(9, plancherArriveeActif);
+            ps.setTime(10, heureEntreeMinimaleValorisee);
+            ps.setBoolean(11, estActif);
+            ps.setInt(12, idSite);
             ps.executeUpdate();
         }
         return this;
@@ -121,7 +133,8 @@ public class RefSite extends ClassMere {
 
     public ClassMere rechercherParId(Integer id, Connection c) throws Exception {
         String sql = "SELECT s.id_site, s.code_site, s.libelle, s.id_filiale_rattachement, s.horaire_continu, " +
-                     "s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, s.est_actif, " +
+                     "s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
+                     "s.plancher_arrivee_actif, s.heure_entree_minimale_valorisee, s.est_actif, " +
                      "f.raison_sociale as filiale_nom " +
                      "FROM ref_site s LEFT JOIN ref_filiale f ON s.id_filiale_rattachement = f.id_filiale " +
                      "WHERE s.id_site = ?";
@@ -138,7 +151,8 @@ public class RefSite extends ClassMere {
 
     public static RefSite rechercherParCode(String code, Connection c) throws Exception {
         String sql = "SELECT s.id_site, s.code_site, s.libelle, s.id_filiale_rattachement, s.horaire_continu, " +
-                     "s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, s.est_actif, " +
+                     "s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
+                     "s.plancher_arrivee_actif, s.heure_entree_minimale_valorisee, s.est_actif, " +
                      "f.raison_sociale as filiale_nom " +
                      "FROM ref_site s LEFT JOIN ref_filiale f ON s.id_filiale_rattachement = f.id_filiale " +
                      "WHERE s.code_site = ?";
@@ -156,7 +170,8 @@ public class RefSite extends ClassMere {
     public static List<RefSite> listAll(Connection c) throws Exception {
         List<RefSite> list = new ArrayList<>();
         String sql = "SELECT s.id_site, s.code_site, s.libelle, s.id_filiale_rattachement, s.horaire_continu, " +
-                     "s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, s.est_actif, " +
+                     "s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
+                     "s.plancher_arrivee_actif, s.heure_entree_minimale_valorisee, s.est_actif, " +
                      "f.raison_sociale as filiale_nom " +
                      "FROM ref_site s LEFT JOIN ref_filiale f ON s.id_filiale_rattachement = f.id_filiale " +
                      "ORDER BY s.id_site ASC";
@@ -181,6 +196,8 @@ public class RefSite extends ClassMere {
         s.setHeureFinMatin(rs.getTime("heure_fin_matin"));
         s.setHeureDebutApresMidi(rs.getTime("heure_debut_apres_midi"));
         s.setHeureFinApresMidi(rs.getTime("heure_fin_apres_midi"));
+        s.setPlancherArriveeActif(rs.getBoolean("plancher_arrivee_actif"));
+        s.setHeureEntreeMinimaleValorisee(rs.getTime("heure_entree_minimale_valorisee"));
         s.setEstActif(rs.getBoolean("est_actif"));
         s.setFilialeRaisonSociale(rs.getString("filiale_nom"));
         return s;
@@ -213,6 +230,12 @@ public class RefSite extends ClassMere {
 
     public Time getHeureFinApresMidi() { return heureFinApresMidi; }
     public void setHeureFinApresMidi(Time heureFinApresMidi) { this.heureFinApresMidi = heureFinApresMidi; }
+
+    public boolean isPlancherArriveeActif() { return plancherArriveeActif; }
+    public void setPlancherArriveeActif(boolean plancherArriveeActif) { this.plancherArriveeActif = plancherArriveeActif; }
+
+    public Time getHeureEntreeMinimaleValorisee() { return heureEntreeMinimaleValorisee; }
+    public void setHeureEntreeMinimaleValorisee(Time heureEntreeMinimaleValorisee) { this.heureEntreeMinimaleValorisee = heureEntreeMinimaleValorisee; }
 
     public boolean isEstActif() { return estActif; }
     public void setEstActif(boolean estActif) { this.estActif = estActif; }

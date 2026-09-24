@@ -57,7 +57,10 @@ CREATE TABLE ref_site (
     heure_fin_matin TIME,
     heure_debut_apres_midi TIME,
     heure_fin_apres_midi TIME,
-    est_actif BOOLEAN DEFAULT TRUE
+    plancher_arrivee_actif BOOLEAN NOT NULL DEFAULT FALSE,
+    heure_entree_minimale_valorisee TIME,
+    est_actif BOOLEAN DEFAULT TRUE,
+    CONSTRAINT chk_ref_site_plancher_arrivee CHECK (NOT plancher_arrivee_actif OR heure_entree_minimale_valorisee IS NOT NULL)
 );
 
 CREATE INDEX idx_ref_site_filiale_rattachement ON ref_site(id_filiale_rattachement);
@@ -250,9 +253,9 @@ INSERT INTO ref_banque (code_banque, nom_banque, code_swift) VALUES
 SELECT setval('ref_banque_id_banque_seq', (SELECT GREATEST(MAX(id_banque), 3) FROM ref_banque));
 
 -- Sites
-INSERT INTO ref_site (id_site, code_site, libelle, id_filiale_rattachement, horaire_continu, heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi) VALUES
-(1, 'TNR', 'Antananarivo - Siège', 1, TRUE, '08:00', '12:00', '13:00', '17:00'),
-(2, 'TMM', 'Toamasina - Agence', 1, FALSE, '08:00', '12:00', '14:00', '18:00');
+INSERT INTO ref_site (id_site, code_site, libelle, id_filiale_rattachement, horaire_continu, heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi, plancher_arrivee_actif, heure_entree_minimale_valorisee) VALUES
+(1, 'TNR', 'Antananarivo - Siège', 1, TRUE, '08:00', '12:00', '13:00', '17:00', TRUE, '07:30'),
+(2, 'TMM', 'Toamasina - Agence', 1, FALSE, '08:00', '12:00', '14:00', '18:00', TRUE, '07:30');
 SELECT setval('ref_site_id_site_seq', (SELECT GREATEST(MAX(id_site), 2) FROM ref_site));
 
 -- Départements

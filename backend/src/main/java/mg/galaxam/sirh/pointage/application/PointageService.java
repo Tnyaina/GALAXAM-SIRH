@@ -214,15 +214,46 @@ public class PointageService {
         return value == null ? null : value.toLocalTime();
     }
 
-    /** L'heure badgée reste intacte; seul le début comptabilisé est borné. */
+    /**
+     * Plancher d'arrivée valorisé (earliest paid start).
+     *
+     * <p>Ce n'est PAS une tolérance de retard. C'est un plancher en début de journée :
+     * si l'employé badge avant l'heure minimale comptabilisée, seules les minutes
+     * à partir de cette heure minimale sont valorisées.
+     *
+     * <p>Exemples :
+     * <ul>
+     *   <li>badge 07:00, plancher 07:30 → effectif 07:30 (30 min valorisées avant 08:00)</li>
+     *   <li>badge 07:45, plancher 07:30 → effectif 07:45 (badge supérieur au plancher)</li>
+     *   <li>badge 07:00, plancher null (règle désactivée) → effectif 07:00</li>
+     * </ul>
+     *
+     * <p>L'heure badgée réelle reste stockée dans {@code pointage_jour.heure_entree_matin}.
+     * L'heure effective est stockée dans {@code pointage_jour.heure_entree_matin_effective}.
+     *
+     * @param punched        heure badgée réelle, null si absent
+     * @param earliestCounted heure minimale comptabilisée (config site), null si règle désactivée
+     * @return max(punched, earliestCounted), ou punched si règle désactivée
+     */
     public static LocalTime effectiveMorningEntry(LocalTime punched, LocalTime earliestCounted) {
         if (punched == null || earliestCounted == null) return punched;
         return punched.isBefore(earliestCounted) ? earliestCounted : punched;
     }
 
-    private static LocalTime activeArrivalFloor(Connection c, int siteId) throws SQLException {
+    /**
+     * Retourne le plancher d'arrivée valorisé configuré pour ce site, ou {@code null}
+     * si la règle est désactivée ({@code plancher_arrivee_actif = FALSE}) ou absente.
+     *
+     * <p>Quand null est retourné, {@link #effectiveMorningEntry} utilise le badge brut directement.
+     * Aucun fallback implicite n'est appliqué.
+     *
+     * <p>La configuration est stockée directement dans {@code ref_site} (colonnes
+     * {@code plancher_arrivee_actif} et {@code heure_entree_minimale_valorisee}).
+     * Le concept est un plancher d'arrivée valorisé (earliest_paid_start), pas une tolérance retard.
+     */
+    public static LocalTime activeArrivalFloor(Connection c, int siteId) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(
-                "SELECT heure_plafond FROM ref_tolerance_arrivee_pointage WHERE id_site = ? AND est_actif = TRUE")) {
+                "SELECT heure_entree_minimale_valorisee FROM ref_site WHERE id_site = ? AND plancher_arrivee_actif = TRUE")) {
             ps.setInt(1, siteId);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? toLocalTime(rs.getTime(1)) : null;
@@ -1440,13 +1471,12 @@ public class PointageService {
                 "accorde = EXCLUDED.accorde, " +
                 "updated_at = CURRENT_TIMESTAMP";
 
-        // Chargement des horaires et plafonds configurés par site
+        // Chargement des horaires et planchers d'arrivée configurés par site
         Map<Integer, LocalTime[]> siteHoraires = new HashMap<>();
         Map<Integer, Boolean> siteHoraireContinuMap = new HashMap<>();
         String sqlSites = "SELECT s.id_site, s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
-                "s.horaire_continu, t.heure_plafond " +
-                "FROM ref_site s " +
-                "LEFT JOIN ref_tolerance_arrivee_pointage t ON s.id_site = t.id_site AND t.est_actif = TRUE";
+                "s.horaire_continu, s.plancher_arrivee_actif, s.heure_entree_minimale_valorisee " +
+                "FROM ref_site s";
         try (PreparedStatement psSites = c.prepareStatement(sqlSites);
              ResultSet rsSites = psSites.executeQuery()) {
             while (rsSites.next()) {
@@ -1455,7 +1485,8 @@ public class PointageService {
                 Time hfm = rsSites.getTime("heure_fin_matin");
                 Time hda = rsSites.getTime("heure_debut_apres_midi");
                 Time hfa = rsSites.getTime("heure_fin_apres_midi");
-                Time hp = rsSites.getTime("heure_plafond");
+                boolean plancherActif = rsSites.getBoolean("plancher_arrivee_actif");
+                Time hp = plancherActif ? rsSites.getTime("heure_entree_minimale_valorisee") : null;
                 boolean cont = rsSites.getBoolean("horaire_continu");
                 siteHoraireContinuMap.put(sId, rsSites.wasNull() ? null : cont);
 
@@ -1468,7 +1499,7 @@ public class PointageService {
                 // Index: 0=debM, 1=finM, 2=debA, 3=finA, 4=plafondArrivee
                 siteHoraires.put(sId, new LocalTime[]{ltDebM, ltFinM, ltDebA, ltFinA, ltPlafond});
             }
-            }
+        }
 
         Map<Integer, LocalDate[]> periodeBoundsCache = new HashMap<>();
 

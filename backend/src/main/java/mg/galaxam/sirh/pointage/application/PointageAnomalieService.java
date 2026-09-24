@@ -575,10 +575,9 @@ public class PointageAnomalieService {
                 Integer idSite = null;
                 if (idPointage > 0) {
                     String sqlSite = "SELECT s.id_site, s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
-                                     "s.horaire_continu, t.heure_plafond " +
+                                     "s.horaire_continu, s.plancher_arrivee_actif, s.heure_entree_minimale_valorisee " +
                                      "FROM pointage_jour p " +
                                      "JOIN ref_site s ON p.id_site = s.id_site " +
-                                     "LEFT JOIN ref_tolerance_arrivee_pointage t ON s.id_site = t.id_site AND t.est_actif = TRUE " +
                                      "WHERE p.id_pointage = ?";
                     try (PreparedStatement psS = c.prepareStatement(sqlSite)) {
                         psS.setInt(1, idPointage);
@@ -599,7 +598,8 @@ public class PointageAnomalieService {
                                 siteFinM = hfm != null ? hfm.toLocalTime() : null;
                                 siteDebA = hda != null ? hda.toLocalTime() : null;
                                 siteFinA = hfa != null ? hfa.toLocalTime() : null;
-                                Time arrivalFloor = rsS.getTime("heure_plafond");
+                                boolean plancherActif = rsS.getBoolean("plancher_arrivee_actif");
+                                Time arrivalFloor = plancherActif ? rsS.getTime("heure_entree_minimale_valorisee") : null;
                                 heureMinimaleComptabilisee = arrivalFloor == null ? null : arrivalFloor.toLocalTime();
                                 boolean horairesComplets = siteDebM != null && siteFinA != null
                                         && (cont || (siteFinM != null && siteDebA != null));
@@ -743,15 +743,25 @@ public class PointageAnomalieService {
                 em = null; sm = null; ea = null; sa = null;
 
                 if ("CONGE_PAYE".equalsIgnoreCase(optionAbsence) || "CONGE".equalsIgnoreCase(codeStatut)) {
-                    codeStatut = "CONGE";
                     double nbJours = parseDouble(payload.get("nbJoursCongeDecompte"), 1.0);
                     if (nbJours <= 0) nbJours = 1.0;
 
                     // Créer la demande de congé annuel et débiter le solde dans mouvement_solde_conge
                     String momentConge = payload.get("momentDemiJournee") != null
                             ? payload.get("momentDemiJournee").toString() : null;
-                    validatedLeaveId = congeService.regulariserCongeAnnuelDepuisPointage(
+                    mg.galaxam.sirh.conge.application.RegularisationCongeResult regRes = congeService.regulariserCongeAnnuelDepuisPointageStructure(
                             idEmp, datePtg, nbJours, momentConge, motif, currentUserId(), c);
+                    validatedLeaveId = regRes.demandeId();
+
+                    if (regRes.joursCouverts() >= nbJours) {
+                        codeStatut = "CONGE";
+                    } else if (regRes.joursCouverts() > 0.0) {
+                        // Couverture partielle : statut DEMI_JOURNEE (synthèse), l'absence résiduelle est décomptée
+                        codeStatut = "DEMI_JOURNEE";
+                    } else {
+                        // Solde nul : aucune couverture, absence non couverte
+                        codeStatut = (motif != null && !motif.isBlank()) ? "ABSENCE_JUSTIFIEE" : "ABSENCE_NON_JUSTIFIEE";
+                    }
                 } else if ("PERMISSION_EXCEPTIONNELLE".equalsIgnoreCase(optionAbsence)) {
                     codeStatut = "CONGE";
                     validatedLeaveId = congeService.regulariserPermissionDepuisPointage(

@@ -117,8 +117,11 @@ public class DemandeConge extends ClassMere {
             this.momentDemiJournee = null;
         }
 
-        // 1. Calcul dynamique du décompte en jours calendaires stricts
-        this.nbJoursDecomptes = calculerNombreJoursDecomptes(dateDebut, dateFin, estDemiJournee);
+        // 1. Calcul dynamique du décompte en jours calendaires stricts (sauf régularisation partielle explicite)
+        boolean isRegularisation = this.commentaire != null && this.commentaire.startsWith("[REGULARISATION_POINTAGE]");
+        if (!isRegularisation || this.nbJoursDecomptes == null || this.nbJoursDecomptes.compareTo(BigDecimal.ZERO) <= 0) {
+            this.nbJoursDecomptes = calculerNombreJoursDecomptes(dateDebut, dateFin, estDemiJournee);
+        }
 
         // 2. Chargement du type de congé
         RefTypeConge typeConge = RefTypeConge.rechercherParId(idTypeConge, c);

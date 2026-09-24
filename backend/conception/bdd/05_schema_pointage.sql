@@ -20,7 +20,6 @@ DROP TABLE IF EXISTS pointage_cumul_periode CASCADE;
 DROP TABLE IF EXISTS pointage_indemnite_jour CASCADE;
 DROP TABLE IF EXISTS pointage_jour CASCADE;
 DROP TABLE IF EXISTS employe_indemnite_derogation CASCADE;
-DROP TABLE IF EXISTS ref_tolerance_arrivee_pointage CASCADE;
 DROP TABLE IF EXISTS site_indemnite_config CASCADE;
 DROP TABLE IF EXISTS ref_indemnite CASCADE;
 DROP TABLE IF EXISTS ref_statut_pointage_jour CASCADE;
@@ -106,13 +105,6 @@ CREATE TABLE site_indemnite_config (
 
 CREATE INDEX idx_site_indemnite_actif ON site_indemnite_config(id_site, id_indemnite) WHERE date_fin IS NULL AND est_actif IS TRUE;
 CREATE INDEX idx_site_indemnite_config_ind ON site_indemnite_config(id_indemnite);
-
-CREATE TABLE ref_tolerance_arrivee_pointage (
-    id_tolerance SERIAL PRIMARY KEY,
-    id_site INTEGER NOT NULL UNIQUE REFERENCES ref_site(id_site),
-    heure_plafond TIME NOT NULL,
-    est_actif BOOLEAN NOT NULL DEFAULT TRUE
-);
 
 CREATE TABLE employe_indemnite_derogation (
     id_derogation SERIAL PRIMARY KEY,
@@ -253,8 +245,12 @@ CREATE TABLE pointage_snapshot_jour (
     minutes_retard INTEGER NOT NULL CHECK (minutes_retard >= 0),
     minutes_nuit INTEGER NOT NULL CHECK (minutes_nuit >= 0),
     statut_jour VARCHAR(40) NOT NULL,
+    heure_entree_effective TIME,
     PRIMARY KEY (id_cumul, id_pointage)
 );
+
+COMMENT ON COLUMN pointage_snapshot_jour.heure_entree_effective IS
+    'Heure effective utilisee pour le calcul au moment du gel (max(badge, plancher_arrivee)).';
 
 CREATE TABLE pointage_snapshot_bucket (
     id_snapshot_bucket SERIAL PRIMARY KEY,
@@ -318,11 +314,6 @@ INSERT INTO ref_statut_pointage_jour (id_statut_jour, code, libelle, decompte_ab
 (10, 'DISPENSE_POINTAGE', 'Poste autonome — dispense de pointage', FALSE, FALSE),
 (11, 'DEMI_JOURNEE', 'Demi-journée travaillée', FALSE, TRUE);
 SELECT setval('ref_statut_pointage_jour_id_statut_jour_seq', (SELECT GREATEST(MAX(id_statut_jour), 11) FROM ref_statut_pointage_jour));
-
--- Tolérances d'Arrivée
-INSERT INTO ref_tolerance_arrivee_pointage (id_site, heure_plafond) VALUES
-(1, '07:30'),
-(2, '07:30');
 
 -- Indemnités de Référence
 INSERT INTO ref_indemnite (id_indemnite, code, libelle, imposable_irsa, fractionnable) VALUES

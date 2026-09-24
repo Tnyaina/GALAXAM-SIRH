@@ -6,6 +6,6 @@ Ce dossier regroupe toute la chaîne de gestion du temps et des présences : sai
 - `api/dto/` : contrats DTO pour la saisie, les fiches individuelles et les synthèses
 - `application/` : `PointageService` possède les écritures journalières, `PointageSyntheseService` la synthèse et le gel ; les services d'anomalie, fiche et export restent distincts en raison de leur volume ou de leur transaction inter-domaines
 - `domain/` : `AttendanceEngine` calcule jour/semaine/tronçons, `TemporalAttendanceEngine` construit et qualifie la chronologie, `CalendrierOuvrableEngine` résout le calendrier ; aucun JDBC dans ces moteurs
-- `persistence/` : entités de tolérance et dérogations d'indemnité (`RefToleranceArriveePointage`, `EmployeIndemniteDerogation`)
+- `persistence/` : entités de persistance et dérogations d'indemnité (`EmployeIndemniteDerogation`, configuration plancher d'arrivée intégrée dans `ref_site`)
 
 Les routes publiques restent sous `/pointages/*` et `/periodes/*`.

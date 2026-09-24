@@ -440,26 +440,42 @@ public class CongeService {
     }
 
     /**
-     * Reproduit le chemin historique de régularisation Pointage en possédant les
-     * écritures Congés. La connexion est fournie par l'appelant afin que le congé,
-     * le ledger et le pointage restent dans la même transaction JDBC.
+     * Régularisation de congé annuel avec gestion explicite de la couverture partielle
+     * selon le solde disponible, idempotence et interdiction absolue de solde négatif.
      */
-    public int regulariserCongeAnnuelDepuisPointage(
+    public RegularisationCongeResult regulariserCongeAnnuelDepuisPointageStructure(
             int employeeId, Date date, double days, String momentDemiJournee,
             String comment, Integer currentUserId, Connection c) throws Exception {
-        if (date == null || (days != 1.0 && days != 0.5)) {
-            throw new IllegalArgumentException("La date et une durée de congé de 0,5 ou 1 jour sont requises.");
+        if (date == null || days <= 0.0) {
+            throw new IllegalArgumentException("La date et une durée d'absence positive sont requises.");
         }
 
-        RefTypeConge annualType = RefTypeConge.rechercherParCode("ANNUEL", c);
-        if (annualType == null || !annualType.isEstActif() || !annualType.isDecompteSoldeAcquis()) {
-            throw new IllegalStateException("Le type de congé annuel avec décompte du solde est indisponible.");
-        }
-
-        // Ne jamais réutiliser silencieusement une demande qui couvrirait déjà ce jour :
-        // elle peut avoir un autre type, une autre durée ou un mouvement de solde différent.
+        // 1. Idempotence : si une régularisation a déjà été effectuée pour cette date, la retourner sans double débit
         try (PreparedStatement statement = c.prepareStatement(
-                "SELECT 1 FROM demande_conge WHERE id_employe = ? AND date_debut <= ? AND date_fin >= ? LIMIT 1")) {
+                "SELECT d.id_demande_conge, d.nb_jours_decomptes FROM demande_conge d " +
+                "WHERE d.id_employe = ? AND d.date_debut = ? AND d.date_fin = ? " +
+                "  AND d.commentaire LIKE '[REGULARISATION_POINTAGE]%' " +
+                "  AND d.id_statut_demande_conge NOT IN (SELECT id_statut_demande_conge FROM ref_statut_demande_conge WHERE code IN ('REFUSE', 'ANNULE', 'REJETE')) " +
+                "ORDER BY d.id_demande_conge DESC LIMIT 1")) {
+            statement.setInt(1, employeeId);
+            statement.setDate(2, date);
+            statement.setDate(3, date);
+            try (ResultSet result = statement.executeQuery()) {
+                if (result.next()) {
+                    int existingId = result.getInt("id_demande_conge");
+                    double covered = result.getDouble("nb_jours_decomptes");
+                    double remaining = Math.max(0.0, java.math.BigDecimal.valueOf(days - covered).setScale(2, java.math.RoundingMode.HALF_UP).doubleValue());
+                    VSoldeCongeEmploye currentSolde = VSoldeCongeEmploye.rechercherParEmploye(employeeId, c);
+                    double soldeNow = (currentSolde != null && currentSolde.getSoldeActuel() != null) ? currentSolde.getSoldeActuel().doubleValue() : 0.0;
+                    return new RegularisationCongeResult(existingId, days, covered, remaining, soldeNow, soldeNow);
+                }
+            }
+        }
+
+        // 2. Vérification d'un conflit avec un autre congé (non régularisation) déjà présent
+        try (PreparedStatement statement = c.prepareStatement(
+                "SELECT 1 FROM demande_conge WHERE id_employe = ? AND date_debut <= ? AND date_fin >= ? " +
+                "AND id_statut_demande_conge NOT IN (SELECT id_statut_demande_conge FROM ref_statut_demande_conge WHERE code IN ('REFUSE', 'ANNULE', 'REJETE')) LIMIT 1")) {
             statement.setInt(1, employeeId);
             statement.setDate(2, date);
             statement.setDate(3, date);
@@ -470,26 +486,66 @@ public class CongeService {
             }
         }
 
+        // 3. Calcul de la couverture maximale autorisée (solde disponible, jamais solde < 0)
+        VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(employeeId, c);
+        java.math.BigDecimal soldeDisponible = (solde != null && solde.getSoldeActuel() != null)
+                ? solde.getSoldeActuel() : java.math.BigDecimal.ZERO;
+        double soldeAvant = soldeDisponible.doubleValue();
+
+        double joursCouverts = Math.min(days, Math.max(0.0, soldeAvant));
+        joursCouverts = java.math.BigDecimal.valueOf(joursCouverts).setScale(2, java.math.RoundingMode.HALF_UP).doubleValue();
+        double joursRestants = java.math.BigDecimal.valueOf(days - joursCouverts).setScale(2, java.math.RoundingMode.HALF_UP).doubleValue();
+        double soldeApres = java.math.BigDecimal.valueOf(Math.max(0.0, soldeAvant - joursCouverts)).setScale(2, java.math.RoundingMode.HALF_UP).doubleValue();
+
+        // 4. Si aucun solde disponible : aucune création de demande ni mouvement PRISE, reliquat complet en absence
+        if (joursCouverts <= 0.0) {
+            return new RegularisationCongeResult(null, days, 0.0, days, soldeAvant, soldeAvant);
+        }
+
+        RefTypeConge annualType = RefTypeConge.rechercherParCode("ANNUEL", c);
+        if (annualType == null || !annualType.isEstActif() || !annualType.isDecompteSoldeAcquis()) {
+            throw new IllegalStateException("Le type de congé annuel avec décompte du solde est indisponible.");
+        }
+
         DemandeConge demande = new DemandeConge();
         demande.setIdEmploye(employeeId);
         demande.setIdTypeConge(annualType.getIdTypeConge());
         demande.setDateDebut(date);
         demande.setDateFin(date);
-        demande.setEstDemiJournee(days == 0.5);
-        demande.setMomentDemiJournee(days == 0.5 ? momentDemiJournee : null);
-        // Une régularisation porte sur une absence déjà passée : le préavis est
-        // intrinsèquement impossible, mais tous les contrôles de droit/solde restent appliqués.
+        demande.setNbJoursDecomptes(java.math.BigDecimal.valueOf(joursCouverts));
+        boolean isDemi = (joursCouverts == 0.5);
+        demande.setEstDemiJournee(isDemi);
+        demande.setMomentDemiJournee(isDemi ? (momentDemiJournee != null ? momentDemiJournee : "MATIN") : null);
         demande.setDerogationDelaiPreavis(true);
         demande.setCommentaire(comment != null && !comment.isBlank()
                 ? "[REGULARISATION_POINTAGE] " + comment
-                : "[REGULARISATION_POINTAGE] Absence régularisée par congé annuel");
+                : "[REGULARISATION_POINTAGE] Absence régularisée par congé annuel (" + joursCouverts + "j)");
 
-        // Le flux normal valide le contrat et le solde, puis crée le mouvement PRISE.
-        // L'appelant conserve la transaction englobant aussi la mise à jour Pointage.
         creerDemande(demande, currentUserId, c);
         validerDemande(demande.getIdDemandeConge(), currentUserId,
                 "Validation de régularisation depuis Pointage", c);
-        return demande.getIdDemandeConge();
+
+        return new RegularisationCongeResult(demande.getIdDemandeConge(), days, joursCouverts, joursRestants, soldeAvant, soldeApres);
+    }
+
+    /**
+     * Reproduit le chemin historique de régularisation Pointage en possédant les
+     * écritures Congés. La connexion est fournie par l'appelant afin que le congé,
+     * le ledger et le pointage restent dans la même transaction JDBC.
+     */
+    public int regulariserCongeAnnuelDepuisPointage(
+            int employeeId, Date date, double days, String momentDemiJournee,
+            String comment, Integer currentUserId, Connection c) throws Exception {
+        RegularisationCongeResult res = regulariserCongeAnnuelDepuisPointageStructure(
+                employeeId, date, days, momentDemiJournee, comment, currentUserId, c);
+        if (res.demandeId() != null) {
+            return res.demandeId();
+        }
+        // Si le solde était nul, l'ancienne signature levait une exception si solde insuffisant
+        if (res.joursCouverts() <= 0.0) {
+            throw new IllegalArgumentException("Solde de congé insuffisant. Dérogation requise.");
+        }
+        return 0;
     }
 
     /** Une permission oubliée suit aussi le contrôle et la validation du domaine Congés. */

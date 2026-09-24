@@ -1190,10 +1190,12 @@ public class PointageSyntheseService {
     private void enregistrerProvenanceSnapshot(int snapshotId, PointageSyntheseMensuelleDTO dto, int periodId, Connection c)
             throws SQLException {
         int employeeId = dto.getIdEmploye();
+        // Capture l'heure effective (plancher d'arrivée valorisé déjà appliqué lors de la saisie)
+        // pour permettre l'audit complet du calcul : "quelle entrée a été comptabilisée lors du gel V1 ?"
         String days = "INSERT INTO pointage_snapshot_jour " +
-                "(id_cumul, id_pointage, version_pointage, date_pointage, minutes_travaillees, minutes_retard, minutes_nuit, statut_jour) " +
+                "(id_cumul, id_pointage, version_pointage, date_pointage, minutes_travaillees, minutes_retard, minutes_nuit, statut_jour, heure_entree_effective) " +
                 "SELECT ?, p.id_pointage, p.version, p.date_pointage, ROUND(p.total_heures * 60), " +
-                "p.minutes_retard, ROUND(p.heures_nuit * 60), s.code FROM pointage_jour p " +
+                "p.minutes_retard, ROUND(p.heures_nuit * 60), s.code, p.heure_entree_matin_effective FROM pointage_jour p " +
                 "JOIN ref_statut_pointage_jour s ON s.id_statut_jour = p.id_statut_jour " +
                 "WHERE p.id_employe = ? AND p.id_periode_paie = ?";
         try (PreparedStatement ps = c.prepareStatement(days)) {

@@ -7,7 +7,6 @@ import mg.galaxam.sirh.pointage.application.PointageExcelExportService;
 import mg.galaxam.sirh.pointage.application.PointageService;
 import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
 import mg.galaxam.sirh.pointage.persistence.EmployeIndemniteDerogation;
-import mg.galaxam.sirh.pointage.persistence.RefToleranceArriveePointage;
 import mg.galaxam.sirh.securite.AuditLog;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -220,8 +219,22 @@ public class PointageController {
     @GetMapping("/parametres/tolerances")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getTolerances() {
-        try (Connection c = dataSource.getConnection()) {
-            return ResponseEntity.ok(RefToleranceArriveePointage.listAll(c));
+        try (Connection c = dataSource.getConnection();
+             java.sql.PreparedStatement ps = c.prepareStatement(
+                     "SELECT id_site, libelle, heure_entree_minimale_valorisee, plancher_arrivee_actif " +
+                     "FROM ref_site ORDER BY id_site ASC");
+             java.sql.ResultSet rs = ps.executeQuery()) {
+            List<Map<String, Object>> list = new java.util.ArrayList<>();
+            while (rs.next()) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("idSite", rs.getInt("id_site"));
+                map.put("siteNom", rs.getString("libelle"));
+                Time h = rs.getTime("heure_entree_minimale_valorisee");
+                map.put("heurePlafond", h != null ? h.toString() : null);
+                map.put("estActif", rs.getBoolean("plancher_arrivee_actif"));
+                list.add(map);
+            }
+            return ResponseEntity.ok(list);
         } catch (Exception e) {
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
@@ -230,22 +243,41 @@ public class PointageController {
     @PostMapping("/parametres/tolerances")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> saveTolerance(@RequestBody ToleranceRequest request) throws Exception {
+        if (request.getIdSite() == null) {
+            throw new IllegalArgumentException("L'identifiant du site est obligatoire.");
+        }
+        if (request.getEstActif() == null) {
+            throw new IllegalArgumentException("L'état actif/inactif du plancher d'arrivée est obligatoire.");
+        }
+        String timeStr = request.getHeurePlafond();
+        Time timeVal = null;
+        if (timeStr != null && !timeStr.isBlank()) {
+            if (timeStr.length() == 5) timeStr += ":00";
+            timeVal = Time.valueOf(timeStr);
+        }
+        if (request.getEstActif() && timeVal == null) {
+            throw new IllegalArgumentException("L'heure d'entrée minimale valorisée est obligatoire lorsque le plancher d'arrivée est actif.");
+        }
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                RefToleranceArriveePointage t = new RefToleranceArriveePointage();
-                t.setIdSite(request.getIdSite());
-                String timeStr = request.getHeurePlafond();
-                if (timeStr != null && timeStr.length() == 5) timeStr += ":00";
-                t.setHeurePlafond(Time.valueOf(timeStr));
-                if (request.getEstActif() == null) {
-                    throw new IllegalArgumentException("L'état actif/inactif de l'heure minimale est obligatoire.");
+                String sql = "UPDATE ref_site SET plancher_arrivee_actif = ?, heure_entree_minimale_valorisee = ? WHERE id_site = ?";
+                try (java.sql.PreparedStatement ps = c.prepareStatement(sql)) {
+                    ps.setBoolean(1, request.getEstActif());
+                    ps.setTime(2, timeVal);
+                    ps.setInt(3, request.getIdSite());
+                    int updated = ps.executeUpdate();
+                    if (updated == 0) {
+                        throw new IllegalArgumentException("Site introuvable : " + request.getIdSite());
+                    }
                 }
-                t.setEstActif(request.getEstActif());
-                t.save(c);
                 c.commit();
-                AuditLog.audit(c, "SAVED_TOLERANCE_SITE", "ref_tolerance_arrivee_pointage", String.valueOf(t.getIdTolerance()), null, t);
-                return ResponseEntity.status(HttpStatus.CREATED).body(t);
+                Map<String, Object> resp = new HashMap<>();
+                resp.put("idSite", request.getIdSite());
+                resp.put("estActif", request.getEstActif());
+                resp.put("heurePlafond", timeVal != null ? timeVal.toString() : null);
+                AuditLog.audit(c, "SAVED_PLANCHER_ARRIVEE_SITE", "ref_site", String.valueOf(request.getIdSite()), null, resp);
+                return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(resp);
             } catch (Exception e) {
                 c.rollback();
                 throw e;

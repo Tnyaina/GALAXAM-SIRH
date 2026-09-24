@@ -14,6 +14,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PointageConfigurationResolutionTest {
 
@@ -67,13 +68,61 @@ class PointageConfigurationResolutionTest {
     }
 
     @Test
-    void arrivalFloorCountsEarlyPunchFromConfiguredTimeOnlyWhenEnabled() {
-        LocalTime punched = LocalTime.of(6, 0);
-        assertEquals(LocalTime.of(7, 30), PointageService.effectiveMorningEntry(
-                punched, LocalTime.of(7, 30)));
-        assertEquals(punched, PointageService.effectiveMorningEntry(punched, null));
-        assertEquals(LocalTime.of(8, 5), PointageService.effectiveMorningEntry(
-                LocalTime.of(8, 5), LocalTime.of(7, 30)));
+    void cas1_siteActif_minimum0730_badge0700_donne0730() {
+        LocalTime minimum = LocalTime.of(7, 30);
+        LocalTime badge = LocalTime.of(7, 0);
+        assertEquals(LocalTime.of(7, 30), PointageService.effectiveMorningEntry(badge, minimum));
+    }
+
+    @Test
+    void cas2_siteActif_minimum0730_badge0720_donne0730() {
+        LocalTime minimum = LocalTime.of(7, 30);
+        LocalTime badge = LocalTime.of(7, 20);
+        assertEquals(LocalTime.of(7, 30), PointageService.effectiveMorningEntry(badge, minimum));
+    }
+
+    @Test
+    void cas3_siteActif_minimum0730_badge0745_donne0745() {
+        LocalTime minimum = LocalTime.of(7, 30);
+        LocalTime badge = LocalTime.of(7, 45);
+        assertEquals(LocalTime.of(7, 45), PointageService.effectiveMorningEntry(badge, minimum));
+    }
+
+    @Test
+    void cas4_siteActif_minimum0730_badge0805_donne0805() {
+        LocalTime minimum = LocalTime.of(7, 30);
+        LocalTime badge = LocalTime.of(8, 5);
+        assertEquals(LocalTime.of(8, 5), PointageService.effectiveMorningEntry(badge, minimum));
+    }
+
+    @Test
+    void cas5_regleInactive_badge0700_donne0700() {
+        LocalTime minimumInactif = null;
+        LocalTime badge = LocalTime.of(7, 0);
+        assertEquals(LocalTime.of(7, 0), PointageService.effectiveMorningEntry(badge, minimumInactif));
+    }
+
+    @Test
+    void cas6_regleActive_minimumNull_rejeteParControle() {
+        mg.galaxam.sirh.organisation.persistence.RefSite site = new mg.galaxam.sirh.organisation.persistence.RefSite();
+        site.setCodeSite("TEST");
+        site.setLibelle("Site Test");
+        site.setPlancherArriveeActif(true);
+        site.setHeureEntreeMinimaleValorisee(null);
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> site.controler(null));
+        assertTrue(ex.getMessage().contains("obligatoire lorsque le plancher"));
+    }
+
+    @Test
+    void cas7_regleInactive_heureStockeeConserveePourReactivation() {
+        mg.galaxam.sirh.organisation.persistence.RefSite site = new mg.galaxam.sirh.organisation.persistence.RefSite();
+        site.setCodeSite("TEST");
+        site.setLibelle("Site Test");
+        site.setPlancherArriveeActif(false);
+        site.setHeureEntreeMinimaleValorisee(java.sql.Time.valueOf("07:30:00"));
+        // La règle inactive avec heure conservée est bien portée par le modèle
+        org.junit.jupiter.api.Assertions.assertFalse(site.isPlancherArriveeActif());
+        assertEquals(java.sql.Time.valueOf("07:30:00"), site.getHeureEntreeMinimaleValorisee());
     }
 
     @Test

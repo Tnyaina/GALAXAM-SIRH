@@ -72,7 +72,7 @@ CREATE TABLE demande_conge (
     date_debut DATE NOT NULL,
     date_fin DATE NOT NULL,
     date_demande DATE NOT NULL DEFAULT CURRENT_DATE,
-    nb_jours_decomptes NUMERIC(5,1) NOT NULL,
+    nb_jours_decomptes NUMERIC(5,2) NOT NULL,
     derogation_solde_negatif BOOLEAN DEFAULT FALSE,
     derogation_delai_preavis BOOLEAN DEFAULT FALSE,
     derogation_continuite_service BOOLEAN DEFAULT FALSE,
