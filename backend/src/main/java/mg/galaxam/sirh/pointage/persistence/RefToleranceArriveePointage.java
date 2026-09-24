@@ -14,6 +14,7 @@ public class RefToleranceArriveePointage extends ClassMere {
     private Integer idTolerance;
     private Integer idSite;
     private Time heurePlafond;
+    private boolean estActif = true;
 
     // Propriétés jointures pour affichage
     private String codeSite;
@@ -46,10 +47,11 @@ public class RefToleranceArriveePointage extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         controler(c);
-        String sql = "INSERT INTO ref_tolerance_arrivee_pointage (id_site, heure_plafond) VALUES (?, ?) ON CONFLICT (id_site) DO UPDATE SET heure_plafond = EXCLUDED.heure_plafond RETURNING id_tolerance";
+        String sql = "INSERT INTO ref_tolerance_arrivee_pointage (id_site, heure_plafond, est_actif) VALUES (?, ?, ?) ON CONFLICT (id_site) DO UPDATE SET heure_plafond = EXCLUDED.heure_plafond, est_actif = EXCLUDED.est_actif RETURNING id_tolerance";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idSite);
             ps.setTime(2, heurePlafond);
+            ps.setBoolean(3, estActif);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     this.idTolerance = rs.getInt(1);
@@ -62,11 +64,12 @@ public class RefToleranceArriveePointage extends ClassMere {
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
         controler(c);
-        String sql = "UPDATE ref_tolerance_arrivee_pointage SET id_site = ?, heure_plafond = ? WHERE id_tolerance = ?";
+        String sql = "UPDATE ref_tolerance_arrivee_pointage SET id_site = ?, heure_plafond = ?, est_actif = ? WHERE id_tolerance = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idSite);
             ps.setTime(2, heurePlafond);
-            ps.setInt(3, idTolerance);
+            ps.setBoolean(3, estActif);
+            ps.setInt(4, idTolerance);
             ps.executeUpdate();
         }
         return this;
@@ -88,7 +91,7 @@ public class RefToleranceArriveePointage extends ClassMere {
     }
 
     public RefToleranceArriveePointage rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT t.id_tolerance, t.id_site, t.heure_plafond, s.code_site, s.libelle AS libelle_site " +
+        String sql = "SELECT t.id_tolerance, t.id_site, t.heure_plafond, t.est_actif, s.code_site, s.libelle AS libelle_site " +
                      "FROM ref_tolerance_arrivee_pointage t " +
                      "JOIN ref_site s ON t.id_site = s.id_site " +
                      "WHERE t.id_tolerance = ?";
@@ -100,6 +103,7 @@ public class RefToleranceArriveePointage extends ClassMere {
                     t.setIdTolerance(rs.getInt("id_tolerance"));
                     t.setIdSite(rs.getInt("id_site"));
                     t.setHeurePlafond(rs.getTime("heure_plafond"));
+                    t.setEstActif(rs.getBoolean("est_actif"));
                     t.setCodeSite(rs.getString("code_site"));
                     t.setLibelleSite(rs.getString("libelle_site"));
                     return t;
@@ -111,7 +115,7 @@ public class RefToleranceArriveePointage extends ClassMere {
 
     public static List<RefToleranceArriveePointage> listAll(Connection c) throws SQLException {
         List<RefToleranceArriveePointage> list = new ArrayList<>();
-        String sql = "SELECT t.id_tolerance, t.id_site, t.heure_plafond, s.code_site, s.libelle AS libelle_site " +
+        String sql = "SELECT t.id_tolerance, t.id_site, t.heure_plafond, t.est_actif, s.code_site, s.libelle AS libelle_site " +
                      "FROM ref_tolerance_arrivee_pointage t " +
                      "JOIN ref_site s ON t.id_site = s.id_site " +
                      "ORDER BY s.code_site";
@@ -122,6 +126,7 @@ public class RefToleranceArriveePointage extends ClassMere {
                 t.setIdTolerance(rs.getInt("id_tolerance"));
                 t.setIdSite(rs.getInt("id_site"));
                 t.setHeurePlafond(rs.getTime("heure_plafond"));
+                t.setEstActif(rs.getBoolean("est_actif"));
                 t.setCodeSite(rs.getString("code_site"));
                 t.setLibelleSite(rs.getString("libelle_site"));
                 list.add(t);
@@ -139,6 +144,8 @@ public class RefToleranceArriveePointage extends ClassMere {
 
     public Time getHeurePlafond() { return heurePlafond; }
     public void setHeurePlafond(Time heurePlafond) { this.heurePlafond = heurePlafond; }
+    public boolean isEstActif() { return estActif; }
+    public void setEstActif(boolean estActif) { this.estActif = estActif; }
 
     public String getCodeSite() { return codeSite; }
     public void setCodeSite(String codeSite) { this.codeSite = codeSite; }

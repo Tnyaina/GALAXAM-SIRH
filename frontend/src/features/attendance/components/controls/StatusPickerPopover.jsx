@@ -10,36 +10,27 @@ import {
 } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 
-const STATUT_OPTIONS = [
-    {
-        code: 'PRESENT',
-        label: 'Présent (Journée normale)',
-        description: 'Journée travaillée avec calcul standard des heures',
+const STATUS_PRESENTATION = {
+    PRESENT: {
         icon: CheckCircle2,
         dotColor: 'bg-emerald-500',
         textColor: 'text-emerald-700 dark:text-emerald-400',
         bgHover: 'hover:bg-emerald-500/10'
     },
-    {
-        code: 'ABSENCE_JUSTIFIEE',
-        label: 'Absence justifiée',
-        description: 'Motif légitime (certificat médical, mission, urgence)',
+    ABSENCE_JUSTIFIEE: {
         icon: AlertTriangle,
         dotColor: 'bg-amber-500',
         textColor: 'text-amber-700 dark:text-amber-400',
         bgHover: 'hover:bg-amber-500/10',
         requiresMotif: true
     },
-    {
-        code: 'ABSENCE_NON_JUSTIFIEE',
-        label: 'Absence non justifiée',
-        description: 'Absence non autorisée (décomptée de la paie)',
+    ABSENCE_NON_JUSTIFIEE: {
         icon: XCircle,
         dotColor: 'bg-rose-500',
         textColor: 'text-rose-700 dark:text-rose-400',
         bgHover: 'hover:bg-rose-500/10'
     }
-];
+};
 
 const SUGGESTIONS_MOTIF = [
     'Certificat médical',
@@ -71,7 +62,8 @@ export default function StatusPickerPopover({
     const triggerRef = useRef(null);
     const popoverRef = useRef(null);
 
-    const isAutonome = Boolean(row?.estAutonome || row?.dispensePointage);
+    const statusOptions = row?.statusActions || [];
+    const isAutonome = Boolean(row?.estAutonome);
 
     // Effets : synchronise les props, la position et la fermeture du popover.
     useEffect(() => {
@@ -154,36 +146,23 @@ export default function StatusPickerPopover({
     }, [isOpen, updatePosition]);
 
     // Données dérivées pour l'affichage du statut courant.
-    const isMotifValid = selectedStatut !== 'ABSENCE_JUSTIFIEE' || Boolean(motif.trim());
+    const selectedAction = statusOptions.find((option) => option.code === selectedStatut);
+    const isMotifValid = !selectedAction?.requiresMotif || Boolean(motif.trim());
 
     const handleApply = (statutToApply = selectedStatut) => {
-        if (statutToApply === 'ABSENCE_JUSTIFIEE' && !motif.trim()) {
+        const action = statusOptions.find((option) => option.code === statutToApply);
+        if (action?.requiresMotif && !motif.trim()) {
             return; // Motif obligatoire
         }
         if (onStatusChange) {
-            onStatusChange(statutToApply, statutToApply === 'ABSENCE_JUSTIFIEE' ? motif.trim() : '');
+            onStatusChange(statutToApply, action?.requiresMotif ? motif.trim() : '');
         }
         setIsOpen(false);
     };
 
     // Badge affiché dans la cellule
-    const variant = row?.statutBadgeVariant || (
-        row?.ferieTravaille ? 'error' :
-        row?.ferieChome ? 'neutral' :
-        row?.absenceNonJustifiee || row?.retard ? 'danger' :
-        row?.conge || row?.absenceJustifiee ? 'warning' :
-        row?.present ? 'success' :
-        row?.dispensePointage ? 'brand' : 'neutral'
-    );
-
-    const label = row?.statutBadgeLabel || row?.libelleStatut || (
-        currentStatus === 'PRESENT' ? 'Présent' :
-        currentStatus === 'ABSENCE_JUSTIFIEE' ? 'Absence justifiée' :
-        currentStatus === 'ABSENCE_NON_JUSTIFIEE' ? 'Absent' :
-        currentStatus === 'CONGE' ? 'Congé' :
-        currentStatus === 'DISPENSE_POINTAGE' ? 'Autonome' :
-        'Non saisi'
-    );
+    const variant = row?.statutBadgeVariant || 'neutral';
+    const label = row?.statutBadgeLabel || row?.libelleStatut || '';
 
     const tooltipTitle = disabled ? (
         row?.conge ? `En congé approuvé (${row?.libelleConge || 'Congé payé'}) — Piloté par le module Congés` :
@@ -253,7 +232,9 @@ export default function StatusPickerPopover({
 
                     {/* Liste des statuts d'absence / présence */}
                     <div className="space-y-1 pr-0.5">
-                        {STATUT_OPTIONS.map((opt) => {
+                        {statusOptions.map((option) => {
+                            const opt = { ...option, ...(STATUS_PRESENTATION[option.code] || {}) };
+                            if (!opt.icon) return null;
                             const isSelected = selectedStatut === opt.code;
 
                             return (
@@ -292,7 +273,7 @@ export default function StatusPickerPopover({
                     </div>
 
                     {/* Zone de motif si Absence justifiée (obligatoire) */}
-                    {selectedStatut === 'ABSENCE_JUSTIFIEE' && (
+                    {selectedAction?.requiresMotif && (
                         <div className="mt-2.5 pt-2 border-t border-[var(--color-border-subtle)] space-y-2">
                             <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
                                 Motif ou Justification <span className="text-[var(--color-danger-500)]">*</span>

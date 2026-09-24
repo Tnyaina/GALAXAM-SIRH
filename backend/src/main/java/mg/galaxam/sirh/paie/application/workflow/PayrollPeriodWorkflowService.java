@@ -573,7 +573,6 @@ public class PayrollPeriodWorkflowService {
             }
         }
 
-        pointageSyntheseService.calculerToutesSemainesPeriode(periodId, null, userId, connection);
     }
 
     private void requireValidatedPayroll(int periodId, Connection connection) throws SQLException {

@@ -16,7 +16,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Loading from '@/components/ui/feedback/Loading';
 import Alert from '@/components/ui/feedback/Alert';
-import attendanceService from '@/features/attendance/api/attendanceService';
+import { attendanceService } from '@/features/attendance/api/attendanceApi';
 import { formatMonnaie, formatHeuresMinutes, formatHeuresDecimal, formatDualHours, getStatutPointageBadge } from '@/features/attendance/utils/attendanceDisplayUtils';
 import { fmtDate } from '@/utils/dateUtils';
 
@@ -80,7 +80,9 @@ export default function PointageDetailHebdoModal({
     const dureeJour = dureeHebdo > 0 ? dureeHebdo / 5 : null;
 
     const totalIndemnitesStr = kpis.totalIndemnitesMois || recap.totalIndemnites;
-    const totalIndemnites = (Number(recap.montantTotalRepas) || 0) + (Number(recap.montantTotalDeplacement) || 0);
+    const allowanceCodes = [...new Set(pointages.flatMap((pointage) =>
+        Object.values(pointage.indemnites || {}).filter((allowance) => allowance.accordee)
+            .map((allowance) => allowance.code)))];
 
     // Rendu
     return (
@@ -227,10 +229,10 @@ export default function PointageDetailHebdoModal({
                                     <Banknote size={11} /> Indemnités
                                 </div>
                                 <div className="text-base font-bold mt-1 attendance-duration">
-                                    {totalIndemnitesStr || formatMonnaie(totalIndemnites)}
+                                    {totalIndemnitesStr || '—'}
                                 </div>
                                 <div className="attendance-duration-secondary mt-0.5 truncate">
-                                    {kpis.montantRepasTotal ? `${kpis.montantRepasTotal} repas` : (recap.montantTotalRepas ? `${formatMonnaie(recap.montantTotalRepas)} repas` : '0 Ar repas')}
+                                    {allowanceCodes.join(' · ') || 'Aucune indemnité accordée'}
                                 </div>
                             </div>
                         </div>
@@ -439,14 +441,13 @@ export default function PointageDetailHebdoModal({
                                             <Th className="text-center w-20">Fait</Th>
                                             <Th className="text-center w-20">Écart</Th>
                                             <Th className="text-center w-28">Statut</Th>
-                                            <Th className="text-center w-20">Repas</Th>
-                                            <Th className="text-center w-20">Déplac.</Th>
+                                            <Th className="text-center min-w-32">Indemnités accordées</Th>
                                         </Tr>
                                     </Thead>
                                     <Tbody>
                                         {pointages.length === 0 ? (
                                             <Tr>
-                                                <Td colSpan={12} className="text-center py-6 text-xs text-[var(--color-fg-muted)]">
+                                                <Td colSpan={11} className="text-center py-6 text-xs text-[var(--color-fg-muted)]">
                                                     Aucun pointage quotidien disponible.
                                                 </Td>
                                             </Tr>
@@ -465,10 +466,8 @@ export default function PointageDetailHebdoModal({
                                                 const isEcartPos = ptg.ecartPositif ?? (ptg.ecart8h ? ptg.ecart8h >= 0 : true);
 
                                                 const statutCode = ptg.statut || ptg.statutBadge || 'PRESENT';
-                                                const hasRepas = ptg.indemniteRepas || ptg.indemniteRepasRecue;
-                                                const hasDepMatin = ptg.deplacementMatin;
-                                                const hasDepAm = ptg.deplacementAm;
-                                                const hasDep = hasDepMatin || hasDepAm || ptg.indemniteDeplacement;
+                                                const dailyAllowances = Object.values(ptg.indemnites || {})
+                                                    .filter((allowance) => allowance.accordee);
 
                                                 return (
                                                     <Tr key={dtComp || idx}>
@@ -518,25 +517,14 @@ export default function PointageDetailHebdoModal({
                                                         <Td className="text-center">
                                                             {getStatutPointageBadge(statutCode, retMin)}
                                                         </Td>
-                                                        {/* Repas */}
-                                                        <Td className="text-center font-mono text-xs">
-                                                            {hasRepas ? (
-                                                                <span className="text-amber-700 dark:text-amber-300 font-bold" title={ptg.montantRepas ? formatMonnaie(ptg.montantRepas) : 'Repas accordé'}>
-                                                                    Oui
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-[var(--color-fg-subtle)]">—</span>
-                                                            )}
-                                                        </Td>
-                                                        {/* Déplacement */}
-                                                        <Td className="text-center font-mono text-xs">
-                                                            {hasDep ? (
-                                                                <span className="text-emerald-700 dark:text-emerald-300 font-bold" title={ptg.montantDeplacement ? formatMonnaie(ptg.montantDeplacement) : 'Indemnité transport'}>
-                                                                    {hasDepMatin && hasDepAm ? '2/2' : (hasDepMatin || hasDepAm ? '1/2' : 'Oui')}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-[var(--color-fg-subtle)]">—</span>
-                                                            )}
+                                                        <Td className="text-center text-xs">
+                                                            {dailyAllowances.length > 0
+                                                                ? dailyAllowances.map((allowance) => (
+                                                                    <div key={allowance.code} className="font-semibold">
+                                                                        {allowance.code} · {formatMonnaie(allowance.montant || 0)}
+                                                                    </div>
+                                                                ))
+                                                                : <span className="text-[var(--color-fg-subtle)]">—</span>}
                                                         </Td>
                                                     </Tr>
                                                 );

@@ -8,6 +8,7 @@ public class SiteIndemniteRequest {
     private Integer idIndemnite;
     private String periodicite;
     private BigDecimal montantReference;
+    private String codeParametreException;
     private Date dateDebut;
     private Date dateFin;
 
@@ -19,6 +20,8 @@ public class SiteIndemniteRequest {
     public void setPeriodicite(String periodicite) { this.periodicite = periodicite; }
     public BigDecimal getMontantReference() { return montantReference; }
     public void setMontantReference(BigDecimal montantReference) { this.montantReference = montantReference; }
+    public String getCodeParametreException() { return codeParametreException; }
+    public void setCodeParametreException(String codeParametreException) { this.codeParametreException = codeParametreException; }
     public Date getDateDebut() { return dateDebut; }
     public void setDateDebut(Date dateDebut) { this.dateDebut = dateDebut; }
     public Date getDateFin() { return dateFin; }

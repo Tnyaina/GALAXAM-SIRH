@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Moon, Car, Clock, UserX, FastForward } from 'lucide-react';
+import { Moon, Clock, UserX, FastForward } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import TimeInput from '@/components/ui/forms/TimeInput';
@@ -18,7 +18,6 @@ export default function PointageGridTable({
     onStatutFilterChange,
     onUpdateHours,
     onUpdateStatut,
-    onUpdateIndemnite,
     onUpdateDynamicIndemnite,
     onBulkStandardHours,
     onBulkStatut,
@@ -93,10 +92,9 @@ export default function PointageGridTable({
         handleClearSelection();
     };
 
-    const handleApplyBulkTransport = () => {
+    const handleApplyBulkAllowance = (allowance) => {
         if (selectedEmpIds.size === 0) return;
-        onBulkIndemnite?.(selectedEmpIds, 'deplacementMatin', true);
-        onBulkIndemnite?.(selectedEmpIds, 'deplacementAm', true);
+        onBulkIndemnite?.(selectedEmpIds, allowance.idIndemnite, Boolean(allowance.fractionnable));
         handleClearSelection();
     };
 
@@ -112,10 +110,10 @@ export default function PointageGridTable({
                 <div className="flex items-center gap-1 overflow-x-auto">
                     {[
                         { id: 'ALL', label: 'Tous', count: grilleData.length },
-                        { id: 'PRESENT', label: 'Présents', count: grilleData.filter(r => r.present || r.dispensePointage || r.ferieTravaille || (r.totalHeures && r.totalHeures > 0)).length },
-                        { id: 'NON_SAISI', label: 'Non saisis', count: grilleData.filter(r => Boolean(r.nonSaisi)).length },
-                        { id: 'RETARD', label: 'Retards', count: grilleData.filter(r => Boolean(r.retard)).length },
-                        { id: 'CONGE', label: 'Congés', count: grilleData.filter(r => Boolean(r.conge || r.absenceJustifiee)).length },
+                        { id: 'PRESENT', label: 'Présents', count: grilleData.filter(r => r.present || r.dispensePointage || r.ferieTravaille || r.samediTravaille || r.dimancheTravaille).length },
+                        { id: 'NON_SAISI', label: 'Non saisis', count: grilleData.filter(r => r.nonSaisi).length },
+                        { id: 'RETARD', label: 'Retards', count: grilleData.filter(r => r.retard).length },
+                        { id: 'CONGE', label: 'Congés', count: grilleData.filter(r => r.conge || r.absenceJustifiee).length },
                     ].map((tab) => {
                         const isActive = selectedStatutFilter === tab.id;
                         return (
@@ -220,13 +218,6 @@ export default function PointageGridTable({
                             if (isNonSaisi) rowBorderCue = 'border-l-2 border-l-amber-500';
                             else if (row.totalHeures > 0) rowBorderCue = 'border-l-2 border-l-emerald-500';
 
-                            const isCrossMidnightAm = Boolean(
-                                (row.horaireContinu && row.heureEntreeMatin && row.heureSortieAm && row.heureSortieAm < row.heureEntreeMatin) ||
-                                (!row.horaireContinu && row.heureEntreeAm && row.heureSortieAm && row.heureSortieAm < row.heureEntreeAm)
-                            );
-                            const isCrossMidnightMatin = Boolean(
-                                !row.horaireContinu && row.heureEntreeMatin && row.heureSortieMatin && row.heureSortieMatin < row.heureEntreeMatin
-                            );
 
                             return (
                                 <Tr key={row.idEmploye} className={`border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors ${rowBorderCue}`}>
@@ -343,14 +334,6 @@ export default function PointageGridTable({
                                                         onComplete={() => onFocusNext(row.idEmploye, 1)}
                                                         className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
                                                     />
-                                                    {isCrossMidnightMatin && (
-                                                        <span
-                                                            className="shrink-0 px-1 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700 cursor-help"
-                                                            title={`Sortie le lendemain à ${row.heureSortieMatin}`}
-                                                        >
-                                                            +1j
-                                                        </span>
-                                                    )}
                                                 </div>
                                             </Td>
 
@@ -380,14 +363,6 @@ export default function PointageGridTable({
                                                 onKeyDown={(e) => onKeyDown(e, row.idEmploye, 3)}
                                                 className={row.hasValidationError ? '!border-[var(--color-danger-500)] !bg-[var(--color-danger-500)]/10' : ''}
                                             />
-                                            {isCrossMidnightAm && (
-                                                <span
-                                                    className="shrink-0 px-1 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700 cursor-help"
-                                                    title={`Sortie le lendemain à ${row.heureSortieAm}`}
-                                                >
-                                                    +1j
-                                                </span>
-                                            )}
                                         </div>
                                     </Td>
 
@@ -395,11 +370,14 @@ export default function PointageGridTable({
                                     <Td className="px-3 py-1.5 text-center font-mono font-semibold border-l border-[var(--color-border-subtle)]">
                                         <div className="flex flex-col items-center justify-center">
                                             <span className="text-[13px] font-bold text-[var(--color-fg)]">
-                                                {formatHeuresMinutes(row.totalHeures, true)}
+                                                {row._previewPending ? 'Calcul…' : row._previewError ? '—' : formatHeuresMinutes(row.totalHeures, true)}
                                             </span>
-                                            <span className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">
-                                                ({formatHeuresDecimal(row.totalHeures)})
-                                            </span>
+                                            {!row._previewPending && !row._previewError && (
+                                                <span className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">
+                                                    ({formatHeuresDecimal(row.totalHeures)})
+                                                </span>
+                                            )}
+                                            {row._previewError && <span className="text-[9px] text-danger-600" title={row._previewError}>Prévisualisation indisponible</span>}
                                             {row.heuresNuit > 0 && (
                                                 <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-purple-700 dark:text-purple-300 bg-purple-500/10 px-1 mt-0.5">
                                                     <Moon size={9} /> nuit
@@ -436,27 +414,21 @@ export default function PointageGridTable({
                                     {siteIndemnites.map((ind) => {
                                         const dynObj = row.dynamicIndemnites?.[String(ind.idIndemnite)] || {};
                                         const isAccordee = dynObj.accordee !== false && !isCongeFull;
-                                        const montantJour = ind.montantJour || ind.montantReference || 0;
                                         const isFractionnable = ind.estFractionnable !== undefined ? ind.estFractionnable : ind.fractionnable;
 
                                         if (isFractionnable) {
-                                            const montantTrajet = ind.montantTrajet || Math.round(montantJour / 2.0);
-                                            const matVal = !isCongeFull && (row.deplacementMatin !== undefined
-                                                ? Boolean(row.deplacementMatin)
-                                                : (dynObj.matin !== undefined ? Boolean(dynObj.matin) : (dynObj.accordee !== false)));
-                                            const amVal = !isCongeFull && (row.deplacementAm !== undefined
-                                                ? Boolean(row.deplacementAm)
-                                                : (dynObj.am !== undefined ? Boolean(dynObj.am) : (dynObj.accordee !== false)));
+                                            const montantTrajet = ind.montantTrajet;
+                                            const matVal = !isCongeFull && Boolean(dynObj.matin);
+                                            const amVal = !isCongeFull && Boolean(dynObj.am);
 
                                             return (
                                                 <Td key={ind.idIndemnite} className="px-3 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
-                                                    {row.estDerogeDeplacement ? (
-                                                        <div className="flex items-center justify-center">
-                                                            <span className="text-[10px] font-semibold text-[var(--color-fg-muted)] bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] px-1.5 py-0.5" title={row.motifDerogationDeplacement || 'Exclu deplacement (ex: vehicule de fonction)'}>
-                                                                {row.labelDerogationDeplacement || 'Vehicule'}
+                                                    <div className="flex flex-col items-center justify-center gap-1">
+                                                        {dynObj.motifSuggestion && (
+                                                            <span className="text-[9px] font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]" title={dynObj.motifSuggestion}>
+                                                                Suggestion : {dynObj.motifSuggestion} · exception possible
                                                             </span>
-                                                        </div>
-                                                    ) : (
+                                                        )}
                                                         <div className="flex items-center justify-center gap-3">
                                                             <label className={`inline-flex items-center gap-1 text-[11px] font-semibold ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Trajet aller (matin) — ${fmtMoney(montantTrajet)}`}>
                                                                 <input
@@ -464,7 +436,6 @@ export default function PointageGridTable({
                                                                     checked={matVal}
                                                                     disabled={isReadOnlyForUser || isCongeFull}
                                                                     onChange={(e) => {
-                                                                        onUpdateIndemnite(row.idEmploye, 'deplacementMatin', e.target.checked);
                                                                         onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked, 'MATIN');
                                                                     }}
                                                                     className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
@@ -478,7 +449,6 @@ export default function PointageGridTable({
                                                                     checked={amVal}
                                                                     disabled={isReadOnlyForUser || isCongeFull}
                                                                     onChange={(e) => {
-                                                                        onUpdateIndemnite(row.idEmploye, 'deplacementAm', e.target.checked);
                                                                         onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked, 'APRES_MIDI');
                                                                     }}
                                                                     className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
@@ -486,33 +456,27 @@ export default function PointageGridTable({
                                                                 <span className={amVal ? 'text-[var(--color-fg)] font-bold' : 'text-[var(--color-fg-muted)]'}>Retour</span>
                                                             </label>
                                                         </div>
-                                                    )}
+                                                    </div>
                                                 </Td>
                                             );
                                         }
 
                                         // Indemnité journalière standard (Repas, etc.)
-                                        const isRepas = ind.code === 'REPAS';
                                         const useGlobalIfZero = !!ind.useGlobalIfZero;
-                                        const checked = !isCongeFull && (isRepas
-                                            ? (row.indemniteRepasRecue !== undefined 
-                                                ? Boolean(row.indemniteRepasRecue) 
-                                                : (dynObj.accordee !== undefined ? Boolean(dynObj.accordee) : (useGlobalIfZero ? false : isAccordee)))
-                                            : (dynObj.accordee !== undefined ? Boolean(dynObj.accordee) : (useGlobalIfZero ? false : isAccordee)));
+                                        const checked = !isCongeFull && (dynObj.accordee !== undefined
+                                            ? Boolean(dynObj.accordee) : (useGlobalIfZero ? false : isAccordee));
                                         const montantEffectif = useGlobalIfZero && checked
                                             ? (ind.montantGlobal || ind.montantJour || 0)
                                             : (ind.montantJour || ind.montantReference || 0);
 
                                         return (
                                             <Td key={ind.idIndemnite} className="px-3 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
-                                                {isRepas && row.estDerogeRepas ? (
-                                                    <div className="flex items-center justify-center">
-                                                        <span className="text-[10px] font-semibold text-[var(--color-fg-muted)] bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] px-1.5 py-0.5" title={row.motifDerogationRepas || 'Exclu indemnite repas (ex: cantine prise en charge)'}>
-                                                            {row.labelDerogationRepas || 'Exclu repas'}
-                                                        </span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex flex-col items-center justify-center gap-1">
+                                                <div className="flex flex-col items-center justify-center gap-1">
+                                                        {dynObj.motifSuggestion && (
+                                                            <span className="text-[9px] font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]" title={dynObj.motifSuggestion}>
+                                                                Suggestion : {dynObj.motifSuggestion} · exception possible
+                                                            </span>
+                                                        )}
                                                         <label
                                                             className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`}
                                                             title={useGlobalIfZero
@@ -525,9 +489,6 @@ export default function PointageGridTable({
                                                                 checked={checked}
                                                                 disabled={isReadOnlyForUser || isCongeFull}
                                                                 onChange={(e) => {
-                                                                    if (isRepas) {
-                                                                        onUpdateIndemnite(row.idEmploye, 'indemniteRepasRecue', e.target.checked);
-                                                                    }
                                                                     onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked);
                                                                 }}
                                                                 className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
@@ -547,8 +508,7 @@ export default function PointageGridTable({
                                                                 opt.
                                                             </span>
                                                         )}
-                                                    </div>
-                                                )}
+                                                </div>
                                             </Td>
                                         );
                                     })}
@@ -595,20 +555,18 @@ export default function PointageGridTable({
                             variant="outline"
                             onClick={handleApplyBulkStandard}
                             icon={<Clock size={13} className="text-emerald-500" />}
-                            title="Remplir 8h standard pour les lignes sélectionnées"
+                            title="Préremplir les horaires configurés du site pour les lignes sélectionnées"
                         >
-                            Heures standard (8h)
+                            Horaires du site
                         </Button>
 
-                        <Button
-                            size="xs"
-                            variant="outline"
-                            onClick={handleApplyBulkTransport}
-                            icon={<Car size={13} className="text-blue-500" />}
-                            title="Cocher transport Matin + Soir pour la sélection"
-                        >
-                            Transport AR
-                        </Button>
+                        {siteIndemnites.map((allowance) => (
+                            <Button key={allowance.idIndemnite} size="xs" variant="outline"
+                                onClick={() => handleApplyBulkAllowance(allowance)}
+                                title={`Accorder ${allowance.libelle || allowance.code} à la sélection`}>
+                                {allowance.libelle || allowance.code}
+                            </Button>
+                        ))}
 
                         <Button
                             size="xs"

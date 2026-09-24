@@ -1,9 +1,13 @@
 package mg.galaxam.sirh.pointage.api.dto;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class PointageJourDTO {
     private Integer idPointage;
+    private Integer idSite;
+    private Integer version;
     private String date;        // Format "dd/MM" ex "24/08"
     private String dateComplete;// Format "YYYY-MM-DD"
     private String jour;        // ex "Lun."
@@ -27,6 +31,9 @@ public class PointageJourDTO {
     private BigDecimal montantDeplacement;
     private boolean horaireContinuJour; // Indique si la journée a été réalisée en continu (sans pause méridienne)
     private Double totalHeuresDecimal;  // Heures en centésimal (décimal) ex: 8.85
+    private Map<String, IndemniteJourDTO> indemnites = new LinkedHashMap<>();
+
+    public record IndemniteJourDTO(String code, boolean accordee, BigDecimal montant) {}
 
     // Getters et Setters
     public Double getTotalHeuresDecimal() { return totalHeuresDecimal; }
@@ -54,8 +61,16 @@ public class PointageJourDTO {
 
     public BigDecimal getMontantDeplacement() { return montantDeplacement; }
     public void setMontantDeplacement(BigDecimal montantDeplacement) { this.montantDeplacement = montantDeplacement; }
+    public Map<String, IndemniteJourDTO> getIndemnites() { return indemnites; }
+    public void setIndemnites(Map<String, IndemniteJourDTO> indemnites) {
+        this.indemnites = indemnites == null ? new LinkedHashMap<>() : new LinkedHashMap<>(indemnites);
+    }
     public Integer getIdPointage() { return idPointage; }
     public void setIdPointage(Integer idPointage) { this.idPointage = idPointage; }
+    public Integer getIdSite() { return idSite; }
+    public void setIdSite(Integer idSite) { this.idSite = idSite; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
 
     public String getDate() { return date; }
     public void setDate(String date) { this.date = date; }

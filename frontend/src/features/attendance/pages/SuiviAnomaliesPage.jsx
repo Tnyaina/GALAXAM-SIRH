@@ -29,7 +29,7 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import { fmtDate } from '@/utils/dateUtils';
 import organisationService from '@/features/organization/api/organisationService';
-import periodePaieService from '@/features/attendance/api/periodePaieService';
+import { periodePaieService } from '@/features/attendance/api/attendanceApi';
 import usePointageAnomalies from '@/features/attendance/hooks/usePointageAnomalies';
 import Pagination from '@/components/ui/navigation/Pagination';
 import { getErrorMessage } from '@/api/apiClient';

@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 /**
  * Service d'exportation Excel (.xlsx) natif pour la fiche individuelle de pointage.
@@ -407,11 +408,30 @@ public class PointageExcelExportService {
             cSec2.setCellStyle(metaLabelStyle);
 
             Row rHead2 = sheet.createRow(rowIdx++);
-            String[] headersJour = {
+            Map<String, String> dynamicAllowanceLabels = new LinkedHashMap<>();
+            if (fiche.getIndemnitesDisponibles() != null) {
+                fiche.getIndemnitesDisponibles().forEach((code, allowance) -> {
+                    String periodicite = allowance.periodicite() == null ? ""
+                            : " (" + allowance.periodicite().replace('_', ' ').toLowerCase(java.util.Locale.ROOT) + ")";
+                    dynamicAllowanceLabels.putIfAbsent(code, code + periodicite);
+                });
+            }
+            if (pointages != null) {
+                for (PointageJourDTO pointage : pointages) {
+                    pointage.getIndemnites().forEach((code, allowance) -> {
+                        dynamicAllowanceLabels.putIfAbsent(code, code);
+                    });
+                }
+            }
+            List<String> allowanceCodes = dynamicAllowanceLabels.keySet().stream().sorted().toList();
+            String[] fixedHeadersJour = {
                     "Date", "Jour", "Entrée", "Sortie Pause", "Retour Pause", "Sortie",
                     "Retard (min)", "Heures faites (hh:mm)", "Heures faites (déc.)",
-                    "Écart (vs 8h)", "Statut", "Transport (Ar)", "Repas (Ar)"
+                    "Écart", "Statut"
             };
+            String[] headersJour = java.util.stream.Stream.concat(java.util.Arrays.stream(fixedHeadersJour),
+                    allowanceCodes.stream().map(code -> dynamicAllowanceLabels.get(code) + " (Ar)"))
+                    .toArray(String[]::new);
             for (int i = 0; i < headersJour.length; i++) {
                 Cell ch = rHead2.createCell(i);
                 ch.setCellValue(headersJour[i]);
@@ -449,41 +469,18 @@ public class PointageExcelExportService {
                     cRetM.setCellValue(pj.getMinutesRetard() != null ? pj.getMinutesRetard() : 0);
                     cRetM.setCellStyle(integerStyle);
 
-                    // H: Heures faites (hh:mm)
-                    // DISPENSE_POINTAGE → valeur fixe 8 h
-                    // Congé / Férié → 0 h
-                    // Horaire continu ou scindé → formule native
+                    // H/I reflètent le total déjà résolu par le backend depuis le pointage journalier.
                     Cell cTotTime = rD.createCell(7);
-                    boolean isDispense = "DISPENSE_POINTAGE".equals(pj.getStatut());
-                    boolean isCongeOuFerie = pj.isConge() || "CONGE".equals(pj.getStatut()) || "CONGE_PAYE".equals(pj.getStatut()) || "FERIE_CHOME".equals(pj.getStatut());
-
-                    if (isDispense) {
-                        cTotTime.setCellValue(8.0 / 24.0);
-                    } else if (isCongeOuFerie) {
-                        cTotTime.setCellValue(0.0);
-                    } else {
-                        String r = String.valueOf(excelR);
-                        // Terme matin : si SortiePause (D) présent → D-C ; sinon si continu et Sortie (F) présent → F-C ; sinon 0
-                        String matin = "IF(ISNUMBER(D" + r + "), D" + r + "-C" + r +
-                                ", IF(AND(ISNUMBER(C" + r + "), ISNUMBER(F" + r + ")), F" + r + "-C" + r + ", 0))";
-                        // Terme AM : si RetourPause (E) ET Sortie (F) présents → F-E ; sinon 0
-                        String am = "IF(AND(ISNUMBER(E" + r + "), ISNUMBER(F" + r + ")), F" + r + "-E" + r + ", 0)";
-                        cTotTime.setCellFormula(matin + "+" + am);
-                    }
+                    double totalHeuresJour = pj.getTotalHeuresDecimal() != null ? pj.getTotalHeuresDecimal() : 0.0;
+                    cTotTime.setCellValue(totalHeuresJour / 24.0);
                     cTotTime.setCellStyle(timeStyle);
 
-                    // I: Heures faites (déc.) = conversion centésimale depuis H
+                    // I: total décimal provenant du backend.
                     Cell cTotDec = rD.createCell(8);
-                    if (isDispense) {
-                        cTotDec.setCellValue(8.0);
-                    } else if (isCongeOuFerie) {
-                        cTotDec.setCellValue(0.0);
-                    } else {
-                        cTotDec.setCellFormula("ROUND(H" + excelR + " * 24, 2)");
-                    }
+                    cTotDec.setCellValue(totalHeuresJour);
                     cTotDec.setCellStyle(numberStyle);
 
-                    // J: Écart vs 8h standard (0 pour repos, férié chômé, congé, et tout jour non travaillé sauf absence)
+                    // J: écart calculé selon la durée journalière de référence exposée par le backend.
                     Cell cEcart = rD.createCell(9);
                     String rEcart = String.valueOf(excelR);
                     cEcart.setCellFormula(
@@ -498,15 +495,14 @@ public class PointageExcelExportService {
                     cStat.setCellValue(formatStatutLabel(pj.getStatut()));
                     cStat.setCellStyle(textStyle);
 
-                    // L: Transport
-                    Cell cMntDepl = rD.createCell(11);
-                    cMntDepl.setCellValue(pj.getMontantDeplacement() != null ? pj.getMontantDeplacement().doubleValue() : 0.0);
-                    cMntDepl.setCellStyle(currencyStyle);
-
-                    // M: Panier Repas
-                    Cell cMntRep = rD.createCell(12);
-                    cMntRep.setCellValue(pj.getMontantRepas() != null ? pj.getMontantRepas().doubleValue() : 0.0);
-                    cMntRep.setCellStyle(currencyStyle);
+                    int dynamicColumn = fixedHeadersJour.length;
+                    for (String code : allowanceCodes) {
+                        PointageJourDTO.IndemniteJourDTO allowance = pj.getIndemnites().get(code);
+                        Cell cell = rD.createCell(dynamicColumn++);
+                        cell.setCellValue(allowance != null && allowance.accordee() && allowance.montant() != null
+                                ? allowance.montant().doubleValue() : 0.0);
+                        cell.setCellStyle(currencyStyle);
+                    }
                 }
             }
             int dailyEndRow = rowIdx; // 1-indexed
@@ -577,15 +573,12 @@ public class PointageExcelExportService {
             Cell cTotStat = rTotDaily.createCell(10);
             cTotStat.setCellStyle(totalLabelStyle);
 
-            // L: Somme déplacements
-            Cell cTotDeplAll = rTotDaily.createCell(11);
-            cTotDeplAll.setCellFormula("SUM(L" + dailyStartRow + ":L" + dailyEndRow + ")");
-            cTotDeplAll.setCellStyle(totalCurrencyStyle);
-
-            // M: Somme repas
-            Cell cTotRepAll = rTotDaily.createCell(12);
-            cTotRepAll.setCellFormula("SUM(M" + dailyStartRow + ":M" + dailyEndRow + ")");
-            cTotRepAll.setCellStyle(totalCurrencyStyle);
+            for (int col = fixedHeadersJour.length; col < headersJour.length; col++) {
+                Cell total = rTotDaily.createCell(col);
+                String columnLetter = org.apache.poi.ss.util.CellReference.convertNumToColString(col);
+                total.setCellFormula("SUM(" + columnLetter + dailyStartRow + ":" + columnLetter + dailyEndRow + ")");
+                total.setCellStyle(totalCurrencyStyle);
+            }
 
             sheet.setForceFormulaRecalculation(true);
 
@@ -595,7 +588,7 @@ public class PointageExcelExportService {
             cTotRetMin.setCellFormula("SUM(G" + dailyStartRow + ":G" + dailyEndRow + ")");
 
             // Ajustement automatique des largeurs de colonnes
-            for (int col = 0; col < 13; col++) {
+            for (int col = 0; col < headersJour.length; col++) {
                 sheet.autoSizeColumn(col);
                 if (sheet.getColumnWidth(col) < 3200) {
                     sheet.setColumnWidth(col, 3200);

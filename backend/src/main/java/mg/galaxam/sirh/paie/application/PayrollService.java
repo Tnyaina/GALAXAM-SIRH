@@ -710,6 +710,13 @@ public class PayrollService {
                             rs.getBigDecimal("montant_repas"), rs.getBigDecimal("nb_jours_deplacement"),
                             rs.getBigDecimal("montant_deplacement"),
                             buckets));
+                    if (rs.getInt("contrat_indemnites_version") >= 2) {
+                        // Les anciens snapshots restent lisibles via les deux agrégats historiques.
+                        // Les nouveaux figent toutes les indemnités, y compris un catalogue ajouté plus tard.
+                        in.setIndemniteRepas(BigDecimal.ZERO);
+                        in.setIndemniteTransport(BigDecimal.ZERO);
+                        chargerIndemnitesSnapshot(in, rs.getInt("id_cumul"), c);
+                    }
                     in.setModeCalculAbsence("HEURES_REELLES");
                 } else {
                     if (!simulation) {
@@ -721,6 +728,7 @@ public class PayrollService {
                 }
             }
         }
+
 
         // 5.0 Détermination canonique de NBCONGE (RG-CONGE-05) : domaine Congés en jours calendaires
         if (congeService != null && idEmploye != null && in.getDateDebutPeriode() != null && in.getDateFinPeriode() != null) {
@@ -1492,6 +1500,26 @@ public class PayrollService {
                 "totalPages", Math.max(1, (int) Math.ceil((double) totalElements / size)),
                 "currentPage", page,
                 "pageSize", size);
+    }
+
+    private void chargerIndemnitesSnapshot(PayrollCalculationInput input, int snapshotId, Connection connection)
+            throws SQLException {
+        String sql = "SELECT code_rubrique_paie, libelle, imposable_irsa, soumis_cotisation, montant "
+                + "FROM pointage_snapshot_indemnite WHERE id_cumul = ? ORDER BY code";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, snapshotId);
+            try (ResultSet result = statement.executeQuery()) {
+                while (result.next()) {
+                    BigDecimal amount = result.getBigDecimal("montant");
+                    if (amount == null || amount.signum() <= 0) continue;
+                    boolean taxable = result.getBoolean("imposable_irsa");
+                    boolean social = result.getBoolean("soumis_cotisation");
+                    input.ajouterGainVariable(new PayrollCalculationInput.GainVariable(
+                            null, result.getString("code_rubrique_paie"), result.getString("libelle"),
+                            amount, taxable ? "INDEMNITE_IMPOSABLE" : "INDEMNITE_NON_IMPOSABLE", taxable, social));
+                }
+            }
+        }
     }
 
     private List<QualifiedTimeBucket> loadSnapshotBuckets(int snapshotId, Connection c) throws SQLException {

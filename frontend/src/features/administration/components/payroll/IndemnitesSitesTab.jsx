@@ -51,14 +51,14 @@ export default function IndemnitesSitesTab() {
     const [showIndemniteModal, setShowIndemniteModal] = useState(false);
     const [editingIndemnite, setEditingIndemnite] = useState(null);
     const [indemniteFormData, setIndemniteFormData] = useState({
-        code: '', libelle: '', imposableIrsa: false, fractionnable: false
+        code: '', libelle: '', codeRubriquePaie: '', imposableIrsa: false, soumisCotisation: '', fractionnable: false
     });
 
     // Modale Config Site
     const [showSiteIndemniteModal, setShowSiteIndemniteModal] = useState(false);
     const [editingSiteIndemnite, setEditingSiteIndemnite] = useState(null);
     const [siteIndemniteFormData, setSiteIndemniteFormData] = useState({
-        idSite: '', idIndemnite: '', periodicite: 'JOURNALIER', montantReference: '', dateDebut: todayStr, dateFin: ''
+        idSite: '', idIndemnite: '', periodicite: 'JOURNALIER', montantReference: '', codeParametreException: '', dateDebut: todayStr, dateFin: ''
     });
 
     const loadData = async () => {
@@ -262,7 +262,7 @@ export default function IndemnitesSitesTab() {
                         <Button
                             onClick={() => {
                                 setEditingIndemnite(null);
-                                setIndemniteFormData({ code: '', libelle: '', imposableIrsa: false, fractionnable: false });
+                                setIndemniteFormData({ code: '', libelle: '', codeRubriquePaie: '', imposableIrsa: false, soumisCotisation: '', fractionnable: false });
                                 setActionError(null);
                                 setShowIndemniteModal(true);
                             }}
@@ -294,7 +294,7 @@ export default function IndemnitesSitesTab() {
                                             actionLabel="Créer une indemnité"
                                             onAction={() => {
                                                 setEditingIndemnite(null);
-                                                setIndemniteFormData({ code: '', libelle: '', imposableIrsa: false, fractionnable: false });
+                                                setIndemniteFormData({ code: '', libelle: '', codeRubriquePaie: '', imposableIrsa: false, soumisCotisation: '', fractionnable: false });
                                                 setActionError(null);
                                                 setShowIndemniteModal(true);
                                             }}
@@ -336,6 +336,8 @@ export default function IndemnitesSitesTab() {
                                                                 code: ind.code,
                                                                 libelle: ind.libelle,
                                                                 imposableIrsa: ind.imposableIrsa,
+                                                                soumisCotisation: ind.soumisCotisation === null || ind.soumisCotisation === undefined ? '' : String(ind.soumisCotisation),
+                                                                codeRubriquePaie: ind.codeRubriquePaie || '',
                                                                 fractionnable: !!ind.fractionnable
                                                             });
                                                             setActionError(null);
@@ -393,6 +395,7 @@ export default function IndemnitesSitesTab() {
                                     idIndemnite: '',
                                     periodicite: periodiciteOptions[0]?.value || 'JOURNALIER',
                                     montantReference: '',
+                                    codeParametreException: '',
                                     dateDebut: todayStr,
                                     dateFin: ''
                                 });
@@ -432,6 +435,7 @@ export default function IndemnitesSitesTab() {
                                                     idIndemnite: '',
                                                     periodicite: periodiciteOptions[0]?.value || 'JOURNALIER',
                                                     montantReference: '',
+                                                    codeParametreException: '',
                                                     dateDebut: todayStr,
                                                     dateFin: ''
                                                 });
@@ -482,6 +486,7 @@ export default function IndemnitesSitesTab() {
                                                                 idIndemnite: si.idIndemnite,
                                                                 periodicite: si.periodicite,
                                                                 montantReference: si.montantReference,
+                                                                codeParametreException: si.codeParametreException || '',
                                                                 dateDebut: fmtDateInput(si.dateDebut) || todayStr,
                                                                 dateFin: fmtDateInput(si.dateFin) || ''
                                                             });
@@ -557,12 +562,29 @@ export default function IndemnitesSitesTab() {
                         onChange={(e) => setIndemniteFormData({ ...indemniteFormData, libelle: e.target.value })}
                         placeholder="Ex: Indemnité Forfaitaire de Repas"
                     />
+                    <Input
+                        label="Code rubrique Paie (facultatif)"
+                        value={indemniteFormData.codeRubriquePaie || ''}
+                        onChange={(e) => setIndemniteFormData({ ...indemniteFormData, codeRubriquePaie: e.target.value.toUpperCase() })}
+                        placeholder="Par défaut : INDEMNITE_{CODE}"
+                    />
                     <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-2.5">
                         <Checkbox
                             label="Imposable à l'IRSA (sinon exonérée d'impôt sur le revenu)"
                             checked={indemniteFormData.imposableIrsa}
                             onChange={(e) => setIndemniteFormData({ ...indemniteFormData, imposableIrsa: e.target.checked })}
                         />
+                        <Select
+                            label="Soumise aux cotisations sociales"
+                            required
+                            value={indemniteFormData.soumisCotisation}
+                            onChange={(e) => setIndemniteFormData({ ...indemniteFormData, soumisCotisation: e.target.value === '' ? '' : e.target.value === 'true' })}
+                            hint="Indépendant de l'IRSA : à qualifier selon la nature de l'indemnité."
+                        >
+                            <option value="">-- À qualifier --</option>
+                            <option value="true">Oui</option>
+                            <option value="false">Non</option>
+                        </Select>
                         <Checkbox
                             label="Fractionnable par demi-journée (ex: 50% matin / 50% après-midi)"
                             checked={indemniteFormData.fractionnable}
@@ -635,6 +657,12 @@ export default function IndemnitesSitesTab() {
                             onChange={(e) => setSiteIndemniteFormData({ ...siteIndemniteFormData, montantReference: e.target.value })}
                         />
                     </div>
+                    <Input
+                        label="Code du paramètre pour octroi exceptionnel (si tarif site = 0)"
+                        placeholder="Ex : MONTANT_REPAS_MIDI"
+                        value={siteIndemniteFormData.codeParametreException || ''}
+                        onChange={(e) => setSiteIndemniteFormData({ ...siteIndemniteFormData, codeParametreException: e.target.value })}
+                    />
                     <div className="grid grid-cols-2 gap-3">
                         <Input
                             label="Date d'Effet / Début"

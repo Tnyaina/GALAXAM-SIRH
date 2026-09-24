@@ -54,7 +54,7 @@ export default function PointageGanttView({
         const effectiveData = cellData || {
             idEmploye: emp.idEmploye,
             datePointage: day.date,
-            codeStatut: day.isWeekend ? 'REPOS' : 'NON_SAISI',
+            codeStatut: 'NON_SAISI',
             totalHeures: 0
         };
         const rect = e.currentTarget.getBoundingClientRect();
@@ -308,10 +308,9 @@ function GanttTooltip({ tooltip, tooltipRef }) {
     const safeX = Math.min(tooltip.x, window.innerWidth - 300);
     const safeY = Math.min(tooltip.y, window.innerHeight - 340);
 
-    const isSunday = day?.date ? new Date(day.date + 'T00:00:00').getDay() === 0 : false;
     const totalH = Number(cellData?.totalHeures || 0);
     const hasWorked = totalH > 0;
-    const isDimancheTravaille = isSunday && hasWorked;
+    const isDimancheTravaille = cellData?.codeStatut === 'DIMANCHE_TRAVAILLE';
     const label = getStatutLabel(cellData, day);
 
     // Heures précises matin / après-midi
@@ -323,28 +322,7 @@ function GanttTooltip({ tooltip, tooltipRef }) {
     const sa = cellData?.heureSortieAm;
     const amTime = (ea && sa) ? `${ea} — ${sa}` : null;
 
-    // Repas
-    let repasLabel = 'Non';
-    if (cellData?.indemniteRepasRecue || cellData?.repas) {
-        repasLabel = cellData?.montantRepas
-            ? `Accordée (${Math.round(cellData.montantRepas).toLocaleString('fr-FR')} Ar)`
-            : 'Accordée';
-    } else if (cellData?.estDerogeRepas) {
-        repasLabel = `Dérogé (${cellData.motifDerogationRepas || 'Prise en charge'})`;
-    }
-
-    // Déplacement
-    let depLabel = 'Non';
-    const hasDeplacement = Boolean(cellData?.indemniteDeplacementRecue || cellData?.deplacement || cellData?.deplacementMatin || cellData?.deplacementAm || (cellData?.montantDeplacement > 0));
-    if (hasDeplacement && !cellData?.estDerogeDeplacement) {
-        const mntSuffix = cellData?.montantDeplacement ? ` (${Math.round(cellData.montantDeplacement).toLocaleString('fr-FR')} Ar)` : '';
-        if (cellData?.deplacementMatin && cellData?.deplacementAm) depLabel = `Accordé — AR${mntSuffix}`;
-        else if (cellData?.deplacementMatin) depLabel = `Accordé — Matin${mntSuffix}`;
-        else if (cellData?.deplacementAm) depLabel = `Accordé — Soir${mntSuffix}`;
-        else depLabel = `Accordé${mntSuffix}`;
-    } else if (cellData?.estDerogeDeplacement) {
-        depLabel = `Dérogé (${cellData.motifDerogationDeplacement || 'Véhicule société'})`;
-    }
+    const allowances = Object.values(cellData?.indemnites || {}).filter((allowance) => allowance?.accordee);
 
     return (
         <div
@@ -368,13 +346,13 @@ function GanttTooltip({ tooltip, tooltipRef }) {
 
                 {isDimancheTravaille && (
                     <div className="px-1.5 py-0.5 bg-indigo-500/10 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 font-bold text-[9.5px]">
-                        Dimanche travaillé — Majoration +40%
+                        Dimanche travaillé
                     </div>
                 )}
 
                 {(cellData?.ferieJour || cellData?.codeStatut === 'FERIE_TRAVAILLE') && hasWorked && (
                     <div className="px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 font-bold text-[9.5px]">
-                        Jour férié travaillé — Majoration +100%
+                        Jour férié travaillé
                     </div>
                 )}
 
@@ -394,8 +372,12 @@ function GanttTooltip({ tooltip, tooltipRef }) {
                 )}
 
                 <div className="pt-1 mt-1 border-t border-[var(--color-border-subtle)] space-y-1">
-                    <TooltipRow label="Repas" value={repasLabel} />
-                    <TooltipRow label="Déplacement" value={depLabel} />
+                    {allowances.length > 0
+                        ? allowances.map((allowance) => (
+                            <TooltipRow key={allowance.code} label={allowance.code}
+                                value={`${Math.round(Number(allowance.montant || 0)).toLocaleString('fr-FR')} Ar`} />
+                        ))
+                        : <TooltipRow label="Indemnités" value="Aucune" />}
                 </div>
 
                 {cellData?.motifAbsence && (

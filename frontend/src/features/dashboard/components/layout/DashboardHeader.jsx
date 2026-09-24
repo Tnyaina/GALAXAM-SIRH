@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import Button from '@/components/ui/forms/Button';
 import { Skeleton } from '@/components/ui/feedback/Skeleton';
-import periodePaieService from '@/features/attendance/api/periodePaieService';
+import { periodePaieService } from '@/features/attendance/api/attendanceApi';
 
 /**
  * DashboardHeader — Backend-driven (Phase 6).

@@ -56,7 +56,6 @@ public class PayrollLegalContextResolver {
         input.setTranchesIrsa(IrsaBracketResolver.resolve(configId, targetDate, connection));
         resolveCompanySocialContributions(input, targetDate, connection);
         resolveHealthContribution(input, connection);
-        resolveSiteAllowances(input, connection);
         resolveDynamicParameters(input, targetDate, connection);
     }
 
@@ -178,32 +177,6 @@ public class PayrollLegalContextResolver {
         if (input.isSoumisSante() && !found) {
             throw PayrollConfigurationGuard.missing("COTISATION_SANTE", input.getIdEmploye(), input.getCodeSite());
         }
-    }
-
-    private void resolveSiteAllowances(PayrollCalculationInput input, Connection connection) throws Exception {
-        String sql = "SELECT i.code, sc.montant_reference " +
-                "FROM site_indemnite_config sc " +
-                "JOIN ref_site s ON sc.id_site = s.id_site " +
-                "JOIN ref_indemnite i ON sc.id_indemnite = i.id_indemnite " +
-                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) AND sc.est_actif = true";
-        BigDecimal transport = BigDecimal.ZERO;
-        BigDecimal meal = BigDecimal.ZERO;
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            bindSite(input, ps);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    String code = rs.getString("code");
-                    BigDecimal amount = rs.getBigDecimal("montant_reference");
-                    if ("DEPLACEMENT".equalsIgnoreCase(code) || "TRANSPORT".equalsIgnoreCase(code)) {
-                        transport = amount != null ? amount : BigDecimal.ZERO;
-                    } else if ("REPAS".equalsIgnoreCase(code)) {
-                        meal = amount != null ? amount : BigDecimal.ZERO;
-                    }
-                }
-            }
-        }
-        input.setForfaitTransportSite(transport);
-        input.setForfaitRepasSite(meal);
     }
 
     private void resolveDynamicParameters(

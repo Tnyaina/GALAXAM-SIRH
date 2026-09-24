@@ -189,6 +189,29 @@ public class ParametreGlobal extends ClassMere {
         public boolean isEstDesactivable() { return estDesactivable; }
     }
 
+    /** Résultat triétat afin qu'une coupure volontaire ne soit jamais confondue avec une absence. */
+    public enum ResolutionStatus { ACTIVE, DISABLED, MISSING }
+
+    public record ParametreResolution(ResolutionStatus status, String valeur) {
+        public boolean isActive() { return status == ResolutionStatus.ACTIVE; }
+        public boolean isDisabled() { return status == ResolutionStatus.DISABLED; }
+        public boolean isMissing() { return status == ResolutionStatus.MISSING; }
+    }
+
+    public static ParametreResolution resolve(
+            java.util.Map<String, ParametreEtat> etatMap, String code) {
+        if (etatMap == null || code == null) {
+            return new ParametreResolution(ResolutionStatus.MISSING, null);
+        }
+        ParametreEtat parameter = etatMap.get(code.trim().toUpperCase());
+        if (parameter == null) {
+            return new ParametreResolution(ResolutionStatus.MISSING, null);
+        }
+        return new ParametreResolution(
+                parameter.isEstActif() ? ResolutionStatus.ACTIVE : ResolutionStatus.DISABLED,
+                parameter.getValeur());
+    }
+
     /**
      * Charge l'état complet de tous les paramètres en vigueur à ce jour.
      */
@@ -221,7 +244,7 @@ public class ParametreGlobal extends ClassMere {
                 }
             }
         } catch (Exception e) {
-            System.err.println("[PARAMETRE GLOBAL] Erreur loadEtatMap: " + e.getMessage());
+            throw new IllegalStateException("Impossible de charger l'état des paramètres au " + d + ".", e);
         }
         return map;
     }

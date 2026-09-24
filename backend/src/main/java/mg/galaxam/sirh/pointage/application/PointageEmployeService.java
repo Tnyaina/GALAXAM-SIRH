@@ -5,10 +5,10 @@ import mg.galaxam.sirh.pointage.api.dto.PointageJourDTO;
 import mg.galaxam.sirh.pointage.api.dto.PointageSyntheseMensuelleDTO;
 import mg.galaxam.sirh.pointage.api.dto.PointageTronconSemaineDTO;
 import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
+import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import mg.galaxam.sirh.pointage.domain.mapper.PointageTimeBoundaryMapper;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
@@ -18,6 +18,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Time;
 import java.time.DayOfWeek;
 import java.time.Duration;
@@ -42,6 +43,15 @@ import java.util.Set;
 public class PointageEmployeService {
 
     private static final Logger log = LoggerFactory.getLogger(PointageEmployeService.class);
+
+    private static double toLegacyDecimalHours(long minutes) {
+        return BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    private static String formatHoursMinutes(long minutes) {
+        long safe = Math.max(0, minutes);
+        return String.format("%02dh%02d", safe / 60, safe % 60);
+    }
 
     private final DataSource dataSource;
     private final PointageSyntheseService syntheseService;
@@ -159,19 +169,20 @@ public class PointageEmployeService {
                 "COALESCE(cp.code, '—') AS code_categorie " +
                 "FROM employe e " +
                 "LEFT JOIN employe_affectation_carriere c ON e.id_employe = c.id_employe " +
-                "     AND (c.date_fin IS NULL OR c.date_fin >= CURRENT_DATE) " +
+                "     AND c.date_debut <= ? " +
                 "LEFT JOIN ref_site s ON c.id_site = s.id_site " +
                 "LEFT JOIN ref_fonction f ON c.id_fonction = f.id_fonction " +
                 "LEFT JOIN ref_categorie_professionnelle cp ON c.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
-                "LEFT JOIN ref_tolerance_arrivee_pointage t ON s.id_site = t.id_site " +
+                "LEFT JOIN ref_tolerance_arrivee_pointage t ON s.id_site = t.id_site AND t.est_actif = TRUE " +
                 "WHERE e.id_employe = ? " +
                 "ORDER BY c.date_debut DESC LIMIT 1";
 
-        LocalTime hDebutMatin = LocalTime.of(8, 0);
-        LocalTime hFinMatin = LocalTime.of(12, 0);
-        LocalTime hDebutAm = LocalTime.of(13, 0);
-        LocalTime hFinAm = LocalTime.of(17, 0);
-        LocalTime hPlafondTolerance = LocalTime.of(7, 30);
+        LocalTime hDebutMatin = null;
+        LocalTime hFinMatin = null;
+        LocalTime hDebutAm = null;
+        LocalTime hFinAm = null;
+        LocalTime hPlafondTolerance = null;
+        boolean siteContinu = false;
         String empMatricule = "—";
         String empNom = null;
         String empPrenom = null;
@@ -182,7 +193,8 @@ public class PointageEmployeService {
 
         try (Connection c = dataSource.getConnection();
              PreparedStatement psSite = c.prepareStatement(sqlSite)) {
-            psSite.setInt(1, idEmploye);
+            psSite.setDate(1, Date.valueOf(endDate));
+            psSite.setInt(2, idEmploye);
             try (ResultSet rsSite = psSite.executeQuery()) {
                 if (rsSite.next()) {
                     if (rsSite.getString("matricule") != null) empMatricule = rsSite.getString("matricule");
@@ -199,6 +211,7 @@ public class PointageEmployeService {
                     if (rsSite.getTime("heure_debut_apres_midi") != null) hDebutAm = rsSite.getTime("heure_debut_apres_midi").toLocalTime();
                     if (rsSite.getTime("heure_fin_apres_midi") != null) hFinAm = rsSite.getTime("heure_fin_apres_midi").toLocalTime();
                     if (rsSite.getTime("heure_plafond") != null) hPlafondTolerance = rsSite.getTime("heure_plafond").toLocalTime();
+                    siteContinu = rsSite.getBoolean("site_horaire_continu");
                 }
             }
         } catch (Exception e) {
@@ -214,17 +227,25 @@ public class PointageEmployeService {
         result.setCategorie(empCategorie);
 
         // Calculs dynamique des règles
-        long pauseMins = Duration.between(hFinMatin, hDebutAm).toMinutes();
-        long dureeJourMins = Duration.between(hDebutMatin, hFinMatin).toMinutes() + Duration.between(hDebutAm, hFinAm).toMinutes();
-        long toleranceMins = Duration.between(hDebutMatin, hPlafondTolerance).toMinutes();
-        if (toleranceMins < 0) toleranceMins = 0;
-
         Map<String, String> regles = new LinkedHashMap<>();
+        if (hFinMatin != null && hDebutAm != null) {
+            long pauseMins = Duration.between(hFinMatin, hDebutAm).toMinutes();
+            regles.put("pause", String.format("%02dh%02d", pauseMins / 60, pauseMins % 60));
+        }
+        long dureeJourMins;
+        if (hDebutMatin == null || hFinAm == null || (!siteContinu && (hFinMatin == null || hDebutAm == null))) {
+            throw new IllegalStateException("Horaires du site incomplets pour la fiche Pointage de l'employé " + idEmploye + ".");
+        }
+        dureeJourMins = siteContinu
+                ? Duration.between(hDebutMatin, hFinAm).toMinutes()
+                : Duration.between(hDebutMatin, hFinMatin).toMinutes()
+                    + Duration.between(hDebutAm, hFinAm).toMinutes();
+        if (dureeJourMins <= 0) {
+            throw new IllegalStateException("Durée journalière du site invalide pour l'employé " + idEmploye + ".");
+        }
         regles.put("horaireJournalier", String.format("%02dh%02d", dureeJourMins / 60, dureeJourMins % 60));
-        regles.put("pause", String.format("%02dh%02d", pauseMins / 60, pauseMins % 60));
-        regles.put("debutNormal", hDebutMatin.toString().substring(0, 5));
-        regles.put("plafondArrivee", hPlafondTolerance.toString().substring(0, 5));
-        regles.put("toleranceRetard", toleranceMins > 0 ? toleranceMins + " min" : "0 min");
+        if (hDebutMatin != null) regles.put("debutNormal", hDebutMatin.toString().substring(0, 5));
+        if (hPlafondTolerance != null) regles.put("plafondArrivee", hPlafondTolerance.toString().substring(0, 5));
 
         // 1. Récupération des infos salarié (date embauche / fin de contrat robuste & statut autonome en code Java)
         LocalDate dateEmbauche = null;
@@ -310,10 +331,33 @@ public class PointageEmployeService {
             log.warn("[PointageEmployeService] Erreur récupération jours fériés pour employé {}: {}", idEmploye, e.getMessage());
         }
 
+        Map<LocalDate, Integer> siteByDate = new HashMap<>();
+        String siteHistory = "SELECT id_site, date_debut, date_fin FROM employe_affectation_carriere "
+                + "WHERE id_employe = ? AND date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) "
+                + "ORDER BY date_debut, id_affectation";
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(siteHistory)) {
+            ps.setInt(1, idEmploye);
+            ps.setDate(2, Date.valueOf(endDate));
+            ps.setDate(3, Date.valueOf(startDate));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    LocalDate first = rs.getDate("date_debut").toLocalDate();
+                    Date end = rs.getDate("date_fin");
+                    LocalDate last = end == null ? endDate : end.toLocalDate();
+                    for (LocalDate current = first.isBefore(startDate) ? startDate : first;
+                            !current.isAfter(last) && !current.isAfter(endDate); current = current.plusDays(1)) {
+                        siteByDate.put(current, rs.getInt("id_site"));
+                    }
+                }
+            }
+        } catch (SQLException error) {
+            throw new IllegalStateException("Impossible de résoudre le site historique de l'employé.", error);
+        }
+
         // 2. Récupération des pointages enregistrés en base (avec indemnités de repas et déplacement)
         Map<LocalDate, PointageRecord> pointageMap = new HashMap<>();
 
-        String sqlPointage = "SELECT p.id_pointage, p.date_pointage, p.heure_entree_matin, p.heure_sortie_matin, " +
+        String sqlPointage = "SELECT p.id_pointage, p.id_site, p.version, p.date_pointage, p.heure_entree_matin, p.heure_sortie_matin, " +
                 "p.heure_entree_am, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, " +
                 "p.horaire_continu_jour, p.montant_total_indemnites, s.code AS code_statut, " +
                 "pij_repas.accorde AS repas_accorde, pij_repas.montant_calcule AS repas_montant, " +
@@ -337,6 +381,8 @@ public class PointageEmployeService {
                 while (rs.next()) {
                     PointageRecord r = new PointageRecord();
                     r.idPointage = rs.getInt("id_pointage");
+                    r.idSite = rs.getInt("id_site");
+                    r.version = rs.getInt("version");
                     r.datePointage = rs.getDate("date_pointage").toLocalDate();
                     r.entreeMatin = rs.getTime("heure_entree_matin");
                     r.sortieMatin = rs.getTime("heure_sortie_matin");
@@ -378,6 +424,63 @@ public class PointageEmployeService {
         } catch (Exception e) {
             log.warn("[PointageEmployeService] Erreur récupération pointages pour employé {}: {}", idEmploye, e.getMessage());
         }
+
+        // Le journal conserve les indemnités par code : la fiche ne doit pas limiter son affichage à REPAS/TRANSPORT.
+        String sqlIndemnites = "SELECT p.date_pointage, i.code, "
+                + "BOOL_OR(pij.accorde) AS accorde, "
+                + "COALESCE(SUM(CASE WHEN pij.accorde THEN pij.montant_calcule ELSE 0 END), 0) AS montant_calcule "
+                + "FROM pointage_jour p JOIN pointage_indemnite_jour pij ON pij.id_pointage = p.id_pointage "
+                + "JOIN ref_indemnite i ON i.id_indemnite = pij.id_indemnite "
+                + "WHERE p.id_employe = ? AND p.date_pointage BETWEEN ? AND ? "
+                + "GROUP BY p.date_pointage, i.code ORDER BY i.code";
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(sqlIndemnites)) {
+            ps.setInt(1, idEmploye);
+            ps.setDate(2, java.sql.Date.valueOf(startDate));
+            ps.setDate(3, java.sql.Date.valueOf(endDate));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    PointageRecord record = pointageMap.get(rs.getDate("date_pointage").toLocalDate());
+                    if (record == null) continue;
+                    String code = rs.getString("code");
+                    record.indemnites.put(code, new PointageJourDTO.IndemniteJourDTO(
+                            code, rs.getBoolean("accorde"), zeroIfNull(rs.getBigDecimal("montant_calcule"))));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[PointageEmployeService] Erreur récupération indemnités détaillées pour employé {}: {}", idEmploye, e.getMessage());
+        }
+
+        // Le catalogue du journal est résolu depuis les tarifs site applicables à la période.
+        // Les forfaits FIXE_MENSUEL sont exclus : ils sont indépendants du pointage journalier.
+        String sqlIndemnitesDisponibles = "SELECT DISTINCT i.code, c.periodicite "
+                + "FROM site_indemnite_config c JOIN ref_indemnite i ON i.id_indemnite = c.id_indemnite "
+                + "JOIN employe_affectation_carriere a ON a.id_site = c.id_site AND a.id_employe = ? "
+                + "WHERE c.est_actif = TRUE AND i.est_actif = TRUE "
+                + "AND upper(c.periodicite) IN ('JOURNALIER', 'MENSUEL_PRORATISE', 'MENSUEL') "
+                + "AND c.date_debut <= ? AND (c.date_fin IS NULL OR c.date_fin >= ?) "
+                + "AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) "
+                + "ORDER BY i.code";
+        Map<String, FichePointageEmployeDTO.IndemniteFicheDTO> indemnitesDisponibles = new LinkedHashMap<>();
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(sqlIndemnitesDisponibles)) {
+            ps.setInt(1, idEmploye);
+            ps.setDate(2, Date.valueOf(endDate));
+            ps.setDate(3, Date.valueOf(startDate));
+            ps.setDate(4, Date.valueOf(endDate));
+            ps.setDate(5, Date.valueOf(startDate));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String code = rs.getString("code");
+                    if (code != null) {
+                        indemnitesDisponibles.put(code, new FichePointageEmployeDTO.IndemniteFicheDTO(
+                                code, rs.getString("periodicite")));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[PointageEmployeService] Erreur récupération catalogue indemnités période employé {}: {}", idEmploye, e.getMessage());
+        }
+        result.setIndemnitesDisponibles(indemnitesDisponibles);
 
         Map<LocalDate, String> congeMap = new HashMap<>();
         String sqlConges = "SELECT dc.date_debut, dc.date_fin, dc.est_demi_journee, dc.moment_demi_journee FROM demande_conge dc " +
@@ -437,6 +540,7 @@ public class PointageEmployeService {
             PointageJourDTO dto = new PointageJourDTO();
             dto.setDate(curr.format(dayFormatter));
             dto.setDateComplete(curr.toString());
+            dto.setIdSite(siteByDate.get(curr));
 
             String dayName = curr.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.FRENCH);
             if (dayName != null && !dayName.isEmpty()) {
@@ -448,27 +552,22 @@ public class PointageEmployeService {
 
             if (rec != null) {
                 dto.setIdPointage(rec.idPointage);
+                dto.setIdSite(rec.idSite);
+                dto.setVersion(rec.version);
                 dto.setEntree(rec.entreeMatin != null ? rec.entreeMatin.toString().substring(0, 5) : "—");
                 dto.setSortiePause(rec.sortieMatin != null ? rec.sortieMatin.toString().substring(0, 5) : "—");
                 dto.setRetourPause(rec.entreeAm != null ? rec.entreeAm.toString().substring(0, 5) : "—");
                 dto.setSortie(rec.sortieAm != null ? rec.sortieAm.toString().substring(0, 5) : "—");
                 dto.setHoraireContinuJour(rec.horaireContinuJour);
+                dto.setIndemnites(rec.indemnites);
 
                 long totalMinutesJour = rec.totalMinutes;
                 boolean isWeekendRec = CalendrierOuvrableEngine.isWeekend(curr);
 
-                if ("DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut)) {
-                    if (isWeekendRec && totalMinutesJour <= 0) {
-                        totalMinutesJour = 0;
-                    } else if (!isWeekendRec && totalMinutesJour <= 0) {
-                        totalMinutesJour = dureeJourMins;
-                    }
-                }
+                dto.setHeures(formatHoursMinutes(totalMinutesJour));
+                dto.setTotalHeuresDecimal(toLegacyDecimalHours(totalMinutesJour));
 
-                dto.setHeures(PointageTimeBoundaryMapper.formatHoursMinutes(totalMinutesJour));
-                dto.setTotalHeuresDecimal(PointageTimeBoundaryMapper.toLegacyDecimalHours(totalMinutesJour));
-
-                totalHeuresNuit += PointageTimeBoundaryMapper.toLegacyDecimalHours(rec.minutesNuit);
+                totalHeuresNuit += toLegacyDecimalHours(rec.minutesNuit);
 
                 // Les indemnités sont des résultats persistés du calcul journalier, jamais recalculés ici.
                 boolean isNonTravaille = "CONGE".equalsIgnoreCase(rec.codeStatut)
@@ -508,15 +607,15 @@ public class PointageEmployeService {
 
                 if ("DIMANCHE_TRAVAILLE".equalsIgnoreCase(rec.codeStatut)) {
                     totalJoursTravailles++;
-                    totalHeuresRealisees += PointageTimeBoundaryMapper.toLegacyDecimalHours(totalMinutesJour);
-                    totalHeuresDimanche += PointageTimeBoundaryMapper.toLegacyDecimalHours(totalMinutesJour);
+                    totalHeuresRealisees += toLegacyDecimalHours(totalMinutesJour);
+                    totalHeuresDimanche += toLegacyDecimalHours(totalMinutesJour);
                     cumulMinutesEcart += totalMinutesJour;
                     dto.setEcart("+" + dto.getHeures() + " (Maj. 40%)");
                     dto.setEcartPositif(true);
                 } else if ("FERIE_TRAVAILLE".equalsIgnoreCase(rec.codeStatut)) {
                     totalJoursTravailles++;
-                    totalHeuresRealisees += PointageTimeBoundaryMapper.toLegacyDecimalHours(totalMinutesJour);
-                    totalHeuresFerie += PointageTimeBoundaryMapper.toLegacyDecimalHours(totalMinutesJour);
+                    totalHeuresRealisees += toLegacyDecimalHours(totalMinutesJour);
+                    totalHeuresFerie += toLegacyDecimalHours(totalMinutesJour);
                     cumulMinutesEcart += totalMinutesJour;
                     dto.setEcart("+" + dto.getHeures() + " (Gratif. 100%)");
                     dto.setEcartPositif(true);
@@ -527,11 +626,11 @@ public class PointageEmployeService {
                         nbOccurrencesRetard++;
                     }
                     if (totalMinutesJour > dureeJourMins) {
-                        dto.setEcart("+" + PointageTimeBoundaryMapper.formatHoursMinutes(totalMinutesJour - dureeJourMins));
+                        dto.setEcart("+" + formatHoursMinutes(totalMinutesJour - dureeJourMins));
                         dto.setEcartPositif(true);
                         cumulMinutesEcart += (totalMinutesJour - dureeJourMins);
                     } else if (totalMinutesJour < dureeJourMins && totalMinutesJour > 0) {
-                        dto.setEcart("-" + PointageTimeBoundaryMapper.formatHoursMinutes(dureeJourMins - totalMinutesJour));
+                        dto.setEcart("-" + formatHoursMinutes(dureeJourMins - totalMinutesJour));
                         dto.setEcartPositif(false);
                         cumulMinutesEcart += (totalMinutesJour - dureeJourMins);
                     } else {
@@ -542,7 +641,7 @@ public class PointageEmployeService {
 
                 if ("PRESENT".equalsIgnoreCase(rec.codeStatut) || ("DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut) && !isWeekendRec) || "SAMEDI_TRAVAILLE".equalsIgnoreCase(rec.codeStatut) || "DEMI_JOURNEE".equalsIgnoreCase(rec.codeStatut) || "RETARD".equalsIgnoreCase(rec.codeStatut)) {
                     totalJoursTravailles++;
-                    totalHeuresRealisees += PointageTimeBoundaryMapper.toLegacyDecimalHours(totalMinutesJour);
+                    totalHeuresRealisees += toLegacyDecimalHours(totalMinutesJour);
                 } else if ("ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(rec.codeStatut)) {
                     nbAbsences++;
                     cumulMinutesEcart -= dureeJourMins;
@@ -585,7 +684,7 @@ public class PointageEmployeService {
                     // Jour futur dans le mois en cours (non échu)
                     // Pour un autonome : planification indicative sans incrémenter les compteurs à date
                     if (isAutonome) {
-                        dto.setHeures(PointageTimeBoundaryMapper.formatHoursMinutes(dureeJourMins));
+                        dto.setHeures(formatHoursMinutes(dureeJourMins));
                         dto.setStatut("PLANIFIE");
                         dto.setEcart("—");
                         dto.setEcartPositif(true);
@@ -601,8 +700,8 @@ public class PointageEmployeService {
                         dto.setStatut("NON_ECHU");
                     }
                 } else if (isAutonome) {
-                    dto.setHeures(PointageTimeBoundaryMapper.formatHoursMinutes(dureeJourMins));
-                    dto.setTotalHeuresDecimal(PointageTimeBoundaryMapper.toLegacyDecimalHours(dureeJourMins));
+                    dto.setHeures(formatHoursMinutes(dureeJourMins));
+                    dto.setTotalHeuresDecimal(toLegacyDecimalHours(dureeJourMins));
                     dto.setStatut("DISPENSE_POINTAGE");
                     dto.setEcart("00 min");
                     dto.setEcartPositif(true);
@@ -614,7 +713,7 @@ public class PointageEmployeService {
                     dto.setMontantRepas(BigDecimal.ZERO);
                     dto.setMontantDeplacement(BigDecimal.ZERO);
                     totalJoursTravailles++;
-                    totalHeuresRealisees += PointageTimeBoundaryMapper.toLegacyDecimalHours(dureeJourMins);
+                    totalHeuresRealisees += toLegacyDecimalHours(dureeJourMins);
                 } else {
                     dto.setHeures("00h00");
                     dto.setTotalHeuresDecimal(0.0);
@@ -629,15 +728,14 @@ public class PointageEmployeService {
 
         // 3. Calcul de la synthèse exacte unifiée via le moteur métier centralisé
         PointageSyntheseMensuelleDTO synDto = null;
-        Map<String, String> activeParams = Collections.emptyMap();
+        Map<String, ParametreGlobal.ParametreEtat> parameterStates = Collections.emptyMap();
         try (Connection c = dataSource.getConnection()) {
             Map<String, String> pMap = ParametreGlobal.loadActiveMap(c);
-            activeParams = pMap;
 
             // Récupération des infos carrières de l'employé
             String sqlCarriere = "SELECT e.matricule, e.nom, e.prenom, e.photo_url, " +
                                  "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, " +
-                                 "COALESCE(cp.code, '') AS code_categorie, " +
+                                 "COALESCE(cp.code, '') AS code_categorie, COALESCE(cp.est_cadre, FALSE) AS categorie_est_cadre, " +
                                  "COALESCE(f.dispense_pointage, FALSE) AS est_autonome, " +
                                  "a.date_debut, a.date_fin " +
                                  "FROM employe e " +
@@ -664,7 +762,7 @@ public class PointageEmployeService {
 
                         String codeCat = rsCar.getString("code_categorie");
                         boolean estAutonomeEmp = rsCar.getBoolean("est_autonome");
-                        boolean isCadre = PointageSyntheseService.isCadreCategorie(codeCat);
+                        boolean isCadre = rsCar.getBoolean("categorie_est_cadre");
 
                         synDto = syntheseService.calculerSyntheseEmploye(
                                 idEmploye,
@@ -699,9 +797,15 @@ public class PointageEmployeService {
         } catch (Exception e) {
             log.error("[PointageEmployeService] Erreur calcul synthèse employe {}: {}", idEmploye, e.getMessage(), e);
         }
+        try (Connection configConnection = dataSource.getConnection()) {
+            parameterStates = ParametreGlobal.loadEtatMapAtDate(
+                    Date.valueOf(startDate != null ? startDate : LocalDate.now()), configConnection);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Impossible de résoudre la configuration Pointage de la fiche.", exception);
+        }
 
         // Calcul unifié de l'objectif d'heures du collaborateur sur la période
-        // Source unique de vérité : la somme des seuils de chaque tronçon calculés par WeeklyAttendanceCalculator
+        // Source unique de vérité : la somme des seuils de chaque tronçon calculés par AttendanceEngine
         double totalObjectifHeures = 0.0;
         if (synDto != null && synDto.getTronconsSemaine() != null && !synDto.getTronconsSemaine().isEmpty()) {
             totalObjectifHeures = synDto.getTronconsSemaine().stream()
@@ -734,7 +838,7 @@ public class PointageEmployeService {
         double hsNettes = hs30 + hs50;
         double hsBrutes = synDto != null ? synDto.getSurplusBrut() : 0.0;
         double retardCompense = synDto != null ? synDto.getRetardCompense() : 0.0;
-        double deficitNet = synDto != null ? synDto.getHeuresAbsenceRetenues() : PointageTimeBoundaryMapper.toLegacyDecimalHours(retardsMins);
+        double deficitNet = synDto != null ? synDto.getHeuresAbsenceRetenues() : toLegacyDecimalHours(retardsMins);
         double hNuit = synDto != null ? synDto.getHeuresNuitTotal() : totalHeuresNuit;
         double hDim = synDto != null ? synDto.getHeuresDimancheTotal() : totalHeuresDimanche;
         double hFer = synDto != null ? synDto.getHeuresFerieTotal() : totalHeuresFerie;
@@ -765,7 +869,11 @@ public class PointageEmployeService {
 
         // Déplacement : priorité à synDto si renseigné, sinon prorata basé sur totalTrajetsCount et forfait de référence
         BigDecimal mntDepl = synDto != null ? synDto.getMontantDeplacement() : BigDecimal.ZERO;
-        BigDecimal totalIndemnites = mntRep.add(mntDepl);
+        BigDecimal totalIndemnites = pointageMap.values().stream()
+                .flatMap(record -> record.indemnites.values().stream())
+                .filter(PointageJourDTO.IndemniteJourDTO::accordee)
+                .map(indemnite -> zeroIfNull(indemnite.montant()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         Map<String, String> kpis = new LinkedHashMap<>();
         kpis.put("joursTravailles", ((synDto != null && synDto.getNbJoursPresents() > 0) ? synDto.getNbJoursPresents() : totalJoursTravailles) + " j");
@@ -788,21 +896,46 @@ public class PointageEmployeService {
         kpis.put("deficitNetMinutes", String.valueOf((int) Math.round(deficitNet * 60)));
         kpis.put("heuresHsNettesMinutes", String.valueOf((int) Math.round(hsNettes * 60)));
         kpis.put("heuresHsBrutesMinutes", String.valueOf((int) Math.round(hsBrutes * 60)));
-        int seuilAssiduite = ParametreGlobal.getInt(activeParams, "SEUIL_RETARD_ASSIDUITE_MIN", 45);
-        boolean primeAssiduiteEligible = (retardsMins < seuilAssiduite);
-        kpis.put("primeAssiduiteEligible", String.valueOf(primeAssiduiteEligible));
-        kpis.put("seuilAssiduiteMinutes", String.valueOf(seuilAssiduite));
-        regles.put("seuilAssiduiteMinutes", String.valueOf(seuilAssiduite));
+        ParametreGlobal.ParametreResolution assiduiteRule =
+                ParametreGlobal.resolve(parameterStates, "SEUIL_RETARD_ASSIDUITE_MIN");
+        if (assiduiteRule.isDisabled()) {
+            kpis.put("primeAssiduiteEligible", "DISABLED");
+            kpis.put("seuilAssiduiteMinutes", "");
+            regles.put("seuilAssiduiteMinutes", "");
+        } else {
+            int seuilAssiduite = assiduiteRule.isMissing() ? 45 : Integer.parseInt(assiduiteRule.valeur());
+            boolean primeAssiduiteEligible = retardsMins < seuilAssiduite;
+            kpis.put("primeAssiduiteEligible", String.valueOf(primeAssiduiteEligible));
+            kpis.put("seuilAssiduiteMinutes", String.valueOf(seuilAssiduite));
+            regles.put("seuilAssiduiteMinutes", String.valueOf(seuilAssiduite));
+        }
 
-        BigDecimal dureeHebdoBd = ParametreGlobal.getBigDecimal(activeParams, "SEUIL_HEURES_SEMAINE_COMPENSATION", null);
-        if (dureeHebdoBd == null) {
-            dureeHebdoBd = ParametreGlobal.getBigDecimal(activeParams, "DUREE_HEBDO_LEGALE", new BigDecimal("40"));
+        BigDecimal dureeHebdoBd;
+        try (Connection legalConnection = dataSource.getConnection()) {
+            PaieConfigLegale legal = PaieConfigLegale.findActiveAt(legalConnection,
+                    startDate != null ? startDate : LocalDate.now());
+            if (legal == null || legal.getDureeHebdoLegale() == null
+                    || legal.getDureeHebdoLegale().signum() <= 0) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.LEGAL_CONFIG_MISSING,
+                        "Durée hebdomadaire légale absente pour la fiche Pointage.");
+            }
+            dureeHebdoBd = legal.getDureeHebdoLegale();
+        } catch (mg.galaxam.sirh.common.exception.SirhBusinessException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.LEGAL_CONFIG_MISSING,
+                    "Impossible de charger la durée hebdomadaire légale de la fiche Pointage.");
         }
         int dureeHebdo = dureeHebdoBd.intValue();
         regles.put("dureeHebdoLegale", String.valueOf(dureeHebdo));
         kpis.put("dureeHebdoLegale", String.valueOf(dureeHebdo));
 
-        BigDecimal tarifRepasMidi = ParametreGlobal.getBigDecimal(activeParams, "MONTANT_REPAS_MIDI", null);
+        ParametreGlobal.ParametreResolution mealRule =
+                ParametreGlobal.resolve(parameterStates, "MONTANT_REPAS_MIDI");
+        BigDecimal tarifRepasMidi = mealRule.isDisabled() ? BigDecimal.ZERO
+                : (mealRule.isMissing() ? null : new BigDecimal(mealRule.valeur()));
         if (tarifRepasMidi == null || tarifRepasMidi.signum() < 0) {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                     mg.galaxam.sirh.common.exception.SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
@@ -902,6 +1035,8 @@ public class PointageEmployeService {
 
     private static class PointageRecord {
         int idPointage;
+        int idSite;
+        int version;
         LocalDate datePointage;
         Time entreeMatin;
         Time sortieMatin;
@@ -917,5 +1052,6 @@ public class PointageEmployeService {
         BigDecimal montantDeplacement = BigDecimal.ZERO;
         String codeStatut;
         boolean horaireContinuJour;
+        Map<String, PointageJourDTO.IndemniteJourDTO> indemnites = new LinkedHashMap<>();
     }
 }

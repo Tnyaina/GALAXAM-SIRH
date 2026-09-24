@@ -4,8 +4,7 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
 import WorkflowStepper from '@/components/ui/navigation/WorkflowStepper';
 import { useAuth } from '@/context/AuthContext';
-import periodePaieService from '@/features/attendance/api/periodePaieService';
-import attendanceService from '@/features/attendance/api/attendanceService';
+import { periodePaieService, attendanceService } from '@/features/attendance/api/attendanceApi';
 
 // Lazy-loading des etapes du cockpit
 const SaisieQuotidiennePage    = lazy(() => import('@/features/attendance/pages/SaisieQuotidiennePage'));

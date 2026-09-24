@@ -58,7 +58,10 @@ public class IndemniteController {
                 RefIndemnite ind = new RefIndemnite();
                 ind.setCode(request.getCode());
                 ind.setLibelle(request.getLibelle());
+                ind.setCodeRubriquePaie(request.getCodeRubriquePaie());
                 ind.setImposableIrsa(request.isImposableIrsa());
+                if (request.getSoumisCotisation() == null) throw new IllegalArgumentException("Qualification cotisations sociales obligatoire.");
+                ind.setSoumisCotisation(request.getSoumisCotisation());
                 ind.setFractionnable(request.isFractionnable());
 
                 ind.save(c);
@@ -90,7 +93,10 @@ public class IndemniteController {
 
                 existing.setCode(request.getCode());
                 existing.setLibelle(request.getLibelle());
+                existing.setCodeRubriquePaie(request.getCodeRubriquePaie());
                 existing.setImposableIrsa(request.isImposableIrsa());
+                if (request.getSoumisCotisation() == null) throw new IllegalArgumentException("Qualification cotisations sociales obligatoire.");
+                existing.setSoumisCotisation(request.getSoumisCotisation());
                 existing.setFractionnable(request.isFractionnable());
 
                 existing.update(c);
@@ -186,6 +192,7 @@ public class IndemniteController {
                 sic.setIdIndemnite(request.getIdIndemnite());
                 sic.setPeriodicite(request.getPeriodicite());
                 sic.setMontantReference(request.getMontantReference());
+                sic.setCodeParametreException(request.getCodeParametreException());
                 sic.setDateDebut(request.getDateDebut());
                 sic.setDateFin(request.getDateFin());
 
@@ -220,6 +227,7 @@ public class IndemniteController {
                 existing.setIdIndemnite(request.getIdIndemnite());
                 existing.setPeriodicite(request.getPeriodicite());
                 existing.setMontantReference(request.getMontantReference());
+                existing.setCodeParametreException(request.getCodeParametreException());
                 existing.setDateDebut(request.getDateDebut());
                 existing.setDateFin(request.getDateFin());
 

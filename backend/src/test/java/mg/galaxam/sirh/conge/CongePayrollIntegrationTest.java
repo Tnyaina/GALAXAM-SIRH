@@ -2,7 +2,6 @@ package mg.galaxam.sirh.conge;
 
 import mg.galaxam.sirh.conge.application.CongeService;
 import mg.galaxam.sirh.conge.application.CongeTauxApplicableService;
-import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
 import mg.galaxam.sirh.conge.testutils.CongeTestFixtureHelper;
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
 import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;

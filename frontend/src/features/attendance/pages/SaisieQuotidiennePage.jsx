@@ -75,7 +75,6 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
         updateRowHours,
         toggleRowHoraireContinu,
         updateRowStatut,
-        updateRowIndemnite,
         updateRowDynamicIndemnite,
         autoFillStandardHours,
         autoDeduceAllPauses,
@@ -143,10 +142,6 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
 
     const handleUpdateStatut = (idEmploye, newStatut, motif) => {
         updateRowStatut(idEmploye, newStatut, motif);
-    };
-
-    const handleUpdateIndemnite = (idEmploye, field, value) => {
-        updateRowIndemnite(idEmploye, field, value);
     };
 
     const handleUpdateDynamicIndemnite = (idEmploye, idIndemnite, checked, moment) => {
@@ -227,14 +222,14 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
         }
     };
 
-    // Comptages par statut pour les onglets (100% basé sur les flags booléens DTO backend-driven)
+    // Comptages calculés à partir des statuts métier fournis par le backend.
     const statusCounts = useMemo(() => {
         const list = Array.isArray(grilleData) ? grilleData : [];
         const all = list.length;
-        const presents = list.filter(r => r.present || r.dispensePointage || r.ferieTravaille || (r.totalHeures && r.totalHeures > 0)).length;
-        const conges = list.filter(r => Boolean(r.conge || r.absenceJustifiee)).length;
-        const nonSaisis = list.filter(r => Boolean(r.nonSaisi)).length;
-        const retards = list.filter(r => Boolean(r.retard)).length;
+        const presents = list.filter(r => r.present || r.dispensePointage || r.ferieTravaille || r.samediTravaille || r.dimancheTravaille).length;
+        const conges = list.filter(r => r.conge || r.absenceJustifiee).length;
+        const nonSaisis = list.filter(r => r.nonSaisi).length;
+        const retards = list.filter(r => r.retard).length;
 
         return { ALL: all, PRESENT: presents, CONGE: conges, NON_SAISI: nonSaisis, RETARD: retards };
     }, [grilleData]);
@@ -244,13 +239,13 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
         let list = Array.isArray(grilleData) ? grilleData : [];
 
         if (statutFilter === 'PRESENT') {
-            list = list.filter(r => r.present || r.dispensePointage || r.ferieTravaille || (r.totalHeures && r.totalHeures > 0));
+            list = list.filter(r => r.present || r.dispensePointage || r.ferieTravaille || r.samediTravaille || r.dimancheTravaille);
         } else if (statutFilter === 'CONGE') {
-            list = list.filter(r => Boolean(r.conge || r.absenceJustifiee));
+            list = list.filter(r => r.conge || r.absenceJustifiee);
         } else if (statutFilter === 'NON_SAISI') {
-            list = list.filter(r => Boolean(r.nonSaisi));
+            list = list.filter(r => r.nonSaisi);
         } else if (statutFilter === 'RETARD') {
-            list = list.filter(r => Boolean(r.retard));
+            list = list.filter(r => r.retard);
         }
 
         if (!debouncedSearch.trim()) return list;
@@ -264,56 +259,29 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
 
     const isFuture = isDateInFuture(selectedDate);
 
-    const isReadOnly = useMemo(() => {
-        if (isFuture) return true;
-        return activePeriode?.availableActions?.EDIT_POINTAGE?.allowed !== true;
-    }, [isFuture, activePeriode]);
+    const isReadOnly = useMemo(
+        () => activePeriode?.availableActions?.EDIT_POINTAGE?.allowed !== true,
+        [activePeriode]
+    );
 
     const currentSiteObj = sites.find(s => s.idSite === selectedSite);
     const siteLabel = currentSiteObj
         ? `${currentSiteObj.codeSite || currentSiteObj.code || 'Site'} — ${currentSiteObj.libelle}`
         : (sites.length > 0 ? `${sites[0].codeSite || sites[0].code || 'Site'} — ${sites[0].libelle}` : 'Site sélectionné');
 
-    // Statistiques calculées en temps réel
+    // Les KPI de journée sont fournis par le backend ; en cas de saisie en cours, ils restent explicitement indisponibles.
     const statsJour = useMemo(() => {
-        if (backendStatsJour && modifiedEmpIds.size === 0) {
+        if (backendStatsJour) {
             return {
                 ...backendStatsJour,
                 isFerie: grilleData[0]?.ferieJour || false,
                 libelleFerie: grilleData[0]?.libelleFerie || null,
-                siteLabel
+                siteLabel,
+                previewPending: grilleData.some((row) => row._previewPending)
             };
         }
-        const safeList = Array.isArray(grilleData) ? grilleData : [];
-        const totalInscrits = safeList.length;
-        const totalPresents = safeList.filter(r => r.present || r.dispensePointage || r.ferieTravaille || (r.totalHeures && r.totalHeures > 0)).length;
-        const totalConges = safeList.filter(r => r.conge).length;
-        const totalRetards = safeList.filter(r => r.retard || (r.minutesRetard && r.minutesRetard > 0)).length;
-        const cumulMinutesRetard = safeList.reduce((acc, r) => acc + (Number(r.minutesRetard) || 0), 0);
-        const totalHeuresTravaillees = safeList.reduce((acc, r) => acc + (Number(r.totalHeures) || 0), 0);
-        let isWeekend = false;
-        if (selectedDate) {
-            const dObj = new Date(selectedDate);
-            const day = dObj.getDay();
-            isWeekend = (day === 0 || day === 6);
-        }
-        const totalAnomalies = safeList.filter(r => r.anomalie || (!isWeekend && r.absenceNonJustifiee)).length;
-        const isFerie = safeList[0]?.ferieJour || false;
-        const libelleFerie = safeList[0]?.libelleFerie || null;
-
-        return {
-            totalInscrits,
-            totalPresents,
-            totalConges,
-            totalRetards,
-            cumulMinutesRetard,
-            totalHeuresTravaillees: Math.round(totalHeuresTravaillees * 100.0) / 100.0,
-            totalAnomalies,
-            isFerie,
-            libelleFerie,
-            siteLabel
-        };
-    }, [backendStatsJour, modifiedEmpIds.size, grilleData, siteLabel, selectedDate]);
+        return { siteLabel, previewPending: grilleData.some((row) => row._previewPending) };
+    }, [backendStatsJour, grilleData, siteLabel]);
 
     // Ouvre la modale de récapitulatif & validation
     const handleRequestSave = useCallback(() => {
@@ -484,7 +452,6 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                         onUpdateHours={handleUpdateHours}
                         onToggleHoraireContinu={handleToggleHoraireContinu}
                         onUpdateStatut={handleUpdateStatut}
-                        onUpdateIndemnite={handleUpdateIndemnite}
                         onUpdateDynamicIndemnite={handleUpdateDynamicIndemnite}
                         onBulkStandardHours={bulkApplyStandardHours}
                         onBulkStatut={bulkApplyStatut}

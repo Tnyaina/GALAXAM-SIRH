@@ -66,6 +66,21 @@ export default function PointageFichePrintModal({
     const recap = ficheData.recap || {};
     const bilans = ficheData.bilansHebdo || [];
     const pointages = ficheData.pointagesData || [];
+    const configuredAllowances = Object.values(ficheData.indemnitesDisponibles || {})
+        .map((allowance) => [allowance.code, {
+            code: allowance.code,
+            periodicite: allowance.periodicite,
+        }]);
+    const recordedAllowances = pointages.flatMap((pointage) => Object.values(pointage.indemnites || {})
+        .map((allowance) => [allowance.code, { code: allowance.code }]));
+    const dynamicAllowances = Array.from(new Map([...recordedAllowances, ...configuredAllowances]).values())
+        .sort((a, b) => a.code.localeCompare(b.code, 'fr'));
+    const dynamicAllowanceTotals = Object.fromEntries(dynamicAllowances.map(({ code }) => [code,
+        pointages.reduce((total, pointage) => {
+            const allowance = pointage.indemnites?.[code];
+            return total + (allowance?.accordee ? Number(allowance.montant || 0) : 0);
+        }, 0)
+    ]));
 
     // Actions et fonctions de présentation propres au document.
     const handlePrint = () => {
@@ -275,8 +290,12 @@ export default function PointageFichePrintModal({
                                     <th className="py-1 px-1 border-r border-slate-300 text-rose-700">Retards</th>
                                     <th className="py-1 px-1 border-r border-slate-300 text-emerald-700">Heures compensées</th>
                                     <th className="py-1 px-1 border-r border-slate-300 text-rose-700">Retenue salaire</th>
-                                    <th className="py-1 px-1 border-r border-slate-300">Paniers Repas</th>
-                                    <th className="py-1 px-1">Transport</th>
+                                    {dynamicAllowances.map((allowance) => (
+                                        <th key={allowance.code} className="py-1 px-1 border-l border-slate-300">
+                                            {allowance.code}
+                                            {allowance.periodicite ? ` (${allowance.periodicite.replaceAll('_', ' ').toLowerCase()})` : ''}
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody>
@@ -302,8 +321,11 @@ export default function PointageFichePrintModal({
                                     <td className="py-1 px-1 border-r border-slate-300 font-bold text-rose-700">
                                         {recap.retardNet && recap.retardNet !== '00h00' ? `-${recap.retardNet}` : '00h00'}
                                     </td>
-                                    <td className="py-1 px-1 border-r border-slate-300">{kpis.montantRepasTotal || '0 Ar'}</td>
-                                    <td className="py-1 px-1">{kpis.montantDeplacementTotal || '0 Ar'}</td>
+                                    {dynamicAllowances.map((allowance) => (
+                                        <td key={allowance.code} className="py-1 px-1 border-l border-slate-300">
+                                            {formatMonnaie(dynamicAllowanceTotals[allowance.code])}
+                                        </td>
+                                    ))}
                                 </tr>
                             </tbody>
                         </table>
@@ -317,7 +339,7 @@ export default function PointageFichePrintModal({
                                 II. Décomposition Hebdomadaire &amp; Compensation
                             </h2>
                             <span className="text-[8px] text-slate-600 font-sans ">
-                                Objectif ajusté pour congés (-8h/j) et fériés (-8h) · Compensation intra-semaine (40h)
+                                Objectif calculé selon le calendrier et les absences · Compensation hebdomadaire
                             </span>
                         </div>
                         <table className="w-full border-collapse border border-slate-300 text-center text-[8.5px]">
@@ -403,10 +425,14 @@ export default function PointageFichePrintModal({
                                     <th className="py-0.5 px-0.5 border-r border-slate-300">Sortie</th>
                                     <th className="py-0.5 px-0.5 border-r border-slate-300 text-rose-700" title="Retards constatés sur la journée (matin et après-midi)">Retard</th>
                                     <th className="py-0.5 px-1 border-r border-slate-300" title="Temps travaillé sur la journée">Heures faites</th>
-                                    <th className="py-0.5 px-1 border-r border-slate-300" title="Écart par rapport aux 8h standard (surplus + ou manque -)">Écart (vs 8h)</th>
+                                    <th className="py-0.5 px-1 border-r border-slate-300" title="Écart par rapport à l'objectif journalier configuré">Écart</th>
                                     <th className="py-0.5 px-1 border-r border-slate-300 text-left">Statut</th>
-                                    <th className="py-0.5 px-1 border-r border-slate-300">Transport</th>
-                                    <th className="py-0.5 px-1">Repas</th>
+                                    {dynamicAllowances.map((allowance) => (
+                                        <th key={allowance.code} className="py-0.5 px-1">
+                                            {allowance.code}
+                                            {allowance.periodicite ? ` (${allowance.periodicite.replaceAll('_', ' ').toLowerCase()})` : ''}
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 font-mono">
@@ -420,8 +446,7 @@ export default function PointageFichePrintModal({
 
                                     const isContinu = Boolean(
                                         pj.horaireContinuJour ||
-                                        pj.horaireContinu ||
-                                        (pj.sortiePause === '12:00' && pj.retourPause === '12:00')
+                                        pj.horaireContinu
                                     );
                                     const isRetard = pj.minutesRetard > 0;
                                     const isPositiveEcart = pj.ecart && pj.ecart.startsWith('+');
@@ -503,12 +528,14 @@ export default function PointageFichePrintModal({
                                             <td className="py-0.5 px-1 border-r border-slate-300 text-left font-sans font-medium">
                                                 {formatStatut(pj.statut)}
                                             </td>
-                                            <td className="py-0.5 px-1 border-r border-slate-300 font-sans">
-                                                {pj.montantDeplacement > 0 ? formatMonnaie(pj.montantDeplacement) : '—'}
-                                            </td>
-                                            <td className="py-0.5 px-1 font-sans">
-                                                {pj.montantRepas > 0 ? formatMonnaie(pj.montantRepas) : '—'}
-                                            </td>
+                                            {dynamicAllowances.map((allowance) => {
+                                                const value = pj.indemnites?.[allowance.code];
+                                                return (
+                                                    <td key={allowance.code} className="py-0.5 px-1 font-sans">
+                                                        {value?.accordee && Number(value.montant) > 0 ? formatMonnaie(value.montant) : '—'}
+                                                    </td>
+                                                );
+                                            })}
                                         </tr>
                                     );
                                 })}
@@ -530,12 +557,11 @@ export default function PointageFichePrintModal({
                                     <td className="py-1 px-1 border-r border-slate-300 text-left font-sans">
                                         {kpis.joursTravailles ? `${kpis.joursTravailles} travaillés` : `${workedDaysCount} j travaillés`}
                                     </td>
-                                    <td className="py-1 px-1 border-r border-slate-300 font-sans">
-                                        {kpis.montantDeplacementTotal || '0 Ar'}
-                                    </td>
-                                    <td className="py-1 px-1 font-sans">
-                                        {kpis.montantRepasTotal || '0 Ar'}
-                                    </td>
+                                    {dynamicAllowances.map((allowance) => (
+                                        <td key={allowance.code} className="py-1 px-1 font-sans">
+                                            {formatMonnaie(dynamicAllowanceTotals[allowance.code])}
+                                        </td>
+                                    ))}
                                 </tr>
                             </tfoot>
                         </table>

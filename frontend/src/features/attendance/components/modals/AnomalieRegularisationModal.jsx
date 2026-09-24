@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { 
     Clock, 
     Palmtree, 
@@ -8,8 +8,6 @@ import {
     Info, 
     HeartHandshake,
     Wallet,
-    Bus,
-    Utensils,
     Sun,
     Sunset
 } from 'lucide-react';
@@ -20,6 +18,7 @@ import Input from '@/components/ui/forms/Input';
 import Alert from '@/components/ui/feedback/Alert';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import { fmtDate } from '@/utils/dateUtils';
+import { attendanceService } from '@/features/attendance/api/attendanceApi';
 
 const MOTIFS_FAMILIAUX = [
     { label: 'Mariage du salarié (3 jours)', value: 'Mariage du salarié' },
@@ -39,17 +38,20 @@ export default function AnomalieRegularisationModal({
     const [activeTab, setActiveTab] = useState('HEURES'); // 'HEURES' ou 'ABSENCE'
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [dayPreview, setDayPreview] = useState(null);
+    const [previewPending, setPreviewPending] = useState(false);
+    const [availableAllowances, setAvailableAllowances] = useState([]);
+    const [dynamicAllowances, setDynamicAllowances] = useState({});
+    const [allowancesLoading, setAllowancesLoading] = useState(false);
+    const [allowancesError, setAllowancesError] = useState('');
 
     // Formulaire Mode 1 : Horaires
     const [modePresence, setModePresence] = useState('JOURNEE'); // 'JOURNEE', 'MATIN_SEUL', 'APRES_MIDI_SEUL', 'CONTINU'
     const [optionAutreDemiJournee, setOptionAutreDemiJournee] = useState('AUCUNE'); // 'AUCUNE', 'CONGE_PAYE', 'ABSENCE_DEDUITE'
-    const [heureEntreeMatin, setHeureEntreeMatin] = useState('08:00');
-    const [heureSortieMatin, setHeureSortieMatin] = useState('12:00');
-    const [heureEntreeAm, setHeureEntreeAm] = useState('13:00');
-    const [heureSortieAm, setHeureSortieAm] = useState('17:00');
-    const [deplacementMatin, setDeplacementMatin] = useState(true);
-    const [deplacementAm, setDeplacementAm] = useState(true);
-    const [indemniteRepas, setIndemniteRepas] = useState(true);
+    const [heureEntreeMatin, setHeureEntreeMatin] = useState('');
+    const [heureSortieMatin, setHeureSortieMatin] = useState('');
+    const [heureEntreeAm, setHeureEntreeAm] = useState('');
+    const [heureSortieAm, setHeureSortieAm] = useState('');
 
     // Formulaire Mode 2 : Absence
     const [optionAbsence, setOptionAbsence] = useState('CONGE_PAYE'); // 'CONGE_PAYE', 'PERMISSION_EXCEPTIONNELLE', 'ABSENCE_DEDUITE'
@@ -61,31 +63,9 @@ export default function AnomalieRegularisationModal({
     // Motif global obligatoire
     const [motifAjustement, setMotifAjustement] = useState('');
 
-    // Données dérivées du contexte de l'anomalie.
-    const siteEstContinu = Boolean(anomalie?.siteHoraireContinu);
-
     // Actions utilisateur
     const handleModeChange = (mode) => {
         setModePresence(mode);
-        if (mode === 'MATIN_SEUL') {
-            setDeplacementMatin(true);
-            setDeplacementAm(false);
-            setIndemniteRepas(false);
-        } else if (mode === 'APRES_MIDI_SEUL') {
-            setDeplacementMatin(false);
-            setDeplacementAm(true);
-            setIndemniteRepas(false);
-        } else if (mode === 'CONTINU') {
-            setDeplacementMatin(true);
-            setDeplacementAm(true);
-            // Journée continue : repas pris sur site par défaut (-1000 Ar transport si site discontinu)
-            setIndemniteRepas(true);
-        } else {
-            setDeplacementMatin(true);
-            setDeplacementAm(true);
-            // Journée coupée normale : repas par défaut si site continu (TNR), sinon décoché (TMM)
-            setIndemniteRepas(siteEstContinu);
-        }
     };
 
     // Effet : initialise le formulaire à chaque anomalie ouverte.
@@ -101,10 +81,10 @@ export default function AnomalieRegularisationModal({
         const ea = anomalie.heureEntreeAm || '';
         const sa = anomalie.heureSortieAm || '';
 
-        setHeureEntreeMatin(em || '08:00');
-        setHeureSortieMatin(sm || '12:00');
-        setHeureEntreeAm(ea || '13:00');
-        setHeureSortieAm(sa || '17:00');
+        setHeureEntreeMatin(em || anomalie.heureDebutMatinSite || '');
+        setHeureSortieMatin(sm || anomalie.heureFinMatinSite || '');
+        setHeureEntreeAm(ea || anomalie.heureDebutAmSite || '');
+        setHeureSortieAm(sa || anomalie.heureFinAmSite || '');
 
         const isContinu = Boolean(anomalie.horaireContinuJour || anomalie.horaireContinu);
         const isMatinSeul = (em && sm && !ea && !sa) || (anomalie.statutCode === 'DEMI_JOURNEE' && em && sm);
@@ -122,24 +102,6 @@ export default function AnomalieRegularisationModal({
 
         setOptionAutreDemiJournee('AUCUNE');
 
-        if (isMatinSeul) {
-            setDeplacementMatin(anomalie.deplacementMatin ?? true);
-            setDeplacementAm(false);
-            setIndemniteRepas(false);
-        } else if (isAmSeul) {
-            setDeplacementMatin(false);
-            setDeplacementAm(anomalie.deplacementAm ?? true);
-            setIndemniteRepas(false);
-        } else if (isContinu) {
-            setDeplacementMatin(anomalie.deplacementMatin ?? true);
-            setDeplacementAm(anomalie.deplacementAm ?? true);
-            setIndemniteRepas(anomalie.indemniteRepasRecue !== undefined && anomalie.indemniteRepasRecue !== null ? Boolean(anomalie.indemniteRepasRecue) : true);
-        } else {
-            setDeplacementMatin(anomalie.deplacementMatin ?? true);
-            setDeplacementAm(anomalie.deplacementAm ?? true);
-            setIndemniteRepas(anomalie.indemniteRepasRecue !== undefined && anomalie.indemniteRepasRecue !== null ? Boolean(anomalie.indemniteRepasRecue) : siteEstContinu);
-        }
-
         setOptionAbsence('CONGE_PAYE');
         setCongeDuree('1.0');
         setDemiJourneeMoment('MATIN');
@@ -147,69 +109,74 @@ export default function AnomalieRegularisationModal({
         setStatutAbsenceDeduite('ABSENCE_JUSTIFIEE');
 
         setMotifAjustement(anomalie.motifAjustement || '');
-    }, [anomalie, isOpen, siteEstContinu]);
+    }, [anomalie, isOpen]);
 
-    // Données dérivées : calcul des heures et simulation de solde.
-    const calculHeures = useMemo(() => {
-        const toMins = (t) => {
-            if (!t || !t.includes(':')) return null;
-            const [h, m] = t.split(':').map(Number);
-            return h * 60 + m;
-        };
+    useEffect(() => {
+        if (!isOpen || !anomalie?.idSite || !anomalie?.datePointage) return undefined;
+        let cancelled = false;
+        setAllowancesLoading(true);
+        setAllowancesError('');
+        attendanceService.getGrilleSaisie({ idSite: anomalie.idSite, date: anomalie.datePointage })
+            .then((grid) => {
+                if (cancelled) return;
+                const row = grid?.grilleData?.find((item) => Number(item.idEmploye) === Number(anomalie.idEmploye));
+                if (!row) throw new Error('La journée du salarié est introuvable dans la grille.');
+                const definitions = grid.siteIndemnites || [];
+                const selections = {};
+                definitions.forEach((allowance) => {
+                    const current = row.dynamicIndemnites?.[String(allowance.idIndemnite)] || {};
+                    selections[String(allowance.idIndemnite)] = {
+                        accordee: Boolean(current.accordee),
+                        matin: Boolean(current.matin),
+                        am: Boolean(current.am)
+                    };
+                });
+                setAvailableAllowances(definitions);
+                setDynamicAllowances(selections);
+            })
+            .catch((cause) => {
+                if (!cancelled) setAllowancesError(cause?.message || 'Indemnités du site indisponibles.');
+            })
+            .finally(() => {
+                if (!cancelled) setAllowancesLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [isOpen, anomalie?.idSite, anomalie?.datePointage, anomalie?.idEmploye]);
 
-        const em = toMins(heureEntreeMatin);
-        const sm = toMins(heureSortieMatin);
-        const ea = toMins(heureEntreeAm);
-        const sa = toMins(heureSortieAm);
-
-        if (modePresence === 'CONTINU') {
-            if (em !== null && sa !== null && sa > em) {
-                return { totalH: Math.round(((sa - em) / 60) * 100) / 100, valid: true };
-            }
-            return { totalH: 0, valid: false };
-        }
-
-        if (modePresence === 'MATIN_SEUL') {
-            if (em !== null && sm !== null && sm > em) {
-                return { totalH: Math.round(((sm - em) / 60) * 100) / 100, valid: true };
-            }
-            return { totalH: 0, valid: false };
-        }
-
-        if (modePresence === 'APRES_MIDI_SEUL') {
-            if (ea !== null && sa !== null && sa > ea) {
-                return { totalH: Math.round(((sa - ea) / 60) * 100) / 100, valid: true };
-            }
-            return { totalH: 0, valid: false };
-        }
-
-        let totMins = 0;
-        let valid = true;
-        if (em !== null && sm !== null) {
-            if (sm > em) totMins += (sm - em);
-            else valid = false;
-        } else {
-            valid = false;
-        }
-        if (ea !== null && sa !== null) {
-            if (sa > ea) totMins += (sa - ea);
-            else valid = false;
-        } else {
-            valid = false;
-        }
-
-        return { totalH: Math.round((totMins / 60) * 100) / 100, valid };
-    }, [heureEntreeMatin, heureSortieMatin, heureEntreeAm, heureSortieAm, modePresence]);
-
-    // Solde de congés actuel
+    // Les soldes sont informatifs ; CongeService valide l'éligibilité au moment de la régularisation.
     const soldeRestant = anomalie?.soldeCongesRestant ?? 0;
     const soldeAcquis = anomalie?.soldeCongesAcquis ?? 0;
     const soldePris = anomalie?.soldeCongesPris ?? 0;
 
-    // Simulation après imputation
     const nbJoursAImputer = parseFloat(congeDuree) || 1.0;
-    const soldeSuffisant = soldeRestant >= nbJoursAImputer;
-    const soldeApresImputation = Math.round((soldeRestant - nbJoursAImputer) * 100) / 100;
+
+    useEffect(() => {
+        if (!isOpen || !anomalie || activeTab !== 'HEURES') return undefined;
+        let cancelled = false;
+        setPreviewPending(true);
+        const timer = setTimeout(async () => {
+            try {
+                const preview = await attendanceService.previewDay({
+                    idEmploye: anomalie.idEmploye,
+                    idSite: anomalie.idSite,
+                    datePointage: anomalie.datePointage,
+                    heureEntreeMatin: modePresence === 'APRES_MIDI_SEUL' ? null : heureEntreeMatin || null,
+                    heureSortieMatin: modePresence === 'APRES_MIDI_SEUL' || modePresence === 'CONTINU' ? null : heureSortieMatin || null,
+                    heureEntreeAm: modePresence === 'MATIN_SEUL' || modePresence === 'CONTINU' ? null : heureEntreeAm || null,
+                    heureSortieAm: modePresence === 'MATIN_SEUL' ? null : heureSortieAm || null,
+                    horaireContinu: modePresence === 'CONTINU',
+                    codeStatut: modePresence === 'MATIN_SEUL' || modePresence === 'APRES_MIDI_SEUL' ? 'DEMI_JOURNEE' : 'PRESENT',
+                    typeCongeJour: modePresence === 'MATIN_SEUL' ? 'APRES_MIDI' : modePresence === 'APRES_MIDI_SEUL' ? 'MATIN' : null
+                });
+                if (!cancelled) setDayPreview(preview);
+            } catch (previewError) {
+                if (!cancelled) setDayPreview({ hasValidationError: true, validationMessages: [previewError?.response?.data?.message || 'Prévisualisation indisponible.'] });
+            } finally {
+                if (!cancelled) setPreviewPending(false);
+            }
+        }, 250);
+        return () => { cancelled = true; clearTimeout(timer); };
+    }, [isOpen, anomalie, activeTab, modePresence, heureEntreeMatin, heureSortieMatin, heureEntreeAm, heureSortieAm]);
 
     // Action de sauvegarde
     const handleSubmit = async (e) => {
@@ -220,11 +187,10 @@ export default function AnomalieRegularisationModal({
             setError('Un motif explicatif est obligatoire pour régulariser un pointage (minimum 3 caractères).');
             return;
         }
-
         setSaving(true);
         try {
             const payload = {
-                version: anomalie.version || 1,
+                version: anomalie.version,
                 motifAjustement: motifAjustement.trim(),
                 typeRegularisation: activeTab,
                 idEmploye: anomalie.idEmploye,
@@ -235,8 +201,18 @@ export default function AnomalieRegularisationModal({
             };
 
             if (activeTab === 'HEURES') {
-                if (!calculHeures.valid || calculHeures.totalH <= 0) {
-                    setError('Veuillez renseigner des tranches horaires valides.');
+                if (allowancesLoading || allowancesError) {
+                    setError(allowancesError || 'Chargement des indemnités en cours.');
+                    setSaving(false);
+                    return;
+                }
+                if (previewPending || !dayPreview) {
+                    setError('La prévisualisation des heures est en cours.');
+                    setSaving(false);
+                    return;
+                }
+                if (dayPreview.hasValidationError) {
+                    setError(dayPreview.validationMessages?.join(' ') || 'Les horaires ne sont pas valides.');
                     setSaving(false);
                     return;
                 }
@@ -273,9 +249,7 @@ export default function AnomalieRegularisationModal({
                     payload.horaireContinuJour = false;
                 }
 
-                payload.deplacementMatin = deplacementMatin;
-                payload.deplacementAm = deplacementAm;
-                payload.indemniteRepasRecue = indemniteRepas;
+                payload.dynamicIndemnites = dynamicAllowances;
             } else {
                 // Régularisation d'absence
                 payload.optionAbsence = optionAbsence;
@@ -614,8 +588,6 @@ export default function AnomalieRegularisationModal({
                         {/* Traitement de l'autre demi-journée en mode demi-journée */}
                         {(modePresence === 'MATIN_SEUL' || modePresence === 'APRES_MIDI_SEUL') && (() => {
                             const labelDemiJournee = modePresence === 'MATIN_SEUL' ? "l'après-midi" : "la matinée";
-                            const soldeApres05 = Math.max(0, Math.round((soldeRestant - 0.5) * 100) / 100);
-
                             return (
                                 <div className="p-3 bg-[var(--color-surface-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-2.5">
                                     <div className="text-xs font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
@@ -645,7 +617,7 @@ export default function AnomalieRegularisationModal({
                                             }`}
                                         >
                                             <div className="font-bold">Congé payé (0.5 j)</div>
-                                            <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">Payé 100% • Solde : {soldeRestant} j. → {soldeApres05} j.</div>
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">Impact de solde confirmé par le module Congés.</div>
                                         </button>
                                         <button
                                             type="button"
@@ -666,13 +638,13 @@ export default function AnomalieRegularisationModal({
                                         {optionAutreDemiJournee === 'AUCUNE' && (
                                             <div>
                                                 <strong className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">Impact : </strong>
-                                                L'absence sur {labelDemiJournee} est autorisée par la hiérarchie. Seules les <strong>{calculHeures.totalH || 0} h</strong> travaillées sont rémunérées. Le solde de congés n'est pas débité.
+                                                L'absence sur {labelDemiJournee} est autorisée par la hiérarchie. Le calcul et l'impact paie sont confirmés par le backend.
                                             </div>
                                         )}
                                         {optionAutreDemiJournee === 'CONGE_PAYE' && (
                                             <div>
                                                 <strong className="text-emerald-700 dark:text-emerald-400">Impact : </strong>
-                                                0.5 jour de congé payé sera déduit du solde ({soldeRestant} j. → {soldeApres05} j.). La demi-journée d'absence est maintenue et indemnisée à 100%.
+                                                Le module Congés confirmera le débit de solde et le traitement de cette demi-journée.
                                             </div>
                                         )}
                                         {optionAutreDemiJournee === 'ABSENCE_DEDUITE' && (
@@ -689,10 +661,10 @@ export default function AnomalieRegularisationModal({
                         {/* Synthèse calculée des heures */}
                         <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none flex items-center justify-between text-xs">
                             <span className="text-[var(--color-fg-muted)]">
-                                Total d&apos;heures de travail calculé :
+                                Total d&apos;heures de travail calculé par le backend :
                             </span>
                             <span className="font-mono font-bold text-sm text-[var(--color-fg)]">
-                                {calculHeures.totalH} h
+                                {previewPending ? 'Calcul…' : dayPreview?.totalHeures != null ? `${dayPreview.totalHeures} h` : '—'}
                             </span>
                         </div>
 
@@ -701,43 +673,44 @@ export default function AnomalieRegularisationModal({
                             <div className="text-xs font-semibold text-[var(--color-fg)]">
                                 Indemnités du jour
                             </div>
-                            <div className="flex flex-wrap gap-4 text-xs">
-                                <label className="flex items-center gap-2 cursor-pointer text-[var(--color-fg)]">
-                                    <input
-                                        type="checkbox"
-                                        checked={deplacementMatin}
-                                        onChange={(e) => setDeplacementMatin(e.target.checked)}
-                                        className="rounded-none text-[var(--color-primary)]"
-                                    />
-                                    <Bus className="w-3.5 h-3.5 text-[var(--color-fg-muted)]" />
-                                    <span>Déplacement Aller</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer text-[var(--color-fg)]">
-                                    <input
-                                        type="checkbox"
-                                        checked={deplacementAm}
-                                        onChange={(e) => setDeplacementAm(e.target.checked)}
-                                        className="rounded-none text-[var(--color-primary)]"
-                                    />
-                                    <Bus className="w-3.5 h-3.5 text-[var(--color-fg-muted)]" />
-                                    <span>Déplacement Retour</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer text-[var(--color-fg)]" title={siteEstContinu ? 'Site en horaire continu : repas accordé sans déduction transport' : 'Site discontinu : repas accordé avec déduction transport midi'}>
-                                    <input
-                                        type="checkbox"
-                                        checked={indemniteRepas}
-                                        onChange={(e) => setIndemniteRepas(e.target.checked)}
-                                        className="rounded-none text-[var(--color-primary)]"
-                                    />
-                                    <Utensils className="w-3.5 h-3.5 text-[var(--color-fg-muted)]" />
-                                    <span>Panier Repas</span>
-                                </label>
-                            </div>
-                            {!siteEstContinu && indemniteRepas && (
-                                <p className="text-[10.5px] text-amber-700 dark:text-amber-300 font-medium mt-1">
-                                    ℹ️ Site discontinu : le repas pris sur site entraîne une déduction sur le transport du midi.
-                                </p>
+                            {allowancesLoading && <p className="text-xs">Chargement des indemnités du site…</p>}
+                            {allowancesError && <p className="text-xs text-red-700">{allowancesError}</p>}
+                            {!allowancesLoading && !allowancesError && availableAllowances.length === 0 && (
+                                <p className="text-xs">Aucune indemnité journalière configurée pour ce site.</p>
                             )}
+                            <div className="flex flex-wrap gap-4 text-xs">
+                                {availableAllowances.map((allowance) => {
+                                    const key = String(allowance.idIndemnite);
+                                    const selection = dynamicAllowances[key] || {};
+                                    const fractionable = allowance.estFractionnable ?? allowance.fractionnable;
+                                    const updateSelection = (field, value) => setDynamicAllowances((previous) => ({
+                                        ...previous,
+                                        [key]: { ...previous[key], [field]: value }
+                                    }));
+                                    return (
+                                        <div key={key} className="flex items-center gap-2 text-[var(--color-fg)]">
+                                            <span>{allowance.libelle || allowance.code}</span>
+                                            {fractionable ? (
+                                                <>
+                                                    <label className="flex items-center gap-1">
+                                                        <input type="checkbox" checked={Boolean(selection.matin)}
+                                                            onChange={(event) => updateSelection('matin', event.target.checked)} /> Matin
+                                                    </label>
+                                                    <label className="flex items-center gap-1">
+                                                        <input type="checkbox" checked={Boolean(selection.am)}
+                                                            onChange={(event) => updateSelection('am', event.target.checked)} /> Après-midi
+                                                    </label>
+                                                </>
+                                            ) : (
+                                                <label className="flex items-center gap-1">
+                                                    <input type="checkbox" checked={Boolean(selection.accordee)}
+                                                        onChange={(event) => updateSelection('accordee', event.target.checked)} /> Accorder
+                                                </label>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -884,17 +857,11 @@ export default function AnomalieRegularisationModal({
                                 )}
 
                                 {/* Diagnostic solde après imputation */}
-                                <div className={`p-2.5 rounded-none text-xs flex items-center justify-between ${
-                                    soldeSuffisant
-                                        ? 'bg-[var(--color-success-subtle)] text-[var(--color-success)]'
-                                        : 'bg-[var(--color-warning-subtle)] text-[var(--color-warning)]'
-                                }`}>
+                                <div className="p-2.5 rounded-none text-xs flex items-center justify-between bg-[var(--color-info-subtle)] text-[var(--color-info)]">
                                     <div className="flex items-center gap-1.5">
                                         <Info className="w-4 h-4 shrink-0" />
                                         <span>
-                                            {soldeSuffisant 
-                                                ? `Solde suffisant. Nouveau solde restant projeté : ${soldeApresImputation} j.`
-                                                : `Solde insuffisant (${soldeRestant} j.). Dérogation ou retenue partielle sur le salaire.`}
+                                            Le solde et les règles d’éligibilité seront vérifiés par le module Congés à la validation.
                                         </span>
                                     </div>
                                 </div>

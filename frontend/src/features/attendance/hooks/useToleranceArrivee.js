@@ -41,9 +41,9 @@ export function useToleranceArrivee() {
 
     const startEdit = (site, currentTolerance) => {
         setEditingSiteId(site.idSite);
-        const heure = currentTolerance?.heurePlafond 
-            ? currentTolerance.heurePlafond.substring(0, 5) 
-            : (site.heureDebutMatin ? site.heureDebutMatin.substring(0, 5) : '07:30');
+        const heure = currentTolerance?.heurePlafond
+            ? currentTolerance.heurePlafond.substring(0, 5)
+            : '';
         setEditHeure(heure);
     };
 
@@ -54,17 +54,38 @@ export function useToleranceArrivee() {
 
     const saveTolerance = async (siteId) => {
         if (!editHeure) return;
+        const existing = tolerances.find(t => t.idSite === siteId);
         setSaving(true);
         try {
             await pointageParametreService.saveTolerance({
                 idSite: siteId,
-                heurePlafond: editHeure
+                heurePlafond: editHeure,
+                estActif: existing ? existing.estActif !== false : true
             });
             toast.success("Tolérance d'arrivée enregistrée avec succès.");
             setEditingSiteId(null);
             await loadData();
         } catch (err) {
             toast.error(err?.response?.data || "Erreur lors de l'enregistrement de la tolérance.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const setToleranceEnabled = async (siteId, enabled) => {
+        const existing = tolerances.find(t => t.idSite === siteId);
+        if (!existing?.heurePlafond) return;
+        setSaving(true);
+        try {
+            await pointageParametreService.saveTolerance({
+                idSite: siteId,
+                heurePlafond: existing.heurePlafond.substring(0, 5),
+                estActif: enabled
+            });
+            toast.success(enabled ? "Heure minimale activée." : "Heure minimale désactivée.");
+            await loadData();
+        } catch (err) {
+            toast.error(err?.response?.data?.message || "Erreur lors du changement d'état.");
         } finally {
             setSaving(false);
         }
@@ -82,6 +103,7 @@ export function useToleranceArrivee() {
         startEdit,
         cancelEdit,
         saveTolerance,
+        setToleranceEnabled,
         reload: loadData
     };
 }

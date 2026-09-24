@@ -11,7 +11,6 @@ public final class CongeTestFixtureHelper {
     public static void cleanDatabase(Connection c) throws SQLException {
         try (Statement st = c.createStatement()) {
             st.execute("DELETE FROM pointage_snapshot_jour");
-            st.execute("DELETE FROM pointage_snapshot_semaine");
             st.execute("DELETE FROM pointage_snapshot_bucket");
             st.execute("DELETE FROM pointage_jour");
             st.execute("DELETE FROM bulletin_paie_ligne");

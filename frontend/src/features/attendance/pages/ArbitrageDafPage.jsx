@@ -18,9 +18,7 @@ import SEO from '@/components/system/SEO';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import organisationService from '@/features/organization/api/organisationService';
-import periodePaieService from '@/features/attendance/api/periodePaieService';
-import pointageSyntheseService from '@/features/attendance/api/pointageSyntheseService';
-import attendanceService from '@/features/attendance/api/attendanceService';
+import { periodePaieService, pointageSyntheseService, attendanceService } from '@/features/attendance/api/attendanceApi';
 import { formatMonnaie, formatHeuresMinutes, formatHeuresDecimal, getAttendanceBadgeClass } from '@/features/attendance/utils/attendanceDisplayUtils';
 import { isDateInFuture } from '@/utils/dateUtils';
 import { getErrorMessage } from '@/api/apiClient';
@@ -164,35 +162,9 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const canSubmit = periodActions.SUBMIT?.allowed === true;
     const transmissionBlockReason = periodActions.SUBMIT?.reason || null;
 
-    const kpis = useMemo(() => {
-        const totalInd = Math.round(syntheseData.reduce((a, r) => a + ((r.montantRepas || 0) + (r.montantDeplacement || 0)), 0));
-        if (serverKpis) {
-            return {
-                ...serverKpis,
-                totalIndemnites: (serverKpis.totalIndemnites && serverKpis.totalIndemnites > 0) ? Math.round(serverKpis.totalIndemnites) : totalInd
-            };
-        }
-        return {
-            totalSalaries: totalElements || syntheseData.length,
-            totalHeures: Math.round(syntheseData.reduce((a, r) => a + (r.totalHeuresTravaillees || 0), 0)),
-            totalHs30: Math.round(syntheseData.reduce((a, r) => a + (r.heuresHs30 || 0), 0)),
-            totalHs50: Math.round(syntheseData.reduce((a, r) => a + (r.heuresHs50 || 0), 0)),
-            totalRetardMins: syntheseData.reduce((a, r) => a + (r.totalMinutesRetard || 0), 0),
-            totalIndemnites: totalInd
-        };
-    }, [serverKpis, totalElements, syntheseData]);
+    const kpis = serverKpis;
 
-    const alertCounts = useMemo(() => {
-        if (serverAlertCounts) return serverAlertCounts;
-        return {
-            all: totalElements || syntheseData.length,
-            hs: syntheseData.filter(r => (r.heuresHs30 || 0) > 0 || (r.heuresHs50 || 0) > 0).length,
-            nuit: syntheseData.filter(r => (r.heuresNuitTotal || 0) > 0).length,
-            retard: syntheseData.filter(r => (r.totalMinutesRetard || 0) > 0).length,
-            absence: syntheseData.filter(r => (r.heuresAbsenceRetenues || 0) > 0).length,
-            compense: syntheseData.filter(r => (r.retardCompense || 0) > 0).length,
-        };
-    }, [serverAlertCounts, totalElements, syntheseData]);
+    const alertCounts = serverAlertCounts || {};
 
     // Données affichées : déjà filtrées et paginées par le serveur
     const displayedData = syntheseData;
@@ -216,7 +188,24 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             const results = await Promise.all(
                 days.map(date =>
                     attendanceService.getGrilleSaisie({ idSite: siteParam, date })
-                        .then(res => ({ date, rows: res?.grilleData || res?.employes || (Array.isArray(res) ? res : []) }))
+                        .then(res => {
+                            const rows = res?.grilleData || res?.employes || (Array.isArray(res) ? res : []);
+                            const definitions = res?.siteIndemnites || [];
+                            return {
+                                date,
+                                rows: rows.map((row) => ({
+                                    ...row,
+                                    indemnites: Object.fromEntries(definitions.map((definition) => {
+                                        const selection = row.dynamicIndemnites?.[String(definition.idIndemnite)];
+                                        return [definition.code, {
+                                            code: definition.code,
+                                            accordee: Boolean(selection?.accordee),
+                                            montant: selection?.montantApplique ?? 0,
+                                        }];
+                                    })),
+                                })),
+                            };
+                        })
                         .catch(() => ({ date, rows: [] }))
                 )
             );
@@ -468,11 +457,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 {/* KPI Cards — 5 indicateurs clés */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                     {[
-                        { label: 'Salariés', value: kpis.totalSalaries, icon: Users, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
-                        { label: 'Heures totales', value: `${formatHeuresDecimal(kpis.totalHeures)} (${formatHeuresMinutes(kpis.totalHeures)})`, icon: Clock, color: 'text-[var(--color-info-600)] dark:text-[var(--color-info-400)]' },
-                        { label: 'HS30 + HS50', value: `${formatHeuresDecimal(kpis.totalHs30 + kpis.totalHs50)} (${formatHeuresMinutes(kpis.totalHs30 + kpis.totalHs50)})`, icon: TrendingUp, color: 'text-[var(--color-brand-500)] dark:text-[var(--color-brand-300)]' },
-                        { label: 'Retards cumulés', value: `${formatHeuresDecimal(kpis.totalRetardMins / 60)} (${formatHeuresMinutes(kpis.totalRetardMins / 60)})`, icon: AlertTriangle, color: 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' },
-                        { label: 'Indemnités totales', value: formatMonnaie(kpis.totalIndemnites), icon: Banknote, color: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' },
+                        { label: 'Salariés', value: kpis?.totalSalaries ?? '—', icon: Users, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
+                        { label: 'Heures totales', value: kpis ? `${formatHeuresDecimal(kpis.totalHeures)} (${formatHeuresMinutes(kpis.totalHeures)})` : '—', icon: Clock, color: 'text-[var(--color-info-600)] dark:text-[var(--color-info-400)]' },
+                        { label: 'HS30 + HS50', value: kpis ? `${formatHeuresDecimal(kpis.totalHs30 + kpis.totalHs50)} (${formatHeuresMinutes(kpis.totalHs30 + kpis.totalHs50)})` : '—', icon: TrendingUp, color: 'text-[var(--color-brand-500)] dark:text-[var(--color-brand-300)]' },
+                        { label: 'Retards cumulés', value: kpis ? `${formatHeuresDecimal(kpis.totalRetardMins / 60)} (${formatHeuresMinutes(kpis.totalRetardMins / 60)})` : '—', icon: AlertTriangle, color: 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' },
+                        { label: 'Indemnités totales', value: kpis ? formatMonnaie(kpis.totalIndemnites) : '—', icon: Banknote, color: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' },
                     ].map(kpi => (
                         <div key={kpi.label} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex items-center gap-3">
                             <kpi.icon size={20} className={`${kpi.color} shrink-0`} />
@@ -666,7 +655,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                             const presents = row.nbJoursPresents ?? row.joursPresents;
                                             const profilLabel = row.badgeProfilLabel || (row.dispensePointage ? 'AUTONOME' : row.estCadre ? 'CADRE' : null);
                                             const profilVariant = row.badgeProfilVariant || (row.dispensePointage ? 'neutral' : row.estCadre ? 'info' : null);
-                                            const totalIndRow = (row.montantRepas || 0) + (row.montantDeplacement || 0);
+                                            const allowanceEntries = Object.entries(row.montantsIndemnites || {});
+                                            const totalIndRow = allowanceEntries.reduce((total, [, amount]) => total + Number(amount || 0), 0);
+                                            const allowanceDetails = allowanceEntries.map(([code, amount]) =>
+                                                `• ${code} : ${formatMonnaie(amount || 0)}`).join('\n');
 
                                             return (
                                                 <Tr key={row.idEmploye || row.matricule}>
@@ -748,16 +740,14 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     {/* Total Indemnités regroupé */}
                                                     <Td
                                                         className="attendance-allowance text-center attendance-duration text-xs cursor-help"
-                                                        title={`Détail des indemnités :\n• Repas : ${formatMonnaie(row.montantRepas || 0)} (${row.nbJoursRepas || 0}j)\n• Déplacement : ${formatMonnaie(row.montantDeplacement || 0)} (${row.nbJoursDeplacement || 0}j)\n• Total : ${formatMonnaie(totalIndRow)}`}
+                                                        title={`Détail des indemnités :\n${allowanceDetails || 'Aucune'}\n• Total : ${formatMonnaie(totalIndRow)}`}
                                                     >
                                                         {totalIndRow > 0 ? (
                                                             <div className="flex flex-col items-center">
                                                                 <span className="font-bold">{formatMonnaie(totalIndRow)}</span>
-                                                                <div className="flex items-center gap-1 text-[9px] text-[var(--color-fg-muted)] mt-0.5">
-                                                                    {(row.nbJoursRepas || 0) > 0 && <span>{row.nbJoursRepas}j repas</span>}
-                                                                    {(row.nbJoursRepas || 0) > 0 && (row.nbJoursDeplacement || 0) > 0 && <span>•</span>}
-                                                                    {(row.nbJoursDeplacement || 0) > 0 && <span>{row.nbJoursDeplacement}j déplace.</span>}
-                                                                </div>
+                                                                <span className="text-[9px] text-[var(--color-fg-muted)] mt-0.5">
+                                                                    {allowanceEntries.map(([code]) => code).join(' · ')}
+                                                                </span>
                                                             </div>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>

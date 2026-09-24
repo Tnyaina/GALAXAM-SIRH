@@ -500,8 +500,11 @@ public class PayrollExecutionEngine {
                 if (gv.getMontant() != null && gv.getMontant().compareTo(BigDecimal.ZERO) > 0 && gv.isImposable()) {
                     String cat = gv.getCategorie() != null ? gv.getCategorie() : "PRIME";
                     String lib = gv.getLibelle() != null && !gv.getLibelle().isBlank() ? gv.getLibelle() : gv.getCode();
-                    lignes.add(creerLigne(bp, gv.getCode(), lib, "GAIN", cat,
-                            gv.getMontant(), null, gv.getMontant(), null, 120));
+                    BulletinPaieLigne ligne = creerLigne(bp, gv.getCode(), lib, "GAIN", cat,
+                            gv.getMontant(), null, gv.getMontant(), null, 120);
+                    ligne.setImposable(gv.isImposable());
+                    ligne.setSoumisCotisation(gv.isSoumisCotisation());
+                    lignes.add(ligne);
                     totalPrimes = totalPrimes.add(gv.getMontant());
                 }
             }
@@ -519,10 +522,24 @@ public class PayrollExecutionEngine {
         BigDecimal totalCotisSalariales = MoneyRoundingPolicy.amount(BigDecimal.ZERO);
         BigDecimal totalCotisPatronales = MoneyRoundingPolicy.amount(BigDecimal.ZERO);
 
+        // L'assujettissement social est indépendant de l'imposition IRSA.
+        BigDecimal assietteSociale = totalGainsBruts;
+        if (input.getGainsVariablesDynamiques() != null) {
+            for (PayrollCalculationInput.GainVariable gain : input.getGainsVariablesDynamiques()) {
+                if (gain.getMontant() == null || gain.getMontant().signum() <= 0) continue;
+                if (gain.isImposable() && !gain.isSoumisCotisation()) {
+                    assietteSociale = assietteSociale.subtract(gain.getMontant());
+                } else if (!gain.isImposable() && gain.isSoumisCotisation()) {
+                    assietteSociale = assietteSociale.add(gain.getMontant());
+                }
+            }
+        }
+        assietteSociale = assietteSociale.max(BigDecimal.ZERO);
+
         BigDecimal sme = zeroIfNull(input.getSmeNational());
         BigDecimal plafondCnaps = sme.multiply(MULTIPLICATEUR_PLAFOND_CNAPS);
         SocialContributionCalculator socialCalculator = new SocialContributionCalculator();
-        SocialContributionCalculator.Result social = socialCalculator.calculate(totalGainsBruts,
+        SocialContributionCalculator.Result social = socialCalculator.calculate(assietteSociale,
                 new SocialContributionCalculator.Rules(input.getTauxCnapsSalarialDecimal(), input.getTauxCnapsPatronalDecimal(),
                         input.getTauxSanteSalarialDecimal(), input.getTauxSantePatronalDecimal(), input.getTauxFmfpPatronalDecimal(), sme, input.isEstPlafonneSante()));
 
@@ -544,7 +561,7 @@ public class PayrollExecutionEngine {
             // 2.3 FMFP Patronale (1% sur brut total)
             BigDecimal fmfpPat = MoneyRoundingPolicy.contribution(social.fmfp());
             lignes.add(creerLigne(bp, "COTISATION_FMFP_PAT", "Cotisation FMFP Patronale (1%)", "PATRONAL", "COTISATION_PATRONALE",
-                    totalGainsBruts, input.getTauxFmfpPatronalDecimal().movePointRight(2), null, fmfpPat, 330));
+                    assietteSociale, input.getTauxFmfpPatronalDecimal().movePointRight(2), null, fmfpPat, 330));
             totalCotisPatronales = totalCotisPatronales.add(fmfpPat);
         }
 
@@ -559,8 +576,8 @@ public class PayrollExecutionEngine {
             String libelleSantePat = estOmsi ? "Cotisation OMSI Patronale (5.5%)" : "Cotisation OSTIE Patronale (5%)";
 
             BigDecimal assietteSante = input.isEstPlafonneSante()
-                    ? totalGainsBruts.min(plafondCnaps)
-                    : totalGainsBruts;
+                    ? assietteSociale.min(plafondCnaps)
+                    : assietteSociale;
 
             SocialContributionCalculator.Contribution resSante = social.health();
             BigDecimal santeSal = resSante.partSalariale();
@@ -707,8 +724,11 @@ public class PayrollExecutionEngine {
                 if (gv.getMontant() != null && gv.getMontant().compareTo(BigDecimal.ZERO) > 0 && !gv.isImposable()) {
                     String cat = gv.getCategorie() != null ? gv.getCategorie() : "INDEMNITE_NON_IMPOSABLE";
                     String lib = gv.getLibelle() != null && !gv.getLibelle().isBlank() ? gv.getLibelle() : gv.getCode();
-                    lignes.add(creerLigne(bp, gv.getCode(), lib, "GAIN", cat,
-                            gv.getMontant(), null, gv.getMontant(), null, 530));
+                    BulletinPaieLigne ligne = creerLigne(bp, gv.getCode(), lib, "GAIN", cat,
+                            gv.getMontant(), null, gv.getMontant(), null, 530);
+                    ligne.setImposable(gv.isImposable());
+                    ligne.setSoumisCotisation(gv.isSoumisCotisation());
+                    lignes.add(ligne);
                     totalIndemnitesNet = totalIndemnitesNet.add(gv.getMontant());
                 }
             }

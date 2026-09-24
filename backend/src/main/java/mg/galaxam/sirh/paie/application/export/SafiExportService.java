@@ -141,9 +141,7 @@ public class SafiExportService {
                     indemImpos = indemImpos.add(mnt);
                 }
                 // 6. Indemnités non imposables / exonérées (Indemnités non imposables - Colonne N)
-                else if ("INDEMNITE_NON_IMPOSABLE".equals(cat) || "INDEMNITE_LICENCIEMENT".equals(code)
-                        || code.startsWith("INDEMNITE_TRANSPORT") || code.startsWith("INDEMNITE_REPAS")
-                        || code.startsWith("EXTRA_DEPLACEMENT") || code.contains("FRAIS")) {
+                else if ("INDEMNITE_NON_IMPOSABLE".equals(cat) || "INDEMNITE_LICENCIEMENT".equals(code)) {
                     indemNonImpos = indemNonImpos.add(mnt);
                 }
                 // 7. Cotisations sociales salariales (CNaPS et Santé)

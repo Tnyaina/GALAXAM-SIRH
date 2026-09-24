@@ -17,7 +17,7 @@ import {
     ChevronUp
 } from 'lucide-react';
 import { usePeriodePaie } from '@/features/attendance/hooks/usePeriodePaie';
-import periodePaieService from '@/features/attendance/api/periodePaieService';
+import { periodePaieService } from '@/features/attendance/api/attendanceApi';
 import paieService from '@/features/payroll/api/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';

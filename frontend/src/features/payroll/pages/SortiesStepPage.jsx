@@ -14,7 +14,7 @@ import Modal from '@/components/ui/overlays/Modal';
 import { Card } from '@/components/ui/data-display/Card';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
-import periodePaieService from '@/features/attendance/api/periodePaieService';
+import { periodePaieService } from '@/features/attendance/api/attendanceApi';
 import { getErrorMessage } from '@/api/apiClient';
 
 /**

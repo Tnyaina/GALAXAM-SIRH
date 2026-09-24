@@ -14,7 +14,9 @@ public class RefIndemnite extends ClassMere {
     private Integer idIndemnite;
     private String code;
     private String libelle;
+    private String codeRubriquePaie;
     private boolean imposableIrsa = false;
+    private Boolean soumisCotisation;
     private boolean fractionnable = false;
     private boolean estActif = true;
 
@@ -34,14 +36,16 @@ public class RefIndemnite extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        String sql = "INSERT INTO ref_indemnite (code, libelle, imposable_irsa, fractionnable, est_actif) " +
-                     "VALUES (?, ?, ?, ?, ?) RETURNING id_indemnite";
+        String sql = "INSERT INTO ref_indemnite (code, libelle, code_rubrique_paie, imposable_irsa, soumis_cotisation, fractionnable, est_actif) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id_indemnite";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
-            ps.setBoolean(3, imposableIrsa);
-            ps.setBoolean(4, fractionnable);
-            ps.setBoolean(5, estActif);
+            ps.setString(3, codeRubriquePaie);
+            ps.setBoolean(4, imposableIrsa);
+            ps.setObject(5, soumisCotisation);
+            ps.setBoolean(6, fractionnable);
+            ps.setBoolean(7, estActif);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -54,15 +58,17 @@ public class RefIndemnite extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
-        String sql = "UPDATE ref_indemnite SET code = ?, libelle = ?, imposable_irsa = ?, fractionnable = ?, est_actif = ? " +
+        String sql = "UPDATE ref_indemnite SET code = ?, libelle = ?, code_rubrique_paie = ?, imposable_irsa = ?, soumis_cotisation = ?, fractionnable = ?, est_actif = ? " +
                      "WHERE id_indemnite = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
-            ps.setBoolean(3, imposableIrsa);
-            ps.setBoolean(4, fractionnable);
-            ps.setBoolean(5, estActif);
-            ps.setInt(6, idIndemnite);
+            ps.setString(3, codeRubriquePaie);
+            ps.setBoolean(4, imposableIrsa);
+            ps.setObject(5, soumisCotisation);
+            ps.setBoolean(6, fractionnable);
+            ps.setBoolean(7, estActif);
+            ps.setInt(8, idIndemnite);
             ps.executeUpdate();
         }
         return this;
@@ -84,7 +90,7 @@ public class RefIndemnite extends ClassMere {
     }
 
     public ClassMere rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT id_indemnite, code, libelle, imposable_irsa, fractionnable, est_actif FROM ref_indemnite WHERE id_indemnite = ?";
+        String sql = "SELECT id_indemnite, code, libelle, code_rubrique_paie, imposable_irsa, soumis_cotisation, fractionnable, est_actif FROM ref_indemnite WHERE id_indemnite = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -93,7 +99,9 @@ public class RefIndemnite extends ClassMere {
                     item.idIndemnite = rs.getInt("id_indemnite");
                     item.code = rs.getString("code");
                     item.libelle = rs.getString("libelle");
+                    item.codeRubriquePaie = rs.getString("code_rubrique_paie");
                     item.imposableIrsa = rs.getBoolean("imposable_irsa");
+                    item.soumisCotisation = (Boolean) rs.getObject("soumis_cotisation");
                     item.fractionnable = rs.getBoolean("fractionnable");
                     item.estActif = rs.getBoolean("est_actif");
                     return item;
@@ -104,7 +112,7 @@ public class RefIndemnite extends ClassMere {
     }
 
     public static List<RefIndemnite> listAll(Connection c) throws Exception {
-        String sql = "SELECT id_indemnite, code, libelle, imposable_irsa, fractionnable, est_actif FROM ref_indemnite ORDER BY code";
+        String sql = "SELECT id_indemnite, code, libelle, code_rubrique_paie, imposable_irsa, soumis_cotisation, fractionnable, est_actif FROM ref_indemnite ORDER BY code";
         List<RefIndemnite> list = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -113,7 +121,9 @@ public class RefIndemnite extends ClassMere {
                 item.idIndemnite = rs.getInt("id_indemnite");
                 item.code = rs.getString("code");
                 item.libelle = rs.getString("libelle");
+                item.codeRubriquePaie = rs.getString("code_rubrique_paie");
                 item.imposableIrsa = rs.getBoolean("imposable_irsa");
+                item.soumisCotisation = (Boolean) rs.getObject("soumis_cotisation");
                 item.fractionnable = rs.getBoolean("fractionnable");
                 item.estActif = rs.getBoolean("est_actif");
                 list.add(item);
@@ -221,8 +231,15 @@ public class RefIndemnite extends ClassMere {
     public void setCode(String code) { this.code = code; }
     public String getLibelle() { return libelle; }
     public void setLibelle(String libelle) { this.libelle = libelle; }
+    public String getCodeRubriquePaie() { return codeRubriquePaie; }
+    public void setCodeRubriquePaie(String codeRubriquePaie) {
+        this.codeRubriquePaie = codeRubriquePaie == null || codeRubriquePaie.isBlank()
+                ? null : codeRubriquePaie.trim();
+    }
     public boolean isImposableIrsa() { return imposableIrsa; }
     public void setImposableIrsa(boolean imposableIrsa) { this.imposableIrsa = imposableIrsa; }
+    public Boolean getSoumisCotisation() { return soumisCotisation; }
+    public void setSoumisCotisation(Boolean soumisCotisation) { this.soumisCotisation = soumisCotisation; }
     public boolean isFractionnable() { return fractionnable; }
     public void setFractionnable(boolean fractionnable) { this.fractionnable = fractionnable; }
     public boolean isEstActif() { return estActif; }

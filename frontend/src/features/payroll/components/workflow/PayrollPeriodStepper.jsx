@@ -1,4 +1,4 @@
-import { CheckCircle2, Lock, AlertTriangle, ChevronRight, Loader2 } from 'lucide-react';
+import { CheckCircle2, Lock, AlertTriangle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import PayrollIssuePanel from '@/features/payroll/components/feedback/PayrollIssuePanel';
@@ -111,9 +111,7 @@ export default function PayrollPeriodStepper({
             aria-label="Workflow de campagne de paie"
             className="relative bg-[var(--color-surface)] border border-[var(--color-border-subtle)]"
         >
-            {/* Ligne de progression absolue (fond) */}
             <div className="absolute top-[50%] left-0 right-0 h-px bg-[var(--color-border-subtle)] translate-y-[-50%] z-0 hidden md:block" />
-
             <ol className="relative z-10 flex items-stretch overflow-x-auto">
                 {steps.map((step, index) => {
                     const conf = stateConfig[step.state] || stateConfig.BLOCKED;
@@ -173,15 +171,6 @@ export default function PayrollPeriodStepper({
                                         </span>
                                     )}
                                 </span>
-
-                                {/* Flèche séparateur (Desktop) */}
-                                {!isLast && (
-                                    <ChevronRight
-                                        size={12}
-                                        className="shrink-0 text-[var(--color-border)] hidden md:block"
-                                        aria-hidden="true"
-                                    />
-                                )}
                             </button>
                         </li>
                     );

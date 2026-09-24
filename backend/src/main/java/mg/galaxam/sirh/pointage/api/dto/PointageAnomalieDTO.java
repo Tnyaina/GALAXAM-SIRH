@@ -1,5 +1,6 @@
 package mg.galaxam.sirh.pointage.api.dto;
 
+
 public class PointageAnomalieDTO {
     private Integer idPointage;
     private Integer idEmploye;
@@ -10,6 +11,10 @@ public class PointageAnomalieDTO {
     private Integer idSite;
     private String siteNom;
     private Boolean siteHoraireContinu = true;
+    private String heureDebutMatinSite;
+    private String heureFinMatinSite;
+    private String heureDebutAmSite;
+    private String heureFinAmSite;
     private String datePointage;
     
     private String heureEntreeMatin;
@@ -67,7 +72,6 @@ public class PointageAnomalieDTO {
 
     public Double getSoldeCongesRestant() { return soldeCongesRestant; }
     public void setSoldeCongesRestant(Double soldeCongesRestant) { this.soldeCongesRestant = soldeCongesRestant; }
-
     public Double getSoldeCongesPris() { return soldeCongesPris; }
     public void setSoldeCongesPris(Double soldeCongesPris) { this.soldeCongesPris = soldeCongesPris; }
 
@@ -165,6 +169,14 @@ public class PointageAnomalieDTO {
 
     public Boolean getSiteHoraireContinu() { return siteHoraireContinu; }
     public void setSiteHoraireContinu(Boolean siteHoraireContinu) { this.siteHoraireContinu = siteHoraireContinu; }
+    public String getHeureDebutMatinSite() { return heureDebutMatinSite; }
+    public void setHeureDebutMatinSite(String value) { this.heureDebutMatinSite = value; }
+    public String getHeureFinMatinSite() { return heureFinMatinSite; }
+    public void setHeureFinMatinSite(String value) { this.heureFinMatinSite = value; }
+    public String getHeureDebutAmSite() { return heureDebutAmSite; }
+    public void setHeureDebutAmSite(String value) { this.heureDebutAmSite = value; }
+    public String getHeureFinAmSite() { return heureFinAmSite; }
+    public void setHeureFinAmSite(String value) { this.heureFinAmSite = value; }
 
     // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
     public boolean isIncomplet()       { return "INCOMPLET".equalsIgnoreCase(typeAnomalie) || "ANOMALIE_SAISIE".equalsIgnoreCase(statutCode); }

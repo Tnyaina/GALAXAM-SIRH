@@ -2,6 +2,7 @@ package mg.galaxam.sirh.pointage.api.dto;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import java.math.BigDecimal;
 
 public class SaisiePointageJourDTO {
@@ -59,7 +60,10 @@ public class SaisiePointageJourDTO {
     private Boolean congePaye = true;
     private Boolean congeDecompteSolde = true;
     private Integer version; // Optimistic locking version
-    private Map<String, Object> dynamicIndemnites = new HashMap<>();
+    private Map<String, Object> dynamicIndemnites;
+    private boolean hasValidationError;
+    private List<String> validationMessages = List.of();
+    private List<StatusAction> statusActions = List.of();
 
     // Proprietes Backend-Driven pour l affichage IHM sans calculs front
     private String badgeProfilCode;
@@ -227,6 +231,14 @@ public class SaisiePointageJourDTO {
 
     public Map<String, Object> getDynamicIndemnites() { return dynamicIndemnites; }
     public void setDynamicIndemnites(Map<String, Object> dynamicIndemnites) { this.dynamicIndemnites = dynamicIndemnites; }
+    public boolean isHasValidationError() { return hasValidationError; }
+    public void setHasValidationError(boolean hasValidationError) { this.hasValidationError = hasValidationError; }
+    public List<String> getValidationMessages() { return validationMessages; }
+    public void setValidationMessages(List<String> validationMessages) { this.validationMessages = validationMessages == null ? List.of() : List.copyOf(validationMessages); }
+    public List<StatusAction> getStatusActions() { return statusActions; }
+    public void setStatusActions(List<StatusAction> statusActions) { this.statusActions = statusActions == null ? List.of() : List.copyOf(statusActions); }
+
+    public record StatusAction(String code, String label, String description, boolean requiresMotif) {}
 
     public Boolean getCongePaye() { return congePaye; }
     public void setCongePaye(Boolean congePaye) { this.congePaye = congePaye; }

@@ -1,4 +1,4 @@
-import { Clock, Building, Edit2, Check } from 'lucide-react';
+import { Clock, Building, Edit2, Check, Power } from 'lucide-react';
 import { useToleranceArrivee } from '@/features/attendance/hooks/useToleranceArrivee';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
@@ -18,7 +18,8 @@ export default function ToleranceArriveeSiteTab() {
         saving,
         startEdit,
         cancelEdit,
-        saveTolerance
+        saveTolerance,
+        setToleranceEnabled
     } = useToleranceArrivee();
 
     if (loading) return <SkeletonTable rows={4} cols={5} />;
@@ -67,7 +68,7 @@ export default function ToleranceArriveeSiteTab() {
                                     </div>
                                 </Td>
                                 <Td isData muted className="text-xs font-mono">
-                                    {site.heureDebutMatin ? site.heureDebutMatin.substring(0, 5) : '08:00'} - {site.heureFinMatin ? site.heureFinMatin.substring(0, 5) : '12:00'}
+                                    {site.heureDebutMatin ? site.heureDebutMatin.substring(0, 5) : 'Non configuré'} - {site.heureFinMatin ? site.heureFinMatin.substring(0, 5) : 'Non configuré'}
                                 </Td>
                                 <Td>
                                     {isEditing ? (
@@ -82,7 +83,7 @@ export default function ToleranceArriveeSiteTab() {
                                     ) : (
                                         <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10 px-2.5 py-1">
                                             <Clock size={13} />
-                                            {tol?.heurePlafond ? tol.heurePlafond.substring(0, 5) : 'Non défini (théorique)'}
+                                            {tol?.heurePlafond && tol.estActif !== false ? tol.heurePlafond.substring(0, 5) : 'Désactivée'}
                                         </span>
                                     )}
                                 </Td>
@@ -108,14 +109,26 @@ export default function ToleranceArriveeSiteTab() {
                                             </Button>
                                         </div>
                                     ) : (
-                                        <button
-                                            onClick={() => startEdit(site, tol)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors inline-flex items-center gap-1 text-xs font-semibold"
-                                            title="Modifier la tolérance"
-                                            aria-label={`Modifier tolérance pour ${site.libelle}`}
-                                        >
-                                            <Edit2 size={14} /> Modifier
-                                        </button>
+                                        <div className="inline-flex items-center gap-2">
+                                            {tol?.heurePlafond && (
+                                                <button
+                                                    onClick={() => setToleranceEnabled(site.idSite, tol.estActif === false)}
+                                                    disabled={saving}
+                                                    className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] cursor-pointer disabled:opacity-50"
+                                                    aria-label={`${tol.estActif === false ? 'Activer' : 'Désactiver'} l'heure minimale pour ${site.libelle}`}
+                                                >
+                                                    <Power size={14} /> {tol.estActif === false ? 'Activer' : 'Désactiver'}
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => startEdit(site, tol)}
+                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors inline-flex items-center gap-1 text-xs font-semibold"
+                                                title="Modifier l'heure minimale"
+                                                aria-label={`Modifier l'heure minimale pour ${site.libelle}`}
+                                            >
+                                                <Edit2 size={14} /> Modifier
+                                            </button>
+                                        </div>
                                     )}
                                 </Td>
                             </Tr>
@@ -126,4 +139,3 @@ export default function ToleranceArriveeSiteTab() {
         </div>
     );
 }
-

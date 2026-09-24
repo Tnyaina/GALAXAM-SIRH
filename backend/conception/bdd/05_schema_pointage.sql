@@ -13,12 +13,10 @@ DROP VIEW IF EXISTS v_pointage_semaine CASCADE;
 DROP VIEW IF EXISTS v_pointage_jour_cpl CASCADE;
 DROP VIEW IF EXISTS v_pointage_indemnites CASCADE;
 
+DROP TABLE IF EXISTS pointage_snapshot_indemnite CASCADE;
 DROP TABLE IF EXISTS pointage_snapshot_bucket CASCADE;
-DROP TABLE IF EXISTS pointage_snapshot_semaine CASCADE;
 DROP TABLE IF EXISTS pointage_snapshot_jour CASCADE;
-DROP TABLE IF EXISTS pointage_cumul_indemnite CASCADE;
 DROP TABLE IF EXISTS pointage_cumul_periode CASCADE;
-DROP TABLE IF EXISTS pointage_semaine_calcule CASCADE;
 DROP TABLE IF EXISTS pointage_indemnite_jour CASCADE;
 DROP TABLE IF EXISTS pointage_jour CASCADE;
 DROP TABLE IF EXISTS employe_indemnite_derogation CASCADE;
@@ -87,7 +85,9 @@ CREATE TABLE ref_indemnite (
     id_indemnite SERIAL PRIMARY KEY,
     code VARCHAR(20) NOT NULL UNIQUE,
     libelle VARCHAR(100) NOT NULL,
+    code_rubrique_paie VARCHAR(50),
     imposable_irsa BOOLEAN DEFAULT FALSE,
+    soumis_cotisation BOOLEAN,
     fractionnable BOOLEAN DEFAULT FALSE,
     est_actif BOOLEAN DEFAULT TRUE
 );
@@ -98,6 +98,7 @@ CREATE TABLE site_indemnite_config (
     id_indemnite INT NOT NULL REFERENCES ref_indemnite(id_indemnite),
     periodicite VARCHAR(20) NOT NULL DEFAULT 'JOURNALIER',
     montant_reference NUMERIC(12,2) NOT NULL,
+    code_parametre_exception VARCHAR(100),
     date_debut DATE NOT NULL,
     date_fin DATE,
     est_actif BOOLEAN DEFAULT TRUE
@@ -109,7 +110,8 @@ CREATE INDEX idx_site_indemnite_config_ind ON site_indemnite_config(id_indemnite
 CREATE TABLE ref_tolerance_arrivee_pointage (
     id_tolerance SERIAL PRIMARY KEY,
     id_site INTEGER NOT NULL UNIQUE REFERENCES ref_site(id_site),
-    heure_plafond TIME NOT NULL
+    heure_plafond TIME NOT NULL,
+    est_actif BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 CREATE TABLE employe_indemnite_derogation (
@@ -136,6 +138,7 @@ CREATE TABLE pointage_jour (
     id_site INTEGER NOT NULL REFERENCES ref_site(id_site),
     date_pointage DATE NOT NULL,
     heure_entree_matin TIME,
+    heure_entree_matin_effective TIME,
     heure_sortie_matin TIME,
     heure_entree_am TIME,
     heure_sortie_am TIME,
@@ -189,40 +192,14 @@ CREATE TABLE pointage_indemnite_jour (
 CREATE INDEX idx_pointage_indemnite_ptg ON pointage_indemnite_jour(id_pointage);
 CREATE INDEX idx_pointage_indemnite_ref ON pointage_indemnite_jour(id_indemnite);
 
--- 6. Tables de Synthèse & Clôture de Période (RG-PTG-14)
-CREATE TABLE pointage_semaine_calcule (
-    id_semaine_calcule SERIAL PRIMARY KEY,
-    id_employe INTEGER NOT NULL REFERENCES employe(id_employe),
-    id_periode_paie INTEGER NOT NULL REFERENCES periode_paie(id_periode_paie),
-    debut_semaine DATE NOT NULL,
-    nb_jours_troncon INTEGER NOT NULL,
-    seuil_heures_troncon DECIMAL(5,2) NOT NULL,
-    total_heures_travaillees DECIMAL(5,2) NOT NULL DEFAULT 0,
-    heures_retard DECIMAL(5,2) NOT NULL DEFAULT 0,
-    heures_hs_brutes DECIMAL(5,2) NOT NULL DEFAULT 0,
-    heures_hs_nettes DECIMAL(5,2) NOT NULL DEFAULT 0,
-    heures_deficit DECIMAL(5,2) NOT NULL DEFAULT 0,
-    taux_hs_30_applique DECIMAL(5,2) NOT NULL DEFAULT 0,
-    taux_hs_50_applique DECIMAL(5,2) NOT NULL DEFAULT 0,
-    taux_nuit_applique DECIMAL(5,2) NOT NULL DEFAULT 0,
-    taux_dimanche_applique DECIMAL(5,2) NOT NULL DEFAULT 0,
-    taux_ferie_applique DECIMAL(5,2) NOT NULL DEFAULT 0,
-    heures_hs_30 DECIMAL(5,2) NOT NULL DEFAULT 0,
-    heures_hs_50 DECIMAL(5,2) NOT NULL DEFAULT 0,
-    gele_par INTEGER REFERENCES utilisateur(id_utilisateur),
-    gele_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_semaine_calcule UNIQUE (id_employe, id_periode_paie, debut_semaine)
-);
-
-CREATE INDEX idx_semaine_calcule_employe_periode ON pointage_semaine_calcule(id_employe, id_periode_paie);
-CREATE INDEX idx_pointage_semaine_calcule_periode ON pointage_semaine_calcule(id_periode_paie);
-CREATE INDEX idx_pointage_semaine_calcule_gele_par ON pointage_semaine_calcule(gele_par);
-
+-- La semaine est un calcul mémoire dérivé des journées, pas une table persistée.
+-- 6. Snapshot et Clôture de Période (RG-PTG-14)
 CREATE TABLE pointage_cumul_periode (
     id_cumul SERIAL PRIMARY KEY,
     id_employe INTEGER NOT NULL REFERENCES employe(id_employe),
     id_periode_paie INTEGER NOT NULL REFERENCES periode_paie(id_periode_paie),
     version_snapshot INTEGER NOT NULL DEFAULT 1 CHECK (version_snapshot > 0),
+    contrat_indemnites_version INTEGER NOT NULL DEFAULT 1 CHECK (contrat_indemnites_version IN (1, 2)),
     statut_snapshot VARCHAR(20) NOT NULL DEFAULT 'GELE' CHECK (statut_snapshot IN ('GELE', 'CONSOMME', 'REMPLACE')),
     remplace_id_cumul INTEGER REFERENCES pointage_cumul_periode(id_cumul),
     nb_jours_ouvrables INTEGER NOT NULL,
@@ -248,6 +225,19 @@ CREATE TABLE pointage_cumul_periode (
     CONSTRAINT uk_cumul_employe_periode_version UNIQUE (id_employe, id_periode_paie, version_snapshot)
 );
 
+-- Valeurs réellement accordées, figées avec le cumul consommé par Paie.
+CREATE TABLE pointage_snapshot_indemnite (
+    id_cumul INT NOT NULL REFERENCES pointage_cumul_periode(id_cumul) ON DELETE CASCADE,
+    id_indemnite INT NOT NULL REFERENCES ref_indemnite(id_indemnite),
+    code VARCHAR(20) NOT NULL,
+    libelle VARCHAR(100) NOT NULL,
+    imposable_irsa BOOLEAN NOT NULL,
+    soumis_cotisation BOOLEAN NOT NULL,
+    code_rubrique_paie VARCHAR(50) NOT NULL,
+    montant NUMERIC(12,2) NOT NULL CHECK (montant >= 0),
+    PRIMARY KEY (id_cumul, id_indemnite)
+);
+
 CREATE INDEX idx_cumul_periode_employe ON pointage_cumul_periode(id_employe, id_periode_paie);
 CREATE INDEX idx_pointage_cumul_periode_periode ON pointage_cumul_periode(id_periode_paie);
 CREATE INDEX idx_pointage_cumul_periode_gele_par ON pointage_cumul_periode(gele_par);
@@ -264,16 +254,6 @@ CREATE TABLE pointage_snapshot_jour (
     minutes_nuit INTEGER NOT NULL CHECK (minutes_nuit >= 0),
     statut_jour VARCHAR(40) NOT NULL,
     PRIMARY KEY (id_cumul, id_pointage)
-);
-
-CREATE TABLE pointage_snapshot_semaine (
-    id_cumul INTEGER NOT NULL REFERENCES pointage_cumul_periode(id_cumul) ON DELETE RESTRICT,
-    id_semaine_calcule INTEGER NOT NULL REFERENCES pointage_semaine_calcule(id_semaine_calcule) ON DELETE RESTRICT,
-    debut_semaine DATE NOT NULL,
-    minutes_travaillees INTEGER NOT NULL CHECK (minutes_travaillees >= 0),
-    minutes_hs_30 INTEGER NOT NULL CHECK (minutes_hs_30 >= 0),
-    minutes_hs_50 INTEGER NOT NULL CHECK (minutes_hs_50 >= 0),
-    PRIMARY KEY (id_cumul, id_semaine_calcule)
 );
 
 CREATE TABLE pointage_snapshot_bucket (
@@ -293,21 +273,6 @@ CREATE TABLE pointage_snapshot_bucket (
 CREATE INDEX idx_snapshot_bucket_cumul ON pointage_snapshot_bucket(id_cumul);
 CREATE INDEX idx_snapshot_bucket_periode ON pointage_snapshot_bucket(id_periode_paie);
 CREATE INDEX idx_snapshot_bucket_dates ON pointage_snapshot_bucket(date_debut, date_fin);
-
-CREATE TABLE pointage_cumul_indemnite (
-    id_cumul_indemnite SERIAL PRIMARY KEY,
-    id_periode_paie INTEGER NOT NULL REFERENCES periode_paie(id_periode_paie) ON DELETE CASCADE,
-    id_employe INTEGER NOT NULL REFERENCES employe(id_employe) ON DELETE CASCADE,
-    id_indemnite INTEGER NOT NULL REFERENCES ref_indemnite(id_indemnite),
-    quantite_totale DECIMAL(6,2) NOT NULL DEFAULT 0,
-    montant_total DECIMAL(12,2) NOT NULL DEFAULT 0,
-    gele_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_cumul_indemnite UNIQUE (id_periode_paie, id_employe, id_indemnite)
-);
-
-CREATE INDEX idx_cumul_indemnite_periode ON pointage_cumul_indemnite(id_periode_paie, id_employe);
-CREATE INDEX idx_pointage_cumul_indemnite_emp ON pointage_cumul_indemnite(id_employe);
-CREATE INDEX idx_pointage_cumul_indemnite_ind ON pointage_cumul_indemnite(id_indemnite);
 
 CREATE OR REPLACE VIEW v_pointage_indemnites AS
 SELECT 
@@ -361,8 +326,11 @@ INSERT INTO ref_tolerance_arrivee_pointage (id_site, heure_plafond) VALUES
 
 -- Indemnités de Référence
 INSERT INTO ref_indemnite (id_indemnite, code, libelle, imposable_irsa, fractionnable) VALUES
-(1, 'DEPLACEMENT', 'Indemnité de Déplacement', FALSE, TRUE),
+(1, 'DPLCT', 'Indemnité de Déplacement', FALSE, TRUE),
 (2, 'REPAS', 'Indemnité de Repas', FALSE, FALSE);
+UPDATE ref_indemnite SET code_rubrique_paie = 'INDEMNITE_REPAS' WHERE code = 'REPAS';
+UPDATE ref_indemnite SET code_rubrique_paie = 'INDEMNITE_TRANSPORT' WHERE code = 'DEPLACEMENT';
+UPDATE ref_indemnite SET soumis_cotisation = FALSE WHERE imposable_irsa = FALSE;
 SELECT setval('ref_indemnite_id_indemnite_seq', (SELECT GREATEST(MAX(id_indemnite), 2) FROM ref_indemnite));
 
 -- Configurations d'Indemnités par Site
@@ -371,4 +339,6 @@ INSERT INTO site_indemnite_config (id_site_indemnite, id_site, id_indemnite, per
 (2, 2, 1, 'MENSUEL', 53200.00, '2026-01-01'),
 (3, 1, 2, 'JOURNALIER', 2000.00, '2026-01-01'),
 (4, 2, 2, 'JOURNALIER', 0.00, '2026-01-01');
+UPDATE site_indemnite_config SET code_parametre_exception = 'MONTANT_REPAS_MIDI'
+WHERE id_site_indemnite = 4;
 SELECT setval('site_indemnite_config_id_site_indemnite_seq', (SELECT GREATEST(MAX(id_site_indemnite), 4) FROM site_indemnite_config));

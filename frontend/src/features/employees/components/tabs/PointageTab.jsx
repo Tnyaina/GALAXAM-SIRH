@@ -11,11 +11,7 @@ import {
     ChevronLeft,
     ChevronRight,
     Calendar,
-    Utensils,
-    Bus,
     DollarSign,
-    Moon,
-    RotateCcw,
     ExternalLink,
     Scale,
     ChevronDown,
@@ -26,8 +22,7 @@ import {
     CheckCircle2,
     XCircle
 } from 'lucide-react';
-import attendanceService from '@/features/attendance/api/attendanceService';
-import periodePaieService from '@/features/attendance/api/periodePaieService';
+import { attendanceService, periodePaieService } from '@/features/attendance/api/attendanceApi';
 import { useToast } from '@/components/ui/feedback/Toast';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -258,6 +253,15 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const recap = ficheData?.recap || {};
     const regles = ficheData?.reglesAppliquees || {};
     const pointages = ficheData?.pointagesData || [];
+    const configuredAllowances = Object.values(ficheData?.indemnitesDisponibles || {})
+        .map((allowance) => [allowance.code, {
+            code: allowance.code,
+            periodicite: allowance.periodicite,
+        }]);
+    const recordedAllowances = pointages.flatMap((pointage) => Object.values(pointage.indemnites || {})
+        .map((allowance) => [allowance.code, { code: allowance.code }]));
+    const dynamicAllowances = Array.from(new Map([...recordedAllowances, ...configuredAllowances]).values())
+        .sort((a, b) => a.code.localeCompare(b.code, 'fr'));
 
     const hs30Val = parseFloat(kpis?.heuresHs30) || 0;
     const hs50Val = parseFloat(kpis?.heuresHs50) || 0;
@@ -265,11 +269,14 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const dimVal = parseFloat(kpis?.heuresDimanche) || 0;
     const ferVal = parseFloat(kpis?.heuresFerie) || 0;
     const hasMajorations = (hs30Val > 0 || hs50Val > 0 || nuitVal > 0 || dimVal > 0 || ferVal > 0);
+    const isAssiduiteRuleDisabled = kpis?.primeAssiduiteEligible === 'DISABLED';
     const seuilAssiduiteMinutes = parseInt(kpis?.seuilAssiduiteMinutes || regles?.seuilAssiduiteMinutes, 10) || 45;
     const dureeHebdoLegale = regles?.dureeHebdoLegale || kpis?.dureeHebdoLegale || '40';
     const dureeJourNormale = Number(dureeHebdoLegale) > 0 ? Number(dureeHebdoLegale) / 5 : null;
-    const isAssiduiteEligible = kpis?.primeAssiduiteEligible === 'true' ||
-        (kpis?.primeAssiduiteEligible !== 'false' && (parseHhMmToDecimal(kpis?.retardCumule) * 60 < seuilAssiduiteMinutes));
+    const isAssiduiteEligible = !isAssiduiteRuleDisabled && (
+        kpis?.primeAssiduiteEligible === 'true' ||
+        (kpis?.primeAssiduiteEligible !== 'false' && (parseHhMmToDecimal(kpis?.retardCumule) * 60 < seuilAssiduiteMinutes))
+    );
     const hasRetardNet = Boolean(recap?.retardNet && recap.retardNet !== '00h00' && recap.retardNet !== '0h');
     const hasHsNettes = Boolean(recap?.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' && recap.heuresSuppNettes !== '0h');
 
@@ -297,8 +304,12 @@ export default function PointageTab({ idEmploye, employe = null }) {
         return ['PRESENT', 'DISPENSE_POINTAGE', 'DEMI_JOURNEE', 'RETARD', 'SAMEDI_TRAVAILLE', 'DIMANCHE_TRAVAILLE', 'FERIE_TRAVAILLE'].includes(st);
     }).length;
 
-    const totalTransportUnits = pointages.reduce((acc, p) => acc + (p.deplacementMatin ? 0.5 : 0) + (p.deplacementAm ? 0.5 : 0), 0);
-    const totalRepasUnits = pointages.reduce((acc, p) => acc + (p.nbRepas || (p.indemniteRepas ? 1 : 0)), 0);
+    const dynamicAllowanceTotals = Object.fromEntries(dynamicAllowances.map(({ code }) => [code,
+        pointages.reduce((total, pointage) => {
+            const allowance = pointage.indemnites?.[code];
+            return total + (allowance?.accordee ? Number(allowance.montant || 0) : 0);
+        }, 0)
+    ]));
 
     const currIndexInList = periodesList.findIndex(p => p.idPeriodePaie === selectedPeriodeId);
 
@@ -308,21 +319,6 @@ export default function PointageTab({ idEmploye, employe = null }) {
             {/* 1. Barre d'outils supérieure : Sélecteur de Période, Bascule Période/Mois/Semaine/Jour et Actions */}
             <Card padding bordered className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
                 <div className="flex flex-wrap items-center gap-3">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                            const todayStr = getTodayDateString();
-                            setSelectedDate(todayStr);
-                            const activeP = periodesList.find(p => p.dateDebut <= todayStr && p.dateFin >= todayStr);
-                            if (activeP) setSelectedPeriodeId(activeP.idPeriodePaie);
-                        }}
-                        className="text-xs font-bold flex items-center gap-1.5"
-                    >
-                        <RotateCcw size={14} />
-                        Aujourd'hui
-                    </Button>
 
                     {/* Navigation temporelle selon le mode */}
                     {periodView === 'periode' ? (
@@ -644,11 +640,11 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         Assiduité & Primes
                                     </span>
                                     <Badge
-                                        variant={isAssiduiteEligible ? 'success' : 'warning'}
+                                        variant={isAssiduiteRuleDisabled ? 'neutral' : (isAssiduiteEligible ? 'success' : 'warning')}
                                         size="sm"
                                         className="font-bold"
                                     >
-                                        {isAssiduiteEligible ? 'ÉLIGIBLE' : 'HORS CRITÈRE'}
+                                        {isAssiduiteRuleDisabled ? 'RÈGLE INACTIVE' : (isAssiduiteEligible ? 'ÉLIGIBLE' : 'HORS CRITÈRE')}
                                     </Badge>
                                 </div>
                                 <div className="mt-2.5">
@@ -661,7 +657,9 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         </span>
                                     </div>
                                     <div className="mt-1 flex items-center gap-1 text-xs">
-                                        {isAssiduiteEligible ? (
+                                        {isAssiduiteRuleDisabled ? (
+                                            <span className="text-[var(--color-fg-muted)] font-medium">Règle d'assiduité désactivée</span>
+                                        ) : isAssiduiteEligible ? (
                                             <span className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-medium flex items-center gap-1">
                                                 <CheckCircle2 size={12} /> Prime assiduité accordée
                                             </span>
@@ -675,7 +673,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             </div>
                             <div className="mt-3 pt-2 border-t border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-subtle)] flex items-center justify-between">
                                 <span>Ponctualité brute</span>
-                                <span>Max toléré : {seuilAssiduiteMinutes} min</span>
+                                <span>{isAssiduiteRuleDisabled ? 'Aucun seuil appliqué' : `Max toléré : ${seuilAssiduiteMinutes} min`}</span>
                             </div>
                         </div>
                     </div>
@@ -702,13 +700,23 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     <Th className="text-xs font-bold uppercase py-3 px-3 text-center" title="Temps de travail effectif de la journée">Heures faites</Th>
                                     <Th className="text-xs font-bold uppercase py-3 px-3 text-center" title="Différence par rapport aux 8h journalières : surplus (+) ou manque (-)">Écart (vs 8h)</Th>
                                     <Th className="text-xs font-bold uppercase py-3 px-3 text-center" title="Statut de la journée (Présent, Congé, Férié, Repos...)">Statut</Th>
-                                    <Th className="text-xs font-bold uppercase py-3 px-2 text-center border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10 font-mono tracking-wider" title="Indemnité transport / déplacement (1 = Aller-Retour, 0.5 = 1 trajet, — = aucun)">Transport</Th>
-                                    <Th className="text-xs font-bold uppercase py-3 px-2 text-center border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10 font-mono tracking-wider" title="Panier repas accordé sur site">Repas</Th>
+                                    {dynamicAllowances.map((allowance) => (
+                                        <Th key={allowance.code} className="text-xs font-bold uppercase py-3 px-2 text-center border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10" title={allowance.code}>
+                                            <span className="flex flex-col items-center">
+                                                <span>{allowance.code}</span>
+                                                {allowance.periodicite && (
+                                                    <span className="text-[9px] font-normal normal-case opacity-75">
+                                                        {allowance.periodicite.replaceAll('_', ' ').toLowerCase()}
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </Th>
+                                    ))}
                                 </Thead>
                                 <Tbody>
                                     {pointages.length === 0 ? (
                                         <Tr>
-                                            <Td colSpan={12} className="text-center py-8 text-xs text-[var(--color-fg-muted)]">
+                                            <Td colSpan={10 + dynamicAllowances.length} className="text-center py-8 text-xs text-[var(--color-fg-muted)]">
                                                 Aucune donnée de pointage pour cette période.
                                             </Td>
                                         </Tr>
@@ -721,8 +729,6 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             const isNonEchu = st === 'NON_ECHU';
                                             const isMerged = isConge || isFerie || isRepos || isNonEchu;
 
-                                            const valDplt = (ptg.deplacementMatin ? 0.5 : 0) + (ptg.deplacementAm ? 0.5 : 0);
-                                            const valRepas = ptg.nbRepas || (ptg.indemniteRepas ? 1 : 0);
                                             const isContinu = Boolean(
                                                 ptg.horaireContinuJour ||
                                                 ptg.horaireContinu ||
@@ -842,31 +848,14 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                         {getStatutBadge(ptg.statut)}
                                                     </Td>
 
-                                                    {/* Colonne 11 : DPLT (Déplacement : 1, 0.5 ou 0) */}
-                                                    <Td className="font-mono text-xs text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/20 bg-[var(--color-orange-500)]/[0.04]">
-                                                        {valDplt > 0 ? (
-                                                            <span className="font-bold text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)]" title={`Déplacement : ${valDplt === 1 ? 'Matin + Soir (1)' : ptg.deplacementMatin ? 'Matin (0.5)' : 'Soir (0.5)'}`}>
-                                                                {valDplt}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] opacity-40">
-                                                                {isRepos || isConge || isFerie ? '—' : '0'}
-                                                            </span>
-                                                        )}
-                                                    </Td>
-
-                                                    {/* Colonne 12 : REPAS (Paniers repas : 1, 2 ou 0) */}
-                                                    <Td className="font-mono text-xs text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/20 bg-[var(--color-orange-500)]/[0.04]">
-                                                        {valRepas > 0 ? (
-                                                            <span className="font-bold text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)]" title={`Repas : ${valRepas} ${valRepas > 1 ? 'repas' : 'repas'}`}>
-                                                                {valRepas}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] opacity-40">
-                                                                {isRepos || isConge || isFerie ? '—' : '0'}
-                                                            </span>
-                                                        )}
-                                                    </Td>
+                                                    {dynamicAllowances.map((allowance) => {
+                                                        const value = ptg.indemnites?.[allowance.code];
+                                                        return (
+                                                            <Td key={allowance.code} className="font-mono text-xs text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/20 bg-[var(--color-orange-500)]/[0.04]" title={value?.accordee ? allowance.code : ''}>
+                                                                {value?.accordee && Number(value.montant) > 0 ? `${Number(value.montant).toLocaleString('fr-FR')} Ar` : '—'}
+                                                            </Td>
+                                                        );
+                                                    })}
                                                 </Tr>
                                             );
                                         })
@@ -916,25 +905,11 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                 {kpis.joursTravailles ? `${kpis.joursTravailles} travaillés` : `${workedDaysCount} j travaillés`}
                                             </td>
 
-                                            {/* Col 11 : Transport */}
-                                            <td className="font-mono text-xs font-bold text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10">
-                                                <div>{totalTransportUnits}</div>
-                                                {kpis.montantDeplacementTotal ? (
-                                                    <div className="text-[9.5px] font-sans font-normal text-[var(--color-orange-600)] dark:text-[var(--color-orange-300)]">
-                                                        {kpis.montantDeplacementTotal}
-                                                    </div>
-                                                ) : null}
-                                            </td>
-
-                                            {/* Col 12 : Repas */}
-                                            <td className="font-mono text-xs font-bold text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10">
-                                                <div>{totalRepasUnits}</div>
-                                                {kpis.montantRepasTotal ? (
-                                                    <div className="text-[9.5px] font-sans font-normal text-[var(--color-orange-600)] dark:text-[var(--color-orange-300)]">
-                                                        {kpis.montantRepasTotal}
-                                                    </div>
-                                                ) : null}
-                                            </td>
+                                            {dynamicAllowances.map((allowance) => (
+                                                <td key={allowance.code} className="font-mono text-xs font-bold text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10">
+                                                    {dynamicAllowanceTotals[allowance.code].toLocaleString('fr-FR')} Ar
+                                                </td>
+                                            ))}
                                         </tr>
                                     </tfoot>
                                 )}
@@ -1147,64 +1122,28 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         Indemnités &amp; Majorations
                                     </h4>
                                     <span className="font-mono text-sm font-black text-[var(--color-orange-600)] dark:text-[var(--color-orange-400)]">
-                                        {kpis.totalIndemnitesMois || kpis.montantRepasTotal || '0 Ar'}
+                                        {kpis.totalIndemnitesMois || '0 Ar'}
                                     </span>
                                 </div>
 
                                 <div className="space-y-2.5 pt-2.5">
-                                    {/* 1. Tuile Panier Repas */}
-                                    <div className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] space-y-1.5">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <div className="w-6 h-6 rounded flex items-center justify-center bg-[var(--color-orange-500)]/10 text-[var(--color-orange-600)] shrink-0">
-                                                    <Utensils size={13} />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="text-xs font-bold text-[var(--color-fg)]">Panier Repas</div>
-                                                    <div className="text-[11px] text-[var(--color-fg-muted)] truncate">
-                                                        {kpis.totalRepas || '0 repas'} validés{kpis.tarifRepas ? ` · ${kpis.tarifRepas} / repas` : ''}
+                                    {dynamicAllowances.map((allowance) => (
+                                        <div key={allowance.code} className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <div className="text-xs font-bold text-[var(--color-fg)] font-mono">{allowance.code}</div>
+                                                {allowance.periodicite && (
+                                                    <div className="text-[11px] text-[var(--color-fg-muted)]">
+                                                        {allowance.periodicite.replaceAll('_', ' ').toLowerCase()}
                                                     </div>
-                                                </div>
+                                                )}
                                             </div>
-                                            <div className="text-right shrink-0">
-                                                <span className="font-mono text-sm font-bold text-[var(--color-orange-600)] dark:text-[var(--color-orange-400)]">
-                                                    {kpis.montantRepasTotal || '0 Ar'}
-                                                </span>
-                                            </div>
+                                            <span className="font-mono text-sm font-bold text-[var(--color-orange-600)] dark:text-[var(--color-orange-400)] shrink-0">
+                                                {dynamicAllowanceTotals[allowance.code].toLocaleString('fr-FR')} Ar
+                                            </span>
                                         </div>
+                                    ))}
 
-                                        {/* Détail 2e Repas si existant */}
-                                        {recap.repas2eDetail && (
-                                            <div className="text-[10.5px] text-purple-700 dark:text-purple-300 pt-1 border-t border-[var(--color-border-subtle)] flex items-center justify-between font-mono">
-                                                <span className="flex items-center gap-1"><Moon size={10} /> 2ᵉ Repas (Nuit / HS)</span>
-                                                <span className="font-bold">{recap.repas2eDetail}</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* 2. Tuile Transport & Déplacement */}
-                                    <div className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] space-y-1">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <div className="w-6 h-6 rounded flex items-center justify-center bg-sky-500/10 text-sky-600 shrink-0">
-                                                    <Bus size={13} />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="text-xs font-bold text-[var(--color-fg)]">Transport &amp; Déplacement</div>
-                                                    <div className="text-[11px] text-[var(--color-fg-muted)] truncate">
-                                                        {kpis.totalTrajets || '0 trajet'} (AR) · Prorata {kpis.nbJoursOuvrables || 21} j ouvrables{kpis.nbJoursFerieChome > 0 ? ` (${kpis.nbJoursFerieChome} j férié déduit)` : ''}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="text-right shrink-0">
-                                                <span className="font-mono text-sm font-bold text-sky-600">
-                                                    {kpis.montantDeplacementTotal || '0 Ar'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* 3. Majorations applicables */}
+                                    {/* Majorations applicables */}
                                     <div className="pt-2 border-t border-[var(--color-border-subtle)] space-y-1">
                                         <div className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
                                             Majorations applicables
@@ -1269,12 +1208,8 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         <span className="font-mono font-bold text-[var(--color-fg)]">{regles.debutNormal || '—'}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-[var(--color-fg-muted)]">Heure d'arrivée maximale</span>
-                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.plafondArrivee || '—'}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-[var(--color-fg-muted)]">Tolérance de retard</span>
-                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.toleranceRetard != null ? regles.toleranceRetard : '—'}</span>
+                                        <span className="text-[var(--color-fg-muted)]">Heure minimale comptabilisée</span>
+                                        <span className="font-mono font-bold text-[var(--color-fg)]">{regles.plafondArrivee || 'Désactivée'}</span>
                                     </div>
                                 </div>
 

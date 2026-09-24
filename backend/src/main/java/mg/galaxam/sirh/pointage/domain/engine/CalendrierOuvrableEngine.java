@@ -304,7 +304,10 @@ public class CalendrierOuvrableEngine {
      */
     public BigDecimal calculerProrataJournalier(BigDecimal montantReference, int nbJoursOuvrables) {
         if (montantReference == null) return BigDecimal.ZERO;
-        if (nbJoursOuvrables <= 0) return montantReference;
+        if (nbJoursOuvrables <= 0) {
+            if (montantReference.signum() == 0) return BigDecimal.ZERO;
+            throw new IllegalArgumentException("MISSING_WORKING_CALENDAR: impossible de proratiser sans jours ouvrables.");
+        }
         return MoneyRoundingPolicy.amount(montantReference.divide(BigDecimal.valueOf(nbJoursOuvrables), 8, java.math.RoundingMode.HALF_UP));
     }
 

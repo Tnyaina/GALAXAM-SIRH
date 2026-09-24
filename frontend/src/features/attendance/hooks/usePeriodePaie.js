@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import periodePaieService from '@/features/attendance/api/periodePaieService';
+import { periodePaieService } from '@/features/attendance/api/attendanceApi';
 import { getErrorMessage } from '@/api/apiClient';
 
 export function usePeriodePaie() {

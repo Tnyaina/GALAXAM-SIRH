@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import mg.galaxam.sirh.conge.persistence.DemandeConge;
 import mg.galaxam.sirh.conge.persistence.MouvementSoldeConge;
@@ -436,6 +437,98 @@ public class CongeService {
             throw new IllegalArgumentException("Les dates de début et de fin sont obligatoires pour la simulation.");
         }
         return calculateurEngine.calculerNombreJours(dateDebut.toLocalDate(), dateFin.toLocalDate(), estDemiJournee);
+    }
+
+    /**
+     * Reproduit le chemin historique de régularisation Pointage en possédant les
+     * écritures Congés. La connexion est fournie par l'appelant afin que le congé,
+     * le ledger et le pointage restent dans la même transaction JDBC.
+     */
+    public int regulariserCongeAnnuelDepuisPointage(
+            int employeeId, Date date, double days, String momentDemiJournee,
+            String comment, Integer currentUserId, Connection c) throws Exception {
+        if (date == null || (days != 1.0 && days != 0.5)) {
+            throw new IllegalArgumentException("La date et une durée de congé de 0,5 ou 1 jour sont requises.");
+        }
+
+        RefTypeConge annualType = RefTypeConge.rechercherParCode("ANNUEL", c);
+        if (annualType == null || !annualType.isEstActif() || !annualType.isDecompteSoldeAcquis()) {
+            throw new IllegalStateException("Le type de congé annuel avec décompte du solde est indisponible.");
+        }
+
+        // Ne jamais réutiliser silencieusement une demande qui couvrirait déjà ce jour :
+        // elle peut avoir un autre type, une autre durée ou un mouvement de solde différent.
+        try (PreparedStatement statement = c.prepareStatement(
+                "SELECT 1 FROM demande_conge WHERE id_employe = ? AND date_debut <= ? AND date_fin >= ? LIMIT 1")) {
+            statement.setInt(1, employeeId);
+            statement.setDate(2, date);
+            statement.setDate(3, date);
+            try (ResultSet result = statement.executeQuery()) {
+                if (result.next()) {
+                    throw new IllegalStateException("Une demande de congé couvre déjà cette date ; vérifiez-la avant régularisation.");
+                }
+            }
+        }
+
+        DemandeConge demande = new DemandeConge();
+        demande.setIdEmploye(employeeId);
+        demande.setIdTypeConge(annualType.getIdTypeConge());
+        demande.setDateDebut(date);
+        demande.setDateFin(date);
+        demande.setEstDemiJournee(days == 0.5);
+        demande.setMomentDemiJournee(days == 0.5 ? momentDemiJournee : null);
+        // Une régularisation porte sur une absence déjà passée : le préavis est
+        // intrinsèquement impossible, mais tous les contrôles de droit/solde restent appliqués.
+        demande.setDerogationDelaiPreavis(true);
+        demande.setCommentaire(comment != null && !comment.isBlank()
+                ? "[REGULARISATION_POINTAGE] " + comment
+                : "[REGULARISATION_POINTAGE] Absence régularisée par congé annuel");
+
+        // Le flux normal valide le contrat et le solde, puis crée le mouvement PRISE.
+        // L'appelant conserve la transaction englobant aussi la mise à jour Pointage.
+        creerDemande(demande, currentUserId, c);
+        validerDemande(demande.getIdDemandeConge(), currentUserId,
+                "Validation de régularisation depuis Pointage", c);
+        return demande.getIdDemandeConge();
+    }
+
+    /** Une permission oubliée suit aussi le contrôle et la validation du domaine Congés. */
+    public int regulariserPermissionDepuisPointage(int employeeId, Date date, String comment,
+            Integer currentUserId, Connection c) throws Exception {
+        Integer permissionTypeId = null;
+        try (PreparedStatement statement = c.prepareStatement(
+                "SELECT id_type_conge FROM ref_type_conge WHERE code IN ('PERMISSION', 'EXCEPTIONNEL') "
+                        + "AND est_actif = TRUE ORDER BY CASE WHEN code = 'PERMISSION' THEN 0 ELSE 1 END LIMIT 1");
+             ResultSet result = statement.executeQuery()) {
+            if (result.next()) permissionTypeId = result.getInt(1);
+        }
+        if (permissionTypeId == null) {
+            throw new IllegalStateException("Aucun type de permission actif n'est disponible pour la régularisation.");
+        }
+        try (PreparedStatement statement = c.prepareStatement(
+                "SELECT 1 FROM demande_conge WHERE id_employe = ? AND date_debut <= ? AND date_fin >= ? LIMIT 1")) {
+            statement.setInt(1, employeeId);
+            statement.setDate(2, date);
+            statement.setDate(3, date);
+            try (ResultSet result = statement.executeQuery()) {
+                if (result.next()) {
+                    throw new IllegalStateException("Une demande de congé couvre déjà cette date ; vérifiez-la avant régularisation.");
+                }
+            }
+        }
+        DemandeConge demande = new DemandeConge();
+        demande.setIdEmploye(employeeId);
+        demande.setIdTypeConge(permissionTypeId);
+        demande.setDateDebut(date);
+        demande.setDateFin(date);
+        demande.setDerogationDelaiPreavis(true);
+        demande.setCommentaire(comment != null && !comment.isBlank()
+                ? "[REGULARISATION_POINTAGE] " + comment
+                : "[REGULARISATION_POINTAGE] Permission déjà accordée, oubliée dans Pointage");
+        creerDemande(demande, currentUserId, c);
+        validerDemande(demande.getIdDemandeConge(), currentUserId,
+                "Validation de permission oubliée depuis Pointage", c);
+        return demande.getIdDemandeConge();
     }
 
     /**

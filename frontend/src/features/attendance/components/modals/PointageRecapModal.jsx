@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
-import { CheckCircle2, AlertTriangle, Clock, Calendar, Users, Coffee, Car } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Clock, Calendar, Users, Gift } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import { formatHeuresMinutes, formatHeuresDecimal, formatMonnaie } from '@/features/attendance/utils/attendanceDisplayUtils';
+import { formatHeuresMinutes, formatHeuresDecimal } from '@/features/attendance/utils/attendanceDisplayUtils';
 
 export default function PointageRecapModal({
     isOpen = false,
@@ -34,35 +34,28 @@ export default function PointageRecapModal({
     // Données dérivées pour le récapitulatif journalier.
     const safeData = Array.isArray(grilleData) ? grilleData : [];
 
-    const fmtMoney = (val) => formatMonnaie(val);
-
     const totalInscrits = safeData.length;
-    let isWeekend = false;
-    if (selectedDate) {
-        const dObj = new Date(selectedDate);
-        const day = dObj.getDay();
-        isWeekend = (day === 0 || day === 6);
-    }
-    const presents = safeData.filter(r => r.present || r.dispensePointage || r.ferieTravaille || (r.totalHeures && r.totalHeures > 0));
-    const retards = safeData.filter(r => r.retard || (r.minutesRetard && r.minutesRetard > 0));
+    const presents = safeData.filter(r => r.present || r.dispensePointage || r.ferieTravaille || r.samediTravaille || r.dimancheTravaille);
+    const retards = safeData.filter(r => r.retard);
     const cumulRetard = safeData.reduce((acc, r) => acc + (Number(r.minutesRetard) || 0), 0);
-    const anomalies = safeData.filter(r => r.anomalie || (!isWeekend && r.absenceNonJustifiee));
-    const repasCount = safeData.filter(r => r.indemniteRepasRecue).length;
-    const totalTrajets = safeData.reduce((acc, r) => {
-        let cnt = 0;
-        if (r.deplacementMatin) cnt += 1;
-        if (r.deplacementAm) cnt += 1;
-        return acc + cnt;
-    }, 0);
-    const totalJoursDeplacement = totalTrajets / 2.0;
-
-    // Configuration dynamique des montants du site (fournis par le backend)
-    const deplacementConfig = siteIndemnites.find(i => i.code === 'DEPLACEMENT' || i.code === 'TRANSPORT');
-    const montantDeplacementJour = deplacementConfig?.montantJour || deplacementConfig?.montantReference || 0;
-    const montantTrajetSimple = deplacementConfig?.montantTrajet || Math.round(montantDeplacementJour / 2.0);
-
-    const repasConfig = siteIndemnites.find(i => i.code === 'REPAS');
-    const montantRepasBase = repasConfig?.montantJour || repasConfig?.montantReference || 0;
+    const anomalies = safeData.filter(r => r.hasValidationError || r.anomalie);
+    const allowanceChoices = (row) => siteIndemnites.flatMap((allowance) => {
+        const choice = row.dynamicIndemnites?.[String(allowance.idIndemnite)];
+        if (!choice) return [];
+        if (allowance.fractionnable) {
+            if (!choice.matin && !choice.am) return [];
+            const part = choice.matin && choice.am ? 'journée' : choice.matin ? 'matin' : 'après-midi';
+            return [`${allowance.code} (${part})`];
+        }
+        return choice.accordee ? [allowance.code] : [];
+    });
+    const allowanceCounts = siteIndemnites.map((allowance) => ({
+        ...allowance,
+        count: safeData.filter((row) => {
+            const choice = row.dynamicIndemnites?.[String(allowance.idIndemnite)];
+            return allowance.fractionnable ? Boolean(choice?.matin || choice?.am) : Boolean(choice?.accordee);
+        }).length
+    }));
 
     // Rendu
     return (
@@ -138,22 +131,14 @@ export default function PointageRecapModal({
                             {retards.length} <span className="text-xs font-normal text-[var(--color-fg-muted)] font-sans">({cumulRetard} min)</span>
                         </p>
                     </div>
-                    <div className="p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xs">
-                        <p className="text-[11px] font-bold uppercase text-[var(--color-fg-muted)] flex items-center gap-1.5 tracking-wider">
-                            <Coffee size={14} className="text-amber-500" /> Repas accordés
-                        </p>
-                        <p className="text-xl font-bold font-mono text-amber-600 mt-1.5">
-                            {repasCount}
-                        </p>
-                    </div>
-                    <div className="p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xs">
-                        <p className="text-[11px] font-bold uppercase text-[var(--color-fg-muted)] flex items-center gap-1.5 tracking-wider">
-                            <Car size={14} className="text-indigo-500" /> Déplacements
-                        </p>
-                        <p className="text-xl font-bold font-mono text-indigo-600 mt-1.5">
-                            {totalTrajets} <span className="text-xs font-normal text-[var(--color-fg-muted)] font-sans">trajet{totalTrajets > 1 ? 's' : ''} ({totalJoursDeplacement}j)</span>
-                        </p>
-                    </div>
+                    {allowanceCounts.map((allowance) => (
+                        <div key={allowance.idIndemnite} className="p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xs">
+                            <p className="text-[11px] font-bold uppercase text-[var(--color-fg-muted)] flex items-center gap-1.5 tracking-wider">
+                                <Gift size={14} className="text-indigo-500" /> {allowance.code}
+                            </p>
+                            <p className="text-xl font-bold font-mono text-indigo-600 mt-1.5">{allowance.count}</p>
+                        </div>
+                    ))}
                 </div>
 
                 {/* 3. Alerte Anomalies si présentes */}
@@ -192,7 +177,7 @@ export default function PointageRecapModal({
                                     ? `${row.heureEntreeAm || '--:--'} → ${row.heureSortieAm || '--:--'}`
                                     : '—';
 
-                                const montantRepasLigne = row.montantRepas || montantRepasBase;
+                                const choices = allowanceChoices(row);
 
                                 return (
                                     <Tr key={row.idEmploye} className="border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/50">
@@ -222,31 +207,12 @@ export default function PointageRecapModal({
                                         </Td>
                                         <Td className="py-2.5 px-3 text-center text-[11px]">
                                             <div className="flex flex-wrap items-center justify-center gap-1.5">
-                                                {row.deplacementMatin && row.deplacementAm && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold text-[11px] border border-blue-500/20" title="Indemnité déplacement aller + retour (jour entier)">
-                                                        <Car size={12} />
-                                                        <span>Déplacement ({fmtMoney(montantDeplacementJour)})</span>
+                                                {choices.map((choice) => (
+                                                    <span key={choice} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold text-[11px] border border-blue-500/20">
+                                                        <Gift size={12} /> {choice}
                                                     </span>
-                                                )}
-                                                {row.deplacementMatin && !row.deplacementAm && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold text-[11px] border border-blue-500/20" title="Trajet aller du matin">
-                                                        <Car size={12} />
-                                                        <span>Aller matin ({fmtMoney(montantTrajetSimple)})</span>
-                                                    </span>
-                                                )}
-                                                {!row.deplacementMatin && row.deplacementAm && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold text-[11px] border border-blue-500/20" title="Trajet retour du soir">
-                                                        <Car size={12} />
-                                                        <span>Retour soir ({fmtMoney(montantTrajetSimple)})</span>
-                                                    </span>
-                                                )}
-                                                {row.indemniteRepasRecue && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-semibold text-[11px] border border-amber-500/20" title="Indemnité de repas journalière">
-                                                        <Coffee size={12} />
-                                                        <span>Repas ({fmtMoney(montantRepasLigne)})</span>
-                                                    </span>
-                                                )}
-                                                {!row.deplacementMatin && !row.deplacementAm && !row.indemniteRepasRecue && (
+                                                ))}
+                                                {choices.length === 0 && (
                                                     <span className="text-[var(--color-fg-muted)] font-mono">—</span>
                                                 )}
                                             </div>

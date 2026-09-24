@@ -60,6 +60,16 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
     private BigDecimal montantDeplacement = BigDecimal.ZERO;
     private int nbJoursRepas;
     private BigDecimal montantRepas = BigDecimal.ZERO;
+    private java.util.Map<String, BigDecimal> montantsIndemnites = new java.util.LinkedHashMap<>();
+
+    public java.util.Map<String, BigDecimal> getMontantsIndemnites() {
+        return montantsIndemnites;
+    }
+
+    public void setMontantsIndemnites(java.util.Map<String, BigDecimal> montantsIndemnites) {
+        this.montantsIndemnites = montantsIndemnites == null
+                ? new java.util.LinkedHashMap<>() : montantsIndemnites;
+    }
 
     // Contrôle & intégrité
     private int nbAnomaliesNonResolues;

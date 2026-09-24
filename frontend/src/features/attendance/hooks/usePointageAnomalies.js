@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import attendanceService from '@/features/attendance/api/attendanceService';
+import { attendanceService } from '@/features/attendance/api/attendanceApi';
 import useDebounce from '@/hooks/useDebounce';
 import { getErrorMessage } from '@/api/apiClient';
 

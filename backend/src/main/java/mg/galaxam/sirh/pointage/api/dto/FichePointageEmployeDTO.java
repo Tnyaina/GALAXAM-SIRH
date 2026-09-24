@@ -1,6 +1,7 @@
 package mg.galaxam.sirh.pointage.api.dto;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class FichePointageEmployeDTO {
@@ -22,7 +23,10 @@ public class FichePointageEmployeDTO {
     private String fonction;
     private String categorie;
     private List<PointageJourDTO> pointagesData;
+    private Map<String, IndemniteFicheDTO> indemnitesDisponibles = new LinkedHashMap<>();
     private List<PointageTronconSemaineDTO> bilansHebdo;
+
+    public record IndemniteFicheDTO(String code, String periodicite) {}
 
     public Integer getIdEmploye() { return idEmploye; }
     public void setIdEmploye(Integer idEmploye) { this.idEmploye = idEmploye; }
@@ -80,4 +84,10 @@ public class FichePointageEmployeDTO {
 
     public List<PointageJourDTO> getPointagesData() { return pointagesData; }
     public void setPointagesData(List<PointageJourDTO> pointagesData) { this.pointagesData = pointagesData; }
+
+    public Map<String, IndemniteFicheDTO> getIndemnitesDisponibles() { return indemnitesDisponibles; }
+    public void setIndemnitesDisponibles(Map<String, IndemniteFicheDTO> indemnitesDisponibles) {
+        this.indemnitesDisponibles = indemnitesDisponibles == null
+                ? new LinkedHashMap<>() : new LinkedHashMap<>(indemnitesDisponibles);
+    }
 }

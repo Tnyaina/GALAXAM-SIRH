@@ -3,26 +3,15 @@ package mg.galaxam.sirh.pointage.application;
 import mg.galaxam.sirh.pointage.api.dto.PointageSyntheseMensuelleDTO;
 import mg.galaxam.sirh.pointage.api.dto.PointageTronconSemaineDTO;
 import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
-import mg.galaxam.sirh.paieconfig.persistence.RefTauxMajoration;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
-import mg.galaxam.sirh.pointage.domain.mapper.PointageTimeBoundaryMapper;
-import mg.galaxam.sirh.pointage.domain.calculation.AttendancePeriodCalculator;
-import mg.galaxam.sirh.pointage.domain.calculation.AttendancePeriodContext;
-import mg.galaxam.sirh.pointage.domain.calculation.AttendancePeriodResult;
-import mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceResult;
-import mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceCalculator;
-import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceCalculator;
-import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceContext;
-import mg.galaxam.sirh.pointage.domain.calculation.WeeklyAttendanceResult;
-import mg.galaxam.sirh.pointage.domain.calculation.WeeklyPriorState;
-import mg.galaxam.sirh.pointage.domain.calculation.PeriodWeekSegmenter;
-import mg.galaxam.sirh.pointage.domain.calculation.WorkInterval;
-import mg.galaxam.sirh.pointage.domain.calculation.WorkIntervalFactory;
-import mg.galaxam.sirh.pointage.domain.calculation.TemporalBucket;
-import mg.galaxam.sirh.pointage.domain.calculation.AttendanceTemporalPartitioner;
-import mg.galaxam.sirh.pointage.domain.calculation.OvertimeProjectionEngine;
+import mg.galaxam.sirh.pointage.domain.calculation.AttendanceEngine;
+import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.WorkInterval;
+import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.WorkIntervalFactory;
+import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.TemporalBucket;
+import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.AttendanceTemporalPartitioner;
+import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.OvertimeProjectionEngine;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
 import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
 import mg.galaxam.sirh.pointage.domain.calculation.DaySpecialType;
@@ -58,6 +47,29 @@ public class PointageSyntheseService {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PointageSyntheseService.class);
 
+    private record PeriodTotals(long workedMinutes, long overtime30Minutes, long overtime50Minutes,
+                                long nightMinutes, long sundayMinutes, long publicHolidayMinutes,
+                                long absenceMinutes, long lateMinutes, int mealDays,
+                                BigDecimal mealAmount, BigDecimal travelUnits, BigDecimal travelAmount) {}
+
+    private static PeriodTotals aggregateWeeks(List<AttendanceEngine.WeekResult> weeks) {
+        List<AttendanceEngine.WeekResult> safeWeeks = weeks == null ? List.of() : weeks;
+        List<AttendanceEngine.Result> days = safeWeeks.stream().flatMap(week -> week.days().stream()).toList();
+        return new PeriodTotals(
+                safeWeeks.stream().mapToLong(AttendanceEngine.WeekResult::workedMinutes).sum(),
+                safeWeeks.stream().mapToLong(AttendanceEngine.WeekResult::overtime30Minutes).sum(),
+                safeWeeks.stream().mapToLong(AttendanceEngine.WeekResult::overtime50Minutes).sum(),
+                days.stream().mapToLong(AttendanceEngine.Result::nightMinutes).sum(),
+                days.stream().filter(AttendanceEngine.Result::sunday).mapToLong(AttendanceEngine.Result::workedMinutes).sum(),
+                days.stream().filter(AttendanceEngine.Result::publicHoliday).mapToLong(AttendanceEngine.Result::workedMinutes).sum(),
+                safeWeeks.stream().mapToLong(AttendanceEngine.WeekResult::absenceMinutes).sum(),
+                safeWeeks.stream().mapToLong(AttendanceEngine.WeekResult::lateMinutes).sum(),
+                days.stream().mapToInt(AttendanceEngine.Result::mealDays).sum(),
+                days.stream().map(AttendanceEngine.Result::mealAmount).reduce(BigDecimal.ZERO, BigDecimal::add),
+                days.stream().map(AttendanceEngine.Result::travelUnits).reduce(BigDecimal.ZERO, BigDecimal::add),
+                days.stream().map(AttendanceEngine.Result::travelAmount).reduce(BigDecimal.ZERO, BigDecimal::add));
+    }
+
     private static long hoursToMinutes(BigDecimal hours) {
         if (hours == null) return 0;
         return hours.multiply(BigDecimal.valueOf(60)).setScale(0, RoundingMode.HALF_UP).longValueExact();
@@ -72,8 +84,18 @@ public class PointageSyntheseService {
     }
 
     private static BigDecimal requireAllowanceParameter(
-            Map<String, String> params, String code, int siteId, LocalDate date, int employeeId) {
-        BigDecimal value = ParametreGlobal.getBigDecimal(params, code, null);
+            Map<String, ParametreGlobal.ParametreEtat> params, String code,
+            int siteId, LocalDate date, int employeeId) {
+        ParametreGlobal.ParametreResolution resolution = ParametreGlobal.resolve(params, code);
+        if (resolution.isDisabled()) return BigDecimal.ZERO;
+        BigDecimal value = null;
+        if (resolution.isActive()) {
+            try {
+                value = new BigDecimal(resolution.valeur().trim());
+            } catch (RuntimeException exception) {
+                value = null;
+            }
+        }
         if (value == null || value.compareTo(BigDecimal.ZERO) < 0) {
             throw new SirhBusinessException(
                     SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
@@ -84,19 +106,19 @@ public class PointageSyntheseService {
         return value;
     }
 
-    private static DailyAttendanceResult.Status statusFromCode(String code) {
-        if (code == null) return DailyAttendanceResult.Status.ANOMALY;
+    private static AttendanceEngine.Result.Status statusFromCode(String code) {
+        if (code == null) return AttendanceEngine.Result.Status.ANOMALY;
         return switch (code) {
-            case "CONGE" -> DailyAttendanceResult.Status.LEAVE;
-            case "REPOS" -> DailyAttendanceResult.Status.REST;
-            case "FERIE_CHOME" -> DailyAttendanceResult.Status.PUBLIC_HOLIDAY_OFF;
-            case "FERIE_TRAVAILLE" -> DailyAttendanceResult.Status.PUBLIC_HOLIDAY_WORKED;
-            case "DIMANCHE_TRAVAILLE" -> DailyAttendanceResult.Status.SUNDAY_WORKED;
-            case "DISPENSE_POINTAGE" -> DailyAttendanceResult.Status.AUTONOMOUS;
-            case "DEMI_JOURNEE" -> DailyAttendanceResult.Status.HALF_DAY;
-            case "ABSENCE_NON_JUSTIFIEE", "ABSENCE_JUSTIFIEE" -> DailyAttendanceResult.Status.ABSENT;
-            case "ANOMALIE_SAISIE" -> DailyAttendanceResult.Status.ANOMALY;
-            default -> DailyAttendanceResult.Status.PRESENT;
+            case "CONGE" -> AttendanceEngine.Result.Status.LEAVE;
+            case "REPOS" -> AttendanceEngine.Result.Status.REST;
+            case "FERIE_CHOME" -> AttendanceEngine.Result.Status.PUBLIC_HOLIDAY_OFF;
+            case "FERIE_TRAVAILLE" -> AttendanceEngine.Result.Status.PUBLIC_HOLIDAY_WORKED;
+            case "DIMANCHE_TRAVAILLE" -> AttendanceEngine.Result.Status.SUNDAY_WORKED;
+            case "DISPENSE_POINTAGE" -> AttendanceEngine.Result.Status.AUTONOMOUS;
+            case "DEMI_JOURNEE" -> AttendanceEngine.Result.Status.HALF_DAY;
+            case "ABSENCE_NON_JUSTIFIEE", "ABSENCE_JUSTIFIEE" -> AttendanceEngine.Result.Status.ABSENT;
+            case "ANOMALIE_SAISIE" -> AttendanceEngine.Result.Status.ANOMALY;
+            default -> AttendanceEngine.Result.Status.PRESENT;
         };
     }
 
@@ -107,35 +129,29 @@ public class PointageSyntheseService {
     private mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine calendrierEngine;
 
     @Autowired
-    private WeeklyAttendanceCalculator weeklyAttendanceCalculator;
+    private AttendanceEngine weeklyAttendanceCalculator;
 
     @Autowired
-    private AttendancePeriodCalculator attendancePeriodCalculator;
-
-    @Autowired
-    private DailyAttendanceCalculator dailyAttendanceCalculator;
+    private AttendanceEngine dailyAttendanceCalculator;
 
     public PointageSyntheseService() {
         this.calendrierEngine = new CalendrierOuvrableEngine();
-        this.weeklyAttendanceCalculator = new WeeklyAttendanceCalculator();
-        this.attendancePeriodCalculator = new AttendancePeriodCalculator();
-        this.dailyAttendanceCalculator = new DailyAttendanceCalculator();
+        this.weeklyAttendanceCalculator = new AttendanceEngine();
+        this.dailyAttendanceCalculator = new AttendanceEngine();
     }
 
     public PointageSyntheseService(DataSource dataSource) {
         this.dataSource = dataSource;
         this.calendrierEngine = new CalendrierOuvrableEngine();
-        this.weeklyAttendanceCalculator = new WeeklyAttendanceCalculator();
-        this.attendancePeriodCalculator = new AttendancePeriodCalculator();
-        this.dailyAttendanceCalculator = new DailyAttendanceCalculator();
+        this.weeklyAttendanceCalculator = new AttendanceEngine();
+        this.dailyAttendanceCalculator = new AttendanceEngine();
     }
 
     public PointageSyntheseService(DataSource dataSource, mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine calendrierEngine) {
         this.dataSource = dataSource;
         this.calendrierEngine = calendrierEngine != null ? calendrierEngine : new CalendrierOuvrableEngine();
-        this.weeklyAttendanceCalculator = new WeeklyAttendanceCalculator();
-        this.attendancePeriodCalculator = new AttendancePeriodCalculator();
-        this.dailyAttendanceCalculator = new DailyAttendanceCalculator();
+        this.weeklyAttendanceCalculator = new AttendanceEngine();
+        this.dailyAttendanceCalculator = new AttendanceEngine();
     }
 
     public static boolean isCadreCategorie(String codeCat) {
@@ -191,11 +207,9 @@ public class PointageSyntheseService {
             Map<String, String> params,
             Connection c
     ) throws SQLException {
-        return calculerSyntheseEmploye(
-                idEmp, matricule, nom, prenom, photoUrl, idSite, siteCode, siteNom, null,
-                codeCat, isCadre, estAutonome, dateDebut, dateFin, idPeriode, codePeriode,
-                libellePeriode, statutPeriode, nbJoursOuvrablesPeriode, siteDeplacementRefMap, params, c
-        );
+        return calculerSyntheseEmploye(idEmp, matricule, nom, prenom, photoUrl, idSite, siteCode, siteNom,
+                null, codeCat, isCadre, estAutonome, dateDebut, dateFin, idPeriode,
+                codePeriode, libellePeriode, statutPeriode, nbJoursOuvrablesPeriode, siteDeplacementRefMap, params, c);
     }
 
     public PointageSyntheseMensuelleDTO calculerSyntheseEmploye(
@@ -231,23 +245,24 @@ public class PointageSyntheseService {
         }
         int joursOuvrablesReels = calendrierEngine.compterJoursOuvrables(dateDebut, dateFin, idSite, c);
         if (joursOuvrablesReels > 0) nbJoursOuvrablesPeriode = joursOuvrablesReels;
-        BigDecimal dureeHebdoLegale = ParametreGlobal.getBigDecimal(params, "SEUIL_HEURES_SEMAINE_COMPENSATION", new BigDecimal("40.0"));
-        BigDecimal seuilHsTranche1 = new BigDecimal("8");
+        BigDecimal seuilHsTranche1;
         try {
-            mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale leg = mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale.findActiveAt(c, dateDebut != null ? dateDebut : LocalDate.now());
-            if (leg != null) {
-                if (leg.getSeuilHsTranche1() != null) {
-                    seuilHsTranche1 = leg.getSeuilHsTranche1();
-                }
-                if (leg.getDureeHebdoLegale() != null) {
-                    dureeHebdoLegale = leg.getDureeHebdoLegale();
-                }
+            mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale leg =
+                    mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale.findActiveAt(c, dateDebut);
+            if (leg == null || leg.getSeuilHsTranche1() == null
+                    || leg.getSeuilHsTranche1().signum() < 0) {
+                throw new SirhBusinessException(SirhErrorCode.LEGAL_CONFIG_MISSING,
+                        "Première tranche HS absente ou invalide pour le " + dateDebut + ".");
             }
+            seuilHsTranche1 = leg.getSeuilHsTranche1();
+        } catch (SirhBusinessException e) {
+            throw e;
         } catch (Exception e) {
-            log.warn("Impossible de charger PaieConfigLegale pour seuilHsTranche1/dureeHebdoLegale, repli : {}", e.getMessage());
+            throw new SirhBusinessException(SirhErrorCode.LEGAL_CONFIG_MISSING,
+                    "Impossible de charger la première tranche HS pour le " + dateDebut + " : " + e.getMessage());
         }
-        BigDecimal seuilHeuresJour = ParametreGlobal.getBigDecimal(
-                params, "SEUIL_HEURES_JOUR", dureeHebdoLegale.divide(BigDecimal.valueOf(5), 2, RoundingMode.HALF_UP));
+        BigDecimal seuilHeuresJour = BigDecimal.valueOf(PointageService.resolveDailyTargetHours(
+                ParametreGlobal.loadEtatMapAtDate(Date.valueOf(dateDebut), c)));
 
         // Résolution de l'horaire continu du site (TRUE = TNR / continu, FALSE = TMM / discontinu)
         boolean siteHoraireContinu;
@@ -336,7 +351,7 @@ public class PointageSyntheseService {
         int nbAnomalies = 0;
 
         // Regroupement par semaine civile ISO (Lundi du tronçon)
-        Map<LocalDate, List<DailyAttendanceResult>> parSemaine = new LinkedHashMap<>();
+        Map<LocalDate, List<AttendanceEngine.Result>> parSemaine = new LinkedHashMap<>();
         Set<LocalDate> datesAvecPointage = new HashSet<>();
 
         // Une semaine sans aucun badge reste une semaine à contrôler : son objectif
@@ -429,7 +444,7 @@ public class PointageSyntheseService {
                     LocalDate lundiSemaine = dPointage.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
                     parSemaine.computeIfAbsent(lundiSemaine, k -> new ArrayList<>());
 
-                    parSemaine.get(lundiSemaine).add(new DailyAttendanceResult(
+                    parSemaine.get(lundiSemaine).add(new AttendanceEngine.Result(
                             idEmp, dPointage, statusFromCode(stCode), workedMinutes, 0, workedMinutes,
                             workedMinutes, estAutonome ? 0 : ret, 0, nightMinutes, isSunday,
                             "FERIE_CHOME".equals(stCode) || "FERIE_TRAVAILLE".equals(stCode),
@@ -441,18 +456,20 @@ public class PointageSyntheseService {
         // Les journées autonomes sans badge sont des résultats journaliers calculés,
         // jamais une seconde formule de synthèse.
         if (estAutonome) {
-            BigDecimal mealRate = requireAllowanceParameter(params, "MONTANT_REPAS_MIDI", idSite, dateDebut, idEmp);
+            Map<String, ParametreGlobal.ParametreEtat> allowanceStates =
+                    ParametreGlobal.loadEtatMapAtDate(Date.valueOf(dateDebut), c);
+            BigDecimal mealRate = requireAllowanceParameter(allowanceStates, "MONTANT_REPAS_MIDI", idSite, dateDebut, idEmp);
             BigDecimal travelRate = tarifJourDeplacement;
-            BigDecimal travelReduction = requireAllowanceParameter(params, "REDUCTION_DEPLACT_REPAS_MIDI", idSite, dateDebut, idEmp);
+            BigDecimal travelReduction = requireAllowanceParameter(allowanceStates, "REDUCTION_DEPLACT_REPAS_MIDI", idSite, dateDebut, idEmp);
             for (LocalDate day = dateDebut; !day.isAfter(dateFin); day = day.plusDays(1)) {
                 if (datesAvecPointage.contains(day) || day.getDayOfWeek() == DayOfWeek.SATURDAY
                         || day.getDayOfWeek() == DayOfWeek.SUNDAY) continue;
-                DailyAttendanceResult autonomousDay = dailyAttendanceCalculator
-                        .calculateDay(new mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceContext(
+                AttendanceEngine.Result autonomousDay = dailyAttendanceCalculator
+                        .calculateDay(new AttendanceEngine.Context(
                                 idEmp, day, null, null, null, null,
                                 LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0),
                                 LocalTime.of(22, 0), LocalTime.of(5, 0), false, true, false,
-                                mg.galaxam.sirh.pointage.domain.calculation.DailyAttendanceContext.LeavePart.NONE,
+                                AttendanceEngine.Context.LeavePart.NONE,
                                 true, mealRate, BigDecimal.ONE, travelRate, travelReduction, !siteHoraireContinu));
                 LocalDate monday = day.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
                 parSemaine.computeIfAbsent(monday, ignored -> new ArrayList<>()).add(autonomousDay);
@@ -470,16 +487,16 @@ public class PointageSyntheseService {
         long totalRetardCompenseMinutes = 0;
         long totalDeficitMinutes = 0;
         List<PointageTronconSemaineDTO> tronconsList = new ArrayList<>();
-        List<WeeklyAttendanceResult> weeklyResults = new ArrayList<>();
+        List<AttendanceEngine.WeekResult> weeklyResults = new ArrayList<>();
         int semIndex = 1;
 
         Set<LocalDate> feriesChomesTroncon = (calendrierEngine != null) 
                 ? calendrierEngine.getDatesFeriesEtChomees(dateDebut, dateFin, idSite, c)
                 : Collections.emptySet();
 
-        for (Map.Entry<LocalDate, List<DailyAttendanceResult>> entry : parSemaine.entrySet()) {
+        for (Map.Entry<LocalDate, List<AttendanceEngine.Result>> entry : parSemaine.entrySet()) {
             LocalDate lundi = entry.getKey();
-            List<DailyAttendanceResult> jours = entry.getValue();
+            List<AttendanceEngine.Result> jours = entry.getValue();
 
             // Compter les jours ouvrés et fériés chômés du tronçon via le moteur centralisé
             LocalDate finTroncon = lundi.plusDays(6);
@@ -501,11 +518,11 @@ public class PointageSyntheseService {
             // Décompter les congés validés sur les jours ouvrés non fériés du tronçon
             // (évite le cumul : un jour férié chômé ne peut pas être décompté deux fois)
             double joursCongeTroncon = 0.0;
-            for (DailyAttendanceResult j : jours) {
+            for (AttendanceEngine.Result j : jours) {
                 if (!CalendrierOuvrableEngine.isWeekend(j.date()) && !feriesChomesTroncon.contains(j.date())) {
-                    if (j.status() == DailyAttendanceResult.Status.LEAVE) {
+                    if (j.status() == AttendanceEngine.Result.Status.LEAVE) {
                         joursCongeTroncon += 1.0;
-                    } else if (j.status() == DailyAttendanceResult.Status.HALF_DAY) {
+                    } else if (j.status() == AttendanceEngine.Result.Status.HALF_DAY) {
                         joursCongeTroncon += 0.5;
                     }
                 }
@@ -522,10 +539,10 @@ public class PointageSyntheseService {
             // Les périodes de paie sont strictement étanches pour le calcul des HS et des absences.
             // Aucune compensation ordinaire (HS <-> déficit) ne traverse une frontière de période.
             // Chaque tronçon est calculé avec son propre seuil et sa propre compensation autonome.
-            WeeklyPriorState priorState = WeeklyPriorState.NONE;
-            WeeklyAttendanceResult res = weeklyAttendanceCalculator.calculateWeek(
-                    new WeeklyAttendanceContext(lundi, expectedMinutes, firstBandMinutes, !isCadre,
-                            seuilHeuresJour.multiply(BigDecimal.valueOf(60)).longValueExact(), priorState), jours);
+            AttendanceEngine.WeekResult res = weeklyAttendanceCalculator.calculateWeek(
+                    new AttendanceEngine.WeekContext(lundi, expectedMinutes, firstBandMinutes,
+                            resolveOvertimeEligibility(idEmp, debutTroncon, c),
+                            seuilHeuresJour.multiply(BigDecimal.valueOf(60)).longValueExact()), jours);
             weeklyResults.add(res);
 
             // Résultat unique du moteur hebdomadaire : affichage et paie utilisent
@@ -567,8 +584,7 @@ public class PointageSyntheseService {
             tronconsList.add(tDto);
         }
 
-        AttendancePeriodResult periodResult = attendancePeriodCalculator.calculateEmployeePeriod(
-                new AttendancePeriodContext(idEmp, idPeriode, dateDebut, dateFin), weeklyResults);
+        PeriodTotals periodResult = aggregateWeeks(weeklyResults);
 
         dto.setTronconsSemaine(tronconsList);
 
@@ -613,10 +629,54 @@ public class PointageSyntheseService {
             montantDeplacementFinal = refDeplacementSite;
         }
         dto.setMontantDeplacement(mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy.amount(montantDeplacementFinal));
+        dto.setMontantsIndemnites(loadAllowanceAmounts(idEmp, idPeriode, dateDebut, dateFin, statutPeriode, c));
         dto.setNbAnomaliesNonResolues(nbAnomalies);
         dto.setHeuresNormales(seuilHeuresJour.multiply(BigDecimal.valueOf(nbJoursOuvrablesPeriode)).doubleValue());
 
         return dto;
+    }
+
+    /** Lecture générique : journal avant gel, valeurs figées après gel. */
+    Map<String, BigDecimal> loadAllowanceAmounts(int employeeId, Integer periodId,
+            LocalDate from, LocalDate to, String periodStatus, Connection c) throws SQLException {
+        Map<String, BigDecimal> amounts = new LinkedHashMap<>();
+        boolean frozen = periodId != null && periodStatus != null
+                && Set.of("VALIDEE", "PAIE_VALIDEE", "CLOTUREE").contains(periodStatus);
+        if (frozen) {
+            try (PreparedStatement bounds = c.prepareStatement(
+                    "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?")) {
+                bounds.setInt(1, periodId);
+                try (ResultSet rs = bounds.executeQuery()) {
+                    frozen = rs.next() && from.equals(rs.getDate(1).toLocalDate())
+                            && to.equals(rs.getDate(2).toLocalDate());
+                }
+            }
+        }
+        String sql = frozen
+                ? "SELECT si.code, SUM(si.montant) AS montant FROM pointage_snapshot_indemnite si "
+                    + "JOIN pointage_cumul_periode cp ON cp.id_cumul = si.id_cumul "
+                    + "WHERE cp.id_employe = ? AND cp.id_periode_paie = ? AND cp.statut_snapshot = 'GELE' "
+                    + "GROUP BY si.code ORDER BY si.code"
+                : "SELECT i.code, SUM(pij.montant_calcule) AS montant FROM pointage_jour p "
+                    + "JOIN pointage_indemnite_jour pij ON pij.id_pointage = p.id_pointage "
+                    + "JOIN ref_indemnite i ON i.id_indemnite = pij.id_indemnite "
+                    + "WHERE p.id_employe = ? AND p.date_pointage BETWEEN ? AND ? AND pij.accorde = TRUE "
+                    + "GROUP BY i.code ORDER BY i.code";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, employeeId);
+            if (frozen) {
+                ps.setInt(2, periodId);
+            } else {
+                ps.setDate(2, Date.valueOf(from));
+                ps.setDate(3, Date.valueOf(to));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    amounts.put(rs.getString("code"), rs.getBigDecimal("montant"));
+                }
+            }
+        }
+        return amounts;
     }
 
     public List<PointageSyntheseMensuelleDTO> getSynthesePeriode(int idPeriode, Integer idSite, Connection c) throws SQLException {
@@ -675,7 +735,7 @@ public class PointageSyntheseService {
             "SELECT DISTINCT ON (e.id_employe) e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
             "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, COALESCE(s.horaire_continu, TRUE) AS horaire_continu, " +
             "COALESCE(f.dispense_pointage, FALSE) AS est_autonome, " +
-            "COALESCE(cp.code, '') AS code_categorie " +
+            "COALESCE(cp.code, '') AS code_categorie, COALESCE(cp.est_cadre, FALSE) AS categorie_est_cadre " +
             "FROM employe e " +
             "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
             "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
@@ -706,7 +766,7 @@ public class PointageSyntheseService {
                     int idEmp = rsE.getInt("id_employe");
                     boolean estAutonome = rsE.getBoolean("est_autonome");
                     String codeCat = rsE.getString("code_categorie");
-                    boolean isCadre = isCadreCategorie(codeCat);
+                    boolean isCadre = rsE.getBoolean("categorie_est_cadre");
 
                     PointageSyntheseMensuelleDTO dto = calculerSyntheseEmploye(
                             idEmp,
@@ -757,6 +817,22 @@ public class PointageSyntheseService {
             resp.put("kpis", Collections.emptyMap());
             resp.put("alertCounts", Collections.emptyMap());
             return resp;
+        }
+
+        // Weekly values are calculated from pointage_jour and never read from a persisted week table.
+        List<PointageSyntheseMensuelleDTO> periodValues = getSynthesePeriode(idPeriode, idSite, c);
+        Set<Integer> employeesWithHs = new HashSet<>();
+        Set<Integer> employeesWithCompensation = new HashSet<>();
+        double totalHs30 = 0;
+        double totalHs50 = 0;
+        for (PointageSyntheseMensuelleDTO dto : periodValues) {
+            totalHs30 += dto.getHeuresHs30();
+            totalHs50 += dto.getHeuresHs50();
+            if (dto.getHeuresHs30() > 0 || dto.getHeuresHs50() > 0) employeesWithHs.add(dto.getIdEmploye());
+            if (dto.getTronconsSemaine() != null && dto.getTronconsSemaine().stream()
+                    .anyMatch(w -> w.getHeuresHsBrutes() > w.getHeuresHsNettes())) {
+                employeesWithCompensation.add(dto.getIdEmploye());
+            }
         }
 
         if (page < 1) page = 1;
@@ -825,17 +901,14 @@ public class PointageSyntheseService {
         int countNuit = 0;
         int countRetard = 0;
         int countAbsence = 0;
-        int countHs = 0;
-        int countCompense = 0;
+        int countHs = employeesWithHs.size();
+        int countCompense = employeesWithCompensation.size();
         StringBuilder sqlAl = new StringBuilder(
             "SELECT " +
             "(SELECT COUNT(DISTINCT pj.id_employe) FROM pointage_jour pj JOIN employe e ON pj.id_employe = e.id_employe WHERE pj.id_periode_paie = ? AND e.est_actif = TRUE AND pj.heures_nuit > 0 " + (idSite != null && idSite > 0 ? "AND pj.id_site = ? " : "") + ") AS count_nuit, " +
             "(SELECT COUNT(DISTINCT pj.id_employe) FROM pointage_jour pj JOIN employe e ON pj.id_employe = e.id_employe WHERE pj.id_periode_paie = ? AND e.est_actif = TRUE AND pj.minutes_retard > 0 " + (idSite != null && idSite > 0 ? "AND pj.id_site = ? " : "") + ") AS count_retard, " +
             "(SELECT COUNT(DISTINCT pj.id_employe) FROM pointage_jour pj JOIN ref_statut_pointage_jour spj ON pj.id_statut_jour = spj.id_statut_jour JOIN employe e ON pj.id_employe = e.id_employe WHERE pj.id_periode_paie = ? AND e.est_actif = TRUE AND spj.code LIKE '%ABS%' " + (idSite != null && idSite > 0 ? "AND pj.id_site = ? " : "") + ") AS count_absence, " +
-            "(SELECT COUNT(DISTINCT psc.id_employe) FROM pointage_semaine_calcule psc JOIN employe e ON psc.id_employe = e.id_employe WHERE psc.id_periode_paie = ? AND e.est_actif = TRUE AND (psc.heures_hs_brutes > psc.heures_hs_nettes) " + (idSite != null && idSite > 0 ? "AND EXISTS (SELECT 1 FROM pointage_jour pj2 WHERE pj2.id_employe = e.id_employe AND pj2.id_periode_paie = psc.id_periode_paie AND pj2.id_site = ?) " : "") + ") AS count_compense, " +
-            "(SELECT COUNT(DISTINCT e.id_employe) FROM employe e WHERE e.est_actif = TRUE AND (" +
-            "   EXISTS (SELECT 1 FROM pointage_semaine_calcule psc WHERE psc.id_employe = e.id_employe AND psc.id_periode_paie = ? " + (idSite != null && idSite > 0 ? "AND EXISTS (SELECT 1 FROM pointage_jour pj2 WHERE pj2.id_employe = e.id_employe AND pj2.id_periode_paie = ? AND pj2.id_site = ?) " : "") + " AND (psc.heures_hs_30 > 0 OR psc.heures_hs_50 > 0))" +
-            ")) AS count_hs"
+            "0 AS count_compense, 0 AS count_hs"
         );
         try (PreparedStatement psAl = c.prepareStatement(sqlAl.toString())) {
             int aIdx = 1;
@@ -845,20 +918,11 @@ public class PointageSyntheseService {
             if (idSite != null && idSite > 0) psAl.setInt(aIdx++, idSite);
             psAl.setInt(aIdx++, idPeriode);
             if (idSite != null && idSite > 0) psAl.setInt(aIdx++, idSite);
-            psAl.setInt(aIdx++, idPeriode);
-            if (idSite != null && idSite > 0) psAl.setInt(aIdx++, idSite);
-            psAl.setInt(aIdx++, idPeriode);
-            if (idSite != null && idSite > 0) {
-                psAl.setInt(aIdx++, idPeriode);
-                psAl.setInt(aIdx++, idSite);
-            }
             try (ResultSet rsAl = psAl.executeQuery()) {
                 if (rsAl.next()) {
                     countNuit = rsAl.getInt("count_nuit");
                     countRetard = rsAl.getInt("count_retard");
                     countAbsence = rsAl.getInt("count_absence");
-                    countCompense = rsAl.getInt("count_compense");
-                    countHs = rsAl.getInt("count_hs");
                 }
             }
         }
@@ -883,27 +947,6 @@ public class PointageSyntheseService {
             }
         }
 
-        double totalHs30 = 0;
-        double totalHs50 = 0;
-        StringBuilder sqlHs = new StringBuilder(
-            "SELECT COALESCE(SUM(psc.heures_hs_30), 0) AS hs30, COALESCE(SUM(psc.heures_hs_50), 0) AS hs50 " +
-            "FROM pointage_semaine_calcule psc JOIN employe e ON psc.id_employe = e.id_employe " +
-            "WHERE psc.id_periode_paie = ? AND e.est_actif = TRUE "
-        );
-        if (idSite != null && idSite > 0) {
-            sqlHs.append("AND EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = psc.id_employe AND pj.id_periode_paie = psc.id_periode_paie AND pj.id_site = ?) ");
-        }
-        try (PreparedStatement psHs = c.prepareStatement(sqlHs.toString())) {
-            psHs.setInt(1, idPeriode);
-            if (idSite != null && idSite > 0) psHs.setInt(2, idSite);
-            try (ResultSet rsHs = psHs.executeQuery()) {
-                if (rsHs.next()) {
-                    totalHs30 = rsHs.getDouble("hs30");
-                    totalHs50 = rsHs.getDouble("hs50");
-                }
-            }
-        }
-
         // 4. CTE filtrée pour paginer au niveau SQL
         StringBuilder whereFilter = new StringBuilder();
         List<Object> filterParams = new ArrayList<>();
@@ -924,8 +967,7 @@ public class PointageSyntheseService {
         }
 
         if ("HS".equalsIgnoreCase(filtre)) {
-            whereFilter.append("AND EXISTS (SELECT 1 FROM pointage_semaine_calcule psc WHERE psc.id_employe = e.id_employe AND psc.id_periode_paie = ? AND (psc.heures_hs_30 > 0 OR psc.heures_hs_50 > 0)) ");
-            filterParams.add(idPeriode);
+            appendEmployeeSetFilter(whereFilter, filterParams, employeesWithHs);
         } else if ("NUIT".equalsIgnoreCase(filtre)) {
             whereFilter.append("AND EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? AND pj.heures_nuit > 0) ");
             filterParams.add(idPeriode);
@@ -936,8 +978,7 @@ public class PointageSyntheseService {
             whereFilter.append("AND EXISTS (SELECT 1 FROM pointage_jour pj JOIN ref_statut_pointage_jour spj ON pj.id_statut_jour = spj.id_statut_jour WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? AND spj.code LIKE '%ABS%') ");
             filterParams.add(idPeriode);
         } else if ("COMPENSE".equalsIgnoreCase(filtre)) {
-            whereFilter.append("AND EXISTS (SELECT 1 FROM pointage_semaine_calcule psc WHERE psc.id_employe = e.id_employe AND psc.id_periode_paie = ? AND (psc.heures_hs_brutes > psc.heures_hs_nettes)) ");
-            filterParams.add(idPeriode);
+            appendEmployeeSetFilter(whereFilter, filterParams, employeesWithCompensation);
         }
 
         String cteSql = 
@@ -945,7 +986,7 @@ public class PointageSyntheseService {
             "    SELECT DISTINCT ON (e.id_employe) e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
             "           s.id_site, s.code_site AS site_code, s.libelle AS site_nom, COALESCE(s.horaire_continu, TRUE) AS horaire_continu, " +
             "           COALESCE(f.dispense_pointage, FALSE) AS est_autonome, " +
-            "           COALESCE(cp.code, '') AS code_categorie " +
+            "           COALESCE(cp.code, '') AS code_categorie, COALESCE(cp.est_cadre, FALSE) AS categorie_est_cadre " +
             "    FROM employe e " +
             "    JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
             "        AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
@@ -1013,7 +1054,7 @@ public class PointageSyntheseService {
                         int idEmp = rsE.getInt("id_employe");
                         boolean estAutonome = rsE.getBoolean("est_autonome");
                         String codeCat = rsE.getString("code_categorie");
-                        boolean isCadre = isCadreCategorie(codeCat);
+                        boolean isCadre = rsE.getBoolean("categorie_est_cadre");
 
                         PointageSyntheseMensuelleDTO dto = calculerSyntheseEmploye(
                                 idEmp,
@@ -1071,21 +1112,21 @@ public class PointageSyntheseService {
     }
 
     /**
-     * Gèle les tronçons hebdomadaires et le cumul mensuel dans les tables immuables
+     * Gèle le cumul de période, les journées sources et les buckets temporels pour Paie.
      */
     public void gelerPeriode(int idPeriode, Integer userId, Connection c) throws SQLException {
         // Calculer la synthèse via notre logique métier pure
         List<PointageSyntheseMensuelleDTO> synthese = getSynthesePeriode(idPeriode, null, c);
 
         String sqlCumul = "INSERT INTO pointage_cumul_periode (" +
-                          "id_employe, id_periode_paie, version_snapshot, statut_snapshot, remplace_id_cumul, nb_jours_ouvrables, nb_jours_presents, " +
+                          "id_employe, id_periode_paie, version_snapshot, contrat_indemnites_version, statut_snapshot, remplace_id_cumul, nb_jours_ouvrables, nb_jours_presents, " +
                           "nb_jours_absence, nb_jours_conge, nb_jours_ferie_chome, nb_jours_ferie_travaille, " +
                           "total_heures_travaillees, heures_hs_30, heures_hs_50, heures_nuit_total, " +
                           "heures_dimanche_total, heures_ferie_total, " +
                           "heures_absence_retenues, total_minutes_retard, nb_jours_deplacement, montant_deplacement, " +
                           "nb_jours_repas, montant_repas, gele_par, gele_at" +
                           ") VALUES (?, ?, " +
-                          "(SELECT COALESCE(MAX(version_snapshot), 0) + 1 FROM pointage_cumul_periode WHERE id_employe = ? AND id_periode_paie = ?), 'GELE', " +
+                          "(SELECT COALESCE(MAX(version_snapshot), 0) + 1 FROM pointage_cumul_periode WHERE id_employe = ? AND id_periode_paie = ?), 2, 'GELE', " +
                           "(SELECT id_cumul FROM pointage_cumul_periode WHERE id_employe = ? AND id_periode_paie = ? ORDER BY version_snapshot DESC LIMIT 1), " +
                           "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) RETURNING id_cumul";
 
@@ -1128,24 +1169,10 @@ public class PointageSyntheseService {
                     if (!inserted.next()) throw new SQLException("Le snapshot Pointage n'a pas été créé.");
                     snapshotId = inserted.getInt(1);
                 }
-                enregistrerProvenanceSnapshot(snapshotId, dto.getIdEmploye(), idPeriode, c);
+                enregistrerProvenanceSnapshot(snapshotId, dto, idPeriode, c);
             }
         }
 
-        // Archiver également toutes les indemnités dynamiques consolidées
-        String sqlCumulInd = "INSERT INTO pointage_cumul_indemnite (id_periode_paie, id_employe, id_indemnite, quantite_totale, montant_total) " +
-                "SELECT pj.id_periode_paie, pj.id_employe, pij.id_indemnite, SUM(pij.quantite), SUM(pij.montant_calcule) " +
-                "FROM pointage_indemnite_jour pij " +
-                "JOIN pointage_jour pj ON pij.id_pointage = pj.id_pointage " +
-                "WHERE pj.id_periode_paie = ? AND pij.accorde = true " +
-                "GROUP BY pj.id_periode_paie, pj.id_employe, pij.id_indemnite " +
-                "ON CONFLICT (id_periode_paie, id_employe, id_indemnite) DO UPDATE SET " +
-                "quantite_totale = EXCLUDED.quantite_totale, montant_total = EXCLUDED.montant_total, gele_at = CURRENT_TIMESTAMP";
-        try (PreparedStatement psInd = c.prepareStatement(sqlCumulInd)) {
-            psInd.setInt(1, idPeriode);
-            psInd.executeUpdate();
-        } catch (Exception ignored) {
-        }
     }
 
     /**
@@ -1154,18 +1181,15 @@ public class PointageSyntheseService {
     public void degelerPeriode(int idPeriode, Connection c) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(
                 "UPDATE pointage_cumul_periode SET statut_snapshot = 'REMPLACE' " +
-                "WHERE id_periode_paie = ? AND statut_snapshot = 'GELE'");
-             PreparedStatement psSem = c.prepareStatement(
-                     "UPDATE pointage_semaine_calcule SET gele_par = NULL WHERE id_periode_paie = ?")) {
+                "WHERE id_periode_paie = ? AND statut_snapshot = 'GELE'")) {
             ps.setInt(1, idPeriode);
             ps.executeUpdate();
-            psSem.setInt(1, idPeriode);
-            psSem.executeUpdate();
         }
     }
 
-    private void enregistrerProvenanceSnapshot(int snapshotId, int employeeId, int periodId, Connection c)
+    private void enregistrerProvenanceSnapshot(int snapshotId, PointageSyntheseMensuelleDTO dto, int periodId, Connection c)
             throws SQLException {
+        int employeeId = dto.getIdEmploye();
         String days = "INSERT INTO pointage_snapshot_jour " +
                 "(id_cumul, id_pointage, version_pointage, date_pointage, minutes_travaillees, minutes_retard, minutes_nuit, statut_jour) " +
                 "SELECT ?, p.id_pointage, p.version, p.date_pointage, ROUND(p.total_heures * 60), " +
@@ -1175,18 +1199,100 @@ public class PointageSyntheseService {
         try (PreparedStatement ps = c.prepareStatement(days)) {
             ps.setInt(1, snapshotId); ps.setInt(2, employeeId); ps.setInt(3, periodId); ps.executeUpdate();
         }
-        String weeks = "INSERT INTO pointage_snapshot_semaine " +
-                "(id_cumul, id_semaine_calcule, debut_semaine, minutes_travaillees, minutes_hs_30, minutes_hs_50) " +
-                "SELECT ?, id_semaine_calcule, debut_semaine, ROUND(total_heures_travaillees * 60), " +
-                "ROUND(heures_hs_30 * 60), ROUND(heures_hs_50 * 60) FROM pointage_semaine_calcule " +
-                "WHERE id_employe = ? AND id_periode_paie = ?";
-        try (PreparedStatement ps = c.prepareStatement(weeks)) {
-            ps.setInt(1, snapshotId); ps.setInt(2, employeeId); ps.setInt(3, periodId); ps.executeUpdate();
+        String unqualifiedAllowance = "SELECT i.code FROM pointage_indemnite_jour pij "
+                + "JOIN pointage_jour p ON p.id_pointage = pij.id_pointage "
+                + "JOIN ref_indemnite i ON i.id_indemnite = pij.id_indemnite "
+                + "WHERE p.id_employe = ? AND p.id_periode_paie = ? "
+                + "AND pij.accorde = TRUE AND pij.montant_calcule > 0 "
+                + "AND i.soumis_cotisation IS NULL LIMIT 1";
+        try (PreparedStatement ps = c.prepareStatement(unqualifiedAllowance)) {
+            ps.setInt(1, employeeId);
+            ps.setInt(2, periodId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    throw new IllegalStateException("Qualification cotisations sociales manquante pour l'indemnité "
+                            + rs.getString(1) + ". Renseigner le catalogue avant de valider le pointage.");
+                }
+            }
         }
-        enregistrerSnapshotBuckets(snapshotId, employeeId, periodId, c);
+        String allowances = "INSERT INTO pointage_snapshot_indemnite "
+                + "(id_cumul, id_indemnite, code, libelle, imposable_irsa, soumis_cotisation, code_rubrique_paie, montant) "
+                + "SELECT ?, i.id_indemnite, i.code, i.libelle, COALESCE(i.imposable_irsa, FALSE), i.soumis_cotisation, "
+                + "COALESCE(i.code_rubrique_paie, 'INDEMNITE_' || i.code), "
+                + "SUM(pij.montant_calcule) FROM pointage_indemnite_jour pij "
+                + "JOIN pointage_jour p ON p.id_pointage = pij.id_pointage "
+                + "JOIN ref_indemnite i ON i.id_indemnite = pij.id_indemnite "
+                + "WHERE p.id_employe = ? AND p.id_periode_paie = ? "
+                + "AND pij.accorde = TRUE AND pij.montant_calcule > 0 "
+                + "GROUP BY i.id_indemnite, i.code, i.libelle, i.imposable_irsa, i.soumis_cotisation, i.code_rubrique_paie";
+        try (PreparedStatement ps = c.prepareStatement(allowances)) {
+            ps.setInt(1, snapshotId);
+            ps.setInt(2, employeeId);
+            ps.setInt(3, periodId);
+            ps.executeUpdate();
+        }
+        enregistrerIndemnitesFixesMensuelles(snapshotId, employeeId, periodId, c);
+        enregistrerSnapshotBuckets(snapshotId, employeeId, periodId, dto.getTronconsSemaine(), c);
     }
 
-    private void enregistrerSnapshotBuckets(int snapshotId, int employeeId, int periodId, Connection c)
+    /**
+     * Le fixe mensuel ne dépend pas des journées pointées. Chaque date de la période
+     * contribue au tarif du site d'affectation applicable à cette date, divisé par
+     * le nombre de jours calendaires de la période. Le résultat est figé pour Paie.
+     */
+    void enregistrerIndemnitesFixesMensuelles(int snapshotId, int employeeId, int periodId, Connection c)
+            throws SQLException {
+        String sql = "SELECT i.id_indemnite, i.code, i.libelle, i.imposable_irsa, i.soumis_cotisation, "
+                + "COALESCE(i.code_rubrique_paie, 'INDEMNITE_' || i.code) AS code_rubrique_paie, "
+                + "SUM(config.montant_reference / (periode.date_fin - periode.date_debut + 1)) AS montant "
+                + "FROM periode_paie periode "
+                + "CROSS JOIN LATERAL generate_series(periode.date_debut, periode.date_fin, interval '1 day') AS jour(date_jour) "
+                + "JOIN LATERAL (SELECT a.id_site FROM employe_affectation_carriere a "
+                + "WHERE a.id_employe = ? AND a.date_debut <= jour.date_jour::date "
+                + "AND (a.date_fin IS NULL OR a.date_fin >= jour.date_jour::date) "
+                + "ORDER BY a.date_debut DESC, a.id_affectation DESC LIMIT 1) affectation ON TRUE "
+                + "JOIN ref_indemnite i ON i.est_actif = TRUE "
+                + "JOIN LATERAL (SELECT sic.montant_reference, sic.periodicite, sic.est_actif FROM site_indemnite_config sic "
+                + "WHERE sic.id_site = affectation.id_site AND sic.id_indemnite = i.id_indemnite "
+                + "AND sic.date_debut <= jour.date_jour::date "
+                + "AND (sic.date_fin IS NULL OR sic.date_fin >= jour.date_jour::date) "
+                + "ORDER BY sic.date_debut DESC, sic.id_site_indemnite DESC LIMIT 1) config ON TRUE "
+                + "WHERE periode.id_periode_paie = ? AND config.montant_reference > 0 "
+                + "AND config.periodicite = 'FIXE_MENSUEL' AND config.est_actif = TRUE "
+                + "GROUP BY i.id_indemnite, i.code, i.libelle, i.imposable_irsa, i.soumis_cotisation, i.code_rubrique_paie";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, employeeId);
+            ps.setInt(2, periodId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    if (rs.getObject("soumis_cotisation") == null) {
+                        throw new IllegalStateException("Qualification cotisations sociales manquante pour l'indemnité "
+                                + rs.getString("code") + ".");
+                    }
+                    BigDecimal amount = rs.getBigDecimal("montant").setScale(2, RoundingMode.HALF_UP);
+                    if (amount.signum() <= 0) continue;
+                    String insert = "INSERT INTO pointage_snapshot_indemnite "
+                            + "(id_cumul, id_indemnite, code, libelle, imposable_irsa, soumis_cotisation, code_rubrique_paie, montant) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                            + "ON CONFLICT (id_cumul, id_indemnite) DO UPDATE SET montant = pointage_snapshot_indemnite.montant + EXCLUDED.montant";
+                    try (PreparedStatement snapshot = c.prepareStatement(insert)) {
+                        snapshot.setInt(1, snapshotId);
+                        snapshot.setInt(2, rs.getInt("id_indemnite"));
+                        snapshot.setString(3, rs.getString("code"));
+                        snapshot.setString(4, rs.getString("libelle"));
+                        snapshot.setBoolean(5, rs.getBoolean("imposable_irsa"));
+                        snapshot.setBoolean(6, rs.getBoolean("soumis_cotisation"));
+                        snapshot.setString(7, rs.getString("code_rubrique_paie"));
+                        snapshot.setBigDecimal(8, amount);
+                        snapshot.executeUpdate();
+                    }
+                }
+            }
+        }
+    }
+
+    private void enregistrerSnapshotBuckets(int snapshotId, int employeeId, int periodId,
+            List<PointageTronconSemaineDTO> troncons, Connection c)
             throws SQLException {
         LocalDate dateDebutPeriode = null;
         LocalDate dateFinPeriode = null;
@@ -1211,7 +1317,7 @@ public class PointageSyntheseService {
                 : Collections.emptySet();
 
         List<WorkInterval> intervals = new ArrayList<>();
-        String sqlP = "SELECT id_pointage, date_pointage, heure_entree_matin, heure_sortie_matin, " +
+        String sqlP = "SELECT id_pointage, date_pointage, COALESCE(heure_entree_matin_effective, heure_entree_matin) AS heure_entree_matin, heure_sortie_matin, " +
                       "heure_entree_am, heure_sortie_am, horaire_continu_jour " +
                       "FROM pointage_jour WHERE id_employe = ? AND id_periode_paie = ? ORDER BY date_pointage ASC";
         try (PreparedStatement psP = c.prepareStatement(sqlP)) {
@@ -1251,38 +1357,23 @@ public class PointageSyntheseService {
         );
         List<TemporalBucket> allBuckets = partitioner.partition(intervals);
 
-        String sqlTroncons = "SELECT debut_semaine, nb_jours_troncon, total_heures_travaillees, heures_hs_30, heures_hs_50 " +
-                             "FROM pointage_semaine_calcule WHERE id_employe = ? AND id_periode_paie = ? ORDER BY debut_semaine ASC";
         List<QualifiedTimeBucket> qualifiedBuckets = new ArrayList<>();
         Set<TemporalBucket> projectedBuckets = new HashSet<>();
         OvertimeProjectionEngine projectionEngine = new OvertimeProjectionEngine();
 
-        try (PreparedStatement psT = c.prepareStatement(sqlTroncons)) {
-            psT.setInt(1, employeeId);
-            psT.setInt(2, periodId);
-            try (ResultSet rsT = psT.executeQuery()) {
-                while (rsT.next()) {
-                    Date dDeb = rsT.getDate("debut_semaine");
-                    if (dDeb == null) continue;
-                    LocalDate deb = dDeb.toLocalDate();
-                    int nbJours = rsT.getInt("nb_jours_troncon");
-                    LocalDate fin = deb.plusDays(nbJours - 1);
-
-                    List<TemporalBucket> tronconBuckets = allBuckets.stream()
-                            .filter(b -> !b.start().toLocalDate().isBefore(deb) && !b.start().toLocalDate().isAfter(fin))
-                            .toList();
-
-                    long h30 = Math.round(rsT.getDouble("heures_hs_30") * 60.0);
-                    long h50 = Math.round(rsT.getDouble("heures_hs_50") * 60.0);
-                    long totTronconBuckets = tronconBuckets.stream().mapToLong(TemporalBucket::minutes).sum();
-                    long regular = Math.max(0, totTronconBuckets - h30 - h50);
-
-                    if (!tronconBuckets.isEmpty()) {
-                        List<QualifiedTimeBucket> qbs = projectionEngine.project(tronconBuckets, regular, h30, h50);
-                        qualifiedBuckets.addAll(qbs);
-                        projectedBuckets.addAll(tronconBuckets);
-                    }
-                }
+        for (PointageTronconSemaineDTO troncon : troncons) {
+            LocalDate debut = LocalDate.parse(troncon.getDebutSemaine());
+            LocalDate fin = LocalDate.parse(troncon.getFinSemaine());
+            List<TemporalBucket> tronconBuckets = allBuckets.stream()
+                    .filter(b -> !b.start().toLocalDate().isBefore(debut) && !b.start().toLocalDate().isAfter(fin))
+                    .toList();
+            long h30 = hoursToMinutes(BigDecimal.valueOf(troncon.getHeuresHs30()));
+            long h50 = hoursToMinutes(BigDecimal.valueOf(troncon.getHeuresHs50()));
+            long totalBuckets = tronconBuckets.stream().mapToLong(TemporalBucket::minutes).sum();
+            long regular = Math.max(0, totalBuckets - h30 - h50);
+            if (!tronconBuckets.isEmpty()) {
+                qualifiedBuckets.addAll(projectionEngine.project(tronconBuckets, regular, h30, h50));
+                projectedBuckets.addAll(tronconBuckets);
             }
         }
 
@@ -1384,12 +1475,12 @@ public class PointageSyntheseService {
 
         if (dateDebut == null || dateFin == null) return result;
 
-        Map<String, String> params = ParametreGlobal.loadActiveMapAtDate(Date.valueOf(dateDebut), c);
-        BigDecimal seuilHeuresJour = ParametreGlobal.getBigDecimal(params, "SEUIL_HEURES_JOUR", new BigDecimal("8"));
+        BigDecimal seuilHeuresJour = BigDecimal.valueOf(PointageService.resolveDailyTargetHours(
+                ParametreGlobal.loadEtatMapAtDate(Date.valueOf(dateDebut), c)));
 
         // Découpage canonique unifié en tronçons (TRONÇON = SEMAINE ∩ PÉRIODE ∩ CALENDRIER APPLICABLE)
-        List<PeriodWeekSegmenter.Segment> segments = PeriodWeekSegmenter.segment(dateDebut, dateFin);
-        for (PeriodWeekSegmenter.Segment seg : segments) {
+        List<AttendanceEngine.WeekSegment> segments = AttendanceEngine.segmentWeeks(dateDebut, dateFin);
+        for (AttendanceEngine.WeekSegment seg : segments) {
             LocalDate dateDebutTroncon = seg.start();
             LocalDate dateFinTroncon = seg.end();
             int semNum = seg.index();
@@ -1455,22 +1546,7 @@ public class PointageSyntheseService {
 
             int pointagesAttendus = nbSalariesActifs * nbOuvrables;
 
-            // Vérifier si cette semaine est déjà validée / calculée dans pointage_semaine_calcule
-            boolean estValidee = false;
-            String sqlCheckValidee = "SELECT COUNT(*) FROM pointage_semaine_calcule psc WHERE psc.id_periode_paie = ? AND psc.debut_semaine = ?" +
-                                     (idSite != null && idSite > 0 ? " AND EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = psc.id_employe AND pj.id_periode_paie = psc.id_periode_paie AND pj.id_site = ?)" : "");
-            try (PreparedStatement psVal = c.prepareStatement(sqlCheckValidee)) {
-                psVal.setInt(1, idPeriode);
-                psVal.setDate(2, Date.valueOf(dateDebutTroncon));
-                if (idSite != null && idSite > 0) {
-                    psVal.setInt(3, idSite);
-                }
-                try (ResultSet rsVal = psVal.executeQuery()) {
-                    if (rsVal.next() && rsVal.getInt(1) > 0) {
-                        estValidee = true;
-                    }
-                }
-            } catch (Exception ignored) {}
+            boolean estValidee = false; // Un tronçon est calculé à la lecture, jamais validé séparément.
 
             Map<String, Object> semMap = new HashMap<>();
             semMap.put("id", semNum);
@@ -1498,11 +1574,7 @@ public class PointageSyntheseService {
             String statut;
             String desc;
 
-            if (estValidee) {
-                statut = "Validée";
-                desc = "Heures supplémentaires et compensations consolidées.";
-                isReady = false;
-            } else if (totalPointages == 0) {
+            if (totalPointages == 0) {
                 statut = "Saisie en cours";
                 desc = "Pointages quotidiens non encore saisis.";
                 isReady = false;
@@ -1555,7 +1627,8 @@ public class PointageSyntheseService {
         if (idPeriode <= 0 || dateDebutTroncon == null || dateFinTroncon == null) return list;
 
         Map<String, String> params = ParametreGlobal.loadActiveMapAtDate(Date.valueOf(dateDebutTroncon), c);
-        BigDecimal seuilHeuresJour = ParametreGlobal.getBigDecimal(params, "SEUIL_HEURES_JOUR", new BigDecimal("8"));
+        BigDecimal seuilHeuresJour = BigDecimal.valueOf(PointageService.resolveDailyTargetHours(
+                ParametreGlobal.loadEtatMapAtDate(Date.valueOf(dateDebutTroncon), c)));
         Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMapAtDate(dateDebutTroncon != null ? Date.valueOf(dateDebutTroncon) : null, c);
         BigDecimal montantRepasMidiDefaut = ParametreGlobal.getBigDecimal(etatMap, "MONTANT_REPAS_MIDI", null, BigDecimal.ZERO);
         if (montantRepasMidiDefaut == null) {
@@ -1601,7 +1674,7 @@ public class PointageSyntheseService {
             "SELECT DISTINCT ON (e.id_employe) e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
             "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, COALESCE(s.horaire_continu, TRUE) AS horaire_continu, " +
             "COALESCE(f.dispense_pointage, FALSE) AS est_autonome, " +
-            "COALESCE(cp.code, '') AS code_categorie " +
+            "COALESCE(cp.code, '') AS code_categorie, COALESCE(cp.est_cadre, FALSE) AS categorie_est_cadre " +
             "FROM employe e " +
             "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
             "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
@@ -1631,7 +1704,7 @@ public class PointageSyntheseService {
                     int idEmp = rsE.getInt("id_employe");
                     boolean estAutonome = rsE.getBoolean("est_autonome");
                     String codeCat = rsE.getString("code_categorie");
-                    boolean isCadre = isCadreCategorie(codeCat);
+                    boolean isCadre = rsE.getBoolean("categorie_est_cadre");
 
                     PointageSyntheseMensuelleDTO dto = calculerSyntheseEmploye(
                             idEmp,
@@ -1670,244 +1743,55 @@ public class PointageSyntheseService {
         return list;
     }
 
-    /**
-     * Valide et fige une semaine de pointage dans pointage_semaine_calcule
-     */
-    public void validerSemaine(int idPeriode, LocalDate dateDebutTroncon, LocalDate dateFinTroncon, Integer idSite, Integer currentUserId) throws SQLException {
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                validerSemaine(idPeriode, dateDebutTroncon, dateFinTroncon, idSite, currentUserId, c);
-                c.commit();
-            } catch (Exception e) {
-                c.rollback();
-                throw e;
-            }
-        }
-    }
-
-    public void validerSemaine(int idPeriode, LocalDate dateDebutTroncon, LocalDate dateFinTroncon, Integer idSite, Integer currentUserId, Connection c) throws SQLException {
-        if (idPeriode <= 0 || dateDebutTroncon == null || dateFinTroncon == null) return;
-
-        // Contrôle strict de workflow : la période ne doit être ni clôturée ni validée par la DAF
-        String sqlCheck = "SELECT s.code FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ?";
-        try (PreparedStatement psC = c.prepareStatement(sqlCheck)) {
-            psC.setInt(1, idPeriode);
-            try (ResultSet rsC = psC.executeQuery()) {
-                if (rsC.next()) {
-                    String st = rsC.getString("code");
-                    org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-                    boolean isAdminOrDaf = auth != null && auth.getAuthorities().stream().anyMatch(a ->
-                            "ROLE_ADMIN".equals(a.getAuthority()) || "POINTAGE_VALIDATE".equals(a.getAuthority())
-                    );
-
-                    if ("CLOTUREE".equalsIgnoreCase(st) || "VALIDEE".equalsIgnoreCase(st) || "PAIE_VALIDEE".equalsIgnoreCase(st)) {
-                        throw new IllegalStateException("Action impossible : La période de paie est en statut '" + st + "'. Vous ne pouvez pas modifier ou valider les semaines d'une période clôturée ou validée.");
-                    }
-                    if (("A_VALIDER".equalsIgnoreCase(st) || "TRANSMIS_DAF".equalsIgnoreCase(st)) && !isAdminOrDaf) {
-                        throw new IllegalStateException("Action impossible : La période de paie est transmise pour validation. Seuls les administrateurs autorisés peuvent recalculer les semaines.");
-                    }
-                }
-            }
-        }
-
-        upsertSemaineCalculee(idPeriode, dateDebutTroncon, dateFinTroncon, idSite, currentUserId, c);
-    }
-
-    public void upsertSemaineCalculee(int idPeriode, LocalDate dateDebutTroncon, LocalDate dateFinTroncon, Integer idSite, Integer currentUserId, Connection c) throws SQLException {
-        mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale legalConfig;
-        try {
-            legalConfig = mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale.findActiveAt(c, dateDebutTroncon);
-        } catch (Exception e) {
-            throw new IllegalStateException("MAJORATION_CONFIGURATION_INVALID: " + e.getMessage(), e);
-        }
-        if (legalConfig == null || legalConfig.getIdConfigLegale() == null) {
-            throw new IllegalStateException("MAJORATION_CONFIGURATION_INVALID: aucune configuration légale applicable");
-        }
-        BigDecimal majorationHs30;
-        BigDecimal majorationHs50;
-        BigDecimal majorationNuit;
-        BigDecimal majorationDimanche;
-        BigDecimal majorationFerie;
-        try {
-            int configId = legalConfig.getIdConfigLegale();
-            majorationHs30 = RefTauxMajoration.resolveApplicable(configId, "HS_30", dateDebutTroncon, c).getTaux();
-            majorationHs50 = RefTauxMajoration.resolveApplicable(configId, "HS_50", dateDebutTroncon, c).getTaux();
-            majorationNuit = RefTauxMajoration.resolveApplicable(configId, "NUIT", dateDebutTroncon, c).getTaux();
-            majorationDimanche = RefTauxMajoration.resolveApplicable(configId, "DIMANCHE", dateDebutTroncon, c).getTaux();
-            majorationFerie = RefTauxMajoration.resolveApplicable(configId, "FERIE", dateDebutTroncon, c).getTaux();
-        } catch (Exception e) {
-            throw new IllegalStateException("MAJORATION_CONFIGURATION_INVALID: " + e.getMessage(), e);
-        }
-
-        List<PointageSyntheseMensuelleDTO> dtos = getSyntheseSemaineDetail(idPeriode, dateDebutTroncon, dateFinTroncon, idSite, c);
-
-        String sqlUpsert = """
-            INSERT INTO pointage_semaine_calcule (
-                id_employe, id_periode_paie, debut_semaine, nb_jours_troncon, seuil_heures_troncon,
-                total_heures_travaillees, heures_retard, heures_hs_brutes, heures_hs_nettes,
-                heures_deficit, taux_hs_30_applique, taux_hs_50_applique, taux_nuit_applique,
-                taux_dimanche_applique, taux_ferie_applique, heures_hs_30, heures_hs_50, gele_par, gele_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT (id_employe, id_periode_paie, debut_semaine)
-            DO UPDATE SET
-                nb_jours_troncon = EXCLUDED.nb_jours_troncon,
-                seuil_heures_troncon = EXCLUDED.seuil_heures_troncon,
-                total_heures_travaillees = EXCLUDED.total_heures_travaillees,
-                heures_retard = EXCLUDED.heures_retard,
-                heures_hs_brutes = EXCLUDED.heures_hs_brutes,
-                heures_hs_nettes = EXCLUDED.heures_hs_nettes,
-                heures_deficit = EXCLUDED.heures_deficit,
-                taux_hs_30_applique = EXCLUDED.taux_hs_30_applique,
-                taux_hs_50_applique = EXCLUDED.taux_hs_50_applique,
-                taux_nuit_applique = EXCLUDED.taux_nuit_applique,
-                taux_dimanche_applique = EXCLUDED.taux_dimanche_applique,
-                taux_ferie_applique = EXCLUDED.taux_ferie_applique,
-                heures_hs_30 = EXCLUDED.heures_hs_30,
-                heures_hs_50 = EXCLUDED.heures_hs_50,
-                gele_par = EXCLUDED.gele_par,
-                gele_at = CURRENT_TIMESTAMP
-        """;
-
-        try (PreparedStatement ps = c.prepareStatement(sqlUpsert)) {
-            for (PointageSyntheseMensuelleDTO dto : dtos) {
-                double hsNettes = dto.isEstCadre() ? 0.0 : (dto.getHeuresHs30() + dto.getHeuresHs50());
-
-                ps.setInt(1, dto.getIdEmploye());
-                ps.setInt(2, idPeriode);
-                ps.setDate(3, Date.valueOf(dateDebutTroncon));
-                ps.setInt(4, dto.getNbJoursOuvrables());
-                ps.setDouble(5, dto.getHeuresNormales());
-                ps.setDouble(6, dto.getTotalHeuresTravaillees());
-                // Colonne historique en heures décimales : conversion confinée à la persistance legacy.
-                ps.setDouble(7, PointageTimeBoundaryMapper.toLegacyDecimalHours(dto.getTotalMinutesRetard()));
-                ps.setDouble(8, dto.getSurplusBrut());
-                ps.setDouble(9, hsNettes);
-                ps.setDouble(10, dto.getHeuresAbsenceRetenues());
-                ps.setBigDecimal(11, majorationHs30.movePointRight(2));
-                ps.setBigDecimal(12, majorationHs50.movePointRight(2));
-                ps.setBigDecimal(13, majorationNuit.movePointRight(2));
-                ps.setBigDecimal(14, majorationDimanche.movePointRight(2));
-                ps.setBigDecimal(15, majorationFerie.movePointRight(2));
-                ps.setDouble(16, dto.getHeuresHs30());
-                ps.setDouble(17, dto.getHeuresHs50());
-                if (currentUserId != null) ps.setInt(18, currentUserId); else ps.setNull(18, java.sql.Types.INTEGER);
-
-                ps.addBatch();
-            }
-            ps.executeBatch();
-        }
-    }
-
-    /**
-     * Recalcule automatiquement la semaine tronçon dans pointage_semaine_calcule après une rectification journalière,
-     * si cette semaine était déjà calculée.
-     */
-    public void recalculerSemainePourDate(int idPeriode, LocalDate datePtg, Integer idSite, Connection c) throws SQLException {
-        if (idPeriode <= 0 || datePtg == null) return;
-
-        LocalDate dateDebutPeriode = null;
-        LocalDate dateFinPeriode = null;
-        String sqlPer = "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?";
-        try (PreparedStatement psP = c.prepareStatement(sqlPer)) {
-            psP.setInt(1, idPeriode);
-            try (ResultSet rsP = psP.executeQuery()) {
-                if (rsP.next()) {
-                    dateDebutPeriode = rsP.getDate("date_debut").toLocalDate();
-                    dateFinPeriode = rsP.getDate("date_fin").toLocalDate();
-                }
-            }
-        }
-        if (dateDebutPeriode == null || dateFinPeriode == null) return;
-        if (datePtg.isBefore(dateDebutPeriode) || datePtg.isAfter(dateFinPeriode)) return;
-
-        LocalDate debutLundi = datePtg.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        LocalDate finDimanche = datePtg.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
-        LocalDate debutTroncon = debutLundi.isBefore(dateDebutPeriode) ? dateDebutPeriode : debutLundi;
-        LocalDate finTroncon = finDimanche.isAfter(dateFinPeriode) ? dateFinPeriode : finDimanche;
-
-        // Vérifier si cette semaine a déjà été calculée dans pointage_semaine_calcule
-        String sqlCheck = "SELECT COUNT(*) FROM pointage_semaine_calcule WHERE id_periode_paie = ? AND debut_semaine = ?";
-        boolean hasSemaineCalculee = false;
-        try (PreparedStatement psCheck = c.prepareStatement(sqlCheck)) {
-            psCheck.setInt(1, idPeriode);
-            psCheck.setDate(2, Date.valueOf(debutTroncon));
-            try (ResultSet rsCheck = psCheck.executeQuery()) {
-                if (rsCheck.next() && rsCheck.getInt(1) > 0) {
-                    hasSemaineCalculee = true;
-                }
-            }
-        }
-
-        if (hasSemaineCalculee) {
-            upsertSemaineCalculee(idPeriode, debutTroncon, finTroncon, idSite, null, c);
-        }
-    }
-
-    /**
-     * Dévalide / déverrouille une semaine (avec contrôle strict du statut de la période)
-     */
-    public void devaliderSemaine(int idPeriode, LocalDate dateDebutTroncon) throws SQLException {
-        try (Connection c = dataSource.getConnection()) {
-            // Contrôle strict de workflow : la période ne doit être ni clôturée ni transmise/validée par la DAF
-            String sqlCheck = "SELECT s.code FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ?";
-            try (PreparedStatement psC = c.prepareStatement(sqlCheck)) {
-                psC.setInt(1, idPeriode);
-                try (ResultSet rsC = psC.executeQuery()) {
-                    if (rsC.next()) {
-                        String st = rsC.getString("code");
-                        if ("CLOTUREE".equalsIgnoreCase(st) || "VALIDEE".equalsIgnoreCase(st) || "PAIE_VALIDEE".equalsIgnoreCase(st) || "A_VALIDER".equalsIgnoreCase(st) || "TRANSMIS_DAF".equalsIgnoreCase(st)) {
-                            throw new IllegalStateException("Action impossible : La période de paie est en statut '" + st + "'. Vous devez d'abord réouvrir la période avant de déverrouiller une semaine.");
-                        }
-                    }
-                }
-            }
-
-            try (PreparedStatement ps = c.prepareStatement("DELETE FROM pointage_semaine_calcule WHERE id_periode_paie = ? AND debut_semaine = ?")) {
-                ps.setInt(1, idPeriode);
-                ps.setDate(2, Date.valueOf(dateDebutTroncon));
-                ps.executeUpdate();
-            }
-        }
-    }
-
-    /**
-     * Calcule et actualise en une seule transaction atomique l'ensemble des semaines de la periode,
-     * sans modifier son statut (reste EN_COURS pour consultation et corrections libres par l'agent).
-     */
+    /** Compatibility endpoint: calculates the week list dynamically without persisting results. */
     public Map<String, Object> calculerToutesSemainesPeriode(int idPeriode, Integer idSite, Integer currentUserId) throws SQLException {
         try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                Map<String, Object> res = calculerToutesSemainesPeriode(idPeriode, idSite, currentUserId, c);
-                c.commit();
-                return res;
-            } catch (Exception e) {
-                c.rollback();
-                throw e;
-            }
+            return calculerToutesSemainesPeriode(idPeriode, idSite, currentUserId, c);
         }
     }
 
     public Map<String, Object> calculerToutesSemainesPeriode(int idPeriode, Integer idSite, Integer currentUserId, Connection c) throws SQLException {
         List<Map<String, Object>> semaines = getSemainesPeriode(idPeriode, idSite, c);
-        int nbSemainesCalculees = 0;
-
-        for (Map<String, Object> sem : semaines) {
-            String strDeb = (String) sem.get("dateDebut");
-            String strFin = (String) sem.get("dateFin");
-            if (strDeb != null && strFin != null) {
-                LocalDate dDeb = LocalDate.parse(strDeb);
-                LocalDate dFin = LocalDate.parse(strFin);
-                validerSemaine(idPeriode, dDeb, dFin, idSite, currentUserId, c);
-                nbSemainesCalculees++;
-            }
-        }
-
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
-        result.put("nbSemaines", nbSemainesCalculees);
-        result.put("message", nbSemainesCalculees + " semaine(s) calculee(s) et actualisee(s) avec succes.");
+        result.put("nbSemaines", semaines.size());
+        result.put("message", semaines.size() + " semaine(s) calculée(s) à la demande, sans persistance.");
         return result;
+    }
+
+    private static boolean resolveOvertimeEligibility(int employeeId, LocalDate effectiveDate, Connection connection)
+            throws SQLException {
+        String sql = "SELECT cp.est_eligible_hs FROM employe_affectation_carriere a "
+                + "JOIN ref_categorie_professionnelle cp ON cp.id_categorie_professionnelle = a.id_categorie_professionnelle "
+                + "WHERE a.id_employe = ? AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) "
+                + "ORDER BY a.date_debut DESC LIMIT 1";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, employeeId);
+            statement.setDate(2, Date.valueOf(effectiveDate));
+            statement.setDate(3, Date.valueOf(effectiveDate));
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    throw new IllegalStateException("Aucune catégorie professionnelle applicable pour l'éligibilité HS de l'employé "
+                            + employeeId + " à la date " + effectiveDate + ".");
+                }
+                boolean eligible = result.getBoolean(1);
+                if (result.wasNull()) {
+                    throw new IllegalStateException("Configuration d'éligibilité HS absente pour l'employé "
+                            + employeeId + " à la date " + effectiveDate + ".");
+                }
+                return eligible;
+            }
+        }
+    }
+
+    private static void appendEmployeeSetFilter(StringBuilder where, List<Object> params, Set<Integer> ids) {
+        if (ids.isEmpty()) {
+            where.append("AND 1 = 0 ");
+            return;
+        }
+        where.append("AND e.id_employe IN (")
+                .append(String.join(",", Collections.nCopies(ids.size(), "?")))
+                .append(") ");
+        params.addAll(ids);
     }
 }

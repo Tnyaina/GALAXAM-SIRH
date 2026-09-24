@@ -78,7 +78,7 @@ export default function PointageToolbar({
                         type="button"
                         disabled={isReadOnly}
                         onClick={onAutoFillStandard}
-                        title="Appliquer l'horaire standard (08h-17h) aux lignes non saisies"
+                        title="Préremplir l'horaire configuré du site aux lignes non saisies"
                         className="flex items-center gap-1.5 px-3 h-[32px] text-xs font-semibold border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
                     >
                         <ClockCheck size={13} className="text-[var(--color-success-600)] shrink-0" />

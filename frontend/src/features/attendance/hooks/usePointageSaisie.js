@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import attendanceService from '@/features/attendance/api/attendanceService';
-import { isRowDataModified, calculerLignePointageTempsReel } from '@/features/attendance/utils/pointageCalculations';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { attendanceService } from '@/features/attendance/api/attendanceApi';
+import { isRowDataModified } from '@/features/attendance/utils/pointageCalculations';
 import { getTodayDateString } from '@/utils/dateUtils';
 
 export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateString()) {
@@ -30,6 +30,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
+    const previewTimers = useRef(new Map());
 
     // Comparateur précis délégué à l'utilitaire pur
     const isRowModified = isRowDataModified;
@@ -40,10 +41,18 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         }
     }, [initialGrilleData]);
 
-    // Calcul temps réel délégué à l'utilitaire pur
-    const calculateRowValues = useCallback((row, sParams) => {
-        return calculerLignePointageTempsReel(row, sParams, selectedDate);
-    }, [selectedDate]);
+    const markForPreview = (row) => ({
+        ...row,
+        totalHeures: null,
+        heuresMatin: null,
+        heuresAm: null,
+        heuresNuit: null,
+        minutesRetard: null,
+        hasValidationError: false,
+        validationMessages: [],
+        _previewPending: true,
+        _previewError: null
+    });
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -54,21 +63,12 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                 date: selectedDate
             });
             if (data) {
-                const sParams = data.siteParams || {
-                    heureDebutMatin: '08:00',
-                    heureFinMatin: '12:00',
-                    heureDebutAm: '13:00',
-                    heureFinAm: '17:00',
-                    horaireContinu: false,
-                    siteDeplacementActif: true,
-                    siteRepasActif: false
-                };
+                const sParams = data.siteParams || null;
                 setSiteParams(sParams);
                 setSiteIndemnites(data.siteIndemnites || []);
                 if (data.grilleData) {
-                    const computedData = data.grilleData.map((row) => calculateRowValues(row, sParams));
-                    setGrilleData(computedData);
-                    setInitialGrilleData(JSON.parse(JSON.stringify(computedData)));
+                    setGrilleData(data.grilleData);
+                    setInitialGrilleData(JSON.parse(JSON.stringify(data.grilleData)));
                 }
                 setPeriodeInfo(data.periodeInfo || null);
                 if (data.statsJour) {
@@ -81,18 +81,61 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         } finally {
             setLoading(false);
         }
-    }, [selectedSite, selectedDate, calculateRowValues]);
+    }, [selectedSite, selectedDate]);
 
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    useEffect(() => {
+        const timers = previewTimers.current;
+        grilleData.filter((row) => row._previewPending).forEach((row) => {
+            const id = row.idEmploye;
+            const existingTimer = timers.get(id);
+            if (existingTimer) clearTimeout(existingTimer);
+            const inputSignature = JSON.stringify([
+                row.idEmploye, row.idSite, row.datePointage,
+                row.heureEntreeMatin, row.heureSortieMatin, row.heureEntreeAm, row.heureSortieAm,
+                row.codeStatut, row.typeCongeJour, row.horaireContinu, row.estAutonome, row.ferieJour,
+                row.congePaye, row.congeDecompteSolde
+            ]);
+            const timer = setTimeout(async () => {
+                try {
+                    const preview = await attendanceService.previewDay(row);
+                    setGrilleData((current) => current.map((item) => {
+                        if (item.idEmploye !== id || !item._previewPending) return item;
+                        const currentSignature = JSON.stringify([
+                            item.idEmploye, item.idSite, item.datePointage,
+                            item.heureEntreeMatin, item.heureSortieMatin, item.heureEntreeAm, item.heureSortieAm,
+                            item.codeStatut, item.typeCongeJour, item.horaireContinu, item.estAutonome, item.ferieJour,
+                            item.congePaye, item.congeDecompteSolde
+                        ]);
+                        return currentSignature === inputSignature
+                            ? { ...item, ...preview, _previewPending: false, _previewError: null }
+                            : item;
+                    }));
+                } catch (previewError) {
+                    setGrilleData((current) => current.map((item) => item.idEmploye === id && item._previewPending
+                        ? { ...item, _previewPending: false, _previewError: previewError?.response?.data?.message || previewError?.response?.data || 'Prévisualisation indisponible.' }
+                        : item));
+                } finally {
+                    previewTimers.current.delete(id);
+                }
+            }, 250);
+            timers.set(id, timer);
+        });
+        return () => {
+            timers.forEach(clearTimeout);
+            timers.clear();
+        };
+    }, [grilleData]);
 
     const updateRowHours = (idEmploye, field, value) => {
         setGrilleData((prev) =>
             prev.map((row) => {
                 if (row.idEmploye !== idEmploye) return row;
                 const updated = { ...row, [field]: value };
-                return calculateRowValues(updated, siteParams);
+                return markForPreview(updated);
             })
         );
     };
@@ -107,15 +150,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                     horaireContinu: nextVal,
                     horaireContinuJour: nextVal
                 };
-                if (nextVal) {
-                    updated.heureSortieMatin = '';
-                    updated.heureEntreeAm = '';
-                    updated.indemniteRepasRecue = true;
-                } else {
-                    const siteEstContinu = Boolean(siteParams?.horaireContinu);
-                    updated.indemniteRepasRecue = siteEstContinu;
-                }
-                return calculateRowValues(updated, siteParams);
+                return markForPreview(updated);
             })
         );
     };
@@ -124,104 +159,26 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         setGrilleData((prev) =>
             prev.map((row) => {
                 if (row.idEmploye !== idEmploye) return row;
-                let updated = {
+                const updated = {
                     ...row,
                     codeStatut,
-                    motifAjustement: motifAjustement || ''
+                    motifAjustement: motifAjustement || '',
+                    typeCongeJour: codeStatut === 'CONGE' ? 'FULL_DAY' : null
                 };
-
-                if (codeStatut === 'ABSENCE_JUSTIFIEE' || codeStatut === 'ABSENCE_NON_JUSTIFIEE' || codeStatut === 'CONGE') {
-                    updated.heureEntreeMatin = '';
-                    updated.heureSortieMatin = '';
-                    updated.heureEntreeAm = '';
-                    updated.heureSortieAm = '';
-                    updated.deplacementMatin = false;
-                    updated.deplacementAm = false;
-                    updated.indemniteDeplacementRecue = false;
-                    updated.indemniteRepasRecue = false;
-                    updated.typeCongeJour = codeStatut === 'CONGE' ? 'FULL_DAY' : null;
-                    const dynReset = {};
-                    Object.keys(updated.dynamicIndemnites || {}).forEach(k => {
-                        dynReset[k] = { ...updated.dynamicIndemnites[k], accordee: false, fractionJour: 0.0, matin: false, am: false, montantApplique: 0.0 };
-                    });
-                    updated.dynamicIndemnites = dynReset;
-                } else if (codeStatut === 'PRESENT') {
-                    const isBlank = !updated.heureEntreeMatin && !updated.heureSortieMatin && !updated.heureEntreeAm && !updated.heureSortieAm;
-                    if (isBlank && siteParams) {
-                        updated.heureEntreeMatin = siteParams.heureDebutMatin || '08:00';
-                        updated.heureSortieMatin = siteParams.heureFinMatin || '12:00';
-                        updated.heureEntreeAm = siteParams.heureDebutAm || (siteParams.horaireContinu ? '13:00' : '14:00');
-                        updated.heureSortieAm = siteParams.heureFinAm || '17:00';
-                        updated.deplacementMatin = true;
-                        updated.deplacementAm = true;
-                        updated.indemniteDeplacementRecue = true;
-                    }
-                    updated.typeCongeJour = null;
-                }
-
-                return calculateRowValues(updated, siteParams);
-            })
-        );
-    };
-
-    const updateRowIndemnite = (idEmploye, field, value) => {
-        setGrilleData((prev) =>
-            prev.map((row) => {
-                if (row.idEmploye !== idEmploye) return row;
-                const boolVal = Boolean(value);
-                const updated = { ...row, [field]: boolVal };
-                const existingDyn = { ...(row.dynamicIndemnites || {}) };
-                const siteInds = siteIndemnites || [];
-
-                if (field === 'deplacementMatin' || field === 'deplacementAm') {
-                    const depInd = siteInds.find(i => i.code === 'DEPLACEMENT' || i.code === 'TRANSPORT');
-                    if (depInd) {
-                        const idKey = String(depInd.idIndemnite);
-                        const curEntry = { ...(existingDyn[idKey] || {}) };
-                        const newMatin = field === 'deplacementMatin' ? boolVal : Boolean(updated.deplacementMatin);
-                        const newAm = field === 'deplacementAm' ? boolVal : Boolean(updated.deplacementAm);
-                        curEntry.matin = newMatin;
-                        curEntry.am = newAm;
-                        curEntry.accordee = newMatin || newAm;
-                        curEntry.fractionJour = (newMatin ? 0.5 : 0.0) + (newAm ? 0.5 : 0.0);
-                        const mntJour = depInd.montantJour || depInd.montantReference || 0;
-                        curEntry.montantApplique = Math.round(curEntry.fractionJour * mntJour * 100.0) / 100.0;
-                        existingDyn[idKey] = curEntry;
-                        updated.indemniteDeplacementRecue = newMatin || newAm;
-                    }
-                } else if (field === 'indemniteRepasRecue') {
-                    const repasInd = siteInds.find(i => i.code === 'REPAS');
-                    if (repasInd) {
-                        const idKey = String(repasInd.idIndemnite);
-                        const curEntry = { ...(existingDyn[idKey] || {}) };
-                        curEntry.accordee = boolVal;
-                        curEntry.fractionJour = boolVal ? 1.0 : 0.0;
-                        const mntRepas = repasInd.useGlobalIfZero && boolVal 
-                            ? (repasInd.montantGlobal ?? 0)
-                            : (repasInd.montantJour || repasInd.montantReference || 0);
-                        curEntry.montantApplique = boolVal ? mntRepas : 0.0;
-                        existingDyn[idKey] = curEntry;
-                        updated.montantRepas = boolVal ? mntRepas : 0.0;
-                    }
-                }
-
-                updated.dynamicIndemnites = existingDyn;
-                return updated;
+                return markForPreview(updated);
             })
         );
     };
 
     const bulkApplyStandardHours = (empIds) => {
         if (!siteParams || !empIds || empIds.size === 0) return;
-        const hDebM = siteParams.heureDebutMatin || '08:00';
-        const hFinM = siteParams.heureFinMatin || '12:00';
-        const hDebA = siteParams.heureDebutAm || (siteParams.horaireContinu ? '13:00' : '14:00');
-        const hFinA = siteParams.heureFinAm || '17:00';
+        const { heureDebutMatin: hDebM, heureFinMatin: hFinM,
+            heureDebutAm: hDebA, heureFinAm: hFinA } = siteParams;
+        if (![hDebM, hFinM, hDebA, hFinA].every(Boolean)) return;
 
         setGrilleData((prev) =>
             prev.map((row) => {
                 if (!empIds.has(row.idEmploye)) return row;
-                if (row.codeStatut === 'CONGE' || row.estAutonome || row.ferieJour) return row;
 
                 const filled = {
                     ...row,
@@ -229,12 +186,8 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                     heureSortieMatin: hFinM,
                     heureEntreeAm: hDebA,
                     heureSortieAm: hFinA,
-                    codeStatut: 'PRESENT',
-                    deplacementMatin: true,
-                    deplacementAm: true,
-                    indemniteDeplacementRecue: true
                 };
-                return calculateRowValues(filled, siteParams);
+                return markForPreview(filled);
             })
         );
     };
@@ -244,54 +197,36 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         setGrilleData((prev) =>
             prev.map((row) => {
                 if (!empIds.has(row.idEmploye)) return row;
-                // Protection des congés approuvés et des fériés chômés
-                if (row.conge || row.codeStatut === 'CONGE' || row.ferieJour || row.ferieChome) return row;
-
-                let updated = {
+                const updated = {
                     ...row,
                     codeStatut,
-                    motifAjustement: motifAjustement || ''
+                    motifAjustement: motifAjustement || '',
+                    typeCongeJour: codeStatut === 'CONGE' ? 'FULL_DAY' : null
                 };
-
-                if (codeStatut === 'ABSENCE_JUSTIFIEE' || codeStatut === 'ABSENCE_NON_JUSTIFIEE' || codeStatut === 'CONGE') {
-                    updated.heureEntreeMatin = '';
-                    updated.heureSortieMatin = '';
-                    updated.heureEntreeAm = '';
-                    updated.heureSortieAm = '';
-                    updated.deplacementMatin = false;
-                    updated.deplacementAm = false;
-                    updated.indemniteDeplacementRecue = false;
-                    updated.indemniteRepasRecue = false;
-                    updated.typeCongeJour = codeStatut === 'CONGE' ? 'FULL_DAY' : null;
-                    const dynReset = {};
-                    Object.keys(updated.dynamicIndemnites || {}).forEach(k => {
-                        dynReset[k] = { ...updated.dynamicIndemnites[k], accordee: false, fractionJour: 0.0, matin: false, am: false, montantApplique: 0.0 };
-                    });
-                    updated.dynamicIndemnites = dynReset;
-                } else if (codeStatut === 'PRESENT') {
-                    const isBlank = !updated.heureEntreeMatin && !updated.heureSortieMatin && !updated.heureEntreeAm && !updated.heureSortieAm;
-                    if (isBlank && siteParams) {
-                        updated.heureEntreeMatin = siteParams.heureDebutMatin || '08:00';
-                        updated.heureSortieMatin = siteParams.heureFinMatin || '12:00';
-                        updated.heureEntreeAm = siteParams.heureDebutAm || (siteParams.horaireContinu ? '13:00' : '14:00');
-                        updated.heureSortieAm = siteParams.heureFinAm || '17:00';
-                        updated.deplacementMatin = true;
-                        updated.deplacementAm = true;
-                        updated.indemniteDeplacementRecue = true;
-                    }
-                    updated.typeCongeJour = null;
-                }
-
-                return calculateRowValues(updated, siteParams);
+                return markForPreview(updated);
             })
         );
     };
 
-    const bulkApplyIndemnite = (empIds, field, value) => {
+    const bulkApplyIndemnite = (empIds, idIndemnite, fractionnable) => {
         if (!empIds || empIds.size === 0) return;
-        empIds.forEach(idEmp => {
-            updateRowIndemnite(idEmp, field, value);
-        });
+        setGrilleData((prev) => prev.map((row) => {
+            if (!empIds.has(row.idEmploye)) return row;
+            const key = String(idIndemnite);
+            const current = row.dynamicIndemnites?.[key] || {};
+            return markForPreview({
+                ...row,
+                dynamicIndemnites: {
+                    ...(row.dynamicIndemnites || {}),
+                    [key]: {
+                        ...current,
+                        accordee: true,
+                        fractionJour: 1,
+                        ...(fractionnable ? { matin: true, am: true } : {}),
+                    },
+                },
+            });
+        }));
     };
 
     const updateRowDynamicIndemnite = (idEmploye, idIndemnite, value, fraction) => {
@@ -301,55 +236,38 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                 const existingDyn = { ...(row.dynamicIndemnites || {}) };
                 const current = { ...(existingDyn[String(idIndemnite)] || {}) };
                 const updated = { ...row };
-                const siteInds = siteIndemnites || [];
-                const indConfig = siteInds.find(i => i.idIndemnite === idIndemnite);
-                const isRep = indConfig?.code === 'REPAS';
                 const boolVal = Boolean(value);
 
                 if (fraction === 'MATIN') {
                     current.matin = boolVal;
-                    updated.deplacementMatin = boolVal;
-                    const curAm = updated.deplacementAm !== undefined ? Boolean(updated.deplacementAm) : Boolean(current.am);
-                    current.accordee = boolVal || curAm;
-                    current.fractionJour = (boolVal ? 0.5 : 0.0) + (curAm ? 0.5 : 0.0);
-                    updated.indemniteDeplacementRecue = current.accordee;
                 } else if (fraction === 'APRES_MIDI') {
                     current.am = boolVal;
-                    updated.deplacementAm = boolVal;
-                    const curMat = updated.deplacementMatin !== undefined ? Boolean(updated.deplacementMatin) : Boolean(current.matin);
-                    current.accordee = curMat || boolVal;
-                    current.fractionJour = (curMat ? 0.5 : 0.0) + (boolVal ? 0.5 : 0.0);
-                    updated.indemniteDeplacementRecue = current.accordee;
                 } else {
                     current.accordee = boolVal;
-                    current.fractionJour = boolVal ? 1.0 : 0.0;
-                    if (isRep) {
-                        updated.indemniteRepasRecue = boolVal;
-                        const mnt = indConfig?.useGlobalIfZero && boolVal 
-                            ? (indConfig?.montantGlobal ?? 0)
-                            : (indConfig?.montantJour || indConfig?.montantReference || 0);
-                        current.montantApplique = boolVal ? mnt : 0.0;
-                        updated.montantRepas = boolVal ? mnt : 0.0;
-                    }
+                }
+
+                if (fraction === 'MATIN' || fraction === 'APRES_MIDI') {
+                    current.accordee = Boolean(current.matin || current.am);
+                    current.fractionJour = (current.matin ? 0.5 : 0) + (current.am ? 0.5 : 0);
+                } else {
+                    current.fractionJour = boolVal ? 1 : 0;
                 }
 
                 existingDyn[String(idIndemnite)] = current;
                 updated.dynamicIndemnites = existingDyn;
-                return updated;
+                return markForPreview(updated);
             })
         );
     };
 
     const autoFillStandardHours = () => {
         if (!siteParams) return;
-        const hDebM = siteParams.heureDebutMatin || '08:00';
-        const hFinM = siteParams.heureFinMatin || '12:00';
-        const hDebA = siteParams.heureDebutAm || (siteParams.horaireContinu ? '13:00' : '14:00');
-        const hFinA = siteParams.heureFinAm || '17:00';
+        const { heureDebutMatin: hDebM, heureFinMatin: hFinM,
+            heureDebutAm: hDebA, heureFinAm: hFinA } = siteParams;
+        if (![hDebM, hFinM, hDebA, hFinA].every(Boolean)) return;
 
         setGrilleData((prev) =>
             prev.map((row) => {
-                if (row.codeStatut === 'CONGE' || row.estAutonome || row.ferieJour) return row;
                 const isBlank = !row.heureEntreeMatin && !row.heureSortieMatin && !row.heureEntreeAm && !row.heureSortieAm;
                 if (!isBlank) return row;
 
@@ -360,26 +278,25 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                     heureEntreeAm: hDebA,
                     heureSortieAm: hFinA
                 };
-                return calculateRowValues(filled, siteParams);
+                return markForPreview(filled);
             })
         );
     };
 
     const autoDeduceAllPauses = () => {
         if (!siteParams) return;
-        const hFinM = siteParams.heureFinMatin || '12:00';
-        const hDebA = siteParams.heureDebutAm || (siteParams.horaireContinu ? '13:00' : '14:00');
+        const hFinM = siteParams.heureFinMatin;
+        const hDebA = siteParams.heureDebutAm;
 
         setGrilleData((prev) =>
             prev.map((row) => {
-                if (row.codeStatut === 'CONGE' || row.estAutonome || row.ferieJour) return row;
                 if (row.heureEntreeMatin && row.heureSortieAm && (!row.heureSortieMatin || !row.heureEntreeAm)) {
                     const filled = {
                         ...row,
                         heureSortieMatin: row.heureSortieMatin || hFinM,
                         heureEntreeAm: row.heureEntreeAm || hDebA
                     };
-                    return calculateRowValues(filled, siteParams);
+                    return markForPreview(filled);
                 }
                 return row;
             })
@@ -394,23 +311,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
             if (targetEmpIds && targetEmpIds.size > 0) {
                 payload = grilleData.filter(r => targetEmpIds.has(r.idEmploye));
             } else if (initialGrilleData && initialGrilleData.length > 0) {
-                // Détecter un weekend : en weekend, on n'envoie que les employés ayant des heures ou explicitement modifiés
-                const dStr = selectedDate;
-                let isWeekend = false;
-                if (dStr) {
-                    const parts = dStr.split('-');
-                    if (parts.length === 3) {
-                        const dObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-                        isWeekend = (dObj.getDay() === 0 || dObj.getDay() === 6);
-                    }
-                }
-                if (isWeekend) {
-                    payload = grilleData.filter(r => {
-                        const hasHours = (r.heureEntreeMatin || r.heureSortieMatin || r.heureEntreeAm || r.heureSortieAm);
-                        const isMod = isRowModified(r, initialGrilleData);
-                        return hasHours || isMod;
-                    });
-                }
+                payload = grilleData.filter((row) => isRowModified(row, initialGrilleData));
             }
 
             if (payload.length === 0) {
@@ -451,7 +352,6 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         updateRowHours,
         toggleRowHoraireContinu,
         updateRowStatut,
-        updateRowIndemnite,
         updateRowDynamicIndemnite,
         autoFillStandardHours,
         autoDeduceAllPauses,
