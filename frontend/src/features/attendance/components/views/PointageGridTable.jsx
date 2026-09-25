@@ -463,6 +463,8 @@ export default function PointageGridTable({
 
                                         // Indemnité journalière standard (Repas, etc.)
                                         const useGlobalIfZero = !!ind.useGlobalIfZero;
+                                        const repasFourniSansVersement = ind.code === 'REPAS'
+                                            && Number(ind.montantReference) === 0;
                                         const checked = !isCongeFull && (dynObj.accordee !== undefined
                                             ? Boolean(dynObj.accordee) : (useGlobalIfZero ? false : isAccordee));
                                         const montantEffectif = useGlobalIfZero && checked
@@ -479,7 +481,9 @@ export default function PointageGridTable({
                                                         )}
                                                         <label
                                                             className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`}
-                                                            title={useGlobalIfZero
+                                                            title={repasFourniSansVersement
+                                                                ? 'Repas fourni sur site : 0 Ar versé et réduction du déplacement selon le paramètre de la période'
+                                                                : useGlobalIfZero
                                                                 ? `Non inclus dans les indemnites du site — Si coche, applique le parametre global : ${fmtMoney(ind.montantGlobal || 0)}/j`
                                                                 : `Accordee — ${fmtMoney(montantEffectif)}`
                                                             }
@@ -497,7 +501,9 @@ export default function PointageGridTable({
                                                                 ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-bold'
                                                                 : useGlobalIfZero ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--color-fg-muted)]'
                                                             }>
-                                                                {checked && montantEffectif > 0
+                                                                {checked && repasFourniSansVersement
+                                                                    ? 'Fourni · 0 Ar'
+                                                                    : checked && montantEffectif > 0
                                                                     ? fmtMoney(montantEffectif)
                                                                     : useGlobalIfZero ? <span className="text-[10px] opacity-70">Manuel</span> : '0 Ar'
                                                                 }

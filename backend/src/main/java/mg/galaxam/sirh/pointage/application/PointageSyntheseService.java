@@ -264,22 +264,6 @@ public class PointageSyntheseService {
         BigDecimal seuilHeuresJour = BigDecimal.valueOf(PointageService.resolveDailyTargetHours(
                 ParametreGlobal.loadEtatMapAtDate(Date.valueOf(dateDebut), c)));
 
-        // Résolution de l'horaire continu du site (TRUE = TNR / continu, FALSE = TMM / discontinu)
-        boolean siteHoraireContinu;
-        if (horaireContinu != null) {
-            siteHoraireContinu = horaireContinu;
-        } else {
-            String sqlHC = "SELECT COALESCE(horaire_continu, TRUE) FROM ref_site WHERE id_site = ?";
-            try (PreparedStatement psHC = c.prepareStatement(sqlHC)) {
-                psHC.setInt(1, idSite);
-                try (ResultSet rsHC = psHC.executeQuery()) {
-                    siteHoraireContinu = rsHC.next() ? rsHC.getBoolean(1) : true;
-                }
-            } catch (Exception ignored) {
-                siteHoraireContinu = true;
-            }
-        }
-
         // Montant de référence mensuel pour le site (ex: 53 200 Ar si horaire discontinu, 31 200 Ar si horaire continu)
         BigDecimal refDeplacementSite = BigDecimal.ZERO;
         if (siteDeplacementRefMap != null && siteDeplacementRefMap.containsKey(idSite)) {
@@ -458,7 +442,20 @@ public class PointageSyntheseService {
         if (estAutonome) {
             Map<String, ParametreGlobal.ParametreEtat> allowanceStates =
                     ParametreGlobal.loadEtatMapAtDate(Date.valueOf(dateDebut), c);
-            BigDecimal mealRate = requireAllowanceParameter(allowanceStates, "MONTANT_REPAS_MIDI", idSite, dateDebut, idEmp);
+            BigDecimal mealRate = BigDecimal.ZERO;
+            try (PreparedStatement mealTariff = c.prepareStatement(
+                    "SELECT sic.montant_reference FROM site_indemnite_config sic "
+                            + "JOIN ref_indemnite ri ON ri.id_indemnite = sic.id_indemnite "
+                            + "WHERE sic.id_site = ? AND ri.code = 'REPAS' AND sic.est_actif = TRUE "
+                            + "AND sic.date_debut <= ? AND (sic.date_fin IS NULL OR sic.date_fin >= ?)")) {
+                mealTariff.setInt(1, idSite);
+                mealTariff.setDate(2, Date.valueOf(dateDebut));
+                mealTariff.setDate(3, Date.valueOf(dateDebut));
+                try (ResultSet mealResult = mealTariff.executeQuery()) {
+                    if (mealResult.next()) mealRate = nullToZero(mealResult.getBigDecimal(1));
+                }
+            }
+            boolean mealGrantedByDefault = mealRate.signum() > 0;
             BigDecimal travelRate = tarifJourDeplacement;
             BigDecimal travelReduction = requireAllowanceParameter(allowanceStates, "REDUCTION_DEPLACT_REPAS_MIDI", idSite, dateDebut, idEmp);
             for (LocalDate day = dateDebut; !day.isAfter(dateFin); day = day.plusDays(1)) {
@@ -470,12 +467,13 @@ public class PointageSyntheseService {
                                 LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0),
                                 LocalTime.of(22, 0), LocalTime.of(5, 0), false, true, false,
                                 AttendanceEngine.Context.LeavePart.NONE,
-                                true, mealRate, BigDecimal.ONE, travelRate, travelReduction, !siteHoraireContinu));
+                                mealGrantedByDefault, mealRate, BigDecimal.ONE, travelRate, travelReduction,
+                                mealRate.signum() == 0));
                 LocalDate monday = day.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
                 parSemaine.computeIfAbsent(monday, ignored -> new ArrayList<>()).add(autonomousDay);
                 datesAvecPointage.add(day);
                 presents++;
-                repasCount++;
+                repasCount += autonomousDay.mealDays();
                 montantRepasTotal = montantRepasTotal.add(autonomousDay.mealAmount());
                 totalTrajets = totalTrajets.add(autonomousDay.travelUnits());
                 totalMntDeplacement = totalMntDeplacement.add(autonomousDay.travelAmount());
@@ -626,7 +624,12 @@ public class PointageSyntheseService {
         // de la période ont été pointés; la proratisation journalière ne doit pas
         // introduire un double arrondi (notamment sur les périodes à 21 jours).
         if (refDeplacementSite.signum() > 0 && dto.getNbJoursPresents() >= nbJoursOuvrablesPeriode) {
-            montantDeplacementFinal = refDeplacementSite;
+            BigDecimal ajustementJournalier = tarifJourDeplacement.multiply(periodResult.travelUnits())
+                    .subtract(periodResult.travelAmount());
+            if (ajustementJournalier.abs().compareTo(BigDecimal.ONE) < 0) {
+                ajustementJournalier = BigDecimal.ZERO;
+            }
+            montantDeplacementFinal = refDeplacementSite.subtract(ajustementJournalier).max(BigDecimal.ZERO);
         }
         dto.setMontantDeplacement(mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy.amount(montantDeplacementFinal));
         dto.setMontantsIndemnites(loadAllowanceAmounts(idEmp, idPeriode, dateDebut, dateFin, statutPeriode, c));

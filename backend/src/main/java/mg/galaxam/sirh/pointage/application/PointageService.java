@@ -72,7 +72,8 @@ public class PointageService {
     BigDecimal dailyAllowanceUnitAmount(DailyAllowanceTariff tariff, Date businessDate,
             int workingDays, Connection connection) {
         BigDecimal reference = tariff.siteAmount();
-        if (reference.signum() == 0 && tariff.exceptionParameterCode() != null) {
+        if (reference.signum() == 0 && tariff.exceptionParameterCode() != null
+                && !"REPAS".equalsIgnoreCase(tariff.code())) {
             reference = requireMonetaryStateParameter(
                     ParametreGlobal.loadEtatMapAtDate(businessDate, connection), tariff.exceptionParameterCode());
         }
@@ -557,8 +558,7 @@ public class PointageService {
             int nbOuvrablesPeriode = (periodeInfo != null && periodeInfo.get("nbJoursOuvrables") != null)
                     ? (int) periodeInfo.get("nbJoursOuvrables") : 0;
 
-            // Chargement anticipé des paramètres globaux pour résoudre MONTANT_REPAS_MIDI
-            // (nécessaire dès la construction de siteIndemnites pour les sites à tarif repas = 0 comme TMM)
+            // Les tarifs d'indemnité sont résolus à la date du pointage.
             Map<String, ParametreGlobal.ParametreEtat> globalParams = ParametreGlobal.loadEtatMapAtDate(date, c);
             BigDecimal mntRepasMidiGlobal = BigDecimal.ZERO;
             double dureeJourReference = resolveDailyTargetHours(globalParams);
@@ -602,15 +602,14 @@ public class PointageService {
                         BigDecimal montantJour = dailyAllowanceUnitAmount(tariff, date, nbOuvrablesPeriode, c);
                         BigDecimal montantTrajet = fractionnable ? calendrierEngine.calculerMontantTrajet(montantJour) : montantJour;
 
-                        // Pour les indemnités REPAS avec montantRef = 0 (ex: TMM), le montant affiché
-                        // quand la case est cochée manuellement doit être le montant global MONTANT_REPAS_MIDI.
+                        // Un tarif REPAS à 0 représente un repas fourni sans versement.
                         boolean isSiteZero = montantRef.signum() == 0;
                         BigDecimal montantGlobal = montantJour;
-                        boolean useGlobalIfZero = isSiteZero && montantGlobal.signum() > 0;
+                        boolean useGlobalIfZero = false;
 
                         String sousTitre;
-                        if (useGlobalIfZero) {
-                            sousTitre = "Non inclus site (" + String.format(Locale.FRENCH, "%,d", Math.round(montantGlobal.doubleValue())) + " Ar/j si coché)";
+                        if (isSiteZero && "REPAS".equalsIgnoreCase(codeInd)) {
+                            sousTitre = "0 Ar/j — cocher si repas fourni sur site";
                         } else if (isProratise) {
                             sousTitre = "prorata (" + String.format(Locale.FRENCH, "%,d", Math.round(montantJour.doubleValue())) + " Ar/j)";
                         } else {
@@ -626,11 +625,9 @@ public class PointageService {
                         ind.put("periodicite", period);
                         ind.put("montantReference", montantRef);
                         ind.put("montantJour", montantJour);
-                        // montantGlobal = montant à utiliser si coché manuellement alors que montantJour = 0
                         ind.put("montantGlobal", montantGlobal);
                         ind.put("codeParametreException", codeParametreException);
-                        // useGlobalIfZero = true indique au frontend que la valeur site est 0 et que le
-                        // montant effectif appliqué sera celui des paramètres globaux si l'agent coche la case
+                        // Conservé dans le contrat de grille pour les clients existants.
                         ind.put("useGlobalIfZero", useGlobalIfZero);
                         ind.put("cocheParDefaut", !isSiteZero);
                         ind.put("montantTrajet", montantTrajet);
@@ -1016,9 +1013,7 @@ public class PointageService {
                                             : (depRecue ? MoneyRoundingPolicy.amount(montantDeplacementJour.multiply(fractionDep)) : BigDecimal.ZERO));
 
                                     dto.setIndemniteRepasRecue(repasRecue);
-                                    dto.setMontantRepas(repasRecue
-                                            ? (mntRepasDb.signum() > 0 ? mntRepasDb : (siteRepasInclusParDefaut ? montantRepasSite : mntRepasMidiGlobal))
-                                            : BigDecimal.ZERO);
+                                    dto.setMontantRepas(repasRecue ? mntRepasDb : BigDecimal.ZERO);
                                 }
                             }
                         }
@@ -1113,9 +1108,7 @@ public class PointageService {
                                 dto.setIndemniteDeplacementRecue(true);
                                 dto.setMontantDeplacement(montantDeplacementJour);
                                 dto.setIndemniteRepasRecue(siteRepasInclusParDefaut);
-                                dto.setMontantRepas(siteRepasInclusParDefaut
-                                        ? (montantRepasSite.signum() > 0 ? montantRepasSite : mntRepasMidiGlobal)
-                                        : BigDecimal.ZERO);
+                                dto.setMontantRepas(siteRepasInclusParDefaut ? montantRepasSite : BigDecimal.ZERO);
                             } else {
                                 dto.setHeureEntreeMatin("");
                                 dto.setHeureSortieMatin("");
@@ -1130,9 +1123,7 @@ public class PointageService {
                                 dto.setIndemniteDeplacementRecue(true);
                                 dto.setMontantDeplacement(montantDeplacementJour);
                                 dto.setIndemniteRepasRecue(siteRepasInclusParDefaut);
-                                dto.setMontantRepas(siteRepasInclusParDefaut
-                                        ? (montantRepasSite.signum() > 0 ? montantRepasSite : mntRepasMidiGlobal)
-                                        : BigDecimal.ZERO);
+                                dto.setMontantRepas(siteRepasInclusParDefaut ? montantRepasSite : BigDecimal.ZERO);
                             }
                         }
 
@@ -1258,7 +1249,7 @@ public class PointageService {
 
                                 Map<String, Object> item = new HashMap<>();
                                 item.put("accordee", acc);
-                                // Si coché, on applique le montant global (MONTANT_REPAS_MIDI) si site = 0
+                                // Le montant affiché reste celui du site, même si la case est cochée.
                                 item.put("montantApplique", useGlobal ? mntGlobal : mntJour);
                                 item.put("fractionJour", acc ? 1.0 : 0.0);
                                 if (estExclu) {
@@ -1926,6 +1917,19 @@ public class PointageService {
 
     private void persistDynamicAllowances(Map<String, Object> selections, int pointageId, int siteId,
             Date date, int workingDays, boolean nonWorked, Connection c, PreparedStatement statement) throws SQLException {
+        boolean repasFourniSansVersement = false;
+        for (Map.Entry<String, Object> entry : selections.entrySet()) {
+            if (!(entry.getValue() instanceof Map<?, ?> values)) continue;
+            DailyAllowanceTariff tariff = loadDailyAllowanceTariff(c, siteId, Integer.parseInt(entry.getKey()), date);
+            if ("REPAS".equalsIgnoreCase(tariff.code()) && tariff.siteAmount().signum() == 0
+                    && !nonWorked && Boolean.TRUE.equals(values.get("accordee"))) {
+                repasFourniSansVersement = true;
+            }
+        }
+        BigDecimal reductionDeplacement = repasFourniSansVersement
+                ? requireMonetaryStateParameter(ParametreGlobal.loadEtatMapAtDate(date, c),
+                        "REDUCTION_DEPLACT_REPAS_MIDI")
+                : BigDecimal.ZERO;
         for (Map.Entry<String, Object> entry : selections.entrySet()) {
             int allowanceId = Integer.parseInt(entry.getKey());
             if (!(entry.getValue() instanceof Map<?, ?> values)) continue;
@@ -1940,14 +1944,24 @@ public class PointageService {
                     : (requested ? BigDecimal.ONE : BigDecimal.ZERO);
             BigDecimal unitAmount = requested
                     ? dailyAllowanceUnitAmount(tariff, date, workingDays, c) : BigDecimal.ZERO;
-            if (requested && unitAmount.signum() == 0 && tariff.siteAmount().signum() == 0
+            boolean repasSansVersement = "REPAS".equalsIgnoreCase(tariff.code())
+                    && tariff.siteAmount().signum() == 0;
+            if (requested && unitAmount.signum() == 0 && !repasSansVersement
+                    && tariff.siteAmount().signum() == 0
                     && tariff.exceptionParameterCode() == null) {
                 throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
                         "Aucun montant d'exception configuré pour l'indemnité " + tariff.code() + ".");
             }
-            boolean granted = requested && unitAmount.signum() > 0;
+            boolean granted = requested && (unitAmount.signum() > 0 || repasSansVersement);
             BigDecimal quantity = granted ? units : BigDecimal.ZERO;
             BigDecimal amount = granted ? MoneyRoundingPolicy.amount(unitAmount.multiply(units)) : BigDecimal.ZERO;
+            if (granted && repasFourniSansVersement
+                    && ("DPLCT".equalsIgnoreCase(tariff.code())
+                            || "DEPLACEMENT".equalsIgnoreCase(tariff.code())
+                            || "TRANSPORT".equalsIgnoreCase(tariff.code()))) {
+                amount = amount.subtract(MoneyRoundingPolicy.amount(reductionDeplacement.multiply(units)))
+                        .max(BigDecimal.ZERO);
+            }
             String fraction = tariff.fractionable() && granted && units.compareTo(BigDecimal.ONE) < 0
                     ? (morning ? "MATIN" : "APRES_MIDI") : "JOUR_ENTIER";
             statement.setInt(1, pointageId);

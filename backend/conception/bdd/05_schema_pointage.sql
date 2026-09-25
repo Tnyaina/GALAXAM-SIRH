@@ -315,13 +315,12 @@ INSERT INTO ref_statut_pointage_jour (id_statut_jour, code, libelle, decompte_ab
 (11, 'DEMI_JOURNEE', 'Demi-journée travaillée', FALSE, TRUE);
 SELECT setval('ref_statut_pointage_jour_id_statut_jour_seq', (SELECT GREATEST(MAX(id_statut_jour), 11) FROM ref_statut_pointage_jour));
 
--- Indemnités de Référence
-INSERT INTO ref_indemnite (id_indemnite, code, libelle, imposable_irsa, fractionnable) VALUES
-(1, 'DPLCT', 'Indemnité de Déplacement', FALSE, TRUE),
-(2, 'REPAS', 'Indemnité de Repas', FALSE, FALSE);
+-- Indemnités de Référence (Repas et Déplacement intégrés au brut cotisable/imposable selon politique DAF)
+INSERT INTO ref_indemnite (id_indemnite, code, libelle, imposable_irsa, soumis_cotisation, fractionnable) VALUES
+(1, 'DPLCT', 'Indemnité de Déplacement', TRUE, TRUE, TRUE),
+(2, 'REPAS', 'Indemnité de Repas', TRUE, TRUE, FALSE);
 UPDATE ref_indemnite SET code_rubrique_paie = 'INDEMNITE_REPAS' WHERE code = 'REPAS';
-UPDATE ref_indemnite SET code_rubrique_paie = 'INDEMNITE_TRANSPORT' WHERE code = 'DEPLACEMENT';
-UPDATE ref_indemnite SET soumis_cotisation = FALSE WHERE imposable_irsa = FALSE;
+UPDATE ref_indemnite SET code_rubrique_paie = 'INDEMNITE_TRANSPORT' WHERE code IN ('DPLCT', 'DEPLACEMENT');
 SELECT setval('ref_indemnite_id_indemnite_seq', (SELECT GREATEST(MAX(id_indemnite), 2) FROM ref_indemnite));
 
 -- Configurations d'Indemnités par Site

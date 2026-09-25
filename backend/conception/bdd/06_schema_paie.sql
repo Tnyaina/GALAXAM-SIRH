@@ -607,29 +607,27 @@ INSERT INTO bareme_irsa (id_config_legale, numero_tranche, tranche_min, tranche_
 SELECT setval('bareme_irsa_id_tranche_seq', (SELECT GREATEST(MAX(id_tranche), 17) FROM bareme_irsa));
 
 -- Majorations d'Heures Supplémentaires & Spéciales (LF_2024_2025 et LF_2026)
-INSERT INTO bareme_irsa (id_config_legale, numero_tranche, tranche_min, tranche_max, taux, date_debut, date_fin) VALUES
--- Ancien barème (2022 - 2025)
-(1, 1, 0.00, 350000.00, 0.00, '2022-01-01', '2025-12-31'),
-(1, 2, 350000.01, 400000.00, 5.00, '2022-01-01', '2025-12-31'),
-(1, 3, 400000.01, 500000.00, 10.00, '2022-01-01', '2025-12-31'),
-(1, 4, 500000.01, 600000.00, 15.00, '2022-01-01', '2025-12-31'),
-(1, 5, 600000.01, NULL, 20.00, '2022-01-01', '2025-12-31'),
+INSERT INTO ref_taux_majoration (id_config_legale, type_majoration, taux, description, date_debut, date_fin) VALUES
+-- Ancien barème (2022 - 2025) - LF_2024_2025 (ID 1)
+(1, 'HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine (+30%)', '2022-01-01', '2025-12-31'),
+(1, 'HS_50', 0.50, 'Au-delà de la 48ᵉ heure (+50%)', '2022-01-01', '2025-12-31'),
+(1, 'NUIT', 0.30, 'Heures de nuit (22h - 05h) (+30%)', '2022-01-01', '2025-12-31'),
+(1, 'DIMANCHE', 0.40, 'Travail le dimanche (+40%)', '2022-01-01', '2025-12-31'),
+(1, 'FERIE', 1.00, 'Travail jour férié (+100%)', '2022-01-01', '2025-12-31'),
 
--- Nouveau barème 2026 avec tranche à 25% (Période transitoire ou spécifique ID 3)
-(3, 1, 0.00, 350000.00, 0.00, '2026-01-01', '2026-02-28'),
-(3, 2, 350000.01, 400000.00, 5.00, '2026-01-01', '2026-02-28'),
-(3, 3, 400000.01, 500000.00, 10.00, '2026-01-01', '2026-02-28'),
-(3, 4, 500000.01, 600000.00, 15.00, '2026-01-01', '2026-02-28'),
-(3, 5, 600000.01, 4000000.00, 20.00, '2026-01-01', '2026-02-28'),
-(3, 6, 4000000.01, NULL, 25.00, '2026-01-01', '2026-02-28'),
+-- Nouveau barème 2026 (Période transitoire Janv-Févr 2026 - ID 3)
+(3, 'HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine (+30%)', '2026-01-01', '2026-02-28'),
+(3, 'HS_50', 0.50, 'Au-delà de la 48ᵉ heure (+50%)', '2026-01-01', '2026-02-28'),
+(3, 'NUIT', 0.30, 'Heures de nuit (22h - 05h) (+30%)', '2026-01-01', '2026-02-28'),
+(3, 'DIMANCHE', 0.40, 'Travail le dimanche (+40%)', '2026-01-01', '2026-02-28'),
+(3, 'FERIE', 1.00, 'Travail jour férié (+100%)', '2026-01-01', '2026-02-28'),
 
--- Nouveau barème 2026 actif (ID 2)
-(2, 1, 0.00, 350000.00, 0.00, '2026-03-01', NULL),
-(2, 2, 350000.01, 400000.00, 5.00, '2026-03-01', NULL),
-(2, 3, 400000.01, 500000.00, 10.00, '2026-03-01', NULL),
-(2, 4, 500000.01, 600000.00, 15.00, '2026-03-01', NULL),
-(2, 5, 600000.01, 4000000.00, 20.00, '2026-03-01', NULL),
-(2, 6, 4000000.01, NULL, 25.00, '2026-03-01', NULL);
+-- Nouveau barème 2026 actif dès Mars 2026 (ID 2)
+(2, 'HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine (+30%)', '2026-03-01', NULL),
+(2, 'HS_50', 0.50, 'Au-delà de la 48ᵉ heure (+50%)', '2026-03-01', NULL),
+(2, 'NUIT', 0.30, 'Heures de nuit (22h - 05h) (+30%)', '2026-03-01', NULL),
+(2, 'DIMANCHE', 0.40, 'Travail le dimanche (+40%)', '2026-03-01', NULL),
+(2, 'FERIE', 1.00, 'Travail jour férié (+100%)', '2026-03-01', NULL);
 SELECT setval('ref_taux_majoration_id_taux_majoration_seq', (SELECT GREATEST(MAX(id_taux_majoration), 15) FROM ref_taux_majoration));
 
 -- Catalogue des Rubriques de Paie (Plan Standard 37 Rubriques Canoniques)
@@ -657,8 +655,8 @@ INSERT INTO paie_rubrique (id_rubrique, code, libelle, categorie, type_valeur, s
 (21, 'REDUCTION_CHARGE_FAMILLE', 'Réduction IRSA pour Charges de Famille', 'IMPOT', 'MONTANT', 'INFO', FALSE, FALSE, FALSE, TRUE, 410, 'Déduction fiscale de 2 000 Ar par enfant à charge éligible'),
 (22, 'IMPOT_IRSA_NET', 'IRSA Net à Payer (Retenu à la Source)', 'IMPOT', 'MONTANT', 'RETENUE', FALSE, FALSE, FALSE, TRUE, 420, 'Impôt sur le revenu net déduit (respect du minimum légal)'),
 (23, 'RETENUE_ISI_5', 'Retenue Libératoire ISI (5%)', 'IMPOT', 'POURCENTAGE', 'RETENUE', FALSE, FALSE, FALSE, TRUE, 430, 'Impôt synthétique intermédiaire pour prestataires/consultants'),
-(24, 'INDEMNITE_TRANSPORT', 'Indemnité Forfaitaire de Déplacement', 'INDEMNITE_NON_IMPOSABLE', 'MONTANT', 'GAIN', FALSE, FALSE, FALSE, TRUE, 500, 'Indemnité transport proratisée selon jours présents'),
-(25, 'INDEMNITE_REPAS', 'Indemnité Forfaitaire de Repas', 'INDEMNITE_NON_IMPOSABLE', 'MONTANT', 'GAIN', FALSE, FALSE, FALSE, TRUE, 510, 'Repas midi 2 000 Ar par jour de présence validé'),
+(24, 'INDEMNITE_TRANSPORT', 'Indemnité Forfaitaire de Déplacement', 'INDEMNITE_IMPOSABLE', 'MONTANT', 'GAIN', TRUE, TRUE, TRUE, TRUE, 500, 'Indemnité transport proratisée selon jours présents'),
+(25, 'INDEMNITE_REPAS', 'Indemnité Forfaitaire de Repas', 'INDEMNITE_IMPOSABLE', 'MONTANT', 'GAIN', TRUE, TRUE, TRUE, TRUE, 510, 'Repas midi 2 000 Ar par jour de présence validé'),
 (26, 'REMBOURSEMENT_NOTE_FRAIS', 'Remboursement Notes de Frais Validées', 'INDEMNITE_NON_IMPOSABLE', 'MONTANT', 'GAIN', FALSE, FALSE, FALSE, FALSE, 520, 'Remboursement des frais professionnels avancés'),
 (27, 'RETENUE_ACOMPTE_15', 'Acompte de Quinzaine (du 15)', 'ACOMPTE_AVANCE', 'MONTANT', 'RETENUE', FALSE, FALSE, FALSE, TRUE, 600, 'Acompte versé en milieu de mois'),
 (28, 'RETENUE_AVANCE_SPECIALE', 'Avance Exceptionnelle sur Salaire', 'ACOMPTE_AVANCE', 'MONTANT', 'RETENUE', FALSE, FALSE, FALSE, TRUE, 610, 'Avance ponctuelle accordée par la direction'),

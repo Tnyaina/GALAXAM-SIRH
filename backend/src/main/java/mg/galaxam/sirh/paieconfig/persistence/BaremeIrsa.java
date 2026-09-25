@@ -94,13 +94,13 @@ public class BaremeIrsa extends ClassMere {
             if (maxA == null && maxB == null) {
                 overlaps = true; // Deux tranches ouvertes vers l'infini
             } else if (maxA == null) {
-                if (minA.compareTo(maxB) <= 0) overlaps = true;
+                if (minA.compareTo(maxB) < 0) overlaps = true;
             } else if (maxB == null) {
-                if (minB.compareTo(maxA) <= 0) overlaps = true;
+                if (minB.compareTo(maxA) < 0) overlaps = true;
             } else {
                 BigDecimal startMax = minA.max(minB);
                 BigDecimal endMin = maxA.min(maxB);
-                if (startMax.compareTo(endMin) <= 0) overlaps = true;
+                if (startMax.compareTo(endMin) < 0) overlaps = true;
             }
 
             if (overlaps) {
