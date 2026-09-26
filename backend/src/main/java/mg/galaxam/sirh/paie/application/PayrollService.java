@@ -41,6 +41,7 @@ import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
 import mg.galaxam.sirh.pointage.domain.calculation.DaySpecialType;
 import mg.galaxam.sirh.pointage.domain.calculation.NightWorkType;
 import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
+import mg.galaxam.sirh.paie.domain.engine.PayrollOvertimeSettlement;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import mg.galaxam.sirh.paie.domain.engine.TaxConfigurationResolver;
 import mg.galaxam.sirh.common.transaction.TransactionRunner;
@@ -160,6 +161,36 @@ public class PayrollService {
             throw new IllegalArgumentException("L'id de l'employé et l'id de la période de paie sont obligatoires.");
         }
 
+        if (c.getAutoCommit()) {
+            throw new IllegalStateException("Le calcul de paie requiert une transaction JDBC.");
+        }
+        try (PreparedStatement lock = c.prepareStatement(
+                "SELECT id_periode_paie FROM periode_paie WHERE id_periode_paie = ? FOR UPDATE")) {
+            lock.setInt(1, idPeriodePaie);
+            try (ResultSet rows = lock.executeQuery()) {
+                if (!rows.next()) throw new IllegalStateException("Période de paie introuvable.");
+            }
+        }
+        Savepoint recalculation = c.setSavepoint();
+        try {
+        if (!simulation) {
+            try (PreparedStatement pending = c.prepareStatement(
+                    "SELECT COUNT(*) FROM paie_avance_acompte WHERE id_employe = ? "
+                    + "AND id_periode_paie = ? AND statut = 'EN_ATTENTE'")) {
+                pending.setInt(1, idEmploye);
+                pending.setInt(2, idPeriodePaie);
+                try (ResultSet rows = pending.executeQuery()) {
+                    rows.next();
+                    if (rows.getInt(1) > 0) {
+                        throw new IllegalStateException("PAYROLL_VARIABLES_PENDING_APPROVAL: valider ou rejeter les variables avant calcul.");
+                    }
+                }
+            }
+        }
+        // Remettre à disposition, dans cette transaction, les variables déjà
+        // imputées par ce bulletin. La simulation annule cette remise en état.
+        restaurerImputationsBulletin(idEmploye, idPeriodePaie, simulation, c);
+
         // 1. Collecte des données et construction du PayrollCalculationInput
         PayrollCalculationInput input = preparerInput(idEmploye, idPeriodePaie, simulation, c);
 
@@ -180,10 +211,73 @@ public class PayrollService {
         if (!simulation) {
             sauvegarderBulletinEtLignes(complet, c);
             lierBulletinAuSnapshot(bp.getIdBulletin(), input, c);
+            if (input.getAttendanceInput() != null) {
+                bp.setIdSnapshotPointage(input.getAttendanceInput().snapshotId());
+                bp.setVersionSnapshotPointage(input.getAttendanceInput().snapshotVersion());
+            }
             imputerAvancesEtPrets(complet, idPeriodePaie, c);
         }
 
+        if (simulation) c.rollback(recalculation);
+        else c.releaseSavepoint(recalculation);
         return complet;
+        } catch (Exception failure) {
+            c.rollback(recalculation);
+            throw failure;
+        }
+    }
+
+    private void restaurerImputationsBulletin(int employeId, int periodeId, boolean simulation, Connection c) throws Exception {
+        BulletinPaie precedent = BulletinPaie.trouverParPeriodeEtEmployeEtType(periodeId, employeId, "MENSUEL", c);
+        if (precedent == null) return;
+        if (!simulation && ("CLOTURE".equalsIgnoreCase(precedent.getStatut())
+                || "VALIDE".equalsIgnoreCase(precedent.getStatut()))) {
+            throw new IllegalStateException("BULLETIN_VALIDE_IMMUABLE: une réouverture contrôlée est requise avant recalcul.");
+        }
+        int bulletinId = precedent.getIdBulletin();
+        try (PreparedStatement ps = c.prepareStatement(
+                "UPDATE paie_avance_acompte SET montant_impute = 0, solde_restant = montant_initial, "
+                + "statut = 'APPROUVE', id_bulletin = NULL, updated_at = CURRENT_TIMESTAMP "
+                + "WHERE id_bulletin = ? AND id_employe = ? AND id_periode_paie = ? "
+                + "AND statut IN ('APPROUVE','IMPUTE_PAIE')")) {
+            ps.setInt(1, bulletinId);
+            ps.setInt(2, employeId);
+            ps.setInt(3, periodeId);
+            ps.executeUpdate();
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT e.id_echeance, e.id_pret, e.montant_preleve "
+                + "FROM paie_pret_echeance e WHERE e.id_bulletin = ? AND e.id_periode_paie = ? FOR UPDATE")) {
+            ps.setInt(1, bulletinId);
+            ps.setInt(2, periodeId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    BigDecimal montant = rs.getBigDecimal("montant_preleve");
+                    if (montant == null || montant.signum() <= 0) continue;
+                    try (PreparedStatement pret = c.prepareStatement(
+                            "UPDATE paie_pret SET capital_rembourse = capital_rembourse - ?, "
+                            + "capital_restant_du = capital_restant_du + ?, "
+                            + "statut = CASE WHEN statut = 'SOLDE' THEN 'EN_COURS' ELSE statut END "
+                            + "WHERE id_pret = ? AND capital_rembourse >= ?")) {
+                        pret.setBigDecimal(1, montant);
+                        pret.setBigDecimal(2, montant);
+                        pret.setInt(3, rs.getInt("id_pret"));
+                        pret.setBigDecimal(4, montant);
+                        if (pret.executeUpdate() != 1) {
+                            throw new IllegalStateException("PRET_IMPUTATION_INCOHERENTE: capital remboursé insuffisant.");
+                        }
+                    }
+                    try (PreparedStatement echeance = c.prepareStatement(
+                            "UPDATE paie_pret_echeance SET montant_preleve = 0, "
+                            + "montant_restant_echeance = montant_echeance, statut = 'A_ECHOIR', "
+                            + "id_bulletin = NULL, id_periode_paie = NULL, date_prelevement = NULL "
+                            + "WHERE id_echeance = ?")) {
+                        echeance.setInt(1, rs.getInt("id_echeance"));
+                        echeance.executeUpdate();
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -333,6 +427,22 @@ public class PayrollService {
      */
     public PayrollBatchResult validerPaiePeriode(Integer idPeriodePaie, Integer idUtilisateur, Connection c) throws Exception {
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriodePaie, c);
+        var population = payrollPopulationResolver.resolve(idPeriodePaie, c);
+        java.util.Set<Integer> attendus = new java.util.HashSet<>(population.includedEmployeeIds());
+        java.util.Set<Integer> presentes = new java.util.HashSet<>();
+        if (attendus.isEmpty() || population.members().stream()
+                .anyMatch(member -> "BLOCKED".equals(member.decision()))) {
+            throw new IllegalStateException("PAYROLL_POPULATION_INCOMPLETE: la population de la période doit être résolue avant validation.");
+        }
+        for (BulletinPaie bulletin : bulletins) {
+            if (!attendus.contains(bulletin.getIdEmploye()) || !presentes.add(bulletin.getIdEmploye())
+                    || !java.util.Set.of("CALCULE", "VALIDE").contains(bulletin.getStatut())) {
+                throw new IllegalStateException("PAYROLL_POPULATION_INCOMPLETE: bulletin inattendu, doublon ou statut invalide.");
+            }
+        }
+        if (!presentes.equals(attendus)) {
+            throw new IllegalStateException("PAYROLL_POPULATION_INCOMPLETE: un ou plusieurs salariés inclus n'ont pas de bulletin.");
+        }
         PayrollBatchResult batch = new PayrollBatchResult(idPeriodePaie, "");
 
         for (BulletinPaie b : bulletins) {
@@ -686,8 +796,17 @@ public class PayrollService {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     BigDecimal hAbs = rs.getBigDecimal("heures_absence_retenues");
-                    if (hAbs == null) {
-                        hAbs = BigDecimal.ZERO;
+                    long rawHs30Minutes = PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_30"));
+                    long hs30Minutes = rawHs30Minutes;
+                    long absenceMinutes = PayrollAttendanceInput.hoursToMinutes(hAbs);
+                    Integer finalHs30Minutes = (Integer) rs.getObject("minutes_hs30_finales");
+                    Integer finalAbsenceMinutes = (Integer) rs.getObject("minutes_absence_finale");
+                    if (finalHs30Minutes != null || finalAbsenceMinutes != null) {
+                        if (finalHs30Minutes == null || finalAbsenceMinutes == null) {
+                            throw new IllegalStateException("SNAPSHOT_SOLDE_INCOMPLET: le rapprochement de période doit être complet.");
+                        }
+                        hs30Minutes = finalHs30Minutes;
+                        absenceMinutes = finalAbsenceMinutes;
                     }
                     BigDecimal absenceDays = rs.getBigDecimal("nb_jours_absence");
                     Timestamp frozenTimestamp = rs.getTimestamp("gele_at");
@@ -695,16 +814,27 @@ public class PayrollService {
                     BigDecimal hDim = rs.getBigDecimal("heures_dimanche_total");
                     BigDecimal hFer = rs.getBigDecimal("heures_ferie_total");
                     List<QualifiedTimeBucket> buckets = loadSnapshotBuckets(rs.getInt("id_cumul"), c);
+                    if (buckets.isEmpty() && (rawHs30Minutes > 0
+                            || PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_50")) > 0
+                            || PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_nuit_total")) > 0
+                            || PayrollAttendanceInput.hoursToMinutes(hDim) > 0
+                            || PayrollAttendanceInput.hoursToMinutes(hFer) > 0)) {
+                        throw new IllegalStateException("SNAPSHOT_BUCKETS_MANQUANTS: les heures majorées du pointage "
+                                + "ne disposent pas de tranches horaires auditables. Réouvrir puis regeler la période.");
+                    }
+                    if (finalHs30Minutes != null) {
+                        buckets = PayrollOvertimeSettlement.apply(buckets, rawHs30Minutes, hs30Minutes);
+                    }
                     in.setAttendanceInput(new PayrollAttendanceInput(
                             rs.getInt("id_cumul"), rs.getInt("version_snapshot"), idEmploye, idPeriodePaie, frozenAt,
                             PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("total_heures_travaillees")),
-                            PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_30")),
+                            hs30Minutes,
                             PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_50")),
                             PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_nuit_total")),
                             PayrollAttendanceInput.hoursToMinutes(hDim),
                             PayrollAttendanceInput.hoursToMinutes(hFer),
                             0L,
-                            PayrollAttendanceInput.hoursToMinutes(hAbs), rs.getInt("total_minutes_retard"),
+                            absenceMinutes, rs.getInt("total_minutes_retard"),
                             rs.getBigDecimal("nb_jours_ouvrables"), rs.getBigDecimal("nb_jours_presents"),
                             absenceDays, rs.getBigDecimal("nb_jours_conge"), rs.getBigDecimal("nb_jours_repas"),
                             rs.getBigDecimal("montant_repas"), rs.getBigDecimal("nb_jours_deplacement"),
@@ -763,7 +893,7 @@ public class PayrollService {
                 "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement " +
                 "LEFT JOIN paie_rubrique pr ON rtmp.id_rubrique = pr.id_rubrique " +
                 "WHERE paa.id_employe = ? AND paa.id_periode_paie = ? " +
-                "AND paa.statut IN ('EN_ATTENTE', 'APPROUVE')";
+                "AND paa.statut = 'APPROUVE'";
 
         List<PaieAvanceAcompte> avances = new ArrayList<>();
         List<Integer> idsGains = new ArrayList<>();
@@ -787,15 +917,6 @@ public class PayrollService {
                             in.setPrimePerformanceBase(in.getPrimePerformanceBase().add(montant));
                         } else if ("PRIME_ASSIDUITE".equalsIgnoreCase(codeType)) {
                             in.setPrimeAssiduiteForfait(in.getPrimeAssiduiteForfait().add(montant));
-                        } else if ("PRIME_EXCEPTIONNELLE".equalsIgnoreCase(codeType)) {
-                            in.setPrimeExceptionnelle(in.getPrimeExceptionnelle().add(montant));
-                            if (motif != null && !motif.isBlank()) {
-                                in.setMotifPrimeExceptionnelle(motif);
-                            }
-                        } else if ("AUTIMP".equalsIgnoreCase(codeType)) {
-                            in.setAutimp(in.getAutimp().add(montant));
-                        } else if ("EXTRA_DEPLACEMENT".equalsIgnoreCase(codeType)) {
-                            in.setExtraDeplacement(in.getExtraDeplacement().add(montant));
                         } else if ("NOTE_DE_FRAIS".equalsIgnoreCase(codeType) || "REMBOURSEMENT_NOTE_FRAIS".equalsIgnoreCase(codeType)) {
                             in.setRemboursementNotesFrais(in.getRemboursementNotesFrais().add(montant));
                         } else if ("REGULARISATION_CONGE".equalsIgnoreCase(codeType) || "REGULARISATION_PAIE".equalsIgnoreCase(codeType)) {

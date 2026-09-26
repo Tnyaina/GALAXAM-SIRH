@@ -2,6 +2,7 @@ package mg.galaxam.sirh.pointage.api;
 
 import mg.galaxam.sirh.pointage.api.dto.*;
 import mg.galaxam.sirh.pointage.application.PointageAnomalieService;
+import mg.galaxam.sirh.pointage.application.PointageAjustementPeriodeService;
 import mg.galaxam.sirh.pointage.application.PointageEmployeService;
 import mg.galaxam.sirh.pointage.application.PointageExcelExportService;
 import mg.galaxam.sirh.pointage.application.PointageService;
@@ -35,7 +36,47 @@ public class PointageController {
     @Autowired private PointageAnomalieService pointageAnomalieService;
     @Autowired private PointageEmployeService pointageEmployeService;
     @Autowired private PointageExcelExportService pointageExcelExportService;
+    @Autowired private PointageAjustementPeriodeService pointageAjustementPeriodeService;
     @Autowired private DataSource dataSource;
+
+    public record AjustementPeriodeRequest(Integer minutesSignees, String motif) {}
+
+    @GetMapping("/synthese/preflight")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> preflightPeriode(@RequestParam int idPeriodePaie) throws SQLException {
+        try (Connection connection = dataSource.getConnection()) {
+            return ResponseEntity.ok(pointageSyntheseService.preflightPeriode(idPeriodePaie, connection));
+        }
+    }
+
+    @GetMapping("/synthese/ajustements")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getAjustementsPeriode(@RequestParam int idPeriodePaie, @RequestParam int idEmploye)
+            throws SQLException {
+        return ResponseEntity.ok(pointageAjustementPeriodeService.lister(idPeriodePaie, idEmploye));
+    }
+
+    @PostMapping("/synthese/ajustements")
+    @PreAuthorize("hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> creerAjustementPeriode(@RequestParam int idPeriodePaie, @RequestParam int idEmploye,
+            @RequestBody AjustementPeriodeRequest request) throws SQLException {
+        if (request == null || request.minutesSignees() == null) {
+            throw new IllegalArgumentException("La durée signée en minutes est obligatoire.");
+        }
+        long id = pointageAjustementPeriodeService.creer(idPeriodePaie, idEmploye,
+                request.minutesSignees(), request.motif(), resolveCurrentUserId());
+        return ResponseEntity.ok(Map.of("idAjustement", id));
+    }
+
+    @PostMapping("/synthese/ajustements/{idAjustement}/annuler")
+    @PreAuthorize("hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> annulerAjustementPeriode(@PathVariable long idAjustement,
+            @RequestParam int idPeriodePaie, @RequestParam int idEmploye,
+            @RequestBody AjustementPeriodeRequest request) throws SQLException {
+        pointageAjustementPeriodeService.annuler(idPeriodePaie, idEmploye, idAjustement,
+                request == null ? null : request.motif(), resolveCurrentUserId());
+        return ResponseEntity.ok(Map.of("annule", true));
+    }
 
     // Synthèse et semaines calculées en mémoire
     @GetMapping("/synthese")

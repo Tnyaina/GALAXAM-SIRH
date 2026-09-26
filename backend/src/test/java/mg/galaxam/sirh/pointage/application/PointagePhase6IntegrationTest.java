@@ -4,6 +4,9 @@ import mg.galaxam.sirh.conge.application.CongeService;
 import mg.galaxam.sirh.conge.application.RegularisationCongeResult;
 import mg.galaxam.sirh.conge.testutils.CongeTestFixtureHelper;
 import mg.galaxam.sirh.organisation.persistence.RefSite;
+import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
+import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
+import mg.galaxam.sirh.paie.application.PayrollService;
 import mg.galaxam.sirh.pointage.api.dto.SaisiePointageJourDTO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +26,7 @@ import java.sql.Time;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -44,6 +48,12 @@ class PointagePhase6IntegrationTest {
 
     @Autowired
     private CongeService congeService;
+
+    @Autowired
+    private PayrollPeriodWorkflowService payrollPeriodWorkflowService;
+
+    @Autowired
+    private PayrollService payrollService;
 
     private int employeId;
     private int adminUserId;
@@ -171,6 +181,34 @@ class PointagePhase6IntegrationTest {
                     ps.executeUpdate();
                 }
             }
+        }
+    }
+
+    // =========================================================================
+
+    @Test
+    @DisplayName("Préflight : une journée ouvrable non saisie bloque le gel avec une date identifiable")
+    void testPreflightJourneesManquantes() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            var preflight = pointageSyntheseService.preflightPeriode(testPeriodId, c);
+            assertFalse(preflight.pret());
+            assertTrue(preflight.journeesManquantes().stream()
+                    .anyMatch(jour -> jour.idEmploye() == employeId
+                            && jour.date().equals(LocalDate.of(2026, 9, 1))));
+        }
+    }
+
+    @Test
+    @DisplayName("Paie : validation et sorties bloquées si un salarié inclus n'a pas de bulletin")
+    void testValidationPaieExigeTousLesBulletins() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            var actions = payrollPeriodWorkflowService.describeActions(testPeriodId, "VALIDEE",
+                    new PayrollPeriodUserContext(adminUserId, Set.of("ROLE_ADMIN")), c);
+            assertFalse(actions.get("VALIDATE").allowed());
+            assertTrue(actions.get("VALIDATE").reasonCodes().contains("PAYROLL_POPULATION_INCOMPLETE"));
+            assertFalse(actions.get("GENERATE_OUTPUT").allowed());
+            assertThrows(IllegalStateException.class,
+                    () -> payrollService.validerPaiePeriode(testPeriodId, adminUserId, c));
         }
     }
 

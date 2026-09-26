@@ -186,6 +186,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         if (m === 0) return `${h} h`;
         return `${h} h ${m} min`;
     };
+    const formatHours = (value) => Number(value || 0).toFixed(2).replace('.', ',');
 
     const bulletin = data?.bulletin;
     const explication = data?.explication;
@@ -205,7 +206,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     // Classification des lignes pour l'affichage fidèle au Wireframe 2
     const lignesPointage = lignes.filter(l =>
         ['HEURES_SUP', 'HEURES_SUP_30', 'HEURES_SUP_50', 'HEURES_NUIT', 'HEURES_DIMANCHE', 'MAJORATION_FERIE',
-            'INDEMNITE_REPAS', 'INDEMNITE_DEPLACEMENT', 'RETENUE_ABSENCE', 'ABSENCE_RETENUE',
+            'INDEMNITE_REPAS', 'INDEMNITE_DEPLACEMENT', 'INDEMNITE_TRANSPORT', 'RETENUE_ABSENCE', 'ABSENCE_RETENUE',
             'DEDUCTION_CONGE_BASE', 'INDEMNITE_CONGE_PAYE'].includes(l.codeRubrique) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('heure')) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('nuit')) ||
@@ -215,7 +216,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('deplacement'))
     );
 
-    const lignesVariables = lignes.filter(l =>
+    const lignesVariables = lignes.filter(l => !lignesPointage.includes(l) && (
         ['PRIME_PERF', 'PRIME_PERFORMANCE', 'PRIME_EXC', 'PRIM_EXC', 'PRIME_EXCEPTIONNELLE', 'PRIME_ASSI', 'PRIME_ASSIDUITE',
             'ACOMPTE_15', 'AVANCE_SPEC', 'AVANCE_SPECIALE', 'PRET_ENTREPRISE', 'AUTIMP', 'EXTRA_DEPLACEMENT',
             'NOTE_DE_FRAIS', 'CALL_PERSO', 'RETENUE_DIVERSE', 'REGULARISATION_CONGE'].includes(l.codeRubrique) ||
@@ -224,7 +225,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('avance')) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('pret')) ||
         (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('retenue'))
-    );
+    ));
 
     // Rendu
     return (
@@ -369,7 +370,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                 )}
                                 {Number(bulletin.totalPrimesEtAutres || (bulletin.primePerformance || 0) + (bulletin.primeAnciennete || 0) + (bulletin.primeAssiduite || 0)) > 0 && (
                                     <div className="flex justify-between items-center text-[var(--color-success-600)]">
-                                        <span className="font-sans">Primes exceptionnelles</span>
+                                        <span className="font-sans">Primes et autres gains</span>
                                         <span>+{formatAr(bulletin.totalPrimesEtAutres || ((bulletin.primePerformance || 0) + (bulletin.primeAnciennete || 0) + (bulletin.primeAssiduite || 0)))}</span>
                                     </div>
                                 )}
@@ -384,13 +385,13 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                             {/* Liens contextuels vers modules propriétaires (La Paie ne corrige pas les sources) */}
                             <div className="flex items-center gap-2 pt-1">
                                 <a
-                                    href="/pointages"
+                                    href={`/pointages?tab=arbitrage&periode=${bulletin.idPeriodePaie}`}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--color-brand-600)] hover:underline"
                                 >
                                     <ExternalLink size={12} />
-                                    Ouvrir Pointage
+                                    Voir le pointage source{bulletin.versionSnapshotPointage ? ` · version ${bulletin.versionSnapshotPointage}` : ''}
                                 </a>
                                 <span className="text-[var(--color-fg-muted)]">•</span>
                                 <a
@@ -418,7 +419,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                 <span className="text-[10px] text-[var(--color-fg-muted)] font-mono">
                                     {joursTravailles == null
                                         ? 'Détail de pointage indisponible'
-                                        : `${joursTravailles}j travaillés${heuresNormales != null ? ` • ${heuresNormales}h` : ''}`}
+                                        : `${joursTravailles}j travaillés${heuresNormales != null ? ` • ${formatHours(heuresNormales)}h` : ''}`}
                                 </span>
                             </div>
 
@@ -461,7 +462,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                         </div>
                                         <div className="text-[11px] text-[var(--color-fg-muted)] pl-2 border-l-2 border-red-400 dark:border-red-600 space-y-0.5">
                                             <div>
-                                                Déficit net retenu : <span className="font-medium text-[var(--color-fg)]">{formatMinutes(explication.minutesAbsenceRetenues)}</span> ({explication.minutesAbsenceRetenues} min • {explication.heuresAbsenceRetenues} h)
+                                                Déficit net retenu : <span className="font-medium text-[var(--color-fg)]">{formatMinutes(explication.minutesAbsenceRetenues)}</span> ({explication.minutesAbsenceRetenues} min • {formatHours(explication.heuresAbsenceRetenues)} h)
                                             </div>
                                             <div>
                                                 Diviseur légal : <span className="font-medium text-[var(--color-fg)]">{explication.diviseurMensuelHeures} h</span> • Taux horaire : <span className="font-medium text-[var(--color-fg)]">{formatAr(explication.tauxHoraire)}/h</span>
@@ -490,7 +491,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                 {((bulletin.heuresHs30 || 0) > 0 || (bulletin.heuresHs50 || 0) > 0) && (
                                     <div className="flex justify-between items-center py-1 border-b border-[var(--color-border-subtle)]/50">
                                         <span className="text-[var(--color-fg)]">
-                                            + Heures Supplémentaires (+30%: {bulletin.heuresHs30 || 0}h / +50%: {bulletin.heuresHs50 || 0}h)
+                                            + Heures Supplémentaires (+30%: {formatHours(bulletin.heuresHs30)}h / +50%: {formatHours(bulletin.heuresHs50)}h)
                                         </span>
                                         <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
                                             +{formatAr(bulletin.majorationHeuresSupplementaires || (explication ? (explication.montantHs30 || 0) + (explication.montantHs50 || 0) : 0))}

@@ -520,7 +520,15 @@ public class PayrollPeriodWorkflowService {
                 }
                 preparePointageSubmission(period.id(), request.getIdSite(), user.userId(), connection);
             }
-            case APPROVE -> pointageSyntheseService.gelerPeriode(period.id(), user.userId(), connection);
+            case APPROVE -> {
+                ActionCapability capability = approvalCapability(period.id(), connection);
+                if (!capability.allowed()) {
+                    throw failure(SirhErrorCode.PAYROLL_PERIOD_PREREQUISITE_BLOCKED,
+                            "Validation impossible : le pointage nécessite encore des corrections.",
+                            Map.of("periodId", period.id(), "reasonCodes", capability.reasonCodes()));
+                }
+                pointageSyntheseService.gelerPeriode(period.id(), user.userId(), connection);
+            }
             case REJECT -> requireReason(request.getMotif(), 1, "Le motif de rejet est obligatoire.");
             case CLOSE -> {
                 if (period.endDate().isAfter(LocalDate.now(BUSINESS_ZONE))) {
@@ -576,6 +584,11 @@ public class PayrollPeriodWorkflowService {
     }
 
     private void requireValidatedPayroll(int periodId, Connection connection) throws SQLException {
+        if (!payrollPopulationHasBulletins(periodId, java.util.Set.of("VALIDE"), connection)) {
+            throw failure(SirhErrorCode.PAYROLL_PERIOD_PREREQUISITE_BLOCKED,
+                    "Clôture impossible : chaque collaborateur inclus doit avoir un bulletin validé.",
+                    Map.of("periodId", periodId, "reasonCode", "PAYROLL_POPULATION_INCOMPLETE"));
+        }
         String sql = "SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE statut = 'VALIDE') AS valides "
                 + "FROM bulletin_paie WHERE id_periode_paie = ?";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -707,6 +720,9 @@ public class PayrollPeriodWorkflowService {
             if (command == PayrollPeriodCommand.SUBMIT && capability.allowed()) {
                 capability = submissionCapability(periodId, connection);
             }
+            if (command == PayrollPeriodCommand.APPROVE && capability.allowed()) {
+                capability = approvalCapability(periodId, connection);
+            }
             actions.put(command.name(), capability);
         }
         for (PayrollAction action : PayrollAction.values()) {
@@ -735,14 +751,9 @@ public class PayrollPeriodWorkflowService {
         if (!authorized) return ActionCapability.denied("FORBIDDEN");
         if (action == PayrollAction.SIMULATE) return ActionCapability.permit();
         if (action == PayrollAction.GENERATE_OUTPUT) {
-            int total = count(connection,
-                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ?", periodId);
-            int validated = count(connection,
-                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut IN ('VALIDE','CLOTURE')",
-                    periodId);
-            return total > 0 && total == validated
+            return payrollPopulationHasBulletins(periodId, java.util.Set.of("VALIDE", "CLOTURE"), connection)
                     ? ActionCapability.permit()
-                    : ActionCapability.denied("PAYROLL_NOT_VALIDATED");
+                    : ActionCapability.denied("PAYROLL_POPULATION_INCOMPLETE");
         }
         if ("CLOTUREE".equals(state)) return ActionCapability.denied("PERIOD_CLOSED");
         if (action == PayrollAction.ADD_VARIABLE) {
@@ -759,9 +770,14 @@ public class PayrollPeriodWorkflowService {
         if (!List.of("VALIDEE", "PAIE_VALIDEE").contains(state)) return ActionCapability.denied("POINTAGE_NOT_FROZEN");
 
         if (action == PayrollAction.CALCULATE) {
-            boolean populationBlocked = payrollPopulationResolver.resolve(periodId, connection).members().stream()
+            if (count(connection,
+                    "SELECT COUNT(*) FROM paie_avance_acompte WHERE id_periode_paie = ? AND statut = 'EN_ATTENTE'",
+                    periodId) > 0) return ActionCapability.denied("PAYROLL_VARIABLES_PENDING_APPROVAL");
+            var population = payrollPopulationResolver.resolve(periodId, connection);
+            boolean populationBlocked = population.members().stream()
                     .anyMatch(member -> "BLOCKED".equals(member.decision()));
             if (populationBlocked) return ActionCapability.denied("PAYROLL_POPULATION_BLOCKED");
+            if (population.includedEmployeeIds().isEmpty()) return ActionCapability.denied("PAYROLL_POPULATION_EMPTY");
             return count(connection,
                     "SELECT COUNT(*) FROM pointage_cumul_periode WHERE id_periode_paie = ? "
                             + "AND statut_snapshot IN ('GELE','CONSOMME')",
@@ -772,6 +788,10 @@ public class PayrollPeriodWorkflowService {
 
         int calculated = count(connection,
                 "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut = 'CALCULE'", periodId);
+        if (action == PayrollAction.VALIDATE
+                && !payrollPopulationHasBulletins(periodId, java.util.Set.of("CALCULE", "VALIDE"), connection)) {
+            return ActionCapability.denied("PAYROLL_POPULATION_INCOMPLETE");
+        }
         if (action == PayrollAction.VALIDATE && calculated > 0
                 && computeRecalculationCount(periodId, state, connection) > 0) {
             return ActionCapability.denied("PAYROLL_CALCULATION_STALE");
@@ -779,6 +799,27 @@ public class PayrollPeriodWorkflowService {
         return calculated > 0
                 ? ActionCapability.permit()
                 : ActionCapability.denied("PAYROLL_NOT_CALCULATED");
+    }
+
+    private boolean payrollPopulationHasBulletins(int periodId, java.util.Set<String> acceptedStatuses,
+            Connection connection) throws SQLException {
+        var population = payrollPopulationResolver.resolve(periodId, connection);
+        if (population.members().stream().anyMatch(member -> "BLOCKED".equals(member.decision()))) return false;
+        java.util.Set<Integer> expected = new java.util.HashSet<>(population.includedEmployeeIds());
+        if (expected.isEmpty()) return false;
+        java.util.Set<Integer> found = new java.util.HashSet<>();
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT id_employe, statut FROM bulletin_paie WHERE id_periode_paie = ?")) {
+            statement.setInt(1, periodId);
+            try (ResultSet result = statement.executeQuery()) {
+                while (result.next()) {
+                    int employeeId = result.getInt("id_employe");
+                    if (!expected.contains(employeeId) || !found.add(employeeId)
+                            || !acceptedStatuses.contains(result.getString("statut"))) return false;
+                }
+            }
+        }
+        return found.equals(expected);
     }
 
     private ActionCapability submissionCapability(int periodId, Connection connection) throws SQLException {
@@ -803,6 +844,16 @@ public class PayrollPeriodWorkflowService {
         return count(connection, blockingSql, periodId) == 0
                 ? ActionCapability.permit()
                 : ActionCapability.denied("BLOCKING_ANOMALIES");
+    }
+
+    private ActionCapability approvalCapability(int periodId, Connection connection) throws SQLException {
+        ActionCapability submission = submissionCapability(periodId, connection);
+        if (!submission.allowed()) return submission;
+        var preflight = pointageSyntheseService.preflightPeriode(periodId, connection);
+        if (preflight.nombreEmployes() == 0) return ActionCapability.denied("POINTAGE_POPULATION_EMPTY");
+        if (!preflight.journeesManquantes().isEmpty()) return ActionCapability.denied("POINTAGE_JOURNEES_MANQUANTES");
+        if (!preflight.blocages().isEmpty()) return ActionCapability.denied("POINTAGE_HS_SANS_SEMAINE");
+        return ActionCapability.permit();
     }
 
     private List<BusinessIssue> contextIssues(int periodId, String state, Connection connection) throws SQLException {

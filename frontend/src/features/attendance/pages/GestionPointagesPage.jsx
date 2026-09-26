@@ -39,26 +39,29 @@ export default function GestionPointagesPage() {
     const isDaf = hasPermission('POINTAGE_VALIDATE');
     const activeStep = normalizePointageStep((searchParams.get('tab') || 'saisie').toLowerCase());
     const paramPeriodeId = searchParams.get('periode');
+    const periodStatus = activePeriode?.statutCode;
+    const submitted = ['A_VALIDER', 'TRANSMIS_DAF', 'VALIDEE', 'PAIE_VALIDEE', 'CLOTUREE'].includes(periodStatus);
+    const frozen = ['VALIDEE', 'PAIE_VALIDEE', 'CLOTUREE'].includes(periodStatus);
 
     const steps = useMemo(() => [
         {
             id: 'saisie',
             label: 'Saisie',
             sublabel: null,
-            status: activeStep === 'saisie' ? 'active' : 'pending'
+            status: submitted ? 'done' : activeStep === 'saisie' ? 'active' : 'pending'
         },
         {
             id: 'suivi',
             label: 'Suivi & Anomalies',
             sublabel: anomaliesCount > 0 ? `${anomaliesCount} anom.` : null,
-            status: activeStep === 'suivi' ? 'active' : 'pending'
+            status: submitted ? 'done' : activeStep === 'suivi' ? 'active' : 'pending'
         },
         {
             id: 'arbitrage',
             label: isDaf ? 'Contrôle & Validation' : 'Synthèse & Contrôle',
-            status: activeStep === 'arbitrage' ? 'active' : 'pending'
+            status: frozen ? 'done' : activeStep === 'arbitrage' ? 'active' : 'pending'
         }
-    ], [activeStep, anomaliesCount, isDaf]);
+    ], [activeStep, anomaliesCount, isDaf, submitted, frozen]);
 
     // Effets
     useEffect(() => {
@@ -103,7 +106,11 @@ export default function GestionPointagesPage() {
             }
         };
         fetchData();
-        return () => { isMounted = false; };
+        window.addEventListener('pointage-period-updated', fetchData);
+        return () => {
+            isMounted = false;
+            window.removeEventListener('pointage-period-updated', fetchData);
+        };
     }, [paramPeriodeId, setSearchParams]);
 
     // Actions

@@ -209,6 +209,12 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         BROUILLON: { label: 'Brouillon', variant: 'neutral' },
         REJETE: { label: 'Rejeté', variant: 'danger' },
     };
+    const regimeLabel = (sens, imposable, cotisable) => {
+        if (sens !== 'GAIN') return 'Déduction du net à payer';
+        if (imposable == null || cotisable == null) return 'Régime à vérifier';
+        return `${imposable ? 'IRSA' : 'Hors IRSA'} · ${cotisable ? 'Cotisations' : 'Hors cotisations'}`;
+    };
+    const selectedType = typesMouvements.find(type => type.code === form.typeMouvement);
 
     // Rendu
     return (
@@ -248,7 +254,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
 
             <Alert
                 type="info"
-                message="Contrôle de saisie : le type détermine le sens et le régime de la ligne. Chaque variable doit être justifiée ; une ligne similaire est signalée avant enregistrement."
+                message="Les repas et déplacements ordinaires proviennent du pointage. Saisissez ici les primes exceptionnelles et autres variables justifiées. Le régime fiscal et social vient de la rubrique configurée."
             />
 
             {/* Barre de filtre et Action */}
@@ -326,6 +332,9 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                             const nomComplet = v.nomComplet || v.nom_complet;
                             const typeLibelle = v.typeLibelle || v.type_libelle || v.typeMouvement || v.type_mouvement;
                             const statInfo = statutLabels[v.statut] || { label: v.statut || 'Enregistré', variant: 'neutral' };
+                            const configuredType = typesMouvements.find(type => type.code === v.typeMouvement);
+                            const taxable = v.imposable ?? configuredType?.imposable;
+                            const social = v.cotisable ?? configuredType?.cotisable;
                             return (
                                 <Tr key={idAvance || index} className="hover:bg-[var(--color-bg-subtle)]/50 transition-colors">
                                     <Td className="font-mono text-[11px] text-[var(--color-fg-muted)]">
@@ -352,12 +361,10 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                     </Td>
                                     <Td>
                                         <Badge
-                                            variant={v.sens === 'GAIN' ? (['NOTE_DE_FRAIS', 'EXTRA_DEPLACEMENT'].includes(v.typeMouvement) ? 'purple' : 'primary') : 'neutral'}
+                                            variant={v.sens === 'GAIN' ? (taxable ? 'primary' : 'purple') : 'neutral'}
                                             size="xs"
                                         >
-                                            {v.sens === 'GAIN'
-                                                ? (['NOTE_DE_FRAIS', 'EXTRA_DEPLACEMENT'].includes(v.typeMouvement) ? 'Exonéré / Frais réels' : 'Brut imposable (CNaPS/IRSA)')
-                                                : (v.typeMouvement === 'AVANCE_SPECIALE' ? 'Net (Avance 1/10e Art. 68)' : 'Déduction Net à payer')}
+                                            {regimeLabel(v.sens, taxable, social)}
                                         </Badge>
                                     </Td>
                                     <Td className="text-right font-mono font-bold whitespace-nowrap">
@@ -448,6 +455,12 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                             </div>
                         </div>
                     </div>
+
+                    {selectedType && <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 space-y-1">
+                        <strong className="text-[var(--color-fg)]">{selectedType.libelle}</strong>
+                        {selectedType.description && <p className="text-[var(--color-fg-muted)]">{selectedType.description}</p>}
+                        <p className="text-[var(--color-fg-muted)]">Traitement : {regimeLabel(selectedType.sens, selectedType.imposable, selectedType.cotisable)}</p>
+                    </div>}
 
                     <div className="grid grid-cols-2 gap-3">
                         <Input

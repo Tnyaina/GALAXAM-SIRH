@@ -19,6 +19,10 @@ const attendanceApi = {
         getPeriod: async ({ idPeriodePaie, idSite, search, filtre, page = 1, size = 25 }) => (await apiClient.get('/pointages/synthese', { params: { idPeriodePaie, idSite, search, filtre, page, size } })).data,
         getWeeks: async ({ idPeriodePaie, idSite }) => (await apiClient.get('/pointages/synthese/semaines', { params: { idPeriodePaie, idSite } })).data,
         getWeekDetail: async ({ idPeriodePaie, dateDebut, dateFin, idSite }) => (await apiClient.get('/pointages/synthese/semaine-detail', { params: { idPeriodePaie, dateDebut, dateFin, idSite } })).data,
+        getPreflight: async ({ idPeriodePaie }) => (await apiClient.get('/pointages/synthese/preflight', { params: { idPeriodePaie } })).data,
+        getAdjustments: async ({ idPeriodePaie, idEmploye }) => (await apiClient.get('/pointages/synthese/ajustements', { params: { idPeriodePaie, idEmploye } })).data,
+        createAdjustment: async ({ idPeriodePaie, idEmploye, minutesSignees, motif }) => (await apiClient.post('/pointages/synthese/ajustements', { minutesSignees, motif }, { params: { idPeriodePaie, idEmploye } })).data,
+        cancelAdjustment: async ({ idPeriodePaie, idEmploye, idAjustement, motif }) => (await apiClient.post(`/pointages/synthese/ajustements/${idAjustement}/annuler`, { motif }, { params: { idPeriodePaie, idEmploye } })).data,
         recalculateWeeks: async ({ idPeriodePaie, idSite }) => (await apiClient.post('/pointages/synthese/calculer-tout', {
             idPeriodePaie: Number(idPeriodePaie),
             idSite: idSite != null && idSite !== '' ? Number(idSite) : undefined
@@ -52,6 +56,10 @@ export const pointageSyntheseService = {
     getSynthese: attendanceApi.summary.getPeriod,
     getSemaines: attendanceApi.summary.getWeeks,
     getSemaineDetail: attendanceApi.summary.getWeekDetail,
+    getPreflight: attendanceApi.summary.getPreflight,
+    getAjustements: attendanceApi.summary.getAdjustments,
+    creerAjustement: attendanceApi.summary.createAdjustment,
+    annulerAjustement: attendanceApi.summary.cancelAdjustment,
     calculerTout: attendanceApi.summary.recalculateWeeks,
     calculerSemaines: attendanceApi.summary.recalculateWeeks
 };

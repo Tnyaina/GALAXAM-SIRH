@@ -14,9 +14,11 @@ DROP VIEW IF EXISTS v_pointage_jour_cpl CASCADE;
 DROP VIEW IF EXISTS v_pointage_indemnites CASCADE;
 
 DROP TABLE IF EXISTS pointage_snapshot_indemnite CASCADE;
+DROP TABLE IF EXISTS pointage_snapshot_ajustement CASCADE;
 DROP TABLE IF EXISTS pointage_snapshot_bucket CASCADE;
 DROP TABLE IF EXISTS pointage_snapshot_jour CASCADE;
 DROP TABLE IF EXISTS pointage_cumul_periode CASCADE;
+DROP TABLE IF EXISTS pointage_ajustement_periode CASCADE;
 DROP TABLE IF EXISTS pointage_indemnite_jour CASCADE;
 DROP TABLE IF EXISTS pointage_jour CASCADE;
 DROP TABLE IF EXISTS employe_indemnite_derogation CASCADE;
@@ -135,10 +137,10 @@ CREATE TABLE pointage_jour (
     heure_entree_am TIME,
     heure_sortie_am TIME,
     id_statut_jour INTEGER NOT NULL REFERENCES ref_statut_pointage_jour(id_statut_jour),
-    heures_matin DECIMAL(4,2) DEFAULT 0,
-    heures_am DECIMAL(4,2) DEFAULT 0,
-    total_heures DECIMAL(4,2) DEFAULT 0,
-    heures_nuit DECIMAL(4,2) NOT NULL DEFAULT 0,
+    heures_matin DECIMAL(10,8) DEFAULT 0,
+    heures_am DECIMAL(10,8) DEFAULT 0,
+    total_heures DECIMAL(10,8) DEFAULT 0,
+    heures_nuit DECIMAL(10,8) NOT NULL DEFAULT 0,
     minutes_retard INTEGER DEFAULT 0,
     minutes_depart_anticipe INTEGER DEFAULT 0,
     utilise_vehicule_fonction_jour BOOLEAN DEFAULT FALSE,
@@ -184,6 +186,24 @@ CREATE TABLE pointage_indemnite_jour (
 CREATE INDEX idx_pointage_indemnite_ptg ON pointage_indemnite_jour(id_pointage);
 CREATE INDEX idx_pointage_indemnite_ref ON pointage_indemnite_jour(id_indemnite);
 
+-- Correction horaire de fin de période, distincte de la rectification d'un badge.
+CREATE TABLE pointage_ajustement_periode (
+    id_ajustement BIGSERIAL PRIMARY KEY,
+    id_employe INTEGER NOT NULL REFERENCES employe(id_employe),
+    id_periode_paie INTEGER NOT NULL REFERENCES periode_paie(id_periode_paie),
+    minutes_signees INTEGER NOT NULL CHECK (minutes_signees <> 0),
+    motif TEXT NOT NULL CHECK (length(btrim(motif)) >= 5),
+    statut VARCHAR(12) NOT NULL DEFAULT 'VALIDE' CHECK (statut IN ('VALIDE', 'ANNULE')),
+    saisi_par INTEGER REFERENCES utilisateur(id_utilisateur),
+    valide_par INTEGER REFERENCES utilisateur(id_utilisateur),
+    annule_par INTEGER REFERENCES utilisateur(id_utilisateur),
+    date_saisie TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    date_annulation TIMESTAMP,
+    motif_annulation TEXT
+);
+CREATE INDEX idx_pointage_ajustement_periode_employe
+    ON pointage_ajustement_periode(id_periode_paie, id_employe, statut);
+
 -- La semaine est un calcul mémoire dérivé des journées, pas une table persistée.
 -- 6. Snapshot et Clôture de Période (RG-PTG-14)
 CREATE TABLE pointage_cumul_periode (
@@ -200,13 +220,20 @@ CREATE TABLE pointage_cumul_periode (
     nb_jours_conge INTEGER NOT NULL DEFAULT 0,
     nb_jours_ferie_chome INTEGER NOT NULL DEFAULT 0,
     nb_jours_ferie_travaille INTEGER NOT NULL DEFAULT 0,
-    total_heures_travaillees DECIMAL(6,2) NOT NULL DEFAULT 0,
-    heures_hs_30 DECIMAL(6,2) NOT NULL DEFAULT 0,
-    heures_hs_50 DECIMAL(6,2) NOT NULL DEFAULT 0,
-    heures_nuit_total DECIMAL(6,2) NOT NULL DEFAULT 0,
-    heures_dimanche_total DECIMAL(6,2) NOT NULL DEFAULT 0,
-    heures_ferie_total DECIMAL(6,2) NOT NULL DEFAULT 0,
-    heures_absence_retenues DECIMAL(6,2) NOT NULL DEFAULT 0,
+    total_heures_travaillees DECIMAL(12,8) NOT NULL DEFAULT 0,
+    heures_hs_30 DECIMAL(12,8) NOT NULL DEFAULT 0,
+    heures_hs_50 DECIMAL(12,8) NOT NULL DEFAULT 0,
+    heures_nuit_total DECIMAL(12,8) NOT NULL DEFAULT 0,
+    heures_dimanche_total DECIMAL(12,8) NOT NULL DEFAULT 0,
+    heures_ferie_total DECIMAL(12,8) NOT NULL DEFAULT 0,
+    heures_absence_retenues DECIMAL(12,8) NOT NULL DEFAULT 0,
+    minutes_deficit_hebdo INTEGER,
+    minutes_hs30_hebdo INTEGER,
+    minutes_hs50_hebdo INTEGER,
+    minutes_ajustement_periode INTEGER,
+    minutes_solde_periode INTEGER,
+    minutes_absence_finale INTEGER,
+    minutes_hs30_finales INTEGER,
     total_minutes_retard INTEGER NOT NULL DEFAULT 0,
     nb_jours_deplacement DECIMAL(5,2) NOT NULL DEFAULT 0,
     montant_deplacement DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -231,6 +258,14 @@ CREATE TABLE pointage_snapshot_indemnite (
 );
 
 CREATE INDEX idx_cumul_periode_employe ON pointage_cumul_periode(id_employe, id_periode_paie);
+
+CREATE TABLE pointage_snapshot_ajustement (
+    id_cumul INTEGER NOT NULL REFERENCES pointage_cumul_periode(id_cumul) ON DELETE RESTRICT,
+    id_ajustement BIGINT NOT NULL REFERENCES pointage_ajustement_periode(id_ajustement) ON DELETE RESTRICT,
+    minutes_signees INTEGER NOT NULL,
+    motif TEXT NOT NULL,
+    PRIMARY KEY (id_cumul, id_ajustement)
+);
 CREATE INDEX idx_pointage_cumul_periode_periode ON pointage_cumul_periode(id_periode_paie);
 CREATE INDEX idx_pointage_cumul_periode_gele_par ON pointage_cumul_periode(gele_par);
 CREATE UNIQUE INDEX uk_cumul_snapshot_courant ON pointage_cumul_periode(id_employe, id_periode_paie)

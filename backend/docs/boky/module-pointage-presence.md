@@ -1,4 +1,5 @@
 # Module Pointage & Présence — Spécification Complète & Rapport de Référence
+
 ## GALAXAM SIRH — Documentation Canonique & Ouvrage de Référence Métier / Technique
 
 ---
@@ -359,9 +360,27 @@ Soit un tronçon hebdomadaire comportant $N$ journées analysées par `Attendanc
    $$HS_{30} = \min(HS_{eligibles}, P_1)$$
    $$HS_{50} = \max(0, HS_{eligibles} - HS_{30})$$
 
-9. **Absence Nette Retenue sur la Semaine ($Absence_{semaine}$)** :
-   Le déficit horaire qui n'a pas pu être comblé par du surplus devient l'absence finale retenue en paie :
+9. **Déficit restant sur la semaine ($Absence_{semaine}$)** :
+   Le déficit horaire qui n'a pas pu être comblé par du surplus est conservé pour le rapprochement de période :
    $$Absence_{semaine} = Manque_{initial} - M_{compensees}$$
+
+### 6.4 Rapprochement horaire de fin de période
+
+La semaine reste calculée séparément. Le récapitulatif additionne ensuite les déficits
+hebdomadaires et les HS 30 % de la période. Un ajustement DAF signé et motivé peut
+corriger le solde sans modifier les badges :
+
+$$Solde_{periode} = HS30_{hebdo} - Deficit_{hebdo} + Ajustements_{valides}$$
+
+- Si le solde est négatif, sa valeur absolue devient l'absence horaire **hors congés**.
+- S'il est positif, il représente les HS 30 % restantes. Un ajustement qui créerait
+  des HS sans semaine de rattachement bloque le gel et demande de rectifier la journée.
+- Les HS 50 %, les heures de dimanche, de férié et de nuit restent qualifiées séparément.
+
+Le snapshot conserve les volumes hebdomadaires, l'ajustement, le solde et les
+ajustements sources en minutes entières. Les colonnes historiques en heures et les
+buckets de travail restent des faits de pointage ; leur consommation par la paie
+sera harmonisée dans le lot Paie.
 
 ---
 
@@ -785,6 +804,19 @@ Un collaborateur est absent le 15 Septembre (journée de 8 heures). Son solde de
 
 ---
 
+### 16.4 Rapprochement réel de la période juillet–août 2026
+
+La somme des soldes hebdomadaires est suivie d'un ajustement horaire libre,
+motivé et saisi par la DAF. Dans l'exemple TMM, 537 minutes de HS à 30 % et
+un ajustement de −150 minutes donnent 387 minutes de HS valorisables. Dans
+l'exemple TNR, 249 minutes de HS, 109 minutes de déficit hebdomadaire et un
+ajustement de −160 minutes donnent un solde de −20 minutes, soit une absence
+horaire. Les congés de 9 et 3 jours restent des jours calendaires distincts
+de ce solde. Le [rapport de rapprochement](./rapprochement-pointage-paie-juillet-aout-2026.md)
+conserve les chiffres et les limites de comparaison avec Excel.
+
+---
+
 ## 17. Dettes Techniques Résolues & Points de Vigilance
 
 ### 17.1 Dettes Techniques Définitivement Éliminées (Phase 6)
@@ -803,6 +835,30 @@ Un collaborateur est absent le 15 Septembre (journée de 8 heures). Son solde de
 ---
 
 ## 18. Annexes Techniques & Glossaire Terminologique
+
+### Passage du solde final vers la paie
+
+Après compensation de chaque semaine, le solde de période est calculé en minutes :
+`HS30 hebdomadaires - déficit hebdomadaire + ajustements DAF signés`.
+Un solde négatif devient une absence horaire hors congés ; un solde positif
+devient des HS 30 % finales. Le précontrôle de la période bloque un solde de
+HS supérieur aux HS attribuées à des semaines et affiche les collaborateurs à
+corriger avant le gel.
+
+La paie consomme les deux quantités finales du snapshot. Elle conserve les
+buckets datés pour appliquer les taux de majoration configurés et requalifie
+chronologiquement en heures normales les HS 30 % utilisées pour compenser un
+déficit. Les qualifications nuit, dimanche et férié de ces heures restent
+intactes. Les congés sont valorisés séparément en jours : déduction de base au
+1/30 et indemnité au taux historique. Les indemnités de site sont figées avec
+leurs indicateurs d'imposition et de cotisation ; la prime exceptionnelle
+reste une variable de paie distincte. Le total historique « AUTIMP » est la
+somme du déplacement et de la prime exceptionnelle selon la DAF. Lorsqu'un
+repas à 0 Ar est accordé sur un site concerné, la réduction paramétrée de
+1 000 Ar porte sur le déplacement accordé ce jour-là, avec un plancher à
+zéro. Les deux gains restent séparés sur le bulletin.
+
+---
 
 ### 18.1 Glossaire Méthodologique & Métier
 

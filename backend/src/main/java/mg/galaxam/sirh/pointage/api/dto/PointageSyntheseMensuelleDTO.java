@@ -47,6 +47,30 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
     private double retardCompense; // Retard compensé  en heures
     private double surplusBrut; // Total travaillé - Heures normales
 
+    // Rapprochement de fin de période : quantités exactes en minutes.
+    private Integer minutesDeficitHebdo;
+    private Integer minutesHs30Hebdo;
+    private Integer minutesHs50Hebdo;
+    private Integer minutesAjustementPeriode;
+    private Integer minutesSoldePeriode;
+    private Integer minutesAbsenceFinale;
+    private Integer minutesHs30Finales;
+
+    public Integer getMinutesDeficitHebdo() { return minutesDeficitHebdo; }
+    public void setMinutesDeficitHebdo(Integer value) { minutesDeficitHebdo = value; }
+    public Integer getMinutesHs30Hebdo() { return minutesHs30Hebdo; }
+    public void setMinutesHs30Hebdo(Integer value) { minutesHs30Hebdo = value; }
+    public Integer getMinutesHs50Hebdo() { return minutesHs50Hebdo; }
+    public void setMinutesHs50Hebdo(Integer value) { minutesHs50Hebdo = value; }
+    public Integer getMinutesAjustementPeriode() { return minutesAjustementPeriode; }
+    public void setMinutesAjustementPeriode(Integer value) { minutesAjustementPeriode = value; }
+    public Integer getMinutesSoldePeriode() { return minutesSoldePeriode; }
+    public void setMinutesSoldePeriode(Integer value) { minutesSoldePeriode = value; }
+    public Integer getMinutesAbsenceFinale() { return minutesAbsenceFinale; }
+    public void setMinutesAbsenceFinale(Integer value) { minutesAbsenceFinale = value; }
+    public Integer getMinutesHs30Finales() { return minutesHs30Finales; }
+    public void setMinutesHs30Finales(Integer value) { minutesHs30Finales = value; }
+
     public double getSurplusBrut() { return surplusBrut; }
     public void setSurplusBrut(double surplusBrut) { this.surplusBrut = surplusBrut; }
 

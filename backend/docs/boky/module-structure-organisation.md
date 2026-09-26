@@ -384,6 +384,8 @@ sequenceDiagram
 
 Bien que la gestion du cycle de vie du personnel appartienne au Module 2, les **affectations de carrière** (`employe_affectation_carriere`) constituent le pont d'application de la Structure sur le salarié.
 
+Le parcours complet du dossier, des contrats et des workflows RH est décrit dans le [module Employé, Contrat & Carrière](./module-employe-carriere.md). Le présent chapitre détaille le rôle de l'affectation comme rattachement historisé aux référentiels organisationnels.
+
 ### 12.1. Structure du Tuple d'Affectation
 ```sql
 CREATE TABLE employe_affectation_carriere (
@@ -590,6 +592,15 @@ CREATE INDEX idx_parametre_categorie ON parametre_global(categorie);
 ---
 
 ## 17. Critique Fondamentale de `parametre_global`
+
+> **Contrôle des versions (audit du 25/09/2026)** : l'unicité
+> `(code_parametre, date_debut)` bloque seulement un doublon à même date de
+> début. Elle ne bloque pas deux intervalles qui se chevauchent. La création
+> et la modification doivent vérifier l'intersection temporelle sous
+> transaction ; une base existante doit être auditée avant une contrainte SQL
+> de non-chevauchement. Une année civile peut avoir plusieurs versions
+> successives sans ambiguïté. Voir aussi
+> [les règles Paie](./module-paie.md#4-référentiel-légal-et-sélection-à-date-deffet).
 
 Bien que séduisante par sa flexibilité apparente, la table générique clé-valeur `parametre_global` présente des limites architecturales sévères qu'il convient de documenter :
 
@@ -917,7 +928,7 @@ Pour garantir qu'un déploiement à blanc (environnement neuf ou conteneur Docke
 3. **Si un administrateur actif existe déjà** : Le seeder émet un log d'information et annule sa transaction (`c.rollback()`). **Il ne modifie aucun compte existant et n'écrase jamais le mot de passe en production**.
 4. **Si aucun administrateur actif n'est présent** :
    - Il crée le rôle `ROLE_ADMIN` s'il est absent ;
-   - Il initialise le compte configuré par les variables d'environnement `GALAXAM_DEFAULT_ADMIN_USERNAME` et `GALAXAM_DEFAULT_ADMIN_PASSWORD` (valeurs par défaut configurées : `daf@galaxam.com` / `TnrGalLog2605`).
+   - Lorsqu'il est explicitement activé, il initialise le compte configuré par les variables d'environnement `GALAXAM_DEFAULT_ADMIN_USERNAME` et `GALAXAM_DEFAULT_ADMIN_PASSWORD`. Aucun identifiant ni mot de passe n'est fourni par défaut.
 
 ---
 

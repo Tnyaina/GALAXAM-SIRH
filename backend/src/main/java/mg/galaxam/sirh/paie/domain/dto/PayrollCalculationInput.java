@@ -303,7 +303,7 @@ public class PayrollCalculationInput {
         }
         if (salaireBaseContractuel != null && salaireBaseContractuel.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal diviseur = getDiviseurMensuelHeuresEffectif();
-            return salaireBaseContractuel.divide(diviseur, 4, RoundingMode.HALF_UP);
+            return salaireBaseContractuel.divide(diviseur, 8, RoundingMode.HALF_UP);
         }
         return BigDecimal.ZERO;
     }
@@ -317,7 +317,7 @@ public class PayrollCalculationInput {
      */
     public BigDecimal getTauxJournalierTrentieme() {
         if (salaireBaseContractuel != null && salaireBaseContractuel.compareTo(BigDecimal.ZERO) > 0) {
-            return salaireBaseContractuel.divide(new BigDecimal("30.0"), 4, RoundingMode.HALF_UP);
+            return salaireBaseContractuel.divide(new BigDecimal("30.0"), 8, RoundingMode.HALF_UP);
         }
         return BigDecimal.ZERO;
     }

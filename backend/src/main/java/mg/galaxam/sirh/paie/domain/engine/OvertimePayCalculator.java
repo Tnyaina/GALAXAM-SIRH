@@ -112,7 +112,7 @@ public final class OvertimePayCalculator {
 
         for (QualifiedTimeBucket bucket : buckets) {
             totalMinutes = totalMinutes.add(BigDecimal.valueOf(bucket.minutes()));
-            BigDecimal hours = BigDecimal.valueOf(bucket.minutes()).divide(SIXTY, 6, RoundingMode.HALF_UP);
+            BigDecimal hours = BigDecimal.valueOf(bucket.minutes()).divide(SIXTY, 8, RoundingMode.HALF_UP);
 
             // Résolution des taux à la date civile exacte du bucket (invariant : ne traverse jamais minuit)
             LocalDate bucketDate = bucket.start().toLocalDate();
@@ -128,13 +128,13 @@ public final class OvertimePayCalculator {
 
             if (bucket.overtimeTier() == OvertimeTier.OVERTIME_30) {
                 otRate = nz(rates.rateHs30());
-                overtimeBaseAmount = MoneyRoundingPolicy.amount(hours.multiply(hourlyRate));
-                overtimePremiumAmount = MoneyRoundingPolicy.amount(hours.multiply(hourlyRate).multiply(otRate));
+                overtimeBaseAmount = hours.multiply(hourlyRate);
+                overtimePremiumAmount = hours.multiply(hourlyRate).multiply(otRate);
                 totalHs30 = totalHs30.add(overtimeBaseAmount).add(overtimePremiumAmount);
             } else if (bucket.overtimeTier() == OvertimeTier.OVERTIME_50) {
                 otRate = nz(rates.rateHs50());
-                overtimeBaseAmount = MoneyRoundingPolicy.amount(hours.multiply(hourlyRate));
-                overtimePremiumAmount = MoneyRoundingPolicy.amount(hours.multiply(hourlyRate).multiply(otRate));
+                overtimeBaseAmount = hours.multiply(hourlyRate);
+                overtimePremiumAmount = hours.multiply(hourlyRate).multiply(otRate);
                 totalHs50 = totalHs50.add(overtimeBaseAmount).add(overtimePremiumAmount);
             }
 
@@ -218,9 +218,9 @@ public final class OvertimePayCalculator {
             }
 
             // Calcul des montants d'incréments de sujétion
-            BigDecimal nightPremiumAmount = MoneyRoundingPolicy.amount(hours.multiply(hourlyRate).multiply(nightRate));
-            BigDecimal sundayPremiumAmount = MoneyRoundingPolicy.amount(hours.multiply(hourlyRate).multiply(sundayRate));
-            BigDecimal holidayPremiumAmount = MoneyRoundingPolicy.amount(hours.multiply(hourlyRate).multiply(holidayRate));
+            BigDecimal nightPremiumAmount = hours.multiply(hourlyRate).multiply(nightRate);
+            BigDecimal sundayPremiumAmount = hours.multiply(hourlyRate).multiply(sundayRate);
+            BigDecimal holidayPremiumAmount = hours.multiply(hourlyRate).multiply(holidayRate);
 
             totalNuit = totalNuit.add(nightPremiumAmount);
             totalDimanche = totalDimanche.add(sundayPremiumAmount);
@@ -262,7 +262,7 @@ public final class OvertimePayCalculator {
             ));
         }
 
-        BigDecimal totalHoursWorked = totalMinutes.divide(SIXTY, 2, RoundingMode.HALF_UP);
+        BigDecimal totalHoursWorked = totalMinutes.divide(SIXTY, 8, RoundingMode.HALF_UP);
 
         return new Result(
                 MoneyRoundingPolicy.amount(totalHs30),

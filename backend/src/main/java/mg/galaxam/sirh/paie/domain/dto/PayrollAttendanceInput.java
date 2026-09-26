@@ -130,7 +130,7 @@ public record PayrollAttendanceInput(
     }
 
     public static BigDecimal minutesToHours(long minutes) {
-        return BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+        return BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 8, RoundingMode.HALF_UP);
     }
 
     private static BigDecimal zeroIfNull(BigDecimal value) {

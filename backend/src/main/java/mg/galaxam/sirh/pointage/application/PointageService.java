@@ -282,7 +282,7 @@ public class PointageService {
     /** Conversion de frontière uniquement : le domaine conserve les minutes entières. */
     private static double minutesToStorageHours(long minutes) {
         return BigDecimal.valueOf(minutes)
-                .divide(BigDecimal.valueOf(60), 2, java.math.RoundingMode.HALF_UP)
+                .divide(BigDecimal.valueOf(60), 8, java.math.RoundingMode.HALF_UP)
                 .doubleValue();
     }
 

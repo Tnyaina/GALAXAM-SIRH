@@ -152,4 +152,4 @@ cd frontend && npm run build
 
 ---
 
-*GALAXAM SIRH — Conforme au Code du Travail de Madagascar 2026.*
+*GALAXAM SIRH — Vérifier les paramètres légaux, les données reprises et les bulletins de référence avant chaque mise en production.*

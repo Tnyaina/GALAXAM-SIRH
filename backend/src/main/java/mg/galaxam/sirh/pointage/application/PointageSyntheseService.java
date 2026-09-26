@@ -76,7 +76,7 @@ public class PointageSyntheseService {
     }
 
     private static double minutesToHours(long minutes) {
-        return BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP).doubleValue();
+        return BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 8, RoundingMode.HALF_UP).doubleValue();
     }
 
     private static BigDecimal nullToZero(BigDecimal value) {
@@ -124,6 +124,9 @@ public class PointageSyntheseService {
 
     @Autowired
     private DataSource dataSource;
+
+    @Autowired
+    private PointageAjustementPeriodeService ajustementPeriodeService;
 
     @Autowired
     private mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine calendrierEngine;
@@ -584,6 +587,34 @@ public class PointageSyntheseService {
 
         PeriodTotals periodResult = aggregateWeeks(weeklyResults);
 
+        // La compensation de chaque semaine est déjà terminée. Le rapprochement
+        // de période reprend uniquement ses totaux, comme le récapitulatif Excel.
+        // Les heures spéciales et HS50 restent hors de ce solde HS30/déficit.
+        int deficitMinutes = Math.toIntExact(periodResult.absenceMinutes());
+        int hs30Minutes = Math.toIntExact(periodResult.overtime30Minutes());
+        int hs50Minutes = Math.toIntExact(periodResult.overtime50Minutes());
+        int ajustementMinutes = 0;
+        if (idPeriode != null && ajustementPeriodeService != null) {
+            try (PreparedStatement bornes = c.prepareStatement(
+                    "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?")) {
+                bornes.setInt(1, idPeriode);
+                try (ResultSet rsBornes = bornes.executeQuery()) {
+                    if (rsBornes.next() && dateDebut.equals(rsBornes.getDate(1).toLocalDate())
+                            && dateFin.equals(rsBornes.getDate(2).toLocalDate())) {
+                        ajustementMinutes = ajustementPeriodeService.totalMinutesValidees(idPeriode, idEmp, c);
+                    }
+                }
+            }
+        }
+        int soldeMinutes = Math.addExact(Math.subtractExact(hs30Minutes, deficitMinutes), ajustementMinutes);
+        dto.setMinutesDeficitHebdo(deficitMinutes);
+        dto.setMinutesHs30Hebdo(hs30Minutes);
+        dto.setMinutesHs50Hebdo(hs50Minutes);
+        dto.setMinutesAjustementPeriode(ajustementMinutes);
+        dto.setMinutesSoldePeriode(soldeMinutes);
+        dto.setMinutesAbsenceFinale(Math.max(0, -soldeMinutes));
+        dto.setMinutesHs30Finales(Math.max(0, soldeMinutes));
+
         dto.setTronconsSemaine(tronconsList);
 
         dto.setNbJoursPresents(presents);
@@ -592,7 +623,7 @@ public class PointageSyntheseService {
         dto.setNbJoursFerieChome(feriesChomes);
         dto.setNbJoursFerieTravaille(feriesTravailles);
         dto.setNbJoursDimancheTravaille(dimanchesTravailles);
-        // Conversion finale unique : minutes → décimales (arrondi au centième)
+        // Conversion finale pour l'API ; les minutes entières restent la valeur de calcul.
         dto.setTotalHeuresTravaillees(minutesToHours(periodResult.workedMinutes()));
         dto.setSurplusBrut(minutesToHours(totalHsBrutesMinutes));
         dto.setHeuresHs30(minutesToHours(periodResult.overtime30Minutes()));
@@ -829,9 +860,9 @@ public class PointageSyntheseService {
         double totalHs30 = 0;
         double totalHs50 = 0;
         for (PointageSyntheseMensuelleDTO dto : periodValues) {
-            totalHs30 += dto.getHeuresHs30();
+            totalHs30 += dto.getMinutesHs30Finales() / 60.0;
             totalHs50 += dto.getHeuresHs50();
-            if (dto.getHeuresHs30() > 0 || dto.getHeuresHs50() > 0) employeesWithHs.add(dto.getIdEmploye());
+            if (dto.getMinutesHs30Finales() > 0 || dto.getHeuresHs50() > 0) employeesWithHs.add(dto.getIdEmploye());
             if (dto.getTronconsSemaine() != null && dto.getTronconsSemaine().stream()
                     .anyMatch(w -> w.getHeuresHsBrutes() > w.getHeuresHsNettes())) {
                 employeesWithCompensation.add(dto.getIdEmploye());
@@ -1092,7 +1123,7 @@ public class PointageSyntheseService {
         Map<String, Object> kpisMap = new HashMap<>();
         kpisMap.put("totalSalaries", countAll);
         kpisMap.put("totalHeures", Math.round(totalHeures * 10.0) / 10.0);
-        kpisMap.put("totalHs30", Math.round(totalHs30 * 10.0) / 10.0);
+        kpisMap.put("totalHs30", Math.round(totalHs30 * 100.0) / 100.0);
         kpisMap.put("totalHs50", Math.round(totalHs50 * 10.0) / 10.0);
         kpisMap.put("totalRetardMins", totalRetardMins);
 
@@ -1135,6 +1166,11 @@ public class PointageSyntheseService {
 
         try (PreparedStatement ps = c.prepareStatement(sqlCumul)) {
             for (PointageSyntheseMensuelleDTO dto : synthese) {
+                if (dto.getMinutesHs30Finales() > dto.getMinutesHs30Hebdo()) {
+                    throw new IllegalStateException("AJUSTEMENT_HS_SEMAINE_REQUISE: l'ajustement de "
+                            + dto.getMatricule() + " crée des HS 30 % sans semaine de rattachement. "
+                            + "Corriger les journées concernées avant le gel.");
+                }
                 try (PreparedStatement replace = c.prepareStatement(
                         "UPDATE pointage_cumul_periode SET statut_snapshot = 'REMPLACE' " +
                         "WHERE id_employe = ? AND id_periode_paie = ? AND statut_snapshot = 'GELE'")) {
@@ -1173,9 +1209,128 @@ public class PointageSyntheseService {
                     snapshotId = inserted.getInt(1);
                 }
                 enregistrerProvenanceSnapshot(snapshotId, dto, idPeriode, c);
+                long minutesHs30Buckets = getSnapshotBuckets(snapshotId, c).stream()
+                        .filter(bucket -> bucket.overtimeTier() == OvertimeTier.OVERTIME_30)
+                        .mapToLong(QualifiedTimeBucket::minutes)
+                        .sum();
+                if (minutesHs30Buckets != dto.getMinutesHs30Hebdo()) {
+                    throw new IllegalStateException("HS30_SNAPSHOT_INCOHERENT: " + dto.getMatricule()
+                            + " possède " + dto.getMinutesHs30Hebdo() + " minutes de HS 30 % hebdomadaires, "
+                            + "mais " + minutesHs30Buckets + " minutes dans les journées figées. "
+                            + "Vérifier les horaires et les tronçons de semaine avant le gel.");
+                }
+                try (PreparedStatement solde = c.prepareStatement(
+                        "UPDATE pointage_cumul_periode SET minutes_deficit_hebdo = ?, minutes_hs30_hebdo = ?, " +
+                        "minutes_hs50_hebdo = ?, minutes_ajustement_periode = ?, minutes_solde_periode = ?, " +
+                        "minutes_absence_finale = ?, minutes_hs30_finales = ? WHERE id_cumul = ?")) {
+                    solde.setInt(1, dto.getMinutesDeficitHebdo());
+                    solde.setInt(2, dto.getMinutesHs30Hebdo());
+                    solde.setInt(3, dto.getMinutesHs50Hebdo());
+                    solde.setInt(4, dto.getMinutesAjustementPeriode());
+                    solde.setInt(5, dto.getMinutesSoldePeriode());
+                    solde.setInt(6, dto.getMinutesAbsenceFinale());
+                    solde.setInt(7, dto.getMinutesHs30Finales());
+                    solde.setInt(8, snapshotId);
+                    solde.executeUpdate();
+                }
+                if (ajustementPeriodeService != null) {
+                    ajustementPeriodeService.figerProvenance(snapshotId, idPeriode, dto.getIdEmploye(), c);
+                }
             }
         }
 
+    }
+
+    /** Même contrôle utilisé par la décision backend et par la revue DAF. */
+    public PointagePreflight preflightPeriode(int idPeriode, Connection c) throws SQLException {
+        List<PointagePreflight.Blocker> blockers = new ArrayList<>();
+        List<PointageSyntheseMensuelleDTO> synthese = getSynthesePeriode(idPeriode, null, c);
+        for (PointageSyntheseMensuelleDTO employee : synthese) {
+            int unassigned = Math.max(0, employee.getMinutesHs30Finales() - employee.getMinutesHs30Hebdo());
+            if (unassigned > 0) {
+                blockers.add(new PointagePreflight.Blocker(employee.getIdEmploye(), employee.getMatricule(),
+                        employee.getNom(), employee.getPrenom(), unassigned));
+            }
+        }
+        return new PointagePreflight(idPeriode, synthese.size(), List.copyOf(blockers),
+                List.copyOf(journeesOuvrablesSansStatut(idPeriode, synthese, c)));
+    }
+
+    public record PointagePreflight(int idPeriodePaie, int nombreEmployes, List<Blocker> blocages,
+                                   List<JourneeManquante> journeesManquantes) {
+        public boolean pret() { return blocages.isEmpty() && journeesManquantes.isEmpty() && nombreEmployes > 0; }
+
+        public record Blocker(int idEmploye, String matricule, String nom, String prenom,
+                              int minutesHsSansSemaine) {}
+        public record JourneeManquante(int idEmploye, String matricule, String nom, String prenom,
+                                      LocalDate date) {}
+    }
+
+    private record AffectationOuvrable(LocalDate debut, LocalDate fin, int siteId) {
+        boolean couvre(LocalDate jour) {
+            return !jour.isBefore(debut) && (fin == null || !jour.isAfter(fin));
+        }
+    }
+
+    private List<PointagePreflight.JourneeManquante> journeesOuvrablesSansStatut(int periodId,
+            List<PointageSyntheseMensuelleDTO> synthese, Connection c) throws SQLException {
+        LocalDate debut;
+        LocalDate fin;
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?")) {
+            ps.setInt(1, periodId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return List.of();
+                debut = rs.getDate(1).toLocalDate();
+                fin = rs.getDate(2).toLocalDate();
+            }
+        }
+        Map<Integer, Set<LocalDate>> datesSaisies = new HashMap<>();
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT id_employe, date_pointage FROM pointage_jour WHERE id_periode_paie = ?")) {
+            ps.setInt(1, periodId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) datesSaisies.computeIfAbsent(rs.getInt(1), ignored -> new HashSet<>())
+                        .add(rs.getDate(2).toLocalDate());
+            }
+        }
+        Map<Integer, List<AffectationOuvrable>> affectations = new HashMap<>();
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT a.id_employe, a.date_debut, a.date_fin, a.id_site "
+                + "FROM employe_affectation_carriere a JOIN ref_statut_rh s ON s.id_statut_rh = a.id_statut_rh "
+                + "WHERE s.code = 'ACTIF' AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?)")) {
+            ps.setDate(1, Date.valueOf(fin));
+            ps.setDate(2, Date.valueOf(debut));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Date finAffectation = rs.getDate(3);
+                    affectations.computeIfAbsent(rs.getInt(1), ignored -> new ArrayList<>())
+                            .add(new AffectationOuvrable(rs.getDate(2).toLocalDate(),
+                                    finAffectation == null ? null : finAffectation.toLocalDate(), rs.getInt(4)));
+                }
+            }
+        }
+        Map<Integer, Set<LocalDate>> feriesParSite = new HashMap<>();
+        List<PointagePreflight.JourneeManquante> manquantes = new ArrayList<>();
+        for (PointageSyntheseMensuelleDTO employe : synthese) {
+            if (employe.isDispensePointage()) continue;
+            Set<LocalDate> saisies = datesSaisies.getOrDefault(employe.getIdEmploye(), Set.of());
+            List<AffectationOuvrable> carrieres = affectations.getOrDefault(employe.getIdEmploye(), List.of());
+            for (LocalDate jour = debut; !jour.isAfter(fin); jour = jour.plusDays(1)) {
+                if (CalendrierOuvrableEngine.isWeekend(jour) || saisies.contains(jour)) continue;
+                LocalDate jourControle = jour;
+                AffectationOuvrable active = carrieres.stream().filter(a -> a.couvre(jourControle)).findFirst().orElse(null);
+                if (active == null) continue;
+                Set<LocalDate> feries = feriesParSite.get(active.siteId());
+                if (feries == null) {
+                    feries = calendrierEngine.getDatesFeriesEtChomees(debut, fin, active.siteId(), c);
+                    feriesParSite.put(active.siteId(), feries);
+                }
+                if (!feries.contains(jour)) manquantes.add(new PointagePreflight.JourneeManquante(
+                        employe.getIdEmploye(), employe.getMatricule(), employe.getNom(), employe.getPrenom(), jour));
+            }
+        }
+        return manquantes;
     }
 
     /**

@@ -251,6 +251,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             });
             if (res?.decision === 'ALLOWED') {
                 toast.success('Période transmise pour validation avec succès.');
+                window.dispatchEvent(new Event('pointage-period-updated'));
                 setShowTransmissionConfirm(false);
                 const updatedList = await periodePaieService.getAllPeriodes();
                 if (updatedList) setPeriodes(updatedList);

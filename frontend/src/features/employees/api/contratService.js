@@ -6,6 +6,10 @@
 import apiClient from '@/api/apiClient';
 
 const contratService = {
+    exporterContratsCsv: async () => {
+        const response = await apiClient.get('/contrats/export', { responseType: 'blob' });
+        return response.data;
+    },
 
     // =========================================================================
     // RÉFÉRENTIELS CARRIÈRE (déjà existants, conservés intacts)

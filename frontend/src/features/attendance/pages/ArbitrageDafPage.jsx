@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     CheckCircle, XCircle, AlertTriangle, CheckCircle2, Clock,
     Users, TrendingUp, Moon, Award, Search,
@@ -26,6 +26,7 @@ import useDebounce from '@/hooks/useDebounce';
 
 const DafAjustementPointageModal = lazy(() => import('@/features/attendance/components/modals/DafAjustementPointageModal'));
 const PointageDetailHebdoModal = lazy(() => import('@/features/attendance/components/modals/PointageDetailHebdoModal'));
+const PointageSoldePeriodeModal = lazy(() => import('@/features/attendance/components/modals/PointageSoldePeriodeModal'));
 const PointageGanttView = lazy(() => import('@/features/attendance/components/views/PointageGanttView'));
 
 /**
@@ -35,6 +36,7 @@ const PointageGanttView = lazy(() => import('@/features/attendance/components/vi
 export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode = null }) {
     // Contexte, navigation et hook métier
     const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
     const { hasPermission } = useAuth();
     const { toast } = useToast();
     const isDaf = hasPermission('POINTAGE_VALIDATE');
@@ -44,6 +46,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const [selectedPeriode, setSelectedPeriode] = useState(() => searchParams.get('periode') || (activePeriode?.idPeriodePaie ? String(activePeriode.idPeriodePaie) : ''));
     const [selectedEmployeToAdjust, setSelectedEmployeToAdjust] = useState(null);
     const [selectedEmployeForDetail, setSelectedEmployeForDetail] = useState(null);
+    const [selectedEmployeForSolde, setSelectedEmployeForSolde] = useState(null);
     const [showAuditColumns, setShowAuditColumns] = useState(false);
     const [adjustInitialDate, setAdjustInitialDate] = useState(null);
     const [sites, setSites] = useState([]);
@@ -51,6 +54,9 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const [syntheseData, setSyntheseData] = useState([]);
     const [semaines, setSemaines] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
+    const [preflight, setPreflight] = useState(null);
+    const loadSequence = useRef(0);
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebounce(searchTerm, 300);
     const [alertFilter, setAlertFilter] = useState('ALL');
@@ -119,10 +125,13 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
     const loadData = useCallback(async () => {
         if (!selectedPeriode) return;
+        const sequence = ++loadSequence.current;
         setLoading(true);
+        setLoadError('');
+        setPreflight(null);
         try {
             const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
-            const [resSemaines, resSynthese] = await Promise.all([
+            const [resSemaines, resSynthese, resPreflight, resPeriodes] = await Promise.all([
                 pointageSyntheseService.getSemaines({ idPeriodePaie: selectedPeriode, idSite: siteParam }),
                 pointageSyntheseService.getSynthese({
                     idPeriodePaie: selectedPeriode,
@@ -131,17 +140,28 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                     filtre: alertFilter !== 'ALL' ? alertFilter : undefined,
                     page: currentPage,
                     size: pageSize
-                })
+                }),
+                pointageSyntheseService.getPreflight({ idPeriodePaie: selectedPeriode }),
+                periodePaieService.getAllPeriodes()
             ]);
+            if (sequence !== loadSequence.current) return;
             if (resSemaines?.semaines) setSemaines(resSemaines.semaines);
             if (resSynthese?.synthese) setSyntheseData(resSynthese.synthese);
             if (resSynthese?.totalElements !== undefined) setTotalElements(resSynthese.totalElements);
             if (resSynthese?.kpis) setServerKpis(resSynthese.kpis);
             if (resSynthese?.alertCounts) setServerAlertCounts(resSynthese.alertCounts);
+            setPreflight(resPreflight);
+            if (resPeriodes) setPeriodes(resPeriodes);
         } catch (err) {
-            console.error('Erreur chargement ArbitrageDafPage:', err);
+            if (sequence !== loadSequence.current) return;
+            setLoadError(getErrorMessage(err, 'Impossible de charger le contrôle du pointage.'));
+            setSyntheseData([]);
+            setSemaines([]);
+            setServerKpis(null);
+            setServerAlertCounts(null);
+            setTotalElements(0);
         } finally {
-            setLoading(false);
+            if (sequence === loadSequence.current) setLoading(false);
         }
     }, [selectedPeriode, selectedSite, debouncedSearch, alertFilter, currentPage, pageSize]);
 
@@ -154,11 +174,22 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
     const isPeriodLocked = useMemo(() => {
         const st = (currentPeriodeObj?.statutCode || currentPeriodeObj?.state || currentPeriodeObj?.statut_code || '').toUpperCase();
-        return st === 'VALIDEE' || st === 'CLOTUREE';
+        return st === 'VALIDEE' || st === 'PAIE_VALIDEE' || st === 'CLOTUREE';
     }, [currentPeriodeObj]);
 
     const periodActions = currentPeriodeObj?.availableActions || {};
-    const canDecide = periodActions.APPROVE?.allowed === true || periodActions.REJECT?.allowed === true;
+    const isPendingDaf = ['A_VALIDER', 'TRANSMIS_DAF'].includes(currentPeriodeObj?.statutCode);
+    const canApprove = !loading && !loadError && preflight?.pret === true && periodActions.APPROVE?.allowed === true;
+    const canReject = periodActions.REJECT?.allowed === true;
+    const approvalBlockCode = periodActions.APPROVE?.reasonCodes?.[0];
+    const approvalBlockMessage = {
+        PERIOD_NOT_ENDED: 'La période doit être terminée avant validation.',
+        POINTAGE_EMPTY: 'Aucun pointage n’a été saisi pour cette période.',
+        BLOCKING_ANOMALIES: 'Des anomalies de pointage doivent être régularisées.',
+        POINTAGE_POPULATION_EMPTY: 'Aucun collaborateur n’est présent dans la synthèse.',
+        POINTAGE_JOURNEES_MANQUANTES: 'Des journées ouvrables n’ont aucun statut de pointage.',
+        POINTAGE_HS_SANS_SEMAINE: 'Des HS finales n’ont pas de semaine de rattachement.'
+    }[approvalBlockCode];
     const canSubmit = periodActions.SUBMIT?.allowed === true;
     const transmissionBlockReason = periodActions.SUBMIT?.reason || null;
 
@@ -244,6 +275,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             if (res?.decision === 'ALLOWED') {
                 toast({ title: 'Période validée avec succès', message: 'Les données de pointage sont validées et figées.', type: 'success' });
                 window.dispatchEvent(new Event('refresh-notifications'));
+                window.dispatchEvent(new Event('pointage-period-updated'));
                 setShowValiderModal(false);
                 const list = await periodePaieService.getAllPeriodes();
                 if (list) setPeriodes(list);
@@ -265,6 +297,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             if (res?.decision === 'ALLOWED') {
                 toast({ title: 'Période renvoyée', message: 'La période a été renvoyée pour correction.', type: 'warning' });
                 window.dispatchEvent(new Event('refresh-notifications'));
+                window.dispatchEvent(new Event('pointage-period-updated'));
                 setShowRejetModal(false);
                 setMotifRejet('');
                 const list = await periodePaieService.getAllPeriodes();
@@ -289,6 +322,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 toast({ title: 'Période transmise', message: 'La synthèse consolidée a été transmise avec succès pour arbitrage DAF.', type: 'success' });
                 setShowTransmissionModal(false);
                 window.dispatchEvent(new Event('refresh-notifications'));
+                window.dispatchEvent(new Event('pointage-period-updated'));
                 const updatedList = await periodePaieService.getAllPeriodes();
                 if (updatedList) setPeriodes(updatedList);
                 await loadData();
@@ -397,19 +431,27 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
                     <div className="flex items-center gap-2 shrink-0 ml-auto">
                         {isPeriodLocked ? (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                loading={loading}
-                                onClick={loadData}
-                                icon={<RefreshCw size={13} className={loading ? 'animate-spin' : ''} />}
-                                className="text-xs h-[32px] font-semibold"
-                                title="Rafraîchir l'affichage (la période est validée ou clôturée, les calculs sont figés)"
-                            >
-                                <span className="hidden md:inline">Rafraîchir l'affichage</span>
-                                <span className="md:hidden">Rafraîchir</span>
-                            </Button>
+                            <>
+                                {hasPermission('PAIE_READ') && currentPeriodeObj?.statutCode === 'VALIDEE' && (
+                                    <Button type="button" variant="primary" size="sm"
+                                        onClick={() => navigate(`/paie/periodes/${selectedPeriode}/preparation`)}>
+                                        Continuer vers la paie
+                                    </Button>
+                                )}
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    loading={loading}
+                                    onClick={loadData}
+                                    icon={<RefreshCw size={13} className={loading ? 'animate-spin' : ''} />}
+                                    className="text-xs h-[32px] font-semibold"
+                                    title="Rafraîchir l'affichage (la période est validée ou clôturée, les calculs sont figés)"
+                                >
+                                    <span className="hidden md:inline">Rafraîchir l'affichage</span>
+                                    <span className="md:hidden">Rafraîchir</span>
+                                </Button>
+                            </>
                         ) : (
                             <Button
                                 type="button"
@@ -439,13 +481,13 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 Transmettre à la DAF
                             </Button>
                         )}
-                        {canDecide && (
+                        {isDaf && isPendingDaf && (
                             <>
-                                <Button type="button" variant="danger" size="sm" onClick={() => setShowRejetModal(true)}
+                                {canReject && <Button type="button" variant="danger" size="sm" onClick={() => setShowRejetModal(true)}
                                     icon={<XCircle size={14} />} className="text-xs h-[32px] font-bold">
                                     Renvoyer pour correction
-                                </Button>
-                                <Button type="button" variant="primary" size="sm" onClick={() => setShowValiderModal(true)}
+                                </Button>}
+                                <Button type="button" variant="primary" size="sm" disabled={!canApprove} onClick={() => setShowValiderModal(true)}
                                     icon={<CheckCircle size={14} />} className="text-xs h-[32px] font-bold">
                                     Valider l'arbitrage & Sceller les heures
                                 </Button>
@@ -453,6 +495,42 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         )}
                     </div>
                 </div>
+
+                {loadError && <div role="alert" className="border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800 flex items-center justify-between gap-3">
+                    <span>{loadError} Les données précédentes ont été masquées.</span>
+                    <Button type="button" variant="outline" size="sm" onClick={loadData}>Réessayer</Button>
+                </div>}
+                {!loadError && isPendingDaf && preflight && !preflight.pret && (
+                    <div role="alert" className="border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 space-y-2">
+                        <strong>Validation en attente de correction</strong>
+                        {preflight.nombreEmployes === 0 && <p>Aucun collaborateur dans la synthèse de période.</p>}
+                        {preflight.journeesManquantes?.length > 0 && <>
+                            <p>{preflight.journeesManquantes.length} journée(s) ouvrable(s) sans pointage ni statut explicite. Saisissez une présence, une absence ou un congé avant le gel.</p>
+                            <div className="flex flex-wrap gap-2">{preflight.journeesManquantes.slice(0, 8).map((jour) => (
+                                <button key={`${jour.idEmploye}-${jour.date}`} type="button"
+                                    className="border border-amber-400 bg-white px-2 py-1 hover:bg-amber-100"
+                                    onClick={() => navigate(`/pointages?tab=saisie&periode=${selectedPeriode}`)}>
+                                    {jour.matricule} · {jour.date} · ouvrir la saisie
+                                </button>
+                            ))}</div>
+                            {preflight.journeesManquantes.length > 8 && <p>+ {preflight.journeesManquantes.length - 8} autres journées à traiter.</p>}
+                        </>}
+                        {preflight.blocages?.length > 0 && <>
+                            <p>{preflight.blocages.length} collaborateur(s) ont des HS sans semaine de rattachement. Corrigez leur journée avant de sceller le pointage.</p>
+                            <div className="flex flex-wrap gap-2">{preflight.blocages.map((blocker) => (
+                                <button key={blocker.idEmploye} type="button" className="border border-amber-400 bg-white px-2 py-1 hover:bg-amber-100"
+                                    onClick={() => { setSearchTerm(blocker.matricule || `${blocker.nom} ${blocker.prenom}`); setCurrentPage(1); }}>
+                                    {blocker.matricule} · {blocker.nom} {blocker.prenom} · {(blocker.minutesHsSansSemaine / 60).toFixed(2)} h à rattacher
+                                </button>
+                            ))}</div>
+                        </>}
+                    </div>
+                )}
+                {!loadError && isDaf && isPendingDaf && preflight?.pret && !canApprove && approvalBlockMessage && (
+                    <div role="alert" className="border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                        Validation en attente : {approvalBlockMessage}
+                    </div>
+                )}
 
                 {/* KPI Cards — 5 indicateurs clés */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
@@ -602,7 +680,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                             <Th className="text-center w-20">Heures</Th>
                                                     <Th className="text-center w-16">
                                                         <span className="inline-flex items-center gap-1 text-[var(--color-purple-700)] dark:text-[var(--color-purple-200)]">
-                                                    <TrendingUp size={11} /> HS 30%
+                                                    <TrendingUp size={11} /> HS 30% finales
                                                 </span>
                                             </Th>
                                                     <Th className="text-center w-16">
@@ -639,9 +717,9 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     </Th>
                                                 </>
                                             )}
-                                            <Th className="text-center w-20" title="Heures manquantes non comblées (déduction salaire)">
+                                            <Th className="text-center w-20" title="Absence horaire finale après rapprochement de période, hors congés">
                                                 <span className="inline-flex items-center gap-1 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                                                    <AlertTriangle size={11} /> Retenue
+                                                    <AlertTriangle size={11} /> Absence finale
                                                 </span>
                                             </Th>
                                             <Th className="text-center w-16" title="Jours d'absence non justifiée">
@@ -656,6 +734,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                             const profilLabel = row.badgeProfilLabel || (row.dispensePointage ? 'AUTONOME' : row.estCadre ? 'CADRE' : null);
                                             const profilVariant = row.badgeProfilVariant || (row.dispensePointage ? 'neutral' : row.estCadre ? 'info' : null);
                                             const allowanceEntries = Object.entries(row.montantsIndemnites || {});
+                                            const hs30Finales = row.minutesHs30Finales != null ? row.minutesHs30Finales / 60 : (row.heuresHs30 || 0);
+                                            const absenceFinale = row.minutesAbsenceFinale != null ? row.minutesAbsenceFinale / 60 : (row.heuresAbsenceRetenues || 0);
                                             const totalIndRow = allowanceEntries.reduce((total, [, amount]) => total + Number(amount || 0), 0);
                                             const allowanceDetails = allowanceEntries.map(([code, amount]) =>
                                                 `• ${code} : ${formatMonnaie(amount || 0)}`).join('\n');
@@ -708,10 +788,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                         ) : '—'}
                                                     </Td>
                                                     <Td className="text-center">
-                                                        {(row.heuresHs30 || 0) > 0 ? (
-                                                            <span className="attendance-overtime inline-block attendance-duration text-xs font-bold px-1.5 py-0.5" title={`${formatHeuresMinutes(row.heuresHs30)}`}>
-                                                                {formatHeuresMinutes(row.heuresHs30)}
-                                                                <span className="attendance-duration-secondary block">({formatHeuresDecimal(row.heuresHs30)})</span>
+                                                        {hs30Finales > 0 ? (
+                                                            <span className="attendance-overtime inline-block attendance-duration text-xs font-bold px-1.5 py-0.5" title="HS 30 % après rapprochement de période">
+                                                                {formatHeuresMinutes(hs30Finales)}
+                                                                <span className="attendance-duration-secondary block">({formatHeuresDecimal(hs30Finales)})</span>
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
@@ -802,13 +882,13 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     )}
                                                     {/* Retenue Paie (Net) */}
                                                     <Td className="text-center">
-                                                        {(row.heuresAbsenceRetenues || 0) > 0 ? (
+                                                        {absenceFinale > 0 ? (
                                                             <span
                                                                 className="attendance-retention inline-block attendance-duration text-xs font-bold px-1.5 py-0.5 cursor-help"
-                                                                title={`Déficit d'heures sous le seuil hebdo à déduire en paie : -${formatHeuresDecimal(row.heuresAbsenceRetenues)} (-${formatHeuresMinutes(row.heuresAbsenceRetenues)})`}
+                                                                title={`Absence horaire finale hors congés : -${formatHeuresDecimal(absenceFinale)} (-${formatHeuresMinutes(absenceFinale)})`}
                                                             >
-                                                                -{formatHeuresMinutes(row.heuresAbsenceRetenues)}
-                                                                <span className="attendance-duration-secondary block">(-{formatHeuresDecimal(row.heuresAbsenceRetenues)})</span>
+                                                                -{formatHeuresMinutes(absenceFinale)}
+                                                                <span className="attendance-duration-secondary block">(-{formatHeuresDecimal(absenceFinale)})</span>
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
@@ -830,6 +910,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     {/* Actions : Voir détail & Ajuster */}
                                                     <Td className="text-center">
                                                         <div className="flex items-center justify-center gap-1">
+                                                            <button type="button" onClick={() => setSelectedEmployeForSolde(row)}
+                                                                className="inline-flex items-center justify-center w-7 h-7 border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] transition-all cursor-pointer"
+                                                                title="Voir le solde horaire de période et les ajustements">
+                                                                <Scale size={13} />
+                                                            </button>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setSelectedEmployeForDetail(row)}
@@ -933,7 +1018,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 onClose={() => setShowValiderModal(false)}
                 onConfirm={handleValiderPeriode}
                 title={`Arbitrage & Gel : ${currentPeriodeObj?.libelle || ''} ?`}
-                message="Cette action scelle définitivement les heures travaillées, les heures supplémentaires, les repas et les indemnités de la période. Le snapshot de pointage sera figé et immédiatement injecté dans le module Paie pour le calcul automatique des bulletins. Confirmer l'arbitrage et le scellement ?"
+                message="Cette action fige les données de pointage de la période. La paie utilisera le solde final d’absence horaire et de HS 30 %, ainsi que les autres qualifications et indemnités figées. Vous pourrez ensuite contrôler les bulletins avant validation. Confirmer l’arbitrage et le scellement ?"
                 confirmLabel="Valider l'arbitrage & Sceller le pointage"
                 variant="success"
                 loading={processing}
@@ -1011,6 +1096,17 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             setAdjustInitialDate(null);
                             setSelectedEmployeToAdjust(emp);
                         }}
+                    />
+                </Suspense>
+            )}
+            {selectedEmployeForSolde && (
+                <Suspense fallback={null}>
+                    <PointageSoldePeriodeModal
+                        employe={selectedEmployeForSolde}
+                        idPeriodePaie={Number(selectedPeriode)}
+                        readOnly={!isDaf || isPeriodLocked}
+                        onClose={() => setSelectedEmployeForSolde(null)}
+                        onChanged={loadData}
                     />
                 </Suspense>
             )}

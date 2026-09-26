@@ -24,7 +24,7 @@ import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
  * 2. Cotisations sociales (CNaPS plafonnée à 8x SME, Santé OSTIE/OMSI, FMFP)
  * 3. Net imposable
  * 4. Fiscalité (Barème progressif IRSA 6 tranches, déductions familiales, minimum 3000 Ar, ou ISI 5%)
- * 5. Indemnités non imposables (Repas, Transport proratisé, Frais)
+ * 5. Remboursements et indemnités réellement non imposables
  * 6. Retenues de trésorerie (Acomptes, Avances plafonnées 1/10 Art. 68, Prêts plafonnés 1/3 Art. 72)
  * 7. Net à payer bancaire & arrondi monétaire officiel
  */
@@ -77,7 +77,7 @@ public class PayrollExecutionEngine {
         // 4. Fiscalité (IRSA progressif ou ISI 5%)
         FiscaliteResult fisc = calculerFiscalite(revenuNetAvantImpot, hsExo.hsExonereeIrsa(), totalGainsBruts, input, bp, lignes);
 
-        // 5. Indemnités non imposables (Repas, Transport, Déplacements, Notes de frais)
+        // 5. Remboursements et indemnités réellement non imposables.
         BigDecimal totalIndemnitesNet = calculerIndemnitesNonImposables(input, bp, lignes);
 
         // Net disponible avant les déductions de trésorerie personnelles
@@ -312,33 +312,36 @@ public class PayrollExecutionEngine {
         BigDecimal heuresHs30 = zeroIfNull(input.getHeuresHs30());
         if (heuresHs30.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal montantHs30 = overtime.hs30();
-            lignes.add(creerLigne(bp, "HEURES_SUP_30", "Heures Supplémentaires (+30%)", "GAIN", "HEURES_SUP",
-                    tauxHoraire, new BigDecimal("130.00"), heuresHs30, montantHs30, null, 30));
+            BigDecimal tauxHs30 = BigDecimal.ONE.add(zeroIfNull(input.getMajorationHs30())).multiply(new BigDecimal("100"));
+            lignes.add(creerLigne(bp, "HEURES_SUP_30", "Heures Supplémentaires (+" + tauxHs30.subtract(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%)", "GAIN", "HEURES_SUP",
+                    tauxHoraire, tauxHs30, heuresHs30, montantHs30, null, 30));
             total = total.add(montantHs30);
         }
 
         BigDecimal heuresHs50 = zeroIfNull(input.getHeuresHs50());
         if (heuresHs50.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal montantHs50 = overtime.hs50();
-            lignes.add(creerLigne(bp, "HEURES_SUP_50", "Heures Supplémentaires (+50%)", "GAIN", "HEURES_SUP",
-                    tauxHoraire, new BigDecimal("150.00"), heuresHs50, montantHs50, null, 40));
+            BigDecimal tauxHs50 = BigDecimal.ONE.add(zeroIfNull(input.getMajorationHs50())).multiply(new BigDecimal("100"));
+            lignes.add(creerLigne(bp, "HEURES_SUP_50", "Heures Supplémentaires (+" + tauxHs50.subtract(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%)", "GAIN", "HEURES_SUP",
+                    tauxHoraire, tauxHs50, heuresHs50, montantHs50, null, 40));
             total = total.add(montantHs50);
         }
 
         BigDecimal heuresNuit = zeroIfNull(input.getHeuresNuit());
         if (heuresNuit.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal montantNuit = overtime.nuit();
-            lignes.add(creerLigne(bp, "MAJORATION_NUIT", "Majoration Travail de Nuit (+30%)", "GAIN", "HEURES_SUP",
-                    tauxHoraire, new BigDecimal("30.00"), heuresNuit, montantNuit, null, 50));
+            BigDecimal tauxNuit = zeroIfNull(input.getMajorationNuit()).multiply(new BigDecimal("100"));
+            lignes.add(creerLigne(bp, "MAJORATION_NUIT", "Majoration Travail de Nuit", "GAIN", "HEURES_SUP",
+                    tauxHoraire, tauxNuit, heuresNuit, montantNuit, null, 50));
             total = total.add(montantNuit);
         }
 
         BigDecimal heuresDimanche = zeroIfNull(input.getHeuresDimanche());
         if (heuresDimanche.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal montantDimanche = overtime.dimanche();
-            BigDecimal baseTauxDimanche = BigDecimal.ONE.add(zeroIfNull(input.getMajorationDimanche()))
+            BigDecimal baseTauxDimanche = zeroIfNull(input.getMajorationDimanche())
                     .multiply(new BigDecimal("100"));
-            lignes.add(creerLigne(bp, "HEURES_DIMANCHE", "Majoration Travail Dimanche (+40%)", "GAIN", "HEURES_SUP",
+            lignes.add(creerLigne(bp, "HEURES_DIMANCHE", "Majoration Travail Dimanche", "GAIN", "HEURES_SUP",
                     tauxHoraire, baseTauxDimanche, heuresDimanche, montantDimanche, null, 60));
             total = total.add(montantDimanche);
         }
@@ -346,8 +349,9 @@ public class PayrollExecutionEngine {
         BigDecimal heuresFerie = zeroIfNull(input.getHeuresFeriees());
         if (heuresFerie.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal montantFerie = overtime.ferie();
-            lignes.add(creerLigne(bp, "MAJORATION_FERIE", "Majoration Travail Jour Férié (+100%)", "GAIN", "HEURES_SUP",
-                    tauxHoraire, new BigDecimal("100.00"), heuresFerie, montantFerie, null, 70));
+            BigDecimal tauxFerie = zeroIfNull(input.getMajorationFerie()).multiply(new BigDecimal("100"));
+            lignes.add(creerLigne(bp, "MAJORATION_FERIE", "Majoration Travail Jour Férié", "GAIN", "HEURES_SUP",
+                    tauxHoraire, tauxFerie, heuresFerie, montantFerie, null, 70));
             total = total.add(montantFerie);
         }
 
@@ -492,6 +496,27 @@ public class PayrollExecutionEngine {
             lignes.add(creerLigne(bp, "AUTIMP", "Autres Gains Imposables (AUTIMP)", "GAIN", "PRIME",
                     autimp, null, autimp, null, 115));
             totalPrimes = totalPrimes.add(autimp);
+        }
+
+        // Repas et déplacement payés en fin de mois : gains bruts imposables
+        // et cotisables, séparés des primes et exclus de la valorisation congés.
+        BigDecimal repas = zeroIfNull(input.getIndemniteRepas());
+        if (repas.signum() > 0) {
+            BulletinPaieLigne ligne = creerLigne(bp, "INDEMNITE_REPAS", "Indemnité de repas", "GAIN", "INDEMNITE_IMPOSABLE",
+                    repas, null, repas, null, 510);
+            ligne.setImposable(true);
+            ligne.setSoumisCotisation(true);
+            lignes.add(ligne);
+            totalPrimes = totalPrimes.add(repas);
+        }
+        BigDecimal transport = zeroIfNull(input.getIndemniteTransport());
+        if (transport.signum() > 0) {
+            BulletinPaieLigne ligne = creerLigne(bp, "INDEMNITE_TRANSPORT", "Indemnité de déplacement", "GAIN", "INDEMNITE_IMPOSABLE",
+                    transport, null, transport, null, 500);
+            ligne.setImposable(true);
+            ligne.setSoumisCotisation(true);
+            lignes.add(ligne);
+            totalPrimes = totalPrimes.add(transport);
         }
 
         // Primes et gains dynamiques imposables (configurés en BDD dans ref_type_mouvement_paie)
@@ -686,23 +711,7 @@ public class PayrollExecutionEngine {
     public BigDecimal calculerIndemnitesNonImposables(PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal totalIndemnitesNet = BigDecimal.ZERO;
 
-        // 6.1 Indemnité repas (consommée directement du snapshot Pointage)
-        BigDecimal montantRepas = zeroIfNull(input.getIndemniteRepas());
-        if (montantRepas.compareTo(BigDecimal.ZERO) > 0) {
-            lignes.add(creerLigne(bp, "INDEMNITE_REPAS", "Indemnité de Panier (Accord Établissement GALAXAM)", "GAIN", "INDEMNITE_NON_IMPOSABLE",
-                    montantRepas, null, montantRepas, null, 510));
-            totalIndemnitesNet = totalIndemnitesNet.add(montantRepas);
-        }
-
-        // 6.2 Indemnité de transport / déplacement (consommée directement du snapshot Pointage)
-        BigDecimal montantTransport = zeroIfNull(input.getIndemniteTransport());
-        if (montantTransport.compareTo(BigDecimal.ZERO) > 0) {
-            lignes.add(creerLigne(bp, "INDEMNITE_TRANSPORT", "Indemnité Forfaitaire de Déplacement", "GAIN", "INDEMNITE_NON_IMPOSABLE",
-                    montantTransport, null, montantTransport, null, 500));
-            totalIndemnitesNet = totalIndemnitesNet.add(montantTransport);
-        }
-
-        // 6.3 Extra déplacement
+        // 6.1 Extra déplacement
         BigDecimal extraDepl = zeroIfNull(input.getExtraDeplacement());
         if (extraDepl.compareTo(BigDecimal.ZERO) > 0) {
             lignes.add(creerLigne(bp, "EXTRA_DEPLACEMENT", "Indemnité Extra Déplacement", "GAIN", "INDEMNITE_NON_IMPOSABLE",
@@ -943,6 +952,9 @@ public class PayrollExecutionEngine {
         l.setLibelleRubrique(libelle);
         l.setSens(sens);
         l.setCategorie(categorie);
+        boolean gainBrut = "GAIN".equals(sens) && !"INDEMNITE_NON_IMPOSABLE".equals(categorie);
+        l.setImposable(gainBrut);
+        l.setSoumisCotisation(gainBrut);
         l.setBaseCalcul(baseCalcul != null ? MoneyRoundingPolicy.amount(baseCalcul) : null);
         l.setTauxSalarial(taux != null ? MoneyRoundingPolicy.amount(taux) : null);
         l.setQuantite(quantite);

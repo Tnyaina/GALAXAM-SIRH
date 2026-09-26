@@ -339,7 +339,7 @@ Lors du calcul du bulletin mensuel :
    $$\text{DEDUCTION\_CONGE\_BASE} = \text{Jours Congé Pris} \times \frac{\text{Salaire de Base Contractuel}}{30}$$
 2. **Indemnité de congé payé** (au taux `TCONGE` canonique résolu par `CongeTauxApplicableService`) :
    $$\text{INDEMNITE\_CONGE\_PAYE} = \text{Jours Congé Pris} \times \mathbf{TCONGE}$$
-3. **Gain net pour le salarié** : Si le salarié a perçu des heures supplémentaires ou des primes durant l'année de référence, $\mathbf{TCONGE} > \frac{S_{base}}{30}$, ce qui génère une régularisation positive sur son bulletin.
+3. **Écart possible entre les deux lignes** : le taux historique peut être supérieur ou inférieur au taux actuel $S_{base}/30$. Les deux lignes ne s'annulent donc pas nécessairement. Dans la recette TMM, 9 jours donnent 111 000 Ar de retenue et 86 967,81 Ar d'indemnité ; le détail de paie figure dans le [module Paie](./module-paie.md#8-étude-de-cas-tmm-et-tnr).
 
 ### 6.3 Pont Réel Congés $\rightarrow$ Solde de Tout Compte (STC)
 Lors du départ du collaborateur (démission, licenciement, terme du contrat) :

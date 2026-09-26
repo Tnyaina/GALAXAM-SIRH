@@ -33,6 +33,7 @@ export default function ValidationStepPage() {
 
     // État local
     const [financials, setFinancials] = useState(null);
+    const [financialError, setFinancialError] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
     const [feedback, setFeedback] = useState(null);
@@ -48,22 +49,28 @@ export default function ValidationStepPage() {
     const isCloturee = periode?.state === 'CLOTUREE';
     const isStale = context?.recalculationRequired === true;
 
-    const condReadiness = (context?.readiness?.blockingCount ?? 0) === 0;
-    const condPopulation = (context?.population?.eligibleCount ?? 0) > 0 || (financials?.bulletins ?? 0) > 0;
+    const condReadiness = canValidate;
+    const condPopulation = (financials?.includedCount ?? 0) > 0 && financials?.blockedCount === 0;
     const condCalculActuel = !isStale;
-    const condBulletins = (financials?.bulletins ?? 0) > 0;
-    const condZeroBlocker = (context?.issueSummary?.blockerCount ?? 0) === 0;
-    const condControles = true;
+    const condBulletins = (financials?.includedCount ?? 0) > 0
+        && financials?.bulletins === financials?.includedCount;
+    const condZeroBlocker = financials?.blockedCount === 0;
+    const condControles = canValidate;
     const allConditionsMet = condReadiness && condPopulation && condCalculActuel && condBulletins && condZeroBlocker && condControles;
 
     // Effets
     useEffect(() => {
         if (!numericPeriodId) return;
         let isMounted = true;
+        setFinancials(null);
+        setFinancialError('');
         paieService.getCockpitPeriode(numericPeriodId)
             .then(data => {
                 if (isMounted && data?.kpis) {
+                    const population = Array.isArray(data.population) ? data.population : [];
                     setFinancials({
+                        includedCount: population.filter(member => ['INCLUDED', 'INCLUS'].includes(member.decision)).length,
+                        blockedCount: population.filter(member => ['BLOCKED', 'BLOQUE'].includes(member.decision)).length,
                         bulletins: data.kpis.totalBulletins ?? data.kpis.bulletinsCount ?? data.kpis.effectifCalcule ?? (Array.isArray(data.bulletins) ? data.bulletins.length : 0),
                         brut: data.kpis.totalBrut ?? data.kpis.masseSalarialeBrute ?? 0,
                         cotisationsSalariales: data.kpis.totalCotisationsSalariales ?? 0,
@@ -74,7 +81,7 @@ export default function ValidationStepPage() {
                     });
                 }
             })
-            .catch(() => {});
+            .catch(err => { if (isMounted) setFinancialError(getErrorMessage(err, 'Contrôle de population indisponible.')); });
         return () => { isMounted = false; };
     }, [numericPeriodId]);
 
@@ -160,6 +167,7 @@ export default function ValidationStepPage() {
                         onClose={() => setFeedback(null)}
                     />
                 )}
+                {financialError && <Alert type="error" title="Contrôle incomplet" message={financialError} />}
 
                 {/* Statut si déjà validée */}
                 {isValidee && (
@@ -186,8 +194,9 @@ export default function ValidationStepPage() {
                     </div>
                 )}
 
-                {/* 1. CONDITIONS DE VALIDATION */}
-                <Card className="p-5 border border-[var(--color-border-subtle)] space-y-4">
+                {/* Les conditions servent à décider avant validation ; après scellement,
+                    l'action VALIDATE est normalement interdite par le serveur. */}
+                {!isValidee && <Card className="p-5 border border-[var(--color-border-subtle)] space-y-4">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] pb-2 border-b border-[var(--color-border-subtle)]">
                         Conditions préalables à la validation
                     </h3>
@@ -196,14 +205,14 @@ export default function ValidationStepPage() {
                         <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
                             {condReadiness ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
                             <span className={condReadiness ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
-                                Contrôles de préparation conformes (0 bloquant)
+                                Validation autorisée par les contrôles du serveur
                             </span>
                         </div>
 
                         <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
                             {condPopulation ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
                             <span className={condPopulation ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
-                                Population de salariés arrêtée
+                                {financials?.includedCount ?? '—'} salarié(s) inclus · {financials?.blockedCount ?? '—'} bloqué(s)
                             </span>
                         </div>
 
@@ -217,25 +226,25 @@ export default function ValidationStepPage() {
                         <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
                             {condBulletins ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
                             <span className={condBulletins ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
-                                {financials?.bulletins ?? 0} bulletin(s) calculé(s)
+                                {financials?.bulletins ?? 0} / {financials?.includedCount ?? '—'} bulletin(s) calculé(s)
                             </span>
                         </div>
 
                         <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
                             {condZeroBlocker ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
                             <span className={condZeroBlocker ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
-                                0 anomalie bloquante
+                                Aucun salarié bloqué dans la population
                             </span>
                         </div>
 
                         <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
                             {condControles ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
                             <span className="text-[var(--color-fg)]">
-                                Revue de conformité DAF effectuée
+                                Décision de validation disponible côté serveur
                             </span>
                         </div>
                     </div>
-                </Card>
+                </Card>}
 
                 {/* 2. RÉSUMÉ FINANCIER GLOBAL */}
                 <Card className="p-5 border border-[var(--color-border-subtle)] space-y-4">

@@ -71,10 +71,12 @@ public class PaieAjustementController {
                     "COALESCE(rtmp.code, paa.type_mouvement) AS type_code, " +
                     "COALESCE(rtmp.libelle, paa.type_mouvement) AS type_libelle, " +
                     "COALESCE(rtmp.sens, paa.sens) AS type_sens, " +
-                    "rtmp.categorie AS type_categorie " +
+                    "rtmp.categorie AS type_categorie, pr.soumis_irsa AS type_imposable, " +
+                    "pr.soumis_cnaps AS type_cotisable " +
                     "FROM paie_avance_acompte paa " +
                     "JOIN employe e ON paa.id_employe = e.id_employe " +
                     "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement " +
+                    "LEFT JOIN paie_rubrique pr ON pr.id_rubrique = rtmp.id_rubrique " +
                     "WHERE 1=1 "
             );
 
@@ -107,6 +109,8 @@ public class PaieAjustementController {
                         map.put("typeLibelle", rs.getString("type_libelle"));
                         map.put("sens", rs.getString("type_sens"));
                         map.put("categorie", rs.getString("type_categorie"));
+                        map.put("imposable", rs.getObject("type_imposable"));
+                        map.put("cotisable", rs.getObject("type_cotisable"));
                         map.put("montant", rs.getBigDecimal("montant"));
                         map.put("montantInitial", rs.getBigDecimal("montant_initial"));
                         map.put("montantImpute", rs.getBigDecimal("montant_impute"));
@@ -136,13 +140,28 @@ public class PaieAjustementController {
     public ResponseEntity<?> listerTypesMouvements(
             @RequestParam(name = "idPeriode", required = false) Integer idPeriode,
             Authentication authentication) throws Exception {
-        if (idPeriode != null) {
-            periodWorkflowService.requirePayrollAction(idPeriode, PayrollAction.ADD_VARIABLE,
-                    PayrollPeriodUserContext.from(authentication));
-        }
         try (Connection c = dataSource.getConnection()) {
-            List<RefTypeMouvementPaie> types = RefTypeMouvementPaie.listerActifs(c);
-            return ResponseEntity.ok(types.stream().filter(RefTypeMouvementPaie::isSaisieManuelleAutorisee).toList());
+            List<Map<String, Object>> types = new ArrayList<>();
+            String sql = "SELECT t.code, t.libelle, t.sens, t.categorie, t.description, " +
+                    "r.soumis_irsa AS imposable, r.soumis_cnaps AS cotisable " +
+                    "FROM ref_type_mouvement_paie t " +
+                    "LEFT JOIN paie_rubrique r ON r.id_rubrique = t.id_rubrique " +
+                    "WHERE t.est_actif = TRUE AND t.saisie_manuelle_autorisee = TRUE " +
+                    "ORDER BY t.ordre_affichage, t.libelle";
+            try (PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> type = new HashMap<>();
+                    type.put("code", rs.getString("code"));
+                    type.put("libelle", rs.getString("libelle"));
+                    type.put("sens", rs.getString("sens"));
+                    type.put("categorie", rs.getString("categorie"));
+                    type.put("description", rs.getString("description"));
+                    type.put("imposable", rs.getObject("imposable"));
+                    type.put("cotisable", rs.getObject("cotisable"));
+                    types.add(type);
+                }
+            }
+            return ResponseEntity.ok(types);
         }
     }
 

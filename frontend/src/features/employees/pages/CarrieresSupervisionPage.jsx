@@ -172,9 +172,20 @@ export default function CarrieresSupervisionPage() {
         setCurrentPage(1);
     };
 
-    const handleExportCsv = () => {
-        const url = `${import.meta.env.VITE_API_URL || 'http://localhost:8080/api'}/contrats/export`;
-        window.open(url, '_blank');
+    const handleExportCsv = async () => {
+        try {
+            const blob = await contratService.exporterContratsCsv();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `registre_contrats_${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        } catch (exportError) {
+            setError(exportError.response?.data?.message || 'Export des contrats impossible.');
+        }
     };
 
     const handleOpenCompare = (empGroup) => {

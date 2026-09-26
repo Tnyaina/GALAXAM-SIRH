@@ -72,6 +72,8 @@ CREATE TABLE bareme_irsa (
 );
 
 CREATE INDEX idx_bareme_irsa_config ON bareme_irsa(id_config_legale);
+CREATE UNIQUE INDEX uk_bareme_irsa_config_numero_debut
+    ON bareme_irsa(id_config_legale, numero_tranche, date_debut);
 
 CREATE TABLE ref_taux_majoration (
     id_taux_majoration SERIAL PRIMARY KEY,
@@ -210,17 +212,17 @@ CREATE TABLE bulletin_paie (
     id_mode_paiement INT REFERENCES ref_mode_paiement(id_mode_paiement),
     banque_nom VARCHAR(50),
     banque_rib VARCHAR(50),
-    heures_normales NUMERIC(6,2) DEFAULT 0,
-    heures_hs_30 NUMERIC(6,2) DEFAULT 0,
-    heures_hs_50 NUMERIC(6,2) DEFAULT 0,
-    heures_nuit NUMERIC(6,2) DEFAULT 0,
+    heures_normales NUMERIC(12,8) DEFAULT 0,
+    heures_hs_30 NUMERIC(12,8) DEFAULT 0,
+    heures_hs_50 NUMERIC(12,8) DEFAULT 0,
+    heures_nuit NUMERIC(12,8) DEFAULT 0,
     jours_ouvrables NUMERIC(4,1) DEFAULT 0,
     jours_travailles NUMERIC(4,1) DEFAULT 0,
     jours_absence NUMERIC(4,1) DEFAULT 0,
     jours_conges NUMERIC(4,1) DEFAULT 0,
     minutes_retard INT DEFAULT 0,
     salaire_base NUMERIC(12,2) NOT NULL,
-    taux_horaire NUMERIC(12,4) NOT NULL,
+    taux_horaire NUMERIC(12,8) NOT NULL,
     total_gains_bruts NUMERIC(12,2) NOT NULL DEFAULT 0,
     total_cotisations_salariales NUMERIC(12,2) NOT NULL DEFAULT 0,
     total_cotisations_patronales NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -270,10 +272,10 @@ CREATE TABLE bulletin_paie_ligne (
     libelle_rubrique VARCHAR(150) NOT NULL,
     sens VARCHAR(10) NOT NULL,
     categorie VARCHAR(40) NOT NULL,
-    base_calcul NUMERIC(12,2),
+    base_calcul NUMERIC(16,8),
     taux_salarial NUMERIC(6,3),
     taux_patronal NUMERIC(6,3),
-    quantite NUMERIC(8,2),
+    quantite NUMERIC(12,8),
     montant_salarial NUMERIC(12,2) NOT NULL DEFAULT 0,
     montant_patronal NUMERIC(12,2) NOT NULL DEFAULT 0,
     ordre INT NOT NULL DEFAULT 10,
