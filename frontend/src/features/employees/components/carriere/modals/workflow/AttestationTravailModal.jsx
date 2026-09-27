@@ -81,15 +81,16 @@ export default function AttestationTravailModal({
     if (!isOpen) return null;
 
     // Données réelles selon modèle d'en-tête officiel
-    const ent = docData?.entreprise || {
-        nom: filiale?.libelle || filiale?.raisonSociale || contrat?.libelleFiliale || 'GALAXAM LOGISTICS',
-        adresse: filiale?.adresse || null,
-        ville: filiale?.ville || null,
-        pays: filiale?.pays || null,
-        nif: filiale?.nif || null,
-        stat: filiale?.stat || null,
-        telephone: filiale?.telephone || null,
-        email: filiale?.email || null,
+    const ent = {
+        nom: docData?.entreprise?.nom || filiale?.libelle || filiale?.raisonSociale || contrat?.libelleFiliale || 'GALAXAM LOGISTICS',
+        adresse: docData?.entreprise?.adresse || filiale?.adresse || null,
+        ville: docData?.entreprise?.ville || filiale?.ville || null,
+        pays: docData?.entreprise?.pays || filiale?.pays || null,
+        nif: docData?.entreprise?.nif || filiale?.nif || null,
+        stat: docData?.entreprise?.stat || filiale?.stat || null,
+        rcs: docData?.entreprise?.rcs || filiale?.rcs || null,
+        telephone: docData?.entreprise?.telephone || filiale?.telephone || '+261 32 12 131 01',
+        email: docData?.entreprise?.email || filiale?.email || 'daf@galaxam.com',
     };
 
     const emp = docData?.employe || {
@@ -122,6 +123,42 @@ export default function AttestationTravailModal({
 
     return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-6 bg-black/60 backdrop-blur-[2px] print:p-0 print:bg-white print:static print:block">
+            {/* Règles CSS dédiées à l'impression A4 évitant le cadrage déformé et masquant le reste de la page */}
+            <style>{`
+                @media print {
+                    @page {
+                        size: A4 portrait;
+                        margin: 12mm 15mm;
+                    }
+                    html, body {
+                        background: #ffffff !important;
+                        height: auto !important;
+                        min-height: auto !important;
+                        overflow: visible !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+                    body * {
+                        visibility: hidden !important;
+                    }
+                    #attestation-print-sheet, #attestation-print-sheet * {
+                        visibility: visible !important;
+                    }
+                    #attestation-print-sheet {
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        box-shadow: none !important;
+                        border: none !important;
+                        overflow: visible !important;
+                    }
+                }
+            `}</style>
+
             <div className="absolute inset-0 print:hidden" onClick={onClose} />
 
             {/* Modale Container */}
@@ -157,6 +194,7 @@ export default function AttestationTravailModal({
                             variant="primary"
                             size="sm"
                             iconLeft={<Printer size={15} />}
+                            title="Imprimer ou enregistrer en PDF (dans la fenêtre, décocher « En-têtes et pieds de page » pour masquer l'URL)"
                         >
                             Imprimer / PDF
                         </Button>
@@ -228,7 +266,8 @@ export default function AttestationTravailModal({
                     ) : (
                         <div
                             ref={printRef}
-                            className="w-full max-w-[720px] mx-auto bg-white p-10 md:p-14 shadow-md text-black leading-relaxed print:shadow-none print:p-8"
+                            id="attestation-print-sheet"
+                            className="w-full max-w-[720px] mx-auto bg-white p-10 md:p-14 shadow-md text-black leading-relaxed print:shadow-none print:p-0"
                             style={{ fontFamily: "Calibri, 'Segoe UI', Arial, sans-serif" }}
                         >
                             {/* EN-TÊTE ENTREPRISE OFFICIEL */}
@@ -246,7 +285,7 @@ export default function AttestationTravailModal({
                                     {ent.rcs && <span> · {ent.rcs}</span>}
                                 </div>
                                 <div className="text-xs text-gray-700">
-                                    Tél. {ent.telephone} · Email : {ent.email}
+                                    Tél. : {ent.telephone} · Email : {ent.email}
                                 </div>
                             </div>
 

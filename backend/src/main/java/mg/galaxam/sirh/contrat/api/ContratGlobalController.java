@@ -302,6 +302,31 @@ public class ContratGlobalController {
             List<Map<String, Object>> alertes = new ArrayList<>();
             LocalDate today = LocalDate.now();
 
+            // 0. Brouillons RH en attente de finalisation
+            String sqlBrouillons = "SELECT e.id_employe, e.matricule, e.nom || ' ' || e.prenom AS nom_prenom, "
+                    + "w.id_workflow, COALESCE(rte.libelle, 'Contrat / Mouvement RH') AS type_ev, w.created_at "
+                    + "FROM workflow_rh w "
+                    + "JOIN employe e ON w.id_employe = e.id_employe "
+                    + "LEFT JOIN ref_type_evenement_rh rte ON w.id_type_evenement = rte.id_type_evenement "
+                    + "JOIN ref_statut_rh rsc ON w.id_statut_rh = rsc.id_statut_rh "
+                    + "WHERE rsc.code = 'BROUILLON' "
+                    + "ORDER BY w.created_at DESC LIMIT 3";
+            try (PreparedStatement ps = c.prepareStatement(sqlBrouillons); ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> a = new LinkedHashMap<>();
+                    a.put("type", "BROUILLON_RH");
+                    a.put("variant", "warning");
+                    a.put("idEmploye", rs.getInt("id_employe"));
+                    a.put("idWorkflow", rs.getInt("id_workflow"));
+                    a.put("titre", "Brouillon RH en attente de finalisation");
+                    a.put("description", "<b>" + rs.getString("nom_prenom") + " (#" + rs.getString("matricule")
+                            + ")</b> — " + rs.getString("type_ev") + " non finalisé.");
+                    a.put("actionLabel", "Finaliser le dossier");
+                    a.put("actionUrl", "/employes/" + rs.getInt("id_employe") + "?tab=carriere");
+                    alertes.add(a);
+                }
+            }
+
             // 1. Doublons détectés
             String sqlDup = "SELECT e.id_employe, e.matricule, e.nom || ' ' || e.prenom AS nom_prenom, COUNT(*) as cnt "
                     +

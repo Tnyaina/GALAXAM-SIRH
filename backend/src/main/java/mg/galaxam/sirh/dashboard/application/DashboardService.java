@@ -65,7 +65,7 @@ public class DashboardService {
         addActionIfPositive(actions, count(c,
                 "SELECT COUNT(*) FROM workflow_rh w JOIN ref_statut_rh s ON s.id_statut_rh = w.id_statut_rh "
                         + "WHERE s.code = 'BROUILLON'"),
-                "BROUILLONS_RH", "Brouillons RH à traiter", "Contrats et avenants non finalisés", "/employes", "EMPLOYE_VALIDATE", "WARNING");
+                "BROUILLONS_RH", "Brouillons RH à traiter", "Contrats et avenants non finalisés", "/carrieres?statut=PENDING", "EMPLOYE_VALIDATE", "WARNING");
         addActionIfPositive(actions, count(c,
                 "SELECT COUNT(*) FROM pointage_jour p JOIN ref_statut_pointage_jour s "
                         + "ON s.id_statut_jour = p.id_statut_jour WHERE p.id_periode_paie = "
@@ -76,7 +76,7 @@ public class DashboardService {
         addActionIfPositive(actions, count(c,
                 "SELECT COUNT(*) FROM contrat_travail ct JOIN ref_statut_rh s ON s.id_statut_rh = ct.id_statut_rh "
                         + "WHERE s.code = 'ACTIF' AND ct.date_fin IS NOT NULL AND ct.date_fin BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'"),
-                "ECHEANCES_CONTRATS", "Échéances contractuelles", "Contrats à examiner dans les 30 prochains jours", "/employes", "EMPLOYE_READ", "DANGER");
+                "ECHEANCES_CONTRATS", "Échéances contractuelles", "Contrats à examiner dans les 30 prochains jours", "/carrieres?echeance=30J", "EMPLOYE_READ", "DANGER");
         return actions;
     }
 

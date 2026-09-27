@@ -379,6 +379,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
             onSuccess={loadData}
             employe={employe}
             soldeData={soldeEmploye}
+            situationData={situationData}
           />
         </Suspense>
       )}

@@ -28,6 +28,8 @@ public class CongeCalculateurEngine {
             boolean estDemiJournee,
             BigDecimal soldeAvant,
             boolean decompteSoldeAcquis,
+            BigDecimal joursDebites,
+            BigDecimal nbJoursDemande,
             boolean derogationSoldeNegatif,
             boolean soumisDelaiPreavis,
             boolean derogationDelaiPreavis,
@@ -46,6 +48,7 @@ public class CongeCalculateurEngine {
             BigDecimal nbJours,
             BigDecimal soldeAvant,
             BigDecimal soldeApres,
+            BigDecimal joursDebites,
             BigDecimal quotaAvant,
             BigDecimal quotaApres,
             int joursPreavisConstates,
@@ -214,9 +217,12 @@ public class CongeCalculateurEngine {
         if (input == null) throw new IllegalArgumentException("Les données de simulation sont obligatoires.");
         BigDecimal nbJours = calculerNombreJours(input.dateDebut(), input.dateFin(), input.estDemiJournee());
         BigDecimal soldeAvant = input.soldeAvant() != null ? input.soldeAvant() : BigDecimal.ZERO;
-        BigDecimal soldeApres = calculerSoldeProjete(soldeAvant, nbJours, input.decompteSoldeAcquis());
+        BigDecimal joursDemandes = input.nbJoursDemande() != null ? input.nbJoursDemande() : nbJours;
+        BigDecimal joursDebites = input.joursDebites() != null ? input.joursDebites()
+                : (input.decompteSoldeAcquis() ? nbJours : BigDecimal.ZERO);
+        BigDecimal soldeApres = calculerSoldeProjete(soldeAvant, joursDebites, true);
         BigDecimal quotaAvant = input.consommationPool();
-        BigDecimal quotaApres = quotaAvant != null ? quotaAvant.add(nbJours) : null;
+        BigDecimal quotaApres = quotaAvant != null ? quotaAvant.add(joursDemandes) : null;
 
         LocalDate dateDemande = input.dateDemande() != null ? input.dateDemande() : LocalDate.now();
         int preavisConstate = Math.toIntExact(ChronoUnit.DAYS.between(dateDemande, input.dateDebut()));
@@ -245,7 +251,7 @@ public class CongeCalculateurEngine {
             override = true;
         }
 
-        return new SimulationResult(input.dateDebut(), input.dateFin(), nbJours, soldeAvant, soldeApres,
+        return new SimulationResult(input.dateDebut(), input.dateFin(), joursDemandes, soldeAvant, soldeApres, joursDebites,
                 quotaAvant, quotaApres, preavisConstate, preavisRequis,
                 List.copyOf(warnings), List.copyOf(violations), List.copyOf(requirements),
                 override, violations.isEmpty());

@@ -46,6 +46,7 @@ export default function ValidationModals({
   const [estRemunere, setEstRemunere] = useState(true);
   const [derogationSoldeNegatif, setDerogationSoldeNegatif] = useState(false);
   const [soldeEmploye, setSoldeEmploye] = useState(null);
+  const [simulation, setSimulation] = useState(null);
 
   // Effets : réinitialise et charge le solde pour la demande sélectionnée.
   useEffect(() => {
@@ -53,6 +54,7 @@ export default function ValidationModals({
     const fetchSolde = async () => {
       if (!selectedDemande?.idEmploye) {
         setSoldeEmploye(null);
+        setSimulation(null);
         return;
       }
       try {
@@ -61,12 +63,28 @@ export default function ValidationModals({
       } catch {
         if (isMounted) setSoldeEmploye(null);
       }
+      try {
+        const result = await congeService.simulerDemande({
+          idEmploye: selectedDemande.idEmploye,
+          idTypeConge: selectedDemande.idTypeConge,
+          idMotifEvenementFamilial: selectedDemande.idMotifEvenementFamilial,
+          dateDebut: selectedDemande.dateDebut,
+          dateFin: selectedDemande.dateFin,
+          estDemiJournee: Boolean(selectedDemande.estDemiJournee),
+          derogationSoldeNegatif: Boolean(derogationSoldeNegatif),
+          derogationDelaiPreavis: Boolean(selectedDemande.derogationDelaiPreavis),
+          extensionPathologiqueMaternite: Boolean(selectedDemande.extensionPathologiqueMaternite),
+        });
+        if (isMounted) setSimulation(result);
+      } catch {
+        if (isMounted) setSimulation(null);
+      }
     };
     if (showValiderModal || showDetailModal) {
       fetchSolde();
     }
     return () => { isMounted = false; };
-  }, [showValiderModal, showDetailModal, selectedDemande?.idEmploye]);
+  }, [showValiderModal, showDetailModal, selectedDemande?.idEmploye, selectedDemande?.idTypeConge, selectedDemande?.dateDebut, selectedDemande?.dateFin, selectedDemande?.estDemiJournee, selectedDemande?.idMotifEvenementFamilial, selectedDemande?.derogationDelaiPreavis, selectedDemande?.extensionPathologiqueMaternite, derogationSoldeNegatif]);
 
   useEffect(() => {
     if (showValiderModal && selectedDemande) {
@@ -78,10 +96,10 @@ export default function ValidationModals({
     }
   }, [showValiderModal, selectedDemande]);
 
-  const joursDemandes = Number(selectedDemande?.nbJoursDecomptes) || (selectedDemande?.estDemiJournee ? 0.5 : 0);
+  const joursDemandes = Number(selectedDemande?.nbJoursDecomptes ?? 0);
   const soldeAvant = soldeEmploye?.soldeRestant ?? soldeEmploye?.soldeActuel ?? selectedDemande?.soldeRestant ?? selectedDemande?.soldeActuel ?? null;
-  const joursDebites = estRemunere ? joursDemandes : 0;
-  const soldeApres = soldeAvant != null ? (Number(soldeAvant) - joursDebites) : null;
+  const joursDebites = simulation?.joursDebites ?? null;
+  const soldeApres = simulation?.soldeApres ?? null;
 
   // Rendu
   return (
@@ -240,13 +258,13 @@ export default function ValidationModals({
                 <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                   <span className="text-[10px] text-[var(--color-fg-muted)] block">Jours Débités</span>
                   <span className="font-mono font-bold text-xs text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                    {estRemunere ? `-${Number(joursDemandes).toFixed(2)} j` : '0.00 j'}
+                    {joursDebites != null ? `-${Number(joursDebites).toFixed(2)} j` : '—'}
                   </span>
                 </div>
                 <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                   <span className="text-[10px] text-[var(--color-fg-muted)] block">Solde Après</span>
                   <span className={`font-mono font-bold text-xs ${soldeApres != null && soldeApres < 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
-                    {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : '—'}
+                    {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : 'Simulation indisponible'}
                   </span>
                 </div>
               </div>
@@ -318,13 +336,13 @@ export default function ValidationModals({
               <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                 <span className="text-[10px] text-[var(--color-fg-muted)] block">Débités</span>
                 <span className="font-mono font-bold text-xs text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                  {estRemunere ? `-${Number(joursDemandes).toFixed(2)} j` : '0.00 j'}
+                  {joursDebites != null ? `-${Number(joursDebites).toFixed(2)} j` : '—'}
                 </span>
               </div>
               <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                 <span className="text-[10px] text-[var(--color-fg-muted)] block">Solde Après</span>
                 <span className={`font-mono font-bold text-xs ${soldeApres != null && soldeApres < 0 ? 'text-[var(--color-danger-600)] font-bold' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
-                  {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : '—'}
+                  {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : 'Simulation indisponible'}
                 </span>
               </div>
             </div>

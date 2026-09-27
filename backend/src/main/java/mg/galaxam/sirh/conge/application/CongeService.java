@@ -619,6 +619,9 @@ public class CongeService {
         }
 
         BigDecimal soldeAvant = BigDecimal.ZERO;
+        BigDecimal joursDemandes = calculateurEngine.calculerNombreJours(
+                dateDebut.toLocalDate(), dateFinEffective.toLocalDate(), estDemiJournee);
+        BigDecimal joursDebites = type.isDecompteSoldeAcquis() ? joursDemandes : BigDecimal.ZERO;
         if (idEmploye != null) {
             VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
             if (solde != null && solde.getSoldeActuel() != null) soldeAvant = solde.getSoldeActuel();
@@ -639,7 +642,7 @@ public class CongeService {
         int delaiLong = getParamGlobalInt("DELAI_PREAVIS_LONG_JOURS", 15, c);
         return calculateurEngine.simuler(new CongeCalculateurEngine.SimulationInput(
                 dateDebut.toLocalDate(), dateFinEffective.toLocalDate(), estDemiJournee,
-                soldeAvant, type.isDecompteSoldeAcquis(), derogationSoldeNegatif,
+                soldeAvant, type.isDecompteSoldeAcquis(), joursDebites, joursDemandes, derogationSoldeNegatif,
                 type.isSoumisDelaiPreavis(), derogationDelaiPreavis, LocalDate.now(),
                 seuilLong, delaiCourt, delaiLong, consommationPool, plafondPool));
     }

@@ -28,7 +28,7 @@ class CongeCalculateurEngineTest {
     void simulationExpliqueSoldePreavisEtPoolSansDerogation() {
         var result = engine.simuler(new CongeCalculateurEngine.SimulationInput(
                 LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 5), false,
-                new BigDecimal("3"), true, false, true, false,
+                new BigDecimal("3"), true, null, null, false, true, false,
                 LocalDate.of(2026, 9, 23), 3, 2, 15,
                 new BigDecimal("8"), new BigDecimal("10")));
 
@@ -45,7 +45,7 @@ class CongeCalculateurEngineTest {
     void derogationsTransformentLesBlocagesEnAvertissements() {
         var result = engine.simuler(new CongeCalculateurEngine.SimulationInput(
                 LocalDate.of(2026, 9, 24), LocalDate.of(2026, 9, 28), false,
-                BigDecimal.ZERO, true, true, true, true,
+                BigDecimal.ZERO, true, null, null, true, true, true,
                 LocalDate.of(2026, 9, 23), 3, 2, 15,
                 new BigDecimal("9"), new BigDecimal("10")));
 

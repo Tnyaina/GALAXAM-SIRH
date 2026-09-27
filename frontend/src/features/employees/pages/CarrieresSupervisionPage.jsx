@@ -52,14 +52,14 @@ export default function CarrieresSupervisionPage() {
     });
     const [alertesPrioritaires, setAlertesPrioritaires] = useState([]);
 
-    // Filtres Contrats
-    const [searchQuery, setSearchQuery] = useState('');
+    // Filtres Contrats initialisés depuis l'URL si présents
+    const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
     const debouncedSearch = useDebounce(searchQuery, 350);
-    const [selectedSite, setSelectedSite] = useState('');
-    const [selectedStatut, setSelectedStatut] = useState('ALL');
-    const [selectedEcheance, setSelectedEcheance] = useState('');
-    const [doublonsOnly, setDoublonsOnly] = useState(false);
-    const [currentPage, setCurrentPage] = useState(1);
+    const [selectedSite, setSelectedSite] = useState(searchParams.get('site') || '');
+    const [selectedStatut, setSelectedStatut] = useState(searchParams.get('statut') || 'ALL');
+    const [selectedEcheance, setSelectedEcheance] = useState(searchParams.get('echeance') || '');
+    const [doublonsOnly, setDoublonsOnly] = useState(searchParams.get('doublonsOnly') === 'true');
+    const [currentPage, setCurrentPage] = useState(Number(searchParams.get('page')) || 1);
     const pageSize = 15;
 
     // État d'accordéon (groupes pliés/dépliés)
@@ -125,6 +125,27 @@ export default function CarrieresSupervisionPage() {
             fetchContrats();
         }
     }, [fetchContrats, activeMainTab]);
+
+    // Synchronisation des filtres actifs avec les paramètres URL
+    useEffect(() => {
+        const next = new URLSearchParams(searchParams);
+        if (selectedStatut && selectedStatut !== 'ALL') next.set('statut', selectedStatut);
+        else next.delete('statut');
+        if (selectedEcheance) next.set('echeance', selectedEcheance);
+        else next.delete('echeance');
+        if (doublonsOnly) next.set('doublonsOnly', 'true');
+        else next.delete('doublonsOnly');
+        if (selectedSite) next.set('site', selectedSite);
+        else next.delete('site');
+        if (debouncedSearch.trim()) next.set('q', debouncedSearch.trim());
+        else next.delete('q');
+        if (currentPage > 1) next.set('page', String(currentPage));
+        else next.delete('page');
+
+        if (next.toString() !== searchParams.toString()) {
+            setSearchParams(next, { replace: true });
+        }
+    }, [selectedStatut, selectedEcheance, doublonsOnly, selectedSite, debouncedSearch, currentPage]);
 
     // Regroupement des contrats par collaborateur
     const groupedByEmployee = useMemo(() => {

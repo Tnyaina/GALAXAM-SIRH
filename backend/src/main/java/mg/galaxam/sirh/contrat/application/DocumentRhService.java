@@ -308,6 +308,22 @@ public class DocumentRhService {
                 }
             }
 
+            // Nettoyage et formatage strict de la ligne Tél / Email / Site web
+            for (XWPFParagraph p : doc.getParagraphs()) {
+                String txt = p.getText();
+                if (txt.contains("[Téléphone]") || txt.contains("[Adresse e-mail]") || (txt.startsWith("Tél.") && txt.contains("·"))) {
+                    StringBuilder sbContact = new StringBuilder();
+                    String tel = (ent.getTelephone() != null && !ent.getTelephone().isBlank()) ? ent.getTelephone() : "+261 32 12 131 01";
+                    String mail = (ent.getEmail() != null && !ent.getEmail().isBlank()) ? ent.getEmail() : "daf@galaxam.com";
+                    sbContact.append("Tél. : ").append(tel).append(" · Email : ").append(mail);
+                    if (ent.getSiteWeb() != null && !ent.getSiteWeb().isBlank()) {
+                        sbContact.append(" · ").append(ent.getSiteWeb());
+                    }
+                    remplacerTexteParagrapheComplet(p, sbContact.toString());
+                    break;
+                }
+            }
+
             // Remplacement dynamique du paragraphe d'introduction légale (sans RCS inventé)
             for (XWPFParagraph p : doc.getParagraphs()) {
                 String txt = p.getText();
@@ -412,6 +428,15 @@ public class DocumentRhService {
                 r.setText("Rémunération de base : " + dto.getSalaireBaseTexte() + " Ar par mois (salaire mensuel brut contractuel).");
             }
 
+            // Nettoyage complet des pieds de page de modèle (suppression des mentions confidentielles / page numbers orphelins)
+            for (XWPFFooter footer : doc.getFooterList()) {
+                for (XWPFParagraph p : footer.getParagraphs()) {
+                    for (int r = p.getRuns().size() - 1; r >= 0; r--) {
+                        p.removeRun(r);
+                    }
+                }
+            }
+
             doc.write(os);
         }
     }
@@ -475,6 +500,22 @@ public class DocumentRhService {
                         sbId.append("STAT : ").append(ent.getStat());
                     }
                     remplacerTexteParagrapheComplet(p, sbId.toString());
+                    break;
+                }
+            }
+
+            // Nettoyage et formatage strict de la ligne Tél / Email / Site web
+            for (XWPFParagraph p : doc.getParagraphs()) {
+                String txt = p.getText();
+                if (txt.contains("[Téléphone]") || txt.contains("[Adresse e-mail]") || (txt.startsWith("Tél.") && txt.contains("·"))) {
+                    StringBuilder sbContact = new StringBuilder();
+                    String tel = (ent.getTelephone() != null && !ent.getTelephone().isBlank()) ? ent.getTelephone() : "+261 32 12 131 01";
+                    String mail = (ent.getEmail() != null && !ent.getEmail().isBlank()) ? ent.getEmail() : "daf@galaxam.com";
+                    sbContact.append("Tél. : ").append(tel).append(" · Email : ").append(mail);
+                    if (ent.getSiteWeb() != null && !ent.getSiteWeb().isBlank()) {
+                        sbContact.append(" · ").append(ent.getSiteWeb());
+                    }
+                    remplacerTexteParagrapheComplet(p, sbContact.toString());
                     break;
                 }
             }
@@ -567,6 +608,15 @@ public class DocumentRhService {
             // Remplacement dynamique des postes occupés
             injecterPostesOccupes(doc, dto.getPostesOccupes());
 
+            // Nettoyage complet des pieds de page de modèle (suppression des mentions confidentielles / page numbers orphelins)
+            for (XWPFFooter footer : doc.getFooterList()) {
+                for (XWPFParagraph p : footer.getParagraphs()) {
+                    for (int r = p.getRuns().size() - 1; r >= 0; r--) {
+                        p.removeRun(r);
+                    }
+                }
+            }
+
             doc.write(os);
         }
     }
@@ -639,6 +689,16 @@ public class DocumentRhService {
                         remplacerDansParagraphe(p, map);
                     }
                 }
+            }
+        }
+        for (XWPFFooter ftr : doc.getFooterList()) {
+            for (XWPFParagraph p : ftr.getParagraphs()) {
+                remplacerDansParagraphe(p, map);
+            }
+        }
+        for (XWPFHeader hdr : doc.getHeaderList()) {
+            for (XWPFParagraph p : hdr.getParagraphs()) {
+                remplacerDansParagraphe(p, map);
             }
         }
     }
@@ -727,8 +787,8 @@ public class DocumentRhService {
         ent.setCodePostal(null);
         ent.setVille(null);
         ent.setPays(null);
-        ent.setTelephone(null);
-        ent.setEmail(null);
+        ent.setTelephone("+261 32 12 131 01");
+        ent.setEmail("daf@galaxam.com");
         ent.setSiteWeb(null);
         ent.setNif(null);
         ent.setStat(null);
