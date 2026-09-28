@@ -146,7 +146,7 @@ export default function ValidationModals({
 
                 {selectedDemande?.availableActions?.APPROVE?.allowed === true && (
                   <>
-                    <Button
+                    {selectedDemande.availableActions?.EDIT?.allowed === true && <Button
                       variant="outline"
                       size="sm"
                       iconLeft={<Pencil size={14} />}
@@ -156,8 +156,8 @@ export default function ValidationModals({
                       }}
                     >
                       Modifier
-                    </Button>
-                    <Button
+                    </Button>}
+                    {selectedDemande.availableActions?.REJECT?.allowed === true && <Button
                       variant="danger"
                       size="sm"
                       iconLeft={<X size={14} />}
@@ -167,7 +167,7 @@ export default function ValidationModals({
                       }}
                     >
                       Refuser
-                    </Button>
+                    </Button>}
                     <Button
                       variant="success"
                       size="sm"
@@ -460,12 +460,12 @@ export default function ValidationModals({
           {selectedDemande?.codeStatutDemande === 'VALIDE' ? (
             <Alert
               type="warning"
-              message={`Ce congé est validé. L'annulation va ré-incrémenter automatiquement ${selectedDemande.nbJoursDecomptes || selectedDemande.dureeJours || 0} jour(s) sur le solde acquis de ${selectedDemande.prenom || ''} ${selectedDemande.nom || ''}. Un motif justificatif est obligatoire pour la traçabilité RH.`}
+              message={`Ce congé est validé. L'annulation va ré-incrémenter automatiquement ${selectedDemande.nbJoursDecomptes || selectedDemande.dureeJours || 0} jour(s) sur le solde acquis de ${selectedDemande.prenom || ''} ${selectedDemande.nom || ''}. Un motif justificatif est obligatoire pour la traçabilité.`}
             />
           ) : (
             <Alert
               type="info"
-              message="Veuillez renseigner la raison de l'annulation de cette demande de congé pour l'historique RH."
+              message="Veuillez renseigner la raison de l'annulation de cette demande de congé pour l'historique."
             />
           )}
 

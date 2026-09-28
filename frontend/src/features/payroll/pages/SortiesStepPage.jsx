@@ -188,7 +188,7 @@ export default function SortiesStepPage() {
                                 <Badge variant="success" size="xs">Disponibles</Badge>
                             </div>
                             <p className="text-xs text-[var(--color-fg-muted)] mt-2">
-                                Bulletins de paie individuels au format officiel certifié DAF.
+                                Bulletins de paie individuels au format officiel certifié.
                             </p>
                         </div>
                         <div className="pt-2">
@@ -372,7 +372,7 @@ export default function SortiesStepPage() {
                                 <Badge variant="default" size="xs">Indisponible</Badge>
                             </div>
                             <p className="text-xs text-[var(--color-fg-muted)] mt-2">
-                                Dossier de scellement de campagne et empreintes d'intégrité DAF.
+                                Dossier de scellement de campagne et empreintes d'intégrité.
                             </p>
                         </div>
                         <div className="pt-2">

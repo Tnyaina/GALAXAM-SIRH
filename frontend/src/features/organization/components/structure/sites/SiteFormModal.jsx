@@ -157,6 +157,47 @@ export default function SiteFormModal({
                         </div>
                     </div>
                 </div>
+
+                {/* Section 3 : Plancher d'arrivée valorisé (Pointage) */}
+                <div className="space-y-3 pt-3 border-t border-[var(--color-border-subtle)]">
+                    <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
+                            <Clock size={14} className="text-[var(--color-brand-500)]" />
+                            Plancher d'Arrivée Valorisé (Pointage)
+                        </h4>
+                    </div>
+
+                    <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-3">
+                        <Checkbox
+                            label="Activer le plancher d'arrivée matinal"
+                            checked={formData.plancherArriveeActif || false}
+                            onChange={(e) => {
+                                setFormData({
+                                    ...formData,
+                                    plancherArriveeActif: e.target.checked,
+                                    heureEntreeMinimaleValorisee: formData.heureEntreeMinimaleValorisee || '07:30'
+                                });
+                            }}
+                        />
+                        <p className="text-[11px] text-[var(--color-fg-muted)] ml-6">
+                            Si un collaborateur badge très tôt le matin, ses heures de présence ne commencent à être comptabilisées
+                            qu'à partir de cette heure minimale. Empêche la génération d'heures indues avant la prise de poste.
+                        </p>
+
+                        {formData.plancherArriveeActif && (
+                            <div className="ml-6 pt-2 border-t border-[var(--color-border-subtle)] max-w-xs">
+                                <Input
+                                    label="Heure minimale comptabilisée"
+                                    type="time"
+                                    required={formData.plancherArriveeActif}
+                                    value={formData.heureEntreeMinimaleValorisee ? formData.heureEntreeMinimaleValorisee.substring(0, 5) : '07:30'}
+                                    onChange={(e) => setFormData({ ...formData, heureEntreeMinimaleValorisee: e.target.value })}
+                                    helperText="Ex: 07:30 pour une prise de poste officielle à 08:00."
+                                />
+                            </div>
+                        )}
+                    </div>
+                </div>
             </form>
         </Modal>
     );

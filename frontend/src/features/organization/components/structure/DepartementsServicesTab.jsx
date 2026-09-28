@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Building } from 'lucide-react';
 import organisationService from '@/features/organization/api/organisationService';
-import { fmtDateInput } from '@/utils/dateUtils';
 import Alert from '@/components/ui/feedback/Alert';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
@@ -13,7 +12,44 @@ import ServicesList from './services/ServicesList';
 import ServiceFormModal from './services/ServiceFormModal';
 
 function DepartementFormModal({ isOpen, onClose, onSubmit, editingDept, formData, setFormData, actionError, submitting = false }) {
-    return <Modal isOpen={isOpen} onClose={onClose} title={editingDept ? 'Modifier le Département' : 'Nouveau Département'} icon={<Building size={18} />} size="lg" footer={<><Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>Annuler</Button><Button type="submit" form="dept-form" variant="primary" size="sm" loading={submitting}>{editingDept ? 'Enregistrer les modifications' : 'Créer le département'}</Button></>}><form id="dept-form" onSubmit={onSubmit} className="space-y-4">{actionError && <Alert type="error" message={actionError} />}<Input label="Code Département" required disabled={!!editingDept} value={formData.codeDepartement} onChange={(event) => setFormData({ ...formData, codeDepartement: event.target.value.toUpperCase() })} placeholder="Ex: LOG, DAF, TRANSIT" /><Input label="Libellé du Département" required value={formData.libelle} onChange={(event) => setFormData({ ...formData, libelle: event.target.value })} placeholder="Ex: Direction des Opérations & Logistique" /><Input label="Date de Fin Prévue / Clôture (Optionnel)" type="date" value={fmtDateInput(formData.dateFinPrevue)} onChange={(event) => setFormData({ ...formData, dateFinPrevue: event.target.value })} hint="À renseigner en cas de restructuration ou de département temporaire." /></form></Modal>;
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={editingDept ? 'Modifier le Département' : 'Nouveau Département'}
+            icon={<Building size={18} />}
+            size="lg"
+            footer={
+                <>
+                    <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>
+                        Annuler
+                    </Button>
+                    <Button type="submit" form="dept-form" variant="primary" size="sm" loading={submitting}>
+                        {editingDept ? 'Enregistrer les modifications' : 'Créer le département'}
+                    </Button>
+                </>
+            }
+        >
+            <form id="dept-form" onSubmit={onSubmit} className="space-y-4">
+                {actionError && <Alert type="error" message={actionError} />}
+                <Input
+                    label="Code Département"
+                    required
+                    disabled={!!editingDept}
+                    value={formData.codeDepartement}
+                    onChange={(event) => setFormData({ ...formData, codeDepartement: event.target.value.toUpperCase() })}
+                    placeholder="Ex: LOG, DAF, TRANSIT"
+                />
+                <Input
+                    label="Libellé du Département"
+                    required
+                    value={formData.libelle}
+                    onChange={(event) => setFormData({ ...formData, libelle: event.target.value })}
+                    placeholder="Ex: Direction des Opérations & Logistique"
+                />
+            </form>
+        </Modal>
+    );
 }
 
 export default function DepartementsServicesTab() {
@@ -45,7 +81,7 @@ export default function DepartementsServicesTab() {
     const [showDeptModal, setShowDeptModal] = useState(false);
     const [editingDept, setEditingDept] = useState(null);
     const [deptFormData, setDeptFormData] = useState({
-        codeDepartement: '', libelle: '', dateFinPrevue: ''
+        codeDepartement: '', libelle: ''
     });
 
     // Modale Service
@@ -106,7 +142,7 @@ export default function DepartementsServicesTab() {
     // Actions utilisateur : départements, services et confirmations.
     const handleOpenCreateDept = () => {
         setEditingDept(null);
-        setDeptFormData({ codeDepartement: '', libelle: '', dateFinPrevue: '' });
+        setDeptFormData({ codeDepartement: '', libelle: '' });
         setActionError(null);
         setShowDeptModal(true);
     };
@@ -116,8 +152,7 @@ export default function DepartementsServicesTab() {
         setEditingDept(dept);
         setDeptFormData({
             codeDepartement: dept.codeDepartement,
-            libelle: dept.libelle,
-            dateFinPrevue: fmtDateInput(dept.dateFinPrevue) || ''
+            libelle: dept.libelle
         });
         setActionError(null);
         setShowDeptModal(true);

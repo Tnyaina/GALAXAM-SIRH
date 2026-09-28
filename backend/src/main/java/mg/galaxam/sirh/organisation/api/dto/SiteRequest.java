@@ -35,4 +35,13 @@ public class SiteRequest {
 
     public Time getHeureFinApresMidi() { return heureFinApresMidi; }
     public void setHeureFinApresMidi(Time heureFinApresMidi) { this.heureFinApresMidi = heureFinApresMidi; }
+
+    private boolean plancherArriveeActif;
+    private Time heureEntreeMinimaleValorisee;
+
+    public boolean isPlancherArriveeActif() { return plancherArriveeActif; }
+    public void setPlancherArriveeActif(boolean plancherArriveeActif) { this.plancherArriveeActif = plancherArriveeActif; }
+
+    public Time getHeureEntreeMinimaleValorisee() { return heureEntreeMinimaleValorisee; }
+    public void setHeureEntreeMinimaleValorisee(Time heureEntreeMinimaleValorisee) { this.heureEntreeMinimaleValorisee = heureEntreeMinimaleValorisee; }
 }

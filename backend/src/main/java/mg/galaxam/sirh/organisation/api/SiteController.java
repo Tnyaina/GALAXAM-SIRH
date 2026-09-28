@@ -62,6 +62,8 @@ public class SiteController {
                 s.setHeureFinMatin(request.getHeureFinMatin());
                 s.setHeureDebutApresMidi(request.getHeureDebutApresMidi());
                 s.setHeureFinApresMidi(request.getHeureFinApresMidi());
+                s.setPlancherArriveeActif(request.isPlancherArriveeActif());
+                s.setHeureEntreeMinimaleValorisee(request.getHeureEntreeMinimaleValorisee());
 
                 s.save(c);
                 AuditLog.audit(c, "CREATION", "ref_site", String.valueOf(s.getIdSite()), null, s);
@@ -98,10 +100,55 @@ public class SiteController {
                 existing.setHeureFinMatin(request.getHeureFinMatin());
                 existing.setHeureDebutApresMidi(request.getHeureDebutApresMidi());
                 existing.setHeureFinApresMidi(request.getHeureFinApresMidi());
+                existing.setPlancherArriveeActif(request.isPlancherArriveeActif());
+                existing.setHeureEntreeMinimaleValorisee(request.getHeureEntreeMinimaleValorisee());
 
                 existing.update(c);
                 AuditLog.audit(c, "MODIFICATION", "ref_site", String.valueOf(id), null, existing);
 
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @PutMapping("/{id}/plancher")
+    @PreAuthorize("hasAuthority('ORGANISATION_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> togglePlancherArrivee(@PathVariable int id, @RequestBody(required = false) java.util.Map<String, Object> payload) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefSite s = new RefSite();
+                RefSite existing = (RefSite) s.rechercherParId(id, c);
+                if (existing == null) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Site non trouvé.");
+                }
+
+                boolean actif;
+                if (payload != null && payload.containsKey("actif") && payload.get("actif") != null) {
+                    actif = Boolean.parseBoolean(payload.get("actif").toString());
+                } else {
+                    actif = !existing.isPlancherArriveeActif();
+                }
+
+                if (payload != null && payload.containsKey("heureEntreeMinimaleValorisee") && payload.get("heureEntreeMinimaleValorisee") != null) {
+                    String timeStr = payload.get("heureEntreeMinimaleValorisee").toString().trim();
+                    if (!timeStr.isEmpty()) {
+                        if (timeStr.length() == 5) timeStr += ":00";
+                        existing.setHeureEntreeMinimaleValorisee(java.sql.Time.valueOf(timeStr));
+                    }
+                }
+
+                existing.setPlancherArriveeActif(actif);
+                existing.update(c);
+
+                AuditLog.audit(c, existing.isPlancherArriveeActif() ? "ACTIVATION_PLANCHER" : "DESACTIVATION_PLANCHER", "ref_site", String.valueOf(id), null, existing);
                 c.commit();
                 return ResponseEntity.ok(existing);
             } catch (Exception ex) {

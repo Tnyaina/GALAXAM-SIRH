@@ -24,13 +24,14 @@ const DemandeCongeModal = lazy(() => import('@/features/leave/components/Demande
 const DemandeDetailsModal = lazy(() => import('@/features/leave/components/DemandeDetailsModal'));
 const InitialisationSoldeModal = lazy(() => import('@/features/leave/components/InitialisationSoldeModal'));
 const ExportEtatCongesModal = lazy(() => import('@/features/leave/components/ExportEtatCongesModal'));
+const CongeExpirationReviewCard = lazy(() => import('@/features/leave/components/CongeExpirationReviewCard'));
 
 const formatDateOnly = (dateString) => {
   if (!dateString) return '—';
   return new Date(dateString).toLocaleDateString('fr-FR');
 };
 
-export default function CongesTab({ idEmploye, employe, canWrite = false }) {
+export default function CongesTab({ idEmploye, employe, canWrite = false, canValidateConges = false }) {
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -230,6 +231,14 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
         onOpenInitModal={() => setShowInitModal(true)}
       />
 
+      <Suspense fallback={null}>
+        <CongeExpirationReviewCard
+          idEmploye={idEmploye}
+          canValidate={canValidateConges}
+          onSuccess={reloadData}
+        />
+      </Suspense>
+
       {/* ── Navigation Sous-onglets ── */}
       <div className="border-b border-[var(--color-border-subtle)]">
         <Tabs
@@ -243,7 +252,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
       {activeSubTab === 'demandes' && (
         <Card padding bordered className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--color-border-subtle)]">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] dark:text-white flex items-center gap-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
               <Calendar size={14} className="text-[var(--color-brand-500)]" />
               Historique des Demandes de Congé
             </h4>
@@ -309,7 +318,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
                 </Thead>
                 <Tbody>
                   {demandesEmploye.map((d) => (
-                    <Tr key={d.idDemandeConge} className="hover:bg-[var(--color-bg-subtle)]/60 dark:hover:bg-ink-800/30 transition-colors">
+                    <Tr key={d.idDemandeConge} className="hover:bg-[var(--color-bg-subtle)]/60 transition-colors">
                       <Td>
                         <Badge variant="default" size="xs" className="font-semibold">
                           {d.libelleTypeConge || d.codeTypeConge}

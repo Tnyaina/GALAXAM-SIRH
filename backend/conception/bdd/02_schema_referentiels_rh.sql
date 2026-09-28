@@ -35,7 +35,6 @@ CREATE TABLE ref_filiale (
     rcs VARCHAR(80),
     telephone VARCHAR(40),
     email VARCHAR(255),
-    seuil_effectif_alerte INT DEFAULT 19,
     est_actif BOOLEAN DEFAULT TRUE,
     date_desactivation TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -74,7 +73,6 @@ CREATE TABLE ref_departement (
     id_departement SERIAL PRIMARY KEY,
     code_departement VARCHAR(10) NOT NULL UNIQUE,
     libelle VARCHAR(100) NOT NULL,
-    date_fin_prevue DATE,
     est_actif BOOLEAN DEFAULT TRUE
 );
 
@@ -244,21 +242,21 @@ CREATE INDEX idx_config_legale_actif ON paie_config_legale(date_debut, date_fin)
 -- =====================================================================
 
 -- Filiales
-INSERT INTO ref_filiale (id_filiale, code_filiale, raison_sociale, nif, stat, adresse_siege, seuil_effectif_alerte,rcs) VALUES
-(1, 'GLX', 'Galaxam Logistics', '3000019434', '9876543210', '3e étage, Tour Forello, Tanjombato', 19,"");
+INSERT INTO ref_filiale (id_filiale, code_filiale, raison_sociale, nif, stat, adresse_siege, rcs, telephone, email) VALUES
+(1, 'GLX', 'Galaxam Logistics', '3000019434', '9876543210', '3e étage, Tour Forello, Tanjombato', NULL, '+261 32 12 131 01', 'contact@galaxam.com');
 SELECT setval('ref_filiale_id_filiale_seq', (SELECT GREATEST(MAX(id_filiale), 1) FROM ref_filiale));
 
 -- Banques
 INSERT INTO ref_banque (code_banque, nom_banque, code_swift) VALUES
-('BOA', 'Bank of Africa Madagascar', 'AFRIMGMG'),
-('BNI', 'BNI Madagascar', 'CLMDMGMG'),
-('BFV', 'BRED Madagasikara (ex-BFV)', 'BFAVMGMG');
+('00009', 'Bank of Africa Madagascar', 'AFRIMGMG'),
+('00005', 'BNI Madagascar', 'CLMDMGMG'),
+('00008', 'BRED Madagasikara (ex-BFV)', 'BFAVMGMG');
 SELECT setval('ref_banque_id_banque_seq', (SELECT GREATEST(MAX(id_banque), 3) FROM ref_banque));
 
 -- Sites
 INSERT INTO ref_site (id_site, code_site, libelle, id_filiale_rattachement, horaire_continu, heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi, plancher_arrivee_actif, heure_entree_minimale_valorisee) VALUES
-(1, 'TNR', 'Antananarivo - Siège', 1, TRUE, '08:00', '12:00', '13:00', '17:00', TRUE, '07:30'),
-(2, 'TMM', 'Toamasina - Agence', 1, FALSE, '08:00', '12:00', '14:00', '18:00', TRUE, '07:30');
+(1, 'TNR', 'Antananarivo - Siège', 1, TRUE, '08:00', '12:30', '13:30', '17:00', FALSE, '07:30'),
+(2, 'TMM', 'Toamasina - Agence', 1, FALSE, '08:00', '12:00', '14:00', '18:00', FALSE, '07:30');
 SELECT setval('ref_site_id_site_seq', (SELECT GREATEST(MAX(id_site), 2) FROM ref_site));
 
 -- Départements

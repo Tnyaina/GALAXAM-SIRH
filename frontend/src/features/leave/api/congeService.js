@@ -187,11 +187,18 @@ const congeService = {
     return response.data;
   },
 
-  /**
-   * Déclenche la purge légale triennale des congés prescrits (+36 mois)
-   */
-  declencherPurgeExpiration: async () => {
-    const response = await apiClient.post('/conges/purge-expiration');
+  getExamenExpiration: async (idEmploye) => {
+    const response = await apiClient.get(`/conges/expiration/employe/${idEmploye}`);
+    return response.data;
+  },
+
+  reporterExamenExpiration: async (idEmploye, payload) => {
+    const response = await apiClient.post(`/conges/expiration/employe/${idEmploye}/reporter`, payload);
+    return response.data;
+  },
+
+  confirmerExpiration: async (idEmploye, payload) => {
+    const response = await apiClient.post(`/conges/expiration/employe/${idEmploye}/confirmer`, payload);
     return response.data;
   },
 
@@ -240,6 +247,26 @@ const congeService = {
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  telechargerGrandRecapCongesExcel: async (dateDebut, dateFin) => {
+    const response = await apiClient.get('/conges/periodes-reference/grand-recap/export-excel', {
+      params: { dateDebut, dateFin },
+      responseType: 'blob',
+    });
+    const header = response.headers?.['content-disposition'] || '';
+    const filename = header.match(/filename=["']?([^"';]+)["']?/)?.[1]
+      || `GRAND_RECAP_CONGES_${dateDebut}_${dateFin}.xlsx`;
+    const url = window.URL.createObjectURL(new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     link.remove();

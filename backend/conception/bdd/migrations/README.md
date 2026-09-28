@@ -38,23 +38,34 @@ incompatible fait échouer l'index unique et demande un arbitrage explicite.
 
 | Script Incrémental | Domaine | Intégré dans |
 | :--- | :--- | :--- |
-| `26-09-19-sp12-parametrage-exoneration-hs.sql` | Exonération fiscale HS (CGI 01.03.03-9°) & Éligibilité | `01_schema_core_securite.sql` (paramètres globaux), `02_schema_referentiels_rh.sql` (catégories & config légale) |
-| `26-09-19-sp9-conge-cutover-snapshot.sql` | Modes de reprise congés (Cutover, Snapshots) & Source `REPRISE_CUTOVER` | `04_schema_conges.sql` (`conge_periode_reference` & `conge_taux_applicable`) |
-| `26-09-21-sp13-certification-irsa.sql` | Millésime IRSA 6 tranches (Jan-Fév 2026), bornes contiguës & traçabilité légale | `02_schema_referentiels_rh.sql` (`paie_config_legale`), `06_schema_paie.sql` (`bareme_irsa`, `ref_taux_majoration`) |
+| `26-09-19-sp12-parametrage-exoneration-hs.sql` | Exonération fiscale HS (CGI 01.03.03-9°) & Éligibilité | `01_schema_core_securite.sql`, `02_schema_referentiels_rh.sql` |
+| `26-09-19-sp9-conge-cutover-snapshot.sql` | Modes de reprise congés (Cutover, Snapshots) & Source `REPRISE_CUTOVER` | `04_schema_conges.sql` |
+| `26-09-21-sp13-certification-irsa.sql` | Millésime IRSA 6 tranches (Jan-Fév 2026), bornes contiguës & traçabilité légale | `02_schema_referentiels_rh.sql`, `06_schema_paie.sql` |
+| `26-09-21-sp14-payroll-ownership-hardening.sql` | Gouvernance types mouvements paie & trigger auto-imputation | `06_schema_paie.sql` |
+| `26-09-22-sp15-paie-menu-sidebar-contextuel.sql` | Sous-menus canoniques module paie | `01_schema_core_securite.sql` |
+| `26-09-22-sp16-pointage-cumul-heures-dimanche-ferie.sql` | Heures dimanche & fériés scellées | `05_schema_pointage.sql` |
+| `26-09-22-sp17-pointage-role-validation-menu.sql` | Habilitation menu validation rôle agent pointage | `01_schema_core_securite.sql` |
+| `26-09-22-sp17-ref-periode-chomee-runtime-contract.sql` | Alignement contrat runtime périodes chômées | `02_schema_referentiels_rh.sql` |
+| `26-09-22-sp18-scheduler-execution-journal.sql` | Table de journalisation des exécutions planifiées | `01_schema_core_securite.sql` |
+| `26-09-23-sp19-tconge-technical-validity-label.sql` | Précision borne technique paramètre TCONGE | `01_schema_core_securite.sql` |
+| `26-09-23-sp20-conge-pool-consomme-reserve.sql` | Vue consommation vs réservation pool annuel congés | `04_schema_conges.sql` |
+| `26-09-23-sp21-paternite-hors-pool-permissions.sql` | Découplage paternité du pool permissions familiales | `04_schema_conges.sql` |
+| `26-09-23-sp22-pointage-remove-unused-summaries.sql` | Suppression tables résumés pointage obsolètes | `05_schema_pointage.sql` |
+| `26-09-24-sp23-pointage-drop-weekly-cache.sql` | Suppression cache semaine recalculé à la volée | `05_schema_pointage.sql` |
+| `26-09-24-sp24-pointage-allowances-generic.sql` | Snapshot générique des indemnités de pointage | `02_schema_referentiels_rh.sql`, `05_schema_pointage.sql` |
+| `26-09-24-sp25-pointage-arrival-floor.sql` | Heure entrée effective & statut tolérance | `05_schema_pointage.sql` |
+| `26-09-24-sp26-pointage-snapshot-capture-effective-entry.sql` | Traçabilité entrée effective dans snapshot jour | `05_schema_pointage.sql` |
+| `26-09-24-sp27-ref-site-plancher-arrivee.sql` | Unification plancher arrivée dans ref_site & fractions congés | `02_schema_referentiels_rh.sql`, `04_schema_conges.sql` |
+| `26-09-25-sp28-pointage-ajustement-periode.sql` | Table ajustement DAF & minutes réconciliation | `05_schema_pointage.sql` |
+| `26-09-25-sp29-paie-durees-minutes.sql` | Précision minutes et taux horaire bulletin | `06_schema_paie.sql` |
+| `26-09-25-sp30-majorations-manquantes.sql` | Référentiel majorations LF2024/2026 | `06_schema_paie.sql` |
+| `26-09-25-sp31-bareme-irsa-dedoublonnage.sql` | Index unique et dédoublonnage tranches IRSA | `06_schema_paie.sql` |
+| `26-09-28-sp32-pointage-solde-global.sql` | Rapprochement global HS50 finales de période | `05_schema_pointage.sql` |
+| `26-09-28-sp33-pointage-palier-snapshot.sql` | Historisation du palier légal HS30 dans le snapshot | `05_schema_pointage.sql` |
+| `26-09-28-sp34-identite-filiales.sql` | Adresse du siège, RCS, téléphone et courriel filiales | `02_schema_referentiels_rh.sql` |
+| `26-09-28-sp35-paie-acomptes-avances.sql` | Confirmation explicite versements & table imputation bulletin | `06_schema_paie.sql` |
+| `26-09-28-sp36-conge-expiration-examen-daf.sql` | Traçabilité des décisions DAF sur les droits candidats à prescription | `04_schema_conges.sql` |
 
-Le script `26-09-28-sp32-pointage-solde-global.sql` ajoute les HS50 finales.
-Il doit être appliqué aux bases existantes avant le déploiement du nouveau code.
-Les anciens snapshots restent inchangés et identifiables par une valeur NULL.
-
-SP33 (`26-09-28-sp33-pointage-palier-snapshot.sql`) historise le palier lu en base. À appliquer avant déploiement aux bases existantes ; aucun remplissage arbitraire des anciens snapshots.
-
-SP34 (`26-09-28-sp34-identite-filiales.sql`) ajoute l'adresse du siège, le RCS
-et les coordonnées aux filiales. Il renseigne uniquement l'adresse GLX confirmée
-sans modifier les autres filiales. À appliquer aux bases
-existantes avant le code qui lit ces nouvelles colonnes.
-
-SP35 (`26-09-28-sp35-paie-acomptes-avances.sql`) ajoute la confirmation explicite
-des versements d'acomptes et avances ainsi que le journal des retenues par bulletin.
-À appliquer aux bases existantes avant le déploiement du code paie. Les anciens
-versements ne sont pas présumés confirmés : leur réalité doit être vérifiée par
-la DAF avant de poursuivre leur recouvrement automatique.
+### Remarques Opérationnelles
+- Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 80 tables et 9 vues cohérentes.
+- Les scripts du dossier `migrations/` sont idempotents et destinés uniquement à la mise à niveau de bases déjà déployées antérieurement.

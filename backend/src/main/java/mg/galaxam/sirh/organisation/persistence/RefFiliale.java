@@ -21,7 +21,6 @@ public class RefFiliale extends ClassMere {
     private String rcs;
     private String telephone;
     private String email;
-    private Integer seuilEffectifAlerte;
     private boolean estActif;
     private Timestamp dateDesactivation;
     private Timestamp createdAt;
@@ -29,7 +28,6 @@ public class RefFiliale extends ClassMere {
     public RefFiliale() {
         this.setNomTable("REF_FILIALE");
         this.estActif = true;
-        this.seuilEffectifAlerte = 19;
     }
 
     @Override
@@ -60,7 +58,7 @@ public class RefFiliale extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        String sql = "INSERT INTO ref_filiale (code_filiale, raison_sociale, nif, stat, adresse_siege, rcs, telephone, email, seuil_effectif_alerte, est_actif) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO ref_filiale (code_filiale, raison_sociale, nif, stat, adresse_siege, rcs, telephone, email, est_actif) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, codeFiliale);
             ps.setString(2, raisonSociale);
@@ -70,8 +68,7 @@ public class RefFiliale extends ClassMere {
             ps.setString(6, rcs);
             ps.setString(7, telephone);
             ps.setString(8, email);
-            ps.setInt(9, seuilEffectifAlerte != null ? seuilEffectifAlerte : 19);
-            ps.setBoolean(10, estActif);
+            ps.setBoolean(9, estActif);
             ps.executeUpdate();
 
             try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -85,7 +82,7 @@ public class RefFiliale extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
-        String sql = "UPDATE ref_filiale SET code_filiale = ?, raison_sociale = ?, nif = ?, stat = ?, adresse_siege = ?, rcs = ?, telephone = ?, email = ?, seuil_effectif_alerte = ?, est_actif = ?, date_desactivation = ? WHERE id_filiale = ?";
+        String sql = "UPDATE ref_filiale SET code_filiale = ?, raison_sociale = ?, nif = ?, stat = ?, adresse_siege = ?, rcs = ?, telephone = ?, email = ?, est_actif = ?, date_desactivation = ? WHERE id_filiale = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, codeFiliale);
             ps.setString(2, raisonSociale);
@@ -95,10 +92,9 @@ public class RefFiliale extends ClassMere {
             ps.setString(6, rcs);
             ps.setString(7, telephone);
             ps.setString(8, email);
-            ps.setInt(9, seuilEffectifAlerte != null ? seuilEffectifAlerte : 19);
-            ps.setBoolean(10, estActif);
-            ps.setTimestamp(11, dateDesactivation);
-            ps.setInt(12, idFiliale);
+            ps.setBoolean(9, estActif);
+            ps.setTimestamp(10, dateDesactivation);
+            ps.setInt(11, idFiliale);
             ps.executeUpdate();
         }
         return this;
@@ -120,7 +116,7 @@ public class RefFiliale extends ClassMere {
     }
 
     public ClassMere rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT id_filiale, code_filiale, raison_sociale, nif, stat, adresse_siege, rcs, telephone, email, seuil_effectif_alerte, est_actif, date_desactivation, created_at FROM ref_filiale WHERE id_filiale = ?";
+        String sql = "SELECT id_filiale, code_filiale, raison_sociale, nif, stat, adresse_siege, rcs, telephone, email, est_actif, date_desactivation, created_at FROM ref_filiale WHERE id_filiale = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -133,7 +129,7 @@ public class RefFiliale extends ClassMere {
     }
 
     public static RefFiliale rechercherParCode(String code, Connection c) throws Exception {
-        String sql = "SELECT id_filiale, code_filiale, raison_sociale, nif, stat, adresse_siege, rcs, telephone, email, seuil_effectif_alerte, est_actif, date_desactivation, created_at FROM ref_filiale WHERE code_filiale = ?";
+        String sql = "SELECT id_filiale, code_filiale, raison_sociale, nif, stat, adresse_siege, rcs, telephone, email, est_actif, date_desactivation, created_at FROM ref_filiale WHERE code_filiale = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             try (ResultSet rs = ps.executeQuery()) {
@@ -147,7 +143,7 @@ public class RefFiliale extends ClassMere {
 
     public static List<RefFiliale> listAll(Connection c) throws Exception {
         List<RefFiliale> list = new ArrayList<>();
-        String sql = "SELECT id_filiale, code_filiale, raison_sociale, nif, stat, adresse_siege, rcs, telephone, email, seuil_effectif_alerte, est_actif, date_desactivation, created_at FROM ref_filiale ORDER BY id_filiale ASC";
+        String sql = "SELECT id_filiale, code_filiale, raison_sociale, nif, stat, adresse_siege, rcs, telephone, email, est_actif, date_desactivation, created_at FROM ref_filiale ORDER BY id_filiale ASC";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
@@ -168,7 +164,6 @@ public class RefFiliale extends ClassMere {
         f.setRcs(rs.getString("rcs"));
         f.setTelephone(rs.getString("telephone"));
         f.setEmail(rs.getString("email"));
-        f.setSeuilEffectifAlerte(rs.getInt("seuil_effectif_alerte"));
         f.setEstActif(rs.getBoolean("est_actif"));
         f.setDateDesactivation(rs.getTimestamp("date_desactivation"));
         f.setCreatedAt(rs.getTimestamp("created_at"));
@@ -202,9 +197,6 @@ public class RefFiliale extends ClassMere {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
-
-    public Integer getSeuilEffectifAlerte() { return seuilEffectifAlerte; }
-    public void setSeuilEffectifAlerte(Integer seuilEffectifAlerte) { this.seuilEffectifAlerte = seuilEffectifAlerte; }
 
     public boolean isEstActif() { return estActif; }
     public void setEstActif(boolean estActif) { this.estActif = estActif; }

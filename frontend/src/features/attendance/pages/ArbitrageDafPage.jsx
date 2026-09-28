@@ -94,7 +94,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 if (resPeriodes && resPeriodes.length > 0) {
                     setPeriodes(resPeriodes);
                     const activeP = (activePeriode ? resPeriodes.find(p => p.idPeriodePaie === activePeriode.idPeriodePaie) : null)
-                        || resPeriodes.find(p => String(p.idPeriodePaie) === String(context?.selectedPeriod?.id));
+                        || (paramPeriode ? resPeriodes.find(p => String(p.idPeriodePaie) === String(paramPeriode)) : null)
+                        || (context?.selectedPeriod?.id ? resPeriodes.find(p => String(p.idPeriodePaie) === String(context.selectedPeriod.id)) : null)
+                        || resPeriodes.find(p => ['EN_COURS', 'A_VALIDER', 'TRANSMIS_DAF'].includes(p.statutCode))
+                        || resPeriodes[0];
                     if (activeP) {
                         const pid = String(activeP.idPeriodePaie);
                         setSelectedPeriode(pid);
@@ -102,6 +105,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('periode', pid); return n; }, { replace: true });
                         }
                     }
+                } else {
+                    setLoading(false);
                 }
                 if (resSites) {
                     setSites(resSites);
@@ -110,6 +115,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 }
             } catch (err) {
                 console.error('Erreur init ArbitrageDafPage:', err);
+                setLoading(false);
             }
         };
         init();
@@ -124,7 +130,15 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     }, [activePeriode?.idPeriodePaie]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadData = useCallback(async () => {
-        if (!selectedPeriode) return;
+        if (!selectedPeriode) {
+            setLoading(false);
+            setSyntheseData([]);
+            setSemaines([]);
+            setServerKpis(null);
+            setServerAlertCounts(null);
+            setTotalElements(0);
+            return;
+        }
         const sequence = ++loadSequence.current;
         setLoading(true);
         setLoadError('');
@@ -195,7 +209,19 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
     const kpis = serverKpis;
 
-    const alertCounts = serverAlertCounts || {};
+    const defaultAlertCounts = useMemo(() => ({
+        all: 0,
+        hs: 0,
+        nuit: 0,
+        retard: 0,
+        compense: 0,
+        absence: 0
+    }), []);
+
+    const alertCounts = useMemo(() => ({
+        ...defaultAlertCounts,
+        ...(serverAlertCounts || {})
+    }), [defaultAlertCounts, serverAlertCounts]);
 
     // Données affichées : déjà filtrées et paginées par le serveur
     const displayedData = syntheseData;
@@ -319,7 +345,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 idSite: siteParam
             });
             if (res?.decision === 'ALLOWED') {
-                toast({ title: 'Période transmise', message: 'La synthèse consolidée a été transmise avec succès pour arbitrage DAF.', type: 'success' });
+                toast({ title: 'Période transmise', message: 'La synthèse consolidée a été transmise avec succès pour arbitrage.', type: 'success' });
                 setShowTransmissionModal(false);
                 window.dispatchEvent(new Event('refresh-notifications'));
                 window.dispatchEvent(new Event('pointage-period-updated'));
@@ -476,9 +502,9 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 onClick={() => setShowTransmissionModal(true)}
                                 icon={<Send size={14} className={transmitting ? 'animate-spin' : ''} />}
                                 className="text-xs h-[32px] font-bold"
-                                title={transmissionBlockReason || 'Transmettre la synthèse consolidée à la DAF'}
+                                title={transmissionBlockReason || 'Transmettre la synthèse consolidée pour arbitrage'}
                             >
-                                Transmettre à la DAF
+                                Transmettre pour arbitrage
                             </Button>
                         )}
                         {isDaf && isPendingDaf && (
@@ -557,18 +583,18 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         <div className="flex items-center gap-3 flex-wrap">
                             <h3 className="text-sm font-bold text-[var(--color-fg)] flex items-center gap-2 shrink-0">
                                 <ShieldCheck size={16} className="text-[var(--color-brand-500)]" />
-                                {isDaf ? 'Contrôle & Validation DAF' : 'Synthèse mensuelle & Auto-Contrôle'} — {currentPeriodeObj?.libelle || 'Période active'}
+                                {isDaf ? 'Contrôle & Validation' : 'Synthèse mensuelle & Auto-Contrôle'} — {currentPeriodeObj?.libelle || 'Période active'}
                             </h3>
                             {/* Filtres alerte (synthèse seulement) */}
                             {viewMode === 'synthese' && (
                                 <div className="flex items-center gap-1 flex-wrap">
                                     {[
-                                        { v: 'ALL', label: `Tous (${alertCounts.all})` },
-                                        { v: 'HS', label: `HS (${alertCounts.hs})`, icon: TrendingUp },
-                                        { v: 'NUIT', label: `Nuit (${alertCounts.nuit})`, icon: Moon },
-                                        { v: 'RETARD', label: `Retards (${alertCounts.retard})`, icon: Clock },
-                                        { v: 'COMPENSE', label: `Compensés (${alertCounts.compense || 0})`, icon: Scale },
-                                        { v: 'ABSENCE', label: `Retenues (${alertCounts.absence})`, icon: AlertTriangle },
+                                        { v: 'ALL', label: `Tous (${alertCounts.all ?? 0})` },
+                                        { v: 'HS', label: `HS (${alertCounts.hs ?? 0})`, icon: TrendingUp },
+                                        { v: 'NUIT', label: `Nuit (${alertCounts.nuit ?? 0})`, icon: Moon },
+                                        { v: 'RETARD', label: `Retards (${alertCounts.retard ?? 0})`, icon: Clock },
+                                        { v: 'COMPENSE', label: `Compensés (${alertCounts.compense ?? 0})`, icon: Scale },
+                                        { v: 'ABSENCE', label: `Retenues (${alertCounts.absence ?? 0})`, icon: AlertTriangle },
                                     ].map(opt => (
                                         <button
                                             key={opt.v}
@@ -657,10 +683,15 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             <div className="flex items-center justify-center gap-2 py-12 text-xs text-[var(--color-fg-muted)]">
                                 <Clock size={14} className="animate-spin text-brand-500" />Chargement de la synthese...
                             </div>
+                        ) : !selectedPeriode ? (
+                            <div className="flex flex-col items-center justify-center gap-2 py-12 text-xs text-[var(--color-fg-muted)]">
+                                <Calendar size={20} className="text-[var(--color-fg-muted)] opacity-50" />
+                                <span>Veuillez sélectionner une période pour afficher le contrôle.</span>
+                            </div>
                         ) : displayedData.length === 0 ? (
                             <div className="flex items-center justify-center gap-3 py-12 text-xs text-[var(--color-fg-muted)]">
                                 <CheckCircle2 size={18} className="text-[var(--color-success-600)]" />
-                                <span>Aucun employe ne correspond aux criteres selectionnes.</span>
+                                <span>Aucun collaborateur ne correspond aux critères sélectionnés.</span>
                             </div>
                         ) : (
                             <div className="space-y-0 overflow-x-auto">
@@ -941,7 +972,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                                         setSelectedEmployeToAdjust(row);
                                                                     }}
                                                                     className={`inline-flex items-center justify-center w-7 h-7 border border-[var(--color-border-subtle)] ${isPeriodLocked ? 'opacity-40 cursor-not-allowed' : 'hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] cursor-pointer'} transition-all`}
-                                                                    title={isPeriodLocked ? "Période validée/clôturée : modifications impossibles" : "Ajuster le pointage de ce collaborateur (DAF)"}
+                                                                    title={isPeriodLocked ? "Période validée/clôturée : modifications impossibles" : "Ajuster le pointage de ce collaborateur"}
                                                                 >
                                                                     <Edit3 size={13} />
                                                                 </button>
@@ -1008,7 +1039,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 onClose={() => setShowTransmissionModal(false)}
                 onConfirm={handleTransmettreDaf}
                 title={`Transmettre : ${currentPeriodeObj?.libelle || ''} ?`}
-                message="Cette action transmet officiellement la synthèse consolidée de pointage pour arbitrage et validation finale par la DAF. La saisie quotidienne sera figée pour les agents de site."
+                message="Cette action transmet officiellement la synthèse consolidée de pointage pour arbitrage et validation finale. La saisie quotidienne sera figée pour les agents de site."
                 confirmLabel="Confirmer et transmettre"
                 variant="primary"
                 loading={transmitting}

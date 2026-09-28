@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import congeService from '@/features/leave/api/congeService';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useToast } from '@/components/ui/feedback/Toast';
+import { getErrorMessage } from '@/api/apiClient';
 
 export function useDemandesValidation({ onReload: parentReload } = {}) {
   // Contexte
@@ -16,6 +17,8 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
   const [demandes, setDemandes] = useState([]);
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const requestSequence = useRef(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -24,7 +27,9 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
 
   // Chargement serveur et actions exposées au composant.
   const loadData = useCallback(async () => {
+    const requestId = ++requestSequence.current;
     setLoading(true);
+    setError(null);
     try {
       const params = {
         page: currentPage,
@@ -35,18 +40,26 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
       if (searchTerm) params.q = searchTerm;
 
       const data = await congeService.getAllDemandes(params);
+      if (requestId !== requestSequence.current) return false;
       setDemandes(data?.content || []);
-      setTotalElements(data?.totalElements || 0);
+      setTotalElements(data?.totalElements ?? 0);
+      return true;
     } catch (err) {
+      if (requestId !== requestSequence.current) return false;
       console.error('Erreur de chargement:', err);
+      setDemandes([]);
+      setTotalElements(0);
+      setError(getErrorMessage(err, 'Impossible de charger les demandes de congés.'));
+      return false;
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
   }, [currentPage, pageSize, activeStatut, selectedTypeConge, searchTerm]);
 
   // Effets : chargement, remise à zéro de pagination et garde de pagination.
   useEffect(() => {
     loadData();
+    return () => { requestSequence.current += 1; };
   }, [loadData]);
 
   // Réinitialiser la page à 1 si filtres changent
@@ -64,8 +77,9 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
   }, [totalPages, currentPage]);
 
   const handleRefresh = async () => {
-    await loadData();
-    toast({ title: 'Actualisé', message: 'La liste des demandes a été mise à jour.', type: 'info', duration: 2000 });
+    if (await loadData()) {
+      toast({ title: 'Actualisé', message: 'La liste des demandes a été mise à jour.', type: 'info', duration: 2000 });
+    }
   };
 
   const handleValider = async (idDemandeConge, options = {}) => {
@@ -91,6 +105,7 @@ export function useDemandesValidation({ onReload: parentReload } = {}) {
     demandes,
     totalElements,
     loading,
+    error,
     
     // Pagination
     currentPage,

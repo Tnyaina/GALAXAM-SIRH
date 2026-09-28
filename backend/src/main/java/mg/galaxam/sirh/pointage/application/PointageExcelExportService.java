@@ -26,43 +26,24 @@ public class PointageExcelExportService {
             replace(sheet, "{{FONCTION}}", PointageDocumentData.value(fiche.getFonction()));
             replace(sheet, "{{SITE}}", PointageDocumentData.value(fiche.getSiteNom()));
             replace(sheet, "{{CATEGORIE}}", PointageDocumentData.value(fiche.getCategorie()));
-            replace(sheet, "{{PERIODE}}", PointageDocumentData.value(fiche.getLibellePeriode()) + " · " + PointageDocumentData.value(fiche.getDateDebut()) + " → " + PointageDocumentData.value(fiche.getDateFin()));
+            replace(sheet, "{{PERIODE}}", PointageDocumentData.value(fiche.getDateDebut()) + " → " + PointageDocumentData.value(fiche.getDateFin()));
             replace(sheet, "{{PROVENANCE}}", data.note());
             List<String> codes = journalCodes(data);
             int n = codes.size(), columns = Math.max(12, 10 + n);
             int start = expand(sheet, "{{JOURNAL}}", 32, PointageDocumentData.days(fiche).size());
             Row header = sheet.getRow(start - 1);
-            CellStyle allowanceHeaderStyle=header.getCell(9).getCellStyle();
-            for(int col=9;col<9+n;col++){cell(header,col).setCellStyle(allowanceHeaderStyle);sheet.setColumnWidth(col,13*256);}
-            sheet.setColumnWidth(9+n,30*256);
-            header.setHeightInPoints(50);
-            for(int m=sheet.getNumMergedRegions()-1;m>=0;m--){
-                var range=sheet.getMergedRegion(m);
-                if(range.getFirstColumn()==0&&range.getLastColumn()==11){
-                    sheet.removeMergedRegion(m);range.setLastColumn(columns-1);sheet.addMergedRegion(range);
-                }
-            }
-            for (int col = 9; col < columns; col++) cell(header,col).setBlank();
+            for (int col = 9; col < columns; col++) set(header, col, null);
             for (int i = 0; i < n; i++) set(header,9+i,codes.get(i) + " (unité)");
             set(header,9+n,"Observation");
-            if(9+n<columns-1)sheet.addMergedRegion(new CellRangeAddress(start-1,start-1,9+n,columns-1));
             int index = 0;
             for (var day : PointageDocumentData.days(fiche)) {
                 Row row = sheet.getRow(start + index++);
-                CellStyle dayStyle=row.getCell(9).getCellStyle();
-                CellStyle observationBase=row.getCell(11).getCellStyle();
                 clear(row);
-                if(9+n<columns-1)sheet.addMergedRegion(new CellRangeAddress(row.getRowNum(),row.getRowNum(),9+n,columns-1));
-                for(int col=9;col<9+n;col++)cell(row,col).setCellStyle(dayStyle);
-                cell(row,9+n).setCellStyle(observationBase);
                 set(row,0,day.getDateComplete()); set(row,1,day.getJour()); set(row,2,status(day.getStatut()));
                 set(row,3,day.getEntree()); set(row,4,day.getSortiePause()); set(row,5,day.getRetourPause()); set(row,6,day.getSortie());
                 set(row,7,day.getTotalHeuresDecimal()); set(row,8,day.getMinutesRetard());
                 for (int i=0;i<n;i++) { var item=day.getIndemnites().get(codes.get(i)); set(row,9+i,item==null || !item.accordee() ? BigDecimal.ZERO : item.quantite()); }
                 set(row,9+n,day.getObservation());
-                var observationStyle=workbook.createCellStyle();observationStyle.cloneStyleFrom(row.getCell(9+n).getCellStyle());observationStyle.setWrapText(true);
-                row.getCell(9+n).setCellStyle(observationStyle);
-                row.setHeightInPoints(Math.max(row.getHeightInPoints(),Math.min(400,15*(float)Math.ceil(PointageDocumentData.value(day.getObservation()).length()/30.0))));
                 for (int col=7;col<9+n;col++) row.getCell(col).setCellStyle(numericStyle(workbook,row.getCell(col).getCellStyle(),"0.00"));
             }
             int total = locate(sheet,"TOTAL JOURNAL");
@@ -70,11 +51,7 @@ public class PointageExcelExportService {
             for(int col=7;col<columns;col++)set(totalRow,col,null);
             for(int col=7;col<9+n;col++){
                 Cell cell=cell(totalRow,col); String letter=org.apache.poi.ss.util.CellReference.convertNumToColString(col);
-                final int quantityIndex=col-9;
-                boolean unknown=quantityIndex>=0 && PointageDocumentData.days(fiche).stream().anyMatch(d -> {
-                    var item=d.getIndemnites().get(codes.get(quantityIndex));return item!=null && item.accordee() && item.quantite()==null;
-                });
-                if(unknown)cell.setCellValue("—");else cell.setCellFormula("SUM("+letter+(start+1)+":"+letter+total+")");
+                cell.setCellFormula("SUM("+letter+(start+1)+":"+letter+total+")");
                 cell.setCellStyle(numericStyle(workbook,header.getCell(7).getCellStyle(),"0.00"));
             }
             List<PointageTronconSemaineDTO> weeks=fiche.getBilansHebdo()==null ? List.of() : fiche.getBilansHebdo();
@@ -118,21 +95,12 @@ public class PointageExcelExportService {
     private static int locate(Sheet s,String text){for(Row row:s)for(Cell c:row)if(c.getCellType()==CellType.STRING&&text.equals(c.getStringCellValue()))return row.getRowNum();throw new IllegalStateException("POINTAGE_TEMPLATE_INVALID : repère absent " + text);}
     private static void replace(Sheet s,String marker,String value){boolean found=false;for(Row row:s)for(Cell c:row)if(c.getCellType()==CellType.STRING&&marker.equals(c.getStringCellValue())){c.setCellValue(value);found=true;}if(!found)throw new IllegalStateException("POINTAGE_TEMPLATE_INVALID : " + marker);}
     private static int expand(Sheet s,String marker,int capacity,int count){
-        int start=locate(s,marker),actual=Math.max(1,count),extra=actual-capacity;
+        int start=locate(s,marker),extra=Math.max(0,count-capacity);
         if(extra>0){
             Row model=s.getRow(start);Map<Integer,CellStyle> styles=new HashMap<>();for(Cell c:model)styles.put(c.getColumnIndex(),c.getCellStyle());float height=model.getHeightInPoints();
             List<CellRangeAddress> merges=new ArrayList<>();for(var merge:s.getMergedRegions())if(merge.getFirstRow()==start&&merge.getLastRow()==start)merges.add(merge.copy());
             s.shiftRows(start+capacity,s.getLastRowNum(),extra,true,false);
             for(int i=0;i<extra;i++){Row row=s.createRow(start+capacity+i);row.setHeightInPoints(height);styles.forEach((col,style)->row.createCell(col).setCellStyle(style));for(var m:merges)s.addMergedRegion(new CellRangeAddress(row.getRowNum(),row.getRowNum(),m.getFirstColumn(),m.getLastColumn()));}
-        }
-        if(extra<0){
-            int first=start+actual,last=start+capacity-1;
-            for(int i=s.getNumMergedRegions()-1;i>=0;i--){
-                var region=s.getMergedRegion(i);
-                if(region.getFirstRow()>=first&&region.getLastRow()<=last)s.removeMergedRegion(i);
-            }
-            for(int row=first;row<=last;row++)if(s.getRow(row)!=null)s.removeRow(s.getRow(row));
-            s.shiftRows(start+capacity,s.getLastRowNum(),extra,true,false);
         }
         return start;
     }

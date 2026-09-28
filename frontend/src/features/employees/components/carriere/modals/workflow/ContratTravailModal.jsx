@@ -94,7 +94,7 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
                         <dt>Rémunération</dt><dd>{value('REMUNERATION_BASE')} · {value('REMUNERATION_MODE')}</dd>
                         <dt>Début / fin</dt><dd>{value('CONTRAT_DATE_DEBUT')} / {value('CONTRAT_DATE_FIN')}</dd>
                     </dl>
-                    <Alert type="warning" message="Canevas interne : les clauses et informations doivent être validées par la DAF/RH avant signature." />
+                    <Alert type="warning" message="Canevas interne : les clauses et informations doivent être validées avant signature." />
                     {data.donneesManquantes?.length > 0 && <Alert type="warning" message={`DOCX indisponible : données obligatoires manquantes (${data.donneesManquantes.map(contractDocumentLabel).join(', ')}).`} />}
                     {data.avertissements?.length > 0 && <Alert type="warning" message={`À vérifier ou compléter avant signature : ${data.avertissements.map(contractDocumentLabel).join(', ')}.`} />}
                 </>}

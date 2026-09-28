@@ -48,13 +48,13 @@ const STATUT_CONFIG = {
     },
     'A_VALIDER': {
         variant: 'warning',
-        label: 'Transmise DAF (Arbitrage)',
-        desc: 'Saisie terminée, arbitrage DAF en cours'
+        label: 'Transmise pour arbitrage',
+        desc: 'Saisie terminée, arbitrage en cours'
     },
     'TRANSMIS_DAF': {
         variant: 'warning',
-        label: 'Transmise DAF (Arbitrage)',
-        desc: 'Saisie terrain clôturée, arbitrage DAF en cours'
+        label: 'Transmise pour arbitrage',
+        desc: 'Saisie terrain clôturée, arbitrage en cours'
     },
     'VALIDEE': {
         variant: 'primary',
@@ -566,7 +566,7 @@ export default function PeriodePaiePage() {
                 <StatCard
                     title="À Valider (Fin de mois)"
                     value={stats.aValider}
-                    subtext="En attente arbitrage DAF"
+                    subtext="En attente d'arbitrage"
                     icon={<CheckCheck size={18} />}
                     color="warning"
                 />

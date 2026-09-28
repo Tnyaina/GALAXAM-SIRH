@@ -325,7 +325,7 @@ public class PointageAnomalieService {
                         } else if ("ABSENCE_NON_JUSTIFIEE".equals(stCode)) {
                             dto.setTypeAnomalie("ABSENCE");
                             if (dto.getDemandeEnAttenteLibelle() != null && !dto.getDemandeEnAttenteLibelle().isBlank()) {
-                                dto.setDescriptionAnomalie("Absence : demande de " + dto.getDemandeEnAttenteLibelle() + " en attente de validation RH.");
+                                dto.setDescriptionAnomalie("Absence : demande de " + dto.getDemandeEnAttenteLibelle() + " en attente de validation.");
                                 dto.setSeverite("MOYENNE");
                                 dto.setBloquantTransmission(false);
                                 countMoyennes++;

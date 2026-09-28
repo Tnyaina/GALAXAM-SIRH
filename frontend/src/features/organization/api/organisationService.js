@@ -50,6 +50,10 @@ const organisationService = {
         const response = await apiClient.put(`/referentiel/sites/${id}/activer`);
         return response.data;
     },
+    toggleSitePlancher: async (id, data) => {
+        const response = await apiClient.put(`/referentiel/sites/${id}/plancher`, data);
+        return response.data;
+    },
 
     // ----------------------------------------------------
     // DÉPARTEMENTS

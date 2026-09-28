@@ -1,15 +1,7 @@
-import { Search, Plus, RefreshCw, FileText, Clock, CheckCircle, XCircle, Ban } from 'lucide-react';
+import { Search, Plus, RefreshCw, Clock } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import Button from '@/components/ui/forms/Button';
-
-const STATUTS = [
-  { key: 'EN_ATTENTE', label: 'En attente', icon: Clock       },
-  { key: 'VALIDE',     label: 'Validées',   icon: CheckCircle },
-  { key: 'REFUSE',     label: 'Refusées',   icon: XCircle     },
-  { key: 'ANNULE',     label: 'Annulées',   icon: Ban         },
-  { key: 'ALL',        label: 'Toutes',     icon: FileText    },
-];
 
 export default function ValidationFilters({
   activeStatut,
@@ -24,101 +16,69 @@ export default function ValidationFilters({
   onRefresh,
   onNewDemande
 }) {
-  const typesConges = referentiels?.typesConges || referentiels?.types || [];
+  const typesConges = referentiels?.typesConge || referentiels?.typesConges || referentiels?.types || [];
+  const DEFAULT_STATUTS = [
+    { code: 'EN_ATTENTE', libelle: 'En attente de validation' },
+    { code: 'VALIDE',     libelle: 'Validées'                 },
+    { code: 'REFUSE',     libelle: 'Refusées'                 },
+    { code: 'ANNULE',     libelle: 'Annulées'                 },
+    { code: 'BROUILLON',  libelle: 'Brouillon'                },
+  ];
+  const sanitizeStatutLibelle = (code, rawLibelle) => {
+    if (!rawLibelle) return code === 'ALL' ? 'Toutes' : code;
+    return rawLibelle
+      .replace(/\s*\(saisie RH en cours\)/gi, '')
+      .replace(/\s+DAF\b/gi, '')
+      .replace(/\s+RH\b/gi, '')
+      .trim();
+  };
+
+  const statuts = (referentiels?.statutsDemande && referentiels.statutsDemande.length > 0)
+    ? referentiels.statutsDemande
+    : DEFAULT_STATUTS;
+  const statusOptions = [
+    { code: 'ALL', libelle: 'Toutes' },
+    ...statuts.slice().sort((a, b) => Number(b.code === 'EN_ATTENTE') - Number(a.code === 'EN_ATTENTE'))
+  ];
 
   return (
-    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xs p-4 sm:p-5 space-y-3.5">
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-        
-        {/* Pilules de filtrage rapide par statut */}
-        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
-          {STATUTS.map((s) => {
-            const count    = activeStatut === s.key ? displayTotal : null;
-            const isActive = activeStatut === s.key;
-            const isUrgent = s.key === 'EN_ATTENTE' && count > 0;
-            const Icon     = s.icon;
-
-            return (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => setActiveStatut(s.key)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer rounded-none ${
-                  isActive
-                    ? 'bg-[var(--color-brand-500)] text-white shadow-xs'
-                    : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-fg)] border border-[var(--color-border-subtle)]'
-                }`}
-              >
-                <Icon size={13} className={isUrgent ? 'text-[var(--color-warning-400)]' : ''} />
-                <span>{s.label}</span>
-                {count !== null && (
-                  <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold px-1.5 ml-0.5 ${
-                    isActive
-                      ? 'bg-white/20 text-white'
-                      : isUrgent
-                        ? 'bg-[var(--color-warning-500)] text-white'
-                        : 'bg-[var(--color-bg)] text-[var(--color-fg-muted)]'
-                  }`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-4 space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-bold text-[var(--color-fg)]">Demandes de congés et d'absences</h2>
+          <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+            {displayTotal} demande{displayTotal > 1 ? 's' : ''} dans la sélection · ouvrez une demande pour consulter le contexte et décider.
+          </p>
         </div>
+        {onNewDemande && <Button variant="primary" size="sm" iconLeft={<Plus size={14} />} onClick={onNewDemande}>
+          Nouvelle demande
+        </Button>}
+      </div>
 
-        {/* Filtres secondaires : Type, Recherche, Rafraîchir, Nouvelle demande */}
-        <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto shrink-0">
-          {/* Sélecteur dynamique Type de Congé */}
-          {typesConges.length > 0 && (
-            <div className="w-full sm:w-48">
-              <Select
-                value={selectedTypeConge || ''}
-                onChange={(val) => setSelectedTypeConge(val)}
-                placeholder="Tous les types d'absence"
-                options={typesConges
-                  .filter((t) => t.estActif !== false && t.actif !== false)
-                  .map((t) => ({
-                    value: t.idTypeConge,
-                    label: t.libelleTypeConge || t.codeTypeConge
-                  }))
-                }
-              />
-            </div>
-          )}
-
-          <div className="w-full sm:w-52">
-            <Input
-              placeholder="Rechercher collaborateur…"
-              value={searchRaw}
-              onChange={(e) => setSearchRaw(e.target.value)}
-              icon={<Search size={14} />}
-            />
-          </div>
-
-          <Button
-            variant="outline"
-            size="xs"
-            iconLeft={<RefreshCw size={13} />}
-            loading={loading}
-            onClick={onRefresh}
-            className="h-8 text-xs font-semibold"
-          >
-            Rafraîchir
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrer les demandes par statut">
+        {statusOptions.map((status) => (
+          <Button key={status.code} type="button" size="xs"
+            variant={activeStatut === status.code ? 'primary' : 'outline'}
+            iconLeft={status.code === 'EN_ATTENTE' ? <Clock size={12} /> : undefined}
+            onClick={() => setActiveStatut(status.code)} aria-pressed={activeStatut === status.code}>
+            {sanitizeStatutLibelle(status.code, status.libelle)}
           </Button>
+        ))}
+      </div>
 
-          {onNewDemande && (
-            <Button
-              variant="primary"
-              size="xs"
-              iconLeft={<Plus size={14} />}
-              onClick={onNewDemande}
-              className="h-8 text-xs font-semibold"
-            >
-              Nouvelle demande
-            </Button>
-          )}
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,200px)_auto] gap-2 items-center border-t border-[var(--color-border-subtle)] pt-3">
+        <Input placeholder="Rechercher un collaborateur…" value={searchRaw}
+          onChange={(e) => setSearchRaw(e.target.value)} iconLeft={<Search size={14} />}
+          aria-label="Rechercher un collaborateur" />
+        <Select value={selectedTypeConge ? String(selectedTypeConge) : ''} onChange={setSelectedTypeConge}
+          placeholder="Tous les types d'absence"
+          options={typesConges.filter(t => t.estActif !== false && t.actif !== false).map(t => ({
+            value: String(t.idTypeConge ?? t.id),
+            label: t.libelle || t.libelleTypeConge || t.code || t.codeTypeConge || ''
+          }))} />
+        <Button variant="outline" size="sm" iconLeft={<RefreshCw size={13} />} loading={loading} onClick={onRefresh}>
+          Actualiser
+        </Button>
       </div>
     </div>
   );

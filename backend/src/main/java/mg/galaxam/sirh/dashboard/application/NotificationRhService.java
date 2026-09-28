@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
  *  - INSERT inline dans EmployeService.java
  *  - INSERT inline dans EmployeController.java
  *  - méthode statique privée creerNotificationRh() dans WorkflowRhService.java
- *  - INSERT inline dans PurgeCongeScheduler.java
  *  - méthode statique publique DemandeConge.creerNotificationRh()
  *  - INSERT inline dans NotificationRhScheduler.java
  */

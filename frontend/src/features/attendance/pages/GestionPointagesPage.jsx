@@ -76,7 +76,11 @@ export default function GestionPointagesPage() {
                 setAllPeriodes(list);
 
                 const selectedId = context?.selectedPeriod?.id;
-                const target = list.find(p => String(p.idPeriodePaie) === String(selectedId)) || null;
+                const target = (paramPeriodeId ? list.find(p => String(p.idPeriodePaie) === String(paramPeriodeId)) : null)
+                    || (selectedId ? list.find(p => String(p.idPeriodePaie) === String(selectedId)) : null)
+                    || list.find(p => ['EN_COURS', 'A_VALIDER', 'TRANSMIS_DAF'].includes(p.statutCode))
+                    || list[0]
+                    || null;
                 setActivePeriode(target);
 
                 // Initialisation ou correction du paramètre d'URL s'il est absent ou invalide

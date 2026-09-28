@@ -52,6 +52,7 @@ export default function EmployeFicheDetailPage() {
     const canWrite = hasPermission('EMPLOYE_WRITE');
     const canValidate = hasPermission('EMPLOYE_VALIDATE');
     const canReadConges = hasPermission('CONGE_READ');
+    const canValidateConges = hasPermission('CONGE_VALIDATE') || hasPermission('ROLE_ADMIN');
     const canReadPointages = hasPermission('POINTAGE_READ');
     const canReadPaie = hasPermission('PAIE_READ') || hasPermission('ROLE_ADMIN');
     const canWritePaie = hasPermission('PAIE_WRITE') || hasPermission('ROLE_ADMIN');
@@ -446,7 +447,7 @@ export default function EmployeFicheDetailPage() {
                     {/* Onglet 5: Congés & Absences */}
                     {activeTab === 'conges' && (
                         <Suspense fallback={<TabLoader label="Chargement des congés de l'employé..." />}>
-                            <CongesTab idEmploye={id} employe={emp} canWrite={canWrite} />
+                            <CongesTab idEmploye={id} employe={emp} canWrite={canWrite} canValidateConges={canValidateConges} />
                         </Suspense>
                     )}
 
@@ -520,7 +521,7 @@ export default function EmployeFicheDetailPage() {
                     <div className="bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-2.5 rounded-none text-xs text-[var(--color-warning-700)] flex items-start gap-2">
                         <AlertTriangle size={15} className="shrink-0 mt-0.5" />
                         <span>
-                            <strong>Note RH :</strong> La désactivation passe le profil de l'employé en inactif. Veillez également à clôturer son contrat dans l'onglet <em>Carrière & Affectation</em>.
+                            <strong>Information :</strong> La désactivation passe le profil de l'employé en inactif. Veillez également à clôturer son contrat dans l'onglet <em>Carrière & Affectation</em>.
                         </span>
                     </div>
                     <Select

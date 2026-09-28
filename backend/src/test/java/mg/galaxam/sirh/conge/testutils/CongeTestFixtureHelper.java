@@ -21,6 +21,7 @@ public final class CongeTestFixtureHelper {
             st.execute("DELETE FROM conge_taux_applicable");
             st.execute("DELETE FROM conge_journal_droit");
             st.execute("DELETE FROM conge_periode_reference");
+            st.execute("DELETE FROM conge_expiration_examen");
             st.execute("DELETE FROM mouvement_solde_conge");
             st.execute("DELETE FROM demande_conge");
             st.execute("DELETE FROM periode_paie");

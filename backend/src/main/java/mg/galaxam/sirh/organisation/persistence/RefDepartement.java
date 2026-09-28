@@ -2,7 +2,6 @@ package mg.galaxam.sirh.organisation.persistence;
 
 import bean.ClassMere;
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -15,7 +14,6 @@ public class RefDepartement extends ClassMere {
     private Integer idDepartement;
     private String codeDepartement;
     private String libelle;
-    private Date dateFinPrevue;
     private boolean estActif;
 
     public RefDepartement() {
@@ -51,12 +49,11 @@ public class RefDepartement extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        String sql = "INSERT INTO ref_departement (code_departement, libelle, date_fin_prevue, est_actif) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO ref_departement (code_departement, libelle, est_actif) VALUES (?, ?, ?)";
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, codeDepartement);
             ps.setString(2, libelle);
-            ps.setDate(3, dateFinPrevue);
-            ps.setBoolean(4, estActif);
+            ps.setBoolean(3, estActif);
             ps.executeUpdate();
 
             try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -70,13 +67,12 @@ public class RefDepartement extends ClassMere {
 
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
-        String sql = "UPDATE ref_departement SET code_departement = ?, libelle = ?, date_fin_prevue = ?, est_actif = ? WHERE id_departement = ?";
+        String sql = "UPDATE ref_departement SET code_departement = ?, libelle = ?, est_actif = ? WHERE id_departement = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, codeDepartement);
             ps.setString(2, libelle);
-            ps.setDate(3, dateFinPrevue);
-            ps.setBoolean(4, estActif);
-            ps.setInt(5, idDepartement);
+            ps.setBoolean(3, estActif);
+            ps.setInt(4, idDepartement);
             ps.executeUpdate();
         }
         return this;
@@ -98,7 +94,7 @@ public class RefDepartement extends ClassMere {
     }
 
     public ClassMere rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT id_departement, code_departement, libelle, date_fin_prevue, est_actif FROM ref_departement WHERE id_departement = ?";
+        String sql = "SELECT id_departement, code_departement, libelle, est_actif FROM ref_departement WHERE id_departement = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -111,7 +107,7 @@ public class RefDepartement extends ClassMere {
     }
 
     public static RefDepartement rechercherParCode(String code, Connection c) throws Exception {
-        String sql = "SELECT id_departement, code_departement, libelle, date_fin_prevue, est_actif FROM ref_departement WHERE code_departement = ?";
+        String sql = "SELECT id_departement, code_departement, libelle, est_actif FROM ref_departement WHERE code_departement = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             try (ResultSet rs = ps.executeQuery()) {
@@ -125,7 +121,7 @@ public class RefDepartement extends ClassMere {
 
     public static List<RefDepartement> listAll(Connection c) throws Exception {
         List<RefDepartement> list = new ArrayList<>();
-        String sql = "SELECT id_departement, code_departement, libelle, date_fin_prevue, est_actif FROM ref_departement ORDER BY id_departement ASC";
+        String sql = "SELECT id_departement, code_departement, libelle, est_actif FROM ref_departement ORDER BY id_departement ASC";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
@@ -140,7 +136,6 @@ public class RefDepartement extends ClassMere {
         d.setIdDepartement(rs.getInt("id_departement"));
         d.setCodeDepartement(rs.getString("code_departement"));
         d.setLibelle(rs.getString("libelle"));
-        d.setDateFinPrevue(rs.getDate("date_fin_prevue"));
         d.setEstActif(rs.getBoolean("est_actif"));
         return d;
     }
@@ -154,9 +149,6 @@ public class RefDepartement extends ClassMere {
 
     public String getLibelle() { return libelle; }
     public void setLibelle(String libelle) { this.libelle = libelle; }
-
-    public Date getDateFinPrevue() { return dateFinPrevue; }
-    public void setDateFinPrevue(Date dateFinPrevue) { this.dateFinPrevue = dateFinPrevue; }
 
     public boolean isEstActif() { return estActif; }
     public void setEstActif(boolean estActif) { this.estActif = estActif; }

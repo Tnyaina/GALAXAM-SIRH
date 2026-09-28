@@ -18,6 +18,7 @@ DROP TABLE IF EXISTS paie_stc CASCADE;
 DROP TABLE IF EXISTS paie_honoraire_prestation CASCADE;
 DROP TABLE IF EXISTS paie_pret_echeance CASCADE;
 DROP TABLE IF EXISTS paie_pret CASCADE;
+DROP TABLE IF EXISTS paie_mouvement_imputation CASCADE;
 DROP TABLE IF EXISTS paie_avance_acompte CASCADE;
 DROP TABLE IF EXISTS ref_type_mouvement_paie CASCADE;
 DROP TABLE IF EXISTS bulletin_paie_ligne CASCADE;
@@ -693,9 +694,9 @@ INSERT INTO ref_type_mouvement_paie (id_type_mouvement, code, libelle, sens, cat
 (2, 'AVANCE_SPECIALE', 'Avance exceptionnelle sur salaire', 'RETENUE', 'AVANCE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'RETENUE_AVANCE_SPECIALE'), FALSE, TRUE, 'AVANCE', 'TRESORERIE', TRUE, TRUE, TRUE, 'AVANCE', TRUE, 20, 'Avance employeur avec suivi du solde restant'),
 (3, 'CALL_PERSO', 'Retenue téléphonie personnelle', 'RETENUE', 'RETENUE_DIVERSE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'RETENUE_CALL_PERSO'), FALSE, FALSE, 'RETENUE_NETTE', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 30, 'Retenue nette manuelle avec source décrite dans le motif'),
 (4, 'RETENUE_DIVERSE', 'Retenue exceptionnelle', 'RETENUE', 'RETENUE_DIVERSE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REGULARISATION_PAIE'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 40, 'Retenue exceptionnelle motivée'),
-(5, 'PRIME_PERFORMANCE', 'Prime de performance', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_PERFORMANCE'), TRUE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 50, 'Montant attribué par la DAF puis transformé par le moteur'),
+(5, 'PRIME_PERFORMANCE', 'Prime de performance', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_PERFORMANCE'), TRUE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 50, 'Montant attribué puis transformé par le moteur'),
 (6, 'PRIME_ASSIDUITE', 'Prime d''assiduité', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_ASSIDUITE'), FALSE, FALSE, 'AUTOMATIQUE', 'SYSTEME', FALSE, TRUE, FALSE, 'SYSTEME', TRUE, 60, 'Non saisissable tant que le forfait daté n''est pas configuré'),
-(7, 'PRIME_EXCEPTIONNELLE', 'Prime exceptionnelle', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_EXCEPTIONNELLE'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 70, 'Gratification ponctuelle décidée par la DAF'),
+(7, 'PRIME_EXCEPTIONNELLE', 'Prime exceptionnelle', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_EXCEPTIONNELLE'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 70, 'Gratification ponctuelle décidée par la direction'),
 (8, 'AUTIMP', 'Autre gain imposable', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'AUTIMP'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 80, 'Compatibilité historique pour un gain imposable qualifié'),
 (9, 'EXTRA_DEPLACEMENT', 'Déplacement exceptionnel', 'GAIN', 'EXTRA', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'EXTRA_DEPLACEMENT'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 90, 'Exception motivée, distincte du déplacement ordinaire automatique'),
 (10, 'NOTE_DE_FRAIS', 'Remboursement de frais historique', 'GAIN', 'NOTE_DE_FRAIS', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REMBOURSEMENT_NOTE_FRAIS'), FALSE, FALSE, 'DOMAINE_FUTUR', 'FRAIS', FALSE, TRUE, TRUE, 'IMPORT', TRUE, 100, 'Compatibilité historique uniquement, sans création manuelle ordinaire'),

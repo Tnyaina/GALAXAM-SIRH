@@ -15,15 +15,15 @@ import { useDemandeCongeForm } from '@/features/leave/hooks/useDemandeCongeForm'
 import DatesCongeSection from './formulaire/DatesCongeSection';
 import ConflitsPostePreview from './formulaire/ConflitsPostePreview';
 
-export default function DemandeCongeModal({ 
-  idEmploye: idEmployeProp, 
-  initialDemande, 
-  initialDateDebut, 
-  initialDateFin, 
-  referentiels, 
-  isOpen, 
-  onClose, 
-  onSuccess 
+export default function DemandeCongeModal({
+  idEmploye: idEmployeProp,
+  initialDemande,
+  initialDateDebut,
+  initialDateFin,
+  referentiels,
+  isOpen,
+  onClose,
+  onSuccess
 }) {
   const toast = useToast();
 
@@ -38,7 +38,7 @@ export default function DemandeCongeModal({
     momentDemiJournee, setMomentDemiJournee,
     commentaire, setCommentaire,
     justificatifFourni, setJustificatifFourni,
-    
+
     derogationSoldeNegatif, setDerogationSoldeNegatif,
     derogationDelaiPreavis, setDerogationDelaiPreavis,
     derogationContinuiteService, setDerogationContinuiteService,
@@ -51,21 +51,21 @@ export default function DemandeCongeModal({
     nbJoursDecomptes, nbJoursWeekEnd, nbJoursOuvres,
     conflitReport, simulationReport, checkingConflits,
     loading, error, fieldErrors, setFieldErrors,
-    
+
     typesConge, motifsFamiliaux, selectedType,
     isExceptionnel, isMaternite,
-    
+
     // Méthodes
     handleSubmit
-  } = useDemandeCongeForm({ 
-    idEmployeProp, 
-    initialDemande, 
-    initialDateDebut, 
-    initialDateFin, 
-    referentiels, 
-    isOpen, 
-    onClose, 
-    onSuccess 
+  } = useDemandeCongeForm({
+    idEmployeProp,
+    initialDemande,
+    initialDateDebut,
+    initialDateFin,
+    referentiels,
+    isOpen,
+    onClose,
+    onSuccess
   });
 
   if (!isOpen) return null;
@@ -74,18 +74,18 @@ export default function DemandeCongeModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={initialDemande?.idDemandeConge 
-        ? (initialDemande.codeStatutDemande === 'VALIDE' 
-            ? `Modifier les dates du congé validé #${initialDemande.idDemandeConge}` 
-            : `Modifier la demande #${initialDemande.idDemandeConge}`) 
+      title={initialDemande?.idDemandeConge
+        ? (initialDemande.codeStatutDemande === 'VALIDE'
+          ? `Modifier les dates du congé validé #${initialDemande.idDemandeConge}`
+          : `Modifier la demande #${initialDemande.idDemandeConge}`)
         : "Nouvelle demande de congé ou d'absence"}
-      icon={<Calendar className="w-5 h-5 text-brand-500" />}
+      icon={<Calendar className="w-5 h-5 text-[var(--color-brand-500)]" />}
       size="full"
       className="max-w-[1380px] w-[95vw]"
       footer={
         <div className="flex items-center justify-between w-full">
           <span className="text-xs text-[var(--color-fg-subtle)]">
-            <span className="text-danger-500">*</span> Champs obligatoires
+            <span className="text-[var(--color-danger-500)]">*</span> Champs obligatoires
           </span>
           <div className="flex items-center gap-3">
             <Button type="button" variant="ghost" size="sm" onClick={onClose} className="rounded-none">
@@ -160,7 +160,11 @@ export default function DemandeCongeModal({
                 }}
                 options={typesConge
                   .filter((type) => type.estActif !== false && type.actif !== false || String(type.idTypeConge) === String(idTypeConge))
-                  .map((type) => ({ value: type.idTypeConge, label: type.libelle, sublabel: `${type.estPaye ? 'Rémunéré' : 'Sans solde'}${type.soumisDelaiPreavis ? ' · Préavis requis' : ''}` }))}
+                  .map((type) => ({
+                    value: type.idTypeConge,
+                    label: type.libelle || type.libelleTypeConge || type.code || type.codeTypeConge,
+                    sublabel: `${type.estPaye ? 'Rémunéré' : 'Sans solde'}${type.soumisDelaiPreavis ? ' · Préavis requis' : ''}`
+                  }))}
                 placeholder="Sélectionner un type de congé…"
                 error={fieldErrors.idTypeConge}
               />
@@ -177,7 +181,11 @@ export default function DemandeCongeModal({
                   }}
                   options={motifsFamiliaux
                     .filter((motif) => motif.estActif !== false && motif.actif !== false || String(motif.idMotif) === String(idMotifEvenementFamilial))
-                    .map((motif) => ({ value: motif.idMotif, label: motif.libelle, sublabel: `${motif.nbJoursAutorises} jours autorisés` }))}
+                    .map((motif) => ({
+                      value: motif.idMotif,
+                      label: motif.libelle || motif.libelleMotif || motif.code,
+                      sublabel: `${motif.nbJoursAutorises} jours autorisés`
+                    }))}
                   placeholder="Sélectionner un motif…"
                   error={fieldErrors.idMotifEvenementFamilial}
                 />
@@ -250,7 +258,7 @@ export default function DemandeCongeModal({
             {/* Section 4 : options RH propres à ce formulaire. */}
             <div className="border border-[var(--color-border-subtle)] mt-4">
               <button type="button" onClick={() => setShowOptionsAvancees((value) => !value)} aria-expanded={showOptionsAvancees} className="w-full flex items-center justify-between px-4 py-3 text-left">
-                <span className="text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)] flex items-center gap-1.5"><ShieldAlert className="w-4 h-4 text-warning-500" />Options avancées — RH uniquement</span>
+                <span className="text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)] flex items-center gap-1.5"><ShieldAlert className="w-4 h-4 text-[var(--color-warning-500)]" />Options avancées</span>
                 <ChevronDown className={`w-4 h-4 text-[var(--color-fg-muted)] transition-transform ${showOptionsAvancees ? 'rotate-180' : ''}`} />
               </button>
               {showOptionsAvancees && (

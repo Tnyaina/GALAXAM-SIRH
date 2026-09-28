@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from 'react';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Alert from '@/components/ui/feedback/Alert';
 import { getErrorMessage } from '@/api/apiClient';
 
 // Hooks
@@ -26,6 +27,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
     demandes,
     totalElements,
     loading,
+    error,
     currentPage,
     setCurrentPage,
     pageSize,
@@ -133,6 +135,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
   // Rendu : contenu et modales de la fonctionnalité
   return (
     <div className="space-y-5">
+      {error && <Alert type="error" message={error} />}
       {/* Filtres */}
       <ValidationFilters
         activeStatut={activeStatut}
@@ -161,9 +164,6 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
         setPageSize={setPageSize}
         canValidate={canValidate}
         onOpenDetail={handleOpenDetail}
-        onOpenRefus={handleOpenRefusal}
-        onOpenValider={handleOpenValidation}
-        onOpenModifier={handleOpenEdit}
       />
 
       {/* Toutes les Modales d'action (Lazy Loaded) */}
@@ -202,7 +202,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
       )}
 
       {/* Modale de création d'une nouvelle demande (Lazy Loaded) */}
-      <Suspense fallback={null}>
+      {showDemandeModal && <Suspense fallback={null}>
         <DemandeCongeModal
           isOpen={showDemandeModal}
           onClose={() => { setShowDemandeModal(false); setSelectedDemande(null); }}
@@ -211,7 +211,7 @@ export default function DemandesValidationTab({ referentiels, onReload: parentRe
           referentiels={referentiels}
           onSuccess={() => { setShowDemandeModal(false); setSelectedDemande(null); if (parentReload) parentReload(); loadData(); }}
         />
-      </Suspense>
+      </Suspense>}
     </div>
   );
 }

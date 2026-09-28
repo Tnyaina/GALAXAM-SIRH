@@ -281,7 +281,7 @@ export default function ConflitsPostePreview({
                 <span className="text-[11.5px] font-bold text-[var(--color-fg)]">
                   Accorder une dérogation exceptionnelle de continuité de service
                   <span className="block text-[10.5px] font-normal text-[var(--color-fg-muted)]">
-                    Confirme que l'impact d'absence simultanée a été instruit et validé par les RH.
+                    Confirme que l'impact d'absence simultanée a été instruit et validé.
                   </span>
                 </span>
               </label>

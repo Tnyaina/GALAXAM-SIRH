@@ -18,6 +18,7 @@ vi.mock('../api/congeService', () => ({
     getConsommationPool: vi.fn(),
     getAllReferentiels: vi.fn(),
     annulerDemande: vi.fn(),
+    getExamenExpiration: vi.fn(),
   }
 }));
 
@@ -29,6 +30,7 @@ describe('CongesTab & SoldeCongeWidget - UI / UX enhancements', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     vi.clearAllMocks();
+    congeService.getExamenExpiration.mockResolvedValue({ idEmploye: 1, joursAExaminer: 0, droitsCandidats: [] });
   });
 
   it('met le solde et le taux en premier et replie les autres compteurs', async () => {
@@ -220,4 +222,3 @@ describe('CongesTab & SoldeCongeWidget - UI / UX enhancements', () => {
     expect(container.textContent).toContain('+10.00 j'); // après mvt 1
   });
 });
-

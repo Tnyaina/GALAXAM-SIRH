@@ -377,7 +377,7 @@ export default function WorkflowDraftSummaryModal({
                     {(currentWf.motif || currentWf.commentaire) && (
                         <div className="bg-[var(--color-bg-subtle)] p-4 border border-[var(--color-border-subtle)] rounded-none space-y-2 text-xs">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] border-b border-[var(--color-border-subtle)] pb-2">
-                                {isEmbauche ? 'Motif & Justification de l\'embauche' : 'Motif & Justification de la décision RH'}
+                                {isEmbauche ? 'Motif & Justification de l\'embauche' : 'Motif & Justification de la décision'}
                             </h3>
                             {currentWf.motif && (
                                 <p className="text-xs text-[var(--color-fg)]">{currentWf.motif}</p>

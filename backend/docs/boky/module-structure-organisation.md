@@ -119,7 +119,6 @@ classDiagram
         +varchar raison_sociale
         +varchar nif
         +varchar stat
-        +int seuil_effectif_alerte
         +boolean est_actif
     }
 
@@ -127,7 +126,6 @@ classDiagram
         +int id_departement PK
         +varchar code_departement UK
         +varchar libelle
-        +date date_fin_prevue
         +boolean est_actif
     }
 
@@ -190,15 +188,14 @@ La table `ref_filiale` matérialise l'entité légale titulaire du registre du c
   - `raison_sociale` (VARCHAR(100), Dénomination commerciale légale)
   - `nif` (VARCHAR(30), Numéro d'Identification Fiscale)
   - `stat` (VARCHAR(30), Numéro Statistique délivré par l'INSTAT)
-  - `seuil_effectif_alerte` (INT, Défaut 19 — seuil légal déclenchant des obligations de représentation du personnel ou de comité d'entreprise selon le Code du travail malgache)
   - `est_actif` (BOOLEAN, Défaut TRUE)
   - `date_desactivation` (TIMESTAMP WITH TIME ZONE, Date de cessation ou clôture)
   - `created_at` (TIMESTAMP WITH TIME ZONE, Date d'enregistrement)
 
 ### 4.2. Données Actuelles du Seed SQL Canonique
 Les données initiales présentes dans `02_schema_referentiels_rh.sql` documentent la structure du groupe :
-1. **GLX** : *Galaxam Logistics* — NIF `3000019434`, STAT `9876543210`, seuil d'alerte effectif fixé à 19 salariés.
-2. **VA** : *Vina sy Asa* — NIF `3000019434` (même groupe fiscal), STAT `0123456789`, seuil d'alerte fixé à 0.
+1. **GLX** : *Galaxam Logistics* — NIF `3000019434`, STAT `9876543210`.
+2. **VA** : *Vina sy Asa* — NIF `3000019434` (même groupe fiscal), STAT `0123456789`.
 
 ### 4.3. Impacts Transverses
 - **Employés & Contrats** : Chaque contrat de travail (`contrat_travail.id_filiale`) est obligatoirement lié à une filiale. C'est l'employeur juridique au sens du droit du travail.
@@ -211,7 +208,7 @@ Les données initiales présentes dans `02_schema_referentiels_rh.sql` documente
 ### 5.1. Départements (`ref_departement`)
 Le département constitue une division fonctionnelle majeure de l'organisation.
 - **Table** : `ref_departement`
-- **Colonnes** : `id_departement` (PK), `code_departement` (VARCHAR(10) UNIQUE), `libelle` (VARCHAR(100)), `date_fin_prevue` (DATE, optionnelle pour départements projet), `est_actif` (BOOLEAN DEFAULT TRUE).
+- **Colonnes** : `id_departement` (PK), `code_departement` (VARCHAR(10) UNIQUE), `libelle` (VARCHAR(100)), `est_actif` (BOOLEAN DEFAULT TRUE).
 - **Données Seed** : `LOG` — *Logistics*.
 - **Rôle métier** : Utilisé pour les regroupements analytiques et les synthèses d'effectifs.
 
@@ -569,7 +566,7 @@ CREATE INDEX idx_parametre_categorie ON parametre_global(categorie);
 | **37**| `DUREE_MAX_CONTRAT_CDD_MOIS`| `CONTRAT` | `24` | Mois | Durée max d'un contrat CDD unitaire (Art. 19 Code Travail) |
 | **16**| `MAX_RENOUVELLEMENTS_ESSAI`| `RH_GENERAL` | `1` | Entier | Renouvellements autorisés pour la période d'essai (1 max) |
 | **18**| `PLAFOND_CUMUL_SOLDE_CONGE_JOURS` | `CONGE` | `90` | Jours | Plafond solde cumulé congés payés (30j/an x 3 ans) |
-| **19**| `DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS` | `CONGE` | `36` | Mois | Prescription triennale déclenchant les expirations de solde |
+| **19**| `DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS` | `CONGE` | `36` | Mois | Seuil d'ancienneté des droits déclenchant leur examen DAF, sans débit automatique |
 | **20**| `PLAFOND_SOLDE_CONGE_NEGATIF` | `CONGE` | `-10` | Jours | Anticipation max autorisée par dérogation RH |
 | **21**| `SEUIL_ALERTE_SOLDE_CONGE_FAIBLE` | `CONGE` | `3` | Jours | Déclenchement de l'indicateur visuel de solde faible |
 | **22**| `DELAI_PREAVIS_COURT_JOURS` | `CONGE` | `2` | Jours | Préavis minimum pour demande de courte durée |
@@ -1154,7 +1151,6 @@ erDiagram
         int id_filiale PK
         varchar code_filiale UK
         varchar raison_sociale
-        int seuil_effectif_alerte
         boolean est_actif
     }
     REF_SITE {

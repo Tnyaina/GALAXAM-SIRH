@@ -534,7 +534,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
                                 <span className="font-bold text-[var(--color-fg)] text-[11px] uppercase tracking-wider flex items-center gap-1.5">
                                     <DollarSign size={14} className="text-blue-500" />
-                                    VARIABLES DU MOIS (AJUSTEMENTS DAF)
+                                    VARIABLES DU MOIS (AJUSTEMENTS MANUELS)
                                 </span>
                                 <button
                                     onClick={() => setShowAddVariable(!showAddVariable)}

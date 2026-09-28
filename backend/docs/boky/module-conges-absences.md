@@ -22,7 +22,7 @@ Il unifie et verrouille définitivement :
 1. Les **fondements juridiques malagasy stricts** (Code du Travail 2003-044 et décrets d'application) régissant l'acquisition des droits, les permissions exceptionnelles, les suspensions pour maladie et les congés de maternité/paternité.
 2. Le **modèle mathématique d'acquisition proratisée et de valorisation financière** conforme aux feuilles de calcul d'entreprise et à la pratique de paie malagasy (`OHATRA KAJY DROITS CONGES`).
 3. L'**architecture de persistance consolidée** (18 fichiers Java de production, zéro couche ORM JPA/Hibernate, exécution JDBC directe optimisée avec transactions pilotées par `TransactionRunner`).
-4. Le **grand-livre comptable des congés (`mouvement_solde_conge`)**, garantissant la traçabilité intégrale de chaque centième de jour (imputation FIFO chronologique, purge triennale automatique, débits `PRISE`, crédits `ANNULATION` idempotents).
+4. Le **grand-livre des congés (`mouvement_solde_conge`)**, garantissant la traçabilité des mouvements (imputation FIFO chronologique, décisions d'expiration DAF, débits `PRISE`, crédits `ANNULATION` idempotents).
 5. Les **règles de gestion métier (RG)** exhaustives couvrant l'intégralité du cycle de vie opérationnel, de la simulation préventive jusqu'à la liquidation au Solde de Tout Compte (STC).
 6. Les **intégrations interconnectées réelles** certifiées avec les modules **Pointage**, **Paie** et **STC**.
 
@@ -36,7 +36,7 @@ Il unifie et verrouille définitivement :
 4. [Règles de Gestion Métier (RG) Détaillées](#4-règles-de-gestion-métier-rg-détaillées)
 5. [Workflow & Circuit de Validation Transactionnel](#5-workflow--circuit-de-validation-transactionnel)
 6. [Intégrations Certifiées : Pointage, Paie & STC](#6-intégrations-certifiées--pointage-paie--stc)
-7. [Automatisations, Purge FIFO & Schedulers Nocturnes](#7-automatisations-purge-fifo--schedulers-nocturnes)
+7. [Automatisations, FIFO & Schedulers Nocturnes](#7-automatisations-fifo--schedulers-nocturnes)
 8. [Cartographie des Composants Logiciels (Backend & Frontend)](#8-cartographie-des-composants-logiciels-backend--frontend)
 9. [Matrice des Codes d'Erreur & Réponses API Normalisées](#9-matrice-des-codes-derreur--réponses-api-normalisées)
 10. [Corrections Critiques & Points d'Audit du Sprint 3](#10-corrections-critiques--points-daudit-du-sprint-3)
@@ -53,7 +53,7 @@ Les congés payés sont régis par des dispositions d'**ordre public absolu** : 
 
 | Article de Loi / Décret | Libellé & Portée Juridique | Traduction Fonctionnelle & Technique dans GALAXAM SIRH |
 | :--- | :--- | :--- |
-| **Article 85** | **Durée du congé, jouissance et prescription**<br>• Acquisition : **2,5 jours calendaires par mois de service effectif** (soit 30 jours par an).<br>• Droit de jouissance ouvert après **12 mois de service effectif**.<br>• Prescription triennale : extinction des droits par **trois (3) ans**. | • Formule d'acquisition mensuelle canonique : `2.50 j/mois`.<br>• Contrôle d'ancienneté minimale : seuil de 12 mois dans `ref_type_conge` (`ANNUEL`).<br>• Job de purge FIFO triennale : expiration automatique des lots acquis datant de plus de 36 mois. |
+| **Articles 125, 126, 129 et 130** | **Acquisition, prescription et jouissance du congé payé**<br>• Acquisition de 2,5 jours calendaires par mois de service effectif.<br>• Le droit se prescrit par trois ans, mais le salarié peut combattre la prescription s'il établit que l'employeur l'a empêché de jouir de ses droits.<br>• La jouissance est acquise après douze mois de service effectif. | • Acquisition issue de la configuration légale applicable.<br>• Le délai configuré signale les droits disponibles à examiner par la DAF ; aucune expiration automatique.<br>• Toute confirmation d'expiration est motivée et historisée. |
 | **Article 86** | **Bonifications d'ancienneté & Mères salariées**<br>• Augmentation de la durée du congé pour ancienneté dans l'entreprise selon convention ou règlement intérieur.<br>• Congés supplémentaires pour enfants à charge. | • Moteur `CongeCalculateurEngine` : calcul du bonus annuel d'ancienneté (+1 jour par palier de 5 ans à partir de 3 ans d'ancienneté).<br>• Mouvement créditeur `BONIFICATION` dans le grand-livre. |
 | **Article 87** | **Périodes assimilées à du travail effectif**<br>Sont assimilées à un mois de travail effectif :<br>1° Congés payés antérieurs.<br>2° Repos de maternité (Art. 97).<br>3° Accidents du travail / maladies pro (limite 1 an).<br>4° Maladie ordinaire (limite 6 mois — Art. 13).<br>5° Permissions d'événements familiaux (Art. 88). | • La formule du trentième ($F = 30 - \max(0, J_{abs} - J_{conge})$) neutralise l'impact des congés pris.<br>• Le congé maternité et les permissions payées maintiennent à 100% l'acquisition du droit mensuel de 2,5 jours. |
 | **Article 88** | **Permissions exceptionnelles pour événements familiaux**<br>• Droit à des permissions payées dans la limite de **10 jours par an**.<br>• Non déductibles du congé annuel si payées.<br>• Justificatif obligatoire dans les 6 mois. | • Table `ref_pool_conge_annuel` avec quota de 10,0 jours/an.<br>• Décompte partagé entre les motifs légaux (mariage, naissance, décès).<br>• Contrôle anti-dépassement cumulatif (`VALIDE` + `EN_ATTENTE`). |
@@ -181,7 +181,10 @@ Registre immuable de chaque débit et crédit de congés :
   - `idx_uniq_mouvement_prise_demande` : empêche toute double écriture de `PRISE` pour une même demande.
   - `idx_uniq_mouvement_annulation_demande` : garantit l'idempotence stricte de l'opération d'annulation.
 
-#### 6. `conge_periode_reference` & `conge_taux_applicable`
+#### 6. `conge_expiration_examen`
+Historise les décisions de la personne habilitée concernant les droits candidats à prescription : jours examinés, report et prochaine date de revue, motif, décisionnaire, vérification de la planification et mouvement d'expiration lié.
+
+#### 7. `conge_periode_reference` & `conge_taux_applicable`
 Périodes de 12 mois bornées et historisation du taux journalier `TCONGE` avec convention $[date\_effet, date\_fin[$.
 
 ### 3.2 Vues SQL Certifiées
@@ -204,10 +207,10 @@ Périodes de 12 mois bornées et historisation du taux journalier `TCONGE` avec 
 - **Demi-journée** : Si `est_demi_journee = true`, alors $\text{date\_debut} = \text{date\_fin}$, $\text{nb\_jours\_decomptes} = 0{,}5$, et le moment doit être explicitement renseigné (`MATIN` ou `APRES_MIDI`).
 
 ### RG-CON-02 : Acquisition Mensuelle Légale & Idempotence
-- Base normale : **2,50 jours calendaires** par mois de service effectif (Art. 85).
+- Base normale : **2,50 jours calendaires** par mois de service effectif (Art. 85), lue dans `paie_config_legale.acquisition_conge_mensuel_jours` selon le mois concerné. Une configuration absente ou illisible bloque l'acquisition.
 - Proratisation : en présence d'absences injustifiées ou non rémunérées, le calcul s'applique sur la formule d'activité :
   $$D_m = 2{,}5 \times \frac{30 - J_{abs}}{30}$$
-- **Idempotence certifiée** : L'exécution du cycle d'acquisition mensuelle vérifie la présence d'une écriture existante sur la période pour le collaborateur. Tout rappel ultérieur préserve le solde sans générer de crédit double.
+- **Idempotence certifiée** : La clôture de paie enregistre ou corrige l'écriture du mois à partir des absences constatées. Le cron ne crédite plus le mois courant par anticipation. Tout rappel ultérieur préserve le solde sans générer de crédit double.
 
 ### RG-CON-03 : Bonification pour Ancienneté
 - Calculée au mois anniversaire d'embauche du salarié :
@@ -216,12 +219,11 @@ Périodes de 12 mois bornées et historisation du taux journalier `TCONGE` avec 
     $$\text{Bonus} = \left\lfloor \frac{\text{Années d'ancienneté}}{5} \right\rfloor \times 1\text{ jour}$$
   - Tracé dans le ledger sous le libellé `BONIFICATION`.
 
-### RG-CON-04 : Prescription Triennale & Purge FIFO (RG-CONGE-06)
-- Conformément à l'Article 85 in fine, les droits à congé se prescrivent par **trois (3) ans (36 mois)**.
-- **Algorithme d'imputation FIFO autonome (`PurgeFifoEngine`)** :
-  1. Les consommations (`PRISE`) s'imputent chronologiquement sur les lots acquis les plus anciens.
-  2. À la date de purge, tout reliquat non consommé d'un lot acquis datant de plus de 36 mois génère une écriture débitrice `EXPIRATION`.
-  3. Les droits récents non échus sont rigoureusement préservés.
+### RG-CON-04 : Examen DAF des droits candidats à prescription (RG-CONGE-06)
+- Le délai est piloté par `DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS` et sert à repérer les droits disponibles à examiner.
+- `PurgeFifoEngine` calcule les reliquats candidats après imputation FIFO des prises.
+- Aucun traitement automatique ne débite ces droits. La DAF peut enregistrer un report motivé ou confirmer l'expiration avec un motif ; la confirmation ajoute un mouvement `EXPIRATION` lié à une décision historisée dans `conge_expiration_examen`.
+- Les droits reportés demeurent au solde et reviennent à l'examen à la date choisie.
 
 ### RG-CON-05 : Anticipation de Solde & Dérogation RH
 - En règle générale, toute demande dont le volume dépasse le solde disponible est bloquée (`LEAVE_BALANCE_INSUFFICIENT`).
@@ -350,15 +352,15 @@ Lors du départ du collaborateur (démission, licenciement, terme du contrat) :
 
 ---
 
-## 7. Automatisations, Purge FIFO & Schedulers Nocturnes
+## 7. Automatisations, FIFO & Schedulers Nocturnes
 
-Trois processus automatisés tournent en arrière-plan selon un calendrier strict :
+Les processus du domaine congés tournent en arrière-plan selon le calendrier suivant :
 
 | Horaire | Composant Scheduler | Rôle & Traitement Effectué |
 | :---: | :--- | :--- |
 | **00:05** | `NotificationRhScheduler` | Détection et dispatching des alertes RH de supervision (solde faible, expiration proche, tranche de fractionnement non respectée). |
-| **01:00** | `AcquisitionCongeScheduler` | Exécution de l'acquisition mensuelle (+2,5j proratisé) pour les salariés actifs et calcul de la bonification d'ancienneté au mois anniversaire. |
-| **02:00** | `PurgeCongeScheduler` | Exécution de la purge FIFO triennale : calcul des droits acquis datant de plus de 36 mois et génération des mouvements débit de type `EXPIRATION`. |
+| **1er jour du mois, 01:00** | `AcquisitionCongeScheduler` | Vérification de la bonification d'ancienneté pour le mois clos, avec rattrapage possible. L'acquisition mensuelle est enregistrée à la clôture de paie à partir des absences constatées et du taux applicable dans `paie_config_legale`. |
+| — | — | Aucun cron ne débite les congés arrivés au seuil de prescription. L'examen et toute expiration sont effectués par une personne habilitée depuis la fiche salarié. |
 
 ---
 
@@ -381,7 +383,7 @@ mg.galaxam.sirh.conge/
 │   └── CongeTauxApplicableService.java      # Source unique de résolution temporelle du taux TCONGE
 ├── domain/
 │   ├── CongeCalculateurEngine.java          # Moteur pur de calcul (jours calendaires, préavis, prorata)
-│   ├── PurgeFifoEngine.java                 # Moteur autonome d'imputation FIFO et purge triennale
+│   ├── PurgeFifoEngine.java                 # Imputation FIFO et calcul des droits à examiner
 │   ├── CongeSituationEmployeDTO.java        # DTO canonique de synthèse collaborateur
 │   └── TcongeConfigurationDTO.java          # DTO de configuration et historique TCONGE
 └── persistence/
@@ -436,9 +438,22 @@ Toutes les violations de règles métier renvoient des codes d'erreur stables et
 
 ---
 
-## 11. Recueil Textuel Intégral des Articles Légaux (Loi n° 2003-044)
+## 11. Références légales
 
-Pour servir de référence textuelle inattaquable lors des audits sociaux et des contrôles de l'Inspection du Travail :
+Les extraits de la Loi n° 2003-044 conservés ci-dessous sont historiques. Pour la
+prescription des congés, appliquer le Code du Travail 2024, notamment ses
+articles 128 à 130. L'article 129 prévoit une prescription de trois ans et
+permet au salarié de la combattre s'il établit que l'employeur l'a empêché de
+jouir de ses droits en raison d'une défaillance de planification ou d'un motif
+de service. GALAXAM signale donc les droits à examiner et exige une décision
+DAF motivée ; aucun cron ne débite automatiquement le solde.
+
+Source officielle : Loi n° 2024-014 du 1er juillet 2024, Code du Travail,
+[Journal officiel / CNLEGIS](https://cnlegis.gov.mg/uploads/L2024-014-VF.pdf).
+
+### Loi historique n° 2003-044 — extraits conservés pour comparaison
+
+Ces extraits ne constituent pas la référence juridique courante.
 
 ### Article 85 — Droit au congé annuel, acquisition et prescription
 > *« Sauf dispositions plus favorables des conventions collectives ou du contrat individuel de travail, le travailleur acquiert droit au congé payé à la charge de l'employeur, à raison de **deux jours et demi calendaires par mois de service effectif**, soit trente jours calendaires par an.*
@@ -514,16 +529,64 @@ Reproduction intégrale du cycle annuel de référence validant le calcul mathé
 
 ## 13. Édition et Export Officiel de l'État Annuel des Congés (ETAT_CONGES_PAR_PERSONNE.xlsx)
 
-Le système intègre un moteur de production documentaire officiel conforme au canevas Excel réglementaire d'entreprise (`templates/annuel/ETAT_CONGES_PAR_PERSONNE.xlsx`), strictement asservi au **cycle annuel de référence de 12 mois** (`conge_periode_reference`).
+### Grand récapitulatif DAF
+
+Le bouton **Grand récapitulatif Excel** de `/conges` appelle
+`GET /conges/periodes-reference/grand-recap/export-excel?dateDebut=YYYY-MM-DD&dateFin=YYYY-MM-DD`
+(permission `CONGE_READ`). Le service `CongeGrandRecapExcelExportService` remplit le canevas
+`GRAND_RECAP_CONGES_VALORISES.xlsx` pour les salariés concernés, sans limite de
+100 lignes. L'ouverture est la somme des mouvements antérieurs à `dateDebut`,
+les mouvements ventilés sont ceux de `[dateDebut, dateFin]`, et le solde est
+arrêté à `dateFin`. La filiale, le site, le poste, la période de référence et
+le `conge_taux_applicable` sont recherchés à la date de fin. Le sélecteur de
+l'interface propose par défaut le début de l'année jusqu'à aujourd'hui, mais
+les deux bornes peuvent être choisies par la DAF.
+
+Le solde en jours est la somme du journal. Sa valeur est `solde × TCONGE` côté
+backend, sans formule métier dans Excel. Si un taux manque, la valeur de cette
+ligne reste vide et le total en Ariary est supprimé ; le nombre de salariés
+non valorisés apparaît dans l'en-tête. Les seules formules du classeur sont les
+sommes de présentation des jours et, lorsque tous les taux sont disponibles,
+de la valorisation. L'état individuel existant reste accessible depuis la
+fiche du salarié pour expliquer les mois et les mouvements.
+
+### Correspondance avec les exemples KAJY fournis par la DAF
+
+La colonne « formule » des exemples représente les jours d'activité retenus
+pour l'acquisition ; les congés payés n'y deviennent pas des absences
+injustifiées. Le backend alimente `conge_journal_droit` depuis la paie avec
+`base valorisation = net base + HS`, `droits acquis` calculés avec le taux et le
+diviseur paramétrés, `valorisation mensuelle = base valorisation × droits / 30`,
+et `TCONGE calculé = cumul valorisation / cumul droits`. Le journal stocke les
+droits à quatre décimales et les montants à deux décimales : les exemples
+historiques Excel conservent parfois davantage de décimales et peuvent donc
+différer de quelques ariary par mois. Par exemple, la ligne de février du
+fichier DAF « OHATRA KAJY DROITS CONGES-given on sept26.xls » affiche
+2,499166… jours et 25 986,2558… Ar de valorisation ; la règle actuelle du SIRH
+stocke 2,4992 jours et 25 986,60 Ar. L'export restitue les écritures du SIRH
+et ne recalcule pas ces valeurs. Le registre `mouvement_solde_conge.nb_jours`
+reste quant à lui limité à deux décimales par le schéma actuel : une éventuelle
+hausse de précision des soldes doit être décidée pour toute la chaîne
+congés–paie, puis migrée avec les données historiques.
+
+Le TCONGE « calculé » dans le journal de droits et le TCONGE « applicable »
+dans `conge_taux_applicable` ont des rôles distincts : le premier suit
+l'acquisition, le second valorise le solde à la date d'arrêté. Si le second
+manque pour un solde non nul, la valorisation reste vide plutôt que de prendre
+le salaire actuel divisé par 30. Le récapitulatif collectif porte sur une
+période commune choisie par la DAF ; chaque état individuel reste attaché à la
+période de référence propre au salarié.
+
+Le système produit un état individuel à partir du canevas interne (`templates/annuel/ETAT_CONGES_PAR_PERSONNE.xlsx`), lié à la période de référence du salarié (`conge_periode_reference`). Les fichiers historiques KAJY servent d'exemples de calcul, tandis que les montants exportés proviennent des calculs et écritures du SIRH.
 
 ### 13.1 Structure du Classeur Réparti sur 3 Feuilles
 
 1. **Feuille 1 — « État congés salarié »** :
-   - **Bloc d'En-tête** : Matricule, nom et prénom du collaborateur, filiale de rattachement, site géographique, fonction/poste, bornes de la période de référence (`date_debut` à `date_fin`), mode de reprise (`FULL_HISTORY`, `AGGREGATED_OPENING`), solde d'ouverture reporté, réserve valorisée d'ouverture et taux journalier TCONGE applicable.
-   - **Grille des 12 Mois de Référence (Lignes 8 à 19)** : Déroulement systématique des 12 mois légaux du cycle (salaires de base, assiettes, décomptes d'activité, droits mensuels acquis, valorisations mensuelles, prises de congés enregistrées, indemnités et heures supplémentaires).
+   - **Bloc d'En-tête** : Matricule, nom et prénom du collaborateur, filiale de rattachement, site géographique, fonction/poste à la date de situation, bornes de la période de référence, mode de reprise, solde d'ouverture issu du ledger, cumul valorisé d'ouverture des droits TCONGE (qui ne représente pas la valeur du solde) et taux applicable historisé.
+   - **Grille des 12 périodes de référence (Lignes 8 à 19)** : Salaire, assiette, droits et valorisation proviennent du journal `conge_journal_droit` alimenté lors de la paie. Les retenues, indemnités et HS proviennent du bulletin lié à ce journal. Les prises et soldes viennent du registre `mouvement_solde_conge` ; les ajustements, annulations et expirations sont donc inclus dans le solde. Les périodes futures et valeurs non disponibles restent vides.
    - **Ligne 20 (« TOTAL / SITUATION »)** : **Préservation intégrale des formules natives de sommation Excel** (ex: `=SUM(B8:B19)`), avec appel explicite à `workbook.setForceFormulaRecalculation(true)` garantissant la recalculation dynamique à l'ouverture sous Microsoft Excel ou LibreOffice Calc.
 2. **Feuille 2 — « Mouvements »** :
-   - Ligne 4 initiale : Report du solde d'ouverture (`soldeOuverture`) et valorisation correspondante.
+   - Ligne 4 initiale : Report du solde du registre avant le début de la période et valorisation lorsque le taux applicable existe.
    - Lignes 5+ : Audit trail chronologique détaillé, filtré **strictement sur la période de référence** sélectionnée (Date, Type de mouvement, Réf. Demande, Commentaire/Motif, Droits acquis / Crédit, Droits consommés / Débit, Solde progressif après mouvement, TCONGE applicable, Valeur indicative en Ariary et Opérateur ayant créé le mouvement).
 3. **Feuille 3 — « README »** :
    - Notice réglementaire conservée en l'état rappelant le cadre légal (2,5 jours/mois, diviseur 30, assiette de valorisation).

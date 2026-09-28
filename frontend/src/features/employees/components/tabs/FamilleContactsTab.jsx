@@ -72,7 +72,7 @@ export default function FamilleContactsTab({ conjoint, enfants = [], contactsUrg
                     ) : (
                         <div className="bg-[var(--color-bg-subtle)]/30 border border-[var(--color-border-subtle)]/60 px-4 py-2.5 flex items-center gap-2 text-xs text-[var(--color-fg-muted)]">
                             <Heart size={14} className="text-[var(--color-fg-subtle)] shrink-0" />
-                            <span>Célibataire ou conjoint non déclaré sur le dossier RH.</span>
+                            <span>Célibataire ou conjoint non déclaré sur le dossier.</span>
                         </div>
                     )}
 

@@ -90,10 +90,10 @@ export default function WorkflowStepper({ steps = [], currentStep, onStepClick, 
                                     </span>
                                 )}
 
-                                {/* Badge DAF only */}
+                                {/* Badge étape restreinte */}
                                 {step.status === 'daf-only' && (
                                     <span className="text-[8px] font-bold px-1 border border-[var(--color-border)] text-[var(--color-fg-muted)]">
-                                        DAF
+                                        Arbitrage
                                     </span>
                                 )}
                             </button>

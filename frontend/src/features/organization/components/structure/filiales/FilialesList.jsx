@@ -17,7 +17,6 @@ export default function FilialesList({
                 <Th>NIF</Th>
                 <Th>STAT</Th>
                 <Th>RCS</Th>
-                <Th>Seuil Alerte Effectif</Th>
                 <Th>Statut</Th>
                 <Th className="text-right">Actions</Th>
             </Thead>
@@ -36,15 +35,6 @@ export default function FilialesList({
                             <Td isData muted className="text-xs">{f.nif || '-'}</Td>
                             <Td isData muted className="text-xs">{f.stat || '-'}</Td>
                             <Td isData muted className="text-xs">{f.rcs || 'À renseigner'}</Td>
-                            <Td>
-                                <span className={`px-2 py-0.5 font-data text-xs font-semibold rounded-none border ${
-                                    (f.seuilEffectifAlerte ?? 19) > 0
-                                        ? 'bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border-[var(--color-border-subtle)]'
-                                        : 'bg-transparent text-[var(--color-fg-muted)] border-dashed border-[var(--color-border-subtle)]'
-                                }`}>
-                                    {(f.seuilEffectifAlerte ?? 19) > 0 ? `${f.seuilEffectifAlerte ?? 19} pers.` : 'Sans seuil'}
-                                </span>
-                            </Td>
                             <Td>
                                 <Badge variant={f.estActif ? 'success' : 'default'} size="sm" dot>
                                     {f.estActif ? "Actif" : "Désactivé"}
@@ -78,7 +68,7 @@ export default function FilialesList({
                     ))
                 ) : (
                     <Tr>
-                        <Td colSpan={8} className="p-0">
+                        <Td colSpan={7} className="p-0">
                             <EmptyState
                                 icon={Building2}
                                 title="Aucune filiale enregistrée"

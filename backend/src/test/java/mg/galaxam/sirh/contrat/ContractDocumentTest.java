@@ -157,7 +157,7 @@ class ContractDocumentTest {
         type="TEMPORAIRE";contract.put("date_fin",java.sql.Date.valueOf("2027-01-31"));contract.remove("description");
         var dto=service.preparerContrat(42,db());assertTrue(dto.isGenerationPossible());
         assertTrue(dto.avertissements().contains("{{TEMPORAIRE_MOTIF}}"));
-        assertEquals("Non renseigné — à vérifier par la DAF/RH",dto.variables().get("{{TEMPORAIRE_MOTIF}}"));
+        assertEquals("Non renseigné — à vérifier avant validation",dto.variables().get("{{TEMPORAIRE_MOTIF}}"));
     }
     @Test void temporaryMissingEndDateBlocksGenerationAndDomainValidation() throws Exception {
         type="TEMPORAIRE";var dto=service.preparerContrat(42,db());assertTrue(dto.donneesManquantes().contains("{{CONTRAT_DATE_FIN}}"));

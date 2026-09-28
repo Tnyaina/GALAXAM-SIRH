@@ -35,7 +35,7 @@ export default function DemandeDetailsModal({
       isOpen={isOpen}
       onClose={onClose}
       title={`Détail de la Demande de Congé #${demande.idDemandeConge}`}
-      icon={<FileText className="w-5 h-5 text-brand-500" />}
+      icon={<FileText className="w-5 h-5 text-[var(--color-brand-500)]" />}
       size="lg"
       footer={
         <div className="flex items-center justify-between w-full">

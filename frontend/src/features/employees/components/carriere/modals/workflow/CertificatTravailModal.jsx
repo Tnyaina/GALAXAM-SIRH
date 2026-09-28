@@ -90,7 +90,7 @@ export default function CertificatTravailModal({
         stat: docData?.entreprise?.stat || filiale?.stat || null,
         rcs: docData?.entreprise?.rcs || filiale?.rcs || null,
         telephone: docData?.entreprise?.telephone || filiale?.telephone || '+261 32 12 131 01',
-        email: docData?.entreprise?.email || filiale?.email || 'daf@galaxam.com',
+        email: docData?.entreprise?.email || filiale?.email || 'contact@galaxam.com',
     };
 
     const emp = docData?.employe || {

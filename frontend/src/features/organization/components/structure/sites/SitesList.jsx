@@ -1,4 +1,4 @@
-import { Edit2, MapPin, Power } from 'lucide-react';
+import { Edit2, MapPin, Power, Clock } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -7,6 +7,7 @@ export default function SitesList({
     sites = [],
     onOpenEdit,
     onToggleStatus,
+    onTogglePlancher,
     onOpenCreate,
 }) {
     return (
@@ -17,6 +18,7 @@ export default function SitesList({
                 <Th>Filiale Juridique</Th>
                 <Th>Régime Horaire</Th>
                 <Th>Plages Horaires Applicables</Th>
+                <Th>Plancher d'Arrivée</Th>
                 <Th>Statut</Th>
                 <Th className="text-right">Actions</Th>
             </Thead>
@@ -73,12 +75,37 @@ export default function SitesList({
                                     </div>
                                 </Td>
                                 <Td>
+                                    {s.plancherArriveeActif ? (
+                                        <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-[var(--color-brand-600)] bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/20 px-2.5 py-1 rounded-none">
+                                            <Clock size={12} className="text-[var(--color-brand-500)]" />
+                                            {s.heureEntreeMinimaleValorisee ? s.heureEntreeMinimaleValorisee.substring(0, 5) : '07:30'}
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-fg-muted)] bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] px-2 py-0.5 rounded-none">
+                                            <Clock size={12} className="opacity-40" />
+                                            Désactivé
+                                        </span>
+                                    )}
+                                </Td>
+                                <Td>
                                     <Badge variant={s.estActif ? 'success' : 'default'} size="sm" dot>
                                         {s.estActif ? "Actif" : "Désactivé"}
                                     </Badge>
                                 </Td>
                                 <Td className="text-right">
                                     <div className="flex justify-end items-center gap-1.5">
+                                        <button
+                                            onClick={() => onTogglePlancher && onTogglePlancher(s)}
+                                            className={`p-1.5 rounded-none cursor-pointer transition-colors ${
+                                                s.plancherArriveeActif
+                                                    ? 'text-[var(--color-brand-500)] hover:text-[var(--color-warning-600)] hover:bg-[var(--color-warning-500)]/10'
+                                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10'
+                                            }`}
+                                            title={s.plancherArriveeActif ? "Désactiver le plancher d'arrivée" : "Activer le plancher d'arrivée"}
+                                            aria-label={s.plancherArriveeActif ? `Désactiver le plancher pour ${s.libelle}` : `Activer le plancher pour ${s.libelle}`}
+                                        >
+                                            <Clock size={15} />
+                                        </button>
                                         <button
                                             onClick={() => onOpenEdit(s)}
                                             className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
@@ -105,7 +132,7 @@ export default function SitesList({
                     })
                 ) : (
                     <Tr>
-                        <Td colSpan={7} className="p-0">
+                        <Td colSpan={8} className="p-0">
                             <EmptyState
                                 icon={MapPin}
                                 title="Aucun site d'exploitation enregistré"

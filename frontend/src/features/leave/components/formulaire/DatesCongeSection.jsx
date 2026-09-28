@@ -157,16 +157,16 @@ export default function DatesCongeSection({
             </div>
             <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
               {preavisInfo.isRetroactif ? (
-                <>La date de début sélectionnée est passée ({Math.abs(preavisInfo.joursConstates)} jours de retard). Une dérogation RH de préavis est requise.</>
+                <>La date de début sélectionnée est passée ({Math.abs(preavisInfo.joursConstates)} jours de retard). Une dérogation de préavis est requise.</>
               ) : (
-                <>Le préavis standard pour ce type de congé est de <strong>{preavisInfo.preavisRequis} jours</strong> ({preavisInfo.joursConstates} jours constatés entre aujourd'hui et le début du congé). Une dérogation RH est requise pour autoriser cette soumission.</>
+                <>Le préavis standard pour ce type de congé est de <strong>{preavisInfo.preavisRequis} jours</strong> ({preavisInfo.joursConstates} jours constatés entre aujourd'hui et le début du congé). Une dérogation est requise pour autoriser cette soumission.</>
               )}
             </p>
             {derogationDelaiPreavis ? (
               <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[var(--color-warning-500)]/20">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-success-600 dark:text-success-400">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>Dérogation de préavis RH activée {preavisInfo.isRetroactif ? '(saisie rétroactive / régularisation)' : ''}</span>
+                  <span>Dérogation de préavis activée {preavisInfo.isRetroactif ? '(saisie rétroactive / régularisation)' : ''}</span>
                 </div>
                 <button
                   type="button"
@@ -187,7 +187,7 @@ export default function DatesCongeSection({
                 }}
                 className="text-xs font-bold underline text-[var(--color-warning-500)] hover:text-[var(--color-warning-700)] cursor-pointer block"
               >
-                Activer la dérogation de préavis RH
+                Activer la dérogation de préavis
               </button>
             )}
           </div>

@@ -330,8 +330,8 @@ JOIN ref_indemnite ri ON pij.id_indemnite = ri.id_indemnite;
 INSERT INTO ref_statut_periode_paie (id_statut_periode, code, libelle) VALUES
 (1, 'BROUILLON', 'Période créée, non ouverte'),
 (2, 'EN_COURS', 'Saisie en cours'),
-(3, 'A_VALIDER', 'Terminée, en attente de validation DAF'),
-(4, 'TRANSMIS_DAF', 'Transmise à la DAF — Arbitrage'),
+(3, 'A_VALIDER', 'Terminée, en attente de validation'),
+(4, 'TRANSMIS_DAF', 'Transmise pour arbitrage'),
 (5, 'VALIDEE', 'Pointage Scellé & Figé — Prêt pour calcul Paie'),
 (6, 'CLOTUREE', 'Clôturée — archivée, immuable'),
 (7, 'PAIE_VALIDEE', 'Paie Validée & Approuvée — Prête pour virement et clôture');

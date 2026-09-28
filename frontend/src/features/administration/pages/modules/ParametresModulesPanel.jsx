@@ -13,9 +13,6 @@ const CotisationsIrsaTab = lazy(() => import('@/features/administration/componen
 const IndemnitesSitesTab = lazy(() => import('@/features/administration/components/payroll/IndemnitesSitesTab'));
 const ReglementationFiscaleTab = lazy(() => import('@/features/administration/components/payroll/ReglementationFiscaleTab'));
 
-// Composants de paramétrage Pointage
-const ToleranceArriveeSiteTab = lazy(() => import('@/features/administration/components/attendance/ToleranceArriveeSiteTab'));
-
 const MODULES = [
     { id: 'general', label: 'Général & Système', icon: <Sliders size={18} /> },
     { id: 'paie', label: 'Paie & Rémunération', icon: <FileText size={18} /> },
@@ -67,7 +64,6 @@ export default function ParametresModulesPanel() {
     // Définition des sous-onglets pour le Pointage
     const pointageTabs = [
         { id: 'parametres_globaux_pointage', label: 'Constantes (Pointage)', icon: <Sliders size={16} /> },
-        { id: 'tolerance_pointage', label: 'Tolérances d\'Arrivée (Sites)', icon: <Clock size={16} /> },
     ];
 
     // Définition des sous-onglets pour le Système
@@ -159,8 +155,9 @@ export default function ParametresModulesPanel() {
 
                         {activeModule === 'pointage' && (
                             <>
-                                {activeTab === 'parametres_globaux_pointage' && <ParametresGlobauxTab fixedCategory="POINTAGE" />}
-                                {activeTab === 'tolerance_pointage' && <ToleranceArriveeSiteTab />}
+                                {(activeTab === 'parametres_globaux_pointage' || activeTab === 'tolerance_pointage') && (
+                                    <ParametresGlobauxTab fixedCategory="POINTAGE" />
+                                )}
                             </>
                         )}
                     </Suspense>

@@ -159,7 +159,7 @@ export default function ControleStepPage() {
         >
             <SEO
                 title="État nominatif & Contrôle | GALAXAM SIRH"
-                description="Contrôle DAF et revue des bulletins de paie."
+                description="Contrôle et revue des bulletins de paie."
             />
 
             <div className="space-y-5">

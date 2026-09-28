@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** Déclencheur technique : les règles et le SQL d'acquisition appartiennent à CongeService. */
+/** Déclencheur de bonification ; l'acquisition des congés est effectuée à la clôture de paie. */
 @Component
 public class AcquisitionCongeScheduler {
 
@@ -20,18 +20,20 @@ public class AcquisitionCongeScheduler {
     @Autowired private CongeService congeService;
     @Autowired private SchedulerExecutionRegistry executionRegistry;
 
-    @Scheduled(cron = "0 0 1 * * ?", zone = "Indian/Antananarivo")
+    @Scheduled(cron = "0 0 1 1 * ?", zone = "Indian/Antananarivo")
     public void acquerirCongesMensuels() {
-        executionRegistry.runMonthly("ACQUISITION_CONGES", this::executer);
+        LocalDate moisClos = LocalDate.now().withDayOfMonth(1).minusDays(1);
+        executionRegistry.run("BONIFICATION_CONGES", moisClos.withDayOfMonth(1),
+                () -> executer(moisClos));
     }
 
-    private void executer() throws Exception {
+    private void executer(LocalDate moisClos) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                int nbEmployes = congeService.executerAcquisitionMensuelle(LocalDate.now(), c);
+                int nbEmployes = congeService.executerBonificationMensuelle(moisClos, c);
                 c.commit();
-                log.info("[AcquisitionCongeScheduler] Acquisition terminée pour {} employé(s).", nbEmployes);
+                log.info("[AcquisitionCongeScheduler] Bonification vérifiée pour {} employé(s).", nbEmployes);
             } catch (Exception e) {
                 c.rollback();
                 throw e;

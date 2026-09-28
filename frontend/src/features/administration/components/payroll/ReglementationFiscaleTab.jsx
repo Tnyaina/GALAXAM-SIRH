@@ -1035,7 +1035,7 @@ export default function ReglementationFiscaleTab() {
                                 HS max&nbsp;<strong>{fmtNb(activeConfig.plafondHsHebdo, 0)}h</strong>/sem,
                                 diviseur&nbsp;<strong>{fmtNb(activeConfig.diviseurMensuelHeures, 4)}h</strong>/mois
                             </p>
-                            <p>• <strong>Congés payés</strong> () :
+                            <p>• <strong>Congés payés</strong> :
                                 <strong> {fmtNb(activeConfig.acquisitionCongeMensuelJours, 2)} j</strong>/mois,
                                 décompte calendaire ÷&nbsp;<strong>{activeConfig.diviseurValorisationCongeJours}</strong>
                             </p>

@@ -81,10 +81,10 @@ export function getWorkflowLibellesUI(workflowCpl) {
     const isRupture = workflowCpl.isRupture ?? isRuptureEvent(workflowCpl);
     const code = workflowCpl.codeTypeEvenement;
 
-    let title = `Validation RH — Mouvement RH (${workflowCpl.libelleTypeEvenement || code || ''})`;
-    let description = 'Veuillez relire les termes de cette transition RH avant officialisation.';
-    let actionBtnLabel = 'Valider le Mouvement RH';
-    let badgeEssai = 'ÉVÉNEMENT RH';
+    let title = `Validation — Mouvement (${workflowCpl.libelleTypeEvenement || code || ''})`;
+    let description = 'Veuillez relire les termes de cette transition avant officialisation.';
+    let actionBtnLabel = 'Valider le mouvement';
+    let badgeEssai = 'ÉVÉNEMENT';
     let badgeVariant = 'primary';
 
     if (isEmbauche) {
@@ -94,19 +94,19 @@ export function getWorkflowLibellesUI(workflowCpl) {
         badgeEssai = 'PÉRIODE D\'ESSAI INITIALE';
         badgeVariant = 'primary';
     } else if (isConfirmation) {
-        title = 'Validation RH — Confirmation Définitive d\'Essai';
+        title = 'Validation — Confirmation Définitive d\'Essai';
         description = 'Veuillez relire la décision ci-dessous. En cliquant sur "Valider", l\'essai sera définitivement levé et l\'employé confirmé.';
         actionBtnLabel = 'Valider la Confirmation d\'Essai';
         badgeEssai = 'ESSAI CONFIRMÉ';
         badgeVariant = 'success';
     } else if (isRenouvellement) {
-        title = 'Validation RH — Renouvellement de Période d\'Essai';
+        title = 'Validation — Renouvellement de Période d\'Essai';
         description = 'Veuillez relire la prolongation ci-dessous. En cliquant sur "Valider", la 2ème période d\'essai sera officialisée.';
         actionBtnLabel = 'Valider le Renouvellement d\'Essai';
         badgeEssai = 'ESSAI RENOUVELÉ';
         badgeVariant = 'warning';
     } else if (isRupture) {
-        title = `Validation RH — Rupture / Fin de Contrat (${workflowCpl.libelleTypeEvenement || code || ''})`;
+        title = `Validation — Rupture / Fin de Contrat (${workflowCpl.libelleTypeEvenement || code || ''})`;
         description = 'Veuillez relire les conditions de rupture de contrat. En cliquant sur "Valider", le contrat sera rompu/clôturé et le statut de l\'employé sera mis à jour.';
         actionBtnLabel = 'Valider la Rupture & Clôturer le Contrat';
         badgeEssai = 'FIN DE CONTRAT';

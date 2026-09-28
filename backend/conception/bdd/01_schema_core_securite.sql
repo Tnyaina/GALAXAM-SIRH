@@ -190,7 +190,7 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 
 -- Congés
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
-('CONGES_GENERAL',    'Vue Générale',                'Calendar',        '/conges?tab=soldes',        1, 2, 'CONGES_MODULE'),
+('CONGES_GENERAL',    'Vue Générale',                'Calendar',        '/conges?tab=planning',        1, 2, 'CONGES_MODULE'),
 ('CONGES_DEMANDES',   'Demandes & Validation',       'ClipboardCheck',  '/conges?tab=demandes',      2, 2, 'CONGES_MODULE');
 
 -- Administration
@@ -263,7 +263,7 @@ INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, d
 (37, 'DUREE_MAX_CONTRAT_CDD_MOIS', 'CONTRAT', '24', 'Durée maximale d un contrat CDD individuel ou d un avenant (24 mois selon le Code du Travail malgache, Art. 19).', '2026-01-01', NULL, TRUE, FALSE),
 (16, 'MAX_RENOUVELLEMENTS_ESSAI', 'RH_GENERAL', '1', 'Nombre maximal de renouvellements autorisés pour une période d essai (droit malgache : 1 seul renouvellement)', '2026-01-01', NULL, TRUE, FALSE),
 (18, 'PLAFOND_CUMUL_SOLDE_CONGE_JOURS', 'CONGE', '90', 'Plafond légal du solde cumulé de congés payés (30j acquis/an x 3 ans de prescription, Art. 85)', '2026-01-01', NULL, TRUE, FALSE),
-(19, 'DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS', 'CONGE', '36', 'Durée au-delà de laquelle un jour de congé acquis et non pris expire (prescription triennale) — alimente le job batch générant les mouvements EXPIRATION', '2026-01-01', NULL, TRUE, FALSE),
+(19, 'DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS', 'CONGE', '36', 'Ancienneté en mois à partir de laquelle les droits disponibles sont signalés pour examen DAF au titre de la prescription ; aucune expiration automatique', '2026-01-01', NULL, TRUE, FALSE),
 (20, 'PLAFOND_SOLDE_CONGE_NEGATIF', 'CONGE', '-10', 'Solde négatif maximum autorisable par dérogation RH lors d une prise de congé par anticipation (2 à 4 mois d acquisition future)', '2026-01-01', NULL, TRUE, TRUE),
 (21, 'SEUIL_ALERTE_SOLDE_CONGE_FAIBLE', 'CONGE', '3', 'Nombre de jours de solde en-dessous duquel l alerte SOLDE_CONGE_FAIBLE se déclenche', '2026-01-01', NULL, TRUE, TRUE),
 (22, 'DELAI_PREAVIS_COURT_JOURS', 'CONGE', '2', 'Préavis minimum (en jours avant date_debut) pour une demande courte durée (Art. 85)', '2026-01-01', NULL, TRUE, FALSE),

@@ -145,7 +145,7 @@ export default function NotificationBell() {
             // Si aucun lien précis n'est fourni ou s'il s'agit du lien générique /conges
             const titreMsg = ((notif.titre || '') + ' ' + (notif.message || '')).toLowerCase();
             if (titreMsg.includes('expiration') || titreMsg.includes('solde')) {
-                link = '/conges?tab=soldes';
+                link = '/conges?tab=planning';
             } else if (titreMsg.includes('demande') || titreMsg.includes('validation')) {
                 link = '/conges?tab=demandes';
             } else {
@@ -161,14 +161,14 @@ export default function NotificationBell() {
 
     return (
         <div className="relative flex items-center">
-            <Tooltip content="Alertes & Notifications RH" position="bottom">
+            <Tooltip content="Alertes & Notifications" position="bottom">
                 <button
                     ref={btnRef}
                     id="btn-notifications"
                     type="button"
                     onClick={() => setOpen((v) => !v)}
                     className="relative flex items-center justify-center w-8 h-8 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)] cursor-pointer"
-                    aria-label="Notifications RH"
+                    aria-label="Notifications"
                     aria-expanded={open}
                     aria-haspopup="true"
                 >
@@ -194,7 +194,7 @@ export default function NotificationBell() {
                     <div className="px-4 py-3 border-b border-[var(--color-border-subtle)] flex items-center justify-between shrink-0 bg-[var(--color-surface)]">
                         <div className="flex items-center gap-2">
                             <span className="text-[13px] font-bold text-[var(--color-fg)] tracking-tight uppercase">
-                                Alertes RH
+                                Alertes & Notifications
                             </span>
                             {totalNonLues > 0 && (
                                 <Badge variant="warning" size="sm">
@@ -235,7 +235,7 @@ export default function NotificationBell() {
                                     <CheckCheck size={18} strokeWidth={1.75} className="text-[var(--color-success-500)]" />
                                 </div>
                                 <p className="text-sm font-bold text-[var(--color-fg)]">Aucune alerte en cours</p>
-                                <p className="text-xs text-[var(--color-fg-muted)] mt-1">Toutes les actions RH sont à jour.</p>
+                                <p className="text-xs text-[var(--color-fg-muted)] mt-1">Toutes les actions sont à jour.</p>
                             </div>
                         )}
 

@@ -1,4 +1,4 @@
-import { Check, X, Eye, Clock, Calendar, Pencil } from 'lucide-react';
+import { Eye, Calendar } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
@@ -19,28 +19,10 @@ export default function ValidationTable({
   setCurrentPage,
   setPageSize,
   canValidate = true,
-  onOpenDetail,
-  onOpenRefus,
-  onOpenValider,
-  onOpenModifier
+  onOpenDetail
 }) {
   return (
     <div className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xs p-5 sm:p-6 space-y-4">
-      {/* En-tête contextuel pour les demandes en attente */}
-      {activeStatut === 'EN_ATTENTE' && displayTotal > 0 && (
-        <div className="p-3 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Clock size={15} className="text-[var(--color-warning-500)] shrink-0" />
-            <span className="text-xs font-bold text-[var(--color-fg)]">
-              {displayTotal} demande{displayTotal > 1 ? 's' : ''} en attente de décision hiérarchique ou RH
-            </span>
-          </div>
-          <span className="text-[11px] text-[var(--color-fg-muted)]">
-            Action requise pour libérer le solde ou autoriser l'absence
-          </span>
-        </div>
-      )}
-
       {demandes.length === 0 ? (
         <div className="p-8">
           <EmptyState
@@ -60,17 +42,36 @@ export default function ValidationTable({
           />
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <>
+        <div className="md:hidden divide-y divide-[var(--color-border-subtle)]">
+          {demandes.map((d) => {
+            const employeName = `${d.prenom || ''} ${d.nom || ''}`.trim() || `Employé ${d.idEmploye}`;
+            const aDecider = canValidate && d.availableActions?.APPROVE?.allowed === true;
+            return <article key={d.idDemandeConge} className="py-3 space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[var(--color-fg)] truncate">{employeName}</p>
+                  <p className="text-[11px] text-[var(--color-fg-muted)]">{d.matricule && `${d.matricule} · `}Demande #{d.idDemandeConge}</p>
+                </div>
+                <StatusBadge status={d.codeStatutDemande || d.statutCode} size="xs" />
+              </div>
+              <p className="text-xs text-[var(--color-fg)]">{d.libelleTypeConge || d.codeTypeConge} · {formatDate(d.dateDebut)} → {formatDate(d.dateFin)}</p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-[var(--color-fg-muted)]">{d.nbJoursDecomptes} jour{Number(d.nbJoursDecomptes) > 1 ? 's' : ''} décompté{Number(d.nbJoursDecomptes) > 1 ? 's' : ''}</span>
+                <Button variant={aDecider ? 'primary' : 'outline'} size="xs" onClick={() => onOpenDetail(d)}>{aDecider ? 'Examiner' : 'Détails'}</Button>
+              </div>
+            </article>;
+          })}
+        </div>
+        <div className="hidden md:block overflow-x-auto">
           <Table>
             <Thead>
               <Tr>
-                <Th>Réf.</Th>
-                <Th>Collaborateur & Affectation</Th>
-                <Th>Type d'Absence</Th>
-                <Th>Période d'Absence</Th>
-                <Th className="text-center">Durée Décomptée</Th>
+                <Th>Collaborateur</Th>
+                <Th>Type d'absence</Th>
+                <Th>Période et durée</Th>
                 <Th>Statut</Th>
-                <Th align="right">Actions Décisionnelles</Th>
+                <Th className="text-right">Action</Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -83,11 +84,6 @@ export default function ValidationTable({
                     key={d.idDemandeConge}
                     className="hover:bg-[var(--color-surface-hover)] transition-colors group"
                   >
-                    {/* Référence */}
-                    <Td className="font-mono text-xs text-[var(--color-fg-subtle)] whitespace-nowrap">
-                      #{d.idDemandeConge}
-                    </Td>
-
                     {/* Collaborateur */}
                     <Td>
                       <div className="font-bold text-[var(--color-fg)] text-xs leading-tight">
@@ -95,9 +91,10 @@ export default function ValidationTable({
                       </div>
                       {d.matricule && (
                         <div className="text-[11px] text-[var(--color-fg-subtle)] font-mono mt-0.5">
-                          Matr. {d.matricule}
+                          {d.matricule} · Demande #{d.idDemandeConge}
                         </div>
                       )}
+                      {!d.matricule && <div className="text-[11px] text-[var(--color-fg-subtle)] mt-0.5">Demande #{d.idDemandeConge}</div>}
                     </Td>
 
                     {/* Type de congé (Badge neutre uniforme, pas d'arc-en-ciel) */}
@@ -123,30 +120,15 @@ export default function ValidationTable({
                       </div>
                     </Td>
 
-                    {/* Période */}
+                    {/* Période et décompte fourni par le backend */}
                     <Td className="text-xs whitespace-nowrap">
                       <div className="font-medium text-[var(--color-fg)]">
                         {formatDate(d.dateDebut)} <span className="text-[var(--color-fg-subtle)]">→</span> {formatDate(d.dateFin)}
                       </div>
-                    </Td>
-
-                    {/* Durée */}
-                    <Td className="text-center whitespace-nowrap">
-                      {d.estDemiJournee ? (
-                        <div>
-                          <span className="font-mono font-bold text-brand-600 text-xs">0,5 j</span>
-                          <div className="text-[10px] text-[var(--color-fg-subtle)]">
-                            {d.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'}
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <span className="font-mono font-bold text-[var(--color-fg)] text-xs">
-                            {d.nbJoursDecomptes}
-                          </span>
-                          <span className="text-xs text-[var(--color-fg-muted)]"> j ouvrés</span>
-                        </div>
-                      )}
+                      <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                        {d.nbJoursDecomptes} jour{Number(d.nbJoursDecomptes) > 1 ? 's' : ''} décompté{Number(d.nbJoursDecomptes) > 1 ? 's' : ''}
+                        {d.estDemiJournee && ` · ${d.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'}`}
+                      </div>
                     </Td>
 
                     {/* Statut & Alertes */}
@@ -162,61 +144,21 @@ export default function ValidationTable({
                           {d.derogationSoldeNegatif && (
                             <Badge variant="danger" size="xs">Solde négatif</Badge>
                           )}
-                          {!d.justificatifFourni && d.codeTypeConge === 'MALADIE' && (
-                            <Badge variant="warning" size="xs">Justificatif attendu</Badge>
-                          )}
                         </div>
                       </div>
                     </Td>
 
-                    {/* Actions décisionnelles */}
-                    <Td align="right" className="whitespace-nowrap">
+                    {/* Le détail expose les décisions autorisées par le backend. */}
+                    <Td className="text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
-                        {canValidate && d.availableActions?.APPROVE?.allowed === true ? (
-                          <>
-                            <Button
-                              variant="danger"
-                              size="xs"
-                              iconLeft={<X size={12} />}
-                              onClick={() => onOpenRefus(d)}
-                              className="text-xs font-semibold"
-                            >
-                              Refuser
-                            </Button>
-                            <Button
-                              variant="success"
-                              size="xs"
-                              iconLeft={<Check size={12} />}
-                              onClick={() => onOpenValider(d)}
-                              className="text-xs font-semibold"
-                            >
-                              Valider
-                            </Button>
-                          </>
-                        ) : null}
-
-                        {d.availableActions?.MODIFY_DATES?.allowed === true && onOpenModifier && (
-                          <Button
-                            variant="outline"
-                            size="xs"
-                            iconLeft={<Pencil size={12} />}
-                            onClick={() => onOpenModifier(d)}
-                            title="Modifier les dates de ce congé validé"
-                            className="text-xs text-brand-600 hover:text-brand-700 font-medium"
-                          >
-                            Modifier dates
-                          </Button>
-                        )}
-
                         <Button
-                          variant="ghost"
+                          variant={canValidate && d.availableActions?.APPROVE?.allowed === true ? 'primary' : 'outline'}
                           size="xs"
                           iconLeft={<Eye size={13} />}
                           onClick={() => onOpenDetail(d)}
-                          title="Consulter la fiche détaillée"
-                          className="text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)]"
+                          title="Consulter la demande et ses actions disponibles"
                         >
-                          Détails
+                          {canValidate && d.availableActions?.APPROVE?.allowed === true ? 'Examiner' : 'Détails'}
                         </Button>
                       </div>
                     </Td>
@@ -226,6 +168,7 @@ export default function ValidationTable({
             </Tbody>
           </Table>
         </div>
+        </>
       )}
 
       {/* Pagination */}
@@ -236,7 +179,7 @@ export default function ValidationTable({
           pageSize={pageSize}
           pageSizeOptions={[10, 20, 50]}
           onPageChange={setCurrentPage}
-          onPageSizeChange={setPageSize}
+          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
           className="bg-transparent border-t-0 pt-1"
         />
       )}

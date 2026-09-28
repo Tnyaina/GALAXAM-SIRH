@@ -271,7 +271,7 @@ public class DocumentRhService {
                                 vars.put(key, MANUAL_CONTRACT_FIELDS.get(key));
                                 warnings.add(key);
                             } else if (Set.of("{{ENTREPRISE_RCS}}", "{{POSTE_SERVICE}}", "{{POSTE_SUPERIEUR}}", "{{STAGE_REFERENT_ETABLISSEMENT}}", "{{TEMPORAIRE_MOTIF}}").contains(key)) {
-                                vars.put(key, "Non renseigné — à vérifier par la DAF/RH");
+                                vars.put(key, "Non renseigné — à vérifier avant validation");
                                 warnings.add(key);
                             } else if (!missing.contains(key)) missing.add(key);
                         }

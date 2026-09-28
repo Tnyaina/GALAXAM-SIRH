@@ -14,9 +14,11 @@ export default function TypesIntervenantList({
                 <div>
                     <h3 className="font-bold text-[var(--color-fg)] text-base flex items-center gap-2">
                         <UserCheck size={18} className="text-[var(--color-brand-500)]" />
-                        Types d'Intervenant ({typesIntervenant.length})
+                        Régimes Fiscaux & Sociaux des Intervenants ({typesIntervenant.length})
                     </h3>
-                    <p className="text-xs text-[var(--color-fg-muted)]">Salarié national, Expatrié, Consultant, Stagiaire...</p>
+                    <p className="text-xs text-[var(--color-fg-muted)]">
+                        Assujettissements légaux (IRSA, Retenue ISI, CNaPS, Santé) applicables par profil d'intervenant.
+                    </p>
                 </div>
             </div>
 
@@ -25,7 +27,7 @@ export default function TypesIntervenantList({
                     <Th>Code</Th>
                     <Th>Libellé</Th>
                     <Th className="text-center">IRSA</Th>
-                    <Th className="text-center">ISI 5%</Th>
+                    <Th className="text-center">Retenue ISI</Th>
                     <Th className="text-center">CNaPS</Th>
                     <Th className="text-center">Santé</Th>
                     <Th>Statut</Th>

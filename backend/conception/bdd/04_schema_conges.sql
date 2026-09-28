@@ -11,6 +11,7 @@ DROP VIEW IF EXISTS v_solde_conge_employe CASCADE;
 
 DROP TABLE IF EXISTS conge_taux_applicable CASCADE;
 DROP TABLE IF EXISTS conge_periode_reference CASCADE;
+DROP TABLE IF EXISTS conge_expiration_examen CASCADE;
 DROP TABLE IF EXISTS mouvement_solde_conge CASCADE;
 DROP TABLE IF EXISTS demande_conge CASCADE;
 DROP TABLE IF EXISTS ref_statut_demande_conge CASCADE;
@@ -122,6 +123,26 @@ CREATE INDEX idx_mouvement_solde_date ON mouvement_solde_conge(date_mouvement);
 CREATE INDEX idx_mouvement_solde_conge_created_by ON mouvement_solde_conge(created_by);
 CREATE UNIQUE INDEX idx_uniq_mouvement_prise_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'PRISE' AND id_demande_conge IS NOT NULL;
 CREATE UNIQUE INDEX idx_uniq_mouvement_annulation_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'ANNULATION' AND id_demande_conge IS NOT NULL;
+
+-- 4b. Décisions DAF relatives aux droits candidats à la prescription
+CREATE TABLE conge_expiration_examen (
+    id_examen SERIAL PRIMARY KEY,
+    id_employe INT NOT NULL REFERENCES employe(id_employe),
+    decision VARCHAR(20) NOT NULL CHECK (decision IN ('REPORTE', 'EXPIRE')),
+    jours_examines NUMERIC(8,2) NOT NULL CHECK (jours_examines > 0),
+    motif TEXT NOT NULL,
+    planification_verifiee BOOLEAN NOT NULL DEFAULT FALSE,
+    date_prochaine_revue DATE,
+    id_mouvement_expiration INT REFERENCES mouvement_solde_conge(id_mouvement),
+    decide_par INT NOT NULL REFERENCES utilisateur(id_utilisateur),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_conge_expiration_decision CHECK (
+        (decision = 'REPORTE' AND date_prochaine_revue IS NOT NULL AND id_mouvement_expiration IS NULL)
+        OR (decision = 'EXPIRE' AND date_prochaine_revue IS NULL AND id_mouvement_expiration IS NOT NULL AND planification_verifiee)
+    )
+);
+CREATE INDEX idx_conge_expiration_examen_employe_date
+    ON conge_expiration_examen(id_employe, created_at DESC, id_examen DESC);
 
 -- 5. Périodes de Référence Bornées & Taux Applicables (TCONGE Canonical)
 CREATE TABLE conge_periode_reference (
@@ -278,8 +299,8 @@ SELECT setval('ref_motif_evenement_familial_id_motif_seq', (SELECT GREATEST(MAX(
 
 -- Statuts du circuit de demande
 INSERT INTO ref_statut_demande_conge (id_statut_demande_conge, code, libelle) VALUES
-(1, 'BROUILLON',  'Brouillon (saisie RH en cours)'),
-(2, 'EN_ATTENTE', 'En attente de validation DAF'),
+(1, 'BROUILLON',  'Brouillon'),
+(2, 'EN_ATTENTE', 'En attente de validation'),
 (3, 'VALIDE',     'Validée'),
 (4, 'REFUSE',     'Refusée'),
 (5, 'ANNULE',     'Annulée');

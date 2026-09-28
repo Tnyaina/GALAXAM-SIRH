@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import React, { act } from 'react';
+import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import ExportEtatCongesModal from '../components/ExportEtatCongesModal';
 import congeService from '../api/congeService';
@@ -112,5 +112,16 @@ describe('ExportEtatCongesModal', () => {
 
     expect(congeService.telechargerEtatCongesExcel).toHaveBeenCalledWith(42, 10);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('guide vers la création de la période quand aucune n’est disponible', async () => {
+    congeService.getPeriodesReferenceEmploye.mockResolvedValue([]);
+    await act(async () => {
+      root.render(<ExportEtatCongesModal isOpen onClose={vi.fn()} idEmploye={42}
+        employe={{ nom: 'ANDRIA', prenom: 'Tojo' }} />);
+    });
+    expect(container.textContent).toContain('Créez ou régularisez sa période');
+    const download = [...container.querySelectorAll('button')].find(button => button.textContent.includes('Télécharger'));
+    expect(download.disabled).toBe(true);
   });
 });

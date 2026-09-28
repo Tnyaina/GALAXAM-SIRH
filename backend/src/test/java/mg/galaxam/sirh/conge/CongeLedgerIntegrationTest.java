@@ -38,6 +38,9 @@ class CongeLedgerIntegrationTest {
     private CongeService congeService;
 
     @Autowired
+    private mg.galaxam.sirh.conge.application.CongeExpirationExamenService congeExpirationExamenService;
+
+    @Autowired
     private TransactionRunner transactionRunner;
 
     private int adminUserId;
@@ -98,34 +101,55 @@ class CongeLedgerIntegrationTest {
     }
 
     @Test
-    @DisplayName("20. Purge FIFO sur PostgreSQL : lots anciens prescrits (> 36 mois) purgés avec EXPIRATION")
-    void testPurgeFifoPostgres() throws Exception {
+    @DisplayName("20. Examen DAF : droits candidats restent au solde jusqu'à confirmation motivée")
+    void testExamenExpirationDafPostgres() throws Exception {
         try (Connection c = dataSource.getConnection()) {
-            LocalDate aujourdhui = LocalDate.of(2026, 9, 23);
+            LocalDate aujourdhui = LocalDate.now();
+            LocalDate ancien = aujourdhui.minusMonths(40);
+            LocalDate recent = aujourdhui.minusMonths(6);
 
-            // Lot 1 : 10 jours acquis il y a 40 mois (2023-05-01) -> Prescrit car > 36 mois
-            CongeTestFixtureHelper.crediterSoldeAvecDate(c, employeId, 10.0, LocalDate.of(2023, 5, 1), "Acquisition Lot Ancien");
+            // Lot 1 : 10 jours acquis il y a 40 mois -> à examiner
+            CongeTestFixtureHelper.crediterSoldeAvecDate(c, employeId, 10.0, ancien, "Acquisition Lot Ancien");
 
-            // Lot 2 : 15 jours acquis il y a 6 mois (2026-03-01) -> Actif / non prescrit
-            CongeTestFixtureHelper.crediterSoldeAvecDate(c, employeId, 15.0, LocalDate.of(2026, 3, 1), "Acquisition Lot Récent");
+            // Lot 2 : 15 jours acquis il y a 6 mois -> non échu
+            CongeTestFixtureHelper.crediterSoldeAvecDate(c, employeId, 15.0, recent, "Acquisition Lot Récent");
 
-            // Prise de 4 jours (consommation imputée en priorité sur Lot 1 selon règle FIFO)
+            // Prise de 4 jours postérieure à l'acquisition ancienne et antérieure au lot récent.
+            LocalDate datePrise = ancien.plusMonths(8);
             String sqlPrise = "INSERT INTO mouvement_solde_conge (id_employe, type_mouvement, nb_jours, date_mouvement, commentaire) " +
                     "VALUES (?, 'PRISE', -4.0, ?, 'Prise partielle')";
             try (PreparedStatement psP = c.prepareStatement(sqlPrise)) {
                 psP.setInt(1, employeId);
-                psP.setDate(2, Date.valueOf(LocalDate.of(2024, 1, 15)));
+                psP.setDate(2, Date.valueOf(datePrise));
                 psP.executeUpdate();
             }
 
-            // Solde avant purge = 10 + 15 - 4 = 21 jours
+            // Solde avant examen = 10 + 15 - 4 = 21 jours
             VSoldeCongeEmploye soldeAvant = VSoldeCongeEmploye.rechercherParEmploye(employeId, c);
             assertEquals(0, new BigDecimal("21.0").compareTo(soldeAvant.getSoldeActuel()));
 
-            // Exécution de la purge FIFO
-            // Le Lot 1 avait 10j, 4j consommés -> reste 6j prescrits qui doivent être purgés
-            int nbPurges = congeService.executerPurge(aujourdhui, c);
-            assertEquals(1, nbPurges, "1 salarié doit être purgé");
+            var examen = congeExpirationExamenService.obtenir(employeId, aujourdhui, c);
+            assertEquals(0, new BigDecimal("6.00").compareTo(examen.joursAExaminer()));
+            assertEquals(1, examen.droitsCandidats().size());
+            assertEquals(0, new BigDecimal("6.00").compareTo(examen.droitsCandidats().get(0).joursDisponibles()));
+
+            // L'examen seul ne débite pas le solde.
+            VSoldeCongeEmploye soldeApresExamen = VSoldeCongeEmploye.rechercherParEmploye(employeId, c);
+            assertEquals(0, new BigDecimal("21.0").compareTo(soldeApresExamen.getSoldeActuel()));
+
+            var reporte = congeExpirationExamenService.reporter(employeId, aujourdhui.plusDays(30),
+                    "Congés à planifier avec le responsable de service.", adminUserId, c);
+            assertEquals("REPORTE", reporte.derniereDecision());
+            assertEquals(0, new BigDecimal("21.0").compareTo(
+                    VSoldeCongeEmploye.rechercherParEmploye(employeId, c).getSoldeActuel()));
+
+            // La décision DAF doit être motivée et confirmer la vérification de planification.
+            assertThrows(IllegalArgumentException.class, () -> congeExpirationExamenService.confirmerExpiration(
+                    employeId, "Planification vérifiée, aucun empêchement de service déclaré.", false, adminUserId, c));
+            assertEquals(0, new BigDecimal("21.0").compareTo(
+                    VSoldeCongeEmploye.rechercherParEmploye(employeId, c).getSoldeActuel()));
+            congeExpirationExamenService.confirmerExpiration(employeId,
+                    "Planification vérifiée, aucun empêchement de service déclaré.", true, adminUserId, c);
 
             // Vérification du mouvement EXPIRATION
             String sqlExp = "SELECT nb_jours, type_mouvement FROM mouvement_solde_conge " +
@@ -139,7 +163,7 @@ class CongeLedgerIntegrationTest {
                 }
             }
 
-            // Solde après purge = 21 - 6 = 15.0 jours (exactement le stock récent non expiré)
+            // Solde après confirmation = 21 - 6 = 15.0 jours (exactement le stock récent non expiré)
             VSoldeCongeEmploye soldeApres = VSoldeCongeEmploye.rechercherParEmploye(employeId, c);
             assertEquals(0, new BigDecimal("15.0").compareTo(soldeApres.getSoldeActuel()));
         }

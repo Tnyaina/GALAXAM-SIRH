@@ -90,7 +90,7 @@ export default function PreparationStepPage() {
                 label: 'Pointage',
                 status: isPointageGele ? 'PASS' : 'BLOCKING',
                 summary: isPointageGele
-                    ? 'Snapshot Pointage scellé et validé par la DAF.'
+                    ? 'Snapshot Pointage scellé et validé.'
                     : 'Le pointage de la période doit être clôturé et figé avant tout calcul.',
                 source: 'Pointage & Présences',
                 action: { label: 'Ouvrir Pointage', onClick: () => navigate('/pointages?tab=validation') },

@@ -892,11 +892,11 @@ export default function PointageTab({ idEmploye, employe = null }) {
                     {ficheData?.soldePeriode && (
                         <Card padding bordered>
                             <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-                                <div><h3 className="text-sm font-bold">Bilan et régularisations DAF</h3><p className="text-xs text-[var(--color-fg-muted)] mt-1">Résultats calculés par le serveur pour la période affichée. Les HS 30 % et 50 % participent au rapprochement. Nuit, dimanche et férié conservent leurs qualifications.</p></div>
+                                <div><h3 className="text-sm font-bold">Bilan et régularisations</h3><p className="text-xs text-[var(--color-fg-muted)] mt-1">Résultats calculés par le serveur pour la période affichée. Les HS 30 % et 50 % participent au rapprochement. Nuit, dimanche et férié conservent leurs qualifications.</p></div>
                                 {ficheData.idPeriode && <Button variant="outline" size="sm" onClick={() => setShowBalance(true)}>{actions.ADJUST_BALANCE ? 'Ajuster le solde de période' : 'Voir les régularisations'}</Button>}
                             </div>
                             <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                                {[['Déficit des semaines', recap.deficitHebdo], ['HS cumulées (30 % + 50 %)', recap.hsTotalHebdo], ['Ajustements DAF', recap.ajustements], ['Solde final', recap.soldeFinal]].map(([label, value]) => <div key={label} className="bg-[var(--color-bg-subtle)] p-3"><dt className="text-[var(--color-fg-muted)]">{label}</dt><dd className="mt-1 font-mono text-base font-bold">{value || '—'}</dd></div>)}
+                                {[['Déficit des semaines', recap.deficitHebdo], ['HS cumulées (30 % + 50 %)', recap.hsTotalHebdo], ['Ajustements', recap.ajustements], ['Solde final', recap.soldeFinal]].map(([label, value]) => <div key={label} className="bg-[var(--color-bg-subtle)] p-3"><dt className="text-[var(--color-fg-muted)]">{label}</dt><dd className="mt-1 font-mono text-base font-bold">{value || '—'}</dd></div>)}
                             </dl>
                             {recap.alerteSolde && <Alert type="warning" message={recap.alerteSolde} />}
                             <p className="text-xs mt-3">{recap.regleVentilation}</p><p className="text-xs mt-3">Absence finale : <strong>{recap.absenceFinale}</strong> · HS 30 % finales : <strong>{recap.hs30Finales}</strong> · HS 50 % finales : <strong>{recap.hs50Finales}</strong></p>

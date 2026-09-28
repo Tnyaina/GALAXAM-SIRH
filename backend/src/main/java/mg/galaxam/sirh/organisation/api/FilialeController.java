@@ -65,9 +65,6 @@ public class FilialeController {
                 f.setRcs(request.getRcs());
                 f.setTelephone(request.getTelephone());
                 f.setEmail(request.getEmail());
-                if (request.getSeuilEffectifAlerte() != null) {
-                    f.setSeuilEffectifAlerte(request.getSeuilEffectifAlerte());
-                }
 
                 f.save(c);
                 AuditLog.audit(c, "CREATION", "ref_filiale", String.valueOf(f.getIdFiliale()), null, f);
@@ -109,9 +106,6 @@ public class FilialeController {
                 existing.setRcs(request.getRcs());
                 existing.setTelephone(request.getTelephone());
                 existing.setEmail(request.getEmail());
-                if (request.getSeuilEffectifAlerte() != null) {
-                    existing.setSeuilEffectifAlerte(request.getSeuilEffectifAlerte());
-                }
 
                 existing.update(c);
                 AuditLog.audit(c, "MODIFICATION", "ref_filiale", String.valueOf(id), oldState, existing);

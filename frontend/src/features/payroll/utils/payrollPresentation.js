@@ -23,7 +23,7 @@ export const PERIODICITES_INDEMNITE = [
 export const PAIE_STATUS_PRESENTATION = {
     BROUILLON:     { variant: 'default',   label: 'Brouillon'    },
     EN_COURS:      { variant: 'warning',   label: 'En cours'     },
-    TRANSMIS_DAF:  { variant: 'info',      label: 'Transmis DAF' },
+    TRANSMIS_DAF:  { variant: 'info',      label: 'Transmis pour arbitrage' },
     A_VALIDER:     { variant: 'info',      label: 'À valider'    },
     VALIDEE:       { variant: 'success',   label: 'Validée'      },
     PAIE_VALIDEE:  { variant: 'success',   label: 'Paie validée' },

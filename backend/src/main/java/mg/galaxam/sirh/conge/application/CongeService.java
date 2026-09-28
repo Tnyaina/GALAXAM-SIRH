@@ -109,105 +109,35 @@ public class CongeService {
         return this.purgeFifoEngine;
     }
 
-    private static final class EmployeSoldeAccumulateur {
-        double stockHistoriqueInitial;
-        final java.util.List<PurgeFifoEngine.DroitDate> droitsDates = new java.util.ArrayList<>();
-        double totalPris;
-        double totalAnnulations;
-        double totalAjustementsNegatifs;
-        double totalDejaExpire;
-
-        double consommationNette() {
-            return Math.max(0.0, totalPris - totalAnnulations + totalAjustementsNegatifs);
-        }
-    }
-
-    private java.util.Map<Integer, EmployeSoldeAccumulateur> chargerLedgerPourImputation(
-            LocalDate dateReference, Connection c) throws Exception {
-        java.util.Map<Integer, EmployeSoldeAccumulateur> soldes = new java.util.HashMap<>();
-        String sql = "SELECT id_employe, id_mouvement, type_mouvement, nb_jours, date_mouvement, commentaire " +
-                "FROM mouvement_solde_conge ORDER BY date_mouvement ASC, id_mouvement ASC";
+    public java.util.Map<Integer, Double> calculerExpirationsPotentielles(
+            LocalDate dateEcheanceMax, Connection c) throws Exception {
+        LocalDate ref = LocalDate.now();
+        LocalDate echeanceMax = dateEcheanceMax != null ? dateEcheanceMax : ref.plusDays(30);
+        int delaiMois = ParametreGlobal.requirePositiveInt(
+                ParametreGlobal.loadActiveMap(c), "DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS");
+        java.util.Map<Integer, java.util.List<PurgeFifoEngine.MouvementLedger>> mouvements = new java.util.HashMap<>();
+        String sql = "SELECT id_employe, id_mouvement, type_mouvement, nb_jours, date_mouvement, id_demande_conge, commentaire "
+                + "FROM mouvement_solde_conge ORDER BY date_mouvement, id_mouvement";
         try (PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                int idEmploye = rs.getInt("id_employe");
-                String type = rs.getString("type_mouvement");
-                double jours = rs.getDouble("nb_jours");
                 Date dateSql = rs.getDate("date_mouvement");
-                LocalDate date = dateSql != null ? dateSql.toLocalDate() : dateReference;
-                String commentaire = rs.getString("commentaire");
-                EmployeSoldeAccumulateur acc = soldes.computeIfAbsent(idEmploye, ignored -> new EmployeSoldeAccumulateur());
-                if ("AJUSTEMENT".equals(type) && commentaire != null && commentaire.startsWith("[SOLDE_INITIAL]")) {
-                    acc.stockHistoriqueInitial += jours;
-                } else if ("ACQUISITION".equals(type) || "BONIFICATION".equals(type)) {
-                    acc.droitsDates.add(new PurgeFifoEngine.DroitDate(rs.getInt("id_mouvement"), date, jours));
-                } else if ("PRISE".equals(type)) {
-                    acc.totalPris += -jours;
-                } else if ("ANNULATION".equals(type)) {
-                    acc.totalAnnulations += jours;
-                } else if ("AJUSTEMENT".equals(type) && jours < 0) {
-                    acc.totalAjustementsNegatifs += -jours;
-                } else if ("EXPIRATION".equals(type)) {
-                    acc.totalDejaExpire += -jours;
-                }
+                LocalDate date = dateSql == null ? ref : dateSql.toLocalDate();
+                int idDemandeValue = rs.getInt("id_demande_conge");
+                Integer idDemande = rs.wasNull() ? null : idDemandeValue;
+                mouvements.computeIfAbsent(rs.getInt("id_employe"), ignored -> new java.util.ArrayList<>())
+                        .add(new PurgeFifoEngine.MouvementLedger(rs.getInt("id_mouvement"),
+                                rs.getString("type_mouvement"), rs.getDouble("nb_jours"), date,
+                                idDemande, rs.getString("commentaire")));
             }
         }
-        return soldes;
-    }
-
-    public java.util.Map<Integer, Double> calculerExpirationsPotentielles(
-            LocalDate seuilPrescription, Connection c) throws Exception {
-        LocalDate ref = LocalDate.now();
         java.util.Map<Integer, Double> resultats = new java.util.HashMap<>();
-        for (java.util.Map.Entry<Integer, EmployeSoldeAccumulateur> entry
-                : chargerLedgerPourImputation(ref, c).entrySet()) {
-            EmployeSoldeAccumulateur acc = entry.getValue();
-            PurgeFifoEngine.ImputationResult imputation = purgeFifoEngine.calculerImputation(
-                    acc.stockHistoriqueInitial, acc.droitsDates, acc.consommationNette());
-            double jours = purgeFifoEngine.calculerJoursAExpierFifo(
-                    imputation, seuilPrescription, acc.totalDejaExpire);
+        for (var entry : mouvements.entrySet()) {
+            double jours = purgeFifoEngine.calculerDroitsDisponibles(entry.getValue(), ref, delaiMois).stream()
+                    .filter(d -> !d.dateAcquisition().plusMonths(delaiMois).isAfter(echeanceMax))
+                    .mapToDouble(PurgeFifoEngine.DroitDisponible::joursRestants).sum();
             if (jours > 0.001) resultats.put(entry.getKey(), jours);
         }
         return java.util.Map.copyOf(resultats);
-    }
-
-    /** Exécute transactionnellement la purge FIFO du ledger à une date donnée. */
-    public int executerPurge(LocalDate dateReference, Connection c) throws Exception {
-        LocalDate ref = dateReference != null ? dateReference : LocalDate.now();
-        java.util.Map<String, String> params = ParametreGlobal.loadActiveMap(c);
-        int moisPrescription = ParametreGlobal.getInt(params, "DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS", 36);
-        LocalDate seuilPrescription = ref.minusMonths(moisPrescription);
-
-        java.util.Map<Integer, EmployeSoldeAccumulateur> soldes = chargerLedgerPourImputation(ref, c);
-
-        String insert = "INSERT INTO mouvement_solde_conge " +
-                "(id_employe, type_mouvement, nb_jours, date_mouvement, commentaire) " +
-                "VALUES (?, 'EXPIRATION', ?, ?, ?)";
-        int nbPurges = 0;
-        try (PreparedStatement ps = c.prepareStatement(insert)) {
-            for (java.util.Map.Entry<Integer, EmployeSoldeAccumulateur> entry : soldes.entrySet()) {
-                EmployeSoldeAccumulateur acc = entry.getValue();
-                PurgeFifoEngine.ImputationResult imputation = purgeFifoEngine.calculerImputation(
-                        acc.stockHistoriqueInitial, acc.droitsDates, acc.consommationNette());
-                double joursAExpirer = purgeFifoEngine.calculerJoursAExpierFifo(
-                        imputation, seuilPrescription, acc.totalDejaExpire);
-                if (joursAExpirer <= 0.001) continue;
-
-                ps.setInt(1, entry.getKey());
-                ps.setDouble(2, -joursAExpirer);
-                ps.setDate(3, Date.valueOf(ref));
-                ps.setString(4, "Purge légale FIFO (droits datés de +" + moisPrescription + " mois prescrits)");
-                ps.executeUpdate();
-                try {
-                    NotificationRhService.creer(c, "ALERTE_ECHEANCE", "HAUTE", "Congés expirés purgés (FIFO)",
-                            String.format("Attention, %.2f jours de congés ont expiré après %d mois.", joursAExpirer, moisPrescription),
-                            "/employes/" + entry.getKey() + "?tab=conges", entry.getKey());
-                } catch (Exception ignored) {
-                    // Une notification ne doit pas annuler l'écriture comptable d'expiration.
-                }
-                nbPurges++;
-            }
-        }
-        return nbPurges;
     }
 
     /**
@@ -226,9 +156,10 @@ public class CongeService {
                 LocalDate d = (dateRef != null) ? dateRef : LocalDate.now();
                 mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale configLegale =
                         mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale.findActiveAt(c, d);
-                if (configLegale != null && configLegale.getAcquisitionCongeMensuelJours() != null) {
-                    tauxAcquisition = configLegale.getAcquisitionCongeMensuelJours();
+                if (configLegale == null || configLegale.getAcquisitionCongeMensuelJours() == null) {
+                    throw new IllegalStateException("Taux d'acquisition des congés absent de la configuration légale au " + d + ".");
                 }
+                tauxAcquisition = configLegale.getAcquisitionCongeMensuelJours();
 
                 // 2. Diviseur calendaire configurable
                 java.util.Map<String, mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.ParametreEtat> etatMap =
@@ -237,7 +168,7 @@ public class CongeService {
                         etatMap, "DIVISEUR_JOURS_CALENDAIRE_CONGE", 30.0, 30.0);
                 diviseur = BigDecimal.valueOf(divBdd);
             } catch (Exception e) {
-                // Fallback non bloquant sur valeurs légales par défaut
+                throw new IllegalStateException("Impossible de charger les paramètres d'acquisition des congés.", e);
             }
         }
 
@@ -362,8 +293,8 @@ public class CongeService {
     private record ContratActif(int idEmploye, LocalDate dateDebut) {}
     private record MouvementDroit(String type, LocalDate date, double jours) {}
 
-    /** Orchestration canonique de l'acquisition et de la bonification mensuelles. */
-    public int executerAcquisitionMensuelle(LocalDate dateReference, Connection c) throws Exception {
+    /** Bonification mensuelle ; l'acquisition est enregistrée à la clôture de la paie. */
+    public int executerBonificationMensuelle(LocalDate dateReference, Connection c) throws Exception {
         LocalDate ref = dateReference != null ? dateReference : LocalDate.now();
         boolean dernierJourMois = ref.plusDays(1).getMonth() != ref.getMonth();
         java.util.Map<String, ParametreGlobal.ParametreEtat> params = ParametreGlobal.loadEtatMap(c);
@@ -403,13 +334,6 @@ public class CongeService {
                     }
                 }
                 double solde = mouvements.stream().mapToDouble(MouvementDroit::jours).sum();
-                boolean acquis = mouvements.stream().anyMatch(m -> "ACQUISITION".equals(m.type())
-                        && m.date().getYear() == ref.getYear() && m.date().getMonth() == ref.getMonth());
-                if (!acquis) {
-                    solde += enregistrerAcquisitionMensuelle(contrat.idEmploye(), ref.getYear(), ref.getMonthValue(),
-                            BigDecimal.ZERO, null, c).doubleValue();
-                }
-
                 int anciennete = java.time.Period.between(contrat.dateDebut(), ref).getYears();
                 int bonus = calculateurEngine.calculerBonificationAnciennete(anciennete, seuil, palier, joursPalier);
                 boolean anniversaireAtteint = ref.getMonthValue() >= contrat.dateDebut().getMonthValue();

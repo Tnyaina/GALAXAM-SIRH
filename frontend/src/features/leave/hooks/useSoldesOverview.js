@@ -12,7 +12,7 @@ const getMonday = (d) => {
   return monday;
 };
 
-export function useSoldesOverview(demandesGlobales = []) {
+export function useSoldesOverview() {
   // État local : mode, navigation, recherche, pagination et planning.
   // Modes d'affichage
   const [viewMode, setViewMode] = useState('MOIS'); // 'MOIS' | 'SEMAINE'
@@ -92,10 +92,12 @@ export function useSoldesOverview(demandesGlobales = []) {
   // Données Planning issues de l'API dédiée
   const [planningApiData, setPlanningApiData] = useState(null);
   const [planningLoading, setPlanningLoading] = useState(false);
+  const [planningError, setPlanningError] = useState(false);
 
   // Chargement du planning complet backend-driven
   const loadPlanning = useCallback(async (signal) => {
     setPlanningLoading(true);
+    setPlanningError(false);
     try {
       let params = {
         page: ganttPage,
@@ -113,6 +115,7 @@ export function useSoldesOverview(demandesGlobales = []) {
         params.dateFin = weekEndStr;
       }
       const data = await congeService.getPlanningCollaborateurs(params, { signal });
+      if (signal?.aborted) return;
       setPlanningApiData(data);
     } catch (err) {
       if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') {
@@ -120,8 +123,9 @@ export function useSoldesOverview(demandesGlobales = []) {
       }
       console.warn('Erreur chargement planning collaborateurs :', err);
       setPlanningApiData(null);
+      setPlanningError(true);
     } finally {
-      setPlanningLoading(false);
+      if (!signal?.aborted) setPlanningLoading(false);
     }
   }, [viewMode, year, month, weekStartStr, weekEndStr, debouncedSearch, filterMode, ganttPage, ganttPageSize]);
 
@@ -138,17 +142,10 @@ export function useSoldesOverview(demandesGlobales = []) {
     // Si l'API Planning a retourné des données (tous les employés actifs)
     if (planningApiData?.employes && Array.isArray(planningApiData.employes)) {
       return planningApiData.employes
-        .filter((emp) => {
-          if (filterMode === 'ABSENTS') {
-            return emp.demandes && emp.demandes.length > 0;
-          }
-          return true;
-        })
         .map((emp) => {
           const rawItems = emp.demandes || [];
           const sortedItems = [...rawItems].sort((a, b) => new Date(a.dateDebut) - new Date(b.dateDebut));
           const laneEnds = [];
-          let totalJoursPris = 0;
 
           const itemsWithPosition = sortedItems.map((item) => {
             const start = new Date(item.dateDebut);
@@ -202,12 +199,11 @@ export function useSoldesOverview(demandesGlobales = []) {
               laneEnds[laneIndex] = endCol;
             }
 
-            const jours = Number(item.nbJoursDecomptes) || (endCol - startCol + 1);
-            totalJoursPris += jours;
+            const jours = item.nbJoursDecomptes == null ? null : Number(item.nbJoursDecomptes);
 
             return {
               id: item.idDemandeConge,
-              type: item.codeTypeConge || item.typeConge || 'ANNUEL',
+              type: item.codeTypeConge || item.typeConge || 'Absence',
               typeLibelle: item.typeConge,
               couleur: item.couleur,
               statut: item.statut,
@@ -234,47 +230,13 @@ export function useSoldesOverview(demandesGlobales = []) {
             site: emp.site,
             photoUrl: emp.photoUrl,
             items: itemsWithPosition,
-            laneCount: Math.max(1, laneEnds.length),
-            totalPrisMois: totalJoursPris % 1 === 0 ? totalJoursPris : totalJoursPris.toFixed(1)
+            laneCount: Math.max(1, laneEnds.length)
           };
         });
     }
 
-    // Repli de sécurité avec demandesGlobales si l'API n'a pas encore répondu
-    const rawList = Array.isArray(demandesGlobales)
-      ? demandesGlobales
-      : (demandesGlobales?.items || demandesGlobales?.content || demandesGlobales?.data || []);
-
-    const grouped = rawList.reduce((acc, d) => {
-      if (!d || d.codeStatutDemande === 'REFUSE' || d.codeStatutDemande === 'ANNULE') return acc;
-      const key = d.idEmploye;
-      if (!acc[key]) {
-        acc[key] = {
-          idEmploye: d.idEmploye,
-          employe: `${d.prenom || ''} ${d.nom || ''}`.trim() || `Employé #${d.idEmploye}`,
-          items: []
-        };
-      }
-      acc[key].items.push(d);
-      return acc;
-    }, {});
-
-    return Object.values(grouped).map((row) => ({
-      ...row,
-      laneCount: 1,
-      totalPrisMois: row.items.length,
-      items: row.items.map((d) => ({
-        id: d.idDemandeConge,
-        type: d.codeTypeConge || 'ANNUEL',
-        statut: d.codeStatutDemande,
-        originalStart: d.dateDebut,
-        originalEnd: d.dateFin,
-        leftPercent: 0,
-        widthPercent: 20,
-        laneIndex: 0
-      }))
-    }));
-  }, [planningApiData, filterMode, viewMode, year, month, daysInMonth, weekStartStr, weekEndStr, demandesGlobales]);
+    return [];
+  }, [planningApiData, viewMode, year, month, daysInMonth, weekStartStr, weekEndStr]);
 
   // Données plates pour le tableau récapitulatif
   const ganttData = useMemo(() => {
@@ -314,38 +276,6 @@ export function useSoldesOverview(demandesGlobales = []) {
   }, [ganttRows, planningApiData?.page, ganttPage, ganttPageSize]);
 
   const filteredGanttRows = ganttRows;
-
-  // KPIs
-  const safeDemandesList = Array.isArray(demandesGlobales)
-    ? demandesGlobales
-    : (demandesGlobales?.items || demandesGlobales?.content || demandesGlobales?.data || []);
-
-  const kpiEnAttente = safeDemandesList.filter((d) =>
-    d?.availableActions?.APPROVE?.allowed === true
-  ).length;
-
-  const kpiValideCeMois = safeDemandesList.filter((d) => {
-    const isValide = d?.isValide ?? d?.valide ?? (d?.codeStatutDemande === 'VALIDE');
-    if (!isValide) return false;
-    const end = new Date(d.dateFin);
-    const monthStart = new Date(year, month - 1, 1);
-    const monthEnd = new Date(year, month - 1, daysInMonth, 23, 59, 59);
-    return end >= monthStart && end <= monthEnd;
-  }).length;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const kpiAbsentsAuj = safeDemandesList.filter((d) => {
-    const isValide = d?.isValide ?? d?.valide ?? (d?.codeStatutDemande === 'VALIDE');
-    if (!isValide) return false;
-    const start = new Date(d.dateDebut);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(d.dateFin);
-    end.setHours(23, 59, 59, 999);
-    return today >= start && today <= end;
-  }).length;
-
-  const kpiTotalDemandes = safeDemandesList.length;
 
   // Tableau récapitulatif
   const [tableSortField, setTableSortField] = useState('employe');
@@ -414,6 +344,7 @@ export function useSoldesOverview(demandesGlobales = []) {
 
     // Gantt Data & State
     planningLoading,
+    planningError,
     ganttData,
     ganttRows,
     filteredGanttRows,
@@ -439,12 +370,6 @@ export function useSoldesOverview(demandesGlobales = []) {
     tablePage,
     setTablePage,
     tablePageSize,
-    setTablePageSize,
-
-    // KPIs
-    kpiEnAttente,
-    kpiValideCeMois,
-    kpiAbsentsAuj,
-    kpiTotalDemandes
+    setTablePageSize
   };
 }

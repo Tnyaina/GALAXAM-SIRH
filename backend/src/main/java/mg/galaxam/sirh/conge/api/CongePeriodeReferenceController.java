@@ -43,6 +43,9 @@ public class CongePeriodeReferenceController {
     @Autowired
     private mg.galaxam.sirh.conge.application.CongeAnnuelExcelExportService congeAnnuelExcelExportService;
 
+    @Autowired
+    private mg.galaxam.sirh.conge.application.CongeGrandRecapExcelExportService congeGrandRecapExcelExportService;
+
     private Integer getUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof CustomUserDetails user) {
@@ -164,6 +167,19 @@ public class CongePeriodeReferenceController {
         String filename = congeAnnuelExcelExportService.obtenirNomFichierExport(idEmploye, idPeriodeReference);
         return ResponseEntity.ok()
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(bytes);
+    }
+
+    @GetMapping("/grand-recap/export-excel")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> exportGrandRecap(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateDebut,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFin) throws Exception {
+        byte[] bytes = congeGrandRecapExcelExportService.generer(dateDebut, dateFin);
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"GRAND_RECAP_CONGES_" + dateDebut + "_" + dateFin + ".xlsx\"")
                 .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(bytes);
     }

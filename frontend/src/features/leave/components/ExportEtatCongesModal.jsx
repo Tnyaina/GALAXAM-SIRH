@@ -141,7 +141,7 @@ export default function ExportEtatCongesModal({
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-bold text-[var(--color-fg)] flex items-center gap-1.5 uppercase tracking-wide">
                   <Calendar size={13} className="text-[var(--color-brand-600)]" />
-                  Choisir l'année de référence
+                  Choisir la période de référence
                 </label>
                 <span className="text-[11px] text-[var(--color-fg-muted)]">
                   {periodes.length} période(s) disponible(s)
@@ -215,7 +215,7 @@ export default function ExportEtatCongesModal({
                     <span>Aucune période spécifique enregistrée</span>
                   </div>
                   <p className="mt-1 text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
-                    Le document prendra automatiquement la période de référence légale en cours pour l'employé.
+                    Aucune période de référence n'est disponible pour ce salarié. Créez ou régularisez sa période avant l'export.
                   </p>
                 </div>
               )}
@@ -227,7 +227,7 @@ export default function ExportEtatCongesModal({
                 <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
                   Résumé de la sélection
                 </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   <div className="bg-[var(--color-bg-subtle)] p-2.5 border border-[var(--color-border-subtle)]">
                     <span className="text-[10px] text-[var(--color-fg-muted)] block">Date de début</span>
                     <strong className="font-mono text-xs text-[var(--color-fg)]">
@@ -246,12 +246,6 @@ export default function ExportEtatCongesModal({
                       {selectedPeriode.statut === 'OUVERTE' ? 'En cours' : 'Clôturée'}
                     </strong>
                   </div>
-                  <div className="bg-[var(--color-bg-subtle)] p-2.5 border border-[var(--color-border-subtle)]">
-                    <span className="text-[10px] text-[var(--color-fg-muted)] block">Durée</span>
-                    <strong className="text-xs text-[var(--color-brand-600)]">
-                      12 mois
-                    </strong>
-                  </div>
                 </div>
               </div>
             )}
@@ -264,7 +258,7 @@ export default function ExportEtatCongesModal({
               </span>
               <ul className="space-y-1 text-[11px] text-[var(--color-fg-muted)] list-disc pl-4">
                 <li>
-                  <strong className="text-[var(--color-fg)]">Feuille 1 (État des congés) :</strong> tableau mois par mois des droits acquis, des congés posés et des totaux annuels.
+                  <strong className="text-[var(--color-fg)]">Feuille 1 (État des congés) :</strong> droits et paie par période de référence, prises enregistrées et solde issu du journal.
                 </li>
                 <li>
                   <strong className="text-[var(--color-fg)]">Feuille 2 (Mouvements) :</strong> historique détaillé des débits, crédits et soldes progressifs sur la période.
@@ -287,7 +281,7 @@ export default function ExportEtatCongesModal({
             size="sm"
             onClick={handleDownload}
             loading={exporting}
-            disabled={loading}
+            disabled={loading || !selectedPeriodeId}
             iconLeft={<Download size={14} />}
             className="font-bold"
           >

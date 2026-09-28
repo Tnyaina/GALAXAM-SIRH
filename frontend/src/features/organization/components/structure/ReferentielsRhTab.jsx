@@ -30,12 +30,79 @@ function TypeContratFormModal({ isOpen, onClose, onSubmit, formData, setFormData
 
 function TypeIntervenantFormModal({ isOpen, onClose, onSubmit, formData, setFormData, actionError, submitting = false }) {
     const toggles = [
-        ['soumisIrsa', "Soumis à l'Impôt IRSA (Salariés / Traitements)"],
-        ['soumisIsi5', 'Soumis au prélèvement libératoire ISI 5% (Prestataires / Honoraires)'],
-        ['soumisCnaps', 'Cotise à la CNaPS (Caisse Nationale de Prévoyance Sociale)'],
-        ['soumisSante', 'Cotise aux organismes de santé interentreprises (OSTIE, FUNRECO, etc.)'],
+        ['soumisIrsa', "Soumis à l'Impôt sur le Revenu Salarial (IRSA)"],
+        ['soumisIsi5', "Soumis à la Retenue Libératoire ISI (Prestataires / Honoraires)"],
+        ['soumisCnaps', "Cotise à la CNaPS (Caisse Nationale de Prévoyance Sociale)"],
+        ['soumisSante', "Cotise aux organismes de santé interentreprises (OSTIE / OMSI)"],
     ];
-    return <Modal isOpen={isOpen} onClose={onClose} title="Modifier le Type d'Intervenant" icon={<UserCheck size={18} />} size="lg" footer={<><Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>Annuler</Button><Button type="submit" form="intervenant-form" variant="primary" size="sm" loading={submitting}>Enregistrer</Button></>}><form id="intervenant-form" onSubmit={onSubmit} className="space-y-4">{actionError && <Alert type="error" message={actionError} />}<Input label="Code du Type d'Intervenant" required disabled value={formData.code} onChange={(event) => setFormData({ ...formData, code: event.target.value.toUpperCase() })} placeholder="Ex: SALARIE, CONSULTANT, STAGIAIRE" /><Input label="Libellé Complet" required value={formData.libelle} onChange={(event) => setFormData({ ...formData, libelle: event.target.value })} placeholder="Ex: Salarié National de Droit Commun" /><div className="space-y-2 pt-2 border-t border-[var(--color-border-subtle)]"><p className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">Régime Fiscal & Cotisations Sociales</p><div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-2.5">{toggles.map(([field, label]) => <Checkbox key={field} label={label} checked={formData[field]} onChange={(event) => setFormData({ ...formData, [field]: event.target.checked })} />)}</div></div></form></Modal>;
+
+    const handleToggle = (field, checked) => {
+        const next = { ...formData, [field]: checked };
+        // Exclusivité mutuelle IRSA (salarié) vs ISI (prestataire externe)
+        if (field === 'soumisIrsa' && checked) {
+            next.soumisIsi5 = false;
+        } else if (field === 'soumisIsi5' && checked) {
+            next.soumisIrsa = false;
+        }
+        setFormData(next);
+    };
+
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Modifier le Régime de l'Intervenant"
+            icon={<UserCheck size={18} />}
+            size="lg"
+            footer={
+                <>
+                    <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>
+                        Annuler
+                    </Button>
+                    <Button type="submit" form="intervenant-form" variant="primary" size="sm" loading={submitting}>
+                        Enregistrer
+                    </Button>
+                </>
+            }
+        >
+            <form id="intervenant-form" onSubmit={onSubmit} className="space-y-4">
+                {actionError && <Alert type="error" message={actionError} />}
+                <Input
+                    label="Code du Type d'Intervenant"
+                    required
+                    disabled
+                    value={formData.code}
+                    onChange={(event) => setFormData({ ...formData, code: event.target.value.toUpperCase() })}
+                    placeholder="Ex: SALARIE, CONSULTANT, STAGIAIRE"
+                />
+                <Input
+                    label="Libellé Complet"
+                    required
+                    value={formData.libelle}
+                    onChange={(event) => setFormData({ ...formData, libelle: event.target.value })}
+                    placeholder="Ex: Salarié National de Droit Commun"
+                />
+                <div className="space-y-2 pt-2 border-t border-[var(--color-border-subtle)]">
+                    <p className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
+                        Régime Fiscal & Cotisations Sociales
+                    </p>
+                    <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-2.5">
+                        {toggles.map(([field, label]) => (
+                            <Checkbox
+                                key={field}
+                                label={label}
+                                checked={formData[field]}
+                                onChange={(event) => handleToggle(field, event.target.checked)}
+                            />
+                        ))}
+                    </div>
+                    <p className="text-[11px] text-[var(--color-fg-muted)]">
+                        Règle légale : À Madagascar, un intervenant est soit assujetti à l'IRSA (salarié), soit à la retenue ISI (prestation/honoraire) ; les deux régimes d'imposition sont mutuellement exclusifs.
+                    </p>
+                </div>
+            </form>
+        </Modal>
+    );
 }
 
 function BanqueFormModal({ isOpen, onClose, onSubmit, editingBanque, formData, setFormData, actionError, submitting = false }) {

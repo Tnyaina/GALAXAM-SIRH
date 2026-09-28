@@ -38,6 +38,9 @@ public class CongeSoldeController {
     @Autowired
     private mg.galaxam.sirh.conge.application.CongeTauxApplicableService congeTauxApplicableService;
 
+    @Autowired
+    private mg.galaxam.sirh.conge.application.CongeExpirationExamenService congeExpirationExamenService;
+
     @GetMapping("/planning")
     @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getPlanning(
@@ -62,16 +65,49 @@ public class CongeSoldeController {
         }
     }
 
-    @PostMapping("/purge-expiration")
+    @GetMapping("/expiration/employe/{idEmploye}")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getExamenExpiration(@PathVariable Integer idEmploye) {
+        try (Connection c = dataSource.getConnection()) {
+            return ResponseEntity.ok(congeExpirationExamenService.obtenir(idEmploye, java.time.LocalDate.now(), c));
+        } catch (Exception e) {
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @PostMapping("/expiration/employe/{idEmploye}/reporter")
     @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> declencherPurgeManuelle() {
+    public ResponseEntity<?> reporterExamenExpiration(@PathVariable Integer idEmploye, @RequestBody Map<String, Object> req) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                int nbPurges = congeService.executerPurge(java.time.LocalDate.now(), c);
+                java.time.LocalDate prochaineDate = req.get("prochaineDate") == null ? null
+                        : java.time.LocalDate.parse(req.get("prochaineDate").toString());
+                var result = congeExpirationExamenService.reporter(idEmploye, prochaineDate,
+                        req.get("motif") == null ? null : req.get("motif").toString(), getCurrentUserId(), c);
                 c.commit();
-                return ResponseEntity.ok(Map.of("success", true, "nbPurges", nbPurges,
-                        "message", "Purge triennale des congés exécutée avec succès."));
+                return ResponseEntity.ok(result);
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        } catch (Exception e) {
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @PostMapping("/expiration/employe/{idEmploye}/confirmer")
+    @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> confirmerExpiration(@PathVariable Integer idEmploye, @RequestBody Map<String, Object> req) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                boolean planificationVerifiee = Boolean.parseBoolean(String.valueOf(req.get("planificationVerifiee")));
+                var result = congeExpirationExamenService.confirmerExpiration(idEmploye,
+                        req.get("motif") == null ? null : req.get("motif").toString(), planificationVerifiee,
+                        getCurrentUserId(), c);
+                c.commit();
+                return ResponseEntity.ok(result);
             } catch (Exception e) {
                 c.rollback();
                 throw e;

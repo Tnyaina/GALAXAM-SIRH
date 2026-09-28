@@ -17,9 +17,9 @@ const formatDate = (timestamp) => fmtDate(timestamp);
 const getLeaveTooltip = (employeNom, item) => {
   const isDemi = Boolean(item.estDemiJournee);
   const isMatin = item.momentDemiJournee === 'MATIN';
-  const dureeLabel = isDemi ? (isMatin ? '0.5j Matin' : '0.5j A-M') : `${item.dureeJours}j`;
-  const isEnAttente = item.statut === 'EN_ATTENTE' || item.statut === 'SOUMIS';
-  return `${employeNom} — ${item.typeLibelle || item.type} (${dureeLabel})\nStatut : ${isEnAttente ? 'En attente de validation' : 'Validé'}\nPériode : du ${formatDate(item.originalStart)} au ${formatDate(item.originalEnd)}`;
+  const dureeLabel = item.dureeJours == null ? 'durée non renseignée' : `${item.dureeJours} j${isDemi ? (isMatin ? ' matin' : ' après-midi') : ''}`;
+  const statutLabel = item.statut === 'VALIDE' ? 'Validé' : item.statut === 'EN_ATTENTE' || item.statut === 'SOUMIS' ? 'En attente de validation' : item.statut || 'Non renseigné';
+  return `${employeNom} — ${item.typeLibelle || item.type} (${dureeLabel})\nStatut : ${statutLabel}\nPériode : du ${formatDate(item.originalStart)} au ${formatDate(item.originalEnd)}`;
 };
 
 export default function SoldesGantt({
@@ -103,7 +103,7 @@ export default function SoldesGantt({
   }, [dragState, onCellClick]);
 
   const handleCellMouseDown = (idEmploye, index, dateStr, e) => {
-    if (e.button !== 0) return; // Uniquement clic gauche
+    if (!onCellClick || e.button !== 0) return; // Uniquement clic gauche et droit de création
     e.preventDefault();
     setDragState({
       isDragging: true,
@@ -173,7 +173,7 @@ export default function SoldesGantt({
           <div className="flex items-center gap-3 flex-wrap">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
               <CalendarDays className="w-4 h-4 text-brand-600" />
-              Planning des Collaborateurs
+              Calendrier des absences
             </h3>
 
             {/* Toggle Vue : Mois vs Semaine */}
@@ -217,7 +217,7 @@ export default function SoldesGantt({
                 title="Afficher tous les collaborateurs actifs même sans congé"
               >
                 <Users className="w-3.5 h-3.5" />
-                <span>Tous</span>
+                <span>Tous les collaborateurs</span>
               </button>
               <button
                 type="button"
@@ -227,10 +227,10 @@ export default function SoldesGantt({
                     ? 'bg-[var(--color-surface)] text-[var(--color-fg)] border border-[var(--color-border-subtle)] shadow-xs'
                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                 }`}
-                title="Afficher uniquement les collaborateurs ayant au moins une absence"
+                title="Afficher les collaborateurs ayant une absence validée ou une demande en attente sur la période"
               >
                 <UserCheck className="w-3.5 h-3.5" />
-                <span>Absents</span>
+                <span>Avec absences</span>
               </button>
             </div>
 
@@ -366,10 +366,10 @@ export default function SoldesGantt({
             </span>
           </div>
 
-          <div className="text-[11px] text-brand-700 dark:text-brand-300 font-medium flex items-center gap-1 bg-brand-500/10 px-2 py-0.5 border border-brand-500/20">
+          {onCellClick && <div className="text-[11px] text-[var(--color-brand-700)] font-medium flex items-center gap-1 bg-[var(--color-brand-500)]/10 px-2 py-0.5 border border-[var(--color-brand-500)]/20">
             <Plus className="w-3 h-3 text-brand-600" />
             <span>Astuce : Glissez sur plusieurs cases ou cliquez pour poser un congé directement.</span>
-          </div>
+          </div>}
         </div>
       </div>
 
@@ -493,10 +493,9 @@ export default function SoldesGantt({
                         </span>
                       </div>
 
-                      {/* Badge total pris */}
-                      <span className="text-[10px] font-mono font-bold bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] px-1.5 py-0.5 shrink-0 border border-[var(--color-border-subtle)]" title="Total congés sur la période">
-                        {row.totalPrisMois}j
-                      </span>
+                      {row.items.length > 0 && <span className="text-[10px] font-mono font-bold bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] px-1.5 py-0.5 shrink-0 border border-[var(--color-border-subtle)]" title="Nombre d'absences affichées sur la période">
+                        {row.items.length}
+                      </span>}
                     </div>
 
                     {/* Grille Jours + Support Glisser (Drag-to-select) + Barres */}
@@ -515,7 +514,7 @@ export default function SoldesGantt({
                           const hasLeave = leavesOnDay.length > 0;
                           const cellTitle = hasLeave
                             ? leavesOnDay.map((item) => getLeaveTooltip(row.employe, item)).join('\n\n')
-                            : `Cliquer ou glisser pour poser un congé pour ${row.employe}`;
+                            : onCellClick ? `Cliquer ou glisser pour poser un congé pour ${row.employe}` : `Aucune absence pour ${row.employe} à cette date`;
 
                           return (
                             <div
@@ -535,7 +534,7 @@ export default function SoldesGantt({
                                 }
                                 handleCellMouseUp(row.idEmploye, idx, dateStr, e);
                               }}
-                              className={`flex-1 min-w-[24px] border-r border-[var(--color-border-subtle)]/40 last:border-0 relative ${hasLeave ? 'cursor-default' : 'cursor-pointer'} group/cell transition-colors ${
+                              className={`flex-1 min-w-[24px] border-r border-[var(--color-border-subtle)]/40 last:border-0 relative ${hasLeave || !onCellClick ? 'cursor-default' : 'cursor-pointer'} group/cell transition-colors ${
                                 isCellInDrag
                                   ? 'bg-brand-500/30 border-y-2 border-brand-600 z-10'
                                   : isWeekend
@@ -564,7 +563,7 @@ export default function SoldesGantt({
                           const hasLeave = leavesOnDay.length > 0;
                           const cellTitle = hasLeave
                             ? leavesOnDay.map((item) => getLeaveTooltip(row.employe, item)).join('\n\n')
-                            : `Cliquer ou glisser pour poser un congé pour ${row.employe}`;
+                            : onCellClick ? `Cliquer ou glisser pour poser un congé pour ${row.employe}` : `Aucune absence pour ${row.employe} à cette date`;
 
                           return (
                             <div
@@ -584,7 +583,7 @@ export default function SoldesGantt({
                                 }
                                 handleCellMouseUp(row.idEmploye, idx, dayObj.date, e);
                               }}
-                              className={`flex-1 min-w-[90px] border-r border-[var(--color-border-subtle)]/40 last:border-0 relative ${hasLeave ? 'cursor-default' : 'cursor-pointer'} group/cell transition-colors flex flex-col justify-end p-1.5 ${
+                              className={`flex-1 min-w-[90px] border-r border-[var(--color-border-subtle)]/40 last:border-0 relative ${hasLeave || !onCellClick ? 'cursor-default' : 'cursor-pointer'} group/cell transition-colors flex flex-col justify-end p-1.5 ${
                                 isCellInDrag
                                   ? 'bg-brand-500/30 border-y-2 border-brand-600 z-10'
                                   : dayObj.isWeekend

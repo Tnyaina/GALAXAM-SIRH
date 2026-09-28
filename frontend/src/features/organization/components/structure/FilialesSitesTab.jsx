@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, Building2, MapPin, Eye, Hash, Phone, Mail, Users, FileText } from 'lucide-react';
+import { Search, Plus, Building2, MapPin, Eye, Hash, Phone, Mail, FileText } from 'lucide-react';
 import organisationService from '@/features/organization/api/organisationService';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
@@ -112,7 +112,6 @@ function FilialeFormModal({ isOpen, onClose, onSubmit, selectedFiliale, formData
                             onChange={(event) => setFormData({ ...formData, rcs: event.target.value })}
                             placeholder="Ex: 2020 B 00123"
                             icon={<FileText size={14} />}
-                            hint="Laisser vide si en attente"
                         />
                     </div>
                 </div>
@@ -139,26 +138,6 @@ function FilialeFormModal({ isOpen, onClose, onSubmit, selectedFiliale, formData
                             onChange={(event) => setFormData({ ...formData, email: event.target.value })}
                             placeholder="Ex: contact@galaxam.mg"
                             icon={<Mail size={14} />}
-                        />
-                    </div>
-                </div>
-
-                {/* Section 4 : Gouvernance & Seuils */}
-                <div className="border-t border-[var(--color-border-subtle)] pt-3 space-y-2">
-                    <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                        <Users size={13} className="text-[var(--color-brand-500)]" />
-                        <span>Gouvernance & Seuils RH</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <Input
-                            label="Seuil d'alerte effectif"
-                            type="number"
-                            min="0"
-                            value={formData.seuilEffectifAlerte ?? ''}
-                            onChange={(event) => setFormData({ ...formData, seuilEffectifAlerte: event.target.value })}
-                            placeholder="Ex: 19 ou 20"
-                            icon={<Users size={14} />}
-                            hint="Alerte quand l'effectif approche le seuil légal (ex: 20 salariés pour les délégués du personnel)."
                         />
                     </div>
                 </div>
@@ -208,7 +187,7 @@ export default function FilialesSitesTab() {
     const [showFilialeModal, setShowFilialeModal] = useState(false);
     const [selectedFiliale, setSelectedFiliale] = useState(null);
     const [filialeFormData, setFilialeFormData] = useState({
-        codeFiliale: '', raisonSociale: '', nif: '', stat: '', adresseSiege: '', rcs: '', telephone: '', email: '', seuilEffectifAlerte: 19
+        codeFiliale: '', raisonSociale: '', nif: '', stat: '', adresseSiege: '', rcs: '', telephone: '', email: ''
     });
 
     // Modales Site
@@ -218,7 +197,9 @@ export default function FilialesSitesTab() {
         codeSite: '', libelle: '', idFilialeRattachement: '',
         horaireContinu: true,
         heureDebutMatin: '08:00', heureFinMatin: '12:30',
-        heureDebutApresMidi: '13:00', heureFinApresMidi: '16:30'
+        heureDebutApresMidi: '13:00', heureFinApresMidi: '16:30',
+        plancherArriveeActif: false,
+        heureEntreeMinimaleValorisee: '07:30'
     });
 
     // Chargement des données
@@ -248,7 +229,7 @@ export default function FilialesSitesTab() {
     // Actions utilisateur : filiales, sites et confirmations.
     const handleOpenCreateFiliale = () => {
         setSelectedFiliale(null);
-        setFilialeFormData({ codeFiliale: '', raisonSociale: '', nif: '', stat: '', adresseSiege: '', rcs: '', telephone: '', email: '', seuilEffectifAlerte: 19 });
+        setFilialeFormData({ codeFiliale: '', raisonSociale: '', nif: '', stat: '', adresseSiege: '', rcs: '', telephone: '', email: '' });
         setActionError(null);
         setShowFilialeModal(true);
     };
@@ -263,8 +244,7 @@ export default function FilialesSitesTab() {
             adresseSiege: filiale.adresseSiege || '',
             rcs: filiale.rcs || '',
             telephone: filiale.telephone || '',
-            email: filiale.email || '',
-            seuilEffectifAlerte: filiale.seuilEffectifAlerte ?? 19
+            email: filiale.email || ''
         });
         setActionError(null);
         setShowFilialeModal(true);
@@ -286,12 +266,7 @@ export default function FilialesSitesTab() {
 
         setSubmitting(true);
         try {
-            const payload = {
-                ...filialeFormData,
-                seuilEffectifAlerte: filialeFormData.seuilEffectifAlerte === '' || filialeFormData.seuilEffectifAlerte == null
-                    ? 0
-                    : Number(filialeFormData.seuilEffectifAlerte)
-            };
+            const payload = { ...filialeFormData };
             if (selectedFiliale) {
                 await organisationService.updateFiliale(selectedFiliale.idFiliale, payload);
                 toast({ title: 'Succès', message: `La filiale "${filialeFormData.raisonSociale}" a été modifiée.`, type: 'success' });
@@ -347,7 +322,9 @@ export default function FilialesSitesTab() {
             idFilialeRattachement: filterFilialeId || '',
             horaireContinu: true,
             heureDebutMatin: '08:00', heureFinMatin: '12:30',
-            heureDebutApresMidi: '13:00', heureFinApresMidi: '16:30'
+            heureDebutApresMidi: '13:00', heureFinApresMidi: '16:30',
+            plancherArriveeActif: false,
+            heureEntreeMinimaleValorisee: '07:30'
         });
         setActionError(null);
         setShowSiteModal(true);
@@ -364,7 +341,9 @@ export default function FilialesSitesTab() {
             heureDebutMatin: site.heureDebutMatin ? site.heureDebutMatin.substring(0, 5) : '08:00',
             heureFinMatin: site.heureFinMatin ? site.heureFinMatin.substring(0, 5) : (isContinu ? '12:30' : '12:00'),
             heureDebutApresMidi: site.heureDebutApresMidi ? site.heureDebutApresMidi.substring(0, 5) : (isContinu ? '13:00' : '14:00'),
-            heureFinApresMidi: site.heureFinApresMidi ? site.heureFinApresMidi.substring(0, 5) : (isContinu ? '16:30' : '18:00')
+            heureFinApresMidi: site.heureFinApresMidi ? site.heureFinApresMidi.substring(0, 5) : (isContinu ? '16:30' : '18:00'),
+            plancherArriveeActif: !!site.plancherArriveeActif,
+            heureEntreeMinimaleValorisee: site.heureEntreeMinimaleValorisee ? site.heureEntreeMinimaleValorisee.substring(0, 5) : '07:30'
         });
         setActionError(null);
         setShowSiteModal(true);
@@ -383,6 +362,10 @@ export default function FilialesSitesTab() {
             setActionError("Le libellé du site est obligatoire.");
             return;
         }
+        if (siteFormData.plancherArriveeActif && !siteFormData.heureEntreeMinimaleValorisee) {
+            setActionError("L'heure minimale valorisée est obligatoire lorsque le plancher d'arrivée est activé.");
+            return;
+        }
 
         const formatTime = (t, fallback) => {
             const val = t || fallback;
@@ -395,7 +378,11 @@ export default function FilialesSitesTab() {
             heureDebutMatin: formatTime(siteFormData.heureDebutMatin, '08:00'),
             heureFinMatin: formatTime(siteFormData.heureFinMatin, '12:00'),
             heureDebutApresMidi: formatTime(siteFormData.heureDebutApresMidi, '13:00'),
-            heureFinApresMidi: formatTime(siteFormData.heureFinApresMidi, '17:00')
+            heureFinApresMidi: formatTime(siteFormData.heureFinApresMidi, '17:00'),
+            plancherArriveeActif: !!siteFormData.plancherArriveeActif,
+            heureEntreeMinimaleValorisee: siteFormData.plancherArriveeActif && siteFormData.heureEntreeMinimaleValorisee
+                ? formatTime(siteFormData.heureEntreeMinimaleValorisee, '07:30')
+                : null
         };
 
         setSubmitting(true);
@@ -410,10 +397,48 @@ export default function FilialesSitesTab() {
             setShowSiteModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde du site.");
+            setActionError(err.response?.data?.message || err.response?.data || "Erreur de sauvegarde du site.");
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const requestTogglePlancher = (site) => {
+        const isDeactivating = site.plancherArriveeActif;
+        const heureAffichee = site.heureEntreeMinimaleValorisee ? site.heureEntreeMinimaleValorisee.substring(0, 5) : '07:30';
+        setConfirmState({
+            isOpen: true,
+            title: isDeactivating
+                ? `Désactiver le plancher d'arrivée pour "${site.libelle}" ?`
+                : `Activer le plancher d'arrivée pour "${site.libelle}" ?`,
+            message: isDeactivating
+                ? `En désactivant le plancher d'arrivée, les collaborateurs de ce site seront comptabilisés dès leur heure brute de badgeage, même en cas d'arrivée très anticipée.`
+                : `En activant le plancher d'arrivée (${heureAffichee}), toute arrivée matinale avant cette heure sera plafonnée à ${heureAffichee} pour le calcul du temps de travail effectif.`,
+            confirmLabel: isDeactivating ? "Désactiver le plancher" : "Activer le plancher",
+            variant: isDeactivating ? "warning" : "primary",
+            loading: false,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, loading: true }));
+                try {
+                    await organisationService.toggleSitePlancher(site.idSite, {
+                        actif: !isDeactivating,
+                        heureEntreeMinimaleValorisee: heureAffichee
+                    });
+                    toast({
+                        title: 'Succès',
+                        message: isDeactivating
+                            ? `Le plancher d'arrivée du site "${site.libelle}" a été désactivé.`
+                            : `Le plancher d'arrivée du site "${site.libelle}" est désormais actif (${heureAffichee}).`,
+                        type: 'success'
+                    });
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                    loadData();
+                } catch (err) {
+                    setError(err.response?.data?.message || err.response?.data || "Erreur lors du changement d'état du plancher.");
+                    setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
+                }
+            }
+        });
     };
 
     const requestToggleSiteStatus = (site) => {
@@ -569,6 +594,7 @@ export default function FilialesSitesTab() {
                     sites={filteredSites}
                     onOpenEdit={handleOpenEditSite}
                     onToggleStatus={requestToggleSiteStatus}
+                    onTogglePlancher={requestTogglePlancher}
                     onOpenCreate={handleOpenCreateSite}
                 />
             )}

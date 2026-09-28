@@ -180,7 +180,7 @@ export default function MouvementsSoldeTable({
       {/* ── En-tête du registre avec actions ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[var(--color-border-subtle)]">
         <div className="flex items-center gap-2">
-          <History className="w-4 h-4 text-brand-500" />
+          <History className="w-4 h-4 text-[var(--color-brand-500)]" />
           <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
             Registre des Mouvements & Crédits de Solde ({filteredMouvements.length})
           </h4>

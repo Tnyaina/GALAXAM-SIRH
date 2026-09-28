@@ -33,19 +33,13 @@ export default function SoldesTable({
   };
 
   return (
-    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-4">
-      <div className="flex items-center justify-between pb-3 border-b border-[var(--color-border-subtle)]">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
-          <Calendar size={14} className="text-brand-500" />
-          Dernières Absences & Départs du Mois ({totalTableItems})
-        </h3>
-      </div>
+    <div className="px-4 pb-4 space-y-3">
 
       {ganttData.length === 0 ? (
         <EmptyState
           icon={Calendar}
           title="Aucune donnée d'absence"
-          description="Aucune absence validée ou en attente enregistrée sur ce mois."
+          description="Aucune absence validée ou en attente parmi les collaborateurs affichés."
         />
       ) : (
         <Table>

@@ -8,7 +8,7 @@ const formatJours = (value) => {
   return Number.isInteger(number) ? String(number) : number.toFixed(2);
 };
 
-/** Présentation des valeurs servies par le backend ; aucune décision d'éligibilité ici. */
+/** Présentation des valeurs servies par le backend ; aucune décision d'éligibilité ni valeur en dur ici. */
 export default function SoldeCongeWidget({ soldeData, situationData = null, consommationPool, employe, canWrite = false, onOpenInitModal }) {
   if (!soldeData && !situationData) return null;
 
@@ -22,20 +22,27 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, cons
   const cycle = situationData?.periodeReference;
   const pool = consommationPool?.[0];
 
+  const soldeNumber = solde != null ? Number(solde) : null;
+  const soldeSubtext = bonification != null && Number(bonification) > 0
+    ? `Dont ${formatJours(bonification)} j de bonification`
+    : cycle?.statut
+      ? `Cycle ${cycle.statut.toLowerCase()}`
+      : 'Solde net à date';
+
   return (
-    <section aria-label="Situation des congés" className="space-y-3">
+    <section aria-label="Situation des congés" className="space-y-3 font-sans">
       <div className="grid gap-3 lg:grid-cols-[minmax(15rem,1fr)_minmax(0,2fr)]">
         <StatCard
           title="Solde disponible"
-          value={solde == null ? '—' : `${Number(solde) > 0 ? '+' : ''}${formatJours(solde)} j`}
+          value={soldeNumber == null ? '—' : `${soldeNumber > 0 ? '+' : ''}${formatJours(soldeNumber)} j`}
           icon={<Calendar size={20} />}
-          color={Number(solde) < 0 ? 'danger' : 'brand'}
-          subtext="Jours utilisables selon la situation RH"
+          color={soldeNumber != null && soldeNumber < 0 ? 'danger' : 'brand'}
+          subtext={soldeSubtext}
         />
         <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3.5 flex flex-col justify-center gap-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
-              <Coins size={17} className="text-[var(--color-brand-600)] shrink-0" />
+              <Coins size={17} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shrink-0" />
               <div>
                 <p className="text-xs font-semibold text-[var(--color-fg-muted)]">Taux TCONGE applicable</p>
                 <p className="text-sm font-semibold text-[var(--color-fg)]">
@@ -63,13 +70,27 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, cons
         </summary>
         <div className="border-t border-[var(--color-border-subtle)] p-3 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <StatCard title="Droits acquis" value={acquis == null ? '—' : `${formatJours(acquis)} j`} icon={<Clock size={18} />} color="neutral"
-              subtext={bonification != null ? `Bonification : ${formatJours(bonification)} j` : undefined} />
-            <StatCard title="Congés pris" value={pris == null ? '—' : `${formatJours(pris)} j`} icon={<ArrowDownCircle size={18} />} color="neutral"
-              subtext={expire != null ? `Droits expirés : ${formatJours(expire)} j` : undefined} />
-            <StatCard title="Événements familiaux" value={pool ? `${formatJours(pool.joursConsommes)} / ${formatJours(pool.plafond)} j` : '—'}
-              icon={<ShieldAlert size={18} />} color="neutral"
-              subtext={pool ? `${formatJours(pool.joursEnAttente)} j réservés · ${formatJours(pool.joursEngages)} j engagés` : 'Aucune donnée de quota'} />
+            <StatCard
+              title="Droits acquis"
+              value={acquis == null ? '—' : `${formatJours(acquis)} j`}
+              icon={<Clock size={18} />}
+              color="neutral"
+              subtext={bonification != null && Number(bonification) > 0 ? `Bonification : ${formatJours(bonification)} j` : 'Droits cumulés'}
+            />
+            <StatCard
+              title="Congés pris"
+              value={pris == null ? '—' : `${formatJours(pris)} j`}
+              icon={<ArrowDownCircle size={18} />}
+              color="neutral"
+              subtext={expire != null && Number(expire) > 0 ? `Droits expirés : ${formatJours(expire)} j` : 'Absences validées'}
+            />
+            <StatCard
+              title="Événements familiaux"
+              value={pool ? `${formatJours(pool.joursConsommes)} / ${formatJours(pool.plafond)} j` : '—'}
+              icon={<ShieldAlert size={18} />}
+              color="neutral"
+              subtext={pool ? `${formatJours(pool.joursEnAttente)} j réservés · ${formatJours(pool.joursEngages)} j engagés` : 'Quota non initialisé'}
+            />
           </div>
           {(sourceTaux || cycle) && (
             <div className="grid sm:grid-cols-2 gap-2 text-xs text-[var(--color-fg-muted)]">

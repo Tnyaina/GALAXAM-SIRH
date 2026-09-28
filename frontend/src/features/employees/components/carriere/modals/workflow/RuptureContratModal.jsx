@@ -147,7 +147,7 @@ function RupturePreview({
                 )}
             </div>
 
-            <DocumentFooter status="Brouillon (en attente de validation RH)" />
+            <DocumentFooter status="Brouillon (en attente de validation)" />
         </DocumentFrame>
     );
 }

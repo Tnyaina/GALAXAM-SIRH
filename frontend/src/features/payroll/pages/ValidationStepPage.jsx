@@ -131,7 +131,7 @@ export default function ValidationStepPage() {
             loading={ctxLoading}
             onRefresh={refresh}
             title="Validation de la paie"
-            description="Approbation finale de la direction financière. Scellement officiel des bulletins de la campagne."
+            description="Approbation finale et scellement officiel des bulletins de la campagne."
             primaryAction={isValidee ? {
                 label: 'Continuer vers Sorties',
                 onClick: () => navigate(`/paie/periodes/${numericPeriodId}/sorties`),
@@ -155,7 +155,7 @@ export default function ValidationStepPage() {
         >
             <SEO
                 title="Validation de la paie | GALAXAM SIRH"
-                description="Validation officielle de la paie par la direction financière."
+                description="Validation officielle et scellement de la paie."
             />
 
             <div className="max-w-4xl mx-auto space-y-6">

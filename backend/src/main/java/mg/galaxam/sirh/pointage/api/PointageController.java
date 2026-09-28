@@ -98,6 +98,12 @@ public class PointageController {
             resp.put("totalPages", 0);
             resp.put("currentPage", 1);
             resp.put("pageSize", size);
+            resp.put("kpis", Map.of(
+                "totalSalaries", 0, "totalHeures", 0.0, "totalHs30", 0.0, "totalHs50", 0.0, "totalRetardMins", 0, "totalIndemnites", 0.0
+            ));
+            resp.put("alertCounts", Map.of(
+                "all", 0, "hs", 0, "nuit", 0, "retard", 0, "compense", 0, "absence", 0
+            ));
             return ResponseEntity.ok(resp);
         }
         if (page <= 0 && size <= 0) {

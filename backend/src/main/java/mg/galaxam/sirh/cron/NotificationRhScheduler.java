@@ -140,7 +140,7 @@ public class NotificationRhScheduler {
                     insererNotification(c, null, "CONTRAT_EXPIRE_J", "CRITIQUE",
                         "Contrat expirant AUJOURD'HUI - " + nomPrenom,
                         "Le contrat " + typeContrat + " N°" + (numero != null ? numero : "?") +
-                        " de " + nomPrenom + " arrive à échéance ce soir à minuit. Une action RH est requise.",
+                        " de " + nomPrenom + " arrive à échéance ce soir à minuit. Une action est requise.",
                         "/employes/" + idEmploye + "?tab=carriere", idEmploye);
                 } else if (jours <= 7) {
                     insererNotification(c, null, "CONTRAT_EXPIRE_7J", "HAUTE",
@@ -192,7 +192,7 @@ public class NotificationRhScheduler {
                 } else if (jours <= 7) {
                     insererNotification(c, null, "ESSAI_EXPIRE_7J", "HAUTE",
                         "Fin d'essai dans " + jours + " jour(s) - " + nomPrenom,
-                        "La période d'essai de " + nomPrenom + " se termine dans " + jours + " jour(s). Anticipez la décision RH.",
+                        "La période d'essai de " + nomPrenom + " se termine dans " + jours + " jour(s). Anticipez la décision.",
                         "/employes/" + idEmploye + "?tab=carriere", idEmploye);
                 } else if (jours <= 15) {
                     insererNotification(c, null, "ESSAI_EXPIRE_15J", "NORMALE",
@@ -373,8 +373,8 @@ public class NotificationRhScheduler {
     }
 
     private void genererAlerteExpirationProche(Connection c) throws Exception {
-        LocalDate seuil30Jours = LocalDate.now().plusDays(30).minusMonths(36);
-        for (Map.Entry<Integer, Double> entry : congeService.calculerExpirationsPotentielles(seuil30Jours, c).entrySet()) {
+        LocalDate echeanceMax = LocalDate.now().plusDays(30);
+        for (Map.Entry<Integer, Double> entry : congeService.calculerExpirationsPotentielles(echeanceMax, c).entrySet()) {
             int idEmploye = entry.getKey();
             String nomPrenom = "Employé #" + idEmploye;
             try (PreparedStatement ps = c.prepareStatement("SELECT nom || ' ' || prenom FROM employe WHERE id_employe = ?")) {
@@ -384,8 +384,8 @@ public class NotificationRhScheduler {
                 }
             }
             insererNotification(c, null, "CONGE_EXPIRATION_PROCHE", "HAUTE",
-                "Expiration de congés imminente - " + nomPrenom,
-                "Attention, " + String.format("%.2f", entry.getValue()) + " jours de congés acquis par " + nomPrenom + " il y a presque 3 ans risquent d'expirer dans les 30 prochains jours s'ils ne sont pas pris.",
+                "Droits de congé à examiner - " + nomPrenom,
+                String.format("%.2f", entry.getValue()) + " jours de congé approchent du seuil de prescription. Vérifiez la planification avec le salarié ; aucun retrait automatique n'est effectué.",
                 "/employes/" + idEmploye + "?tab=conges", idEmploye);
         }
     }

@@ -179,7 +179,7 @@ export const AuthProvider = ({ children }) => {
                 } else if (error.response.status === 401) {
                     message = "Identifiant ou mot de passe incorrect. Veuillez vérifier votre saisie.";
                 } else if (error.response.status === 403) {
-                    message = "Votre compte utilisateur est désactivé. Veuillez contacter le service RH.";
+                    message = "Votre compte utilisateur est désactivé. Veuillez contacter votre administrateur.";
                 } else if (error.response.status >= 500) {
                     message = "Le serveur est temporairement inaccessible. Veuillez réessayer dans un instant.";
                 }

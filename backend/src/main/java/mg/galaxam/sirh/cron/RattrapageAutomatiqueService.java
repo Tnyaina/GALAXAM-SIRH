@@ -18,9 +18,8 @@ import org.springframework.stereotype.Service;
  * Service centralisé assurant le rattrapage quotidien autonome des traitements de fond :
  * 1. Basculement des mouvements RH échus (contrats, affectations, ruptures).
  * 2. Génération des alertes et notifications RH.
- * 3. Acquisitions mensuelles de congés.
- * 4. Purges triennales de congés échus.
- * 5. Nettoyage des sessions et refresh tokens expirés.
+ * 3. Bonifications mensuelles de congés (acquisition à la clôture de paie).
+ * 4. Nettoyage des sessions et refresh tokens expirés.
  *
  * Fonctionne de manière 100% autonome :
  * - Au démarrage initial de l'application (ApplicationReadyEvent).
@@ -49,10 +48,6 @@ public class RattrapageAutomatiqueService {
     @Autowired
     @Lazy
     private AcquisitionCongeScheduler acquisitionCongeScheduler;
-
-    @Autowired
-    @Lazy
-    private PurgeCongeScheduler purgeCongeScheduler;
 
     @Autowired
     @Lazy
@@ -134,28 +129,21 @@ public class RattrapageAutomatiqueService {
                 log.error("[RATTRAPAGE] Erreur génération alertes RH : {}", e.getMessage());
             }
 
-            // 3. Acquisition mensuelle de congés
+            // 3. Bonification mensuelle de congés
             try {
                 acquisitionCongeScheduler.acquerirCongesMensuels();
             } catch (Exception e) {
-                log.error("[RATTRAPAGE] Erreur acquisition mensuelle congés : {}", e.getMessage());
+                log.error("[RATTRAPAGE] Erreur bonification mensuelle congés : {}", e.getMessage());
             }
 
-            // 4. Purge des congés échus
-            try {
-                purgeCongeScheduler.purgerCongesExpires();
-            } catch (Exception e) {
-                log.error("[RATTRAPAGE] Erreur purge congés expirés : {}", e.getMessage());
-            }
-
-            // 5. Nettoyage de sécurité (sessions + tokens expirés)
+            // 4. Nettoyage de sécurité (sessions + tokens expirés)
             try {
                 sessionSecurityScheduler.nettoyerSecurite();
             } catch (Exception e) {
                 log.error("[RATTRAPAGE] Erreur nettoyage sécurité : {}", e.getMessage());
             }
 
-            // 6. Purge des logs d'audit (mensuelle, sans risque de doublon : idempotente par seuil date)
+            // 5. Purge des logs d'audit (mensuelle, sans risque de doublon : idempotente par seuil date)
             try {
                 auditLogPurgeScheduler.purgerAnciensLogsAudit();
             } catch (Exception e) {

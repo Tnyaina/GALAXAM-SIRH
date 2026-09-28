@@ -17,6 +17,149 @@ import org.springframework.stereotype.Component;
 @Component
 public class PurgeFifoEngine {
 
+    public record MouvementLedger(int id, String type, double jours, LocalDate date,
+            Integer idDemande, String commentaire) {}
+    public record DroitDisponible(int idMouvement, LocalDate dateAcquisition, double joursRestants) {}
+
+    /** Rejoue le grand-livre dans l'ordre réel des mouvements pour déterminer les lots encore disponibles. */
+    public List<DroitDisponible> calculerDroitsDisponibles(List<MouvementLedger> mouvements,
+            LocalDate dateReference, int delaiPrescriptionMois) {
+        if (mouvements == null || dateReference == null || delaiPrescriptionMois <= 0) return List.of();
+        List<MouvementLedger> ordonnes = mouvements.stream()
+                .filter(m -> m.date() == null || !m.date().isAfter(dateReference))
+                .sorted(java.util.Comparator.comparing(MouvementLedger::date,
+                        java.util.Comparator.nullsFirst(LocalDate::compareTo)).thenComparingInt(MouvementLedger::id))
+                .toList();
+        List<LotMutable> lots = new ArrayList<>();
+        java.util.Map<Integer, List<Allocation>> consommationsDemande = new java.util.HashMap<>();
+        double historique = 0;
+        double ajustementsPositifs = 0;
+        double deficitNonDate = 0;
+
+        for (MouvementLedger mouvement : ordonnes) {
+            String type = mouvement.type() == null ? "" : mouvement.type().toUpperCase();
+            double jours = mouvement.jours();
+            if ("AJUSTEMENT".equals(type) && mouvement.commentaire() != null
+                    && mouvement.commentaire().startsWith("[SOLDE_INITIAL]")) {
+                historique += jours;
+            } else if ("ACQUISITION".equals(type) || "BONIFICATION".equals(type)) {
+                double disponible = Math.max(0, jours);
+                if (historique < 0 && disponible > 0) {
+                    double compense = Math.min(-historique, disponible);
+                    historique += compense;
+                    disponible -= compense;
+                }
+                double compenseDeficit = Math.min(deficitNonDate, disponible);
+                deficitNonDate -= compenseDeficit;
+                disponible -= compenseDeficit;
+                if (disponible > 0) lots.add(new LotMutable(mouvement.id(), mouvement.date(), disponible));
+            } else if ("PRISE".equals(type) || ("AJUSTEMENT".equals(type) && jours < 0)) {
+                double demande = Math.abs(jours);
+                Consommation consommation = consommer(demande, lots, historique, ajustementsPositifs);
+                List<Allocation> allocations = consommation.allocations();
+                deficitNonDate += consommation.nonImpute();
+                double consommeHistorique = allocations.stream().filter(a -> a.type().equals("HISTORIQUE")).mapToDouble(Allocation::jours).sum();
+                double consommeAjustements = allocations.stream().filter(a -> a.type().equals("AJUSTEMENT")).mapToDouble(Allocation::jours).sum();
+                historique -= consommeHistorique;
+                ajustementsPositifs = Math.max(0, ajustementsPositifs - consommeAjustements);
+                if ("PRISE".equals(type) && mouvement.idDemande() != null) {
+                    consommationsDemande.computeIfAbsent(mouvement.idDemande(), ignored -> new ArrayList<>()).addAll(allocations);
+                }
+            } else if ("AJUSTEMENT".equals(type) && jours > 0) {
+                double compenseDeficit = Math.min(deficitNonDate, jours);
+                deficitNonDate -= compenseDeficit;
+                ajustementsPositifs += jours - compenseDeficit;
+            } else if ("ANNULATION".equals(type)) {
+                List<Allocation> allocations = mouvement.idDemande() == null ? null : consommationsDemande.remove(mouvement.idDemande());
+                if (allocations == null || allocations.isEmpty()) {
+                    double credit = Math.max(0, jours);
+                    double compenseDeficit = Math.min(deficitNonDate, credit);
+                    deficitNonDate -= compenseDeficit;
+                    ajustementsPositifs += credit - compenseDeficit;
+                } else {
+                    double aRestaurer = Math.max(0, jours);
+                    for (Allocation allocation : allocations) {
+                        if (aRestaurer <= 0.001) break;
+                        double credit = Math.min(allocation.jours(), aRestaurer);
+                        if (allocation.type().equals("HISTORIQUE")) historique += credit;
+                        else if (allocation.type().equals("AJUSTEMENT")) ajustementsPositifs += credit;
+                        else {
+                            for (LotMutable lot : lots) {
+                                if (lot.id == allocation.idLot()) { lot.reste += credit; break; }
+                            }
+                        }
+                        aRestaurer -= credit;
+                    }
+                    double compenseDeficit = Math.min(deficitNonDate, aRestaurer);
+                    deficitNonDate -= compenseDeficit;
+                    ajustementsPositifs += aRestaurer - compenseDeficit;
+                }
+            } else if ("EXPIRATION".equals(type)) {
+                LocalDate seuil = seuilExpiration(mouvement, delaiPrescriptionMois);
+                expirer(Math.abs(jours), seuil, lots);
+            }
+        }
+
+        return lots.stream().filter(l -> l.reste > 0.001 && l.date != null)
+                .map(l -> new DroitDisponible(l.id, l.date, arrondir(l.reste)))
+                .toList();
+    }
+
+    private Consommation consommer(double jours, List<LotMutable> lots, double historique, double ajustements) {
+        List<Allocation> allocations = new ArrayList<>();
+        double restant = jours;
+        double surHistorique = Math.min(Math.max(0, historique), restant);
+        if (surHistorique > 0) { allocations.add(new Allocation("HISTORIQUE", null, surHistorique)); restant -= surHistorique; }
+        double surAjustements = Math.min(Math.max(0, ajustements), restant);
+        if (surAjustements > 0) { allocations.add(new Allocation("AJUSTEMENT", null, surAjustements)); restant -= surAjustements; }
+        for (LotMutable lot : lots) {
+            if (restant <= 0.001) break;
+            double prise = Math.min(lot.reste, restant);
+            if (prise > 0) {
+                lot.reste = Math.max(0, lot.reste - prise);
+                allocations.add(new Allocation("LOT", lot.id, prise));
+                restant -= prise;
+            }
+        }
+        return new Consommation(allocations, Math.max(0, restant));
+    }
+
+    private void expirer(double jours, LocalDate seuil, List<LotMutable> lots) {
+        if (seuil == null) return;
+        double restant = jours;
+        for (LotMutable lot : lots) {
+            if (restant <= 0.001) break;
+            if (lot.date == null || !lot.date.isBefore(seuil)) continue;
+            double expire = Math.min(lot.reste, restant);
+            lot.reste = Math.max(0, lot.reste - expire);
+            restant -= expire;
+        }
+    }
+
+    private LocalDate seuilExpiration(MouvementLedger mouvement, int delaiMois) {
+        String commentaire = mouvement.commentaire();
+        if (commentaire != null) {
+            java.util.regex.Matcher dateMatcher = java.util.regex.Pattern.compile("avant le (\\d{4}-\\d{2}-\\d{2})").matcher(commentaire);
+            java.util.regex.Matcher moisMatcher = java.util.regex.Pattern.compile("\\+(\\d+) mois").matcher(commentaire);
+            try {
+                if (dateMatcher.find()) return LocalDate.parse(dateMatcher.group(1));
+                if (moisMatcher.find()) return mouvement.date().minusMonths(Integer.parseInt(moisMatcher.group(1)));
+            } catch (RuntimeException ignored) { /* seuil courant de repli */ }
+        }
+        return mouvement.date() == null ? null : mouvement.date().minusMonths(delaiMois);
+    }
+
+    private double arrondir(double valeur) { return Math.round(valeur * 100.0) / 100.0; }
+    private record Allocation(String type, Integer idLot, double jours) {}
+    private record Consommation(List<Allocation> allocations, double nonImpute) {}
+    private static final class LotMutable {
+        final int id;
+        final LocalDate date;
+        double reste;
+        LotMutable(int id, LocalDate date, double reste) { this.id = id; this.date = date; this.reste = reste; }
+    }
+
+
     public static class DroitDate {
         private final Integer idMouvement;
         private final LocalDate dateMouvement;

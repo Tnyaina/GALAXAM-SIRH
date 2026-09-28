@@ -329,7 +329,7 @@ public class PayrollPeriodWorkflowService {
 
         String base = "/paie/periodes/" + periodId;
         List<String> noIssues = List.of();
-        List<String> frozenIssue = List.of("Pointage non figé — en attente de validation DAF.");
+        List<String> frozenIssue = List.of("Pointage non figé — en attente de validation.");
 
         List<PayrollCampaignStep> steps = new java.util.ArrayList<>();
 

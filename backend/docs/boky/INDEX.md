@@ -48,14 +48,14 @@
 │   ├── api/controller/paie       → Moteur de paie, STC & exports     │
 │   ├── api/controller/organisation → Référentiels structure          │
 │   ├── api/controller/securite   → Auth JWT + RBAC                   │
-│   └── cron/                     → 7 schedulers nocturnes             │
+│   └── cron/                     → 6 schedulers nocturnes             │
 │       ├── MouvementRhScheduler     00:00:00 quotidien               │
 │       ├── NotificationRhScheduler  00:05:00 quotidien               │
 │       ├── PointageRappelScheduler  00:10:00 quotidien               │
 │       ├── PeriodePaieScheduler     00:15:00 quotidien               │
 │       ├── FerieChomeScheduler      00:20:00 quotidien               │
-│       ├── AcquisitionCongeScheduler 01:00:00 quotidien             │
-│       └── PurgeCongeScheduler      02:00:00 le 1er du mois          │
+│       ├── AcquisitionCongeScheduler 01:00:00 mensuel               │
+│       └── (aucun débit automatique des droits à congé prescrits)   │
 │                                                                     │
 │   BASE DE DONNÉES (PostgreSQL)                                      │
 │   ├── Référentiels : ref_filiale, ref_site, ref_departement...      │
@@ -78,8 +78,8 @@
 | `00:10:00` | `PointageRappelScheduler` | Quotidien | Détecte les employés sans pointage la veille (hors DISPENSE/CONGE/FERIE_CHOME) |
 | `00:15:00` | `PeriodePaieScheduler` | Quotidien | Fait passer `periode_paie` de `EN_COURS` à `A_VALIDER` quand `date_fin` dépassée |
 | `00:20:00` | `FerieChomeScheduler` | Quotidien | Pré-crée les lignes `pointage_jour` en statut `FERIE_CHOME` pour les jours à venir |
-| `01:00:00` | `AcquisitionCongeScheduler` | Quotidien | Crédite 2,5j aux employés dont c'est l'anniversaire d'embauche |
-| `02:00:00` | `PurgeCongeScheduler` | Mensuel (1er) | Purge les droits à congés prescrits (+36 mois, FIFO) |
+| `01:00:00` | `AcquisitionCongeScheduler` | Mensuel (1er) | Vérifie la bonification d'ancienneté du mois clos ; l'acquisition passe par la clôture de paie |
+| — | — | Manuel DAF | Les droits candidats à prescription sont examinés dans la fiche salarié ; aucun débit automatique |
 
 ---
 

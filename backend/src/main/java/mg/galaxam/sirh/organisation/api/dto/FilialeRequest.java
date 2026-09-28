@@ -9,7 +9,6 @@ public class FilialeRequest {
     private String rcs;
     private String telephone;
     private String email;
-    private Integer seuilEffectifAlerte;
 
     public String getCodeFiliale() { return codeFiliale; }
     public void setCodeFiliale(String codeFiliale) { this.codeFiliale = codeFiliale; }
@@ -31,7 +30,4 @@ public class FilialeRequest {
     public void setTelephone(String telephone) { this.telephone = telephone; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
-
-    public Integer getSeuilEffectifAlerte() { return seuilEffectifAlerte; }
-    public void setSeuilEffectifAlerte(Integer seuilEffectifAlerte) { this.seuilEffectifAlerte = seuilEffectifAlerte; }
 }

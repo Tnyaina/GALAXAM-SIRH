@@ -1,7 +1,9 @@
 import { useState, lazy, Suspense } from 'react';
-import { CalendarDays, CheckCircle, Clock, Users } from 'lucide-react';
-import StatCard from '@/components/ui/data-display/StatCard';
-import { SkeletonCard, SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import { CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Button from '@/components/ui/forms/Button';
+import Alert from '@/components/ui/feedback/Alert';
+import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { getErrorMessage } from '@/api/apiClient';
 import congeService from '@/features/leave/api/congeService';
@@ -18,9 +20,11 @@ import SoldesTable from './soldes/SoldesTable';
 const DemandeCongeModal = lazy(() => import('./DemandeCongeModal'));
 const ValidationModals = lazy(() => import('./validation/ValidationModals'));
 
-export default function SoldesOverviewTab({ loading, demandesGlobales = [], referentiels, onReload }) {
+export default function SoldesOverviewTab({ nbEnAttente, referentiels, onReload, onOpenDemandes }) {
   // Contexte
   const toast = useToast();
+  const { hasPermission } = useAuth();
+  const canWrite = hasPermission('CONGE_WRITE');
 
   // État local : uniquement les modales ; les données de soldes vivent dans useSoldesOverview.
   const [demandeModalState, setDemandeModalState] = useState({
@@ -41,6 +45,7 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], refe
   const [motifAnnulation, setMotifAnnulation] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState(null);
+  const [showRecap, setShowRecap] = useState(false);
 
   // Logique métier et données dérivées
   const {
@@ -73,6 +78,7 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], refe
 
     // Gantt Data & State
     planningLoading,
+    planningError,
     ganttData,
     ganttRows,
     filteredGanttRows,
@@ -97,26 +103,13 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], refe
     tablePage,
     setTablePage,
     tablePageSize,
-    setTablePageSize,
-
-    // KPIs
-    kpiEnAttente,
-    kpiValideCeMois,
-    kpiAbsentsAuj,
-    kpiTotalDemandes
-  } = useSoldesOverview(demandesGlobales);
+    setTablePageSize
+  } = useSoldesOverview();
 
   // Rendu : garde de chargement initial
-  if (loading && !planningLoading) {
+  if (planningLoading && ganttRows.length === 0) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-        </div>
-        <SkeletonCard />
+      <div className="space-y-3">
         <SkeletonTable rows={5} />
       </div>
     );
@@ -241,17 +234,23 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], refe
 
   // Rendu : synthèse, planning, tableau et modales.
   return (
-    <div className="space-y-6">
-      {/* KPIs propres à cette vue de soldes. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="En attente de validation" value={kpiEnAttente} icon={<Clock size={20} />} color="warning" subtext="À traiter par le manager / RH" borderTop={false} />
-        <StatCard title="Absents aujourd'hui" value={kpiAbsentsAuj} icon={<Users size={20} />} color="danger" subtext="Salariés actuellement en congé" borderTop={false} />
-        <StatCard title="Validées ce mois" value={kpiValideCeMois} icon={<CheckCircle size={20} />} color="success" subtext="Demandes approuvées sur la période" borderTop={false} />
-        <StatCard title="Total demandes" value={kpiTotalDemandes} icon={<CalendarDays size={20} />} color="brand" subtext="Toutes demandes confondues sur l'année" borderTop={false} />
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-3">
+        <div>
+          <h2 className="text-sm font-bold text-[var(--color-fg)]">Planning d'équipe</h2>
+          <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">Congés validés et demandes en attente sur la période affichée.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={onOpenDemandes}>
+          {nbEnAttente === null ? 'Voir les demandes' : `Demandes en attente : ${nbEnAttente}`}
+        </Button>
       </div>
 
+      {planningError && <Alert type="error">
+        Le planning est indisponible. <Button variant="outline" size="xs" onClick={() => loadPlanning()}>Réessayer</Button>
+      </Alert>}
+
       {/* Planning Gantt Interactif */}
-      <SoldesGantt
+      {!planningError && <SoldesGantt
         viewMode={viewMode}
         setViewMode={setViewMode}
         filterMode={filterMode}
@@ -291,23 +290,29 @@ export default function SoldesOverviewTab({ loading, demandesGlobales = [], refe
           if (onReload) onReload();
         }}
         planningLoading={planningLoading}
-        onCellClick={handleCellClick}
+        onCellClick={canWrite ? handleCellClick : undefined}
         onLeaveClick={handleLeaveClick}
-      />
+      />}
 
-      {/* Tableau Récapitulatif */}
-      <SoldesTable
-        ganttData={ganttData}
-        paginatedTableData={paginatedTableData}
-        totalTableItems={totalTableItems}
-        tableSortField={tableSortField}
-        tableSortOrder={tableSortOrder}
-        handleTableSort={handleTableSort}
-        tablePage={tablePage}
-        setTablePage={setTablePage}
-        tablePageSize={tablePageSize}
-        setTablePageSize={setTablePageSize}
-      />
+      {!planningError && <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+        <Button type="button" variant="ghost" size="sm" className="w-full justify-between px-4 py-3" onClick={() => setShowRecap(value => !value)}
+          iconLeft={<CalendarDays size={15} />} iconRight={showRecap ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          aria-expanded={showRecap}>
+          Absences des collaborateurs affichés ({totalTableItems})
+        </Button>
+        {showRecap && <SoldesTable
+          ganttData={ganttData}
+          paginatedTableData={paginatedTableData}
+          totalTableItems={totalTableItems}
+          tableSortField={tableSortField}
+          tableSortOrder={tableSortOrder}
+          handleTableSort={handleTableSort}
+          tablePage={tablePage}
+          setTablePage={setTablePage}
+          tablePageSize={tablePageSize}
+          setTablePageSize={setTablePageSize}
+        />}
+      </div>}
 
       {/* Modale de demande au clic sur une cellule ou modification */}
       {demandeModalState.isOpen && (

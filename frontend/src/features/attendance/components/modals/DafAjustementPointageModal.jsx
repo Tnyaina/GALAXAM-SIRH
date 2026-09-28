@@ -417,7 +417,7 @@ export default function DafAjustementPointageModal({
                             {/* Motif obligatoire DAF */}
                             <div className="sm:col-span-2 pt-1">
                                 <label className="block text-[11px] font-bold text-[var(--color-fg)] mb-1">
-                                    Motif de la rectification DAF <span className="text-danger-500">*</span>
+                                    Motif de la rectification <span className="text-danger-500">*</span>
                                 </label>
                                 <Input
                                     placeholder="Ex: Rectifié suite justificatif mission signé par la direction"

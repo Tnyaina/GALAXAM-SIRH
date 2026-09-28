@@ -274,7 +274,7 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
                 {/* Signatures & Mentions légales */}
                 <div className="grid grid-cols-2 gap-8 pt-4 border-t border-slate-300 text-[11px]">
                     <div>
-                        <p className="font-semibold text-slate-700 mb-8">Pour la Direction Générale / DAF :</p>
+                        <p className="font-semibold text-slate-700 mb-8">Pour la Direction :</p>
                         <p className="text-[10px] text-slate-400 ">Signature et cachet de l'entreprise</p>
                     </div>
                     <div className="text-right">

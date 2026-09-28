@@ -56,7 +56,6 @@ public class DepartementController {
                 RefDepartement d = new RefDepartement();
                 d.setCodeDepartement(request.getCodeDepartement());
                 d.setLibelle(request.getLibelle());
-                d.setDateFinPrevue(request.getDateFinPrevue());
 
                 d.save(c);
                 AuditLog.audit(c, "CREATION", "ref_departement", String.valueOf(d.getIdDepartement()), null, d);
@@ -87,7 +86,6 @@ public class DepartementController {
 
                 existing.setCodeDepartement(request.getCodeDepartement());
                 existing.setLibelle(request.getLibelle());
-                existing.setDateFinPrevue(request.getDateFinPrevue());
 
                 existing.update(c);
                 AuditLog.audit(c, "MODIFICATION", "ref_departement", String.valueOf(id), null, existing);

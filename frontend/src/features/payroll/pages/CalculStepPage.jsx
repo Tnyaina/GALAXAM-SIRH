@@ -194,7 +194,7 @@ export default function CalculStepPage() {
         >
             <SEO
                 title="Calcul de la paie | GALAXAM SIRH"
-                description="Calcul et simulation du moteur de paie DAF GALAXAM."
+                description="Calcul et simulation du moteur de paie GALAXAM."
             />
 
             <div className="space-y-6">

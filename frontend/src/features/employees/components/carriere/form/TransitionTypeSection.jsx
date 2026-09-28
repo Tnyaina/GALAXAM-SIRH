@@ -123,7 +123,7 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
                     required
                     value={formData.dateEffet}
                     onChange={(e) => setField('dateEffet', e.target.value)}
-                    hint="Date d'application effective de cette décision RH"
+                    hint="Date d'application effective de cette décision"
                 />
                 <Input
                     label="Date de Signature de l'Avenant"
