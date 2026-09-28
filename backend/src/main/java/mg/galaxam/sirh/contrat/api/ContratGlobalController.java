@@ -307,7 +307,7 @@ public class ContratGlobalController {
                     + "w.id_workflow, COALESCE(rte.libelle, 'Contrat / Mouvement RH') AS type_ev, w.created_at "
                     + "FROM workflow_rh w "
                     + "JOIN employe e ON w.id_employe = e.id_employe "
-                    + "LEFT JOIN ref_type_evenement_rh rte ON w.id_type_evenement = rte.id_type_evenement "
+                    + "LEFT JOIN ref_type_evenement_rh rte ON w.id_type_evenement_rh = rte.id_type_evenement_rh "
                     + "JOIN ref_statut_rh rsc ON w.id_statut_rh = rsc.id_statut_rh "
                     + "WHERE rsc.code = 'BROUILLON' "
                     + "ORDER BY w.created_at DESC LIMIT 3";

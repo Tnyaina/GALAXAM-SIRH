@@ -16,7 +16,7 @@ export default function ContratFieldsSection({
 
     return (
         <div className="space-y-4 font-sans">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 pb-1 border-b border-ink-150 dark:border-ink-700">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] pb-1 border-b border-[var(--color-border-subtle)]">
                 1. Contrat de Travail
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

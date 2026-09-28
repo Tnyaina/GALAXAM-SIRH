@@ -36,6 +36,8 @@ public class PointageController {
     @Autowired private PointageAnomalieService pointageAnomalieService;
     @Autowired private PointageEmployeService pointageEmployeService;
     @Autowired private PointageExcelExportService pointageExcelExportService;
+    @Autowired private mg.galaxam.sirh.pointage.application.PointageDocumentService pointageDocumentService;
+    @Autowired private mg.galaxam.sirh.pointage.application.PointagePdfExportService pointagePdfExportService;
     @Autowired private PointageAjustementPeriodeService pointageAjustementPeriodeService;
     @Autowired private DataSource dataSource;
 
@@ -238,7 +240,22 @@ public class PointageController {
             @RequestParam(required = false) String date,
             @RequestParam(required = false, defaultValue = "periode") String period,
             @RequestParam(required = false) Integer idPeriode) {
-        return ResponseEntity.ok(pointageEmployeService.getFichePointageEmploye(idEmploye, date, period, idPeriode));
+        FichePointageEmployeDTO fiche = pointageEmployeService.getFichePointageEmploye(idEmploye, date, period, idPeriode);
+        var user = mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext.from(
+                SecurityContextHolder.getContext().getAuthentication());
+        boolean periodAvailable = fiche.getIdPeriode() != null;
+        boolean mutable = periodAvailable && fiche.getStatutPeriode() != null && java.util.List.of("EN_COURS", "A_VALIDER", "TRANSMIS_DAF").contains(fiche.getStatutPeriode());
+        boolean daf = user.hasAny("POINTAGE_VALIDATE");
+        fiche.setAvailableActions(Map.of(
+                "CORRECT_DAY", mutable && user.hasAny("POINTAGE_WRITE") && ("EN_COURS".equals(fiche.getStatutPeriode()) || daf),
+                "ADJUST_BALANCE", mutable && daf && fiche.getSoldePeriode() != null,
+                "TEAM_ENTRY", periodAvailable && "EN_COURS".equals(fiche.getStatutPeriode()) && user.hasAny("POINTAGE_WRITE")));
+        boolean canCorrect = Boolean.TRUE.equals(fiche.getAvailableActions().get("CORRECT_DAY"));
+        fiche.getPointagesData().forEach(jour -> jour.setCanCorrect(canCorrect
+                && jour.getDateComplete() != null
+                && !java.time.LocalDate.parse(jour.getDateComplete()).isAfter(java.time.LocalDate.now())
+                && !java.util.List.of("PLANIFIE", "NON_CONCERNE", "NON_ECHU").contains(jour.getStatut())));
+        return ResponseEntity.ok(fiche);
     }
 
     @GetMapping("/employes/{idEmploye}/export/excel")
@@ -246,14 +263,28 @@ public class PointageController {
     public ResponseEntity<byte[]> exportExcelFicheEmploye(@PathVariable Integer idEmploye,
             @RequestParam(required = false) String date,
             @RequestParam(required = false, defaultValue = "periode") String period,
-            @RequestParam(required = false) Integer idPeriode) throws java.io.IOException {
-        FichePointageEmployeDTO fiche = pointageEmployeService.getFichePointageEmploye(idEmploye, date, period, idPeriode);
-        byte[] excelBytes = pointageExcelExportService.genererExcelFicheEmploye(fiche);
+            @RequestParam(required = false) Integer idPeriode) throws java.io.IOException, SQLException {
+        var document = pointageDocumentService.preparer(idEmploye, date, period, idPeriode);
+        var fiche = document.fiche();
+        byte[] excelBytes = pointageExcelExportService.genererExcelFicheEmploye(document);
         String filename = PointageExcelExportService.buildExportFilename(fiche, "xlsx");
         return ResponseEntity.ok()
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(excelBytes);
+    }
+
+    @GetMapping("/employes/{idEmploye}/export/pdf")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> exportPdfFicheEmploye(@PathVariable Integer idEmploye,
+            @RequestParam(required = false) String date,
+            @RequestParam(defaultValue = "periode") String period,
+            @RequestParam(required = false) Integer idPeriode) throws java.io.IOException, SQLException {
+        var document = pointageDocumentService.preparer(idEmploye, date, period, idPeriode);
+        return ResponseEntity.ok().contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment; filename=\"" + PointageExcelExportService.buildExportFilename(document.fiche(), "pdf") + "\"")
+                .body(pointagePdfExportService.generer(document));
     }
 
     // Paramètres administratifs

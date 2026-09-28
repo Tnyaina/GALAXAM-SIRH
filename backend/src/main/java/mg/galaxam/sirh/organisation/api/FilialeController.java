@@ -61,6 +61,10 @@ public class FilialeController {
                 f.setRaisonSociale(request.getRaisonSociale());
                 f.setNif(request.getNif());
                 f.setStat(request.getStat());
+                f.setAdresseSiege(request.getAdresseSiege());
+                f.setRcs(request.getRcs());
+                f.setTelephone(request.getTelephone());
+                f.setEmail(request.getEmail());
                 if (request.getSeuilEffectifAlerte() != null) {
                     f.setSeuilEffectifAlerte(request.getSeuilEffectifAlerte());
                 }
@@ -101,6 +105,10 @@ public class FilialeController {
                 existing.setRaisonSociale(request.getRaisonSociale());
                 existing.setNif(request.getNif());
                 existing.setStat(request.getStat());
+                existing.setAdresseSiege(request.getAdresseSiege());
+                existing.setRcs(request.getRcs());
+                existing.setTelephone(request.getTelephone());
+                existing.setEmail(request.getEmail());
                 if (request.getSeuilEffectifAlerte() != null) {
                     existing.setSeuilEffectifAlerte(request.getSeuilEffectifAlerte());
                 }

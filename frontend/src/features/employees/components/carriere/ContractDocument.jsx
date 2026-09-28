@@ -16,14 +16,14 @@ export function Clause({ label, value, placeholder = '……………………',
     const hasValue = value !== undefined && value !== null && value !== '';
     return (
         <div className={`flex items-baseline gap-2 py-2 text-[13.5px] leading-relaxed ${className}`}>
-            <span className="text-ink-500 dark:text-ink-400 whitespace-nowrap">{label}</span>
-            <span className="flex-1 border-b border-dotted border-ink-300 dark:border-ink-700 translate-y-[-3px]" />
+            <span className="text-[var(--color-fg-muted)] whitespace-nowrap">{label}</span>
+            <span className="flex-1 border-b border-dotted border-[var(--color-border-subtle)] translate-y-[-3px]" />
             <span className={
                 strike
-                    ? 'line-through decoration-ink-400 text-ink-400 dark:text-ink-600 whitespace-nowrap text-right'
+                    ? 'line-through decoration-[var(--color-fg-subtle)] text-[var(--color-fg-subtle)] whitespace-nowrap text-right'
                     : hasValue
-                        ? 'font-semibold tabular-nums text-ink-900 dark:text-ink-50 whitespace-nowrap text-right'
-                        : 'font-normal text-ink-300 dark:text-ink-600 whitespace-nowrap text-right'
+                        ? 'font-semibold tabular-nums text-[var(--color-fg)] whitespace-nowrap text-right'
+                        : 'font-normal text-[var(--color-fg-subtle)] whitespace-nowrap text-right'
             }>
                 {hasValue ? value : placeholder}
             </span>
@@ -38,17 +38,17 @@ export function ClauseDiff({ label, before, after, unit = '' }) {
         <div className={`flex items-baseline gap-2 py-2 text-[13.5px] leading-relaxed transition-all duration-200 ${
             changed ? 'bg-[var(--color-brand-500)]/10 px-2.5 -mx-2.5 border-l-2 border-l-[var(--color-brand-500)]' : ''
         }`}>
-            <span className={`whitespace-nowrap ${changed ? 'font-semibold text-brand-700 dark:text-brand-300' : 'text-ink-500 dark:text-ink-400'}`}>
+            <span className={`whitespace-nowrap ${changed ? 'font-semibold text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]' : 'text-[var(--color-fg-muted)]'}`}>
                 {label}
             </span>
-            <span className="flex-1 border-b border-dotted border-ink-300 dark:border-ink-700 translate-y-[-3px]" />
+            <span className="flex-1 border-b border-dotted border-[var(--color-border-subtle)] translate-y-[-3px]" />
             {changed ? (
                 <span className="whitespace-nowrap text-right tabular-nums">
-                    <span className="line-through text-ink-400 dark:text-ink-500 mr-2 text-xs">{before || '—'}{unit}</span>
-                    <span className="font-bold text-brand-600 dark:text-brand-400 bg-brand-500/15 px-1.5 py-0.5 rounded-none">{after}{unit}</span>
+                    <span className="line-through text-[var(--color-fg-subtle)] mr-2 text-xs">{before || '—'}{unit}</span>
+                    <span className="font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] bg-[var(--color-brand-500)]/15 px-1.5 py-0.5 rounded-none">{after}{unit}</span>
                 </span>
             ) : (
-                <span className={`whitespace-nowrap text-right tabular-nums ${after ? 'font-semibold text-ink-900 dark:text-ink-50' : 'text-ink-300 dark:text-ink-600'}`}>
+                <span className={`whitespace-nowrap text-right tabular-nums ${after ? 'font-semibold text-[var(--color-fg)]' : 'text-[var(--color-fg-subtle)]'}`}>
                     {after || before || '……………'}{unit}
                 </span>
             )}
@@ -59,15 +59,15 @@ export function ClauseDiff({ label, before, after, unit = '' }) {
 /** Titre d'article numéroté, réutilisé dans la colonne formulaire */
 export function ArticleHeader({ n, icon, title, subtitle }) {
     return (
-        <div className="flex items-start gap-3 pb-2.5 border-b border-ink-150 dark:border-ink-700">
-            <div className="w-6 h-6 border border-brand-500/40 text-brand-600 dark:text-brand-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
+        <div className="flex items-start gap-3 pb-2.5 border-b border-[var(--color-border-subtle)]">
+            <div className="w-6 h-6 border border-[var(--color-brand-500)]/40 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
                 {n}
             </div>
             <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-ink-700 dark:text-ink-200 flex items-center gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
                     {icon} {title}
                 </h3>
-                {subtitle && <p className="text-[11px] text-ink-400 mt-0.5">{subtitle}</p>}
+                {subtitle && <p className="text-[11px] text-[var(--color-fg-subtle)] mt-0.5">{subtitle}</p>}
             </div>
         </div>
     );
@@ -75,15 +75,15 @@ export function ArticleHeader({ n, icon, title, subtitle }) {
 
 export function DocumentFrame({ children, watermark = 'Brouillon', className = '' }) {
     return (
-        <div className={`relative bg-white dark:bg-ink-950 border border-ink-200 dark:border-ink-700 rounded-none shadow-md overflow-hidden ${className}`}>
+        <div className={`relative bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-md overflow-hidden ${className}`}>
             {/* Filigrane d'arrière-plan */}
             <div className="pointer-events-none select-none absolute inset-0 flex items-center justify-center overflow-hidden">
-                <span className="text-[58px] font-black uppercase tracking-[0.18em] text-ink-400/[0.05] dark:text-ink-300/[0.04] rotate-[-25deg] whitespace-nowrap">
+                <span className="text-[58px] font-black uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]/[0.05] rotate-[-25deg] whitespace-nowrap">
                     {watermark}
                 </span>
             </div>
 
-            <div className="relative p-7 sm:p-8 font-serif text-ink-900 dark:text-ink-100 space-y-5">
+            <div className="relative p-7 sm:p-8 font-serif text-[var(--color-fg)] space-y-5">
                 {children}
             </div>
         </div>
@@ -92,21 +92,21 @@ export function DocumentFrame({ children, watermark = 'Brouillon', className = '
 
 export function DocumentHeader({ eyebrow, title, numero }) {
     return (
-        <div className="text-center space-y-1 pb-3 border-b-2 border-double border-ink-300 dark:border-ink-700">
+        <div className="text-center space-y-1 pb-3 border-b-2 border-double border-[var(--color-border-subtle)]">
             {eyebrow && (
-                <p className="text-[10px] tracking-[0.25em] font-bold uppercase text-brand-600 dark:text-brand-400 font-sans">
+                <p className="text-[10px] tracking-[0.25em] font-bold uppercase text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] font-sans">
                     {eyebrow}
                 </p>
             )}
-            <h2 className="text-base font-bold uppercase tracking-wide text-ink-900 dark:text-white">
+            <h2 className="text-base font-bold uppercase tracking-wide text-[var(--color-fg)]">
                 {title}
             </h2>
             {numero ? (
-                <p className="text-[11px] font-sans text-ink-500 dark:text-ink-400">
-                    Référence <span className="font-semibold text-ink-700 dark:text-ink-200 tabular-nums">N° {numero}</span>
+                <p className="text-[11px] font-sans text-[var(--color-fg-muted)]">
+                    Référence <span className="font-semibold text-[var(--color-fg)] tabular-nums">N° {numero}</span>
                 </p>
             ) : (
-                <p className="text-[10px] font-sans uppercase tracking-wide text-ink-400">Référence auto-générée à la validation</p>
+                <p className="text-[10px] font-sans uppercase tracking-wide text-[var(--color-fg-subtle)]">Référence auto-générée à la validation</p>
             )}
         </div>
     );
@@ -115,7 +115,7 @@ export function DocumentHeader({ eyebrow, title, numero }) {
 export function ArticleBlock({ n, title, children }) {
     return (
         <div className="space-y-1.5 pt-3 first:pt-0">
-            <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 border-b border-ink-150 dark:border-ink-800 pb-1">
+            <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] border-b border-[var(--color-border-subtle)] pb-1">
                 Article {n} — {title}
             </p>
             {children}
@@ -125,23 +125,23 @@ export function ArticleBlock({ n, title, children }) {
 
 export function DocumentFooter({ lieu = '', dateSignature, status = 'Brouillon (non actif)' }) {
     return (
-        <div className="pt-5 mt-5 border-t border-ink-150 dark:border-ink-800 space-y-4">
+        <div className="pt-5 mt-5 border-t border-[var(--color-border-subtle)] space-y-4">
             {/* Bloc signatures, comme au bas d'un contrat papier */}
-            <div className="grid grid-cols-2 gap-6 font-sans text-[11px] text-ink-400">
+            <div className="grid grid-cols-2 gap-6 font-sans text-[11px] text-[var(--color-fg-subtle)]">
                 <div className="space-y-6">
                     <p>Pour l'employeur</p>
-                    <div className="border-b border-dotted border-ink-300 dark:border-ink-700 h-6" />
+                    <div className="border-b border-dotted border-[var(--color-border-subtle)] h-6" />
                 </div>
                 <div className="space-y-6">
                     <p>Pour le salarié, précédé de « Lu et approuvé »</p>
-                    <div className="border-b border-dotted border-ink-300 dark:border-ink-700 h-6" />
+                    <div className="border-b border-dotted border-[var(--color-border-subtle)] h-6" />
                 </div>
             </div>
 
-            <div className="flex items-center justify-between text-[11px] font-sans text-ink-400 pt-1">
+            <div className="flex items-center justify-between text-[11px] font-sans text-[var(--color-fg-subtle)] pt-1">
                 <span>Fait{lieu ? ` à ${lieu}` : ''}{dateSignature ? `, le ${dateSignature}` : ''} en double exemplaire</span>
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-ink-300 dark:border-ink-600 uppercase tracking-wide text-[10px] font-bold text-ink-500 dark:text-ink-300">
-                    <span className="w-1.5 h-1.5 rounded-none bg-amber-500" />
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-[var(--color-border-subtle)] uppercase tracking-wide text-[10px] font-bold text-[var(--color-fg-muted)]">
+                    <span className="w-1.5 h-1.5 rounded-none bg-[var(--color-warning-500)]" />
                     {status}
                 </span>
             </div>
@@ -204,15 +204,15 @@ export function ContractPreview({
                 <ArticleBlock n="3" title="Rémunération">
                     <Clause label="Mode de calcul" value={libModePaie?.libelle} />
                     <HasPermission authority="PAIE_READ" fallback={<Clause label="Salaire de base" value="[Confidentiel]" />}>
-                        <Clause label="Salaire de base" value={formData?.salaireBase ? fmtMoney(formData?.salaireBase) : ''} className="text-brand-500" />
+                        <Clause label="Salaire de base" value={formData?.salaireBase ? fmtMoney(formData?.salaireBase) : ''} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]" />
                     </HasPermission>
                     <Clause label="Date d'effet (dossier)" value={fmtDateFr(formData?.dateEffet || formData?.dateDebut)} />
                 </ArticleBlock>
 
                 {formData?.motif && (
                     <div className="pt-2">
-                        <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-brand-500">Article 4 — Motif</p>
-                        <p className="text-ink-600 dark:text-ink-300  text-[12.5px]">{formData?.motif}</p>
+                        <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">Article 4 — Motif</p>
+                        <p className="text-[var(--color-fg-muted)] text-[12.5px]">{formData?.motif}</p>
                     </div>
                 )}
             </div>

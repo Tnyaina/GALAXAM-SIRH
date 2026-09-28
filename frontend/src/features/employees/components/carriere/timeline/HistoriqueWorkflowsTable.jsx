@@ -2,6 +2,7 @@ import { Clock, AlertCircle, ChevronRight } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDate } from '@/utils/dateUtils';
 
@@ -11,17 +12,20 @@ export default function HistoriqueWorkflowsTable({ workflowsList = [], onSelectW
 
     return (
         <div className="space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-ink-150 dark:border-ink-700">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 flex items-center gap-2">
-                    <Clock size={14} /> Historique des Événements & Workflows RH ({workflowsList.length})
+            <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] flex items-center gap-2">
+                    <Clock size={14} /> Historique des Événements &amp; Workflows RH ({workflowsList.length})
                 </h3>
-                <span className="text-[11px] text-ink-400">Cliquez sur une ligne pour afficher la fiche récapitulative</span>
+                <span className="text-[11px] text-[var(--color-fg-subtle)]">Cliquez sur une ligne pour afficher la fiche récapitulative</span>
             </div>
 
             {workflowsList.length === 0 ? (
-                <p className="text-xs text-ink-400 p-4 border border-ink-150 dark:border-ink-700 text-center">
-                    Aucun événement RH enregistré.
-                </p>
+                <EmptyState
+                    icon={Clock}
+                    title="Aucun événement RH"
+                    description="Aucun événement RH enregistré pour ce collaborateur."
+                    compact
+                />
             ) : (
                 <Table>
                     <Thead>
@@ -48,11 +52,11 @@ export default function HistoriqueWorkflowsTable({ workflowsList = [], onSelectW
                                     title="Cliquer pour afficher le récapitulatif détaillé"
                                 >
                                     <Td>
-                                        <div className="font-semibold text-ink-900 dark:text-ink-100 group-hover:text-brand-500 transition-colors">
+                                        <div className="font-semibold text-[var(--color-fg)] group-hover:text-[var(--color-brand-600)] transition-colors">
                                             {wf.libelleTypeEvenement || wf.codeTypeEvenement}
                                         </div>
                                         {wf.motif && !isAnnule && (
-                                            <div className="text-[10px] text-ink-400 font-normal truncate max-w-[200px]">
+                                            <div className="text-[10px] text-[var(--color-fg-subtle)] font-normal truncate max-w-[200px]">
                                                 {wf.motif}
                                             </div>
                                         )}
@@ -64,24 +68,24 @@ export default function HistoriqueWorkflowsTable({ workflowsList = [], onSelectW
                                                     {wf.libelleTypeContrat}
                                                 </Badge>
                                             )}
-                                            <span className="font-mono font-bold text-brand-500">
+                                            <span className="font-mono font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">
                                                 {wf.numeroContratCible || wf.numeroContratSource || '-'}
                                             </span>
                                         </div>
                                     </Td>
                                     <Td>
-                                        <div className="font-medium text-ink-800 dark:text-ink-200">{wf.libelleFonction || '-'}</div>
-                                        <div className="text-[11px] text-ink-400">
+                                        <div className="font-medium text-[var(--color-fg)]">{wf.libelleFonction || '-'}</div>
+                                        <div className="text-[11px] text-[var(--color-fg-subtle)]">
                                             {wf.libelleSite || '-'}{wf.libelleDepartement ? ` · ${wf.libelleDepartement}` : ''}
                                         </div>
                                     </Td>
-                                    <Td className="font-mono text-ink-600 dark:text-ink-300">
+                                    <Td className="font-mono text-[var(--color-fg-muted)]">
                                         {fmtDate(wf.dateEffet)}
                                     </Td>
                                     <Td>
                                         <StatusBadge status={wf.codeStatutWorkflow} label={wf.libelleStatutWorkflow} size="sm" />
                                         {isAnnule && motifAnnulation && (
-                                            <div className="text-[10px] text-danger-500 font-normal mt-0.5 flex items-center gap-1 max-w-[180px] truncate" title={`Motif : ${motifAnnulation}`}>
+                                            <div className="text-[10px] text-[var(--color-danger-500)] font-normal mt-0.5 flex items-center gap-1 max-w-[180px] truncate" title={`Motif : ${motifAnnulation}`}>
                                                 <AlertCircle size={10} className="shrink-0" />
                                                 <span className="truncate">Motif : {motifAnnulation}</span>
                                             </div>
@@ -101,7 +105,7 @@ export default function HistoriqueWorkflowsTable({ workflowsList = [], onSelectW
                                                 Relecture
                                             </Button>
                                         ) : (
-                                            <span className="text-xs font-semibold text-brand-500 group-hover:text-brand-600 inline-flex items-center gap-0.5">
+                                            <span className="text-xs font-semibold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] group-hover:underline inline-flex items-center gap-0.5">
                                                 Détails <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                                             </span>
                                         )}

@@ -34,19 +34,11 @@ export default function CarriereTimeline({
 
     // Données dérivées : liste fiable des contrats à afficher.
     const safeContrats = Array.isArray(contratsList) ? contratsList : (contratsList?.items || contratsList?.content || []);
-    const displayContrats = safeContrats.filter(ct => ct && ct.codeStatutContrat !== 'BROUILLON');
+    const displayContrats = safeContrats.filter(Boolean);
 
     // Rendu
     return (
         <div className="space-y-3.5">
-            <TimelineBanners
-                brouillonWf={brouillonWf}
-                workflowPlanifieFutur={workflowPlanifieFutur}
-                canWrite={canWrite}
-                onOpenEditModal={onOpenEditModal}
-                onSelectWorkflowRecap={onSelectWorkflowRecap}
-            />
-
             <ContratActifSection
                 contratActif={contratActif}
                 affectationActive={affectationActive}
@@ -64,25 +56,43 @@ export default function CarriereTimeline({
                 onOpenConfirmation={onOpenConfirmation}
                 onOpenRenouvellement={onOpenRenouvellement}
                 onOpenAttestation={onOpenAttestation}
+                onOpenContrat={onOpenContrat}
             />
 
+            {(brouillonWf || workflowPlanifieFutur) && <section aria-label="Changements en cours" className="space-y-3">
+                <h3 className="text-sm font-semibold">Changements en cours</h3>
+            <TimelineBanners
+                brouillonWf={brouillonWf}
+                workflowPlanifieFutur={workflowPlanifieFutur}
+                canWrite={canWrite}
+                onOpenEditModal={onOpenEditModal}
+                onSelectWorkflowRecap={onSelectWorkflowRecap}
+                onOpenContrat={onOpenContrat}
+                contratBrouillon={displayContrats.find(c => Number(c.idContrat) === Number(brouillonWf?.idContratCible))}
+            />
+
+            </section>}
+
             {/* Sélecteur de mode d'affichage de l'historique */}
-            <div className="pt-3 border-t border-ink-150 dark:border-ink-700 space-y-3">
+            <details className="pt-3 border-t border-[var(--color-border-subtle)] space-y-3">
+                <summary className="cursor-pointer text-sm font-semibold text-[var(--color-fg)] hover:text-[var(--color-brand-600)] dark:hover:text-[var(--color-brand-400)] transition-colors">
+                    Historique de carrière · {displayContrats.length} contrats · {workflowsList.length} mouvements
+                </summary>
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-ink-900 dark:text-white flex items-center gap-2">
-                        <Clock size={14} className="text-brand-500" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
+                        <Clock size={14} className="text-[var(--color-brand-500)]" />
                         Historique de Carrière & Contrats
                     </h3>
 
-                    <div className="inline-flex border border-ink-200 dark:border-ink-700 bg-ink-50 dark:bg-ink-950 p-0.5">
+                    <div className="inline-flex border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-0.5">
                         <button
                             type="button"
                             onClick={() => setModeAffichage('parcours')}
                             className={`
                                 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150
                                 ${modeAffichage === 'parcours'
-                                    ? 'bg-white dark:bg-ink-800 text-brand-500 shadow-sm border border-ink-200/50 dark:border-ink-600'
-                                    : 'text-ink-500 hover:text-ink-900 dark:hover:text-white'
+                                    ? 'bg-[var(--color-surface)] text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shadow-sm border border-[var(--color-border-subtle)]'
+                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                                 }
                             `}
                         >
@@ -96,8 +106,8 @@ export default function CarriereTimeline({
                             className={`
                                 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150
                                 ${modeAffichage === 'tables'
-                                    ? 'bg-white dark:bg-ink-800 text-brand-500 shadow-sm border border-ink-200/50 dark:border-ink-600'
-                                    : 'text-ink-500 hover:text-ink-900 dark:hover:text-white'
+                                    ? 'bg-[var(--color-surface)] text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shadow-sm border border-[var(--color-border-subtle)]'
+                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                                 }
                             `}
                         >
@@ -137,7 +147,7 @@ export default function CarriereTimeline({
                         />
                     </div>
                 )}
-            </div>
+            </details>
         </div>
     );
 }

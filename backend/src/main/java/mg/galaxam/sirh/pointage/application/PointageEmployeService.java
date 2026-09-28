@@ -121,23 +121,6 @@ public class PointageEmployeService {
                         resolvedStatutPeriode = rsP.getString("statut_code");
                         startDate = rsP.getDate("date_debut").toLocalDate();
                         endDate = rsP.getDate("date_fin").toLocalDate();
-                    } else {
-                        // Repli sur la période active (OUVERTE / EN_COURS) ou la plus récente si aucune ne contient targetDate
-                        String sqlFallback = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, s.code AS statut_code " +
-                                             "FROM periode_paie p " +
-                                             "LEFT JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
-                                             "ORDER BY (s.code IN ('OUVERTE', 'EN_COURS')) DESC, p.date_debut DESC LIMIT 1";
-                        try (PreparedStatement psFb = c.prepareStatement(sqlFallback);
-                             ResultSet rsFb = psFb.executeQuery()) {
-                            if (rsFb.next()) {
-                                resolvedIdPeriode = rsFb.getInt("id_periode_paie");
-                                resolvedCodePeriode = rsFb.getString("code");
-                                resolvedLibellePeriode = rsFb.getString("libelle");
-                                resolvedStatutPeriode = rsFb.getString("statut_code");
-                                startDate = rsFb.getDate("date_debut").toLocalDate();
-                                endDate = rsFb.getDate("date_fin").toLocalDate();
-                            }
-                        }
                     }
                 }
             } catch (Exception e) {
@@ -149,6 +132,12 @@ public class PointageEmployeService {
         } else if ("semaine".equalsIgnoreCase(period)) {
             startDate = targetDate.with(DayOfWeek.MONDAY);
             endDate = targetDate.with(DayOfWeek.SUNDAY);
+        }
+
+        if (idPeriode != null && resolvedIdPeriode == null) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.POINTAGE_PERIOD_CONTEXT_REQUIRED,
+                    "La période de paie demandée est introuvable. Sélectionnez une période existante.");
         }
 
         result.setIdPeriode(resolvedIdPeriode);
@@ -359,7 +348,7 @@ public class PointageEmployeService {
 
         String sqlPointage = "SELECT p.id_pointage, p.id_site, p.version, p.date_pointage, p.heure_entree_matin, p.heure_sortie_matin, " +
                 "p.heure_entree_am, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, " +
-                "p.horaire_continu_jour, p.montant_total_indemnites, s.code AS code_statut, " +
+                "p.horaire_continu_jour, p.motif_ajustement, p.montant_total_indemnites, s.code AS code_statut, " +
                 "pij_repas.accorde AS repas_accorde, pij_repas.montant_calcule AS repas_montant, " +
                 "pij_dep.accorde AS dep_accorde, pij_dep.quantite AS dep_quantite, pij_dep.fraction AS dep_fraction, " +
                 "pij_dep.montant_calcule AS dep_montant " +
@@ -383,6 +372,7 @@ public class PointageEmployeService {
                     r.idPointage = rs.getInt("id_pointage");
                     r.idSite = rs.getInt("id_site");
                     r.version = rs.getInt("version");
+                    r.observation = rs.getString("motif_ajustement");
                     r.datePointage = rs.getDate("date_pointage").toLocalDate();
                     r.entreeMatin = rs.getTime("heure_entree_matin");
                     r.sortieMatin = rs.getTime("heure_sortie_matin");
@@ -428,6 +418,7 @@ public class PointageEmployeService {
         // Le journal conserve les indemnités par code : la fiche ne doit pas limiter son affichage à REPAS/TRANSPORT.
         String sqlIndemnites = "SELECT p.date_pointage, i.code, "
                 + "BOOL_OR(pij.accorde) AS accorde, "
+                + "SUM(CASE WHEN pij.accorde THEN pij.quantite ELSE 0 END) AS quantite, "
                 + "COALESCE(SUM(CASE WHEN pij.accorde THEN pij.montant_calcule ELSE 0 END), 0) AS montant_calcule "
                 + "FROM pointage_jour p JOIN pointage_indemnite_jour pij ON pij.id_pointage = p.id_pointage "
                 + "JOIN ref_indemnite i ON i.id_indemnite = pij.id_indemnite "
@@ -443,16 +434,18 @@ public class PointageEmployeService {
                     if (record == null) continue;
                     String code = rs.getString("code");
                     record.indemnites.put(code, new PointageJourDTO.IndemniteJourDTO(
-                            code, rs.getBoolean("accorde"), zeroIfNull(rs.getBigDecimal("montant_calcule"))));
+                            code, rs.getBoolean("accorde"), zeroIfNull(rs.getBigDecimal("montant_calcule")), rs.getBigDecimal("quantite")));
                 }
             }
         } catch (Exception e) {
             log.warn("[PointageEmployeService] Erreur récupération indemnités détaillées pour employé {}: {}", idEmploye, e.getMessage());
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.POINTAGE_EXPORT_SOURCE_UNAVAILABLE);
         }
 
         // Le catalogue du journal est résolu depuis les tarifs site applicables à la période.
         // Les forfaits FIXE_MENSUEL sont exclus : ils sont indépendants du pointage journalier.
-        String sqlIndemnitesDisponibles = "SELECT DISTINCT i.code, c.periodicite "
+        String sqlIndemnitesDisponibles = "SELECT DISTINCT i.code, i.libelle, c.periodicite "
                 + "FROM site_indemnite_config c JOIN ref_indemnite i ON i.id_indemnite = c.id_indemnite "
                 + "JOIN employe_affectation_carriere a ON a.id_site = c.id_site AND a.id_employe = ? "
                 + "WHERE c.est_actif = TRUE AND i.est_actif = TRUE "
@@ -473,12 +466,14 @@ public class PointageEmployeService {
                     String code = rs.getString("code");
                     if (code != null) {
                         indemnitesDisponibles.put(code, new FichePointageEmployeDTO.IndemniteFicheDTO(
-                                code, rs.getString("periodicite")));
+                                code, rs.getString("periodicite"),rs.getString("libelle")));
                     }
                 }
             }
         } catch (Exception e) {
             log.warn("[PointageEmployeService] Erreur récupération catalogue indemnités période employé {}: {}", idEmploye, e.getMessage());
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.POINTAGE_EXPORT_SOURCE_UNAVAILABLE);
         }
         result.setIndemnitesDisponibles(indemnitesDisponibles);
 
@@ -554,6 +549,7 @@ public class PointageEmployeService {
                 dto.setIdPointage(rec.idPointage);
                 dto.setIdSite(rec.idSite);
                 dto.setVersion(rec.version);
+                dto.setObservation(rec.observation);
                 dto.setEntree(rec.entreeMatin != null ? rec.entreeMatin.toString().substring(0, 5) : "—");
                 dto.setSortiePause(rec.sortieMatin != null ? rec.sortieMatin.toString().substring(0, 5) : "—");
                 dto.setRetourPause(rec.entreeAm != null ? rec.entreeAm.toString().substring(0, 5) : "—");
@@ -833,12 +829,14 @@ public class PointageEmployeService {
 
         double heuresRealisees = (synDto != null && synDto.getTotalHeuresTravaillees() > 0) ? synDto.getTotalHeuresTravaillees() : totalHeuresRealisees;
         int retardsMins = synDto != null ? synDto.getTotalMinutesRetard() : totalMinutesRetard;
-        double hs30 = synDto != null ? synDto.getHeuresHs30() : 0.0;
-        double hs50 = synDto != null ? synDto.getHeuresHs50() : 0.0;
-        double hsNettes = hs30 + hs50;
+        double hs30 = synDto != null && synDto.getMinutesHs30Finales() != null ? toLegacyDecimalHours(synDto.getMinutesHs30Finales()) : (synDto != null ? synDto.getHeuresHs30() : 0.0);
+        double hs50 = synDto != null && synDto.getMinutesHs50Finales() != null ? toLegacyDecimalHours(synDto.getMinutesHs50Finales()) : (synDto != null ? synDto.getHeuresHs50() : 0.0);
+        double hsNettes = synDto != null && synDto.getMinutesHs30Finales() != null
+                ? toLegacyDecimalHours(synDto.getMinutesHs30Finales()) + hs50 : hs30 + hs50;
         double hsBrutes = synDto != null ? synDto.getSurplusBrut() : 0.0;
         double retardCompense = synDto != null ? synDto.getRetardCompense() : 0.0;
-        double deficitNet = synDto != null ? synDto.getHeuresAbsenceRetenues() : toLegacyDecimalHours(retardsMins);
+        double deficitNet = synDto != null && synDto.getMinutesAbsenceFinale() != null
+                ? toLegacyDecimalHours(synDto.getMinutesAbsenceFinale()) : (synDto != null ? synDto.getHeuresAbsenceRetenues() : toLegacyDecimalHours(retardsMins));
         double hNuit = synDto != null ? synDto.getHeuresNuitTotal() : totalHeuresNuit;
         double hDim = synDto != null ? synDto.getHeuresDimancheTotal() : totalHeuresDimanche;
         double hFer = synDto != null ? synDto.getHeuresFerieTotal() : totalHeuresFerie;
@@ -1020,8 +1018,40 @@ public class PointageEmployeService {
             recap.put("ferieDetail", String.format("%.1fh jour férié (+100%%)", hFer));
         }
 
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement("SELECT code, libelle FROM ref_statut_pointage_jour "
+                     + "WHERE code IN ('PRESENT', 'DEMI_JOURNEE', 'DIMANCHE_TRAVAILLE', 'SAMEDI_TRAVAILLE', "
+                     + "'AUTONOME', 'CONGE', 'ABSENCE_JUSTIFIEE', 'ABSENCE_NON_JUSTIFIEE', 'REPOS') ORDER BY id_statut_jour");
+             ResultSet rs = ps.executeQuery()) {
+            List<Map<String, String>> statuts = new ArrayList<>();
+            while (rs.next()) statuts.add(Map.of("value", rs.getString("code"), "label", rs.getString("libelle")));
+            result.setStatutsCorrection(statuts);
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Impossible de charger les statuts de correction du pointage.", exception);
+        }
+        result.setSoldePeriode(synDto);
+        regles.put("dureeJourNormale", String.valueOf(dureeJourMins / 60.0));
+        recap.put("deficitHebdo", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesDeficitHebdo()));
+        recap.put("hs50Hebdo", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesHs50Hebdo()));
+        recap.put("hs50Finales", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesHs50Finales()));
+        recap.put("hsTotalHebdo", synDto == null || synDto.getMinutesHs30Hebdo() == null || synDto.getMinutesHs50Hebdo() == null ? "—" : formatHoursMinutes(Math.addExact(synDto.getMinutesHs30Hebdo(), synDto.getMinutesHs50Hebdo())));
+        recap.put("hs30Hebdo", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesHs30Hebdo()));
+        recap.put("ajustements", synDto == null ? "—" : signedHours(synDto.getMinutesAjustementPeriode()));
+        recap.put("soldeFinal", synDto == null ? "—" : signedHours(synDto.getMinutesSoldePeriode()));
+        recap.put("absenceFinale", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesAbsenceFinale()));
+        recap.put("hs30Finales", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesHs30Finales()));
+        Map<String, BigDecimal> totauxIndemnites = new LinkedHashMap<>();
+        list.forEach(jour -> jour.getIndemnites().values().stream()
+                .filter(PointageJourDTO.IndemniteJourDTO::accordee)
+                .forEach(indemnite -> totauxIndemnites.merge(indemnite.code(), zeroIfNull(indemnite.montant()), BigDecimal::add)));
+        result.setTotauxIndemnites(totauxIndemnites);
         result.setKpis(kpis);
         result.setRecap(recap);
+        regles.put("palierHs30", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesPremierPalierHs()));
+        recap.put("regleVentilation", synDto == null || synDto.getMinutesPremierPalierHs() == null
+                ? "Palier non historisé pour cette période."
+                : "Solde positif : jusqu’à " + formatHoursMinutes(synDto.getMinutesPremierPalierHs())
+                    + " à 30 %, puis le reste à 50 %.");
         result.setReglesAppliquees(regles);
         result.setPointagesData(list);
         result.setBilansHebdo(synDto != null ? synDto.getTronconsSemaine() : java.util.Collections.emptyList());
@@ -1029,11 +1059,17 @@ public class PointageEmployeService {
         return result;
     }
 
+    private static String signedHours(Integer minutes) {
+        if (minutes == null) return "—";
+        return (minutes > 0 ? "+" : minutes < 0 ? "−" : "") + formatHoursMinutes(Math.abs((long) minutes));
+    }
+
     private static BigDecimal zeroIfNull(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
     }
 
     private static class PointageRecord {
+        String observation;
         int idPointage;
         int idSite;
         int version;

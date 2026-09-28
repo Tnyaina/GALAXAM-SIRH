@@ -108,6 +108,18 @@ export function ToastProvider({ children }) {
 // eslint-disable-next-line react-refresh/only-export-components
 export function useToast() {
   const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast must be used inside ToastProvider');
+  if (!ctx) {
+    const noop = Object.assign(
+      () => {},
+      {
+        success: () => {},
+        error: () => {},
+        warning: () => {},
+        info: () => {}
+      }
+    );
+    noop.toast = noop;
+    return noop;
+  }
   return ctx;
 }

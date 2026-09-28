@@ -7,9 +7,9 @@ import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
 
 /**
- * Applique le solde de période aux seules HS 30 % à payer. Les minutes de HS
- * utilisées pour compenser un déficit restent travaillées : leurs sujétions
- * (nuit, dimanche, férié) restent qualifiées, mais leur base HS n'est plus payée.
+ * Reventile les heures supplémentaires sans modifier les faits de pointage.
+ * apply conserve la règle des snapshots historiques ; applyPeriod rapproche HS30 et HS50.
+ * Les sujétions restent qualifiées, y compris sur les minutes compensant un déficit.
  */
 public final class PayrollOvertimeSettlement {
     private PayrollOvertimeSettlement() {}
@@ -50,6 +50,35 @@ public final class PayrollOvertimeSettlement {
             remaining -= payable;
         }
         if (remaining != 0) throw new IllegalStateException("SNAPSHOT_HS30_INCOHERENT: HS finales non attribuées.");
+        return List.copyOf(result);
+    }
+
+    /** Reventile les HS de la période ; aucune minute travaillée ni sujétion n'est créée. */
+    public static List<QualifiedTimeBucket> applyPeriod(List<QualifiedTimeBucket> source,
+            long raw30, long raw50, long final30, long final50) {
+        if (source == null || raw30 < 0 || raw50 < 0 || final30 < 0 || final50 < 0)
+            throw new IllegalArgumentException("Rapprochement de période invalide.");
+        long actual30 = source.stream().filter(b -> b.overtimeTier() == OvertimeTier.OVERTIME_30)
+                .mapToLong(QualifiedTimeBucket::minutes).sum();
+        long actual50 = source.stream().filter(b -> b.overtimeTier() == OvertimeTier.OVERTIME_50)
+                .mapToLong(QualifiedTimeBucket::minutes).sum();
+        if (actual30 != raw30 || actual50 != raw50)
+            throw new IllegalStateException("SNAPSHOT_HS_INCOHERENT: ventilation hebdomadaire divergente.");
+        long remaining30 = final30, remaining50 = final50;
+        List<QualifiedTimeBucket> result = new ArrayList<>();
+        for (var bucket : source.stream().sorted(Comparator.comparing(QualifiedTimeBucket::start)
+                .thenComparing(QualifiedTimeBucket::end)).toList()) {
+            if (bucket.overtimeTier() == OvertimeTier.REGULAR) { result.add(bucket); continue; }
+            long at30 = Math.min(remaining30, bucket.minutes());
+            long at50 = Math.min(remaining50, bucket.minutes() - at30);
+            var cursor = bucket.start();
+            if (at30 > 0) { result.add(withTier(bucket, cursor, cursor.plusMinutes(at30), at30, OvertimeTier.OVERTIME_30)); cursor = cursor.plusMinutes(at30); }
+            if (at50 > 0) { result.add(withTier(bucket, cursor, cursor.plusMinutes(at50), at50, OvertimeTier.OVERTIME_50)); cursor = cursor.plusMinutes(at50); }
+            long regular = bucket.minutes() - at30 - at50;
+            if (regular > 0) result.add(withTier(bucket, cursor, bucket.end(), regular, OvertimeTier.REGULAR));
+            remaining30 -= at30; remaining50 -= at50;
+        }
+        // Le reliquat positif DAF est valorisé séparément, sans bucket temporel fictif.
         return List.copyOf(result);
     }
 

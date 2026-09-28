@@ -31,6 +31,10 @@ CREATE TABLE ref_filiale (
     raison_sociale VARCHAR(100) NOT NULL,
     nif VARCHAR(30),
     stat VARCHAR(30),
+    adresse_siege VARCHAR(255),
+    rcs VARCHAR(80),
+    telephone VARCHAR(40),
+    email VARCHAR(255),
     seuil_effectif_alerte INT DEFAULT 19,
     est_actif BOOLEAN DEFAULT TRUE,
     date_desactivation TIMESTAMP WITH TIME ZONE,
@@ -240,10 +244,9 @@ CREATE INDEX idx_config_legale_actif ON paie_config_legale(date_debut, date_fin)
 -- =====================================================================
 
 -- Filiales
-INSERT INTO ref_filiale (id_filiale, code_filiale, raison_sociale, nif, stat, seuil_effectif_alerte) VALUES
-(1, 'GLX', 'Galaxam Logistics', '3000019434', '9876543210', 19),
-(2, 'VA', 'Vina sy Asa ', '3000019434', '0123456789', 0);
-SELECT setval('ref_filiale_id_filiale_seq', (SELECT GREATEST(MAX(id_filiale), 2) FROM ref_filiale));
+INSERT INTO ref_filiale (id_filiale, code_filiale, raison_sociale, nif, stat, adresse_siege, seuil_effectif_alerte) VALUES
+(1, 'GLX', 'Galaxam Logistics', '3000019434', '9876543210', '3e étage, Tour Forello, Tanjombato', 19);
+SELECT setval('ref_filiale_id_filiale_seq', (SELECT GREATEST(MAX(id_filiale), 1) FROM ref_filiale));
 
 -- Banques
 INSERT INTO ref_banque (code_banque, nom_banque, code_swift) VALUES

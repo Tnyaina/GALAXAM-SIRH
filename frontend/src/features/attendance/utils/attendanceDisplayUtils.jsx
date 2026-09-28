@@ -187,26 +187,3 @@ export const formatDualHours = (val, options = {}) => {
     }
     return `${hhmm} (${dec})`;
 };
-
-/**
- * Résout le libellé human-friendly d'une période pour le nommage des exports (ex: Decembre_2025).
- */
-export const getPeriodeLabelForFilename = (libelle, code) => {
-    if (libelle && typeof libelle === 'string' && libelle.trim().length > 0 && libelle.toLowerCase() !== 'periode') {
-        const clean = libelle.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_');
-        if (clean.length > 0) return clean;
-    }
-    if (code && typeof code === 'string' && /^\d{4}[-_]\d{2}$/.test(code.trim())) {
-        const [year, monthStr] = code.trim().split(/[-_]/);
-        const month = parseInt(monthStr, 10);
-        const mois = ['Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre'];
-        if (month >= 1 && month <= 12) {
-            return `${mois[month - 1]}_${year}`;
-        }
-    }
-    if (code && typeof code === 'string') {
-        return code.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]/g, '_');
-    }
-    return 'Periode';
-};

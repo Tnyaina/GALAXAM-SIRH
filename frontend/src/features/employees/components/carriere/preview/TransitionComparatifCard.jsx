@@ -164,8 +164,8 @@ export default function TransitionComparatifCard({
                             </div>
 
                             {/* Flèche transition */}
-                            <div className="flex justify-center items-center text-brand-500 font-bold">
-                                <ArrowRight size={20} className="text-brand-500" />
+                            <div className="flex justify-center items-center text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] font-bold">
+                                <ArrowRight size={20} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]" />
                             </div>
 
                             {/* Nouveau Salaire Cible */}
@@ -205,7 +205,7 @@ export default function TransitionComparatifCard({
                             {criteres.map((c) => (
                                 <Tr
                                     key={c.id}
-                                    className={c.modifie ? 'bg-brand-500/[0.04] font-medium' : ''}
+                                    className={c.modifie ? 'bg-[var(--color-brand-500)]/[0.04] font-medium' : ''}
                                 >
                                     <Td className="text-xs font-semibold text-[var(--color-fg-muted)]">
                                         {c.label}
@@ -215,12 +215,12 @@ export default function TransitionComparatifCard({
                                     </Td>
                                     <Td align="center">
                                         {c.modifie ? (
-                                            <ArrowRight size={14} className="text-brand-500 inline-block" />
+                                            <ArrowRight size={14} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] inline-block" />
                                         ) : (
                                             <span className="text-[var(--color-border-subtle)]">—</span>
                                         )}
                                     </Td>
-                                    <Td className={`text-xs ${c.modifie ? 'font-bold text-brand-600 dark:text-brand-400' : 'text-[var(--color-fg)]'}`}>
+                                    <Td className={`text-xs ${c.modifie ? 'font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' : 'text-[var(--color-fg)]'}`}>
                                         {c.apres}
                                     </Td>
                                     <Td align="right">

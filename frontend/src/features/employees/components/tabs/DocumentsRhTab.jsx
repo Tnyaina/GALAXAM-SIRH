@@ -131,6 +131,7 @@ export default function DocumentsRhTab({
                                         <Td>
                                             <div className="flex items-center gap-1.5 flex-wrap">
                                                 <Badge variant="brand" size="xs">{doc.typeDocumentLibelle}</Badge>
+                                                {doc.idContrat && <span className="text-xs">{doc.numeroContrat || `Contrat #${doc.idContrat}`} · {doc.codeTypeContrat}{doc.contratSigne ? ' · Signé ✓' : ''}</span>}
                                                 {doc.typeDocumentObligatoire && (
                                                     <Badge variant="warning" size="xs">Obligatoire</Badge>
                                                 )}

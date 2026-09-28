@@ -27,8 +27,9 @@ class PayrollPointageToBulletinIntegrationTest {
     @Autowired PointageSyntheseService pointageSyntheseService;
     @Autowired PayrollService payrollService;
 
-    @Test
-    void uneJourneeCompleteProduitUnBulletinAvecSaProvenancePointage() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void uneJourneeCompleteProduitUnBulletinAvecSaProvenancePointage(boolean complementDaf) throws Exception {
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
@@ -70,6 +71,14 @@ class PayrollPointageToBulletinIntegrationTest {
                     statement.executeUpdate();
                     statement.setDate(3, Date.valueOf("2026-09-25"));
                     statement.executeUpdate();
+                }
+                if (complementDaf) {
+                    try (var statement=connection.prepareStatement(
+                            "INSERT INTO pointage_ajustement_periode (id_employe,id_periode_paie,minutes_signees,motif,saisi_par,valide_par) "
+                            + "VALUES (?,?,600,'Complément fin de période validé DAF',"
+                            + "(SELECT MIN(id_utilisateur) FROM utilisateur),(SELECT MIN(id_utilisateur) FROM utilisateur))")) {
+                        statement.setInt(1,employeeId);statement.setInt(2,periodId);statement.executeUpdate();
+                    }
                 }
                 var preflight = pointageSyntheseService.preflightPeriode(periodId, connection);
                 assertTrue(preflight.pret(), () -> "Préflight : " + preflight);
@@ -123,6 +132,17 @@ class PayrollPointageToBulletinIntegrationTest {
                 assertTrue(result.getLignes().stream()
                         .anyMatch(line -> "SALAIRE_BASE".equals(line.getCodeRubrique())));
                 assertNotNull(result.getBulletin().getIdSnapshotPointage());
+                if (complementDaf) {
+                    var hs30=result.getLignes().stream().filter(l->"HEURES_SUP_30".equals(l.getCodeRubrique())).findFirst().orElseThrow();
+                    var hs50=result.getLignes().stream().filter(l->"HEURES_SUP_50".equals(l.getCodeRubrique())).findFirst().orElseThrow();
+                    assertEquals(0,new BigDecimal("8").compareTo(hs30.getQuantite()));
+                    assertEquals(0,new BigDecimal("2").compareTo(hs50.getQuantite()));
+                    try(var ps=connection.prepareStatement(
+                            "SELECT minutes_hs30_finales,minutes_hs50_finales,total_heures_travaillees FROM pointage_cumul_periode WHERE id_employe=? AND id_periode_paie=?")) {
+                        ps.setInt(1,employeeId);ps.setInt(2,periodId);
+                        try(var rs=ps.executeQuery()){assertTrue(rs.next());assertEquals(480,rs.getInt(1));assertEquals(120,rs.getInt(2));assertEquals(0,new BigDecimal("16").compareTo(rs.getBigDecimal(3)));}
+                    }
+                }
                 var simulation = payrollService.calculerBulletinEmploye(employeeId, periodId,
                         true, null, connection);
                 assertEquals(result.getBulletin().getTotalGainsBruts(), simulation.getBulletin().getTotalGainsBruts(),

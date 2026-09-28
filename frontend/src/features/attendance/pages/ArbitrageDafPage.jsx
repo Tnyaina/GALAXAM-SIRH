@@ -735,6 +735,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                             const profilVariant = row.badgeProfilVariant || (row.dispensePointage ? 'neutral' : row.estCadre ? 'info' : null);
                                             const allowanceEntries = Object.entries(row.montantsIndemnites || {});
                                             const hs30Finales = row.minutesHs30Finales != null ? row.minutesHs30Finales / 60 : (row.heuresHs30 || 0);
+                                            const hs50Finales = row.minutesHs50Finales != null ? row.minutesHs50Finales / 60 : (row.heuresHs50 || 0);
                                             const absenceFinale = row.minutesAbsenceFinale != null ? row.minutesAbsenceFinale / 60 : (row.heuresAbsenceRetenues || 0);
                                             const totalIndRow = allowanceEntries.reduce((total, [, amount]) => total + Number(amount || 0), 0);
                                             const allowanceDetails = allowanceEntries.map(([code, amount]) =>
@@ -798,10 +799,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                         )}
                                                     </Td>
                                                     <Td className="text-center">
-                                                        {(row.heuresHs50 || 0) > 0 ? (
-                                                            <span className="attendance-overtime inline-block attendance-duration text-xs font-bold px-1.5 py-0.5" title={`${formatHeuresMinutes(row.heuresHs50)}`}>
-                                                                {formatHeuresMinutes(row.heuresHs50)}
-                                                                <span className="attendance-duration-secondary block">({formatHeuresDecimal(row.heuresHs50)})</span>
+                                                        {hs50Finales > 0 ? (
+                                                            <span className="attendance-overtime inline-block attendance-duration text-xs font-bold px-1.5 py-0.5" title={`${formatHeuresMinutes(hs50Finales)}`}>
+                                                                {formatHeuresMinutes(hs50Finales)}
+                                                                <span className="attendance-duration-secondary block">({formatHeuresDecimal(hs50Finales)})</span>
                                                             </span>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>

@@ -15,6 +15,7 @@ import java.util.List;
 public class MouvementSoldeConge extends ClassMere {
 
     private Integer idMouvement;
+    private BigDecimal soldeApres;
     private Integer idEmploye;
     private String typeMouvement; // ACQUISITION, BONIFICATION, PRISE, AJUSTEMENT, ANNULATION, EXPIRATION
     private BigDecimal nbJours;
@@ -143,12 +144,17 @@ public class MouvementSoldeConge extends ClassMere {
     public static List<MouvementSoldeConge> listParEmploye(Integer idEmploye, Connection c) throws Exception {
         List<MouvementSoldeConge> list = new ArrayList<>();
         if (idEmploye == null) return list;
-        String sql = "SELECT * FROM mouvement_solde_conge WHERE id_employe = ? ORDER BY date_mouvement DESC, created_at DESC";
+        String sql = "SELECT m.*, SUM(m.nb_jours) OVER (PARTITION BY m.id_employe " +
+                "ORDER BY m.date_mouvement, m.id_mouvement ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS solde_apres " +
+                "FROM mouvement_solde_conge m WHERE m.id_employe = ? " +
+                "ORDER BY m.date_mouvement DESC, m.id_mouvement DESC";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapResultSet(rs));
+                    MouvementSoldeConge mouvement = mapResultSet(rs);
+                    mouvement.setSoldeApres(rs.getBigDecimal("solde_apres"));
+                    list.add(mouvement);
                 }
             }
         }
@@ -168,6 +174,9 @@ public class MouvementSoldeConge extends ClassMere {
         obj.setCreatedAt(rs.getTimestamp("created_at"));
         return obj;
     }
+
+    public BigDecimal getSoldeApres() { return soldeApres; }
+    public void setSoldeApres(BigDecimal soldeApres) { this.soldeApres = soldeApres; }
 
     private static void setNullableInt(PreparedStatement ps, int index, Integer value) throws Exception {
         if (value != null) ps.setInt(index, value);

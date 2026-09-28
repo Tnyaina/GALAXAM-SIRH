@@ -5,6 +5,12 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class PointageJourDTO {
+    private String observation;
+    public String getObservation() { return observation; }
+    public void setObservation(String value) { observation = value; }
+    private boolean canCorrect;
+    public boolean isCanCorrect() { return canCorrect; }
+    public void setCanCorrect(boolean value) { canCorrect = value; }
     private Integer idPointage;
     private Integer idSite;
     private Integer version;
@@ -33,7 +39,9 @@ public class PointageJourDTO {
     private Double totalHeuresDecimal;  // Heures en centésimal (décimal) ex: 8.85
     private Map<String, IndemniteJourDTO> indemnites = new LinkedHashMap<>();
 
-    public record IndemniteJourDTO(String code, boolean accordee, BigDecimal montant) {}
+    public record IndemniteJourDTO(String code, boolean accordee, BigDecimal montant, BigDecimal quantite) {
+        public IndemniteJourDTO(String code, boolean accordee, BigDecimal montant) { this(code, accordee, montant, null); }
+    }
 
     // Getters et Setters
     public Double getTotalHeuresDecimal() { return totalHeuresDecimal; }

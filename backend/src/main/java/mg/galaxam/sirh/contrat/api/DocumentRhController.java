@@ -90,10 +90,13 @@ public class DocumentRhController {
             @RequestParam("idTypeDocument") int idTypeDocument,
             @RequestParam(value = "dateDocument", required = false) String dateDocumentStr,
             @RequestParam(value = "commentaire", required = false) String commentaire,
+            @RequestParam(value = "idContrat", required = false) Integer idContrat,
+            @RequestParam(value = "idWorkflow", required = false) Integer idWorkflow,
             Authentication auth
     ) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
+            Path storedFile = null;
             try {
                 if (file.isEmpty()) {
                     throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Aucun fichier sélectionné.");
@@ -104,6 +107,8 @@ public class DocumentRhController {
                 if (typeDoc == null || !typeDoc.isActif()) {
                     throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Type de document invalide ou inactif.");
                 }
+
+                mg.galaxam.sirh.contrat.application.DocumentRhService.validerLiaisonsDocument(idEmploye, idTypeDocument, idContrat, idWorkflow, c);
 
                 // 2. Vérification de la taille max
                 if (typeDoc.getTailleMaxMo() != null && file.getSize() > (long) typeDoc.getTailleMaxMo() * 1024 * 1024) {
@@ -139,12 +144,17 @@ public class DocumentRhController {
 
                 String uniqueFilename = UUID.randomUUID().toString() + "." + extension;
                 Path filePath = uploadPath.resolve(uniqueFilename);
-                Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+                storedFile = filePath;
+                try (var input = file.getInputStream()) {
+                    Files.copy(input, filePath, StandardCopyOption.REPLACE_EXISTING);
+                }
 
                 // 4. Enregistrement en BDD
                 DocumentRh doc = new DocumentRh();
                 doc.setIdEmploye(idEmploye);
                 doc.setIdTypeDocument(idTypeDocument);
+                doc.setIdContrat(idContrat);
+                doc.setIdWorkflow(idWorkflow);
                 doc.setNomOriginal(originalFilename);
                 doc.setNomStockage(uniqueFilename);
                 doc.setCheminFichier("/uploads/documents/" + uniqueFilename);
@@ -161,14 +171,16 @@ public class DocumentRhController {
 
                 doc.save(c);
                 AuditLog.audit(c, "CREATION", "document_rh", String.valueOf(doc.getIdDocument()), null, doc);
-                c.commit();
-
                 DocumentRhCPL createdDocView = new DocumentRhCPL().rechercherParId(doc.getIdDocument(), c);
+                c.commit();
                 return ResponseEntity.status(HttpStatus.CREATED).body(createdDocView);
 
             } catch (Exception ex) {
                 c.rollback();
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
+                if (storedFile != null) {
+                    try { Files.deleteIfExists(storedFile); } catch (IOException cleanup) { ex.addSuppressed(cleanup); }
+                }
+                throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(ex);
             }
         } catch (Exception e) {
             e.printStackTrace();

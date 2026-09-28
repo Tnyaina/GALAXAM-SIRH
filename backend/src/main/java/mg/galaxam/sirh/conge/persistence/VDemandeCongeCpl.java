@@ -109,10 +109,37 @@ public class VDemandeCongeCpl extends ClassMere {
     }
 
     public static long countParEmploye(Integer idEmploye, Connection c) throws Exception {
+        return countParEmploye(idEmploye, null, null, c);
+    }
+
+    private static String filtresEmploye(String statut, String recherche, List<String> params) {
+        StringBuilder filters = new StringBuilder();
+        if (statut != null && !statut.isBlank() && !"ALL".equalsIgnoreCase(statut)) {
+            if ("EN_ATTENTE".equalsIgnoreCase(statut)) {
+                filters.append(" AND code_statut_demande IN ('EN_ATTENTE', 'SOUMIS', 'EN_ATTENTE_VALIDATION')");
+            } else {
+                filters.append(" AND code_statut_demande = ?");
+                params.add(statut.trim().toUpperCase());
+            }
+        }
+        if (recherche != null && !recherche.isBlank()) {
+            filters.append(" AND (LOWER(COALESCE(libelle_type_conge, '')) LIKE ?")
+                    .append(" OR LOWER(COALESCE(libelle_motif_evenement, '')) LIKE ?")
+                    .append(" OR LOWER(COALESCE(commentaire, '')) LIKE ?)");
+            String pattern = "%" + recherche.trim().toLowerCase() + "%";
+            for (int i = 0; i < 3; i++) params.add(pattern);
+        }
+        return filters.toString();
+    }
+
+    public static long countParEmploye(Integer idEmploye, String statut, String recherche, Connection c) throws Exception {
         if (idEmploye == null) return 0;
-        String sql = "SELECT COUNT(*) FROM v_demande_conge_cpl WHERE id_employe = ?";
+        List<String> params = new ArrayList<>();
+        String sql = "SELECT COUNT(*) FROM v_demande_conge_cpl WHERE id_employe = ?"
+                + filtresEmploye(statut, recherche, params);
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
+            for (int i = 0; i < params.size(); i++) ps.setString(i + 2, params.get(i));
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return rs.getLong(1);
             }
@@ -121,12 +148,20 @@ public class VDemandeCongeCpl extends ClassMere {
     }
 
     public static List<VDemandeCongeCpl> listParEmploye(Integer idEmploye, Connection c, Integer limit, Integer offset) throws Exception {
+        return listParEmploye(idEmploye, null, null, c, limit, offset);
+    }
+
+    public static List<VDemandeCongeCpl> listParEmploye(Integer idEmploye, String statut, String recherche,
+            Connection c, Integer limit, Integer offset) throws Exception {
         List<VDemandeCongeCpl> list = new ArrayList<>();
         if (idEmploye == null) return list;
-        
-        StringBuilder sql = new StringBuilder("SELECT * FROM v_demande_conge_cpl WHERE id_employe = ? ORDER BY date_debut DESC, created_at DESC");
+        List<String> filterParams = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT * FROM v_demande_conge_cpl WHERE id_employe = ?")
+                .append(filtresEmploye(statut, recherche, filterParams))
+                .append(" ORDER BY date_debut DESC, created_at DESC");
         List<Object> params = new ArrayList<>();
         params.add(idEmploye);
+        params.addAll(filterParams);
         
         if (limit != null) {
             sql.append(" LIMIT ?");
@@ -141,6 +176,8 @@ public class VDemandeCongeCpl extends ClassMere {
             for (int i = 0; i < params.size(); i++) {
                 if (params.get(i) instanceof Integer) {
                     ps.setInt(i + 1, (Integer) params.get(i));
+                } else {
+                    ps.setString(i + 1, (String) params.get(i));
                 }
             }
             try (ResultSet rs = ps.executeQuery()) {

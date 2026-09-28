@@ -19,18 +19,6 @@ import { attendanceService } from '@/features/attendance/api/attendanceApi';
 import { fmtDate } from '@/utils/dateUtils';
 import { formatHeuresMinutes } from '@/features/attendance/utils/attendanceDisplayUtils';
 
-const STATUT_OPTIONS = [
-    { value: 'PRESENT', label: 'Présent (Journée normale)' },
-    { value: 'DEMI_JOURNEE', label: 'Demi-journée travaillée' },
-    { value: 'DIMANCHE_TRAVAILLE', label: 'Dimanche travaillé (Majoré)' },
-    { value: 'SAMEDI_TRAVAILLE', label: 'Samedi travaillé' },
-    { value: 'AUTONOME', label: 'Autonome (Cadre / Forfait)' },
-    { value: 'CONGE', label: 'Congé / Permission payée' },
-    { value: 'ABSENCE_JUSTIFIEE', label: 'Absence justifiée' },
-    { value: 'ABSENCE_NON_JUSTIFIEE', label: 'Absence non justifiée (décomptée)' },
-    { value: 'REPOS', label: 'Repos hebdomadaire / Férié chômé' }
-];
-
 export default function DafAjustementPointageModal({
     isOpen,
     onClose,
@@ -56,6 +44,8 @@ export default function DafAjustementPointageModal({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
+    const [statutOptions, setStatutOptions] = useState([]);
+    const [canCorrect, setCanCorrect] = useState(false);
     const [pointagesList, setPointagesList] = useState([]);
     const [selectedJour, setSelectedJour] = useState(null);
     const [availableAllowances, setAvailableAllowances] = useState([]);
@@ -100,7 +90,7 @@ export default function DafAjustementPointageModal({
             heureSortieAm: sa,
             horaireContinuJour: isContinu,
             statutCode: st,
-            motifAjustement: ptg.motifAjustement || 'Rectification administrative'
+            motifAjustement: ''
         });
     }, []);
 
@@ -119,6 +109,8 @@ export default function DafAjustementPointageModal({
             // Les pointages journaliers sont renvoyés dans res.pointagesData (PointageJourDTO)
             const list = res?.pointagesData || res?.pointages || res?.jours || res?.lignes || [];
             setPointagesList(list);
+            setStatutOptions(res.statutsCorrection || []);
+            setCanCorrect(res.availableActions?.CORRECT_DAY === true);
 
             if (initialDate && list.length > 0) {
                 const match = list.find(p => (p.dateComplete === initialDate || p.datePointage === initialDate || p.date === initialDate));
@@ -182,6 +174,7 @@ export default function DafAjustementPointageModal({
 
     const handleSaveAjustement = async (e) => {
         e.preventDefault();
+        if (!canCorrect || !selectedJour?.canCorrect) return;
         if (allowancesLoading || allowancesError) {
             setError(allowancesError || 'Chargement des indemnités en cours.');
             return;
@@ -272,7 +265,7 @@ export default function DafAjustementPointageModal({
                                     Statut de la journée
                                 </label>
                                 <Select
-                                    options={STATUT_OPTIONS}
+                                    options={statutOptions}
                                     value={formData.statutCode}
                                     onChange={(val) => setFormData(prev => ({ ...prev, statutCode: val }))}
                                     className="h-[32px] text-xs"
@@ -450,6 +443,7 @@ export default function DafAjustementPointageModal({
                                 variant="primary"
                                 size="sm"
                                 loading={saving}
+                                disabled={!canCorrect || !selectedJour?.canCorrect || allowancesLoading || Boolean(allowancesError)}
                                 icon={<Save size={14} />}
                                 className="font-bold shadow-xs"
                             >
@@ -593,6 +587,7 @@ export default function DafAjustementPointageModal({
                                                             type="button"
                                                             variant="outline"
                                                             size="xs"
+                                                            disabled={!ptg.canCorrect}
                                                             onClick={() => handleSelectJour(ptg)}
                                                             icon={<Edit3 size={11} />}
                                                             className="h-6 px-2 text-[11px] font-semibold"

@@ -589,7 +589,7 @@ public class PointageSyntheseService {
 
         // La compensation de chaque semaine est déjà terminée. Le rapprochement
         // de période reprend uniquement ses totaux, comme le récapitulatif Excel.
-        // Les heures spéciales et HS50 restent hors de ce solde HS30/déficit.
+        // Le solde inclut HS30 et HS50 brutes ; les qualifications nuit/dimanche/férié ne sont pas ajoutées à nouveau.
         int deficitMinutes = Math.toIntExact(periodResult.absenceMinutes());
         int hs30Minutes = Math.toIntExact(periodResult.overtime30Minutes());
         int hs50Minutes = Math.toIntExact(periodResult.overtime50Minutes());
@@ -606,14 +606,19 @@ public class PointageSyntheseService {
                 }
             }
         }
-        int soldeMinutes = Math.addExact(Math.subtractExact(hs30Minutes, deficitMinutes), ajustementMinutes);
+        var balance = mg.galaxam.sirh.pointage.domain.calculation.PeriodBalance.calculate(
+                hs30Minutes, hs50Minutes, deficitMinutes, ajustementMinutes,
+                seuilHsTranche1.multiply(BigDecimal.valueOf(60)).intValueExact());
+        dto.setMinutesPremierPalierHs(seuilHsTranche1.multiply(BigDecimal.valueOf(60)).intValueExact());
+        int soldeMinutes = balance.balanceMinutes();
         dto.setMinutesDeficitHebdo(deficitMinutes);
         dto.setMinutesHs30Hebdo(hs30Minutes);
         dto.setMinutesHs50Hebdo(hs50Minutes);
         dto.setMinutesAjustementPeriode(ajustementMinutes);
         dto.setMinutesSoldePeriode(soldeMinutes);
-        dto.setMinutesAbsenceFinale(Math.max(0, -soldeMinutes));
-        dto.setMinutesHs30Finales(Math.max(0, soldeMinutes));
+        dto.setMinutesAbsenceFinale(balance.absenceMinutes());
+        dto.setMinutesHs30Finales(balance.overtime30Minutes());
+        dto.setMinutesHs50Finales(balance.overtime50Minutes());
 
         dto.setTronconsSemaine(tronconsList);
 
@@ -667,6 +672,35 @@ public class PointageSyntheseService {
         dto.setNbAnomaliesNonResolues(nbAnomalies);
         dto.setHeuresNormales(seuilHeuresJour.multiply(BigDecimal.valueOf(nbJoursOuvrablesPeriode)).doubleValue());
 
+        if (idPeriode != null && statutPeriode != null
+                && java.util.Set.of("VALIDEE", "PAIE_VALIDEE", "CLOTUREE").contains(statutPeriode)) {
+            try (PreparedStatement frozen = c.prepareStatement(
+                    "SELECT s.* FROM pointage_cumul_periode s JOIN periode_paie p ON p.id_periode_paie=s.id_periode_paie "
+                    + "WHERE s.id_employe=? AND s.id_periode_paie=? AND p.date_debut=? AND p.date_fin=? "
+                    + "AND s.statut_snapshot IN ('GELE','CONSOMME') ORDER BY s.version_snapshot DESC LIMIT 1")) {
+                frozen.setInt(1,idEmp); frozen.setInt(2,idPeriode);
+                frozen.setDate(3,Date.valueOf(dateDebut)); frozen.setDate(4,Date.valueOf(dateFin));
+                try (ResultSet rs = frozen.executeQuery()) {
+                    if (rs.next()) {
+                        dto.setMinutesDeficitHebdo((Integer)rs.getObject("minutes_deficit_hebdo"));
+                        dto.setMinutesHs30Hebdo((Integer)rs.getObject("minutes_hs30_hebdo"));
+                        dto.setMinutesHs50Hebdo((Integer)rs.getObject("minutes_hs50_hebdo"));
+                        dto.setMinutesAjustementPeriode((Integer)rs.getObject("minutes_ajustement_periode"));
+                        dto.setMinutesSoldePeriode((Integer)rs.getObject("minutes_solde_periode"));
+                        Integer frozenAbsence = (Integer)rs.getObject("minutes_absence_finale");
+                        Integer frozen30 = (Integer)rs.getObject("minutes_hs30_finales");
+                        dto.setMinutesAbsenceFinale(frozenAbsence == null
+                                ? Math.toIntExact(hoursToMinutes(rs.getBigDecimal("heures_absence_retenues"))) : frozenAbsence);
+                        dto.setMinutesHs30Finales(frozen30 == null
+                                ? Math.toIntExact(hoursToMinutes(rs.getBigDecimal("heures_hs_30"))) : frozen30);
+                        dto.setMinutesPremierPalierHs((Integer)rs.getObject("minutes_palier_hs30"));
+                        Integer hs50Final = (Integer)rs.getObject("minutes_hs50_finales");
+                        dto.setMinutesHs50Finales(hs50Final == null
+                                ? Math.toIntExact(hoursToMinutes(rs.getBigDecimal("heures_hs_50"))) : hs50Final);
+                    }
+                }
+            }
+        }
         return dto;
     }
 
@@ -861,8 +895,8 @@ public class PointageSyntheseService {
         double totalHs50 = 0;
         for (PointageSyntheseMensuelleDTO dto : periodValues) {
             totalHs30 += dto.getMinutesHs30Finales() / 60.0;
-            totalHs50 += dto.getHeuresHs50();
-            if (dto.getMinutesHs30Finales() > 0 || dto.getHeuresHs50() > 0) employeesWithHs.add(dto.getIdEmploye());
+            totalHs50 += dto.getMinutesHs50Finales() / 60.0;
+            if (dto.getMinutesHs30Finales() > 0 || dto.getMinutesHs50Finales() > 0) employeesWithHs.add(dto.getIdEmploye());
             if (dto.getTronconsSemaine() != null && dto.getTronconsSemaine().stream()
                     .anyMatch(w -> w.getHeuresHsBrutes() > w.getHeuresHsNettes())) {
                 employeesWithCompensation.add(dto.getIdEmploye());
@@ -1166,11 +1200,6 @@ public class PointageSyntheseService {
 
         try (PreparedStatement ps = c.prepareStatement(sqlCumul)) {
             for (PointageSyntheseMensuelleDTO dto : synthese) {
-                if (dto.getMinutesHs30Finales() > dto.getMinutesHs30Hebdo()) {
-                    throw new IllegalStateException("AJUSTEMENT_HS_SEMAINE_REQUISE: l'ajustement de "
-                            + dto.getMatricule() + " crée des HS 30 % sans semaine de rattachement. "
-                            + "Corriger les journées concernées avant le gel.");
-                }
                 try (PreparedStatement replace = c.prepareStatement(
                         "UPDATE pointage_cumul_periode SET statut_snapshot = 'REMPLACE' " +
                         "WHERE id_employe = ? AND id_periode_paie = ? AND statut_snapshot = 'GELE'")) {
@@ -1209,7 +1238,8 @@ public class PointageSyntheseService {
                     snapshotId = inserted.getInt(1);
                 }
                 enregistrerProvenanceSnapshot(snapshotId, dto, idPeriode, c);
-                long minutesHs30Buckets = getSnapshotBuckets(snapshotId, c).stream()
+                var snapshotBuckets = getSnapshotBuckets(snapshotId, c);
+                long minutesHs30Buckets = snapshotBuckets.stream()
                         .filter(bucket -> bucket.overtimeTier() == OvertimeTier.OVERTIME_30)
                         .mapToLong(QualifiedTimeBucket::minutes)
                         .sum();
@@ -1219,10 +1249,15 @@ public class PointageSyntheseService {
                             + "mais " + minutesHs30Buckets + " minutes dans les journées figées. "
                             + "Vérifier les horaires et les tronçons de semaine avant le gel.");
                 }
+                long minutesHs50Buckets = snapshotBuckets.stream()
+                        .filter(bucket -> bucket.overtimeTier() == OvertimeTier.OVERTIME_50)
+                        .mapToLong(QualifiedTimeBucket::minutes).sum();
+                if (minutesHs50Buckets != dto.getMinutesHs50Hebdo())
+                    throw new IllegalStateException("HS50_SNAPSHOT_INCOHERENT: ventilation des journées divergente.");
                 try (PreparedStatement solde = c.prepareStatement(
                         "UPDATE pointage_cumul_periode SET minutes_deficit_hebdo = ?, minutes_hs30_hebdo = ?, " +
                         "minutes_hs50_hebdo = ?, minutes_ajustement_periode = ?, minutes_solde_periode = ?, " +
-                        "minutes_absence_finale = ?, minutes_hs30_finales = ? WHERE id_cumul = ?")) {
+                        "minutes_absence_finale = ?, minutes_hs30_finales = ?, minutes_hs50_finales = ?, minutes_palier_hs30 = ? WHERE id_cumul = ?")) {
                     solde.setInt(1, dto.getMinutesDeficitHebdo());
                     solde.setInt(2, dto.getMinutesHs30Hebdo());
                     solde.setInt(3, dto.getMinutesHs50Hebdo());
@@ -1230,7 +1265,9 @@ public class PointageSyntheseService {
                     solde.setInt(5, dto.getMinutesSoldePeriode());
                     solde.setInt(6, dto.getMinutesAbsenceFinale());
                     solde.setInt(7, dto.getMinutesHs30Finales());
-                    solde.setInt(8, snapshotId);
+                    solde.setInt(8, dto.getMinutesHs50Finales());
+                    solde.setInt(9, dto.getMinutesPremierPalierHs());
+                    solde.setInt(10, snapshotId);
                     solde.executeUpdate();
                 }
                 if (ajustementPeriodeService != null) {
@@ -1245,13 +1282,6 @@ public class PointageSyntheseService {
     public PointagePreflight preflightPeriode(int idPeriode, Connection c) throws SQLException {
         List<PointagePreflight.Blocker> blockers = new ArrayList<>();
         List<PointageSyntheseMensuelleDTO> synthese = getSynthesePeriode(idPeriode, null, c);
-        for (PointageSyntheseMensuelleDTO employee : synthese) {
-            int unassigned = Math.max(0, employee.getMinutesHs30Finales() - employee.getMinutesHs30Hebdo());
-            if (unassigned > 0) {
-                blockers.add(new PointagePreflight.Blocker(employee.getIdEmploye(), employee.getMatricule(),
-                        employee.getNom(), employee.getPrenom(), unassigned));
-            }
-        }
         return new PointagePreflight(idPeriode, synthese.size(), List.copyOf(blockers),
                 List.copyOf(journeesOuvrablesSansStatut(idPeriode, synthese, c)));
     }

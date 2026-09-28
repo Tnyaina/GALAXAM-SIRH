@@ -1,6 +1,6 @@
-import { ShieldAlert } from 'lucide-react';
 import { useToast } from '@/components/ui/feedback/Toast';
 import Loading from '@/components/ui/feedback/Loading';
+import Alert from '@/components/ui/feedback/Alert';
 
 // Hooks
 import { useCarriere } from '@/features/employees/hooks/useCarriere';
@@ -83,13 +83,7 @@ export default function CarriereTab({
             />
 
             {/* Messages de Succès / Erreur */}
-
-            {errorMsg && (
-                <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 p-4 rounded-none text-xs flex items-center gap-2">
-                    <ShieldAlert size={16} />
-                    <span>{errorMsg}</span>
-                </div>
-            )}
+            {errorMsg && <Alert type="error" message={errorMsg} />}
 
             {/* Timeline, bannières brouillon/mouvement et tables d'historique */}
             <CarriereTimeline

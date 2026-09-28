@@ -234,6 +234,8 @@ CREATE TABLE pointage_cumul_periode (
     minutes_solde_periode INTEGER,
     minutes_absence_finale INTEGER,
     minutes_hs30_finales INTEGER,
+    minutes_hs50_finales INTEGER,
+    minutes_palier_hs30 INTEGER,
     total_minutes_retard INTEGER NOT NULL DEFAULT 0,
     nb_jours_deplacement DECIMAL(5,2) NOT NULL DEFAULT 0,
     montant_deplacement DECIMAL(10,2) NOT NULL DEFAULT 0,

@@ -6,6 +6,7 @@ import {
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
+import Alert from '@/components/ui/feedback/Alert';
 import { Textarea } from '@/components/ui/forms/Input';
 import { useAuth } from '@/context/AuthContext';
 import HasPermission from '@/features/auth/components/HasPermission';
@@ -16,11 +17,11 @@ import { getWorkflowLibellesUI, calculerDateFinEssaiContextuelle } from '@/featu
 
 function InfoRow({ label, value, highlight = false, badge = null }) {
     return (
-        <div className="py-1.5 flex justify-between items-center text-xs border-b border-ink-100 dark:border-ink-800/60 last:border-0">
-            <span className="text-ink-400 font-medium">{label}</span>
+        <div className="py-1.5 flex justify-between items-center text-xs border-b border-[var(--color-border-subtle)] last:border-0">
+            <span className="text-[var(--color-fg-subtle)] font-medium">{label}</span>
             <div className="flex items-center gap-2">
                 {badge && <span className="flex-shrink-0">{badge}</span>}
-                <span className={`font-semibold ${highlight ? 'text-brand-500 font-mono text-sm' : 'text-ink-800 dark:text-ink-100'}`}>
+                <span className={`font-semibold ${highlight ? 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] font-mono text-sm' : 'text-[var(--color-fg)]'}`}>
                     {value || '-'}
                 </span>
             </div>
@@ -177,17 +178,17 @@ export default function WorkflowDraftSummaryModal({
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto"
         >
-            <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl max-w-4xl w-full my-8 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-4xl w-full my-8 overflow-hidden flex flex-col max-h-[90vh]">
 
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 bg-ink-50/80 dark:bg-ink-950/60 flex items-center justify-between">
+                <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-brand-500/10 text-brand-500 rounded-none flex items-center justify-center font-bold">
+                        <div className="w-10 h-10 bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] rounded-none flex items-center justify-center font-bold">
                             <FileText size={20} />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h2 className="font-bold text-base text-ink-900 dark:text-white">
+                                <h2 className="font-bold text-base text-[var(--color-fg)]">
                                     {isBrouillon ? eventTitle : 'Détail de l\'Événement RH'}
                                 </h2>
                                 <StatusBadge
@@ -196,20 +197,20 @@ export default function WorkflowDraftSummaryModal({
                                     size="sm"
                                 />
                             </div>
-                            <p className="text-xs text-ink-400">
-                                Contrat N° <span className="font-mono font-bold text-brand-500">{currentWf.numeroContratCible || currentWf.numeroContratSource || 'Nouveau'}</span> — {currentWf.nomPrenomEmploye} ({currentWf.matriculeEmploye})
+                            <p className="text-xs text-[var(--color-fg-subtle)]">
+                                Contrat N° <span className="font-mono font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">{currentWf.numeroContratCible || currentWf.numeroContratSource || 'Nouveau'}</span> — {currentWf.nomPrenomEmploye} ({currentWf.matriculeEmploye})
                             </p>
-                            <p className="text-[11px] text-ink-400 flex items-center gap-3 mt-0.5">
+                            <p className="text-[11px] text-[var(--color-fg-subtle)] flex items-center gap-3 mt-0.5">
                                 <span>
-                                    Type d'événement : <span className="font-semibold text-ink-600 dark:text-ink-300">{currentWf.libelleTypeEvenement || currentWf.codeTypeEvenement || '-'}</span>
+                                    Type d'événement : <span className="font-semibold text-[var(--color-fg-muted)]">{currentWf.libelleTypeEvenement || currentWf.codeTypeEvenement || '-'}</span>
                                 </span>
                                 <span>
-                                    Date de prise d'effet : <span className="font-mono font-semibold text-ink-600 dark:text-ink-300">{fmtDate(currentWf.dateEffet)}</span>
+                                    Date de prise d'effet : <span className="font-mono font-semibold text-[var(--color-fg-muted)]">{fmtDate(currentWf.dateEffet)}</span>
                                 </span>
                             </p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-none">
+                    <button onClick={onClose} className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)] p-1 rounded-none">
                         <X size={18} />
                     </button>
                 </div>
@@ -217,33 +218,30 @@ export default function WorkflowDraftSummaryModal({
                 {/* Body Content */}
                 <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
                     {errorMsg && (
-                        <div className="bg-danger-500/10 text-danger-600 border border-danger-500/20 rounded-none p-4 text-xs flex items-center gap-2 font-medium">
-                            <ShieldAlert size={16} className="flex-shrink-0" />
-                            <span>{errorMsg}</span>
-                        </div>
+                        <Alert type="error" message={errorMsg} />
                     )}
 
                     {/* Alerte Information */}
                     {isBrouillon ? (
-                        <div className="bg-brand-500/10 border border-brand-500/20 p-4 rounded-none flex items-start gap-3">
-                            <Clock size={18} className="text-brand-500 flex-shrink-0 mt-0.5" />
+                        <div className="bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/20 p-4 rounded-none flex items-start gap-3">
+                            <Clock size={18} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
-                                <p className="font-bold text-brand-600 dark:text-brand-400">
+                                <p className="font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">
                                     {eventTitle}
                                 </p>
-                                <p className="text-ink-500 dark:text-ink-300">
+                                <p className="text-[var(--color-fg-muted)]">
                                     {eventDescription}
                                 </p>
                             </div>
                         </div>
                     ) : isPlanifie ? (
-                        <div className="bg-brand-500/10 border border-brand-500/30 p-4 rounded-none flex items-start gap-3">
-                            <Clock size={18} className="text-brand-600 dark:text-brand-400 flex-shrink-0 mt-0.5" />
+                        <div className="bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/30 p-4 rounded-none flex items-start gap-3">
+                            <Clock size={18} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
-                                <p className="font-bold text-brand-700 dark:text-brand-300">
+                                <p className="font-bold text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]">
                                     Événement RH Planifié (Prise d'effet le {fmtDate(currentWf.dateEffet)})
                                 </p>
-                                <p className="text-ink-500 dark:text-ink-300">
+                                <p className="text-[var(--color-fg-muted)]">
                                     Ce mouvement RH a été validé et prendra automatiquement effet le {fmtDate(currentWf.dateEffet)}.
                                 </p>
                             </div>
@@ -255,19 +253,19 @@ export default function WorkflowDraftSummaryModal({
                                 <p className="font-bold text-success-700 dark:text-success-400">
                                     {isEmbauche ? 'Embauche Initiale Validée et Appliquée' : isConfirmationEssai ? 'Confirmation d\'Essai Validée avec Succès' : isRenouvellementEssai ? 'Renouvellement d\'Essai Validé et Appliqué' : 'Événement RH Validé et Actif'}
                                 </p>
-                                <p className="text-ink-500 dark:text-ink-300">
+                                <p className="text-[var(--color-fg-muted)]">
                                     {isEmbauche ? 'Ce contrat d\'embauche a été validé. Le contrat et l\'affectation sont actifs.' : isConfirmationEssai ? 'La période d\'essai de cet employé a été confirmée et validée.' : isRenouvellementEssai ? 'Le renouvellement de l\'essai a été validé et la date de fin a été mise à jour en BDD.' : 'Ce mouvement RH est actuellement en vigueur dans le dossier de l\'employé.'}
                                 </p>
                             </div>
                         </div>
                     ) : isHistorise ? (
-                        <div className="bg-ink-100/70 dark:bg-ink-800/40 border border-ink-200 dark:border-ink-700 p-4 rounded-none flex items-start gap-3">
-                            <History size={18} className="text-ink-500 flex-shrink-0 mt-0.5" />
+                        <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-4 rounded-none flex items-start gap-3">
+                            <History size={18} className="text-[var(--color-fg-muted)] flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
-                                <p className="font-bold text-ink-700 dark:text-ink-200">
+                                <p className="font-bold text-[var(--color-fg)]">
                                     Mouvement RH Historisé (Passé)
                                 </p>
-                                <p className="text-ink-500 dark:text-ink-400">
+                                <p className="text-[var(--color-fg-muted)]">
                                     Ce mouvement RH a été appliqué avec succès le {fmtDate(currentWf.dateEffet)}. Il est archivé dans l'historique suite à la prise d'effet d'un mouvement ultérieur.
                                 </p>
                             </div>
@@ -279,7 +277,7 @@ export default function WorkflowDraftSummaryModal({
                                 <p className="font-bold text-danger-700 dark:text-danger-400">
                                     Mouvement RH Annulé / Rejeté
                                 </p>
-                                <p className="text-ink-600 dark:text-ink-300">
+                                <p className="text-[var(--color-fg-muted)]">
                                     {currentWf.commentaire || currentWf.motif ? (
                                         <>
                                             <span className="font-semibold text-danger-600 dark:text-danger-400">Motif :</span> {currentWf.commentaire || currentWf.motif}
@@ -289,7 +287,7 @@ export default function WorkflowDraftSummaryModal({
                                     )}
                                 </p>
                                 {currentWf.updatedAt && (
-                                    <p className="text-[11px] text-ink-400 font-mono">
+                                    <p className="text-[11px] text-[var(--color-fg-subtle)] font-mono">
                                         Annulé le {fmtDate(currentWf.updatedAt)}
                                     </p>
                                 )}
@@ -310,20 +308,20 @@ export default function WorkflowDraftSummaryModal({
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs pt-1 border-t border-warning-500/20">
                                 <div>
-                                    <span className="text-ink-400 text-[10px] block font-semibold uppercase">Durée d'Essai :</span>
-                                    <span className="font-bold text-ink-800 dark:text-ink-100">{currentWf.dureeEssaiMois || '-'} Mois</span>
+                                    <span className="text-[var(--color-fg-subtle)] text-[10px] block font-semibold uppercase">Durée d'Essai :</span>
+                                    <span className="font-bold text-[var(--color-fg)]">{currentWf.dureeEssaiMois || '-'} Mois</span>
                                 </div>
                                 <div>
-                                    <span className="text-ink-400 text-[10px] block font-semibold uppercase">
+                                    <span className="text-[var(--color-fg-subtle)] text-[10px] block font-semibold uppercase">
                                         {isEmbauche ? 'Fin d\'Essai Initiale :' : isRenouvellementEssai ? 'Nouvelle Fin d\'Essai :' : 'Date Fin d\'Essai :'}
                                     </span>
-                                    <span className="font-bold text-ink-800 dark:text-ink-100">
+                                    <span className="font-bold text-[var(--color-fg)]">
                                         {fmtDate(getDateFinEssaiContextuelle())}
                                     </span>
                                 </div>
                                 <div>
-                                    <span className="text-ink-400 text-[10px] block font-semibold uppercase">Date de Prise d'Effet :</span>
-                                    <span className="font-bold text-ink-800 dark:text-ink-100">{fmtDate(currentWf.dateEffet)}</span>
+                                    <span className="text-[var(--color-fg-subtle)] text-[10px] block font-semibold uppercase">Date de Prise d'Effet :</span>
+                                    <span className="font-bold text-[var(--color-fg)]">{fmtDate(currentWf.dateEffet)}</span>
                                 </div>
                             </div>
                         </div>
@@ -332,8 +330,8 @@ export default function WorkflowDraftSummaryModal({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
 
                         {/* Carte 1 : Contrat de Travail */}
-                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-none space-y-3">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 border-b border-ink-150 dark:border-ink-700 pb-2 flex items-center gap-1.5">
+                        <div className="bg-[var(--color-bg-subtle)] p-4 border border-[var(--color-border-subtle)] rounded-none space-y-3">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] border-b border-[var(--color-border-subtle)] pb-2 flex items-center gap-1.5">
                                 <Building size={14} /> Contrat de Travail
                             </h3>
                             <div className="space-y-1">
@@ -355,9 +353,9 @@ export default function WorkflowDraftSummaryModal({
                         </div>
 
                         {/* Carte 2 : Affectation & Rémunération */}
-                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-none space-y-3">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 border-b border-ink-150 dark:border-ink-700 pb-2 flex items-center gap-1.5">
-                                <Landmark size={14} /> Affectation & Rémunération
+                        <div className="bg-[var(--color-bg-subtle)] p-4 border border-[var(--color-border-subtle)] rounded-none space-y-3">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] border-b border-[var(--color-border-subtle)] pb-2 flex items-center gap-1.5">
+                                <Landmark size={14} /> Affectation &amp; Rémunération
                             </h3>
                             <div className="space-y-1">
                                 <InfoRow label="Site / Implantation" value={currentWf.libelleSite} />
@@ -377,15 +375,15 @@ export default function WorkflowDraftSummaryModal({
 
                     {/* Bloc 3 : Motif & Justification */}
                     {(currentWf.motif || currentWf.commentaire) && (
-                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-none space-y-2 text-xs">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-ink-500 border-b border-ink-150 dark:border-ink-700 pb-2">
+                        <div className="bg-[var(--color-bg-subtle)] p-4 border border-[var(--color-border-subtle)] rounded-none space-y-2 text-xs">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] border-b border-[var(--color-border-subtle)] pb-2">
                                 {isEmbauche ? 'Motif & Justification de l\'embauche' : 'Motif & Justification de la décision RH'}
                             </h3>
                             {currentWf.motif && (
-                                <p className="text-xs text-ink-800 dark:text-ink-200">{currentWf.motif}</p>
+                                <p className="text-xs text-[var(--color-fg)]">{currentWf.motif}</p>
                             )}
                             {currentWf.commentaire && (
-                                <p className="text-xs text-ink-400 border-t border-ink-150 dark:border-ink-800 pt-2">
+                                <p className="text-xs text-[var(--color-fg-subtle)] border-t border-[var(--color-border-subtle)] pt-2">
                                     <span className="font-semibold">Remarque :</span> {currentWf.commentaire}
                                 </p>
                             )}
@@ -394,7 +392,7 @@ export default function WorkflowDraftSummaryModal({
 
                     {/* Commentaire de validation — visible en continu, pas d'étape intermédiaire pour valider */}
                     {isBrouillon && !isCancelling && (
-                        <div className="bg-ink-50/50 dark:bg-ink-950/40 p-4 border border-ink-150 dark:border-ink-700/80 rounded-none space-y-1">
+                        <div className="bg-[var(--color-bg-subtle)] p-4 border border-[var(--color-border-subtle)] rounded-none space-y-1">
                             <Textarea
                                 id="commentaireValidation"
                                 name="commentaireValidation"
@@ -445,7 +443,7 @@ export default function WorkflowDraftSummaryModal({
                 {/* Footer Actions */}
                 {isBrouillon ? (
                     !isCancelling && (
-                        <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex items-center justify-between gap-4">
+                        <div className="px-6 py-4 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex items-center justify-between gap-4">
                             {(effectiveCanWrite || effectiveCanValidate) ? (
                                 <Button
                                     type="button"
@@ -489,7 +487,7 @@ export default function WorkflowDraftSummaryModal({
                                         {isConfirmationEssai ? 'Valider la Confirmation d\'Essai' : isRenouvellementEssai ? 'Valider le Renouvellement d\'Essai' : isEmbauche ? 'Valider Définitivement (Activer)' : 'Valider le Mouvement RH'}
                                     </Button>
                                 ) : (
-                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-ink-100 dark:bg-ink-900 border border-ink-200 dark:border-ink-800 text-[11px] text-ink-500 rounded-none">
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-muted)] rounded-none">
                                         <ShieldAlert size={14} className="text-warning-500 shrink-0" />
                                         <span>Validation réservée aux responsables habilités</span>
                                     </div>
@@ -499,7 +497,7 @@ export default function WorkflowDraftSummaryModal({
                     )
                 ) : (
                     !isCancelling && (
-                        <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-between items-center">
+                        <div className="px-6 py-4 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex justify-between items-center">
                             {isPlanifieFutur && (effectiveCanWrite || effectiveCanValidate) ? (
                                 <Button
                                     type="button"

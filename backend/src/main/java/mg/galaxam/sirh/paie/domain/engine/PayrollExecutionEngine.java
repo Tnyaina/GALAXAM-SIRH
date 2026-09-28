@@ -313,7 +313,7 @@ public class PayrollExecutionEngine {
         if (heuresHs30.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal montantHs30 = overtime.hs30();
             BigDecimal tauxHs30 = BigDecimal.ONE.add(zeroIfNull(input.getMajorationHs30())).multiply(new BigDecimal("100"));
-            lignes.add(creerLigne(bp, "HEURES_SUP_30", "Heures Supplémentaires (+" + tauxHs30.subtract(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%)", "GAIN", "HEURES_SUP",
+            lignes.add(creerLigne(bp, "HEURES_SUP_30", "Heures Supplémentaires (+" + tauxHs30.subtract(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%)" + dafOvertimeLabel(input, true), "GAIN", "HEURES_SUP",
                     tauxHoraire, tauxHs30, heuresHs30, montantHs30, null, 30));
             total = total.add(montantHs30);
         }
@@ -322,7 +322,7 @@ public class PayrollExecutionEngine {
         if (heuresHs50.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal montantHs50 = overtime.hs50();
             BigDecimal tauxHs50 = BigDecimal.ONE.add(zeroIfNull(input.getMajorationHs50())).multiply(new BigDecimal("100"));
-            lignes.add(creerLigne(bp, "HEURES_SUP_50", "Heures Supplémentaires (+" + tauxHs50.subtract(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%)", "GAIN", "HEURES_SUP",
+            lignes.add(creerLigne(bp, "HEURES_SUP_50", "Heures Supplémentaires (+" + tauxHs50.subtract(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%)" + dafOvertimeLabel(input, false), "GAIN", "HEURES_SUP",
                     tauxHoraire, tauxHs50, heuresHs50, montantHs50, null, 40));
             total = total.add(montantHs50);
         }
@@ -985,4 +985,14 @@ public class PayrollExecutionEngine {
     private BigDecimal zeroIfNull(BigDecimal val) {
         return val != null ? val : BigDecimal.ZERO;
     }
+    private static String dafOvertimeLabel(PayrollCalculationInput input, boolean firstTier) {
+        var attendance = input.getAttendanceInput();
+        if (attendance == null) return "";
+        long minutes = firstTier ? attendance.dafOvertime30Minutes() : attendance.dafOvertime50Minutes();
+        if (minutes == 0) return "";
+        return " — dont complément DAF : "
+                + mg.galaxam.sirh.paie.domain.dto.PayrollAttendanceInput.minutesToHours(minutes)
+                        .stripTrailingZeros().toPlainString() + " h";
+    }
+
 }

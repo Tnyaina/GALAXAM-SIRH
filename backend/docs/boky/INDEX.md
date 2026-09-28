@@ -12,12 +12,12 @@
 
 | Document | Module | Description | Fichier |
 |---|---|---|---|
-| 📋 **Module Employé, Contrat & Carrière** | Employé & Carrière | Dossier individuel, workflows RH, contrats, affectations et documents | [`module-employe-carriere.md`](./module-employe-carriere.md) |
+| 📋 **Module Employé, Contrat & Carrière** | Employé & Carrière | Dossier individuel, workflows RH, contrats, affectations, génération de contrats Word (.docx) et documents RH | [`module-employe-carriere.md`](./module-employe-carriere.md) |
 | 🏢 **Module Structure** | Organisation | Filiales, Sites, Référentiels, Fiscalité | [`module-structure-organisation.md`](./module-structure-organisation.md) |
 | 💰 **Module Paie & Rémunération** | Paie | **Document Maître Mémoire** : Cadre légal Malagasy, IRSA 6 tranches, CNaPS 8×SME, STC, BDD, API, Bilan des réalisations | [`module-paie.md`](./module-paie.md) |
 | 📜 **Réglementation Fiscale** | Paie & Fiscalité | Versions légales datées, SME, cotisations et barème IRSA | [Chapitre du module Paie](./module-paie.md#4-référentiel-légal-et-sélection-à-date-deffet) |
 | 📝 **Module Contrat & Carrière** | Contrat & Carrière | Parcours d'embauche, mouvements, périodes d'essai et sorties | [Chapitre du module Employé & Carrière](./module-employe-carriere.md#5-contrats-et-période-dessai) |
-| 🏖️ **Module Congés** | Congés & Absences | Acquisition, Décompte, Purge FIFO, Alertes | [`module-conges-absences.md`](./module-conges-absences.md) |
+| 🏖️ **Module Congés** | Congés & Absences | Acquisition, Décompte, Purge FIFO, Bilan annuel officiel Excel (12 mois), Alertes | [`module-conges-absences.md`](./module-conges-absences.md) |
 | 💳 **Variables, avances et prêts** | Paie | Saisie, décision et imputation des mouvements financiers | [Chapitre du module Paie](./module-paie.md#6-variables-avances-et-prêts) |
 | 🔐 **Sécurité & RBAC** | Transversal | Authentification JWT, RBAC dynamique | [`securite.md`](./securite.md) |
 | 🔧 **Initialisation** | Infrastructure | Setup, déploiement, base de données | [`init.md`](./init.md) |

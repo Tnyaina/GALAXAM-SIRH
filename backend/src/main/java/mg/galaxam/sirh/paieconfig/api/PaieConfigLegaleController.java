@@ -326,6 +326,11 @@ public class PaieConfigLegaleController {
     }
 
     private PaieConfigLegale mapFromRequest(PaieConfigLegaleRequest r) {
+        if (r.getSeuilHsTranche1() == null || r.getSeuilHsTranche1().signum() < 0) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                "Le palier de la première tranche HS doit être renseigné et positif ou nul.");
+        }
         PaieConfigLegale p = new PaieConfigLegale();
         p.setCodeVersion(r.getCodeVersion());
         p.setLibelle(r.getLibelle());
@@ -340,7 +345,7 @@ public class PaieConfigLegaleController {
         p.setArrondiBaseIrsa(r.getArrondiBaseIrsa() != null ? r.getArrondiBaseIrsa() : "CENTAINE_INF");
         p.setDureeHebdoLegale(r.getDureeHebdoLegale() != null ? r.getDureeHebdoLegale() : new BigDecimal("40.00"));
         p.setDiviseurMensuelHeures(r.getDiviseurMensuelHeures() != null ? r.getDiviseurMensuelHeures() : new BigDecimal("173.33"));
-        p.setSeuilHsTranche1(r.getSeuilHsTranche1() != null ? r.getSeuilHsTranche1() : new BigDecimal("8.00"));
+        p.setSeuilHsTranche1(r.getSeuilHsTranche1());
         p.setPlafondHsHebdo(r.getPlafondHsHebdo() != null ? r.getPlafondHsHebdo() : new BigDecimal("20.00"));
         p.setAcquisitionCongeMensuelJours(r.getAcquisitionCongeMensuelJours() != null ? r.getAcquisitionCongeMensuelJours() : new BigDecimal("2.50"));
         p.setDiviseurValorisationCongeJours(r.getDiviseurValorisationCongeJours() != null ? r.getDiviseurValorisationCongeJours() : 30);

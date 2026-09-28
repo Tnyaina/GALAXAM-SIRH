@@ -102,6 +102,7 @@ export default function EmployeFicheDetailPage() {
     // Modale Téléversement Document
     const [isUploadDocModalOpen, setIsUploadDocModalOpen] = useState(false);
     const [selectedTypeId, setSelectedTypeId] = useState('');
+    const [selectedDocContractId, setSelectedDocContractId] = useState('');
     const [selectedFile, setSelectedFile] = useState(null);
     const [docDate, setDocDate] = useState('');
     const [docCommentaire, setDocCommentaire] = useState('');
@@ -216,6 +217,7 @@ export default function EmployeFicheDetailPage() {
 
     // Actions Documents RH
     const handleOpenUploadModal = (typeId = '') => {
+        setSelectedDocContractId('');
         setSelectedTypeId(typeId || (typesDoc[0]?.idTypeDocument || ''));
         setSelectedFile(null);
         setDocDate('');
@@ -223,6 +225,12 @@ export default function EmployeFicheDetailPage() {
         setDocErrorMsg('');
         setIsUploadDocModalOpen(true);
     };
+
+    useEffect(() => {
+        const listener = event => { if (Number(event.detail?.idEmploye) === Number(id)) loadDocuments(); };
+        window.addEventListener('documents-rh-updated', listener);
+        return () => window.removeEventListener('documents-rh-updated', listener);
+    }, [id, loadDocuments]);
 
     const handleUploadDocSubmit = async (e) => {
         e.preventDefault();
@@ -240,7 +248,7 @@ export default function EmployeFicheDetailPage() {
 
         setUploadingDoc(true);
         try {
-            await documentRhService.uploadDocument(id, selectedFile, selectedTypeId, docDate, docCommentaire);
+            await documentRhService.uploadDocument(id, selectedFile, selectedTypeId, docDate, docCommentaire, { idContrat: selectedDocContractId || undefined });
             toast({ title: 'Succès', message: 'Document RH téléversé avec succès.', type: 'success' });
             setIsUploadDocModalOpen(false);
             loadDocuments();
@@ -482,6 +490,9 @@ export default function EmployeFicheDetailPage() {
                         onClose={() => setIsUploadDocModalOpen(false)}
                         onSubmit={handleUploadDocSubmit}
                         typesDoc={typesDoc}
+                        idEmploye={id}
+                        selectedContractId={selectedDocContractId}
+                        setSelectedContractId={setSelectedDocContractId}
                         selectedTypeId={selectedTypeId}
                         setSelectedTypeId={setSelectedTypeId}
                         setSelectedFile={setSelectedFile}

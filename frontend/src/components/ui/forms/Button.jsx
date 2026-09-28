@@ -20,6 +20,13 @@ const sizes = {
   lg: 'text-sm px-4.5 py-2.5 gap-2 min-h-[38px]',
 };
 
+const iconSizes = {
+  xs: 'w-[26px] h-[26px] min-w-[26px] min-h-[26px] p-0',
+  sm: 'w-[30px] h-[30px] min-w-[30px] min-h-[30px] p-0',
+  md: 'w-[34px] h-[34px] min-w-[34px] min-h-[34px] p-0',
+  lg: 'w-[38px] h-[38px] min-w-[38px] min-h-[38px] p-0',
+};
+
 export default function Button({
   children,
   variant = 'primary',
@@ -27,6 +34,7 @@ export default function Button({
   icon,
   iconLeft,
   iconRight,
+  iconOnly = false,
   loading = false,
   disabled = false,
   className = '',
@@ -46,6 +54,10 @@ export default function Button({
     }
   };
 
+  const hasChildren = children !== undefined && children !== null && children !== false && children !== '';
+  const isIconOnly = Boolean(iconOnly || (!hasChildren && !iconRight && (iconLeft || icon)));
+  const sizeClass = isIconOnly ? (iconSizes[size] || sizes[size]) : (sizes[size] || sizes.md);
+
   return (
     <button
       disabled={isDisabled}
@@ -58,7 +70,7 @@ export default function Button({
         ${!isDisabled ? 'active:scale-[0.98] cursor-pointer' : 'opacity-50 cursor-not-allowed shadow-none pointer-events-none disabled:pointer-events-none'}
         ${loading ? 'animate-pulse' : ''}
         ${variants[variant]}
-        ${sizes[size]}
+        ${sizeClass}
         ${className}
       `}
       {...props}
@@ -69,7 +81,9 @@ export default function Button({
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
         </svg>
       ) : (iconLeft ?? icon)}
-      <span className={`inline-flex flex-row items-center justify-center gap-2 whitespace-nowrap leading-none ${loading ? 'opacity-90' : ''}`}>{children}</span>
+      {hasChildren && (
+        <span className={`inline-flex flex-row items-center justify-center gap-2 whitespace-nowrap leading-none ${loading ? 'opacity-90' : ''}`}>{children}</span>
+      )}
       {!loading && iconRight}
     </button>
   );

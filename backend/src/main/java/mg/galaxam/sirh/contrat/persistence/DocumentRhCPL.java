@@ -15,6 +15,14 @@ public class DocumentRhCPL extends ClassMere {
     private Integer idDocument;
     private Integer idEmploye;
     private Integer idTypeDocument;
+    private Integer idContrat;
+    private Integer idWorkflow;
+    private String numeroContrat;
+    private String codeTypeContrat;
+    public String getNumeroContrat() { return numeroContrat; }
+    public String getCodeTypeContrat() { return codeTypeContrat; }
+    public boolean isContratSigne() { return idContrat != null && RefTypeDocument.CONTRAT_TRAVAIL_LIBELLE.equalsIgnoreCase(typeDocumentLibelle); }
+    private static final String SELECT_DOCUMENTS = "SELECT d.*, ct.numero_contrat, tc.code AS contrat_type_code FROM v_document_rh_cpl d LEFT JOIN contrat_travail ct ON ct.id_contrat = d.id_contrat LEFT JOIN ref_type_contrat tc ON tc.id_type_contrat = ct.id_type_contrat";
 
     private String typeDocumentLibelle;
     private String typeDocumentCategorie;
@@ -72,7 +80,7 @@ public class DocumentRhCPL extends ClassMere {
     }
 
     public DocumentRhCPL rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT * FROM v_document_rh_cpl WHERE id_document = ?";
+        String sql = SELECT_DOCUMENTS + " WHERE d.id_document = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -86,7 +94,7 @@ public class DocumentRhCPL extends ClassMere {
 
     public static List<DocumentRhCPL> listByEmployeId(Integer idEmploye, Connection c) throws Exception {
         List<DocumentRhCPL> list = new ArrayList<>();
-        String sql = "SELECT * FROM v_document_rh_cpl WHERE id_employe = ? ORDER BY created_at DESC";
+        String sql = SELECT_DOCUMENTS + " WHERE d.id_employe = ? ORDER BY d.created_at DESC";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
@@ -103,6 +111,10 @@ public class DocumentRhCPL extends ClassMere {
         d.setIdDocument(rs.getInt("id_document"));
         d.setIdEmploye(rs.getInt("id_employe"));
         d.setIdTypeDocument(rs.getInt("id_type_document"));
+        d.setIdContrat((Integer) rs.getObject("id_contrat"));
+        d.setIdWorkflow((Integer) rs.getObject("id_workflow"));
+        d.numeroContrat = rs.getString("numero_contrat");
+        d.codeTypeContrat = rs.getString("contrat_type_code");
 
         d.setTypeDocumentLibelle(rs.getString("type_document_libelle"));
         d.setTypeDocumentCategorie(rs.getString("type_document_categorie"));
@@ -125,6 +137,11 @@ public class DocumentRhCPL extends ClassMere {
         d.setUpdatedAt(rs.getTimestamp("updated_at"));
         return d;
     }
+
+    public Integer getIdContrat() { return idContrat; }
+    public void setIdContrat(Integer value) { idContrat = value; }
+    public Integer getIdWorkflow() { return idWorkflow; }
+    public void setIdWorkflow(Integer value) { idWorkflow = value; }
 
     // Getters and Setters
     public Integer getIdDocument() { return idDocument; }

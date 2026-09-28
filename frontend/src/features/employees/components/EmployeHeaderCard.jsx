@@ -1,4 +1,4 @@
-import { User, Edit2, Power, RotateCcw, Briefcase, Building2, Calendar, Phone, Mail, Award } from 'lucide-react';
+import { User, Edit2, Power, RotateCcw, Briefcase, Building2, Calendar, Phone, Mail } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import AuthenticatedImage from '@/components/ui/data-display/AuthenticatedImage';
@@ -145,17 +145,6 @@ export default function EmployeHeaderCard({
 
                 {/* Bloc Droit : Indicateurs clés + Actions */}
                 <div className="flex items-center lg:items-end flex-row lg:flex-col justify-between sm:justify-end gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 border-[var(--color-border-subtle)] shrink-0">
-                    {/* Indicateurs synthétiques */}
-                    {emp.ancienneteEffectiveTexte && (
-                        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-right">
-                            <Award size={15} className="text-[var(--color-brand-500)] shrink-0" />
-                            <div className="text-left">
-                                <p className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-fg-subtle)] leading-none">Ancienneté</p>
-                                <p className="text-xs font-bold text-[var(--color-fg)] mt-0.5">{emp.ancienneteEffectiveTexte}</p>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Barre de boutons d'action */}
                     <div className="flex items-center gap-2">
                         {canWrite && (

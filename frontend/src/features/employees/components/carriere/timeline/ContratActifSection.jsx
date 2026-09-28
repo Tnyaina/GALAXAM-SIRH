@@ -1,4 +1,5 @@
-import { Briefcase, Clock, FileCheck, RefreshCw, UserMinus, Plus, Building, Landmark, CheckCircle, Info } from 'lucide-react';
+import { useEffect, useRef, useState, useId } from 'react';
+import { Briefcase, Clock, FileCheck, RefreshCw, UserMinus, Plus, Building, Landmark, CheckCircle, Info, ChevronDown, MoreHorizontal, FileText } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Card } from '@/components/ui/data-display/Card';
@@ -20,6 +21,59 @@ const InfoRow = ({ label, children }) => (
     </div>
 );
 
+// Menus en superposition : la carte garde sa hauteur à l’ouverture.
+function ContractActionMenu({ label, icon, children }) {
+    const [open, setOpen] = useState(false);
+    const [menuLeft, setMenuLeft] = useState(0);
+    const wrapper = useRef(null);
+    const id = useId();
+    const isIconOnly = label !== 'Documents';
+    const close = (restoreFocus = false) => {
+        setOpen(false);
+        if (restoreFocus) wrapper.current?.querySelector('button')?.focus();
+    };
+    useEffect(() => {
+        if (!open) return;
+        const position = () => {
+            const left = wrapper.current?.getBoundingClientRect().left || 0;
+            const width = Math.min(256, window.innerWidth - 48);
+            setMenuLeft(Math.max(16 - left, Math.min(0, window.innerWidth - 16 - left - width)));
+        };
+        position();
+        window.addEventListener('resize', position);
+        const outside = event => { if (!wrapper.current?.contains(event.target)) setOpen(false); };
+        document.addEventListener('pointerdown', outside);
+        return () => { document.removeEventListener('pointerdown', outside); window.removeEventListener('resize', position); };
+    }, [open]);
+    return <div ref={wrapper} className="relative" onBlur={event => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+    }} onKeyDown={event => {
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); }
+        if (event.key === 'ArrowDown' && open) {
+            event.preventDefault();
+            const buttons = [...wrapper.current.querySelectorAll('[data-actions] button')];
+            buttons[(buttons.indexOf(document.activeElement) + 1) % buttons.length]?.focus();
+        }
+    }}>
+        <Button
+            variant="outline"
+            size="sm"
+            aria-label={label}
+            title={label}
+            aria-expanded={open}
+            aria-controls={id}
+            iconOnly={isIconOnly}
+            iconLeft={icon}
+            iconRight={!isIconOnly ? <ChevronDown size={14} /> : undefined}
+            onClick={() => setOpen(value => !value)}
+        >
+            {!isIconOnly ? label : null}
+        </Button>
+        {open && <div id={id} data-actions style={{ left: menuLeft }} className="absolute top-full mt-2 z-20 w-64 max-w-[calc(100vw-3rem)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg p-1 flex flex-col gap-1"
+            onClick={event => { if (event.target.closest('button')) close(); }}>{children}</div>}
+    </div>;
+}
+
 export default function ContratActifSection({
     contratActif,
     affectationActive,
@@ -37,6 +91,7 @@ export default function ContratActifSection({
     onOpenConfirmation,
     onOpenRenouvellement,
     onOpenAttestation,
+    onOpenContrat,
 }) {
     if (!contratActif) {
         if (brouillonWf) return null;
@@ -62,79 +117,32 @@ export default function ContratActifSection({
 
     return (
         <Card padding bordered className="space-y-5">
-            {/* En-tête : Titre + Statut + Actions */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[var(--color-border-subtle)]">
-                <div className="space-y-1">
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                        <h3 className="text-base font-bold text-[var(--color-fg)]">
-                            Contrat {isContratFutur ? 'planifié' : isContratEchu ? 'échu' : 'actif'} N° {contratActif.numeroContrat}
-                        </h3>
-                        {isContratFutur ? (
-                            <Badge variant="info" size="sm" className="font-bold">Planifié</Badge>
-                        ) : isContratEchu ? (
-                            <Badge variant="danger" size="sm" className="font-bold">Échu</Badge>
-                        ) : (
-                            <Badge variant="success" size="sm" className="font-bold">Actif</Badge>
-                        )}
-                        {(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai) && !workflowsList.some(w => (w.isActif ?? (w.codeStatutWorkflow === 'ACTIF')) && w.codeTypeEvenement === 'CONFIRMATION_ESSAI' && (Number(w.idContratCible) === Number(contratActif.idContrat) || Number(w.idContratSource) === Number(contratActif.idContrat))) && (
-                            <Badge variant="warning" size="xs" icon={<Clock size={11} />} className="font-semibold">
-                                Période d'Essai (Fin le {fmtDate(contratActif.dateFinEssai || workflowCplActif?.dateFinEssai)})
-                            </Badge>
-                        )}
-                    </div>
-                    <p className="text-xs text-[var(--color-fg-muted)]">
-                        {isContratFutur
-                            ? `Ce contrat prendra juridiquement effet le ${fmtDate(contratActif.dateDebut)}`
-                            : isContratEchu
-                                ? `Le terme de ce contrat a été atteint le ${fmtDate(contratActif.dateFin)}`
-                                : "Relation contractuelle et juridique en cours d'exécution"}
-                    </p>
+            <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-base font-bold text-[var(--color-fg)] break-words min-w-0">
+                        {contratActif.libelleTypeContrat || workflowCplActif?.libelleTypeContrat || 'Contrat'} · {contratActif.numeroContrat}
+                    </h3>
+                    <Badge variant={isContratFutur ? 'info' : isContratEchu ? 'danger' : 'success'} size="sm">
+                        {isContratFutur ? 'Planifié' : isContratEchu ? 'Échu' : 'Actif'}
+                    </Badge>
                 </div>
-
-                <div className="flex items-center gap-2 flex-wrap shrink-0">
-                    {onOpenAttestation && (
-                        <Button
-                            onClick={() => onOpenAttestation(contratActif)}
-                            variant="outline"
-                            size="sm"
-                            iconLeft={<FileCheck size={14} />}
-                            className="text-xs font-semibold whitespace-nowrap"
-                        >
-                            Attestation de travail
-                        </Button>
-                    )}
-                    {canWrite && !brouillonWf && (
-                        workflowPlanifieFutur ? (
-                            <Badge variant="primary" size="sm" icon={<Clock size={12} />}>
-                                {workflowPlanifieFutur.codeTypeEvenement === 'CONFIRMATION_ESSAI'
-                                    ? `Confirmation d'Essai Planifiée au ${fmtDate(workflowPlanifieFutur.dateEffet)}`
-                                    : workflowPlanifieFutur.codeTypeEvenement === 'RENOUVELLEMENT_ESSAI'
-                                        ? `Renouvellement d'Essai Planifié au ${fmtDate(workflowPlanifieFutur.dateEffet)}`
-                                        : `Événement RH (${workflowPlanifieFutur.libelleTypeEvenement || workflowPlanifieFutur.codeTypeEvenement}) Planifié au ${fmtDate(workflowPlanifieFutur.dateEffet)}`}
-                            </Badge>
-                        ) : (
-                            <>
-                                <Button
-                                    onClick={onOpenTransition}
-                                    variant="primary"
-                                    size="sm"
-                                    iconLeft={<RefreshCw size={14} />}
-                                    className="text-xs font-semibold whitespace-nowrap"
-                                >
-                                    Mouvement / transition RH
-                                </Button>
-                                <Button
-                                    onClick={onOpenRupture}
-                                    variant="outline"
-                                    size="sm"
-                                    iconLeft={<UserMinus size={14} className="text-[var(--color-danger-500)]" />}
-                                    className="text-xs font-semibold text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 border-[var(--color-danger-500)]/30 whitespace-nowrap"
-                                >
-                                    Rupture / fin de contrat
-                                </Button>
-                            </>
-                        )
-                    )}
+                <p className="text-sm text-[var(--color-fg)]">{affectationActive?.libelleFonction || 'Poste non renseigné'} · {affectationActive?.libelleSite || 'Site non renseigné'}</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--color-fg-muted)]">
+                    <span>{isContratFutur ? 'À compter du' : 'Depuis le'} {fmtDate(contratActif.dateDebut)}{contratActif.dateFin ? ` · Fin le ${fmtDate(contratActif.dateFin)}` : ''}</span>
+                    <HasPermission authority="PAIE_READ">
+                        <span>{fmtMoney(affectationActive?.salaireBase)} · {affectationActive?.libelleModeCalculPaie || workflowCplActif?.libelleModeCalculPaie || 'Mode de paie non renseigné'}</span>
+                    </HasPermission>
+                    {etatEssai?.isEssaiActif && <Badge variant="warning" size="xs" icon={<Clock size={11} />}>Essai jusqu’au {fmtDate(etatEssai.dateFinEssaiStr)}</Badge>}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {canWrite && !brouillonWf && !workflowPlanifieFutur && <Button onClick={onOpenTransition} variant="primary" size="sm" iconLeft={<RefreshCw size={14} />}>Faire évoluer la situation</Button>}
+                    {(onOpenContrat || onOpenAttestation) && <ContractActionMenu label="Documents" icon={<FileText size={14} />}>
+                        {onOpenContrat && <Button variant="ghost" size="sm" className="justify-start !normal-case !tracking-normal" onClick={() => onOpenContrat(contratActif)}>Contrat et signature</Button>}
+                        {onOpenAttestation && <Button variant="ghost" size="sm" className="justify-start !normal-case !tracking-normal" iconLeft={<FileCheck size={14} />} onClick={() => onOpenAttestation(contratActif)}>Attestation de travail</Button>}
+                    </ContractActionMenu>}
+                    {canWrite && !brouillonWf && !workflowPlanifieFutur && <ContractActionMenu label="Autres actions" icon={<MoreHorizontal size={16} />}>
+                        <Button variant="ghost" size="sm" className="justify-start !normal-case !tracking-normal text-[var(--color-danger-500)]" iconLeft={<UserMinus size={14} />} onClick={onOpenRupture}>Mettre fin au contrat</Button>
+                    </ContractActionMenu>}
                 </div>
             </div>
 
@@ -148,6 +156,8 @@ export default function ContratActifSection({
                 </div>
             )}
 
+            <details open className="space-y-3 border-t border-[var(--color-border-subtle)] pt-3">
+                <summary className="cursor-pointer text-sm font-semibold text-[var(--color-fg)] hover:text-brand-500 transition-colors">Détails du contrat et de l’affectation</summary>
             {/* Grille Contrat + Affectation — séparation par surface, pas par bordures répétées */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
                 {/* Bloc 1 : Termes du Contrat */}
@@ -243,6 +253,7 @@ export default function ContratActifSection({
                     </HasPermission>
                 </div>
             </div>
+            </details>
         </Card>
     );
 }

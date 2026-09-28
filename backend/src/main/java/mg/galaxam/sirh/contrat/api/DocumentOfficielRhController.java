@@ -1,5 +1,9 @@
 package mg.galaxam.sirh.contrat.api;
 
+import mg.galaxam.sirh.contrat.api.dto.ContratTravailDocumentDTO;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+
 
 import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.AttestationTravailDTO;
 import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.CertificatTravailDTO;
@@ -24,6 +28,30 @@ public class DocumentOfficielRhController {
     public DocumentOfficielRhController(DataSource dataSource, DocumentRhService documentRhService) {
         this.dataSource = dataSource;
         this.documentRhService = documentRhService;
+    }
+
+    @GetMapping("/contrat/{idContrat}")
+    @PreAuthorize("(hasAuthority('EMPLOYE_READ') and hasAuthority('PAIE_READ')) or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<ContratTravailDocumentDTO> getContratData(@PathVariable Integer idContrat) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                    .body(documentRhService.preparerContrat(idContrat, c));
+        }
+    }
+
+    @GetMapping("/contrat/{idContrat}/docx")
+    @PreAuthorize("(hasAuthority('EMPLOYE_READ') and hasAuthority('PAIE_READ')) or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadContratDocx(@PathVariable Integer idContrat) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            var dto = documentRhService.preparerContrat(idContrat, c);
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            documentRhService.genererContratDocx(dto, output);
+            String filename = "Contrat_" + dto.numeroContrat().replaceAll("[^a-zA-Z0-9_-]", "_") + ".docx";
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                    .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(filename).build().toString())
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+                    .body(output.toByteArray());
+        }
     }
 
     @GetMapping("/attestation/{idEmploye}")

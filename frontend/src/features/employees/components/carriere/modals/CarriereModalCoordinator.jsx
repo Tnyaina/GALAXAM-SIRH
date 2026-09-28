@@ -175,7 +175,8 @@ export default function CarriereModalCoordinator({
                     onClose={() => setIsContratModalOpen(false)}
                     employe={employe || { idEmploye, nom: nomEmploye, matricule: matriculeEmploye }}
                     contrat={selectedContratDoc || contratActif || (contratsList?.length > 0 ? contratsList[0] : null)}
-                    affectation={selectedContratAffectation || affectationActive}
+                    affectation={selectedContratAffectation}
+                    onEdit={canWrite && brouillonWf && Number(brouillonWf.idContratCible) === Number(selectedContratDoc?.idContrat) ? () => { setIsContratModalOpen(false); handleOpenEditModal(brouillonWf); } : undefined}
                     loadingAffectation={loadingContratAffectation}
                     filiale={selectedContratDoc?.filiale || contratActif?.filiale}
                 />
@@ -199,10 +200,10 @@ export default function CarriereModalCoordinator({
 
             {/* Overlay de chargement fluide */}
             {isTransitioning && (
-                <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-ink-950/70 backdrop-blur-sm">
-                    <div className="flex flex-col items-center gap-4 p-6 bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-800 rounded-none shadow-2xl max-w-sm w-full text-center">
+                <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs">
+                    <div className="flex flex-col items-center gap-4 p-6 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-2xl max-w-sm w-full text-center">
                         <Loading size="md" label="Enregistrement en cours..." />
-                        <p className="text-[11px] text-ink-400 -mt-2">
+                        <p className="text-[11px] text-[var(--color-fg-subtle)] -mt-2">
                             Préparation du récapitulatif de validation...
                         </p>
                     </div>

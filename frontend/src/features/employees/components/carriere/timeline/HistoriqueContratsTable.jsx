@@ -46,8 +46,8 @@ export default function HistoriqueContratsTable({
     // Rendu
     return (
         <div className="space-y-3 pt-4">
-            <div className="flex items-center justify-between pb-2 border-b border-ink-150 dark:border-ink-700">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-brand-500 flex items-center gap-2">
+            <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] flex items-center gap-2">
                     <FileText size={14} /> Historique des Contrats de Travail ({contratsAffiches.length})
                 </h3>
 
@@ -58,7 +58,7 @@ export default function HistoriqueContratsTable({
                         size="xs"
                         onClick={() => setShowAnnules(prev => !prev)}
                         iconLeft={showAnnules ? <EyeOff size={13} /> : <Eye size={13} />}
-                        className="text-ink-500 hover:text-ink-800 dark:hover:text-ink-200 cursor-pointer"
+                        className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] cursor-pointer"
                     >
                         {showAnnules
                             ? `Masquer les contrats annulés (${nbAnnules})`
@@ -68,7 +68,7 @@ export default function HistoriqueContratsTable({
             </div>
 
             {contratsAffiches.length === 0 ? (
-                <p className="text-xs text-ink-400 p-4 border border-ink-150 dark:border-ink-700 text-center">
+                <p className="text-xs text-[var(--color-fg-muted)] p-4 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-center">
                     Aucun contrat dans l'historique.
                 </p>
             ) : (
@@ -97,7 +97,7 @@ export default function HistoriqueContratsTable({
                             return (
                                 <Tr
                                     key={ct.idContrat}
-                                    className={isAnnule ? 'bg-ink-100/40 dark:bg-ink-800/30 opacity-60 hover:opacity-100  transition-opacity' : ''}
+                                    className={isAnnule ? 'bg-[var(--color-bg-subtle)] opacity-60 hover:opacity-100 transition-opacity' : ''}
                                 >
                                     <Td>
                                         <div className="space-y-0.5">
@@ -107,17 +107,17 @@ export default function HistoriqueContratsTable({
                                                         {ct.libelleTypeContrat}
                                                     </Badge>
                                                 )}
-                                                <span className={`font-mono font-bold ${isAnnule ? 'text-ink-400 line-through' : 'text-brand-500'}`}>
+                                                <span className={`font-mono font-bold ${isAnnule ? 'text-[var(--color-fg-muted)] line-through' : 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]'}`}>
                                                     {ct.numeroContrat}
                                                 </span>
                                             </div>
                                             {ct.libelleTypeEvenementInitial && (
-                                                <p className="text-[11px] text-ink-400 font-medium">
+                                                <p className="text-[11px] text-[var(--color-fg-muted)] font-medium">
                                                     {ct.libelleTypeEvenementInitial}
                                                 </p>
                                             )}
                                             {ct.description && (
-                                                <p className="text-[10px] text-ink-400 ">
+                                                <p className="text-[10px] text-[var(--color-fg-subtle)]">
                                                     {ct.description}
                                                 </p>
                                             )}
@@ -138,38 +138,40 @@ export default function HistoriqueContratsTable({
                                     </Td>
                                     <Td>
                                         <div className="space-y-0.5">
-                                            <span className={`font-medium ${isAnnule ? 'text-ink-500' : 'text-ink-800 dark:text-ink-200'}`}>
+                                            <span className={`font-medium ${isAnnule ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-fg)]'}`}>
                                                 {ct.libelleTypeIntervenant || '-'}
                                             </span>
                                             {ct.libelleFiliale && (
-                                                <p className="text-[10px] text-ink-400">{ct.libelleFiliale}</p>
+                                                <p className="text-[10px] text-[var(--color-fg-subtle)]">{ct.libelleFiliale}</p>
                                             )}
                                         </div>
                                     </Td>
                                     <Td>
                                         <div className="space-y-0.5">
-                                            <div className="font-mono text-xs text-ink-700 dark:text-ink-300">
+                                            <div className="font-mono text-xs text-[var(--color-fg)]">
                                                 {fmtDate(ct.dateDebut)} → {fmtDate(ct.dateFin)}
                                             </div>
                                             {ct.ancienneteContratTexte && (
-                                                <p className="text-[11px] text-ink-500 font-sans">
-                                                    Durée : <strong className="text-ink-700 dark:text-ink-200">{ct.ancienneteContratTexte}</strong>
+                                                <p className="text-[11px] text-[var(--color-fg-muted)] font-sans">
+                                                    Durée : <strong className="text-[var(--color-fg)]">{ct.ancienneteContratTexte}</strong>
                                                 </p>
                                             )}
                                         </div>
                                     </Td>
-                                    <Td className="font-mono text-ink-600 dark:text-ink-300">
+                                    <Td className="font-mono text-[var(--color-fg-muted)]">
                                         {fmtDate(ct.dateSignature)}
                                     </Td>
                                     <Td>
-                                        <span className={`text-xs font-semibold ${ct.comptabiliseEffectif ? 'text-success-600 dark:text-success-400' : 'text-ink-400'}`}>
+                                        <span className={`text-xs font-semibold ${ct.comptabiliseEffectif ? 'text-success-600 dark:text-success-400' : 'text-[var(--color-fg-muted)]'}`}>
                                             {ct.comptabiliseEffectif ? 'Oui (Salarié)' : 'Non'}
                                         </span>
                                     </Td>
                                     <Td align="right">
-                                        {isPlanifie ? (
+                                        {ct.codeStatutContrat === 'BROUILLON' ? (
+                                            <Button onClick={() => onOpenContrat?.(ct)} variant="outline" size="xs">Générer / signer</Button>
+                                        ) : isPlanifie ? (
                                             <div className="flex justify-end gap-1.5 items-center">
-                                                <span className="text-[11px] text-ink-400">Non démarré</span>
+                                                <span className="text-[11px] text-[var(--color-fg-muted)]">Non démarré</span>
                                                 {onOpenContrat && (
                                                     <Button
                                                         onClick={() => onOpenContrat(ct)}
@@ -182,7 +184,7 @@ export default function HistoriqueContratsTable({
                                                 )}
                                             </div>
                                         ) : isAnnule ? (
-                                            <span className="inline-flex items-center text-[10.5px] text-ink-400 px-2 py-0.5 bg-ink-100 dark:bg-ink-800/80 border border-ink-200 dark:border-ink-700">
+                                            <span className="inline-flex items-center text-[10.5px] text-[var(--color-fg-muted)] px-2 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
                                                 Sans effet juridique
                                             </span>
                                         ) : isContratEnCours ? (
@@ -211,7 +213,7 @@ export default function HistoriqueContratsTable({
                                         ) : hasContratActif ? (
                                             /* Salarié en poste : Ancien contrat de transition (ni STC ni certificat de sortie) */
                                             <div className="flex justify-end gap-1.5 items-center">
-                                                <span className="text-[10.5px] text-ink-400 px-2 py-0.5 bg-ink-100/60 dark:bg-ink-800/60 border border-ink-200 dark:border-ink-700 font-sans">
+                                                <span className="text-[10.5px] text-[var(--color-fg-muted)] px-2 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] font-sans">
                                                     Transitionné
                                                 </span>
                                                 {onOpenContrat && (
@@ -234,7 +236,7 @@ export default function HistoriqueContratsTable({
                                                         variant="outline"
                                                         size="xs"
                                                         iconLeft={<Calculator size={13} />}
-                                                        className="border-[var(--color-brand-600)] text-[var(--color-brand-600)] hover:bg-[var(--color-brand-50)]"
+                                                        className="border-[var(--color-brand-600)] text-[var(--color-brand-600)] hover:bg-[var(--color-brand-100)]/40"
                                                     >
                                                         STC
                                                     </Button>

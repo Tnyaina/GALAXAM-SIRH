@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { History, PlusCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { History, PlusCircle, Download, Search } from 'lucide-react';
 import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Badge from '@/components/ui/data-display/Badge';
@@ -11,6 +11,8 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import { Card } from '@/components/ui/data-display/Card';
 import Modal from '@/components/ui/overlays/Modal';
 import Alert from '@/components/ui/feedback/Alert';
+import Pagination from '@/components/ui/navigation/Pagination';
+import { useToast } from '@/components/ui/feedback/Toast';
 
 const formatDateMouvement = (dateVal, fallbackTimestamp) => {
   const target = dateVal || fallbackTimestamp;
@@ -39,37 +41,110 @@ const getMouvementLabel = (type, commentaire) => {
 
 const TYPE_OPTIONS = [
   { value: 'ALL', label: 'Tous les mouvements' },
-  { value: 'ACQUISITION', label: 'Acquisition mensuelle (+2.5j)' },
+  { value: 'ACQUISITION', label: 'Acquisition mensuelle' },
   { value: 'SOLDE_INITIAL', label: 'Solde initial (reprise historique)' },
   { value: 'BONIFICATION', label: 'Bonification d\'ancienneté' },
   { value: 'PRISE', label: 'Prise de congé' },
   { value: 'AJUSTEMENT', label: 'Ajustement manuel RH' },
   { value: 'ANNULATION', label: 'Annulation de demande' },
-  { value: 'EXPIRATION', label: 'Expiration triennale' },
+  { value: 'EXPIRATION', label: 'Expiration' },
 ];
 
-export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjustementSuccess }) {
+export default function MouvementsSoldeTable({
+  idEmploye,
+  mouvements,
+  soldeActuel = null,
+  canWrite = false,
+  matricule = '',
+  onAjustementSuccess
+}) {
+  const toast = useToast();
+
   // État local
   const [filterType, setFilterType] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [showModalAjustement, setShowModalAjustement] = useState(false);
   const [nbJours, setNbJours] = useState('');
   const [commentaire, setCommentaire] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Données dérivées
-  const safeMouvements = Array.isArray(mouvements) ? mouvements : (mouvements?.items || mouvements?.content || mouvements?.data || []);
-  const filteredMouvements = safeMouvements.filter((mvt) => {
-    if (!mvt) return false;
-    if (filterType === 'ALL') return true;
-    if (filterType === 'SOLDE_INITIAL') {
-      return mvt.typeMouvement === 'AJUSTEMENT' && mvt.commentaire?.startsWith('[SOLDE_INITIAL]');
-    }
-    if (filterType === 'AJUSTEMENT') {
-      return mvt.typeMouvement === 'AJUSTEMENT' && !mvt.commentaire?.startsWith('[SOLDE_INITIAL]');
-    }
-    return mvt.typeMouvement === filterType;
-  });
+  // Données dérivées brutes
+  const safeMouvements = useMemo(() => {
+    return Array.isArray(mouvements) ? mouvements : (mouvements?.items || mouvements?.content || mouvements?.data || []);
+  }, [mouvements]);
+
+  // Filtrage combiné (type + recherche textuelle)
+  const filteredMouvements = useMemo(() => {
+    return safeMouvements.filter((mvt) => {
+      if (!mvt) return false;
+      if (filterType !== 'ALL') {
+        if (filterType === 'SOLDE_INITIAL') {
+          if (!(mvt.typeMouvement === 'AJUSTEMENT' && mvt.commentaire?.startsWith('[SOLDE_INITIAL]'))) {
+            return false;
+          }
+        } else if (filterType === 'AJUSTEMENT') {
+          if (!(mvt.typeMouvement === 'AJUSTEMENT' && !mvt.commentaire?.startsWith('[SOLDE_INITIAL]'))) {
+            return false;
+          }
+        } else if (mvt.typeMouvement !== filterType) {
+          return false;
+        }
+      }
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const typeLabel = getMouvementLabel(mvt.typeMouvement, mvt.commentaire).toLowerCase();
+        const comment = (mvt.commentaire || '').toLowerCase();
+        const operator = (mvt.createdBy ? String(mvt.createdBy) : 'admin système').toLowerCase();
+        const dateStr = formatDateMouvement(mvt.dateMouvement, mvt.createdAt).toLowerCase();
+        if (!typeLabel.includes(q) && !comment.includes(q) && !operator.includes(q) && !dateStr.includes(q)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [safeMouvements, filterType, searchQuery]);
+
+  const paginatedMouvements = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredMouvements.slice(start, start + pageSize);
+  }, [filteredMouvements, currentPage, pageSize]);
+
+  const handleFilterChange = (val) => {
+    setFilterType(val);
+    setCurrentPage(1);
+  };
+
+  // Export CSV
+  const handleExportCsv = () => {
+    if (!filteredMouvements.length) return;
+
+    const headers = ['Date', 'Type de mouvement', 'Impact (jours)', 'Solde cumulé (jours)', 'Motif / Justification', 'Opérateur'];
+    const rows = filteredMouvements.map(m => [
+      formatDateMouvement(m.dateMouvement, m.createdAt),
+      `"${(getMouvementLabel(m.typeMouvement, m.commentaire) || '').replace(/"/g, '""')}"`,
+      Number(m.nbJours || 0).toFixed(2),
+      m.soldeApres !== null && m.soldeApres !== undefined ? Number(m.soldeApres).toFixed(2) : '',
+      `"${(m.commentaire || '').replace(/"/g, '""')}"`,
+      `"${(m.createdBy ? `Admin (#${m.createdBy})` : 'Système Auto').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const fileSuffix = matricule ? `_${matricule}` : idEmploye ? `_${idEmploye}` : '';
+    const dateStr = new Date().toISOString().slice(0, 10);
+    a.download = `registre_conges${fileSuffix}_${dateStr}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Registre des mouvements exporté en CSV avec succès.');
+  };
 
   // Actions utilisateur
   const handleAjustementSubmit = async (e) => {
@@ -90,6 +165,7 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
       setNbJours('');
       setCommentaire('');
       setShowModalAjustement(false);
+      toast.success('Ajustement manuel de solde enregistré avec succès.');
       if (onAjustementSuccess) onAjustementSuccess();
     } catch (err) {
       setError(getErrorMessage(err, 'Erreur lors de la création de l\'ajustement.'));
@@ -101,6 +177,7 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
   // Rendu
   return (
     <Card padding bordered className="space-y-4 font-sans">
+      {/* ── En-tête du registre avec actions ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[var(--color-border-subtle)]">
         <div className="flex items-center gap-2">
           <History className="w-4 h-4 text-brand-500" />
@@ -109,28 +186,65 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
           </h4>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          {/* Filtre par type */}
-          <div className="w-56">
-            <Select
-              value={filterType}
-              onChange={(val) => setFilterType(val)}
-              options={TYPE_OPTIONS}
-            />
-          </div>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+          {/* Bouton Export CSV */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCsv}
+            disabled={filteredMouvements.length === 0}
+            iconLeft={<Download size={13} />}
+            className="text-xs"
+            title="Exporter l'historique complet des mouvements au format CSV"
+          >
+            Export CSV
+          </Button>
 
           {/* Bouton d'ajustement RH */}
-          {idEmploye && (
+          {canWrite && idEmploye && (
             <Button
               variant="primary"
-              size="xs"
+              size="sm"
               onClick={() => setShowModalAjustement(true)}
               iconLeft={<PlusCircle size={14} />}
-              className="font-bold"
+              className="font-bold text-xs"
             >
               Ajustement RH
             </Button>
           )}
+        </div>
+      </div>
+
+      {soldeActuel != null && (
+        <p className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 text-xs text-[var(--color-fg-muted)]">
+          Solde actuel selon le backend : <strong className="text-[var(--color-fg)]">{Number(soldeActuel).toFixed(2)} j</strong>
+        </p>
+      )}
+
+      {/* ── Filtres et Recherche rapide ── */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        {/* Filtre par type */}
+        <div className="w-full sm:w-64">
+          <Select
+            value={filterType}
+            onChange={handleFilterChange}
+            options={TYPE_OPTIONS}
+          />
+        </div>
+
+        {/* Champ de recherche rapide */}
+        <div className="relative w-full sm:w-64">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-subtle)] pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+            placeholder="Rechercher motif, opérateur..."
+            className="w-full pl-8 pr-3 py-1.5 text-xs border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none focus:border-[var(--color-brand-500)]"
+          />
         </div>
       </div>
 
@@ -140,7 +254,9 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
             <EmptyState
               icon={History}
               title="Aucun mouvement"
-              description="Aucun mouvement de solde n'a été enregistré pour ce filtre."
+              description={safeMouvements.length === 0
+                ? "Aucun mouvement de solde n'a encore été enregistré pour ce collaborateur."
+                : "Aucun résultat ne correspond aux filtres de recherche sélectionnés."}
             />
           </div>
         ) : (
@@ -150,12 +266,13 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
                 <Th>Date</Th>
                 <Th>Type de Mouvement</Th>
                 <Th className="text-center">Impact Solde</Th>
+                <Th className="text-center">Solde Cumulé</Th>
                 <Th>Motif & Justification</Th>
                 <Th>Opérateur</Th>
               </Tr>
             </Thead>
             <Tbody>
-              {filteredMouvements.map((m) => {
+              {paginatedMouvements.map((m) => {
                 const val = Number(m.nbJours || 0);
                 const isPositive = val > 0;
                 return (
@@ -168,10 +285,19 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
                         {getMouvementLabel(m.typeMouvement, m.commentaire)}
                       </Badge>
                     </Td>
-                    <Td className="text-center font-mono font-bold text-xs">
+                    <Td className="text-center font-mono font-bold text-xs font-data">
                       <span className={isPositive ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'}>
                         {isPositive ? `+${val.toFixed(2)}` : val.toFixed(2)} j
                       </span>
+                    </Td>
+                    <Td className="text-center font-mono font-bold text-xs font-data">
+                      {m.soldeApres !== null && m.soldeApres !== undefined ? (
+                        <span className={m.soldeApres >= 0 ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)]'}>
+                          {m.soldeApres >= 0 ? `+${Number(m.soldeApres).toFixed(2)}` : Number(m.soldeApres).toFixed(2)} j
+                        </span>
+                      ) : (
+                        <span className="text-[var(--color-fg-subtle)] font-normal">—</span>
+                      )}
                     </Td>
                     <Td className="text-xs text-[var(--color-fg)]">
                       {m.commentaire || '—'}
@@ -186,6 +312,21 @@ export default function MouvementsSoldeTable({ idEmploye, mouvements, onAjusteme
           </Table>
         )}
       </div>
+
+      {/* Pagination Registre */}
+      {filteredMouvements.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredMouvements.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          className="bg-transparent border-t-0 pt-1"
+        />
+      )}
 
       {/* Modal d'Ajustement Manuel RH (Standardisé Design System) */}
       <Modal

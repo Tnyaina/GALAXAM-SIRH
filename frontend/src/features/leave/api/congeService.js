@@ -212,6 +212,40 @@ const congeService = {
     return response.data;
   },
 
+  /**
+   * Télécharge l'état annuel officiel des congés au format Excel (.xlsx) basé sur le modèle réglementaire
+   * pour une période de référence donnée ou la période courante
+   */
+  telechargerEtatCongesExcel: async (idEmploye, idPeriodeReference = null, customFilename = null) => {
+    const params = idPeriodeReference ? { idPeriodeReference } : {};
+    const response = await apiClient.get(`/conges/periodes-reference/employe/${idEmploye}/export-excel`, {
+      params,
+      responseType: 'blob'
+    });
+
+    let filename = customFilename;
+    const contentDisposition = response.headers?.['content-disposition'];
+    if (!filename && contentDisposition) {
+      const match = contentDisposition.match(/filename=["']?([^"';]+)["']?/);
+      if (match && match[1]) filename = match[1];
+    }
+    if (!filename) {
+      filename = `ETAT_CONGES_EMP${idEmploye}.xlsx`;
+    }
+
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
   // =========================================================================
   // DEMANDES DE CONGÉS & SIMULATION
   // =========================================================================

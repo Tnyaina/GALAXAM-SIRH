@@ -29,15 +29,15 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
             return (
                 <div
                     key={t.code}
-                    className="p-3.5 border border-dashed border-ink-200 dark:border-ink-800 bg-ink-50/50 dark:bg-ink-950/20 opacity-55 cursor-not-allowed flex flex-col justify-between select-none"
+                    className="p-3.5 border border-dashed border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] opacity-55 cursor-not-allowed flex flex-col justify-between select-none"
                     title={t.disabledReason || 'Action non disponible pour la situation contractuelle actuelle'}
                 >
                     <div>
-                        <p className="font-bold text-xs flex items-center justify-between gap-1.5 text-ink-400 dark:text-ink-500">
+                        <p className="font-bold text-xs flex items-center justify-between gap-1.5 text-[var(--color-fg-subtle)]">
                             <span className="truncate">{t.libelle}</span>
-                            <Lock size={12} className="text-ink-400 shrink-0" />
+                            <Lock size={12} className="text-[var(--color-fg-subtle)] shrink-0" />
                         </p>
-                        <p className="text-[10px] mt-1 text-danger-500/90 dark:text-danger-400/90 font-medium">
+                        <p className="text-[10px] mt-1 text-[var(--color-danger-500)] font-medium">
                             {t.disabledReason || 'Non éligible'}
                         </p>
                     </div>
@@ -59,22 +59,22 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
                     }
                 }}
                 className={`
-                    p-3.5 border-2 rounded-none cursor-pointer flex flex-col justify-between focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all
+                    p-3.5 border-2 rounded-none cursor-pointer flex flex-col justify-between focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-500)] transition-all
                     ${isSelected
                         ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10 shadow-xs'
-                        : 'border-ink-200 dark:border-ink-800 hover:border-brand-400 bg-white dark:bg-ink-950/30'}
+                        : 'border-[var(--color-border-subtle)] hover:border-[var(--color-brand-400)] bg-[var(--color-surface)]'}
                 `}
             >
                 <div>
-                    <p className={`font-bold text-xs flex items-center justify-between gap-1.5 ${isSelected ? 'text-[var(--color-brand-500)] dark:text-brand-400' : 'text-ink-900 dark:text-white'}`}>
+                    <p className={`font-bold text-xs flex items-center justify-between gap-1.5 ${isSelected ? 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' : 'text-[var(--color-fg)]'}`}>
                         <span className="truncate">{t.libelle}</span>
                         {isSelected ? (
-                            <CheckCircle2 size={15} className="text-[var(--color-brand-500)] shrink-0" />
+                            <CheckCircle2 size={15} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shrink-0" />
                         ) : (
-                            <ArrowRight size={13} className="text-ink-300 dark:text-ink-600 shrink-0" />
+                            <ArrowRight size={13} className="text-[var(--color-fg-subtle)] shrink-0" />
                         )}
                     </p>
-                    <p className={`text-[11px] mt-1 leading-normal ${isSelected ? 'text-[var(--color-brand-700)] dark:text-brand-300 font-medium' : 'text-ink-400'}`}>
+                    <p className={`text-[11px] mt-1 leading-normal ${isSelected ? 'text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] font-medium' : 'text-[var(--color-fg-subtle)]'}`}>
                         {displayDesc}
                     </p>
                 </div>
@@ -83,7 +83,7 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
     };
 
     return (
-        <section className="space-y-4 pb-6 border-b border-ink-150 dark:border-ink-700">
+        <section className="space-y-4 pb-6 border-b border-[var(--color-border-subtle)]">
             <FormSectionHeader step={1} icon={RefreshCw} title="Type de Mouvement RH & Dates" />
 
             {/* Groupes d'événements */}
@@ -91,8 +91,8 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
                 {/* 1. Évolutions Contractuelles */}
                 {contractualEvents.length > 0 && (
                     <div className="space-y-2">
-                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider">
-                            <FileSignature size={14} className="text-brand-500" />
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] uppercase tracking-wider">
+                            <FileSignature size={14} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]" />
                             <span>Évolutions Contractuelles (Nouveau Contrat)</span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -104,9 +104,9 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
                 {/* 2. Évolutions Internes & Avenants */}
                 {internalEvents.length > 0 && (
                     <div className="space-y-2">
-                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-ink-600 dark:text-ink-400 uppercase tracking-wider">
-                            <Building2 size={14} className="text-ink-500" />
-                            <span>Évolutions Internes & Avenants (Poste / Salaire)</span>
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
+                            <Building2 size={14} className="text-[var(--color-fg-muted)]" />
+                            <span>Évolutions Internes &amp; Avenants (Poste / Salaire)</span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                             {internalEvents.map(renderEventCard)}
@@ -116,7 +116,7 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
             </div>
 
             {/* Grille dédiée pour la Date d'Effet & la Date de Signature */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 bg-ink-50/60 dark:bg-ink-900/30 p-3.5 border border-ink-200 dark:border-ink-800 rounded-none">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 bg-[var(--color-bg-subtle)] p-3.5 border border-[var(--color-border-subtle)] rounded-none">
                 <Input
                     label="Date de Prise d'Effet (Obligatoire)"
                     type="date"

@@ -40,6 +40,9 @@ public class CongePeriodeReferenceController {
     @Autowired
     private CongeTauxApplicableService congeTauxApplicableService;
 
+    @Autowired
+    private mg.galaxam.sirh.conge.application.CongeAnnuelExcelExportService congeAnnuelExcelExportService;
+
     private Integer getUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof CustomUserDetails user) {
@@ -150,5 +153,31 @@ public class CongePeriodeReferenceController {
                 throw e;
             }
         }
+    }
+
+    @GetMapping("/employe/{idEmploye}/export-excel")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> exportEtatCongesExcel(
+            @PathVariable int idEmploye,
+            @RequestParam(required = false) Integer idPeriodeReference) throws Exception {
+        byte[] bytes = congeAnnuelExcelExportService.genererEtatCongesIndividuel(idEmploye, idPeriodeReference);
+        String filename = congeAnnuelExcelExportService.obtenirNomFichierExport(idEmploye, idPeriodeReference);
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(bytes);
+    }
+
+    @GetMapping("/{idPeriodeReference}/export-excel")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> exportEtatCongesParPeriode(
+            @PathVariable int idPeriodeReference) throws Exception {
+        int idEmploye = congeAnnuelExcelExportService.resoudreEmployeDePeriode(idPeriodeReference);
+        byte[] bytes = congeAnnuelExcelExportService.genererEtatCongesIndividuel(idEmploye, idPeriodeReference);
+        String filename = congeAnnuelExcelExportService.obtenirNomFichierExport(idEmploye, idPeriodeReference);
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(bytes);
     }
 }

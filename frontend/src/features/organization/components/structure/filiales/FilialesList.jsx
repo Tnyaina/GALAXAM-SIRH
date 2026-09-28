@@ -13,9 +13,10 @@ export default function FilialesList({
         <Table>
             <Thead>
                 <Th>Code</Th>
-                <Th>Raison Sociale</Th>
+                <Th>Société et siège</Th>
                 <Th>NIF</Th>
                 <Th>STAT</Th>
+                <Th>RCS</Th>
                 <Th>Seuil Alerte Effectif</Th>
                 <Th>Statut</Th>
                 <Th className="text-right">Actions</Th>
@@ -30,9 +31,11 @@ export default function FilialesList({
                                     <Building2 size={16} className="text-[var(--color-fg-muted)] shrink-0" />
                                     <span>{f.raisonSociale}</span>
                                 </div>
+                                <div className="text-xs font-normal text-[var(--color-fg-muted)] mt-1">{f.adresseSiege || 'Siège à renseigner'}</div>
                             </Td>
                             <Td isData muted className="text-xs">{f.nif || '-'}</Td>
                             <Td isData muted className="text-xs">{f.stat || '-'}</Td>
+                            <Td isData muted className="text-xs">{f.rcs || 'À renseigner'}</Td>
                             <Td>
                                 <span className={`px-2 py-0.5 font-data text-xs font-semibold rounded-none border ${
                                     (f.seuilEffectifAlerte ?? 19) > 0
@@ -75,7 +78,7 @@ export default function FilialesList({
                     ))
                 ) : (
                     <Tr>
-                        <Td colSpan={7} className="p-0">
+                        <Td colSpan={8} className="p-0">
                             <EmptyState
                                 icon={Building2}
                                 title="Aucune filiale enregistrée"

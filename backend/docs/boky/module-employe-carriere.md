@@ -167,11 +167,31 @@ La cohérence temporelle entre contrat, affectation, paie et présence dépend d
 
 ## 8. Documents RH et productions officielles
 
-`ref_type_document` définit la catégorie, le caractère obligatoire, les extensions autorisées et la taille maximale. `document_rh` conserve le nom d'origine, le nom de stockage, le chemin, l'extension, la taille, la date du document, le commentaire, le salarié et les liens facultatifs vers un contrat ou workflow.
+`ref_type_document` définit la catégorie, le caractère obligatoire, les extensions autorisées et la taille maximale. `document_rh` conserve le nom d'origine, le nom de stockage, le chemin, l'extension, la taille, la date du document, le commentaire, le salarié et les liens facultatifs vers un contrat (`id_contrat`) ou workflow (`id_workflow`).
 
-Le contrôleur de téléversement vérifie que le fichier n'est pas vide, que le type documentaire existe et est actif, que la taille respecte le maximum configuré et que l'extension figure dans la liste autorisée. Le fichier est stocké sur disque sous un nom UUID, puis sa métadonnée est enregistrée en base. Le téléchargement passe par un endpoint authentifié ; la suppression des métadonnées et du fichier est exposée par une route dédiée.
+Le contrôleur de téléversement vérifie que le fichier n'est pas vide, que le type documentaire existe et est actif, que la taille respecte le maximum configuré et que l'extension figure dans la liste autorisée. Le fichier est stocké sur disque sous un nom UUID, puis sa métadonnée est enregistrée en base. Lors du dépôt d'un contrat signé (type `CONTRAT_SIGNE`), les champs `idContrat` et `idWorkflow` associent le document à la pièce contractuelle concernée. En cas d'échec SQL de la transaction, le fichier physique déposé sur disque fait l'objet d'un nettoyage compensatoire automatique. Le téléchargement passe par un endpoint authentifié ; la suppression des métadonnées et du fichier est exposée par une route dédiée.
 
-Les contrôleurs de documents officiels produisent attestations de travail et certificats de travail, en formats de téléchargement disponibles dont DOCX. `DocumentRhService` calcule la durée de travail et enrichit le document avec l'employeur, le site et les postes successifs. Ces productions sont des documents générés par le système ; leur conformité au modèle juridique et leur signature restent une validation RH.
+### 8.1 Génération Officielle des Contrats de Travail (Word DOCX)
+
+Le système intègre un moteur de production documentaire contractuelle basé sur Apache POI (`DocumentRhService`), générant les contrats de travail officiels au format `.docx` pour l'ensemble des typologies d'engagement :
+- **CDI** (`templates/documents/Contrat_CDI_modele.docx`) : Contrat à durée indéterminée standard.
+- **CDD** (`templates/documents/Contrat_CDD_modele.docx`) : Contrat à durée déterminée avec date de fin obligatoire.
+- **STAGE** (`templates/documents/Contrat_STAGE_modele.docx`) : Convention / contrat de stage.
+- **PRESTATION** (`templates/documents/Contrat_PRESTATION_modele.docx`) : Contrat de prestation de services.
+- **TEMPORAIRE** (`templates/documents/Contrat_TEMPORAIRE_modele.docx`) : Contrat de travail temporaire.
+
+**Règles de génération et d'intégrité** :
+1. **Résolution temporelle stricte de l'affectation** : La génération résout la **première affectation historique** liée au contrat (`EmployeAffectationCarriere.rechercherPremiereParContrat`), évitant toute fuite ou pollution par une affectation active courante ou modifiée par mutation ultérieure.
+2. **Injection déterministe des variables** : Remplacement des balises `{{VARIABLE}}` dans les paragraphes, tableaux et en-têtes/pieds de page :
+   - Entreprise & Filiale : raison sociale (`ENTREPRISE_NOM`), NIF, STAT, adresse.
+   - Collaborateur : identité complète, civilité, date et lieu de naissance, nationalité, CIN (numéro, date, lieu).
+   - Contrat : numéro, dates d'effet et de terme, période d'essai (`DUREE_ESSAI`, `DATE_FIN_ESSAI`).
+   - Rémunération & Poste : fonction, site, département, service, catégorie, salaire de base formaté, mode de calcul.
+   - Signataire : nom, fonction et ville issus de la configuration filiale ou du paramétrage externe.
+3. **Disponibilité dès le brouillon** : La prévisualisation textuelle structurée et le téléchargement DOCX sont accessibles dès le statut `BROUILLON` (pour relecture et négociation), ainsi qu'aux statuts `PLANIFIE`, `A_SIGNER` et `ACTIF`.
+4. **Attestations et certificats** : En complément des contrats, `DocumentOfficielRhController` produit les attestations de travail (avec options d'ancienneté et de salaire) et les certificats de travail obligatoires en fin de contrat.
+
+---
 
 ## 9. Architecture, API et interface
 
@@ -180,10 +200,10 @@ Les contrôleurs de documents officiels produisent attestations de travail et ce
 | Couche | Classes représentatives | Rôle |
 | :--- | :--- | :--- |
 | API | `EmployeController`, `ContratTravailController`, `ContratGlobalController`, `WorkflowRhController` | Requêtes de dossier, contrat, mouvement et supervision |
-| API Documents | `DocumentRhController`, `DocumentOfficielRhController`, `EmployePhotoController` | Dépôt, lecture, téléchargement et génération officielle |
-| Application | `EmployeService`, `WorkflowRhService`, `DocumentRhService` | Transactions et orchestration des cas métier |
+| API Documents | `DocumentRhController`, `DocumentOfficielRhController`, `EmployePhotoController` | Dépôt, lecture, téléchargement DOCX et génération officielle |
+| Application | `EmployeService`, `WorkflowRhService`, `DocumentRhService` | Transactions, orchestration et moteur de fusion Word POI |
 | Domaine | `EmployeValidationEngine`, `ContratValidationEngine`, `CarriereTransitionValidator`, `AncienneteEngine` | Validations, matrice de transitions et calculs métier |
-| Persistance | classes `Employe*`, `ContratTravail`, `EmployeAffectationCarriere`, `WorkflowRh` | Accès JDBC et projection des données |
+| Persistance | classes `Employe*`, `ContratTravail`, `EmployeAffectationCarriere`, `WorkflowRh`, `DocumentRh` | Accès JDBC et projection des données |
 
 Les APIs contrôlent les permissions par autorités, notamment `EMPLOYE_READ`, `EMPLOYE_WRITE` et `EMPLOYE_VALIDATE`, avec `ROLE_ADMIN` en accès transversal selon la route. La validation d'un mouvement est distincte de sa création. Les actions importantes produisent des entrées d'audit.
 
@@ -197,15 +217,22 @@ Les APIs contrôlent les permissions par autorités, notamment `EMPLOYE_READ`, `
 | PUT | `/employes/{id}/desactiver`, `/activer` | Désactivation et réactivation |
 | GET / POST | `/employes/{idEmploye}/workflows` (sous-routes) | Brouillons et transitions carrière |
 | PUT | `/workflows/{idWorkflow}/valider` | Validation d'un workflow |
-| GET / POST | `/employes/{idEmploye}/documents` | Consultation et dépôt de document |
-| GET | `/documents/attestation/{idEmploye}` | Génération d'attestation |
-| GET | `/documents/certificat/{idContrat}` | Génération de certificat |
+| GET / POST | `/employes/{idEmploye}/documents` | Consultation et dépôt de document (support `idContrat`, `idWorkflow`) |
+| GET | `/documents/attestation/{idEmploye}` | Génération d'attestation de travail |
+| GET | `/documents/certificat/{idContrat}` | Génération de certificat de travail |
+| GET | `/documents/contrat/{idContrat}/preview` | Prévisualisation textuelle structurée et audit des données du contrat |
+| GET | `/documents/contrat/{idContrat}/docx` | Téléchargement du contrat officiel Word (.docx) |
+| GET | `/contrats/{idContrat}/affectation` | Consultation de l'affectation liée au contrat |
 
 Les routes de transition de carrière sont regroupées sous `WorkflowRhController`; les routes de contrat sont déclarées sous `/employes/{idEmploye}` et `/contrats`. Les alias et les formats de réponse exacts doivent être consultés dans les contrôleurs lors de la rédaction d'une spécification OpenAPI détaillée.
 
 ### 9.3 Frontend
 
-Le domaine frontend `features/employees` regroupe la liste, les filtres, les formulaires en étapes, la fiche à onglets, la chronologie, les aperçus de transition, la supervision, les modales de workflow et les services d'API. La logique d'éligibilité des transitions est coordonnée avec la matrice de carrière ; la décision et la validation finale restent côté backend. La navigation de l'onglet est sérialisée dans l'URL pour permettre le partage d'un lien de fiche.
+Le domaine frontend `features/employees` regroupe la liste, les filtres, les formulaires en étapes, la fiche à onglets, la chronologie, les aperçus de transition, la supervision, les modales de workflow et les services d'API.
+- **Section Contrat Actif (`ContratActifSection.jsx`)** : Les détails clés du contrat en cours (rémunération, filiale, poste, dates de signature et fin d'essai) sont **dépliés par défaut** (`isExpanded: true`) pour une lisibilité immédiate sans clic superflu.
+- **Modale Contrat de Travail (`ContratTravailModal.jsx`)** : Intègre la consultation structurée des clauses contractuelles, le téléchargement direct du contrat officiel Word (.docx) généré par le backend et le dépôt direct du scan signé avec liaison automatique `id_contrat`.
+- **Historique & Supervision (`HistoriqueContratsTable.jsx`)** : Actions directes de consultation, d'export documentaire et d'attestation contextuelles à chaque ligne contractuelle.
+- **Navigation & URL** : La sélection de l'onglet courant (`carriere`, `conges`, `pointage`, `paie`, `documents`) est sérialisée dans les paramètres de navigation URL.
 
 ## 10. Contrôles, limites et recommandations
 
@@ -236,5 +263,7 @@ Avant la mise en production, il faut exécuter une recette sur les rôles réels
 | RG-CAR-05 | Les périodes d'essai sont numérotées et leur cycle doit être cohérent. | Unicité contrat/numéro en base et contrôle de période active côté service. |
 | RG-CAR-06 | Un changement daté ferme la source et active la cible à sa date d'effet. | Application immédiate ou scheduler pour un workflow planifié. |
 | RG-CAR-07 | Les données RH et documents sont consultés selon les autorités dédiées. | `EMPLOYE_READ`, `EMPLOYE_WRITE`, `EMPLOYE_VALIDATE`, `ROLE_ADMIN`. |
+| RG-DOC-01 | La génération d'un contrat Word (.docx) requiert l'affectation initiale du contrat et le canevas officiel associé au type. | Moteur POI `DocumentRhService`, refus `CONTRACT_ASSIGNMENT_MISSING` ou `CONTRACT_TEMPLATE_UNSUPPORTED`. |
+| RG-DOC-02 | Le dépôt d'un scan de contrat signé trace les clés `id_contrat` et `id_workflow` et nettoie le stockage sur échec SQL. | Transaction `DocumentRhController`, intégrité référentielle et compensation disque. |
 
 Ces règles décrivent l'implémentation observée. Toute évolution doit synchroniser les validateurs backend, les formulaires frontend, les référentiels et les migrations de données.

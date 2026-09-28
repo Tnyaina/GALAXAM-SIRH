@@ -21,6 +21,7 @@ import {
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 import HasPermission from '@/features/auth/components/HasPermission';
 import { useAuth } from '@/context/AuthContext';
 import { fmtDate } from '@/utils/dateUtils';
@@ -112,7 +113,7 @@ export default function ParcoursChronologique({
                         type: 'CONTRAT',
                         label: `Passage de ${prev.libelleTypeContrat} à ${current.libelleTypeContrat}`,
                         valeur: current.libelleTypeContrat,
-                        icon: <Briefcase size={12} className="text-brand-500" />
+                        icon: <Briefcase size={12} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]" />
                     });
                 }
             }
@@ -188,14 +189,14 @@ export default function ParcoursChronologique({
 
     const getIconForType = (codeType = '', isActif = false) => {
         const code = codeType.toUpperCase();
-        if (isActif) return <CheckCircle2 size={15} className="text-success-600 dark:text-success-400" />;
-        if (code.includes('EMBAUCHE')) return <Briefcase size={15} className="text-brand-500" />;
-        if (code.includes('CDI')) return <Award size={15} className="text-success-600 dark:text-success-400" />;
+        if (isActif) return <CheckCircle2 size={15} className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)]" />;
+        if (code.includes('EMBAUCHE')) return <Briefcase size={15} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]" />;
+        if (code.includes('CDI')) return <Award size={15} className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)]" />;
         if (code.includes('PROMOTION') || code.includes('REVALORISATION')) return <TrendingUp size={15} className="text-[var(--color-info-500)]" />;
         if (code.includes('MUTATION')) return <MapPin size={15} className="text-[var(--color-warning-500)]" />;
         if (code.includes('CONFIRMATION')) return <FileCheck size={15} className="text-[var(--color-success-500)]" />;
         if (code.includes('RENOUVELLEMENT')) return <RotateCw size={15} className="text-sky-500" />;
-        return <FileText size={15} className="text-ink-500" />;
+        return <FileText size={15} className="text-[var(--color-fg-muted)]" />;
     };
 
     const getTypeContratBadgeVariant = (type) => {
@@ -210,26 +211,26 @@ export default function ParcoursChronologique({
 
     if (chapitresContractuels.length === 0 && safeWorkflows.length === 0) {
         return (
-            <div className="p-8 border border-ink-150 dark:border-ink-700 bg-white dark:bg-ink-900 text-center space-y-2">
-                <FileText size={28} className="mx-auto text-ink-300 dark:text-ink-600" />
-                <p className="text-xs font-semibold text-ink-600 dark:text-ink-300">Aucun historique enregistré</p>
-                <p className="text-[11px] text-ink-400">Le parcours professionnel et les contrats du salarié s'afficheront ici dès la création de son contrat.</p>
-            </div>
+            <EmptyState
+                icon={FileText}
+                title="Aucun historique enregistré"
+                description="Le parcours professionnel et les contrats du salarié s'afficheront ici dès la création de son contrat."
+            />
         );
     }
 
     return (
         <div className="space-y-6">
             {/* Barre de Synthèse du Parcours Global */}
-            <div className="p-4 border border-ink-150 dark:border-ink-700 bg-white dark:bg-ink-900 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 dark:border-ink-800 pb-3">
+            <div className="p-4 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border-subtle)] pb-3">
                     <div className="flex items-center gap-2">
-                        <Layers size={16} className="text-brand-500" />
+                        <Layers size={16} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]" />
                         <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-500">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">
                                 Parcours Collaborateur
                             </span>
-                            <h4 className="text-xs font-bold text-ink-900 dark:text-white">
+                            <h4 className="text-xs font-bold text-[var(--color-fg)]">
                                 {chapitresContractuels.length} période{chapitresContractuels.length > 1 ? 's' : ''} contractuelle{chapitresContractuels.length > 1 ? 's' : ''} et {safeWorkflows.length} événement{safeWorkflows.length > 1 ? 's' : ''}
                             </h4>
                         </div>
@@ -247,38 +248,38 @@ export default function ParcoursChronologique({
 
                 {/* 3 Cartouches Récapitulatives */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                    <div className="p-2.5 bg-ink-50/60 dark:bg-ink-950/40 border border-ink-150 dark:border-ink-800">
-                        <span className="text-[10px] font-semibold text-ink-400 uppercase tracking-wider block">
+                    <div className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                        <span className="text-[10px] font-semibold text-[var(--color-fg-subtle)] uppercase tracking-wider block">
                             Arrivée dans l'entreprise
                         </span>
-                        <p className="font-bold text-ink-900 dark:text-ink-100 mt-0.5 font-mono">
+                        <p className="font-bold text-[var(--color-fg)] mt-0.5 font-mono">
                             {premierEvenement ? fmtDate(premierEvenement.dateEffet || premierEvenement.dateDemande) : '-'}
                         </p>
-                        <p className="text-[11px] text-ink-500 truncate">
+                        <p className="text-[11px] text-[var(--color-fg-muted)] truncate">
                             {premierEvenement?.libelleTypeContrat || premierEvenement?.libelleFonction || 'Embauche initiale'}
                         </p>
                     </div>
 
-                    <div className="p-2.5 bg-ink-50/60 dark:bg-ink-950/40 border border-ink-150 dark:border-ink-800">
-                        <span className="text-[10px] font-semibold text-ink-400 uppercase tracking-wider block">
+                    <div className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                        <span className="text-[10px] font-semibold text-[var(--color-fg-subtle)] uppercase tracking-wider block">
                             Poste & Statut en vigueur
                         </span>
-                        <p className="font-bold text-brand-500 mt-0.5 truncate">
+                        <p className="font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] mt-0.5 truncate">
                             {contratActif?.libelleFonction || dernierEvenement?.libelleFonction || '-'}
                         </p>
-                        <p className="text-[11px] text-ink-500 truncate">
+                        <p className="text-[11px] text-[var(--color-fg-muted)] truncate">
                             {contratActif?.libelleTypeContrat || dernierEvenement?.libelleTypeContrat || '-'}
                         </p>
                     </div>
 
-                    <div className="p-2.5 bg-ink-50/60 dark:bg-ink-950/40 border border-ink-150 dark:border-ink-800">
-                        <span className="text-[10px] font-semibold text-ink-400 uppercase tracking-wider block">
+                    <div className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                        <span className="text-[10px] font-semibold text-[var(--color-fg-subtle)] uppercase tracking-wider block">
                             Lieu d'affectation
                         </span>
-                        <p className="font-bold text-ink-900 dark:text-ink-100 mt-0.5 truncate">
+                        <p className="font-bold text-[var(--color-fg)] mt-0.5 truncate">
                             {contratActif?.libelleSite || dernierEvenement?.libelleSite || '-'}
                         </p>
-                        <p className="text-[11px] text-ink-500 truncate">
+                        <p className="text-[11px] text-[var(--color-fg-muted)] truncate">
                             {contratActif?.libelleDepartement || dernierEvenement?.libelleDepartement || '-'}
                         </p>
                     </div>
@@ -303,8 +304,8 @@ export default function ParcoursChronologique({
                             className={`
                                 border transition-all duration-150
                                 ${isContratActif
-                                    ? 'bg-white dark:bg-ink-900 border-success-500/40 shadow-sm'
-                                    : 'bg-white dark:bg-ink-900 border-ink-150 dark:border-ink-700'
+                                    ? 'bg-[var(--color-surface)] border-[var(--color-success-500)]/40 shadow-xs'
+                                    : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)]'
                                 }
                             `}
                         >
@@ -312,13 +313,13 @@ export default function ParcoursChronologique({
                             <div className={`
                                 px-5 py-4 border-b flex flex-wrap items-center justify-between gap-3
                                 ${isContratActif
-                                    ? 'bg-success-500/5 dark:bg-success-950/20 border-success-500/30'
-                                    : 'bg-ink-50/70 dark:bg-ink-950/60 border-ink-150 dark:border-ink-800'
+                                    ? 'bg-[var(--color-success-500)]/5 border-[var(--color-success-500)]/30'
+                                    : 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)]'
                                 }
                             `}>
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)]">
                                             Contrat N°{chapitre.index}
                                         </span>
                                         {ct?.libelleTypeContrat && (
@@ -326,7 +327,7 @@ export default function ParcoursChronologique({
                                                 {ct.libelleTypeContrat}
                                             </Badge>
                                         )}
-                                        <span className="font-mono text-xs font-bold text-brand-500">
+                                        <span className="font-mono text-xs font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">
                                             {ct?.numeroContrat || 'Sans numéro'}
                                         </span>
                                         <StatusBadge
@@ -336,18 +337,18 @@ export default function ParcoursChronologique({
                                         />
                                     </div>
 
-                                    <div className="flex items-center gap-3 text-xs text-ink-500 flex-wrap">
+                                    <div className="flex items-center gap-3 text-xs text-[var(--color-fg-muted)] flex-wrap">
                                         <span className="flex items-center gap-1 font-mono">
-                                            <Calendar size={12} className="text-ink-400" />
+                                            <Calendar size={12} className="text-[var(--color-fg-subtle)]" />
                                             {fmtDate(ct?.dateDebut || chapitre.dateDebut)} → {ct?.dateFin ? fmtDate(ct.dateFin) : (isContratActif ? 'En cours' : '-')}
                                         </span>
                                         {ct?.ancienneteContratTexte && (
-                                            <span className="font-medium text-ink-700 dark:text-ink-200">
+                                            <span className="font-medium text-[var(--color-fg)]">
                                                 (Durée : {ct.ancienneteContratTexte})
                                             </span>
                                         )}
                                         {ct?.libelleTypeIntervenant && (
-                                            <span className="text-ink-400">
+                                            <span className="text-[var(--color-fg-subtle)]">
                                                 · {ct.libelleTypeIntervenant}
                                             </span>
                                         )}
@@ -382,11 +383,11 @@ export default function ParcoursChronologique({
                             {/* Corps du Chapitre : Événements & Affectations du Contrat */}
                             <div className="p-5">
                                 {chapitre.workflows.length === 0 ? (
-                                    <p className="text-xs text-ink-400 ">
+                                    <p className="text-xs text-[var(--color-fg-subtle)]">
                                         Aucun événement particulier n'a été enregistré pour cette période contractuelle.
                                     </p>
                                 ) : (
-                                    <div className="relative pl-6 space-y-5 before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-ink-150 dark:before:bg-ink-800">
+                                    <div className="relative pl-6 space-y-5 before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-[var(--color-border-subtle)]">
                                         {chapitre.workflows.map((wf) => {
                                             const isWfActif = Boolean(wf.isActif);
                                             const isWfBrouillon = Boolean(wf.isBrouillon);
@@ -400,12 +401,12 @@ export default function ParcoursChronologique({
                                                     <div className={`
                                                         absolute -left-6 top-1 w-5 h-5 rounded-none flex items-center justify-center border
                                                         ${isWfActif
-                                                            ? 'bg-success-500/10 border-success-500 text-success-600 dark:text-success-400 ring-2 ring-white dark:ring-ink-900'
+                                                            ? 'bg-[var(--color-success-500)]/10 border-[var(--color-success-500)] text-[var(--color-success-600)] dark:text-[var(--color-success-400)] ring-2 ring-[var(--color-surface)]'
                                                             : isWfBrouillon
-                                                                ? 'bg-amber-500/10 border-amber-500 text-amber-600 ring-2 ring-white dark:ring-ink-900'
+                                                                ? 'bg-[var(--color-warning-500)]/10 border-[var(--color-warning-500)] text-[var(--color-warning-600)] ring-2 ring-[var(--color-surface)]'
                                                                 : isWfAnnule
-                                                                    ? 'bg-danger-500/10 border-danger-500 text-danger-500 ring-2 ring-white dark:ring-ink-900'
-                                                                    : 'bg-white dark:bg-ink-900 border-ink-300 dark:border-ink-600 text-ink-500 ring-2 ring-white dark:ring-ink-900'
+                                                                    ? 'bg-[var(--color-danger-500)]/10 border-[var(--color-danger-500)] text-[var(--color-danger-500)] ring-2 ring-[var(--color-surface)]'
+                                                                    : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-fg-muted)] ring-2 ring-[var(--color-surface)]'
                                                         }
                                                     `}>
                                                         {getIconForType(wf.codeTypeEvenement || wf.libelleTypeEvenement, isWfActif)}
@@ -415,22 +416,22 @@ export default function ParcoursChronologique({
                                                     <div className={`
                                                         p-3.5 border transition-all duration-150
                                                         ${isWfActif
-                                                            ? 'bg-white dark:bg-ink-900 border-ink-200 dark:border-ink-700'
+                                                            ? 'bg-[var(--color-surface)] border-[var(--color-border-subtle)]'
                                                             : isWfBrouillon
-                                                                ? 'bg-[var(--color-warning-500)]/5 dark:bg-[var(--color-warning-500)]/10 border-[var(--color-warning-500)]/30'
+                                                                ? 'bg-[var(--color-warning-500)]/5 border-[var(--color-warning-500)]/30'
                                                                 : isWfAnnule
-                                                                    ? 'bg-ink-50/40 dark:bg-ink-950/40 border-ink-150 dark:border-ink-800 opacity-75'
-                                                                    : 'bg-ink-50/40 dark:bg-ink-950/40 border-ink-150 dark:border-ink-800'
+                                                                    ? 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)] opacity-75'
+                                                                    : 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)]'
                                                         }
                                                     `}>
                                                         {/* Ligne 1 : Date + Titre de l'événement + Statut Workflow */}
-                                                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-ink-100 dark:border-ink-800">
+                                                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[var(--color-border-subtle)]">
                                                             <div className="flex items-center gap-2">
-                                                                <span className="font-mono text-xs font-bold text-ink-500 flex items-center gap-1">
-                                                                    <Clock size={11} className="text-ink-400" />
+                                                                <span className="font-mono text-xs font-bold text-[var(--color-fg-muted)] flex items-center gap-1">
+                                                                    <Clock size={11} className="text-[var(--color-fg-subtle)]" />
                                                                     {fmtDate(wf.dateEffet || wf.dateDemande)}
                                                                 </span>
-                                                                <span className="text-xs font-bold text-ink-900 dark:text-white">
+                                                                <span className="text-xs font-bold text-[var(--color-fg)]">
                                                                     {wf.libelleTypeEvenement || wf.codeTypeEvenement || 'Mouvement RH'}
                                                                 </span>
                                                             </div>
@@ -456,7 +457,7 @@ export default function ParcoursChronologique({
                                                                 {evolutions.map((evo, eIdx) => (
                                                                     <span
                                                                         key={eIdx}
-                                                                        className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-brand-500/10 border border-brand-500/20 text-[11px] font-semibold text-brand-700 dark:text-brand-300"
+                                                                        className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/20 text-[11px] font-semibold text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]"
                                                                     >
                                                                         {evo.icon}
                                                                         <span>{evo.label}</span>
@@ -469,10 +470,10 @@ export default function ParcoursChronologique({
                                                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 text-xs pt-2">
                                                             {wf.libelleFonction && (
                                                                 <div>
-                                                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-ink-400 block">
+                                                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--color-fg-subtle)] block">
                                                                         Poste / Fonction
                                                                     </span>
-                                                                    <p className="font-semibold text-ink-800 dark:text-ink-200">
+                                                                    <p className="font-semibold text-[var(--color-fg)]">
                                                                         {wf.libelleFonction}
                                                                     </p>
                                                                 </div>
@@ -480,10 +481,10 @@ export default function ParcoursChronologique({
 
                                                             {(wf.libelleSite || wf.libelleDepartement) && (
                                                                 <div>
-                                                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-ink-400 block flex items-center gap-1">
+                                                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--color-fg-subtle)] block flex items-center gap-1">
                                                                         <Building2 size={10} /> Implantation
                                                                     </span>
-                                                                    <p className="text-ink-700 dark:text-ink-300">
+                                                                    <p className="text-[var(--color-fg-muted)]">
                                                                         {wf.libelleSite || '-'}{wf.libelleDepartement ? ` · ${wf.libelleDepartement}` : ''}
                                                                     </p>
                                                                 </div>
@@ -492,10 +493,10 @@ export default function ParcoursChronologique({
                                                             {wf.salaireBase && (
                                                                 <HasPermission authority="PAIE_READ">
                                                                     <div>
-                                                                        <span className="text-[10px] uppercase tracking-wider font-semibold text-ink-400 block">
+                                                                        <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--color-fg-subtle)] block">
                                                                             Salaire de base
                                                                         </span>
-                                                                        <p className="font-mono font-bold text-ink-900 dark:text-ink-100">
+                                                                        <p className="font-mono font-bold text-[var(--color-fg)]">
                                                                             {Number(wf.salaireBase).toLocaleString('fr-FR')} Ar
                                                                         </p>
                                                                     </div>
@@ -504,10 +505,10 @@ export default function ParcoursChronologique({
 
                                                             {wf.nomPrenomResponsable && (
                                                                 <div>
-                                                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-ink-400 block flex items-center gap-1">
+                                                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--color-fg-subtle)] block flex items-center gap-1">
                                                                         <UserCheck size={10} /> Responsable
                                                                     </span>
-                                                                    <p className="text-ink-700 dark:text-ink-300">
+                                                                    <p className="text-[var(--color-fg-muted)]">
                                                                         {wf.nomPrenomResponsable}
                                                                     </p>
                                                                 </div>
@@ -516,13 +517,13 @@ export default function ParcoursChronologique({
 
                                                         {/* Commentaire / Motif */}
                                                         {wf.motif && !isWfAnnule && (
-                                                            <p className="text-[11px] text-ink-500  mt-2 pt-1 border-t border-ink-100 dark:border-ink-800">
+                                                            <p className="text-[11px] text-[var(--color-fg-muted)] mt-2 pt-1 border-t border-[var(--color-border-subtle)]">
                                                                 "{wf.motif}"
                                                             </p>
                                                         )}
 
                                                         {isWfAnnule && motifAnnulation && (
-                                                            <div className="mt-2 p-2 bg-danger-500/10 border border-danger-500/20 text-[11px] text-danger-600 dark:text-danger-400 flex items-center gap-1.5">
+                                                            <div className="mt-2 p-2 bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/20 text-[11px] text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] flex items-center gap-1.5">
                                                                 <AlertCircle size={12} className="shrink-0" />
                                                                 <span>Motif d'annulation : {motifAnnulation}</span>
                                                             </div>

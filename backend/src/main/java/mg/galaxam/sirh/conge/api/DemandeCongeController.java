@@ -321,11 +321,15 @@ public class DemandeCongeController {
     @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getDemandesEmploye(@PathVariable Integer idEmploye,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String statut,
+            @RequestParam(required = false) String q) {
         try (Connection c = dataSource.getConnection()) {
+            page = Math.max(1, page);
+            size = Math.max(1, Math.min(100, size));
             int offset = (page - 1) * size;
-            long total = VDemandeCongeCpl.countParEmploye(idEmploye, c);
-            List<VDemandeCongeCpl> list = VDemandeCongeCpl.listParEmploye(idEmploye, c, size, offset);
+            long total = VDemandeCongeCpl.countParEmploye(idEmploye, statut, q, c);
+            List<VDemandeCongeCpl> list = VDemandeCongeCpl.listParEmploye(idEmploye, statut, q, c, size, offset);
             for (VDemandeCongeCpl demande : list) enrichirActions(demande, c);
 
             PageDTO<VDemandeCongeCpl> pageDto = new PageDTO<>(list, total, page, size);

@@ -1,7 +1,7 @@
-import { Clock } from 'lucide-react';
+import { Clock, Briefcase, RefreshCw, Banknote } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
-import { Card, CardTitle } from '@/components/ui/data-display/Card';
+import { Card } from '@/components/ui/data-display/Card';
 import HasPermission from '@/features/auth/components/HasPermission';
 import { fmtDate } from '@/utils/dateUtils';
 import { fmtMoney } from '@/utils/moneyUtils';
@@ -25,7 +25,7 @@ export default function CarriereHeaderCard({
     const isHoraire = rawMode.toLowerCase().includes('horaire');
     const isJournalier = rawMode.toLowerCase().includes('journal');
     const periodiciteLabel = isHoraire ? 'Horaire' : isJournalier ? 'Journalier' : 'Mensuel';
-    const uniteLabel = isHoraire ? 'Ar / h' : isJournalier ? 'Ar / j' : 'Ar / mois';
+    const uniteLabel = isHoraire ? '/ h' : isJournalier ? '/ j' : '/ mois';
     const salaireValeur = affectationActive?.salaireBase !== null && affectationActive?.salaireBase !== undefined
         ? `${fmtMoney(affectationActive.salaireBase)} ${uniteLabel}`
         : null;
@@ -37,15 +37,22 @@ export default function CarriereHeaderCard({
         <div className="space-y-4">
             {/* 1. Situation Contractuelle & Rémunération */}
             <Card padding bordered className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <CardTitle size="sm" className="uppercase tracking-wider text-[var(--color-fg)]">
-                        Situation Contractuelle & Rémunération
-                    </CardTitle>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
+                            <Briefcase size={15} className="text-[var(--color-brand-500)] shrink-0" />
+                            Situation Contractuelle &amp; Rémunération
+                        </h3>
+                        <p className="text-xs text-[var(--color-fg-subtle)] mt-0.5">
+                            Dossier contractuel, affectation active et conditions de rémunération
+                        </p>
+                    </div>
                     {onRefresh && (
                         <Button
                             type="button"
                             variant="outline"
                             size="xs"
+                            iconLeft={<RefreshCw size={12} />}
                             onClick={onRefresh}
                         >
                             Actualiser
@@ -108,12 +115,15 @@ export default function CarriereHeaderCard({
 
                 {/* Séparateur doux & Ligne Salaire (conditionné par la permission PAIE_READ) */}
                 <HasPermission authority="PAIE_READ">
-                    <div className="pt-3 border-t border-[var(--color-border-subtle)] flex items-baseline gap-2 text-xs">
-                        <span className="text-[var(--color-fg-muted)]">Salaire actuel ({periodiciteLabel})</span>
+                    <div className="pt-3 border-t border-[var(--color-border-subtle)] flex items-center gap-2 text-xs flex-wrap">
+                        <span className="inline-flex items-center gap-1.5 text-[var(--color-fg-muted)]">
+                            <Banknote size={14} className="text-[var(--color-brand-500)] shrink-0" />
+                            Salaire actuel ({periodiciteLabel})
+                        </span>
                         <span className="text-sm sm:text-base font-extrabold text-[var(--color-fg)] font-data">
                             {salaireValeur || '—'}
                         </span>
-                        <span className="text-[var(--color-fg-subtle)] text-[11px]">{rawMode}</span>
+                        <span className="text-[var(--color-fg-subtle)] text-[11px]">({rawMode})</span>
                     </div>
                 </HasPermission>
             </Card>
@@ -122,11 +132,11 @@ export default function CarriereHeaderCard({
             {(etatEssai?.aPeriodeEssai || etatEssai?.isEssaiActif) && (etatEssai?.dateFinEssai || etatEssai?.dateFinEssaiStr) && (
                 <div className={`py-2 px-3 border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs ${
                     etatEssai.isEssaiEchu
-                        ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
-                        : 'bg-warning-500/10 border-warning-500/30 text-warning-900 dark:text-warning-200'
+                        ? 'bg-[var(--color-danger-500)]/10 border-[var(--color-danger-500)]/30 text-[var(--color-danger-600)] dark:text-[var(--color-danger-300)]'
+                        : 'bg-[var(--color-warning-500)]/10 border-[var(--color-warning-500)]/30 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]'
                 }`}>
                     <div className="flex items-center gap-2 min-w-0">
-                        <Clock className={`shrink-0 ${etatEssai.isEssaiEchu ? 'text-danger-500' : 'text-warning-500'}`} size={15} />
+                        <Clock className={`shrink-0 ${etatEssai.isEssaiEchu ? 'text-[var(--color-danger-500)]' : 'text-[var(--color-warning-500)]'}`} size={15} />
                         <span className="font-bold uppercase tracking-wider text-[11px]">Période d'essai</span>
                         {Number.isFinite(etatEssai.joursRestants) && (
                             <Badge variant={etatEssai.isEssaiEchu ? 'danger' : 'warning'} size="xs">
@@ -174,11 +184,11 @@ export default function CarriereHeaderCard({
             {contratActif?.dateFin && (contratActif?.isFinProche || contratActif?.isFinEchue || (contratActif?.joursRestantsFin !== null && contratActif?.joursRestantsFin <= 60)) && (
                 <div className={`py-2 px-3 border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs ${
                     contratActif.isFinEchue || (contratActif.joursRestantsFin !== null && contratActif.joursRestantsFin <= 7)
-                        ? 'bg-danger-500/10 border-danger-500/30 text-danger-800 dark:text-danger-300'
-                        : 'bg-warning-500/10 border-warning-500/30 text-warning-900 dark:text-warning-200'
+                        ? 'bg-[var(--color-danger-500)]/10 border-[var(--color-danger-500)]/30 text-[var(--color-danger-600)] dark:text-[var(--color-danger-300)]'
+                        : 'bg-[var(--color-warning-500)]/10 border-[var(--color-warning-500)]/30 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]'
                 }`}>
                     <div className="flex items-center gap-2 min-w-0">
-                        <Clock className={`shrink-0 ${contratActif.isFinEchue || (contratActif.joursRestantsFin !== null && contratActif.joursRestantsFin <= 7) ? 'text-danger-500' : 'text-warning-500'}`} size={15} />
+                        <Clock className={`shrink-0 ${contratActif.isFinEchue || (contratActif.joursRestantsFin !== null && contratActif.joursRestantsFin <= 7) ? 'text-[var(--color-danger-500)]' : 'text-[var(--color-warning-500)]'}`} size={15} />
                         <span className="font-bold uppercase tracking-wider text-[11px]">Échéance {contratActif.libelleTypeContrat || 'CDD'}</span>
                         {contratActif.joursRestantsFin !== null && (
                             <Badge variant={contratActif.isFinEchue || contratActif.joursRestantsFin <= 7 ? 'danger' : 'warning'} size="xs">
@@ -210,7 +220,7 @@ export default function CarriereHeaderCard({
                                 <Button
                                     variant="ghost"
                                     size="xs"
-                                    className="h-6 px-2 text-[11px] text-danger-600 hover:bg-danger-500/10"
+                                    className="h-6 px-2 text-[11px] text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10"
                                     onClick={onOpenRupture}
                                 >
                                     Clôturer

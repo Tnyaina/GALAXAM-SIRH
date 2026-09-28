@@ -307,7 +307,19 @@ public final class OvertimePayCalculator {
                 resolver = date -> staticRates;
             }
 
-            return calculate(input.getAttendanceInput().qualifiedTimeBuckets(), hourlyRate, resolver, input.getIdEmploye());
+            var result = calculate(input.getAttendanceInput().qualifiedTimeBuckets(), hourlyRate, resolver, input.getIdEmploye());
+            var attendance = input.getAttendanceInput();
+            if (attendance.dafOvertime30Minutes() == 0 && attendance.dafOvertime50Minutes() == 0) return result;
+            // Décision monétaire de fin de période, sans horaire ni sujétion inventés.
+            if (input.getDateFinPeriode() == null) throw new IllegalStateException("Date de valorisation DAF absente.");
+            var rates = resolver.resolveRates(input.getDateFinPeriode().toLocalDate());
+            BigDecimal extra30 = BigDecimal.valueOf(attendance.dafOvertime30Minutes()).divide(SIXTY, 8, RoundingMode.HALF_UP)
+                    .multiply(hourlyRate).multiply(BigDecimal.ONE.add(nz(rates.rateHs30())));
+            BigDecimal extra50 = BigDecimal.valueOf(attendance.dafOvertime50Minutes()).divide(SIXTY, 8, RoundingMode.HALF_UP)
+                    .multiply(hourlyRate).multiply(BigDecimal.ONE.add(nz(rates.rateHs50())));
+            return new Result(MoneyRoundingPolicy.amount(result.hs30().add(extra30)),
+                    MoneyRoundingPolicy.amount(result.hs50().add(extra50)), result.nuit(), result.dimanche(),
+                    result.ferie(), result.bucketDetails(), result.totalHours());
         }
 
         // Rétrocompatibilité : calcul agrégé lorsque aucun bucket détaillé n'est fourni

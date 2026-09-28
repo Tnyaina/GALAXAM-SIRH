@@ -5,6 +5,18 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class FichePointageEmployeDTO {
+    private List<Map<String, String>> statutsCorrection = List.of();
+    public List<Map<String, String>> getStatutsCorrection() { return statutsCorrection; }
+    public void setStatutsCorrection(List<Map<String, String>> value) { statutsCorrection = value; }
+    private PointageSyntheseMensuelleDTO soldePeriode;
+    private Map<String, Boolean> availableActions = new LinkedHashMap<>();
+    private Map<String, java.math.BigDecimal> totauxIndemnites = new LinkedHashMap<>();
+    public PointageSyntheseMensuelleDTO getSoldePeriode() { return soldePeriode; }
+    public void setSoldePeriode(PointageSyntheseMensuelleDTO value) { soldePeriode = value; }
+    public Map<String, Boolean> getAvailableActions() { return availableActions; }
+    public void setAvailableActions(Map<String, Boolean> value) { availableActions = value; }
+    public Map<String, java.math.BigDecimal> getTotauxIndemnites() { return totauxIndemnites; }
+    public void setTotauxIndemnites(Map<String, java.math.BigDecimal> value) { totauxIndemnites = value; }
     private Integer idPeriode;
     private Integer idEmploye;
     private String codePeriode;
@@ -26,7 +38,9 @@ public class FichePointageEmployeDTO {
     private Map<String, IndemniteFicheDTO> indemnitesDisponibles = new LinkedHashMap<>();
     private List<PointageTronconSemaineDTO> bilansHebdo;
 
-    public record IndemniteFicheDTO(String code, String periodicite) {}
+    public record IndemniteFicheDTO(String code, String periodicite, String libelle) {
+        public IndemniteFicheDTO(String code, String periodicite) { this(code, periodicite, code); }
+    }
 
     public Integer getIdEmploye() { return idEmploye; }
     public void setIdEmploye(Integer idEmploye) { this.idEmploye = idEmploye; }

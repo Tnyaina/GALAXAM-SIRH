@@ -378,3 +378,27 @@ Le mapping unifié suivant fait le lien direct entre les entités Java / DTO et 
    * Tests unitaires et d'intégration backend (génération CDI, CDD, Stage, Prestation, cas d'erreurs, permissions).
    * Vérification de non-régression de l'Attestation et du Certificat de travail.
    * Build Maven et build Vite frontend.
+
+---
+
+## 12. Bilan de Réalisation et Certification des Tests (Septembre 2026)
+
+L'intégralité du plan d'implémentation a été exécutée et certifiée conforme aux exigences de l'audit :
+
+1. **Persistance et DTOs** :
+   - Colonnes `id_contrat` et `id_workflow` gérées dans `DocumentRh.java` et `DocumentRhCPL.java`.
+   - `ContratTravailDocumentDTO.java` implémenté avec DTOs immuables pour l'employé, l'affectation, les métadonnées entreprise et les signataires.
+2. **Moteur Documentaire Apache POI** :
+   - `DocumentRhService.java` prend en charge les 5 typologies de contrats : CDI, CDD, STAGE, PRESTATION et TEMPORAIRE.
+   - Substitution stricte sans altération de mise en page Word ; contrôle d'intégrité XML post-génération.
+   - Nettoyage compensatoire des fichiers physiques sur disque en cas de rollback SQL lors du dépôt de pièces signées.
+3. **Contrôleurs REST & Sécurité** :
+   - Endpoints `/documents/contrat/{idContrat}/preview` et `/documents/contrat/{idContrat}/docx` opérationnels dans `DocumentOfficielRhController.java` avec contrôle d'habilitation RBAC.
+   - Endpoint de téléversement `POST /employes/{idEmploye}/documents` enrichi avec `idContrat` et `idWorkflow`.
+4. **Interface Utilisateur React** :
+   - `ContratTravailModal.jsx` doté de la prévisualisation, du téléchargement DOCX officiel et du téléversement du contrat signé rattaché.
+   - `ContratActifSection.jsx` : section détails contrat actif dépliée par défaut (`isExpanded: true`) pour une expérience fluide.
+5. **Couverture de Tests et Non-régression** :
+   - Tests Backend validés : `ContractDocumentTest` (30/30) et `ContractDocumentPermissionsTest` (2/2).
+   - Tests Frontend validés : `ContractDocuments.test.jsx` (9/9) et `ContractDocumentApi.test.js` (6/6).
+   - Build Maven et Vite validés sans avertissement bloquant.

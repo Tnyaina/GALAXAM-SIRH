@@ -70,7 +70,7 @@ export default function AvenantPreviewDocument({
 
                 {formData.motif && (
                     <ArticleBlock n={exigeNouveauContrat ? "4" : "3"} title="Motif & Observations">
-                        <p className="text-ink-600 dark:text-ink-300 ">{formData.motif}</p>
+                        <p className="text-[var(--color-fg-muted)]">{formData.motif}</p>
                     </ArticleBlock>
                 )}
             </div>

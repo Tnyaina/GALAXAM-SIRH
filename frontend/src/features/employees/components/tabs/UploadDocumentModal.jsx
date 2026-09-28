@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import contratService from '@/features/employees/api/contratService';
 import { Upload } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
@@ -18,7 +20,27 @@ export default function UploadDocumentModal({
     setDocCommentaire,
     uploadingDoc,
     docErrorMsg,
+    typeLocked = false,
+    contractReference,
+    idEmploye,
+    selectedContractId = '',
+    setSelectedContractId,
 }) {
+    // État local
+    const [contracts, setContracts] = useState([]);
+    const [contractError, setContractError] = useState('');
+    // Données dérivées
+    const requiresContract = typesDoc.some(type => String(type.idTypeDocument) === String(selectedTypeId) && type.contratTravail);
+    // Effets
+    useEffect(() => {
+        if (!isOpen || !idEmploye || typeLocked || !requiresContract) return;
+        let active = true;
+        setContractError('');
+        contratService.getContratsParEmploye(idEmploye).then(result => { if (active) setContracts(result); })
+            .catch(() => { if (active) setContractError('Impossible de charger les contrats.'); });
+        // Rendu
+    return () => { active = false; };
+    }, [isOpen, idEmploye, typeLocked, requiresContract]);
     return (
         <Modal
             isOpen={isOpen}
@@ -54,7 +76,9 @@ export default function UploadDocumentModal({
                     <Alert type="error" message={docErrorMsg} />
                 )}
 
+                {contractReference && <p>Contrat : <strong>{contractReference}</strong></p>}
                 <Select
+                    disabled={typeLocked}
                     label="Type de Document"
                     required
                     value={selectedTypeId}
@@ -70,6 +94,11 @@ export default function UploadDocumentModal({
                         ))}
                 </Select>
 
+                {requiresContract && !typeLocked && <Select label="Contrat rattaché" required value={selectedContractId} onChange={event => setSelectedContractId?.(event.target.value)}>
+                    <option value="">-- Sélectionner un contrat --</option>
+                    {contracts.map(contract => <option key={contract.idContrat} value={contract.idContrat}>{contract.numeroContrat} — {contract.libelleTypeContrat}</option>)}
+                </Select>}
+                {contractError && <Alert type="error" message={contractError} />}
                 <div className="space-y-1">
                     <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
                         Fichier (PDF, JPG, PNG) <span className="text-[var(--color-danger-500)]">*</span>

@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class RefTypeDocument extends ClassMere {
+    public static final String CONTRAT_TRAVAIL_LIBELLE = "Contrat de travail";
+    public boolean isContratTravail() { return CONTRAT_TRAVAIL_LIBELLE.equalsIgnoreCase(libelle); }
 
     private Integer idTypeDocument;
     private String libelle;

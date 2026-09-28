@@ -77,7 +77,8 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
             }
         } catch (err) {
             console.error('Erreur chargement saisie pointages:', err);
-            setError("Impossible de charger les données de pointage pour ce site.");
+            const serverMessage = err?.response?.data?.message;
+            setError(serverMessage || "Impossible de charger les données de pointage pour ce site.");
         } finally {
             setLoading(false);
         }

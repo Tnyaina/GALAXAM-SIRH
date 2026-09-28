@@ -35,7 +35,9 @@ public record PayrollAttendanceInput(
         BigDecimal mealAmount,
         BigDecimal travelUnits,
         BigDecimal travelAmount,
-        List<QualifiedTimeBucket> qualifiedTimeBuckets
+        List<QualifiedTimeBucket> qualifiedTimeBuckets,
+        long dafOvertime30Minutes,
+        long dafOvertime50Minutes
 ) {
     public PayrollAttendanceInput {
         if (snapshotId <= 0 || snapshotVersion <= 0 || employeeId <= 0 || payrollPeriodId <= 0 || frozenAt == null) {
@@ -43,9 +45,11 @@ public record PayrollAttendanceInput(
         }
         if (workedMinutes < 0 || overtime30Minutes < 0 || overtime50Minutes < 0 || nightMinutes < 0
                 || sundayMinutes < 0 || holidayMinutes < 0 || saturdayMinutes < 0
-                || unpaidAbsenceMinutes < 0 || lateMinutes < 0) {
+                || unpaidAbsenceMinutes < 0 || lateMinutes < 0 || dafOvertime30Minutes < 0 || dafOvertime50Minutes < 0) {
             throw new IllegalArgumentException("Une quantité Pointage ne peut pas être négative.");
         }
+        if (dafOvertime30Minutes > overtime30Minutes || dafOvertime50Minutes > overtime50Minutes)
+            throw new IllegalArgumentException("Complément DAF supérieur aux HS finales.");
         workingDays = zeroIfNull(workingDays);
         presentDays = zeroIfNull(presentDays);
         absenceDays = zeroIfNull(absenceDays);
@@ -55,6 +59,35 @@ public record PayrollAttendanceInput(
         travelUnits = zeroIfNull(travelUnits);
         travelAmount = zeroIfNull(travelAmount);
         qualifiedTimeBuckets = qualifiedTimeBuckets == null ? List.of() : List.copyOf(qualifiedTimeBuckets);
+    }
+
+    /** Compatibilité des snapshots sans complément DAF documentaire. */
+    public PayrollAttendanceInput(
+        int snapshotId,
+        int snapshotVersion,
+        int employeeId,
+        int payrollPeriodId,
+        Instant frozenAt,
+        long workedMinutes,
+        long overtime30Minutes,
+        long overtime50Minutes,
+        long nightMinutes,
+        long sundayMinutes,
+        long holidayMinutes,
+        long saturdayMinutes,
+        long unpaidAbsenceMinutes,
+        int lateMinutes,
+        BigDecimal workingDays,
+        BigDecimal presentDays,
+        BigDecimal absenceDays,
+        BigDecimal leaveDays,
+        BigDecimal mealDays,
+        BigDecimal mealAmount,
+        BigDecimal travelUnits,
+        BigDecimal travelAmount,
+        List<QualifiedTimeBucket> qualifiedTimeBuckets
+    ) {
+        this(snapshotId, snapshotVersion, employeeId, payrollPeriodId, frozenAt, workedMinutes, overtime30Minutes, overtime50Minutes, nightMinutes, sundayMinutes, holidayMinutes, saturdayMinutes, unpaidAbsenceMinutes, lateMinutes, workingDays, presentDays, absenceDays, leaveDays, mealDays, mealAmount, travelUnits, travelAmount, qualifiedTimeBuckets, 0L, 0L);
     }
 
     /**

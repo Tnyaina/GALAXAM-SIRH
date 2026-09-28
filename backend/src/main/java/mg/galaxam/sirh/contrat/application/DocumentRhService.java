@@ -1,5 +1,14 @@
 package mg.galaxam.sirh.contrat.application;
 
+import mg.galaxam.sirh.common.exception.SirhBusinessException;
+import mg.galaxam.sirh.common.exception.SirhErrorCode;
+import mg.galaxam.sirh.contrat.api.dto.ContratTravailDocumentDTO;
+import org.springframework.core.env.Environment;
+import mg.galaxam.sirh.contrat.persistence.RefTypeDocument;
+import mg.galaxam.sirh.contrat.persistence.WorkflowRh;
+import org.springframework.beans.factory.annotation.Autowired;
+import java.util.regex.Pattern;
+
 
 import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.AttestationTravailDTO;
 import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.CertificatTravailDTO;
@@ -65,6 +74,306 @@ public class DocumentRhService {
             sb.append(jours).append(jours > 1 ? " jours" : " jour");
         }
         return sb.toString();
+    }
+
+    private static final Map<String, String> CONTRACT_TEMPLATES = Map.of(
+            "CDI", "Contrat_CDI_modele.docx", "CDD", "Contrat_CDD_modele.docx",
+            "STAGE", "Contrat_STAGE_modele.docx", "PRESTATION", "Contrat_PRESTATION_modele.docx",
+            "TEMPORAIRE", "Contrat_TEMPORAIRE_modele.docx");
+    // Présentation de la donnée source uniquement ; aucune formule de paie.
+    private static final Map<String, String> REMUNERATION_UNITS = Map.of(
+            "MENSUEL", "par mois", "HORAIRE", "par heure", "JOURNALIER", "par jour");
+    private static final Map<String, String> MANUAL_CONTRACT_FIELDS = Map.of(
+            "{{SIGNATAIRE_NOM}}", "[Nom du signataire à compléter avant signature]",
+            "{{SIGNATAIRE_FONCTION}}", "[Fonction du signataire à compléter avant signature]",
+            "{{SIGNATAIRE_VILLE}}", "[Ville de signature à compléter avant signature]",
+            "{{TEMPS_TRAVAIL}}", "[Durée et répartition du travail à compléter avant signature]");
+    private static final Pattern CONTRACT_VARIABLE = Pattern.compile("\\{\\{[^{}]+}}");
+
+    @Autowired
+    private Environment environment;
+
+    public static String templateContrat(String code) {
+        String template = code == null ? null : CONTRACT_TEMPLATES.get(code);
+        if (template == null) throw new SirhBusinessException(
+                SirhErrorCode.CONTRACT_TEMPLATE_UNSUPPORTED,
+                "Type de contrat non supporté : " + code);
+        return template;
+    }
+
+    private String configurationContrat(String scope, String key) {
+        return environment == null ? null : environment.getProperty("app.documents.contrats." + scope + "." + key);
+    }
+
+    public ContratTravailDocumentDTO preparerContrat(Integer idContrat, Connection c) throws Exception {
+        ContratTravail contrat = new ContratTravail().rechercherParId(idContrat, c);
+        if (contrat == null) throw new SirhBusinessException(
+                SirhErrorCode.CONTRAT_NON_TROUVE);
+        Employe emp = new Employe().rechercherParId(contrat.getIdEmploye(), c);
+        if (emp == null) throw new SirhBusinessException(
+                SirhErrorCode.EMPLOYE_NON_TROUVE);
+        String code = valeurReference("ref_type_contrat", "id_type_contrat", "code", contrat.getIdTypeContrat(), c);
+        String template = templateContrat(code);
+        // Un contrat peut avoir plusieurs affectations après mutations. Le document initial utilise
+        // celle créée avec le contrat, jamais la dernière affectation ni l'affectation active.
+        EmployeAffectationCarriere aff = null;
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT a.id_affectation FROM employe_affectation_carriere a " +
+                "JOIN ref_statut_rh s ON s.id_statut_rh = a.id_statut_rh " +
+                "WHERE a.id_contrat = ? AND s.code <> 'ANNULE' ORDER BY a.date_debut, a.id_affectation LIMIT 1")) {
+            ps.setInt(1, idContrat);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) aff = new EmployeAffectationCarriere().rechercherParId(rs.getInt(1), c);
+            }
+        }
+        if (aff == null || !contrat.getIdEmploye().equals(aff.getIdEmploye())) {
+            throw new SirhBusinessException(
+                    SirhErrorCode.CONTRACT_ASSIGNMENT_MISSING);
+        }
+        Map<String, String> vars = new LinkedHashMap<>();
+        putContrat(vars, "CONTRAT_NUMERO", contrat.getNumeroContrat());
+        putContrat(vars, "CONTRAT_TYPE", code);
+        putContrat(vars, "CONTRAT_DATE_DEBUT", dateContrat(contrat.getDateDebut()));
+        putContrat(vars, "CONTRAT_DATE_FIN", contrat.getDateFin() == null && "CDI".equals(code) ? "Durée indéterminée" : dateContrat(contrat.getDateFin()));
+        putContrat(vars, "CONTRAT_DATE_SIGNATURE", dateContrat(contrat.getDateSignature()));
+        putContrat(vars, "CONTRAT_DUREE_ESSAI", contrat.getDureeEssaiMois() == null ? (contrat.getDateFinEssai() == null ? "Aucune période d’essai prévue" : null) : (contrat.getDureeEssaiMois() == 0 ? "Aucune période d’essai prévue" : contrat.getDureeEssaiMois() + " mois"));
+        putContrat(vars, "CONTRAT_DATE_FIN_ESSAI", dateContrat(contrat.getDateFinEssai()));
+        putContrat(vars, "CONTRAT_DESCRIPTION", contrat.getDescription());
+        putContrat(vars, "CONTRAT_STATUT", valeurReference("ref_statut_rh", "id_statut_rh", "code", contrat.getIdStatutRh(), c));
+        EmployeDocumentDTO employee = mapperEmployeDocument(emp);
+        putContrat(vars, "EMPLOYE_NOM_COMPLET", emp.getNom() == null || emp.getNom().isBlank() ? null : employee.getNomComplet());
+        putContrat(vars, "EMPLOYE_MATRICULE", emp.getMatricule());
+        putContrat(vars, "EMPLOYE_CIVILITE", employee.getCivilite());
+        putContrat(vars, "EMPLOYE_DATE_NAISSANCE", dateContrat(emp.getDateNaissance()));
+        putContrat(vars, "EMPLOYE_LIEU_NAISSANCE", emp.getLieuNaissance());
+        putContrat(vars, "EMPLOYE_CIN", emp.getCinNumero());
+        putContrat(vars, "EMPLOYE_CIN_DELIVRANCE", emp.getCinDateDelivrance() == null || emp.getCinLieuDelivrance() == null ? null :
+                "Délivrée le " + dateContrat(emp.getCinDateDelivrance()) + " à " + emp.getCinLieuDelivrance());
+        putContrat(vars, "EMPLOYE_ADRESSE", emp.getAdresse());
+        putContrat(vars, "POSTE_FONCTION", valeurReference("ref_fonction", "id_fonction", "libelle", aff.getIdFonction(), c));
+        putContrat(vars, "POSTE_SITE", valeurReference("ref_site", "id_site", "libelle", aff.getIdSite(), c));
+        putContrat(vars, "POSTE_DEPARTEMENT", valeurReference("ref_departement", "id_departement", "libelle", aff.getIdDepartement(), c));
+        putContrat(vars, "POSTE_SERVICE", valeurReference("ref_service", "id_service", "libelle", aff.getIdService(), c));
+        putContrat(vars, "POSTE_CATEGORIE", valeurReference("ref_categorie_professionnelle", "id_categorie_professionnelle", "libelle", aff.getIdCategorieProfessionnelle(), c));
+        putContrat(vars, "POSTE_SUPERIEUR", valeurReference("employe", "id_employe", "concat_ws(' ', nom, prenom)", aff.getIdResponsableHierarchique(), c));
+        putContrat(vars, "REMUNERATION_BASE", aff.getSalaireBase() == null ? null : String.format(Locale.FRENCH, "%,.2f Ar", aff.getSalaireBase()));
+        putContrat(vars, "REMUNERATION_MODE", valeurReference("ref_mode_calcul_paie", "id_mode_calcul_paie", "libelle", aff.getIdModeCalculPaie(), c));
+        if ("TEMPORAIRE".equals(code)) {
+            String modeCode = valeurReference("ref_mode_calcul_paie", "id_mode_calcul_paie", "code", aff.getIdModeCalculPaie(), c);
+            String unite = modeCode == null ? null : REMUNERATION_UNITS.get(modeCode);
+            putContrat(vars, "TEMPORAIRE_UNITE_REMUNERATION", unite);
+            putContrat(vars, "TEMPORAIRE_MOTIF", contrat.getDescription());
+            if (unite != null && aff.getSalaireBase() != null) {
+                putContrat(vars, "REMUNERATION_BASE", vars.get("{{REMUNERATION_BASE}}") + " " + unite);
+            }
+        }
+        putContrat(vars, "ENTREPRISE_NOM", valeurReference("ref_filiale", "id_filiale", "raison_sociale", contrat.getIdFiliale(), c));
+        putContrat(vars, "ENTREPRISE_NIF", valeurReference("ref_filiale", "id_filiale", "nif", contrat.getIdFiliale(), c));
+        putContrat(vars, "ENTREPRISE_STAT", valeurReference("ref_filiale", "id_filiale", "stat", contrat.getIdFiliale(), c));
+        putContrat(vars, "ENTREPRISE_ADRESSE", valeurReference("ref_filiale", "id_filiale", "adresse_siege", contrat.getIdFiliale(), c));
+        putContrat(vars, "ENTREPRISE_RCS", valeurReference("ref_filiale", "id_filiale", "rcs", contrat.getIdFiliale(), c));
+        String filialeScope = "filiales." + contrat.getIdFiliale();
+        for (String key : List.of("SIGNATAIRE_NOM", "SIGNATAIRE_FONCTION", "SIGNATAIRE_VILLE")) {
+            putContrat(vars, key, configurationContrat(filialeScope, key));
+        }
+        Map<String, String> daf = rechercherDafSignataire(contrat.getIdFiliale(), c);
+        for (String key : List.of("SIGNATAIRE_NOM", "SIGNATAIRE_FONCTION")) {
+            if (daf.containsKey(key)) putContrat(vars, key, daf.get(key));
+        }
+        // La date de signature reste à renseigner à la signature ; aucune date fictive.
+        putContrat(vars, "SIGNATAIRE_DATE", contrat.getDateSignature() == null ? "À renseigner lors de la signature" : dateContrat(contrat.getDateSignature()));
+        for (String key : List.of("TEMPS_TRAVAIL", "STAGE_ETABLISSEMENT", "STAGE_REFERENT_ETABLISSEMENT", "STAGE_GRATIFICATION", "PRESTATION_MONTANT", "PRESTATION_MODALITES_PAIEMENT")) {
+            putContrat(vars, key, configurationContrat("contrats." + idContrat, key));
+        }
+        return preparerApercuContrat(contrat, aff, employee, code, template, vars);
+    }
+
+    /** Une DAF active de la filiale, sans confondre compte administrateur et personne. */
+    Map<String, String> rechercherDafSignataire(Integer idFiliale, Connection c) throws Exception {
+        String sql = "SELECT DISTINCT e.id_employe, concat_ws(' ', e.nom, e.prenom) AS nom, f.libelle AS fonction " +
+                "FROM employe e JOIN employe_affectation_carriere a ON a.id_employe = e.id_employe " +
+                "JOIN ref_fonction f ON f.id_fonction = a.id_fonction " +
+                "JOIN ref_statut_rh s ON s.id_statut_rh = a.id_statut_rh " +
+                "JOIN contrat_travail ct ON ct.id_contrat = a.id_contrat " +
+                "JOIN ref_statut_rh sc ON sc.id_statut_rh = ct.id_statut_rh " +
+                "WHERE f.code_fonction = 'DAF' AND s.code = 'ACTIF' AND sc.code = 'ACTIF' " +
+                "AND ct.id_filiale = ? AND a.date_debut <= CURRENT_DATE " +
+                "AND (a.date_fin IS NULL OR a.date_fin >= CURRENT_DATE)";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idFiliale);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return Map.of();
+                String nom = rs.getString("nom"), fonction = rs.getString("fonction");
+                if (rs.next()) {
+                    log.warn("Plusieurs DAF actives pour la filiale {} : signataire automatique indéterminé", idFiliale);
+                    return Map.of();
+                }
+                Map<String, String> values = new HashMap<>();
+                if (nom != null && !nom.isBlank()) values.put("SIGNATAIRE_NOM", nom);
+                if (fonction != null && !fonction.isBlank()) values.put("SIGNATAIRE_FONCTION", fonction);
+                return values;
+            }
+        }
+    }
+
+    private static void putContrat(Map<String, String> vars, String name, String value) {
+        vars.put("{{" + name + "}}", value == null ? "" : value.trim());
+    }
+
+    private static String dateContrat(java.sql.Date date) {
+        return date == null ? null : formatDateFr(date.toLocalDate());
+    }
+
+    private String valeurReference(String table, String idColumn, String valueColumn, Integer id, Connection c) throws Exception {
+        if (id == null) return null;
+        // Identifiants exclusivement internes, jamais fournis par un client.
+        try (PreparedStatement ps = c.prepareStatement("SELECT " + valueColumn + " FROM " + table + " WHERE " + idColumn + " = ?")) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) { return rs.next() ? rs.getString(1) : null; }
+        }
+    }
+
+    private ContratTravailDocumentDTO preparerApercuContrat(
+            ContratTravail contrat, EmployeAffectationCarriere aff, EmployeDocumentDTO emp,
+            String code, String template, Map<String, String> vars) throws Exception {
+        List<String> missing = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
+        List<String> paragraphs = new ArrayList<>();
+        try (InputStream input = loadTemplateStream(template)) {
+            if (input == null) throw new FileNotFoundException("Modèle contractuel introuvable : " + template);
+            try (XWPFDocument doc = new XWPFDocument(input)) {
+                retirerMentionsContractuellesInutiles(doc, vars);
+                for (XWPFParagraph p : paragraphesDocument(doc)) {
+                    var matcher = CONTRACT_VARIABLE.matcher(p.getText());
+                    while (matcher.find()) {
+                        String key = matcher.group();
+                        if (!vars.containsKey(key)) throw erreurTemplate(key);
+                        if (vars.get(key).isBlank()) {
+                            // Champs facultatifs selon le schéma : absences visibles, sans valeurs inventées.
+                            if (MANUAL_CONTRACT_FIELDS.containsKey(key)) {
+                                vars.put(key, MANUAL_CONTRACT_FIELDS.get(key));
+                                warnings.add(key);
+                            } else if (Set.of("{{ENTREPRISE_RCS}}", "{{POSTE_SERVICE}}", "{{POSTE_SUPERIEUR}}", "{{STAGE_REFERENT_ETABLISSEMENT}}", "{{TEMPORAIRE_MOTIF}}").contains(key)) {
+                                vars.put(key, "Non renseigné — à vérifier par la DAF/RH");
+                                warnings.add(key);
+                            } else if (!missing.contains(key)) missing.add(key);
+                        }
+                    }
+                    String text = p.getText();
+                    for (var entry : vars.entrySet()) text = text.replace(entry.getKey(), entry.getValue().isBlank() ? "[Donnée manquante : " + entry.getKey().replace("{{", "").replace("}}", "") + "]" : entry.getValue());
+                    paragraphs.add(text);
+                }
+            }
+        }
+        return new ContratTravailDocumentDTO(
+                contrat.getIdContrat(), contrat.getIdEmploye(), contrat.getNumeroContrat(), code,
+                vars.get("{{CONTRAT_STATUT}}"), template, contrat, aff, emp,
+                Collections.unmodifiableMap(new LinkedHashMap<>(vars)), List.copyOf(missing), List.copyOf(warnings), List.copyOf(paragraphs));
+    }
+
+    public void genererContratDocx(ContratTravailDocumentDTO dto, OutputStream os) throws Exception {
+        if (!dto.isGenerationPossible()) throw new SirhBusinessException(
+                SirhErrorCode.CONTRACT_DOCUMENT_DATA_MISSING,
+                "Données obligatoires manquantes : " + String.join(", ", dto.donneesManquantes()),
+                Map.of("variables", dto.donneesManquantes()), List.of());
+        try (InputStream input = loadTemplateStream(templateContrat(dto.codeTypeContrat()))) {
+            if (input == null) throw new FileNotFoundException("Modèle contractuel introuvable.");
+            try (XWPFDocument doc = new XWPFDocument(input)) {
+                retirerMentionsContractuellesInutiles(doc, dto.variables());
+                for (XWPFParagraph p : paragraphesDocument(doc)) {
+                    var matcher = CONTRACT_VARIABLE.matcher(p.getText());
+                    while (matcher.find()) {
+                        String key = matcher.group();
+                        if (!dto.variables().containsKey(key)) throw erreurTemplate(key);
+                        if (dto.variables().get(key) == null || dto.variables().get(key).isBlank()) {
+                            throw new SirhBusinessException(
+                                    SirhErrorCode.CONTRACT_DOCUMENT_DATA_MISSING, "Donnée manquante : " + key);
+                        }
+                    }
+                    remplacerDansParagraphe(p, dto.variables());
+                    if (p.getText().contains("{{") || p.getText().contains("}}")) throw erreurTemplate(p.getText());
+                }
+                ByteArrayOutputStream output = new ByteArrayOutputStream();
+                doc.write(output);
+                // Vérifie aussi les parties XML non exposées comme paragraphes POI (ex. zones de texte).
+                try (var zip = new java.util.zip.ZipInputStream(new ByteArrayInputStream(output.toByteArray()))) {
+                    java.util.zip.ZipEntry entry;
+                    while ((entry = zip.getNextEntry()) != null) {
+                        if (entry.getName().startsWith("word/") && entry.getName().endsWith(".xml")) {
+                            String text = new String(zip.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).replaceAll("<[^>]+>", "");
+                            if (text.contains("{{") || text.contains("}}")) throw erreurTemplate(entry.getName());
+                        }
+                    }
+                }
+                os.write(output.toByteArray());
+                log.info("DOCX contrat généré : id={}, type={}", dto.idContrat(), dto.codeTypeContrat());
+            }
+        }
+    }
+
+    private void retirerMentionsContractuellesInutiles(XWPFDocument doc, Map<String, String> variables) {
+        // Supprimer la ligne facultative RCS lorsqu'aucun numéro vérifié n'est renseigné.
+        boolean rcsAbsent = variables.getOrDefault("{{ENTREPRISE_RCS}}", "").isBlank();
+        for (XWPFParagraph paragraph : paragraphesDocument(doc)) {
+            String text = paragraph.getText();
+            if ((rcsAbsent && text.contains("{{ENTREPRISE_RCS}}")) || text.contains("{{POSTE_SUPERIEUR}}")) {
+                String retained = Arrays.stream(text.split("\\R", -1))
+                        .filter(line -> !(rcsAbsent && line.contains("{{ENTREPRISE_RCS}}")) && !line.contains("{{POSTE_SUPERIEUR}}"))
+                        .collect(java.util.stream.Collectors.joining("\n"));
+                int position = doc.getPosOfParagraph(paragraph);
+                if (retained.isBlank() && position >= 0) doc.removeBodyElement(position);
+                else if (retained.isBlank() && paragraph.getBody() instanceof XWPFTableCell cell)
+                    cell.removeParagraph(cell.getParagraphs().indexOf(paragraph));
+                else remplacerTexteParagrapheComplet(paragraph, retained);
+            }
+        }
+    }
+
+    private static SirhBusinessException erreurTemplate(String key) {
+        return new SirhBusinessException(
+                SirhErrorCode.CONTRACT_TEMPLATE_INVALID, "Variable inconnue ou résiduelle : " + key);
+    }
+
+    private List<XWPFParagraph> paragraphesDocument(XWPFDocument doc) {
+        List<XWPFParagraph> result = new ArrayList<>();
+        collecterParagraphes(doc.getBodyElements(), result);
+        for (XWPFHeader header : doc.getHeaderList()) collecterParagraphes(header.getBodyElements(), result);
+        for (XWPFFooter footer : doc.getFooterList()) collecterParagraphes(footer.getBodyElements(), result);
+        for (XWPFFootnote note : doc.getFootnotes()) collecterParagraphes(note.getBodyElements(), result);
+        for (XWPFEndnote note : doc.getEndnotes()) collecterParagraphes(note.getBodyElements(), result);
+        return result;
+    }
+
+    private void collecterParagraphes(List<IBodyElement> elements, List<XWPFParagraph> result) {
+        for (IBodyElement element : elements) {
+            if (element instanceof XWPFParagraph p) result.add(p);
+            else if (element instanceof XWPFTable table) {
+                for (XWPFTableRow row : table.getRows()) for (XWPFTableCell cell : row.getTableCells()) collecterParagraphes(cell.getBodyElements(), result);
+            }
+        }
+    }
+
+    public static void validerLiaisonsDocument(Integer idEmploye, Integer idTypeDocument, Integer idContrat, Integer idWorkflow, Connection c) throws Exception {
+        var type = new RefTypeDocument().rechercherParId(idTypeDocument, c);
+        if (type != null && type.isContratTravail() && idContrat == null) {
+            throw new SirhBusinessException(
+                    SirhErrorCode.VALIDATION_ERROR, "Le contrat est obligatoire pour un contrat de travail signé.");
+        }
+        if (idContrat != null) {
+            ContratTravail contrat = new ContratTravail().rechercherParId(idContrat, c);
+            if (contrat == null || !Objects.equals(idEmploye, contrat.getIdEmploye())) {
+                throw new SirhBusinessException(
+                        SirhErrorCode.VALIDATION_ERROR, "Le contrat ne correspond pas à l'employé.");
+            }
+        }
+        if (idWorkflow != null) {
+            var workflow = new WorkflowRh().rechercherParId(idWorkflow, c);
+            if (workflow == null || !Objects.equals(idEmploye, workflow.getIdEmploye()) ||
+                    (idContrat != null && !Objects.equals(idContrat, workflow.getIdContratSource()) && !Objects.equals(idContrat, workflow.getIdContratCible()))) {
+                throw new SirhBusinessException(
+                        SirhErrorCode.VALIDATION_ERROR, "Le workflow ne correspond pas à l'employé et au contrat.");
+            }
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

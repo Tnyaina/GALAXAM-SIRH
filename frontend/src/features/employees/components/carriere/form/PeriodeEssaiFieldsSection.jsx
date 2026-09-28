@@ -5,7 +5,7 @@ export default function PeriodeEssaiFieldsSection({
     setField,
 }) {
     return (
-        <div className="bg-ink-50 dark:bg-ink-950 p-4 border border-ink-150 dark:border-ink-700 space-y-3">
+        <div className="bg-[var(--color-bg-subtle)] p-4 border border-[var(--color-border-subtle)] space-y-3">
             <Checkbox
                 label="Ce contrat comporte une période d'essai initiale"
                 checked={formData.aPeriodeEssai}

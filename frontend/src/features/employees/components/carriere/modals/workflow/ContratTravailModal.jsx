@@ -1,327 +1,119 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Printer, X, FileText, Building, Calendar, DollarSign, UserCheck } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
-import { DocumentFrame } from '@/features/employees/components/carriere/ContractDocument';
+import Alert from '@/components/ui/feedback/Alert';
 import HasPermission from '@/features/auth/components/HasPermission';
-import { fmtDateFr } from '@/utils/dateUtils';
-import { fmtMoney } from '@/utils/moneyUtils';
+import { DocumentFrame } from '@/features/employees/components/carriere/ContractDocument';
+import UploadDocumentModal from '@/features/employees/components/tabs/UploadDocumentModal';
+import documentService from '@/api/documentService';
+import documentRhService from '@/features/employees/api/documentRhService';
+import { contractDocumentLabel } from '@/features/employees/utils/contractDocumentLabels';
+import { getErrorMessage } from '@/api/apiClient';
 
-export default function ContratTravailModal({
-    isOpen,
-    onClose,
-    employe,
-    contrat,
-    affectation,
-    loadingAffectation = false,
-    filiale,
-}) {
-    // État local et référence DOM du document imprimable.
-    const [mounted, setMounted] = useState(false);
-    const printRef = useRef(null);
+export default function ContratTravailModal({ isOpen, onClose, employe, contrat, onEdit, onDocumentUploaded }) {
+    // État local
+    const [data, setData] = useState(null);
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [preview, setPreview] = useState(false);
+    const [documents, setDocuments] = useState([]);
+    const [types, setTypes] = useState([]);
+    const [uploadOpen, setUploadOpen] = useState(false);
+    const [file, setFile] = useState(null);
+    const [date, setDate] = useState('');
+    const [commentaire, setCommentaire] = useState('');
+    const [uploadError, setUploadError] = useState('');
+    const [uploading, setUploading] = useState(false);
+    // Données dérivées
+    const idContrat = contrat?.idContrat;
+    const idEmploye = contrat?.idEmploye || employe?.idEmploye;
 
-    // Effets : animent l'ouverture et permettent la fermeture par Échap.
+    const signed = documents.filter(doc => Number(doc.idContrat) === Number(idContrat) && doc.contratSigne);
+    const contractType = types.find(type => type.contratTravail && type.actif !== false);
+    const value = key => data?.variables?.[`{{${key}}}`] || 'Non renseigné';
+
+    // Effets
     useEffect(() => {
-        if (isOpen) {
-            const t = setTimeout(() => setMounted(true), 10);
-            return () => clearTimeout(t);
-        }
-        setMounted(false);
-    }, [isOpen]);
+        if (!isOpen || !idContrat) return;
+        let cancelled = false;
+        setData(null); setError(''); setDocuments([]); setPreview(false); setUploadOpen(false);
+        documentService.getContratData(idContrat).then(result => {
+            if (!cancelled) setData(result);
+        }).catch(err => { if (!cancelled) setError(getErrorMessage(err, "Impossible de préparer le contrat.")); });
+        documentRhService.getDocumentsByEmploye(idEmploye).then(result => {
+            if (!cancelled) setDocuments(result.documents || []);
+        }).catch(err => { if (!cancelled) setError(getErrorMessage(err, "Impossible de consulter les documents signés.")); });
+        return () => { cancelled = true; };
+    }, [isOpen, idContrat, idEmploye]);
 
     useEffect(() => {
         if (!isOpen) return;
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
+        const handler = e => { if (e.key === 'Escape' && !uploadOpen && !uploading) onClose(); };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [isOpen, onClose, uploadOpen, uploading]);
 
-    // Rendu : garde de fermeture.
+    // Actions
+    const handleAction = async operation => {
+        setBusy(true); setError('');
+        try { await operation(); } catch (err) { setError(getErrorMessage(err, "L'opération a échoué.")); }
+        finally { setBusy(false); }
+    };
+    const handleOpenUpload = () => handleAction(async () => {
+        const result = await documentRhService.getTypesDocument(true);
+        if (!result.some(type => type.contratTravail && type.actif !== false)) throw new Error('Le type Contrat de travail est absent ou inactif.');
+        setTypes(result); setFile(null); setDate(''); setCommentaire(''); setUploadError(''); setUploadOpen(true);
+    });
+    const handleSubmit = async event => {
+        event.preventDefault();
+        if (!file || !contractType) { setUploadError('Sélectionnez un fichier.'); return; }
+        setUploading(true); setUploadError('');
+        try {
+            const created = await documentRhService.uploadDocument(idEmploye, file, contractType.idTypeDocument, date, commentaire, { idContrat });
+            setDocuments(previous => [created, ...previous]); setUploadOpen(false);
+            onDocumentUploaded?.();
+            window.dispatchEvent(new CustomEvent('documents-rh-updated', { detail: { idEmploye } }));
+        } catch (err) { setUploadError(getErrorMessage(err, "Impossible de déposer le contrat signé.")); }
+        finally { setUploading(false); }
+    };
+    // Rendu
     if (!isOpen) return null;
-
-    // Données dérivées du contrat, de l'affectation et de la filiale.
-    const getVal = (...keys) => {
-        for (const k of keys) {
-            if (k !== undefined && k !== null && String(k).trim() !== '') {
-                return String(k).trim();
-            }
-        }
-        return null;
-    };
-
-    const nomComplet = `${employe?.nom || ''} ${employe?.prenom || ''}`.trim() || '……………';
-    const numContrat = contrat?.numeroContrat || 'CTR-OFFICIEL';
-    const filialeNom = filiale?.libelle || contrat?.libelleFiliale || employe?.filiale || employe?.libelleFiliale || 'GALAXAM LOGISTICS';
-    const filialeAdresse = filiale?.adresse || contrat?.adresseFiliale || employe?.adresseFiliale || null;
-    const filialeNif = filiale?.nif || contrat?.nifFiliale || employe?.nifFiliale || null;
-    const filialeStat = filiale?.stat || contrat?.statFiliale || employe?.statFiliale || null;
-
-    const dateDebut = fmtDateFr(contrat?.dateDebut);
-    const dateFin = contrat?.dateFin ? fmtDateFr(contrat?.dateFin) : null;
-    const dateSignature = fmtDateFr(contrat?.dateSignature || contrat?.dateDebut);
-    const estCdi = !contrat?.dateFin && (contrat?.libelleTypeContrat?.includes('Indéterminé') || contrat?.libelleTypeContrat?.includes('CDI'));
-
-    const fonction = getVal(
-        affectation?.libelleFonction,
-        affectation?.fonction,
-        contrat?.libelleFonction,
-        employe?.libelleFonction,
-        employe?.poste
-    ) || '—';
-
-    const categoriePro = getVal(
-        affectation?.libelleCategorieProfessionnelle,
-        affectation?.libelleCategoriePro,
-        contrat?.libelleCategorieProfessionnelle,
-        employe?.libelleCategoriePro
-    );
-
-    const siteNom = getVal(
-        affectation?.libelleSite,
-        contrat?.libelleSite,
-        employe?.libelleSite
-    );
-
-    const departementNom = getVal(
-        affectation?.libelleDepartement,
-        contrat?.libelleDepartement,
-        employe?.libelleDepartement
-    );
-
-    const serviceNom = getVal(
-        affectation?.libelleService,
-        contrat?.libelleService,
-        employe?.libelleService
-    );
-
-    const managerNom = getVal(
-        affectation?.nomPrenomResponsable,
-        affectation?.nomResponsableHierarchique,
-        contrat?.nomPrenomResponsable
-    );
-
-    const salaireBase = affectation?.salaireBase || contrat?.salaireBase;
-    const modePaie = getVal(
-        affectation?.libelleModeCalculPaie,
-        affectation?.modeCalculPaie,
-        contrat?.libelleModeCalculPaie
-    );
-
-    const aPeriodeEssai = contrat?.aPeriodeEssai || (contrat?.dureeEssaiMois && Number(contrat?.dureeEssaiMois) > 0);
-    const dureeEssaiMois = contrat?.dureeEssaiMois;
-    const dateFinEssai = contrat?.dateFinEssai ? fmtDateFr(contrat?.dateFinEssai) : null;
-
-    // Action utilisateur
-    const handlePrint = () => {
-        window.print();
-    };
-
-    return createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs font-sans print:p-0 print:bg-white print:static print:inset-auto">
-            <div
-                className={`relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xl transition-all duration-200 print:border-none print:shadow-none print:max-h-none print:w-full print:m-0 ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-                    }`}
-            >
-                {/* Barre de contrôle supérieure (masquée à l'impression) */}
-                <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] print:hidden">
-                    <div className="flex items-center gap-2.5">
-                        <FileText className="w-5 h-5 text-[var(--color-brand-500)]" />
-                        <div>
-                            <h3 className="text-sm font-bold text-[var(--color-fg)]">
-                                Document Officiel — Contrat de Travail
-                            </h3>
-                            <p className="text-[11px] text-[var(--color-fg-muted)] font-mono">
-                                N° {numContrat} · {contrat?.libelleTypeContrat || 'Contrat'}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={handlePrint}
-                            iconLeft={<Printer size={14} />}
-                            className="font-semibold shadow-xs"
-                        >
-                            Imprimer / PDF
-                        </Button>
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface)] border border-transparent hover:border-[var(--color-border-subtle)] transition-colors cursor-pointer"
-                            title="Fermer (Échap)"
-                        >
-                            <X size={18} />
-                        </button>
-                    </div>
+    return createPortal(<>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 print:static print:bg-white print:p-0">
+            <section role="dialog" aria-modal="true" aria-label="Contrat de travail" className="w-full max-w-4xl max-h-[92vh] overflow-y-auto bg-[var(--color-surface)] p-6 space-y-4 print:max-h-none print:overflow-visible">
+                <div className="flex justify-between gap-3 print:hidden">
+                    <h3 className="font-bold">{data?.codeTypeContrat || contrat?.libelleTypeContrat} — {contrat?.numeroContrat}</h3>
+                    <Button onClick={onClose} disabled={uploading}>Fermer</Button>
                 </div>
-
-                {/* Corps du Document Contractuel scrollable */}
-                <div className="flex-1 overflow-y-auto p-6 sm:p-10 bg-[var(--color-bg-subtle)]/50 print:bg-white print:p-0 print:overflow-visible">
-                    {loadingAffectation && (
-                        <div className="mb-4 text-center text-xs text-[var(--color-fg-muted)] print:hidden">
-                            Chargement des données de poste et de rémunération...
-                        </div>
-                    )}
-
-                    <div ref={printRef} className="w-full max-w-[720px] mx-auto print:max-w-none print:w-full">
-                        <DocumentFrame className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-8 sm:p-12 shadow-sm text-[13px] leading-relaxed text-[var(--color-fg)] space-y-6 print:border-none print:p-6 print:bg-white print:text-black">
-
-                            {/* En-tête Institutionnel */}
-                            <div className="text-center pb-6 border-b-2 border-[var(--color-fg)] print:border-black space-y-1">
-                                <h1 className="text-2xl font-black uppercase tracking-wider font-serif print:text-xl">
-                                    {filialeNom}
-                                </h1>
-                                <p className="text-xs uppercase tracking-widest text-[var(--color-fg-muted)] print:text-black">
-                                    Direction des Ressources Humaines &amp; des Affaires Juridiques
-                                </p>
-                                {filialeAdresse && (
-                                    <p className="text-[11px] text-[var(--color-fg-muted)] print:text-black">{filialeAdresse}</p>
-                                )}
-                                {(filialeNif || filialeStat) && (
-                                    <p className="text-[10.5px] font-mono text-[var(--color-fg-muted)] print:text-black">
-                                        {filialeNif && <>NIF : {filialeNif}</>}
-                                        {filialeNif && filialeStat && <> · </>}
-                                        {filialeStat && <>STAT : {filialeStat}</>}
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Titre du contrat */}
-                            <div className="text-center py-4 space-y-1">
-                                <h2 className="text-xl font-bold uppercase tracking-wide font-serif">
-                                    {contrat?.libelleTypeContrat || 'Contrat de Travail'}
-                                </h2>
-                                <p className="text-xs font-mono text-[var(--color-fg-muted)] print:text-black">
-                                    Référence : <strong>{numContrat}</strong>
-                                </p>
-                            </div>
-
-                            {/* Préambule & Parties */}
-                            <div className="space-y-3 text-justify text-xs sm:text-[13px]">
-                                <p>
-                                    <strong>ENTRE LES SOUSSIGNÉS :</strong>
-                                </p>
-                                <p className="pl-3 border-l-2 border-[var(--color-border-subtle)]">
-                                    La société <strong>{filialeNom}</strong>{filialeAdresse ? <>, sise à {filialeAdresse}</> : ''}, représentée légalement par sa Direction des Ressources Humaines,<br />
-                                    ci-après désignée <em>« l'Employeur »</em>, d'une part,
-                                </p>
-                                <p className="pl-3 border-l-2 border-[var(--color-border-subtle)]">
-                                    Et <strong>Madame / Monsieur {nomComplet}</strong>
-                                    {employe?.matricule && <>, matricule n° <strong>{employe.matricule}</strong></>}
-                                    {employe?.cin && <>, titulaire de la CIN n° <strong>{employe.cin}</strong></>}
-                                    {employe?.adresse && <>, domicilié(e) à {employe.adresse}</>},<br />
-                                    ci-après désigné(e) <em>« le Salarié »</em>, d'autre part.
-                                </p>
-                                <p className="pt-2">
-                                    Il a été convenu et arrêté ce qui suit en conformité avec la législation du travail en vigueur en République de Madagascar :
-                                </p>
-                            </div>
-
-                            {/* Article 1 : Nature & Durée */}
-                            <div className="space-y-2 pt-2 border-t border-[var(--color-border-subtle)]">
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-500)] print:text-black flex items-center gap-1.5">
-                                    <Calendar size={14} /> Article 1 — Engagement, Nature &amp; Durée
-                                </h3>
-                                <div className="space-y-1 pl-4 text-xs sm:text-[12.5px]">
-                                    <p>
-                                        Le présent contrat est conclu sous la forme d'un <strong>{contrat?.libelleTypeContrat || 'Contrat de Travail'}</strong>.
-                                    </p>
-                                    <p>
-                                        • <strong>Date de prise d'effet :</strong> {dateDebut}
-                                    </p>
-                                    <p>
-                                        • <strong>Terme du contrat :</strong> {estCdi ? <span className="font-semibold">Indéterminé (CDI)</span> : (dateFin || 'Selon terme fixé')}
-                                    </p>
-                                    <p>
-                                        • <strong>Date de signature :</strong> {dateSignature}
-                                    </p>
-                                    {aPeriodeEssai && (
-                                        <p className="bg-[var(--color-bg-subtle)] p-2 border border-[var(--color-border-subtle)] mt-1.5">
-                                            <strong>Période d'essai :</strong> Une période d'essai de <strong>{dureeEssaiMois || '—'} mois</strong> est convenue, expirant le <strong>{dateFinEssai || '…'}</strong>, conformément aux dispositions conventionnelles.
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Article 2 : Affectation & Fonctions */}
-                            <div className="space-y-2 pt-2 border-t border-[var(--color-border-subtle)]">
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-500)] print:text-black flex items-center gap-1.5">
-                                    <Building size={14} /> Article 2 — Fonctions &amp; Lieu de Travail
-                                </h3>
-                                <div className="space-y-1 pl-4 text-xs sm:text-[12.5px]">
-                                    <p>
-                                        • <strong>Fonction occupée :</strong> <strong className="text-[var(--color-fg)] print:text-black">{fonction}</strong>
-                                    </p>
-                                    {categoriePro && (
-                                        <p>
-                                            • <strong>Catégorie professionnelle :</strong> {categoriePro}
-                                        </p>
-                                    )}
-                                    <p>
-                                        • <strong>Lieu de travail / Site :</strong> {siteNom || '—'}
-                                        {departementNom && <> · Département : {departementNom}</>}
-                                        {serviceNom && <> · Service : {serviceNom}</>}
-                                    </p>
-                                    {managerNom && (
-                                        <p>
-                                            • <strong>Supérieur hiérarchique direct (N+1) :</strong> {managerNom}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Article 3 : Rémunération */}
-                            <div className="space-y-2 pt-2 border-t border-[var(--color-border-subtle)]">
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-500)] print:text-black flex items-center gap-1.5">
-                                    <DollarSign size={14} /> Article 3 — Rémunération
-                                </h3>
-                                <div className="space-y-1 pl-4 text-xs sm:text-[12.5px]">
-                                    <p>
-                                        En contrepartie de ses prestations, le Salarié percevra un salaire de base mensuel fixé à :
-                                    </p>
-                                    <p className="font-mono text-base font-black text-[var(--color-brand-500)] print:text-black py-1">
-                                        <HasPermission authority="PAIE_READ" fallback={<span>[Confidentiel]</span>}>
-                                            {salaireBase ? fmtMoney(salaireBase) : '— Ar'}
-                                        </HasPermission>
-                                    </p>
-                                    {modePaie && (
-                                        <p className="text-[11px] text-[var(--color-fg-muted)] print:text-black">
-                                            Modalité de calcul : {modePaie}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Article 4 : Obligations & Confidentialité */}
-                            <div className="space-y-1.5 pt-2 border-t border-[var(--color-border-subtle)] text-xs text-[var(--color-fg-muted)] print:text-black text-justify">
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-500)] print:text-black flex items-center gap-1.5 mb-1">
-                                    <UserCheck size={14} /> Article 4 — Dispositions Générales
-                                </h3>
-                                <p>
-                                    Le Salarié s'engage à consacrer l'exclusivité de son activité professionnelle au service de l'Employeur, à observer scrupuleusement les consignes de sécurité, le règlement intérieur et la confidentialité des données de l'entreprise.
-                                </p>
-                            </div>
-
-                            {/* Signatures */}
-                            <div className="pt-8 border-t-2 border-[var(--color-border-subtle)] flex justify-between items-start text-xs print:pt-4">
-                                <div className="w-5/12 text-center space-y-12">
-                                    <p className="font-bold">Pour l'Employeur</p>
-                                    <p className="text-[11px] text-[var(--color-fg-muted)] print:text-black ">Signature &amp; Cachet</p>
-                                </div>
-                                <div className="w-5/12 text-center space-y-12">
-                                    <p className="font-bold">Le Salarié</p>
-                                    <p className="text-[11px] text-[var(--color-fg-muted)] print:text-black ">Précédé de la mention « Lu et approuvé »</p>
-                                </div>
-                            </div>
-
-                        </DocumentFrame>
-                    </div>
+                {error && <Alert type="error" message={error} />}
+                <p>Statut : {data?.statut || contrat?.codeStatutContrat}</p>
+                {data && <>
+                    <dl className="grid grid-cols-2 gap-2 text-sm print:hidden">
+                        <dt>Employé</dt><dd>{value('EMPLOYE_NOM_COMPLET')}</dd>
+                        <dt>Poste / site</dt><dd>{value('POSTE_FONCTION')} / {value('POSTE_SITE')}</dd>
+                        <dt>Rémunération</dt><dd>{value('REMUNERATION_BASE')} · {value('REMUNERATION_MODE')}</dd>
+                        <dt>Début / fin</dt><dd>{value('CONTRAT_DATE_DEBUT')} / {value('CONTRAT_DATE_FIN')}</dd>
+                    </dl>
+                    <Alert type="warning" message="Canevas interne : les clauses et informations doivent être validées par la DAF/RH avant signature." />
+                    {data.donneesManquantes?.length > 0 && <Alert type="warning" message={`DOCX indisponible : données obligatoires manquantes (${data.donneesManquantes.map(contractDocumentLabel).join(', ')}).`} />}
+                    {data.avertissements?.length > 0 && <Alert type="warning" message={`À vérifier ou compléter avant signature : ${data.avertissements.map(contractDocumentLabel).join(', ')}.`} />}
+                </>}
+                <div className="flex gap-2 flex-wrap print:hidden">
+                    {onEdit && (data?.statut || contrat?.codeStatutContrat) === 'BROUILLON' && <HasPermission authority="EMPLOYE_WRITE"><Button onClick={onEdit}>Modifier</Button></HasPermission>}
+                    <Button onClick={() => setPreview(current => !current)} disabled={!data}>Aperçu</Button>
+                    <HasPermission all={['EMPLOYE_READ', 'PAIE_READ']}>
+                        <Button onClick={() => handleAction(() => documentService.downloadContratDocx(idContrat, `Contrat_${contrat.numeroContrat}.docx`))} disabled={!data?.generationPossible || busy}>Télécharger DOCX</Button>
+                    </HasPermission>
+                    {preview && <Button onClick={() => window.print()}>Imprimer / PDF</Button>}
+                    <HasPermission authority="EMPLOYE_WRITE"><Button onClick={handleOpenUpload} disabled={busy || !idContrat || !idEmploye}>Déposer le contrat signé</Button></HasPermission>
                 </div>
-            </div>
-        </div>,
-        document.body
-    );
+                {signed.length > 0 && <div className="space-y-2 print:hidden"><p className="font-semibold">Contrat signé ✓</p>{signed.map(doc => <div key={doc.idDocument} className="flex gap-2 items-center"><span>{doc.nomOriginal}</span><Button onClick={() => handleAction(() => documentRhService.viewDocument(doc.idDocument))}>Voir le document</Button><Button onClick={() => handleAction(() => documentRhService.downloadDocument(doc.idDocument, doc.nomOriginal))}>Télécharger</Button></div>)}</div>}
+                {preview && data && <DocumentFrame watermark="Canevas interne"><div className="space-y-2">{data.paragraphes.map((text, index) => <p key={index} className="whitespace-pre-wrap">{text}</p>)}</div></DocumentFrame>}
+            </section>
+        </div>
+        <UploadDocumentModal isOpen={uploadOpen} onClose={() => { if (!uploading) setUploadOpen(false); }} onSubmit={handleSubmit}
+            typesDoc={types} selectedTypeId={contractType?.idTypeDocument || ''} typeLocked contractReference={contrat?.numeroContrat}
+            setSelectedTypeId={() => {}} setSelectedFile={setFile} docDate={date} setDocDate={setDate}
+            docCommentaire={commentaire} setDocCommentaire={setCommentaire} uploadingDoc={uploading} docErrorMsg={uploadError} />
+    </>, document.body);
 }

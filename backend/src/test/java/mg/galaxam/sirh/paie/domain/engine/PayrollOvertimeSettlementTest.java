@@ -46,6 +46,25 @@ class PayrollOvertimeSettlementTest {
         assertEquals(20, PayrollAttendanceInput.hoursToMinutes(PayrollAttendanceInput.minutesToHours(20)));
     }
 
+    @Test
+    void reventileTouteLaPeriodeSansEffacerDimancheEtFerie() {
+        var start=LocalDateTime.of(2026,9,1,8,0);
+        var source=List.of(bucket(start,480,OvertimeTier.OVERTIME_30,DaySpecialType.SUNDAY),
+                bucket(start.plusDays(1),480,OvertimeTier.OVERTIME_50,DaySpecialType.PUBLIC_HOLIDAY));
+        var result=PayrollOvertimeSettlement.applyPeriod(source,480,480,480,60);
+        assertEquals(480,result.stream().filter(b->b.overtimeTier()==OvertimeTier.OVERTIME_30).mapToLong(QualifiedTimeBucket::minutes).sum());
+        assertEquals(60,result.stream().filter(b->b.overtimeTier()==OvertimeTier.OVERTIME_50).mapToLong(QualifiedTimeBucket::minutes).sum());
+        assertEquals(960,result.stream().mapToLong(QualifiedTimeBucket::minutes).sum());
+        assertEquals(480,result.stream().filter(QualifiedTimeBucket::isSunday).mapToLong(QualifiedTimeBucket::minutes).sum());
+        assertEquals(480,result.stream().filter(QualifiedTimeBucket::isPublicHoliday).mapToLong(QualifiedTimeBucket::minutes).sum());
+    }
+    @Test
+    void unComplementDafNeCreeAucunHoraireNiPointage() {
+        var start=LocalDateTime.of(2026,9,1,8,0);
+        var source=List.of(bucket(start,60,OvertimeTier.REGULAR,DaySpecialType.STANDARD));
+        assertEquals(source,PayrollOvertimeSettlement.applyPeriod(source,0,0,120,0));
+    }
+
     private static QualifiedTimeBucket bucket(LocalDateTime start, long minutes,
             OvertimeTier tier, DaySpecialType dayType) {
         return new QualifiedTimeBucket(start, start.plusMinutes(minutes), minutes, tier, dayType,

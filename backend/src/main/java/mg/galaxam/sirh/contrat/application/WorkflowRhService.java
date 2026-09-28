@@ -233,6 +233,14 @@ public class WorkflowRhService {
      */
     private void validerEmbaucheInitiale(WorkflowRh workflow, ValiderWorkflowRequest req, Integer currentUserId,
             Connection c) throws Exception {
+        if (workflow.getDateEffet() != null && workflow.getDateEffet().toLocalDate().isAfter(java.time.LocalDate.now())) {
+            ContratTravail cible = new ContratTravail().rechercherParId(workflow.getIdContratCible(), c);
+            if (cible == null) throw new IllegalStateException("Contrat cible introuvable.");
+            validerExigenceDateFin(cible.getIdTypeContrat(), cible.getDateDebut(), cible.getDateFin(), c);
+            // Réutilise la planification et le scheduler des transitions, sans exigence de scan signé.
+            validerTransition(workflow, req, currentUserId, c);
+            return;
+        }
         if (workflow.getIdContratCible() != null) {
             ContratTravail contrat = new ContratTravail().rechercherParId(workflow.getIdContratCible(), c);
             if (contrat == null) {

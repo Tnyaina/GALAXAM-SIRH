@@ -969,7 +969,7 @@ export default function ReglementationFiscaleTab() {
         arrondiBaseIrsa: formData.arrondiBaseIrsa || 'CENTAINE_INF',
         dureeHebdoLegale: parseSafe(formData.dureeHebdoLegale, 40),
         diviseurMensuelHeures: parseSafe(formData.diviseurMensuelHeures, 173.33),
-        seuilHsTranche1: parseSafe(formData.seuilHsTranche1, 8),
+        seuilHsTranche1: parseSafe(formData.seuilHsTranche1, null),
         plafondHsHebdo: parseSafe(formData.plafondHsHebdo, 20),
         exonerationHsIrsaActive: Boolean(formData.exonerationHsIrsaActive),
         plafondMensuelHsExonerees: formData.exonerationHsIrsaActive ? parseSafe(formData.plafondMensuelHsExonerees, 0) : 0,

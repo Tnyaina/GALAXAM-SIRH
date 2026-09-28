@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
     Clock,
-    Printer,
     FileDown,
     FileSpreadsheet,
     FileText,
@@ -11,11 +10,11 @@ import {
     ChevronLeft,
     ChevronRight,
     Calendar,
+    CalendarX,
     DollarSign,
     ExternalLink,
     Scale,
     ChevronDown,
-    ChevronUp,
     FastForward,
     AlertTriangle,
     Award,
@@ -31,14 +30,17 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import PeriodNavigator from '@/components/ui/navigation/PeriodNavigator';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 import { getTodayDateString } from '@/utils/dateUtils';
-import { getPeriodeLabelForFilename } from '@/features/attendance/utils/attendanceDisplayUtils';
 
-const PointageFichePrintModal = lazy(() => import('@/features/attendance/components/modals/PointageFichePrintModal'));
+const DafAjustementPointageModal = lazy(() => import('@/features/attendance/components/modals/DafAjustementPointageModal'));
+const PointageSoldePeriodeModal = lazy(() => import('@/features/attendance/components/modals/PointageSoldePeriodeModal'));
+
 
 export default function PointageTab({ idEmploye, employe = null }) {
     // Contexte
     const { toast } = useToast();
+    const navigate = useNavigate();
 
     // État local : période, fiche, détail et export.
     const [periodView, setPeriodView] = useState('periode');
@@ -47,14 +49,16 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const [periodesList, setPeriodesList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [noPeriodError, setNoPeriodError] = useState(false);
     const [ficheData, setFicheData] = useState(null);
-    const [showHebdoDetail, setShowHebdoDetail] = useState(true);
+    const [correctionDate, setCorrectionDate] = useState(null);
+    const [showBalance, setShowBalance] = useState(false);
 
-    // États du dropdown d'export et de la modale PDF
+    // État du menu et du téléchargement des documents
     const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
-    const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
     const [exportingExcel, setExportingExcel] = useState(false);
     const dropdownRef = useRef(null);
+    const loadRequest = useRef(0);
 
     // Effets : chargent les périodes, la fiche et synchronisent la sélection.
     useEffect(() => {
@@ -105,11 +109,12 @@ export default function PointageTab({ idEmploye, employe = null }) {
                 const data = await periodePaieService.getAllPeriodes();
                 if (data && Array.isArray(data) && data.length > 0) {
                     setPeriodesList(data);
-                    // Déterminer la période courante ou la plus récente
-                    const todayStr = getTodayDateString();
-                    const activeP = data.find(p => p.dateDebut <= todayStr && p.dateFin >= todayStr) || data[0];
-                    if (activeP) {
-                        setSelectedPeriodeId(activeP.idPeriodePaie);
+                    const active = data.find(p => p.statutCode === 'EN_COURS' || p.codeStatut === 'EN_COURS') || data[0];
+                    if (active?.idPeriodePaie) {
+                        setSelectedPeriodeId(prev => prev || active.idPeriodePaie);
+                        if (active.dateDebut) {
+                            setSelectedDate(prev => prev || active.dateDebut);
+                        }
                     }
                 }
             } catch (err) {
@@ -119,9 +124,13 @@ export default function PointageTab({ idEmploye, employe = null }) {
         fetchPeriodes();
     }, []);
 
-    const loadFiche = useCallback(async () => {
+    const loadFiche = useCallback(async ({ background = false } = {}) => {
         if (!idEmploye) return;
-        setLoading(true);
+        const requestId = ++loadRequest.current;
+        if (!background) {
+            setLoading(true);
+            setFicheData(null);
+        }
         setError(null);
         try {
             const params = {
@@ -132,15 +141,28 @@ export default function PointageTab({ idEmploye, employe = null }) {
                 params.idPeriode = selectedPeriodeId;
             }
             const res = await attendanceService.getFicheEmploye(idEmploye, params);
+            if (requestId !== loadRequest.current) return;
             setFicheData(res);
+            setNoPeriodError(false);
+            setError(null);
             if (res?.idPeriode && periodView === 'periode') {
                 setSelectedPeriodeId(res.idPeriode);
             }
         } catch (err) {
+            if (requestId !== loadRequest.current) return;
+            setFicheData(null);
             console.error('Erreur chargement fiche pointage employe:', err);
-            setError('Impossible de charger les données de pointage pour cet employé.');
+            const errCode = err.response?.data?.errorCode || err.response?.data?.code;
+            const errMsg = (err.response?.data?.message || err.message || '').toLowerCase();
+            if (errCode === 'POINTAGE_PERIOD_CONTEXT_REQUIRED' || (errMsg.includes('période') && errMsg.includes('introuvable'))) {
+                setNoPeriodError(true);
+                setError(null);
+            } else {
+                setNoPeriodError(false);
+                setError('Impossible de charger les données de pointage pour cet employé.');
+            }
         } finally {
-            setLoading(false);
+            if (requestId === loadRequest.current) setLoading(false);
         }
     }, [idEmploye, selectedDate, periodView, selectedPeriodeId]);
 
@@ -161,57 +183,33 @@ export default function PointageTab({ idEmploye, employe = null }) {
         }
     };
 
-    const handleOpenPdfModal = () => {
-        setExportDropdownOpen(false);
-        setIsPrintModalOpen(true);
-    };
-
-    const handleExportExcel = async () => {
+    const handleExportDocument = async (format) => {
         setExportDropdownOpen(false);
         setExportingExcel(true);
         try {
-            const params = {
-                date: selectedDate,
-                period: periodView
-            };
-            if (periodView === 'periode' && selectedPeriodeId) {
-                params.idPeriode = selectedPeriodeId;
-            }
-            const blobData = await attendanceService.exportExcel(idEmploye, params);
-            const blob = new Blob([blobData], {
-                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            });
+            const params = { date: selectedDate, period: 'periode' };
+            if (selectedPeriodeId) params.idPeriode = selectedPeriodeId;
+            const { blob, filename } = await attendanceService[format === 'pdf' ? 'exportPdf' : 'exportExcel'](idEmploye, params);
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            const nom = employe?.nom || (ficheData?.nom ? ficheData.nom : (ficheData?.nomComplet ? ficheData.nomComplet.split(' ')[0] : 'Employe'));
-            const prenom = employe?.prenom || (ficheData?.prenom ? ficheData.prenom : (ficheData?.nomComplet ? ficheData.nomComplet.split(' ').slice(1).join(' ') : ''));
-            const pInitial = prenom ? prenom.trim().charAt(0).toUpperCase() : 'P';
-            const matStr = ficheData?.matricule || employe?.matricule || idEmploye;
-            const currentPeriode = periodesList.find(p => p.idPeriode === selectedPeriodeId);
-            const perLibelle = getPeriodeLabelForFilename(ficheData?.libellePeriode || currentPeriode?.libelle, ficheData?.codePeriode || currentPeriode?.code);
-            const cleanNom = nom.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]/g, '_');
-            link.download = `Pointage_${cleanNom}_${pInitial}_${matStr}_${perLibelle}.xlsx`;
-            document.body.appendChild(link);
+            link.download = filename;
             link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-            toast({
-                title: 'Export Excel réussi',
-                message: 'Le fichier Excel (.xlsx) avec formules dynamiques a été téléchargé.',
-                type: 'success'
-            });
+            setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+            toast({ title: 'Document téléchargé', message: format === 'pdf' ? 'Ouvrez le PDF pour le consulter ou l’imprimer.' : 'Le fichier utilise les données calculées par le SIRH.', type: 'success' });
         } catch (err) {
-            console.error('Erreur export Excel:', err);
-            toast({
-                title: 'Erreur d’exportation',
-                message: 'Impossible de générer le fichier Excel de pointage.',
-                type: 'error'
-            });
+            let message = err.response?.data?.message;
+            if (err.response?.data instanceof Blob) {
+                try { message = JSON.parse(await err.response.data.text()).message; } catch { /* Réponse non JSON */ }
+            }
+            toast({ title: 'Erreur d’exportation', message: message || 'Impossible de générer le document de pointage.', type: 'error' });
         } finally {
             setExportingExcel(false);
         }
     };
+    const handleExportExcel = () => handleExportDocument('excel');
+    const handleOpenPdfModal = () => handleExportDocument('pdf');
+
 
     const getStatutBadge = (statut) => {
         switch (statut?.toUpperCase()) {
@@ -270,59 +268,31 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const ferVal = parseFloat(kpis?.heuresFerie) || 0;
     const hasMajorations = (hs30Val > 0 || hs50Val > 0 || nuitVal > 0 || dimVal > 0 || ferVal > 0);
     const isAssiduiteRuleDisabled = kpis?.primeAssiduiteEligible === 'DISABLED';
-    const seuilAssiduiteMinutes = parseInt(kpis?.seuilAssiduiteMinutes || regles?.seuilAssiduiteMinutes, 10) || 45;
-    const dureeHebdoLegale = regles?.dureeHebdoLegale || kpis?.dureeHebdoLegale || '40';
-    const dureeJourNormale = Number(dureeHebdoLegale) > 0 ? Number(dureeHebdoLegale) / 5 : null;
-    const isAssiduiteEligible = !isAssiduiteRuleDisabled && (
-        kpis?.primeAssiduiteEligible === 'true' ||
-        (kpis?.primeAssiduiteEligible !== 'false' && (parseHhMmToDecimal(kpis?.retardCumule) * 60 < seuilAssiduiteMinutes))
-    );
+    const seuilAssiduiteMinutes = kpis.seuilAssiduiteMinutes || regles.seuilAssiduiteMinutes || '—';
+    const dureeHebdoLegale = regles.dureeHebdoLegale || kpis.dureeHebdoLegale || '—';
+    const dureeJourNormale = regles.dureeJourNormale;
+    const isAssiduiteEligible = kpis.primeAssiduiteEligible === 'true';
     const hasRetardNet = Boolean(recap?.retardNet && recap.retardNet !== '00h00' && recap.retardNet !== '0h');
     const hasHsNettes = Boolean(recap?.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' && recap.heuresSuppNettes !== '0h');
 
-    const totalRetardMinutes = pointages.reduce((acc, p) => acc + (p.minutesRetard || 0), 0);
-    const totalRetardHhMm = kpis?.retardCumule || (totalRetardMinutes > 0 ? formatHeuresMinutes(totalRetardMinutes / 60) : '00h00');
-
-    const totalEcartMinutes = pointages.reduce((acc, p) => {
-        if (!p.ecart || p.ecart === '—' || p.ecart === '-') return acc;
-        const clean = p.ecart.trim();
-        if (clean.includes('h')) {
-            const sign = clean.startsWith('-') ? -1 : 1;
-            const parts = clean.replace(/[+-]/g, '').split('h');
-            const h = parseInt(parts[0], 10) || 0;
-            const m = parseInt(parts[1], 10) || 0;
-            return acc + sign * (h * 60 + m);
-        }
-        return acc;
-    }, 0);
-
-    const computedEcartStr = formatHeuresMinutes(totalEcartMinutes / 60, true);
-    const displayEcart = (recap?.ecartCumule && recap.ecartCumule !== '—') ? recap.ecartCumule : computedEcartStr;
-
-    const workedDaysCount = pointages.filter(p => {
-        const st = (p.statut || '').toUpperCase();
-        return ['PRESENT', 'DISPENSE_POINTAGE', 'DEMI_JOURNEE', 'RETARD', 'SAMEDI_TRAVAILLE', 'DIMANCHE_TRAVAILLE', 'FERIE_TRAVAILLE'].includes(st);
-    }).length;
-
-    const dynamicAllowanceTotals = Object.fromEntries(dynamicAllowances.map(({ code }) => [code,
-        pointages.reduce((total, pointage) => {
-            const allowance = pointage.indemnites?.[code];
-            return total + (allowance?.accordee ? Number(allowance.montant || 0) : 0);
-        }, 0)
-    ]));
-
+    const totalRetardMinutes = Number(kpis.retardBrutMinutes || 0);
+    const totalRetardHhMm = kpis.retardCumule || '—';
+    const displayEcart = recap.ecartCumule || '—';
+    const dynamicAllowanceTotals = ficheData?.totauxIndemnites || {};
+    const actions = !loading && !error ? ficheData?.availableActions || {} : {};
     const currIndexInList = periodesList.findIndex(p => p.idPeriodePaie === selectedPeriodeId);
 
     // Rendu
     return (
-        <div className="space-y-6 print:m-0 print:p-0">
+        <div className="space-y-4 print:m-0 print:p-0">
+            <p className="text-xs text-[var(--color-fg-muted)]">Consultez la période, vérifiez les journées, puis contrôlez le bilan et les régularisations.</p>
             {/* 1. Barre d'outils supérieure : Sélecteur de Période, Bascule Période/Mois/Semaine/Jour et Actions */}
             <Card padding bordered className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
                 <div className="flex flex-wrap items-center gap-3">
 
                     {/* Navigation temporelle selon le mode */}
                     {periodView === 'periode' ? (
-                        <div className="inline-flex items-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
+                        <div className="inline-flex max-w-full min-w-0 items-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
                             <button
                                 type="button"
                                 onClick={() => handleNavigatePeriode(-1)}
@@ -334,7 +304,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 <ChevronLeft size={16} />
                             </button>
                             <span className="h-5 w-[1px] bg-[var(--color-border-subtle)]" />
-                            <div className="flex items-center gap-2 px-3 py-1.5">
+                            <div className="flex min-w-0 items-center gap-2 px-3 py-1.5">
                                 <Calendar size={15} className="text-[var(--color-brand-500)] shrink-0" />
                                 <select
                                     value={selectedPeriodeId || ''}
@@ -344,10 +314,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         const found = periodesList.find(p => p.idPeriodePaie === pId);
                                         if (found?.dateDebut) setSelectedDate(found.dateDebut);
                                     }}
-                                    className="bg-transparent text-sm font-bold text-[var(--color-fg)] border-none outline-none cursor-pointer pr-2"
+                                    className="min-w-0 max-w-full bg-transparent text-sm font-bold text-[var(--color-fg)] border-none outline-none cursor-pointer pr-2"
                                 >
                                     {periodesList.length === 0 ? (
-                                        <option value="" disabled>Sélectionner une période...</option>
+                                        <option value="" disabled>Aucune période configurée</option>
                                     ) : (
                                         <>
                                             {!selectedPeriodeId && (
@@ -382,11 +352,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                         />
                     )}
 
-                    {/* Bascule Vue : PÉRIODE DE PAIE | MOIS | SEMAINE | JOUR */}
+                    {/* Bascule Vue : PÉRIODE DE PAIE | SEMAINE */}
                     <div className="flex border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 rounded-none">
                         {[
                             { key: 'periode', label: 'Période de Paie' },
-                            { key: 'mois', label: 'Mois Civil' },
                             { key: 'semaine', label: 'Semaine' },
                         ].map(({ key, label }) => (
                             <button
@@ -405,31 +374,21 @@ export default function PointageTab({ idEmploye, employe = null }) {
                 </div>
 
                 <div className="flex items-center gap-2 self-end md:self-auto">
-                    <Link
+                    {actions.TEAM_ENTRY && <Link
                         to="/pointages?tab=saisie"
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] bg-[var(--color-brand-500)]/10 hover:bg-[var(--color-brand-500)]/20 border border-[var(--color-brand-500)]/30 transition-colors"
                         title="Ouvrir le module de saisie quotidienne pour toute l'équipe"
                     >
                         <span>Saisie d'équipe</span>
                         <ExternalLink size={13} />
-                    </Link>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleOpenPdfModal}
-                        className="text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                    >
-                        <Printer size={14} />
-                        Imprimer
-                    </Button>
-
+                    </Link>}
                     {/* Menu Déroulant Exporter (Excel / PDF) */}
                     <div className="relative inline-block" ref={dropdownRef}>
                         <Button
                             type="button"
                             variant="primary"
                             size="sm"
+                            disabled={!ficheData?.idPeriode}
                             loading={exportingExcel}
                             onClick={() => setExportDropdownOpen(prev => !prev)}
                             className="text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
@@ -449,7 +408,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     <FileSpreadsheet size={15} className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)] shrink-0" />
                                     <div>
                                         <div className="font-semibold">Format Excel (.xlsx)</div>
-                                        <div className="text-[10px] text-[var(--color-fg-muted)]">Classeur avec formules actives</div>
+                                        <div className="text-[10px] text-[var(--color-fg-muted)]">Quantités, montants et bilan du SIRH</div>
                                     </div>
                                 </button>
                                 <div className="my-1 border-t border-[var(--color-border-subtle)]" />
@@ -507,7 +466,17 @@ export default function PointageTab({ idEmploye, employe = null }) {
                     </div>
                     <SkeletonTable rows={10} cols={8} />
                 </div>
-            ) : (
+            ) : noPeriodError ? (
+                <EmptyState
+                    icon={CalendarX}
+                    title="Aucune période de paie active"
+                    description="Aucune période de paie n'englobe actuellement la date sélectionnée. Créez ou ouvrez une période dans le module Paie pour démarrer la saisie et le calcul des présences."
+                    actionLabel="Gérer les périodes de paie"
+                    onAction={() => navigate('/paie?tab=periodes')}
+                    actionIcon={<ExternalLink size={14} />}
+                    className="my-4 py-12"
+                />
+            ) : ficheData ? (
                 <>
                     {/* 2. Cartes d'indicateurs KPI réagencées selon les 3 Piliers (Présence, Gain Paie, Retenue Paie, Primes RH) */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -549,14 +518,14 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider flex items-center gap-1.5">
                                         <TrendingUp size={14} className="text-[var(--color-success-600)]" />
-                                        Heures Sup. (Paie)
+                                        Heures sup. finales
                                     </span>
                                     <Badge
                                         variant={hasHsNettes ? 'success' : 'neutral'}
                                         size="sm"
                                         className="font-mono font-bold"
                                     >
-                                        {hasHsNettes ? 'NET PAYÉ' : '0 HS'}
+                                        {hasHsNettes ? 'SOLDE POSITIF' : '0 HS'}
                                     </Badge>
                                 </div>
                                 <div className="mt-2.5">
@@ -591,7 +560,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold text-[var(--color-fg-muted)] uppercase tracking-wider flex items-center gap-1.5">
                                         <AlertTriangle size={14} className={hasRetardNet ? 'text-[var(--color-danger-500)]' : 'text-[var(--color-success-500)]'} />
-                                        Retenue Salaire
+                                        Déficit final
                                     </span>
                                     <Badge
                                         variant={hasRetardNet ? 'danger' : 'success'}
@@ -661,7 +630,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             <span className="text-[var(--color-fg-muted)] font-medium">Règle d'assiduité désactivée</span>
                                         ) : isAssiduiteEligible ? (
                                             <span className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-medium flex items-center gap-1">
-                                                <CheckCircle2 size={12} /> Prime assiduité accordée
+                                                <CheckCircle2 size={12} /> Éligible à la prime d’assiduité
                                             </span>
                                         ) : (
                                             <span className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-medium flex items-center gap-1" title={`La prime d'assiduité est accordée si le retard brut est inférieur à ${seuilAssiduiteMinutes} min`}>
@@ -682,7 +651,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
                         <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
                             <div>
-                                <h3 className="text-sm font-bold text-[var(--color-fg)]">Détail journalier</h3>
+                                <h3 className="text-sm font-bold text-[var(--color-fg)]">Journal quotidien</h3>
                                 <p className="text-xs text-[var(--color-fg-muted)]">Pointages et calculs automatiques</p>
                             </div>
                         </div>
@@ -698,7 +667,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     <Th className="text-xs font-bold uppercase py-3 px-3 text-center">Sortie</Th>
                                     <Th className="text-xs font-bold uppercase py-3 px-2 text-center" title="Cumul des retards constatés sur la journée (matin et après-midi)">Retard</Th>
                                     <Th className="text-xs font-bold uppercase py-3 px-3 text-center" title="Temps de travail effectif de la journée">Heures faites</Th>
-                                    <Th className="text-xs font-bold uppercase py-3 px-3 text-center" title="Différence par rapport aux 8h journalières : surplus (+) ou manque (-)">Écart (vs 8h)</Th>
+                                    <Th className="text-xs font-bold uppercase py-3 px-3 text-center" title="Écart calculé par le serveur par rapport à la durée attendue">Écart journalier</Th>
                                     <Th className="text-xs font-bold uppercase py-3 px-3 text-center" title="Statut de la journée (Présent, Congé, Férié, Repos...)">Statut</Th>
                                     {dynamicAllowances.map((allowance) => (
                                         <Th key={allowance.code} className="text-xs font-bold uppercase py-3 px-2 text-center border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10" title={allowance.code}>
@@ -750,6 +719,9 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                 >
                                                     <Td className="font-mono text-xs font-bold text-[var(--color-fg)] py-2.5 px-3">
                                                         {ptg.date}
+                                                        {ptg.canCorrect && ptg.dateComplete && (
+                                                            <button type="button" onClick={() => setCorrectionDate(ptg.dateComplete)} className="block mt-1 text-[11px] font-sans text-[var(--color-brand-600)] hover:underline" aria-label={`Corriger la journée du ${ptg.date}`}>Corriger</button>
+                                                        )}
                                                     </Td>
                                                     <Td className="text-xs text-[var(--color-fg-muted)] py-2.5 px-3">
                                                         {ptg.jour}
@@ -764,7 +736,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                                         Congé Payé
                                                                     </span>
                                                                     <span className="text-[11px] text-[var(--color-sky-600)] dark:text-[var(--color-sky-400)] font-sans">
-                                                                        · Jour d'absence légale (Objectif hebdomadaire abaissé de {dureeJourNormale || 8}h)
+                                                                        · Jour d'absence légale (Objectif hebdomadaire abaissé de {dureeJourNormale || '—'}h)
                                                                     </span>
                                                                 </div>
                                                             ) : isFerie ? (
@@ -773,7 +745,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                                         Férié Chômé Légal
                                                                     </span>
                                                                     <span className="text-[11px] text-[var(--color-purple-600)] dark:text-[var(--color-purple-400)] font-sans">
-                                                                        · Jour chômé payé (Objectif hebdomadaire abaissé de {dureeJourNormale || 8}h)
+                                                                        · Jour chômé payé (Objectif hebdomadaire abaissé de {dureeJourNormale || '—'}h)
                                                                     </span>
                                                                 </div>
                                                             ) : isRepos ? (
@@ -902,12 +874,12 @@ export default function PointageTab({ idEmploye, employe = null }) {
 
                                             {/* Col 10 : Statut (Jours Travaillés) */}
                                             <td className="text-center py-2.5 px-3 text-xs font-bold text-[var(--color-fg-muted)]">
-                                                {kpis.joursTravailles ? `${kpis.joursTravailles} travaillés` : `${workedDaysCount} j travaillés`}
+                                                {kpis.joursTravailles ? `${kpis.joursTravailles} travaillés` : '—'}
                                             </td>
 
                                             {dynamicAllowances.map((allowance) => (
                                                 <td key={allowance.code} className="font-mono text-xs font-bold text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10">
-                                                    {dynamicAllowanceTotals[allowance.code].toLocaleString('fr-FR')} Ar
+                                                    {Number(dynamicAllowanceTotals[allowance.code] || 0).toLocaleString('fr-FR')} Ar
                                                 </td>
                                             ))}
                                         </tr>
@@ -917,9 +889,25 @@ export default function PointageTab({ idEmploye, employe = null }) {
                         </div>
                     </div>
 
+                    {ficheData?.soldePeriode && (
+                        <Card padding bordered>
+                            <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                                <div><h3 className="text-sm font-bold">Bilan et régularisations DAF</h3><p className="text-xs text-[var(--color-fg-muted)] mt-1">Résultats calculés par le serveur pour la période affichée. Les HS 30 % et 50 % participent au rapprochement. Nuit, dimanche et férié conservent leurs qualifications.</p></div>
+                                {ficheData.idPeriode && <Button variant="outline" size="sm" onClick={() => setShowBalance(true)}>{actions.ADJUST_BALANCE ? 'Ajuster le solde de période' : 'Voir les régularisations'}</Button>}
+                            </div>
+                            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                                {[['Déficit des semaines', recap.deficitHebdo], ['HS cumulées (30 % + 50 %)', recap.hsTotalHebdo], ['Ajustements DAF', recap.ajustements], ['Solde final', recap.soldeFinal]].map(([label, value]) => <div key={label} className="bg-[var(--color-bg-subtle)] p-3"><dt className="text-[var(--color-fg-muted)]">{label}</dt><dd className="mt-1 font-mono text-base font-bold">{value || '—'}</dd></div>)}
+                            </dl>
+                            {recap.alerteSolde && <Alert type="warning" message={recap.alerteSolde} />}
+                            <p className="text-xs mt-3">{recap.regleVentilation}</p><p className="text-xs mt-3">Absence finale : <strong>{recap.absenceFinale}</strong> · HS 30 % finales : <strong>{recap.hs30Finales}</strong> · HS 50 % finales : <strong>{recap.hs50Finales}</strong></p>
+                            {!ficheData.idPeriode && <p className="text-xs text-[var(--color-fg-muted)] mt-2">Sélectionnez une période de paie pour consulter ses régularisations.</p>}
+                        </Card>
+                    )}
+
                     {/* 3.1 Volet Déroulant : Bilan par Tronçon Hebdomadaire (Compensation 40h - ) */}
-                    {showHebdoDetail && ficheData?.bilansHebdo && ficheData.bilansHebdo.length > 0 && (
-                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
+                    {ficheData?.bilansHebdo?.length > 0 && (
+                        <details className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
+                            <summary className="cursor-pointer text-sm font-semibold">Détail du calcul par semaine</summary>
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--color-border-subtle)] pb-2.5">
                                 <div className="flex items-center gap-2">
                                     <Scale size={16} className="text-[var(--color-brand-500)] shrink-0" />
@@ -1031,31 +1019,21 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     </Tbody>
                                 </Table>
                             </div>
-                        </div>
+                        </details>
                     )}
 
                     {/* 4. Grille de Synthèse Mensuelle, Indemnités & Règles (Pied de page modulaire aéré) */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch pt-2">
+                    <div className="grid grid-cols-1 gap-3 items-stretch">
                         {/* Carte 1 : Impact sur le Bulletin de Paie (Miroir exact des rubriques de paie) */}
-                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex flex-col justify-between space-y-3">
+                        <details className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
+                            <summary className="cursor-pointer text-sm font-semibold">Détail du bilan et incidence sur la paie</summary>
                             <div>
                                 <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
                                     <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-1.5">
                                         <FileText size={14} className="text-[var(--color-brand-500)]" />
-                                        Impact Bulletin de Paie
+                                        Détail du bilan et incidence sur la paie
                                     </h4>
-                                    {ficheData?.bilansHebdo && ficheData.bilansHebdo.length > 0 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowHebdoDetail(prev => !prev)}
-                                            className="text-[11px] font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] hover:underline flex items-center gap-0.5 cursor-pointer"
-                                            title="Afficher ou masquer la décomposition par semaine"
-                                        >
-                                            <Scale size={12} />
-                                            <span>{showHebdoDetail ? 'Masquer tronçons' : 'Détail hebdo'}</span>
-                                            {showHebdoDetail ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                                        </button>
-                                    )}
+
                                 </div>
                                 <div className="space-y-2 text-xs pt-2">
                                     <div className="flex justify-between items-center">
@@ -1073,7 +1051,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-[var(--color-fg-muted)]">Heures sup. nettes payées</span>
+                                        <span className="text-[var(--color-fg-muted)]">Heures sup. finales</span>
                                         <span className={`font-mono font-bold ${recap.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]'}`}>
                                             {recap.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' ? `+${recap.heuresSuppNettes}` : '00h00'}
                                         </span>
@@ -1096,8 +1074,8 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                 {kpis.retardCumule || recap.retards || '00h00'}
                                             </span>
                                         </div>
-                                        <div className="flex justify-between items-center text-xs" title="Heures travaillées au-delà de 8h/jour dans les semaines">
-                                            <span className="text-[var(--color-fg-muted)]">Heures en plus sur la journée</span>
+                                        <div className="flex justify-between items-center text-xs" title="Surplus journalier calculé par le serveur">
+                                            <span className="text-[var(--color-fg-muted)]">Surplus journalier</span>
                                             <span className="font-mono text-[var(--color-fg)]">
                                                 {recap.heuresSuppBrutes || '00h00'}
                                             </span>
@@ -1111,10 +1089,11 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </details>
 
                         {/* Carte 2 : Indemnités & Majorations du Mois (Relevé structuré & aéré) */}
-                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex flex-col justify-between space-y-3">
+                        <details className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
+                            <summary className="cursor-pointer text-sm font-semibold">Indemnités et majorations</summary>
                             <div>
                                 <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2.5">
                                     <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-1.5">
@@ -1138,7 +1117,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                 )}
                                             </div>
                                             <span className="font-mono text-sm font-bold text-[var(--color-orange-600)] dark:text-[var(--color-orange-400)] shrink-0">
-                                                {dynamicAllowanceTotals[allowance.code].toLocaleString('fr-FR')} Ar
+                                                {Number(dynamicAllowanceTotals[allowance.code] || 0).toLocaleString('fr-FR')} Ar
                                             </span>
                                         </div>
                                     ))}
@@ -1185,10 +1164,11 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </details>
 
                         {/* Carte 3 : Règles Appliquées & Assiduité (RH) */}
-                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs flex flex-col justify-between space-y-3">
+                        <details className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
+                            <summary className="cursor-pointer text-sm font-semibold">Règles appliquées et assiduité</summary>
                             <div className="space-y-2.5">
                                 <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] border-b border-[var(--color-border-subtle)] pb-2 flex items-center gap-1.5">
                                     <Info size={14} className="text-[var(--color-info-500)]" />
@@ -1242,22 +1222,18 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 <span className="font-bold text-[var(--color-fg)] block text-[10px] uppercase tracking-wider mb-0.5">Observations</span>
                                 Les heures et indemnités sont calculées à partir des pointages enregistrés. Toute correction doit être justifiée et validée par le responsable habilité.
                             </div>
-                        </div>
+                        </details>
                     </div>
                 </>
-            )}
+            ) : null}
 
-            {/* Modale d'aperçu officiel et d'impression PDF format A4 (Lazy Loaded) */}
-            {isPrintModalOpen && (
-                <Suspense fallback={null}>
-                    <PointageFichePrintModal
-                        isOpen={isPrintModalOpen}
-                        onClose={() => setIsPrintModalOpen(false)}
-                        employe={employe}
-                        ficheData={ficheData}
-                    />
-                </Suspense>
-            )}
+            {correctionDate && ficheData?.idPeriode && <Suspense fallback={null}>
+                <DafAjustementPointageModal isOpen onClose={() => setCorrectionDate(null)} employe={employe || ficheData} idEmploye={idEmploye} idPeriode={ficheData.idPeriode} initialDate={correctionDate} onSuccess={async () => { setCorrectionDate(null); await loadFiche(); }} />
+            </Suspense>}
+            {showBalance && ficheData?.idPeriode && <Suspense fallback={null}>
+                <PointageSoldePeriodeModal employe={ficheData.soldePeriode} idPeriodePaie={ficheData.idPeriode} readOnly={!actions.ADJUST_BALANCE} onClose={() => setShowBalance(false)} onChanged={() => loadFiche({ background: true })} />
+            </Suspense>}
+
         </div>
     );
 }

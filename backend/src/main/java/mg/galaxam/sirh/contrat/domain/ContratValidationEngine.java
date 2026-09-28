@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 public class ContratValidationEngine {
 
     /** Types de contrats exigeant légalement une date de fin déterminée */
-    private static final Set<String> TYPES_AVEC_DATE_FIN_OBLIGATOIRE = Set.of("CDD", "STAGE", "PRESTATION", "CONSULTANT", "INTERIM");
+    private static final Set<String> TYPES_AVEC_DATE_FIN_OBLIGATOIRE = Set.of("CDD", "STAGE", "PRESTATION", "CONSULTANT", "INTERIM", "TEMPORAIRE");
 
     /** Durée maximale d'une période d'essai initiale en mois (selon la convention/catégorie, max 6 mois) */
     public static final int DUREE_MAX_ESSAI_MOIS = 6;

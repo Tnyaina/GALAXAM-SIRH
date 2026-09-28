@@ -557,6 +557,14 @@ public class PointageService {
             // 4. Indemnités Spécifiques du Site (site_indemnite_config) avec Prorata sur jours ouvrables réels
             int nbOuvrablesPeriode = (periodeInfo != null && periodeInfo.get("nbJoursOuvrables") != null)
                     ? (int) periodeInfo.get("nbJoursOuvrables") : 0;
+            if (nbOuvrablesPeriode <= 0) {
+                LocalDate d = date.toLocalDate();
+                nbOuvrablesPeriode = calendrierEngine.compterJoursOuvrables(
+                        d.withDayOfMonth(1), d.withDayOfMonth(d.lengthOfMonth()), idSite > 0 ? idSite : null, c);
+                if (nbOuvrablesPeriode <= 0) {
+                    nbOuvrablesPeriode = 22; // Sécurité de repli
+                }
+            }
 
             // Les tarifs d'indemnité sont résolus à la date du pointage.
             Map<String, ParametreGlobal.ParametreEtat> globalParams = ParametreGlobal.loadEtatMapAtDate(date, c);

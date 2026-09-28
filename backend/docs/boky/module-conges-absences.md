@@ -377,6 +377,7 @@ mg.galaxam.sirh.conge/
 │   └── CongePeriodeReferenceController.java # Endpoints clôture de période de référence & TCONGE
 ├── application/
 │   ├── CongeService.java                    # Orchestrateur central de gestion et validation transactionnelle
+│   ├── CongeAnnuelExcelExportService.java   # Production du bilan officiel annuel Excel (ETAT_CONGES_PAR_PERSONNE.xlsx)
 │   └── CongeTauxApplicableService.java      # Source unique de résolution temporelle du taux TCONGE
 ├── domain/
 │   ├── CongeCalculateurEngine.java          # Moteur pur de calcul (jours calendaires, préavis, prorata)
@@ -508,6 +509,38 @@ Reproduction intégrale du cycle annuel de référence validant le calcul mathé
 - **Cumul Annuel de Valorisation Financière** : **$324\,385{,}38\text{ Ar}$**.
 - **Taux Journalier TCONGE Applicable pour l'Exercice Suivant** :
   $$\mathbf{TCONGE} = \frac{324\,385{,}3763\text{ Ar}}{29{,}956667\text{ jours}} = \mathbf{10\,828{,}49\text{ Ar / jour}}$$
+
+---
+
+## 13. Édition et Export Officiel de l'État Annuel des Congés (ETAT_CONGES_PAR_PERSONNE.xlsx)
+
+Le système intègre un moteur de production documentaire officiel conforme au canevas Excel réglementaire d'entreprise (`templates/annuel/ETAT_CONGES_PAR_PERSONNE.xlsx`), strictement asservi au **cycle annuel de référence de 12 mois** (`conge_periode_reference`).
+
+### 13.1 Structure du Classeur Réparti sur 3 Feuilles
+
+1. **Feuille 1 — « État congés salarié »** :
+   - **Bloc d'En-tête** : Matricule, nom et prénom du collaborateur, filiale de rattachement, site géographique, fonction/poste, bornes de la période de référence (`date_debut` à `date_fin`), mode de reprise (`FULL_HISTORY`, `AGGREGATED_OPENING`), solde d'ouverture reporté, réserve valorisée d'ouverture et taux journalier TCONGE applicable.
+   - **Grille des 12 Mois de Référence (Lignes 8 à 19)** : Déroulement systématique des 12 mois légaux du cycle (salaires de base, assiettes, décomptes d'activité, droits mensuels acquis, valorisations mensuelles, prises de congés enregistrées, indemnités et heures supplémentaires).
+   - **Ligne 20 (« TOTAL / SITUATION »)** : **Préservation intégrale des formules natives de sommation Excel** (ex: `=SUM(B8:B19)`), avec appel explicite à `workbook.setForceFormulaRecalculation(true)` garantissant la recalculation dynamique à l'ouverture sous Microsoft Excel ou LibreOffice Calc.
+2. **Feuille 2 — « Mouvements »** :
+   - Ligne 4 initiale : Report du solde d'ouverture (`soldeOuverture`) et valorisation correspondante.
+   - Lignes 5+ : Audit trail chronologique détaillé, filtré **strictement sur la période de référence** sélectionnée (Date, Type de mouvement, Réf. Demande, Commentaire/Motif, Droits acquis / Crédit, Droits consommés / Débit, Solde progressif après mouvement, TCONGE applicable, Valeur indicative en Ariary et Opérateur ayant créé le mouvement).
+3. **Feuille 3 — « README »** :
+   - Notice réglementaire conservée en l'état rappelant le cadre légal (2,5 jours/mois, diviseur 30, assiette de valorisation).
+
+### 13.2 Architecture Applicative & API
+
+- **Service Applicatif** : `CongeAnnuelExcelExportService` (`mg.galaxam.sirh.conge.application`) :
+  - Orchestration JDBC directe (sans ORM), injection du DataSource.
+  - Résolution déterministe de la période de référence passée ou active par défaut.
+  - Reconstitution du grand-livre mensuel et croisement avec les bulletins de paie et mouvements de solde.
+  - Nommage canonique sécurisé du fichier exporté : `ETAT_CONGES_<MATRICULE>_<DATE_DEBUT>_<DATE_FIN>.xlsx`.
+- **Endpoints REST (`CongePeriodeReferenceController`)** :
+  - `GET /conges/periodes-reference/employe/{idEmploye}/export-excel` (paramètre facultatif `idPeriodeReference`).
+  - `GET /conges/periodes-reference/{idPeriodeReference}/export-excel`.
+- **Interface & IHM React** :
+  - Composant modal `ExportEtatCongesModal.jsx` (largeur `size="xl"`, design tokens Sauge de `index.css`, terminologie accessible).
+  - Intégration dans l'en-tête de `CongesTab.jsx` via le bouton d'action dédié **« Bilan Annuel (Excel) »**.
 
 ---
 

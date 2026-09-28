@@ -41,3 +41,14 @@ incompatible fait échouer l'index unique et demande un arbitrage explicite.
 | `26-09-19-sp12-parametrage-exoneration-hs.sql` | Exonération fiscale HS (CGI 01.03.03-9°) & Éligibilité | `01_schema_core_securite.sql` (paramètres globaux), `02_schema_referentiels_rh.sql` (catégories & config légale) |
 | `26-09-19-sp9-conge-cutover-snapshot.sql` | Modes de reprise congés (Cutover, Snapshots) & Source `REPRISE_CUTOVER` | `04_schema_conges.sql` (`conge_periode_reference` & `conge_taux_applicable`) |
 | `26-09-21-sp13-certification-irsa.sql` | Millésime IRSA 6 tranches (Jan-Fév 2026), bornes contiguës & traçabilité légale | `02_schema_referentiels_rh.sql` (`paie_config_legale`), `06_schema_paie.sql` (`bareme_irsa`, `ref_taux_majoration`) |
+
+Le script `26-09-28-sp32-pointage-solde-global.sql` ajoute les HS50 finales.
+Il doit être appliqué aux bases existantes avant le déploiement du nouveau code.
+Les anciens snapshots restent inchangés et identifiables par une valeur NULL.
+
+SP33 (`26-09-28-sp33-pointage-palier-snapshot.sql`) historise le palier lu en base. À appliquer avant déploiement aux bases existantes ; aucun remplissage arbitraire des anciens snapshots.
+
+SP34 (`26-09-28-sp34-identite-filiales.sql`) ajoute l'adresse du siège, le RCS
+et les coordonnées aux filiales. Il renseigne uniquement l'adresse GLX confirmée
+sans modifier les autres filiales. À appliquer aux bases
+existantes avant le code qui lit ces nouvelles colonnes.

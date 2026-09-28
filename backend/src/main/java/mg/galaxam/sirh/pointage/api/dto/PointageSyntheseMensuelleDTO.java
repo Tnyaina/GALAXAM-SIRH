@@ -55,6 +55,8 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
     private Integer minutesSoldePeriode;
     private Integer minutesAbsenceFinale;
     private Integer minutesHs30Finales;
+    private Integer minutesHs50Finales;
+    private Integer minutesPremierPalierHs;
 
     public Integer getMinutesDeficitHebdo() { return minutesDeficitHebdo; }
     public void setMinutesDeficitHebdo(Integer value) { minutesDeficitHebdo = value; }
@@ -70,6 +72,12 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
     public void setMinutesAbsenceFinale(Integer value) { minutesAbsenceFinale = value; }
     public Integer getMinutesHs30Finales() { return minutesHs30Finales; }
     public void setMinutesHs30Finales(Integer value) { minutesHs30Finales = value; }
+
+    public Integer getMinutesHs50Finales() { return minutesHs50Finales; }
+    public void setMinutesHs50Finales(Integer value) { minutesHs50Finales = value; }
+
+    public Integer getMinutesPremierPalierHs() { return minutesPremierPalierHs; }
+    public void setMinutesPremierPalierHs(Integer value) { minutesPremierPalierHs = value; }
 
     public double getSurplusBrut() { return surplusBrut; }
     public void setSurplusBrut(double surplusBrut) { this.surplusBrut = surplusBrut; }

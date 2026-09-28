@@ -1,5 +1,12 @@
 import apiClient from '@/api/apiClient';
 
+async function exportDocument(idEmploye, format, params) {
+    const response = await apiClient.get(`/pointages/employes/${idEmploye}/export/${format}`, { params, responseType: 'blob' });
+    const disposition = response.headers?.['content-disposition'] || '';
+    const filename = disposition.match(/filename="([^"]+)"/)?.[1] || `Pointage.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+    return { blob: response.data, filename };
+}
+
 /** Tous les appels Pointage et son contrat de période, regroupés par intention. */
 const attendanceApi = {
     daily: {
@@ -13,7 +20,8 @@ const attendanceApi = {
     },
     employees: {
         getSheet: async (idEmploye, params = {}) => (await apiClient.get(`/pointages/employes/${idEmploye}`, { params })).data,
-        exportExcel: async (idEmploye, params = {}) => (await apiClient.get(`/pointages/employes/${idEmploye}/export/excel`, { params, responseType: 'blob' })).data
+        exportExcel: (idEmploye, params = {}) => exportDocument(idEmploye, 'excel', params),
+        exportPdf: (idEmploye, params = {}) => exportDocument(idEmploye, 'pdf', params)
     },
     summary: {
         getPeriod: async ({ idPeriodePaie, idSite, search, filtre, page = 1, size = 25 }) => (await apiClient.get('/pointages/synthese', { params: { idPeriodePaie, idSite, search, filtre, page, size } })).data,
@@ -50,7 +58,8 @@ export const attendanceService = {
     getAnomalies: attendanceApi.anomalies.list,
     regulariser: attendanceApi.anomalies.regularize,
     getFicheEmploye: attendanceApi.employees.getSheet,
-    exportExcel: attendanceApi.employees.exportExcel
+    exportExcel: attendanceApi.employees.exportExcel,
+    exportPdf: attendanceApi.employees.exportPdf
 };
 export const pointageSyntheseService = {
     getSynthese: attendanceApi.summary.getPeriod,

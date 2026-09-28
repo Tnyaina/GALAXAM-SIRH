@@ -8,7 +8,9 @@ export default function TimelineBanners({
     workflowPlanifieFutur,
     canWrite,
     onOpenEditModal,
-    onSelectWorkflowRecap
+    onSelectWorkflowRecap,
+    onOpenContrat,
+    contratBrouillon,
 }) {
     const joursAvantPriseEffet = workflowPlanifieFutur?.dateEffet
         ? Math.max(0, Math.ceil((new Date(workflowPlanifieFutur.dateEffet).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24)))
@@ -41,12 +43,13 @@ export default function TimelineBanners({
                                 <Badge variant="warning" size="sm">BROUILLON</Badge>
                             </div>
                             <p className="text-xs text-[var(--color-fg-muted)]">
-                                Contrat N° <span className="font-mono font-bold text-brand-500">{brouillonWf.numeroContratCible || brouillonWf.numeroContratSource || 'En cours'}</span> ({brouillonWf.libelleTypeContrat || 'Contrat'}) — Poste : <span className="font-semibold text-[var(--color-fg)]">{brouillonWf.libelleFonction || '-'}</span> à <span className="font-semibold text-[var(--color-fg)]">{brouillonWf.libelleSite || '-'}</span>
+                                Contrat N° <span className="font-mono font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">{brouillonWf.numeroContratCible || brouillonWf.numeroContratSource || 'En cours'}</span> ({brouillonWf.libelleTypeContrat || 'Contrat'}) — Poste : <span className="font-semibold text-[var(--color-fg)]">{brouillonWf.libelleFonction || '-'}</span> à <span className="font-semibold text-[var(--color-fg)]">{brouillonWf.libelleSite || '-'}</span>
                             </p>
                         </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto shrink-0">
+                        {contratBrouillon && onOpenContrat && <Button variant="primary" size="sm" onClick={() => onOpenContrat(contratBrouillon)}>Préparer le contrat</Button>}
                         {canWrite && (
                             <>
                                 <Button
@@ -68,7 +71,7 @@ export default function TimelineBanners({
                         )}
                         <Button
                             onClick={() => onSelectWorkflowRecap(brouillonWf)}
-                            variant="primary"
+                            variant={contratBrouillon ? "outline" : "primary"}
                             size="sm"
                             iconLeft={<Eye size={16} />}
                         >
@@ -80,9 +83,9 @@ export default function TimelineBanners({
 
             {/* BANNIERE : MOUVEMENT RH PLANIFIE A DATE ULTERIEURE */}
             {workflowPlanifieFutur && (
-                <div className="bg-brand-500/10 border border-brand-500/30 p-4 sm:p-5 rounded-none flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                <div className="bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/30 p-4 sm:p-5 rounded-none flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
                     <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-brand-500/20 text-brand-600 dark:text-brand-400 rounded-none flex items-center justify-center font-bold shrink-0">
+                        <div className="w-10 h-10 bg-[var(--color-brand-500)]/20 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] rounded-none flex items-center justify-center font-bold shrink-0">
                             <Calendar size={20} />
                         </div>
                         <div className="space-y-1">

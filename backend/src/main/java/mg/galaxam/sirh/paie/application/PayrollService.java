@@ -797,10 +797,18 @@ public class PayrollService {
                 if (rs.next()) {
                     BigDecimal hAbs = rs.getBigDecimal("heures_absence_retenues");
                     long rawHs30Minutes = PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_30"));
+                    long rawHs50Minutes = PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_50"));
+                    long hs50Minutes = rawHs50Minutes;
                     long hs30Minutes = rawHs30Minutes;
                     long absenceMinutes = PayrollAttendanceInput.hoursToMinutes(hAbs);
                     Integer finalHs30Minutes = (Integer) rs.getObject("minutes_hs30_finales");
                     Integer finalAbsenceMinutes = (Integer) rs.getObject("minutes_absence_finale");
+                    Integer finalHs50Minutes = (Integer) rs.getObject("minutes_hs50_finales");
+                    if (finalHs50Minutes != null) {
+                        if (finalHs30Minutes == null || finalAbsenceMinutes == null)
+                            throw new IllegalStateException("SNAPSHOT_SOLDE_INCOMPLET: ventilation finale absente.");
+                        hs50Minutes = finalHs50Minutes;
+                    }
                     if (finalHs30Minutes != null || finalAbsenceMinutes != null) {
                         if (finalHs30Minutes == null || finalAbsenceMinutes == null) {
                             throw new IllegalStateException("SNAPSHOT_SOLDE_INCOMPLET: le rapprochement de période doit être complet.");
@@ -823,13 +831,15 @@ public class PayrollService {
                                 + "ne disposent pas de tranches horaires auditables. Réouvrir puis regeler la période.");
                     }
                     if (finalHs30Minutes != null) {
-                        buckets = PayrollOvertimeSettlement.apply(buckets, rawHs30Minutes, hs30Minutes);
+                        buckets = finalHs50Minutes == null
+                                ? PayrollOvertimeSettlement.apply(buckets, rawHs30Minutes, hs30Minutes)
+                                : PayrollOvertimeSettlement.applyPeriod(buckets, rawHs30Minutes, rawHs50Minutes, hs30Minutes, hs50Minutes);
                     }
                     in.setAttendanceInput(new PayrollAttendanceInput(
                             rs.getInt("id_cumul"), rs.getInt("version_snapshot"), idEmploye, idPeriodePaie, frozenAt,
                             PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("total_heures_travaillees")),
                             hs30Minutes,
-                            PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_hs_50")),
+                            hs50Minutes,
                             PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("heures_nuit_total")),
                             PayrollAttendanceInput.hoursToMinutes(hDim),
                             PayrollAttendanceInput.hoursToMinutes(hFer),
@@ -839,7 +849,11 @@ public class PayrollService {
                             absenceDays, rs.getBigDecimal("nb_jours_conge"), rs.getBigDecimal("nb_jours_repas"),
                             rs.getBigDecimal("montant_repas"), rs.getBigDecimal("nb_jours_deplacement"),
                             rs.getBigDecimal("montant_deplacement"),
-                            buckets));
+                            buckets,
+                            finalHs50Minutes == null ? 0L : hs30Minutes - buckets.stream()
+                                .filter(b -> b.overtimeTier() == mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier.OVERTIME_30).mapToLong(mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket::minutes).sum(),
+                            finalHs50Minutes == null ? 0L : hs50Minutes - buckets.stream()
+                                .filter(b -> b.overtimeTier() == mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier.OVERTIME_50).mapToLong(mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket::minutes).sum()));
                     if (rs.getInt("contrat_indemnites_version") >= 2) {
                         // Les anciens snapshots restent lisibles via les deux agrégats historiques.
                         // Les nouveaux figent toutes les indemnités, y compris un catalogue ajouté plus tard.

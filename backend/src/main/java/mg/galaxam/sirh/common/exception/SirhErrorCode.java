@@ -94,6 +94,9 @@ public enum SirhErrorCode {
     // =========================================================================
     // POINTAGE & PAIE
     // =========================================================================
+    POINTAGE_EXPORT_SNAPSHOT_MISSING(HttpStatus.CONFLICT, "Aucun snapshot pour cette période validée."),
+    POINTAGE_EXPORT_SNAPSHOT_MISMATCH(HttpStatus.CONFLICT, "Le journal ne correspond plus à la version figée."),
+    POINTAGE_EXPORT_SOURCE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Les données d’indemnités sont indisponibles."),
     POINTAGE_DATE_FUTURE(
             HttpStatus.CONFLICT,
             "Action interdite : Impossible d'enregistrer un pointage pour une date future. La saisie doit s'effectuer le jour même ou rétroactivement."),
@@ -129,6 +132,11 @@ public enum SirhErrorCode {
     // =========================================================================
     // CONTRAT & CARRIÈRE
     // =========================================================================
+    CONTRACT_ASSIGNMENT_MISSING(HttpStatus.CONFLICT, "L'affectation historique du contrat est introuvable."),
+    CONTRACT_TEMPLATE_UNSUPPORTED(HttpStatus.BAD_REQUEST, "Aucun modèle n'est supporté pour ce type de contrat."),
+    CONTRACT_DOCUMENT_DATA_MISSING(HttpStatus.UNPROCESSABLE_CONTENT, "Des données obligatoires du contrat sont manquantes."),
+    CONTRACT_TEMPLATE_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "Le modèle contractuel contient des variables inconnues ou résiduelles."),
+
     CONTRAT_ACTIF_EXISTANT(
             HttpStatus.BAD_REQUEST,
             "L'employé possède déjà un contrat ACTIF. Utilisez un workflow de transition (Mutation, Promotion, Renouvellement, etc.)."),

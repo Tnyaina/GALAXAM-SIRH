@@ -70,7 +70,7 @@ Le module Pointage & Présence tire sa légitimité de l'ordre public social mal
 | **Loi n° 2003-044** | **Article 76** | **Heures supplémentaires** : Les heures effectuées au-delà de la durée légale hebdomadaire constituent des heures supplémentaires donnant lieu à majoration. | Moteur `AttendanceEngine.calculateWeek()` : déclenchement des HS au-delà de l'objectif hebdomadaire net de la semaine. |
 | **Loi n° 2003-044** | **Article 80** | **Travail de nuit** : Tout travail effectué entre 22 heures et 5 heures est considéré comme travail de nuit. | Constante `AttendanceTemporalPartitioner.NIGHT_START = 22:00` et `NIGHT_END = 05:00`. Découpage systématique aux frontières. |
 | **Loi n° 2003-044** | **Article 81** | **Repos hebdomadaire** : Le repos hebdomadaire est obligatoire. Il est au minimum de 24 heures consécutives et doit avoir lieu en principe le dimanche. | Qualification `DaySpecialType.SUNDAY` des vacations dominicales. Attribution de la majoration dimanche sans double paiement de base. |
-| **Décret n° 72-226** | **Article 2 & 3** | **Taux de majoration des heures supplémentaires** :<br>• 8 premières heures sup (de la 41e à la 48e heure incluse) : **Majoration de 30%**.<br>• Au-delà de la 48e heure : **Majoration de 50%**. | Tranche 1 (`firstOvertimeBandMinutes = 480 min`) imputée à `OVERTIME_30`. Tranche 2 (excédent) imputée à `OVERTIME_50`. |
+| **Décret n° 72-226** | **Article 2 & 3** | **Taux de majoration des heures supplémentaires** :<br>• 8 premières heures sup (de la 41e à la 48e heure incluse) : **Majoration de 30%**.<br>• Au-delà de la 48e heure : **Majoration de 50%**. | Tranche 1 (`firstOvertimeBandMinutes`, alimenté par `paie_config_legale.seuil_hs_tranche1 × 60`) imputée à `OVERTIME_30`. Tranche 2 (excédent) imputée à `OVERTIME_50`. |
 | **Décret n° 72-226** | **Article 3 (Al. 2)** | **Articulation des sujétions spéciales** : Le travail de nuit, du dimanche et des jours fériés donne lieu à majorations spécifiques non cumulables aveuglément avec la base salaire. | Modèle de collision `SpecialPremiumCollisionPolicy` dans `OvertimePayCalculator`. Séparation stricte de la base horaire et des majorations. |
 | **Arrêté n° 198-IGT** | **Article 1 à 4** | **Obligation de contrôle et traçabilité** : L'employeur doit enregistrer les heures exactes d'entrée et de sortie de chaque salarié et tenir un registre d'émargement ou de badgeage. | `pointage_jour` stocke le badge brut physique (`heure_entree_matin`) et l'entrée valorisée (`heure_entree_matin_effective`). |
 
@@ -356,7 +356,7 @@ Soit un tronçon hebdomadaire comportant $N$ journées analysées par `Attendanc
    \end{cases}$$
 
 8. **Ventilation dans les Paliers de Majoration (HS 30% et HS 50%)** :
-   Soit $P_1 = 480\text{ minutes}$ (8 heures) le seuil légal du premier palier fixé par le Décret 72-226 :
+   Soit $P_1$ le palier en minutes, lu dans `paie_config_legale.seuil_hs_tranche1 × 60` à la date applicable (aucune constante de secours) :
    $$HS_{30} = \min(HS_{eligibles}, P_1)$$
    $$HS_{50} = \max(0, HS_{eligibles} - HS_{30})$$
 
@@ -366,21 +366,19 @@ Soit un tronçon hebdomadaire comportant $N$ journées analysées par `Attendanc
 
 ### 6.4 Rapprochement horaire de fin de période
 
-La semaine reste calculée séparément. Le récapitulatif additionne ensuite les déficits
-hebdomadaires et les HS 30 % de la période. Un ajustement DAF signé et motivé peut
-corriger le solde sans modifier les badges :
+La semaine reste calculée séparément pour établir les faits avant régularisation.
+En fin de période, la DAF applique un ajustement signé et motivé au bilan global :
 
-$$Solde_{periode} = HS30_{hebdo} - Deficit_{hebdo} + Ajustements_{valides}$$
+$$Solde_{periode} = HS30_{hebdo} + HS50_{hebdo} - Deficit_{hebdo} + Ajustements_{valides}$$
 
-- Si le solde est négatif, sa valeur absolue devient l'absence horaire **hors congés**.
-- S'il est positif, il représente les HS 30 % restantes. Un ajustement qui créerait
-  des HS sans semaine de rattachement bloque le gel et demande de rectifier la journée.
-- Les HS 50 %, les heures de dimanche, de férié et de nuit restent qualifiées séparément.
+- Un ajustement −5 h retire 5 h ; +2 h ajoute 2 h. Dans un Excel qui soustrait Divers, une déduction de 5 h s’écrit +5 dans cette colonne.
+- Un solde négatif devient une absence horaire hors congés.
+- Un solde positif est ventilé une fois pour la période : jusqu’au palier issu de `paie_config_legale.seuil_hs_tranche1` à 30 %, puis le reste à 50 %.
+- Les qualifications dimanche, férié et nuit des heures réellement travaillées sont conservées. Elles ne sont pas additionnées une deuxième fois aux HS.
+- Un ajustement positif peut produire un complément de HS payé sans inventer d’horaires. Ce complément est tracé dans le contrat de paie comme décision DAF ; il n’a aucune sujétion calendaire inventée.
 
-Le snapshot conserve les volumes hebdomadaires, l'ajustement, le solde et les
-ajustements sources en minutes entières. Les colonnes historiques en heures et les
-buckets de travail restent des faits de pointage ; leur consommation par la paie
-sera harmonisée dans le lot Paie.
+Les nouveaux snapshots figent les minutes finales HS30 et HS50 et le palier utilisé (`minutes_palier_hs30`, migration SP33). Un ancien palier NULL est indiqué comme non historisé, sans déduire arbitrairement 8 h. Les anciens snapshots, dont minutes_hs50_finales est NULL, restent consommés selon leur règle historique.
+Les semaines et buckets bruts restent des faits de pointage. La reventilation de paie conserve les minutes réellement travaillées ; le complément DAF est valorisé séparément au taux applicable à la date de fin de période.
 
 ---
 
@@ -426,7 +424,7 @@ Ligne du Temps :
 
 Une fois la timeline partitionnée en buckets temporels, le moteur `OvertimeProjectionEngine.project()` y injecte chronologiquement les volumes issus du moteur hebdomadaire `AttendanceEngine` :
 1. Les premières minutes de la semaine remplissent la tranche `REGULAR` (jusqu'à concurrence de l'objectif attendu).
-2. Dès que l'objectif régulier est comblé, les minutes suivantes basculent automatiquement en `OVERTIME_30` (dans la limite de 480 minutes).
+2. Dès que l'objectif régulier est comblé, les minutes suivantes basculent automatiquement en `OVERTIME_30` (dans la limite du palier paramétré en base).
 3. Tout dépassement supplémentaire bascule en `OVERTIME_50`.
 
 > **Invariant d'intégrité absolue** : La somme des durées de tous les buckets qualifiés est garantie strictement égale à la durée totale travaillée constatée par le moteur journalier. Toute discordance déclenche une exception bloquante `CONSERVATION_VIOLATION_PROJECTION`.
@@ -734,7 +732,7 @@ Le composant `PointageGanttView.jsx` (580 lignes) a été expressément confirm�
 | **RG-PTG-04** | **Unicité journalière** | Un collaborateur ne peut posséder qu'un seul enregistrement de pointage par date civile (contrainte d'unicité `uk_pointage_employe_jour`). | Base PostgreSQL (`pointage_jour`) |
 | **RG-PTG-05** | **Compensation hebdomadaire** | Les dépassements journaliers d'une semaine compensent en priorité les manques des autres jours ouvrables avant toute éligibilité aux heures supplémentaires. | `AttendanceEngine.calculateWeek()` |
 | **RG-PTG-06** | **Éligibilité aux heures sup** | Les heures supplémentaires ne sont calculées que pour les catégories professionnelles non cadres (`overtimeEligible = TRUE`). Pour les cadres dirigeants, les heures sup sont nulles. | `PointageSyntheseService.calculerSyntheseEmploye()` |
-| **RG-PTG-07** | **Ventilation HS 30% et 50%** | Les 8 premières heures sup hebdo (480 minutes) sont imputées à 30%. Tout dépassement excédentaire est imputé au palier de majoration 50%. | `AttendanceEngine.calculateWeek()` |
+| **RG-PTG-07** | **Ventilation HS 30% et 50%** | Les heures supplémentaires jusqu’au palier `paie_config_legale.seuil_hs_tranche1` sont imputées à 30 %, puis à 50 %. La clôture de période applique à nouveau cette ventilation au solde après rapprochement DAF. | `AttendanceEngine.calculateWeek()` |
 | **RG-PTG-08** | **Orthogonalité des sujétions** | Une heure de travail effectuée la nuit ou un dimanche ne peut donner lieu à un double paiement de sa base horaire. Les sujétions sont isolées dans des `QualifiedTimeBucket`. | `TemporalAttendanceEngine`, `OvertimePayCalculator` |
 | **RG-PTG-09** | **Créneau légal de nuit** | Tout travail exécuté entre 22:00 et 05:00 du matin est obligatoirement qualifié de travail de nuit et valorisé avec la majoration horaire correspondante. | `TemporalAttendanceEngine.AttendanceTemporalPartitioner` |
 | **RG-PTG-10** | **Prérequis de transmission** | La transmission d'une période par l'agent (`SUBMIT`) est interdite tant qu'il subsiste au moins une anomalie bloquante (`ANOMALIE_SAISIE` ou absence injustifiée sans motif). | `PayrollPeriodWorkflowService.submissionCapability()` |
@@ -898,3 +896,6 @@ FROM ref_statut_pointage_jour ORDER BY id_statut_jour;
 
 > **CERTIFICATION D'EXHAUSTIVITÉ & DE CONFORMITÉ**  
 > Le présent document a été confronté avec succès au code source JavaHEAD, aux scripts PostgreSQL canoniques et aux suites d'intégration réelles du dépôt GALAXAM SIRH. Il constitue l'ouvrage officiel de référence pour l'audit, l'exploitation et la soutenance de mémoire universitaire.
+
+### Exports individuels adaptés à la période de paie
+Les téléchargements Excel/PDF utilisent les bornes réelles de `periode_paie`, même à cheval sur deux mois. Le paramètre `period` d’une vue exploratoire ne remplace pas ces bornes ; une période inexistante produit `POINTAGE_PERIOD_CONTEXT_REQUIRED`. Les modèles sont des supports de présentation adaptables : les lignes inutilisées sont retirées, les jours supplémentaires conservés, et seules les indemnités présentes sont affichées en colonnes. Le PDF répartit les colonnes d’indemnités sur plusieurs groupes si nécessaire. Une colonne inutilisée n’est pas exportée. Le journal montre les quantités accordées ; le récapitulatif montre les montants backend. Les seules formules Excel sont les sommes de présentation du journal.

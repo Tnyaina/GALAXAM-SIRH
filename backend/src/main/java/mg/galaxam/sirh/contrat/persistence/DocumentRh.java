@@ -15,6 +15,8 @@ public class DocumentRh extends ClassMere {
     private Integer idDocument;
     private Integer idEmploye;
     private Integer idTypeDocument;
+    private Integer idContrat;
+    private Integer idWorkflow;
 
     private String nomOriginal;
     private String nomStockage;
@@ -57,13 +59,14 @@ public class DocumentRh extends ClassMere {
         if (cheminFichier == null || cheminFichier.isBlank()) {
             throw new IllegalArgumentException("Le chemin du fichier est obligatoire.");
         }
+        mg.galaxam.sirh.contrat.application.DocumentRhService.validerLiaisonsDocument(idEmploye, idTypeDocument, idContrat, idWorkflow, c);
     }
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO document_rh (" +
-                "id_employe, id_type_document, nom_original, nom_stockage, chemin_fichier, extension, taille_octet, date_document, commentaire, uploaded_by" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_document";
+                "id_employe, id_type_document, nom_original, nom_stockage, chemin_fichier, extension, taille_octet, date_document, commentaire, uploaded_by, id_contrat, id_workflow" +
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_document";
 
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
@@ -76,6 +79,8 @@ public class DocumentRh extends ClassMere {
             ps.setDate(8, dateDocument);
             ps.setString(9, commentaire);
             ps.setObject(10, uploadedBy);
+            ps.setObject(11, idContrat, java.sql.Types.INTEGER);
+            ps.setObject(12, idWorkflow, java.sql.Types.INTEGER);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -89,14 +94,16 @@ public class DocumentRh extends ClassMere {
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
         String sql = "UPDATE document_rh SET " +
-                "id_type_document = ?, date_document = ?, commentaire = ?, updated_at = CURRENT_TIMESTAMP " +
+                "id_type_document = ?, date_document = ?, commentaire = ?, id_contrat = ?, id_workflow = ?, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_document = ?";
 
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idTypeDocument);
             ps.setDate(2, dateDocument);
             ps.setString(3, commentaire);
-            ps.setInt(4, idDocument);
+            ps.setObject(4, idContrat, java.sql.Types.INTEGER);
+            ps.setObject(5, idWorkflow, java.sql.Types.INTEGER);
+            ps.setInt(6, idDocument);
 
             ps.executeUpdate();
         }
@@ -150,6 +157,8 @@ public class DocumentRh extends ClassMere {
         d.setIdDocument(rs.getInt("id_document"));
         d.setIdEmploye(rs.getInt("id_employe"));
         d.setIdTypeDocument(rs.getInt("id_type_document"));
+        d.setIdContrat((Integer) rs.getObject("id_contrat"));
+        d.setIdWorkflow((Integer) rs.getObject("id_workflow"));
         d.setNomOriginal(rs.getString("nom_original"));
         d.setNomStockage(rs.getString("nom_stockage"));
         d.setCheminFichier(rs.getString("chemin_fichier"));
@@ -162,6 +171,11 @@ public class DocumentRh extends ClassMere {
         d.setUpdatedAt(rs.getTimestamp("updated_at"));
         return d;
     }
+
+    public Integer getIdContrat() { return idContrat; }
+    public void setIdContrat(Integer value) { idContrat = value; }
+    public Integer getIdWorkflow() { return idWorkflow; }
+    public void setIdWorkflow(Integer value) { idWorkflow = value; }
 
     // Getters and Setters
     public Integer getIdDocument() { return idDocument; }
