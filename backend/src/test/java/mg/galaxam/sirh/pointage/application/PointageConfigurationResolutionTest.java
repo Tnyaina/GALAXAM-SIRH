@@ -19,38 +19,36 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PointageConfigurationResolutionTest {
 
     @Test
-    void disabledMealTierDoesNotUseThresholdOrAmountFallback() {
+    void secondMealIsIndependentOfFirstMealAndUsesOnlyOneTier() {
         Map<String, ParametreGlobal.ParametreEtat> params = Map.of(
-                "SEUIL_2ND_REPAS_1", new ParametreGlobal.ParametreEtat("SEUIL_2ND_REPAS_1", null, false, true),
-                "MONTANT_2ND_REPAS_1", new ParametreGlobal.ParametreEtat("MONTANT_2ND_REPAS_1", "2000", true, true));
-
-        PointageService.MealTier tier = PointageService.resolveMealTier(
-                params, "SEUIL_2ND_REPAS_1", "MONTANT_2ND_REPAS_1");
-
-        assertNull(tier.threshold());
-        assertEquals(BigDecimal.ZERO, tier.amount());
+                "SEUIL_2ND_REPAS_1", new ParametreGlobal.ParametreEtat("SEUIL_2ND_REPAS_1", "19:30", true, true),
+                "MONTANT_2ND_REPAS_1", new ParametreGlobal.ParametreEtat("MONTANT_2ND_REPAS_1", "2000", true, true),
+                "SEUIL_2ND_REPAS_2", new ParametreGlobal.ParametreEtat("SEUIL_2ND_REPAS_2", "21:00", true, true),
+                "MONTANT_2ND_REPAS_2", new ParametreGlobal.ParametreEtat("MONTANT_2ND_REPAS_2", "4000", true, true));
+        var first = PointageService.resolveMealTier(params, "SEUIL_2ND_REPAS_1", "MONTANT_2ND_REPAS_1");
+        var second = PointageService.resolveMealTier(params, "SEUIL_2ND_REPAS_2", "MONTANT_2ND_REPAS_2");
+        assertNull(PointageService.resolveSecondMealAward(false, LocalTime.of(19, 29), first, second));
+        var normal = PointageService.resolveSecondMealAward(false, LocalTime.of(19, 30), first, second);
+        assertEquals("REPAS_2", normal.code());
+        assertEquals(new BigDecimal("2000"), normal.amount());
+        var major = PointageService.resolveSecondMealAward(false, LocalTime.of(21, 0), first, second);
+        assertEquals("REPAS_2_MAJORE", major.code());
+        assertEquals(new BigDecimal("4000"), major.amount());
+        assertNull(PointageService.resolveSecondMealAward(true, LocalTime.of(21, 0), first, second));
     }
 
     @Test
-    void missingMealTierConfigurationIsNotTreatedAsDisabledOrDefaulted() {
-        Map<String, ParametreGlobal.ParametreEtat> params = Map.of(
-                "MONTANT_2ND_REPAS_1", new ParametreGlobal.ParametreEtat("MONTANT_2ND_REPAS_1", "2000", true, true));
-
+    void disabledMealTierHasNoFallbackButMissingActiveConfigurationFails() {
+        Map<String, ParametreGlobal.ParametreEtat> disabled = Map.of(
+                "SEUIL_2ND_REPAS_1", new ParametreGlobal.ParametreEtat("SEUIL_2ND_REPAS_1", "19:30", true, true),
+                "MONTANT_2ND_REPAS_1", new ParametreGlobal.ParametreEtat("MONTANT_2ND_REPAS_1", "2000", false, true));
+        var first = PointageService.resolveMealTier(disabled, "SEUIL_2ND_REPAS_1", "MONTANT_2ND_REPAS_1");
+        assertNull(first.threshold());
+        assertEquals(BigDecimal.ZERO, first.amount());
+        assertNull(PointageService.resolveSecondMealAward(false, LocalTime.of(20, 0), first,
+                new PointageService.MealTier(null, BigDecimal.ZERO)));
         assertThrows(SirhBusinessException.class, () -> PointageService.resolveMealTier(
-                params, "SEUIL_2ND_REPAS_1", "MONTANT_2ND_REPAS_1"));
-    }
-
-    @Test
-    void activeMealTierUsesConfiguredThreshold() {
-        Map<String, ParametreGlobal.ParametreEtat> params = Map.of(
-                "SEUIL_2ND_REPAS_1", new ParametreGlobal.ParametreEtat("SEUIL_2ND_REPAS_1", "19:45", true, true),
-                "MONTANT_2ND_REPAS_1", new ParametreGlobal.ParametreEtat("MONTANT_2ND_REPAS_1", "2000", true, true));
-
-        PointageService.MealTier tier = PointageService.resolveMealTier(
-                params, "SEUIL_2ND_REPAS_1", "MONTANT_2ND_REPAS_1");
-
-        assertEquals(LocalTime.of(19, 45), tier.threshold());
-        assertEquals(new BigDecimal("2000"), tier.amount());
+                Map.of(), "SEUIL_2ND_REPAS_1", "MONTANT_2ND_REPAS_1"));
     }
 
     @Test

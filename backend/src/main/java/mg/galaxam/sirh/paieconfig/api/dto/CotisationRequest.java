@@ -10,6 +10,8 @@ public class CotisationRequest {
     private BigDecimal tauxPatronal;
     private Date dateDebut;
     private Date dateFin;
+    private String portee;
+    private String categorie;
 
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
@@ -23,4 +25,8 @@ public class CotisationRequest {
     public void setDateDebut(Date dateDebut) { this.dateDebut = dateDebut; }
     public Date getDateFin() { return dateFin; }
     public void setDateFin(Date dateFin) { this.dateFin = dateFin; }
+    public String getPortee() { return portee; }
+    public void setPortee(String portee) { this.portee = portee; }
+    public String getCategorie() { return categorie; }
+    public void setCategorie(String categorie) { this.categorie = categorie; }
 }

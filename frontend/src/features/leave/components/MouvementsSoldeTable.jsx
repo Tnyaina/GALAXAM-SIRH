@@ -34,7 +34,7 @@ const getMouvementLabel = (type, commentaire) => {
     case 'PRISE': return 'Prise de congé';
     case 'AJUSTEMENT': return 'Ajustement manuel RH';
     case 'ANNULATION': return 'Annulation de demande';
-    case 'EXPIRATION': return 'Prescription triennale';
+    case 'EXPIRATION': return 'Expiration confirmée après examen';
     default: return type;
   }
 };

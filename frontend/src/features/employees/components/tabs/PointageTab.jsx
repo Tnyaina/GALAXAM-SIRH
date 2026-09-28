@@ -255,6 +255,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
         .map((allowance) => [allowance.code, {
             code: allowance.code,
             periodicite: allowance.periodicite,
+            libelle: allowance.libelle,
         }]);
     const recordedAllowances = pointages.flatMap((pointage) => Object.values(pointage.indemnites || {})
         .map((allowance) => [allowance.code, { code: allowance.code }]));
@@ -672,7 +673,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     {dynamicAllowances.map((allowance) => (
                                         <Th key={allowance.code} className="text-xs font-bold uppercase py-3 px-2 text-center border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10" title={allowance.code}>
                                             <span className="flex flex-col items-center">
-                                                <span>{allowance.code}</span>
+                                                <span>{allowance.libelle || allowance.code}</span>
                                                 {allowance.periodicite && (
                                                     <span className="text-[9px] font-normal normal-case opacity-75">
                                                         {allowance.periodicite.replaceAll('_', ' ').toLowerCase()}
@@ -1109,7 +1110,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     {dynamicAllowances.map((allowance) => (
                                         <div key={allowance.code} className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-between gap-2">
                                             <div className="min-w-0">
-                                                <div className="text-xs font-bold text-[var(--color-fg)] font-mono">{allowance.code}</div>
+                                                <div className="text-xs font-bold text-[var(--color-fg)]">{allowance.libelle || allowance.code}</div>
                                                 {allowance.periodicite && (
                                                     <div className="text-[11px] text-[var(--color-fg-muted)]">
                                                         {allowance.periodicite.replaceAll('_', ' ').toLowerCase()}

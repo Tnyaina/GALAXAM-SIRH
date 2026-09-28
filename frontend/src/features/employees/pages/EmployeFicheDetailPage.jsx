@@ -29,6 +29,8 @@ const EmployePaieTab = lazy(() => import('@/features/employees/components/tabs/E
 const UploadDocumentModal = lazy(() => import('@/features/employees/components/tabs/UploadDocumentModal'));
 import SEO from '@/components/system/SEO';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import SlideOver from '@/components/ui/overlays/SlideOver';
+import EmployeSideSummaryPanel from '@/features/employees/components/EmployeSideSummaryPanel';
 
 const TabLoader = () => (
     <div className="p-6">
@@ -45,6 +47,7 @@ export default function EmployeFicheDetailPage() {
     const [detailData, setDetailData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [isSummaryOpen, setIsSummaryOpen] = useState(false);
     const toast = useToast();
 
     const [searchParams, setSearchParams] = useSearchParams();
@@ -164,6 +167,17 @@ export default function EmployeFicheDetailPage() {
             setLoading(false);
         }
     }, [id, loadEmployeDetail, loadDocuments, loadTypesDoc]);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.shiftKey && (e.key === 'S' || e.key === 's') && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
+                e.preventDefault();
+                setIsSummaryOpen(prev => !prev);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const handleSaveForm = async (formData) => {
         if (submitting) return;
@@ -342,6 +356,7 @@ export default function EmployeFicheDetailPage() {
                     onEdit={() => setIsFormOpen(true)}
                     onDesactiver={() => setIsDesactivationModalOpen(true)}
                     onReactiver={() => setIsReactiverModalOpen(true)}
+                    onOpenSummary={() => setIsSummaryOpen(true)}
                 />
 
                 {/* Bandeau d'orientation post-création si pas de contrat actif */}
@@ -564,6 +579,27 @@ export default function EmployeFicheDetailPage() {
                 variant="danger"
                 loading={submitting}
             />
+
+            {/* Volet Latéral Coulissant Synthèse Collaborateur (SlideOver KISS) */}
+            <SlideOver
+                isOpen={isSummaryOpen}
+                onClose={() => setIsSummaryOpen(false)}
+                title="Synthèse Collaborateur"
+                subtitle={`${emp?.nomComplet || `${emp?.nom || ''} ${emp?.prenom || ''}`.trim() || 'Collaborateur'}${emp?.matricule ? ` (#${emp.matricule})` : ''} · ${emp?.nomFonction || 'Poste non renseigné'}`}
+                icon={<User size={18} />}
+                width="lg"
+            >
+                <EmployeSideSummaryPanel
+                    emp={emp}
+                    documentsCount={documentsData.documents.length}
+                    activeTab={activeTab}
+                    onNavigateTab={(tabId) => {
+                        handleTabChange(tabId);
+                        setIsSummaryOpen(false);
+                    }}
+                    canWrite={canWrite}
+                />
+            </SlideOver>
         </div>
     );
 }

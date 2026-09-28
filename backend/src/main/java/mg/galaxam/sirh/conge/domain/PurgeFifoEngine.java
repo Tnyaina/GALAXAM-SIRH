@@ -6,7 +6,7 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 /**
- * Moteur mathématique d'imputation des congés et de purge triennale selon la règle canonique RG-CONGE-06.
+ * Moteur mathématique d'imputation FIFO des droits de congé et de calcul des reliquats disponibles.
  *
  * Règles d'imputation canoniques (Phase 2A-3D) :
  * - PRIORITÉ 1 : Stock historique repris dont l'âge réel est inconnu ([SOLDE_INITIAL]).
@@ -318,8 +318,8 @@ public class PurgeFifoEngine {
     }
 
     /**
-     * Calcule la purge FIFO exacte pour les droits datés prescrits encore disponibles.
-     * Ne purge JAMAIS le stock historique et ne purge JAMAIS une fraction datée déjà consommée.
+     * Calcule le reliquat FIFO des droits datés à une échéance donnée.
+     * N'inclut pas le stock historique d'ancienneté inconnue ni les fractions datées déjà consommées.
      */
     public double calculerJoursAExpierFifo(
             ImputationResult imputation,

@@ -105,6 +105,23 @@ public class CongeService {
         }
     }
 
+    /** Retourne null si le plafond est volontairement désactivé ; une configuration absente/invalide est bloquante. */
+    private BigDecimal resoudrePlafondCumulConges(
+            java.util.Map<String, ParametreGlobal.ParametreEtat> parametres) {
+        var resolution = ParametreGlobal.resolve(parametres, "PLAFOND_CUMUL_SOLDE_CONGE_JOURS");
+        if (resolution.isMissing()) {
+            throw new IllegalStateException("Le paramètre PLAFOND_CUMUL_SOLDE_CONGE_JOURS est absent.");
+        }
+        if (resolution.isDisabled()) return null;
+        try {
+            BigDecimal plafond = new BigDecimal(resolution.valeur().trim());
+            if (plafond.signum() <= 0) throw new NumberFormatException("Le plafond doit être positif.");
+            return plafond;
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("Le paramètre actif PLAFOND_CUMUL_SOLDE_CONGE_JOURS est invalide.", e);
+        }
+    }
+
     public mg.galaxam.sirh.conge.domain.PurgeFifoEngine getPurgeFifoEngine() {
         return this.purgeFifoEngine;
     }
@@ -193,13 +210,9 @@ public class CongeService {
         LocalDate dateAcqRef = LocalDate.of(annee, mois, 1);
         BigDecimal droitMois = calculerDroitAcquis(absencesInjustifiees, dateAcqRef, c);
 
-        // Respect du plafond légal de cumul (par défaut 90j)
-        try {
-            java.util.Map<String, mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.ParametreEtat> etatMap =
-                    mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.loadEtatMap(c);
-            BigDecimal plafondCumulSolde = BigDecimal.valueOf(
-                    mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.getDouble(etatMap, "PLAFOND_CUMUL_SOLDE_CONGE_JOURS", 90.0, 90.0));
-
+        java.util.Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMap(c);
+        BigDecimal plafondCumulSolde = resoudrePlafondCumulConges(etatMap);
+        if (plafondCumulSolde != null) {
             VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
             BigDecimal soldeActuel = (solde != null && solde.getSoldeActuel() != null) ? solde.getSoldeActuel() : BigDecimal.ZERO;
 
@@ -208,8 +221,6 @@ public class CongeService {
             } else if (soldeActuel.add(droitMois).compareTo(plafondCumulSolde) > 0) {
                 droitMois = plafondCumulSolde.subtract(soldeActuel);
             }
-        } catch (Exception e) {
-            // fallback non bloquant
         }
 
         // Protection anti-duplication au cutover (Phase 2A-3B) :
@@ -293,16 +304,33 @@ public class CongeService {
     private record ContratActif(int idEmploye, LocalDate dateDebut) {}
     private record MouvementDroit(String type, LocalDate date, double jours) {}
 
+    static int entierBonificationPositif(
+            java.util.Map<String, ParametreGlobal.ParametreEtat> params, String code) {
+        var etat = ParametreGlobal.resolve(params, code);
+        try {
+            int valeur = Integer.parseInt(etat.valeur().trim());
+            if (valeur > 0) return valeur;
+        } catch (RuntimeException ignored) { }
+        throw new IllegalStateException("Paramètre de bonification actif invalide : " + code);
+    }
+
     /** Bonification mensuelle ; l'acquisition est enregistrée à la clôture de la paie. */
     public int executerBonificationMensuelle(LocalDate dateReference, Connection c) throws Exception {
         LocalDate ref = dateReference != null ? dateReference : LocalDate.now();
         boolean dernierJourMois = ref.plusDays(1).getMonth() != ref.getMonth();
         java.util.Map<String, ParametreGlobal.ParametreEtat> params = ParametreGlobal.loadEtatMap(c);
-        double plafond = ParametreGlobal.getDouble(params, "PLAFOND_CUMUL_SOLDE_CONGE_JOURS", 90.0, 90.0);
-        boolean bonusActif = ParametreGlobal.isActif(params, "SEUIL_ANCIENNETE_BONIFICATION_ANS", true);
-        int seuil = bonusActif ? ParametreGlobal.getInt(params, "SEUIL_ANCIENNETE_BONIFICATION_ANS", 5, 999) : 999;
-        int palier = ParametreGlobal.getInt(params, "PALIER_ANNEES_BONIFICATION", 5, 5);
-        int joursPalier = bonusActif ? ParametreGlobal.getInt(params, "JOURS_BONIFICATION_PAR_PALIER", 1, 0) : 0;
+        BigDecimal plafond = resoudrePlafondCumulConges(params);
+        String[] codesBonification = {"SEUIL_ANCIENNETE_BONIFICATION_ANS",
+                "PALIER_ANNEES_BONIFICATION", "JOURS_BONIFICATION_PAR_PALIER"};
+        boolean bonusActif = true;
+        for (String code : codesBonification) {
+            var etat = ParametreGlobal.resolve(params, code);
+            if (etat.isMissing()) throw new IllegalStateException("Paramètre de bonification absent : " + code);
+            if (etat.isDisabled()) bonusActif = false;
+        }
+        int seuil = bonusActif ? entierBonificationPositif(params, codesBonification[0]) : Integer.MAX_VALUE;
+        int palier = bonusActif ? entierBonificationPositif(params, codesBonification[1]) : 1;
+        int joursPalier = bonusActif ? entierBonificationPositif(params, codesBonification[2]) : 0;
 
         java.util.List<ContratActif> contrats = new java.util.ArrayList<>();
         String sqlContrats = "SELECT ct.id_employe, ct.date_debut FROM contrat_travail ct " +
@@ -339,8 +367,13 @@ public class CongeService {
                 boolean anniversaireAtteint = ref.getMonthValue() >= contrat.dateDebut().getMonthValue();
                 boolean dejaBonifie = mouvements.stream().anyMatch(m -> "BONIFICATION".equals(m.type())
                         && m.date().getYear() == ref.getYear());
-                if (bonus > 0 && anniversaireAtteint && !dejaBonifie && solde < plafond) {
-                    double aCrediter = Math.min(bonus, Math.max(0.0, plafond - solde));
+                boolean plafondAtteint = plafond != null
+                        && BigDecimal.valueOf(solde).compareTo(plafond) >= 0;
+                if (bonus > 0 && anniversaireAtteint && !dejaBonifie && !plafondAtteint) {
+                    double aCrediter = bonus;
+                    if (plafond != null) {
+                        aCrediter = Math.min(bonus, Math.max(0.0, plafond.doubleValue() - solde));
+                    }
                     if (aCrediter > 0) {
                         MouvementSoldeConge mouvement = new MouvementSoldeConge();
                         mouvement.setIdEmploye(contrat.idEmploye());
@@ -684,10 +717,20 @@ public class CongeService {
                 if (!d.isDerogationSoldeNegatif()) {
                     throw new IllegalArgumentException("Solde de congé insuffisant. Dérogation requise.");
                 }
-                if (!ParametreGlobal.isActif(params, "PLAFOND_SOLDE_CONGE_NEGATIF", true)) {
+                var anticipation = ParametreGlobal.resolve(params, "PLAFOND_SOLDE_CONGE_NEGATIF");
+                if (anticipation.isMissing()) {
+                    throw new IllegalStateException("Paramètre de congé absent : PLAFOND_SOLDE_CONGE_NEGATIF");
+                }
+                if (anticipation.isDisabled()) {
                     throw new IllegalArgumentException("La prise de congés par anticipation est désactivée.");
                 }
-                int plafond = ParametreGlobal.getInt(params, "PLAFOND_SOLDE_CONGE_NEGATIF", -10, 0);
+                int plafond;
+                try {
+                    plafond = Integer.parseInt(anticipation.valeur().trim());
+                    if (plafond >= 0) throw new NumberFormatException();
+                } catch (RuntimeException e) {
+                    throw new IllegalStateException("Paramètre de congé actif invalide : PLAFOND_SOLDE_CONGE_NEGATIF", e);
+                }
                 if (projete.compareTo(BigDecimal.valueOf(plafond)) < 0) {
                     throw new IllegalArgumentException("Le plafond de solde négatif autorisé est dépassé.");
                 }
@@ -708,11 +751,21 @@ public class CongeService {
                 }
                 throw e;
             }
-            int seuil = ParametreGlobal.getInt(params, "SEUIL_ALERTE_SOLDE_CONGE_FAIBLE", 3, 0);
+            var alerte = ParametreGlobal.resolve(params, "SEUIL_ALERTE_SOLDE_CONGE_FAIBLE");
+            if (alerte.isMissing()) throw new IllegalStateException("Paramètre de congé absent : SEUIL_ALERTE_SOLDE_CONGE_FAIBLE");
+            int seuil = 0;
+            if (alerte.isActive()) {
+                try {
+                    seuil = Integer.parseInt(alerte.valeur().trim());
+                    if (seuil < 0) throw new NumberFormatException();
+                } catch (RuntimeException e) {
+                    throw new IllegalStateException("Paramètre de congé actif invalide : SEUIL_ALERTE_SOLDE_CONGE_FAIBLE", e);
+                }
+            }
             if (projete.signum() < 0) {
                 NotificationRhService.creer(c, "SOLDE_CONGE_NEGATIF", "HAUTE", "Solde négatif sous dérogation",
                         "Le solde est passé à " + projete + " jour(s).", "/conges/soldes", d.getIdEmploye());
-            } else if (ParametreGlobal.isActif(params, "SEUIL_ALERTE_SOLDE_CONGE_FAIBLE", true)
+            } else if (alerte.isActive()
                     && projete.compareTo(BigDecimal.valueOf(seuil)) <= 0) {
                 NotificationRhService.creer(c, "SOLDE_CONGE_FAIBLE", "NORMALE", "Solde de congé faible",
                         "Le solde disponible est de " + projete + " jour(s).", "/conges/soldes", d.getIdEmploye());

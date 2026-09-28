@@ -47,6 +47,45 @@ class CongeLedgerIntegrationTest {
     private int employeId;
     private int typeAnnuelId;
 
+    @Test
+    void palierBonificationDesactiveNeReintroduitPasUnPalierParDefaut() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE contrat_travail SET date_debut = ? WHERE id_employe = ?")) {
+                    ps.setDate(1, Date.valueOf("2010-01-01"));
+                    ps.setInt(2, employeId);
+                    ps.executeUpdate();
+                }
+                var beforeActive = c.setSavepoint();
+                congeService.executerBonificationMensuelle(LocalDate.of(2026, 9, 30), c);
+                assertTrue(nombreBonifications(c) > 0, "La règle active doit créditer la bonification");
+                c.rollback(beforeActive);
+
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE parametre_global SET est_actif = FALSE WHERE code_parametre = 'PALIER_ANNEES_BONIFICATION'")) {
+                    ps.executeUpdate();
+                }
+                congeService.executerBonificationMensuelle(LocalDate.of(2026, 9, 30), c);
+                assertEquals(0, nombreBonifications(c));
+            } finally {
+                c.rollback();
+            }
+        }
+    }
+
+    private int nombreBonifications(Connection c) throws Exception {
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT count(*) FROM mouvement_solde_conge WHERE id_employe = ? AND type_mouvement = 'BONIFICATION'")) {
+            ps.setInt(1, employeId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        }
+    }
+
     @BeforeEach
     void setUp() throws Exception {
         try (Connection c = dataSource.getConnection()) {
@@ -97,6 +136,49 @@ class CongeLedgerIntegrationTest {
             VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(employeId, c);
             assertNotNull(solde);
             assertEquals(0, new BigDecimal("2.5").compareTo(solde.getSoldeActuel()));
+        }
+    }
+
+    @Test
+    @DisplayName("21. Plafond cumul congés : actif, désactivé sans repli, configuration absente bloquante")
+    void testPlafondCumulOptionnelSansFallback() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                CongeTestFixtureHelper.crediterSolde(c, employeId, 89.0, "Solde avant plafond optionnel");
+
+                try (PreparedStatement ps = c.prepareStatement("UPDATE parametre_global SET est_actif = TRUE "
+                        + "WHERE code_parametre = 'PLAFOND_CUMUL_SOLDE_CONGE_JOURS' "
+                        + "AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE)")) {
+                    assertEquals(1, ps.executeUpdate());
+                }
+                BigDecimal acquisSousPlafond = congeService.enregistrerAcquisitionMensuelle(
+                        employeId, 2026, 3, BigDecimal.ZERO, adminUserId, c);
+                assertEquals(0, new BigDecimal("1.00").compareTo(acquisSousPlafond));
+
+                try (PreparedStatement ps = c.prepareStatement("UPDATE parametre_global SET est_actif = FALSE "
+                        + "WHERE code_parametre = 'PLAFOND_CUMUL_SOLDE_CONGE_JOURS' "
+                        + "AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE)")) {
+                    assertEquals(1, ps.executeUpdate());
+                }
+                BigDecimal acquisSansPlafond = congeService.enregistrerAcquisitionMensuelle(
+                        employeId, 2026, 4, BigDecimal.ZERO, adminUserId, c);
+                assertEquals(0, new BigDecimal("2.50").compareTo(acquisSansPlafond));
+                assertEquals(0, new BigDecimal("92.50").compareTo(
+                        VSoldeCongeEmploye.rechercherParEmploye(employeId, c).getSoldeActuel()));
+
+                try (PreparedStatement ps = c.prepareStatement("DELETE FROM parametre_global "
+                        + "WHERE code_parametre = 'PLAFOND_CUMUL_SOLDE_CONGE_JOURS' "
+                        + "AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE)")) {
+                    assertEquals(1, ps.executeUpdate());
+                }
+                assertThrows(IllegalStateException.class, () -> congeService.enregistrerAcquisitionMensuelle(
+                        employeId, 2026, 5, BigDecimal.ZERO, adminUserId, c));
+                c.rollback();
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
         }
     }
 

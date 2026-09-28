@@ -79,13 +79,14 @@ export default function CongeExpirationReviewCard({ idEmploye, canValidate = fal
   const jours = Number(data?.joursAExaminer || 0);
   const reporte = data?.derniereDecision === 'REPORTE' && data?.prochaineDateExamen > data?.dateReference;
   const expire = data?.derniereDecision === 'EXPIRE';
+  const aucunDroitAExaminer = jours <= 0 && !data?.derniereDecision;
   const dateMinimum = new Date();
   dateMinimum.setDate(dateMinimum.getDate() + 1);
   const minDate = new Date(dateMinimum.getTime() - dateMinimum.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
   if (loading) return <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-4"><Loading size="sm" label="Vérification des droits à échéance…" /></div>;
   if (error && !data) return <Alert type="error" title="Examen des droits indisponible" message={error} />;
-  if (!data || (jours <= 0 && !data.derniereDecision)) return null;
+  if (!data || (aucunDroitAExaminer && !canValidate)) return null;
 
   return (
     <section className="border border-[var(--color-warning-500)]/40 bg-[var(--color-surface)]" aria-label="Droits de congé à examiner">
@@ -94,9 +95,11 @@ export default function CongeExpirationReviewCard({ idEmploye, canValidate = fal
           <AlertTriangle size={19} className="mt-0.5 shrink-0 text-[var(--color-warning-500)]" />
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-bold text-[var(--color-fg)]">{jours > 0 ? 'Droits à examiner' : 'Historique d’examen des droits'}</h3>
-              <Badge variant={reporte ? 'warning' : expire ? 'success' : 'danger'}>
-                {reporte ? 'Examen reporté' : expire ? 'Expiration confirmée' : 'Échéance atteinte'}
+              <h3 className="text-sm font-bold text-[var(--color-fg)]">
+                {jours > 0 ? 'Droits à examiner' : aucunDroitAExaminer ? 'Examen des droits de congé' : 'Historique d’examen des droits'}
+              </h3>
+              <Badge variant={reporte ? 'warning' : expire || aucunDroitAExaminer ? 'success' : 'danger'}>
+                {reporte ? 'Examen reporté' : expire ? 'Expiration confirmée' : aucunDroitAExaminer ? 'Aucun droit à examiner' : 'Échéance atteinte'}
               </Badge>
             </div>
             {jours > 0 ? (
@@ -106,7 +109,9 @@ export default function CongeExpirationReviewCard({ idEmploye, canValidate = fal
               </p>
             ) : (
               <p className="text-xs text-[var(--color-fg-muted)]">
-                Aucun droit n’est actuellement à examiner. La dernière décision reste conservée dans le registre.
+                {aucunDroitAExaminer
+                  ? <>Aucun reliquat disponible n’a atteint le délai configuré de <strong className="text-[var(--color-fg)]">{data.delaiPrescriptionMois} mois</strong>. Les droits sans date d’acquisition vérifiable ne sont pas expirés automatiquement.</>
+                  : 'Aucun droit n’est actuellement à examiner. La dernière décision reste conservée dans le registre.'}
               </p>
             )}
             {reporte && (

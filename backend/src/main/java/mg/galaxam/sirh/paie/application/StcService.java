@@ -416,7 +416,7 @@ public class StcService {
                 "FROM site_cotisation sc " +
                 "JOIN ref_site s ON sc.id_site = s.id_site " +
                 "JOIN ref_type_cotisation tc ON sc.id_type_cotisation = tc.id_type_cotisation " +
-                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) AND tc.code != 'CNAPS' AND sc.est_actif = true LIMIT 1";
+                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) AND (tc.categorie = 'SANTE' OR (tc.code != 'CNAPS' AND tc.code != 'FMFP')) AND sc.est_actif = true LIMIT 1";
         try (PreparedStatement psCs = c.prepareStatement(sqlCotisSante)) {
             psCs.setString(1, prep.getCodeSite() != null ? prep.getCodeSite() : "");
             psCs.setString(2, "%" + (prep.getSite() != null ? prep.getSite().toUpperCase() : "") + "%");

@@ -1839,16 +1839,6 @@ public class PointageSyntheseService {
                     details, List.of());
         }
 
-        boolean actif2eRepas1 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_1", true);
-        BigDecimal montant2eRepas1 = actif2eRepas1 ? ParametreGlobal.getBigDecimal(etatMap, "MONTANT_2ND_REPAS_1", null, BigDecimal.ZERO) : BigDecimal.ZERO;
-        if (actif2eRepas1 && montant2eRepas1 == null) throw new SirhBusinessException(
-                SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING, "Configuration d'indemnité absente : MONTANT_2ND_REPAS_1.");
-
-        boolean actif2eRepas2 = ParametreGlobal.isActif(etatMap, "SEUIL_2ND_REPAS_2", true);
-        BigDecimal montant2eRepas2 = actif2eRepas2 ? ParametreGlobal.getBigDecimal(etatMap, "MONTANT_2ND_REPAS_2", null, BigDecimal.ZERO) : BigDecimal.ZERO;
-        if (actif2eRepas2 && montant2eRepas2 == null) throw new SirhBusinessException(
-                SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING, "Configuration d'indemnité absente : MONTANT_2ND_REPAS_2.");
-
         // Compter les jours ouvrés du tronçon via le moteur centralisé
         int nbOuvrables = (calendrierEngine != null)
                 ? calendrierEngine.compterJoursOuvrables(dateDebutTroncon, dateFinTroncon, idSite, c)

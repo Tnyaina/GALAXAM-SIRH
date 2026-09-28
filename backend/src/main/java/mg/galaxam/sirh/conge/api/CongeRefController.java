@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -135,7 +136,13 @@ public class CongeRefController {
         }
     }
 
-    @RequestMapping(value = {"/types/{id}", "/types/{id}/desactiver"}, method = {RequestMethod.DELETE, RequestMethod.PUT})
+    @DeleteMapping("/types/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> deleteTypeConge(@PathVariable Integer id) {
+        return deactivateTypeConge(id);
+    }
+
+    @PutMapping("/types/{id}/desactiver")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deactivateTypeConge(@PathVariable Integer id) {
         try (Connection c = dataSource.getConnection()) {
@@ -208,7 +215,13 @@ public class CongeRefController {
         }
     }
 
-    @RequestMapping(value = {"/motifs/{id}", "/motifs/{id}/desactiver"}, method = {RequestMethod.DELETE, RequestMethod.PUT})
+    @DeleteMapping("/motifs/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> deleteMotifFamilial(@PathVariable Integer id) {
+        return deactivateMotifFamilial(id);
+    }
+
+    @PutMapping("/motifs/{id}/desactiver")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> deactivateMotifFamilial(@PathVariable Integer id) {
         try (Connection c = dataSource.getConnection()) {

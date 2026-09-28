@@ -146,6 +146,8 @@ CREATE TABLE pointage_jour (
     utilise_vehicule_fonction_jour BOOLEAN DEFAULT FALSE,
     horaire_continu_jour BOOLEAN,
     montant_total_indemnites NUMERIC(12,2) DEFAULT 0,
+    code_second_repas VARCHAR(20),
+    montant_second_repas NUMERIC(12,2) NOT NULL DEFAULT 0,
     motif_ajustement TEXT,
     saisi_par INTEGER REFERENCES utilisateur(id_utilisateur),
     ajuste_par_daf BOOLEAN DEFAULT FALSE,
@@ -156,7 +158,8 @@ CREATE TABLE pointage_jour (
     version INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_pointage_employe_jour UNIQUE (id_employe, date_pointage)
+    CONSTRAINT uk_pointage_employe_jour UNIQUE (id_employe, date_pointage),
+    CONSTRAINT ck_pointage_second_repas_code CHECK (code_second_repas IS NULL OR code_second_repas IN ('REPAS_2', 'REPAS_2_MAJORE'))
 );
 
 CREATE INDEX idx_pointage_employe ON pointage_jour(id_employe);

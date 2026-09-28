@@ -348,8 +348,10 @@ public class PointageEmployeService {
 
         String sqlPointage = "SELECT p.id_pointage, p.id_site, p.version, p.date_pointage, p.heure_entree_matin, p.heure_sortie_matin, " +
                 "p.heure_entree_am, p.heure_sortie_am, p.total_heures, p.heures_nuit, p.minutes_retard, " +
-                "p.horaire_continu_jour, p.motif_ajustement, p.montant_total_indemnites, s.code AS code_statut, " +
-                "pij_repas.accorde AS repas_accorde, pij_repas.montant_calcule AS repas_montant, " +
+                "p.horaire_continu_jour, p.motif_ajustement, p.montant_total_indemnites, " +
+                "p.code_second_repas, p.montant_second_repas, s.code AS code_statut, " +
+                "pij_repas.accorde AS repas_accorde, pij_repas.quantite AS repas_quantite, " +
+                "pij_repas.montant_calcule AS repas_montant, " +
                 "pij_dep.accorde AS dep_accorde, pij_dep.quantite AS dep_quantite, pij_dep.fraction AS dep_fraction, " +
                 "pij_dep.montant_calcule AS dep_montant " +
                 "FROM pointage_jour p " +
@@ -404,8 +406,12 @@ public class PointageEmployeService {
                         r.deplacementAm = false;
                     }
 
-                    r.indemniteRepasRecue = Boolean.TRUE.equals(rs.getObject("repas_accorde"));
-                    r.montantRepas = zeroIfNull(rs.getBigDecimal("repas_montant"));
+                    r.codeSecondRepas = rs.getString("code_second_repas");
+                    r.montantSecondRepas = zeroIfNull(rs.getBigDecimal("montant_second_repas"));
+                    r.indemniteRepasRecue = Boolean.TRUE.equals(rs.getObject("repas_accorde"))
+                            && zeroIfNull(rs.getBigDecimal("repas_quantite")).signum() > 0;
+                    r.montantRepas = zeroIfNull(rs.getBigDecimal("repas_montant"))
+                            .subtract(r.montantSecondRepas).max(BigDecimal.ZERO);
                     r.montantDeplacement = zeroIfNull(rs.getBigDecimal("dep_montant"));
                     r.codeStatut = rs.getString("code_statut");
                     pointageMap.put(r.datePointage, r);
@@ -443,6 +449,16 @@ public class PointageEmployeService {
                     mg.galaxam.sirh.common.exception.SirhErrorCode.POINTAGE_EXPORT_SOURCE_UNAVAILABLE);
         }
 
+        for (PointageRecord record : pointageMap.values()) {
+            if (record.codeSecondRepas != null) {
+                record.indemnites.put("REPAS", new PointageJourDTO.IndemniteJourDTO(
+                        "REPAS", record.indemniteRepasRecue, record.montantRepas,
+                        record.indemniteRepasRecue ? BigDecimal.ONE : BigDecimal.ZERO));
+                record.indemnites.put(record.codeSecondRepas, new PointageJourDTO.IndemniteJourDTO(
+                        record.codeSecondRepas, true, record.montantSecondRepas, BigDecimal.ONE));
+            }
+        }
+
         // Le catalogue du journal est résolu depuis les tarifs site applicables à la période.
         // Les forfaits FIXE_MENSUEL sont exclus : ils sont indépendants du pointage journalier.
         String sqlIndemnitesDisponibles = "SELECT DISTINCT i.code, i.libelle, c.periodicite "
@@ -474,6 +490,14 @@ public class PointageEmployeService {
             log.warn("[PointageEmployeService] Erreur récupération catalogue indemnités période employé {}: {}", idEmploye, e.getMessage());
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                     mg.galaxam.sirh.common.exception.SirhErrorCode.POINTAGE_EXPORT_SOURCE_UNAVAILABLE);
+        }
+        if (pointageMap.values().stream().anyMatch(record -> "REPAS_2".equals(record.codeSecondRepas))) {
+            indemnitesDisponibles.put("REPAS_2", new FichePointageEmployeDTO.IndemniteFicheDTO(
+                    "REPAS_2", "AUTOMATIQUE", "Deuxième repas"));
+        }
+        if (pointageMap.values().stream().anyMatch(record -> "REPAS_2_MAJORE".equals(record.codeSecondRepas))) {
+            indemnitesDisponibles.put("REPAS_2_MAJORE", new FichePointageEmployeDTO.IndemniteFicheDTO(
+                    "REPAS_2_MAJORE", "AUTOMATIQUE", "Deuxième repas majoré"));
         }
         result.setIndemnitesDisponibles(indemnitesDisponibles);
 
@@ -587,14 +611,25 @@ public class PointageEmployeService {
                 if (depM) totalTrajetsCount += 0.5;
                 if (depA) totalTrajetsCount += 0.5;
 
-                int nbRepasJour = aDroitRepas ? 1 : 0;
-                BigDecimal mntRepasJour = aDroitRepas ? rec.montantRepas : BigDecimal.ZERO;
+                PointageJourDTO.IndemniteJourDTO secondMeal = rec.indemnites.get("REPAS_2");
+                PointageJourDTO.IndemniteJourDTO majorSecondMeal = rec.indemnites.get("REPAS_2_MAJORE");
+                boolean aDroitSecondRepas = secondMeal != null && secondMeal.accordee();
+                boolean aDroitSecondRepasMajore = majorSecondMeal != null && majorSecondMeal.accordee();
+                BigDecimal mntSecondRepasJour = aDroitSecondRepas ? zeroIfNull(secondMeal.montant())
+                        : (aDroitSecondRepasMajore ? zeroIfNull(majorSecondMeal.montant()) : BigDecimal.ZERO);
+                if (aDroitSecondRepas || aDroitSecondRepasMajore) {
+                    total2eRepasCount++;
+                    total2eRepasMontant = total2eRepasMontant.add(mntSecondRepasJour);
+                }
+                int nbRepasJour = (aDroitRepas ? 1 : 0) + ((aDroitSecondRepas || aDroitSecondRepasMajore) ? 1 : 0);
+                BigDecimal mntRepasJour = (aDroitRepas ? rec.montantRepas : BigDecimal.ZERO)
+                        .add(mntSecondRepasJour);
                 if (aDroitRepas) {
                     total1erRepasCount++;
-                    totalRepasMontant = totalRepasMontant.add(mntRepasJour);
+                    totalRepasMontant = totalRepasMontant.add(rec.montantRepas);
                 }
 
-                dto.setIndemniteRepas(aDroitRepas);
+                dto.setIndemniteRepas(nbRepasJour > 0);
                 dto.setNbRepas(nbRepasJour);
                 dto.setMontantRepas(mntRepasJour);
 
@@ -901,7 +936,16 @@ public class PointageEmployeService {
             kpis.put("seuilAssiduiteMinutes", "");
             regles.put("seuilAssiduiteMinutes", "");
         } else {
-            int seuilAssiduite = assiduiteRule.isMissing() ? 45 : Integer.parseInt(assiduiteRule.valeur());
+            if (assiduiteRule.isMissing()) {
+                throw new IllegalStateException("Paramètre de pointage absent : SEUIL_RETARD_ASSIDUITE_MIN");
+            }
+            int seuilAssiduite;
+            try {
+                seuilAssiduite = Integer.parseInt(assiduiteRule.valeur().trim());
+                if (seuilAssiduite < 0) throw new NumberFormatException();
+            } catch (RuntimeException e) {
+                throw new IllegalStateException("Paramètre de pointage actif invalide : SEUIL_RETARD_ASSIDUITE_MIN", e);
+            }
             boolean primeAssiduiteEligible = retardsMins < seuilAssiduite;
             kpis.put("primeAssiduiteEligible", String.valueOf(primeAssiduiteEligible));
             kpis.put("seuilAssiduiteMinutes", String.valueOf(seuilAssiduite));
@@ -947,10 +991,10 @@ public class PointageEmployeService {
         kpis.put("nbJoursOuvrables", String.valueOf(totalJoursOuvrables));
 
         // Détails Repas & Trajets
-        kpis.put("totalRepas", nbRep + " repas");
+        kpis.put("totalRepas", (nbRep + total2eRepasCount) + " repas");
         kpis.put("total1erRepas", total1erRepasCount + " std");
-        kpis.put("total2eRepas", total2eRepasCount > 0 ? total2eRepasCount + " repas x2" : "0");
-        kpis.put("montantRepasTotal", String.format("%,.0f Ar", mntRep).replace(',', ' '));
+        kpis.put("total2eRepas", total2eRepasCount + " deuxièmes repas");
+        kpis.put("montantRepasTotal", String.format("%,.0f Ar", mntRep.add(total2eRepasMontant)).replace(',', ' '));
         kpis.put("montantDeplacementTotal", String.format("%,.0f Ar", mntDepl).replace(',', ' '));
         kpis.put("totalIndemnitesMois", String.format("%,.0f Ar", totalIndemnites).replace(',', ' '));
         kpis.put("totalTrajets", String.format("%.0f trajets", totalTrajetsCount * 2));
@@ -985,7 +1029,7 @@ public class PointageEmployeService {
         recap.put("heuresSuppNettes", hsNettesStr);
         recap.put("hasCompensation", String.valueOf(retardCompense > 0 || hsBrutes > 0));
         recap.put("compensationSolde", (deficitNet > 0) ? ("-" + deficitNetStr) : (hsNettes > 0 ? ("+" + hsNettesStr) : "00h00"));
-        recap.put("indemniteRepas", String.format("%d repas (%s)", nbRep, kpis.get("montantRepasTotal")));
+        recap.put("indemniteRepas", String.format("%d repas (%s)", nbRep + total2eRepasCount, kpis.get("montantRepasTotal")));
         recap.put("indemniteTrajets", String.format("%.0f trajets aller/retour (%s)", totalTrajetsCount * 2, kpis.get("montantDeplacementTotal")));
         recap.put("totalIndemnites", kpis.get("totalIndemnitesMois"));
 
@@ -996,7 +1040,7 @@ public class PointageEmployeService {
         recap.put("repasStdDetail", String.format("%d repas, total %,.0f Ar (moyenne %,.0f Ar)",
                 total1erRepasCount, totalRepasMontant, montantMoyenRepas).replace(',', ' '));
         if (total2eRepasCount > 0) {
-            recap.put("repas2eDetail", String.format("%d repas (Maj. soir/nuit) = %,.0f Ar", total2eRepasCount, total2eRepasMontant).replace(',', ' '));
+            recap.put("repas2eDetail", String.format("%d deuxièmes repas (normal ou majoré) = %,.0f Ar", total2eRepasCount, total2eRepasMontant).replace(',', ' '));
         }
 
         BigDecimal tarifJourDeplacementRef = totalTrajetsCount > 0
@@ -1085,6 +1129,8 @@ public class PointageEmployeService {
         boolean deplacementAm;
         boolean indemniteRepasRecue;
         BigDecimal montantRepas = BigDecimal.ZERO;
+        String codeSecondRepas;
+        BigDecimal montantSecondRepas = BigDecimal.ZERO;
         BigDecimal montantDeplacement = BigDecimal.ZERO;
         String codeStatut;
         boolean horaireContinuJour;

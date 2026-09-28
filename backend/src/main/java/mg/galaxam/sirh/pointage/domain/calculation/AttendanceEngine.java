@@ -89,21 +89,6 @@ public class AttendanceEngine {
         }
     }
 
-    /** Seule formule d'indemnité repas; les paramètres sont résolus par l'orchestrateur à la date. */
-    public BigDecimal calculateMealAmount(boolean granted, BigDecimal baseAmount, LocalTime exit,
-                                          LocalTime threshold1, BigDecimal amount1,
-                                          LocalTime threshold2, BigDecimal amount2) {
-        if (!granted) return BigDecimal.ZERO;
-        BigDecimal total = baseAmount == null ? BigDecimal.ZERO : baseAmount;
-        if (exit != null && threshold2 != null && !exit.isBefore(threshold2)) {
-            return total.add(nonNegative(amount2));
-        }
-        if (exit != null && threshold1 != null && !exit.isBefore(threshold1)) {
-            return total.add(nonNegative(amount1));
-        }
-        return total;
-    }
-
     /** Seule formule d'indemnité déplacement; le résultat est en BigDecimal. */
     public BigDecimal calculateTravelAmount(BigDecimal fraction, BigDecimal dailyRate,
                                             boolean reduce, BigDecimal reduction) {

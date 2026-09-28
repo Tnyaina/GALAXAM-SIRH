@@ -30,7 +30,8 @@ describe('CongesTab & SoldeCongeWidget - UI / UX enhancements', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     vi.clearAllMocks();
-    congeService.getExamenExpiration.mockResolvedValue({ idEmploye: 1, joursAExaminer: 0, droitsCandidats: [] });
+    congeService.getExamenExpiration.mockResolvedValue({ idEmploye: 1, delaiPrescriptionMois: 36,
+      dateReference: '2026-09-28', joursAExaminer: 0, droitsCandidats: [] });
   });
 
   it('met le solde et le taux en premier et replie les autres compteurs', async () => {
@@ -96,6 +97,7 @@ describe('CongesTab & SoldeCongeWidget - UI / UX enhancements', () => {
   });
 
   it('affiche les filtres de statut, le CTA primaire et les demi-journées dans CongesTab', async () => {
+    await import('../components/CongeExpirationReviewCard');
     congeService.getSoldeEmploye.mockResolvedValue({ soldeActuel: 10 });
     congeService.getSituationEmploye.mockResolvedValue({ soldeJours: 10 });
     congeService.getMouvementsEmploye.mockResolvedValue([]);
@@ -135,7 +137,7 @@ describe('CongesTab & SoldeCongeWidget - UI / UX enhancements', () => {
     await act(async () => {
       root.render(
         <MemoryRouter>
-          <CongesTab idEmploye={1} employe={{ idEmploye: 1, dateEmbauche: '2024-01-01' }} canWrite={true} />
+          <CongesTab idEmploye={1} employe={{ idEmploye: 1, dateEmbauche: '2024-01-01' }} canWrite={true} canValidateConges={true} />
         </MemoryRouter>
       );
     });
@@ -163,6 +165,8 @@ describe('CongesTab & SoldeCongeWidget - UI / UX enhancements', () => {
     await act(async () => validated.click());
     expect(congeService.getDemandesEmploye).toHaveBeenLastCalledWith(1, { page: 1, size: 10, statut: 'VALIDE' });
     expect(container.textContent).toContain('Autres actions');
+    await vi.waitFor(() => expect(container.textContent).toContain('Examen des droits de congé'));
+    expect(container.textContent).toContain('Aucun droit à examiner');
   });
 
   it('affiche les soldes historiques fournis par le backend et l’export CSV du registre', async () => {

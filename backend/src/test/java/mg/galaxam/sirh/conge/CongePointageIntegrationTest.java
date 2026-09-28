@@ -393,6 +393,75 @@ class CongePointageIntegrationTest {
     }
 
     @Test
+    @DisplayName("Deuxième repas automatique indépendant du premier et retiré après correction horaire")
+    void secondMealIsDerivedFromExitWithoutFirstMeal() throws Exception {
+        int pointageId;
+        int periodId;
+        Date date = Date.valueOf(LocalDate.of(2026, 9, 17));
+        try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement period = c.prepareStatement(
+                    "SELECT id_periode_paie FROM periode_paie WHERE code = '2026-09'");
+                 ResultSet result = period.executeQuery()) {
+                assertTrue(result.next());
+                periodId = result.getInt(1);
+            }
+            try (PreparedStatement insert = c.prepareStatement(
+                    "INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour) "
+                            + "VALUES (?, ?, 1, ?, (SELECT id_statut_jour FROM ref_statut_pointage_jour "
+                            + "WHERE code = 'PRESENT')) RETURNING id_pointage")) {
+                insert.setInt(1, employeId);
+                insert.setInt(2, periodId);
+                insert.setDate(3, date);
+                try (ResultSet result = insert.executeQuery()) {
+                    assertTrue(result.next());
+                    pointageId = result.getInt(1);
+                }
+            }
+        }
+        Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("version", 1);
+        payload.put("idEmploye", employeId);
+        payload.put("idPeriodePaie", periodId);
+        payload.put("idSite", 1);
+        payload.put("datePointage", date.toString());
+        payload.put("motifAjustement", "Correction horaire");
+        payload.put("typeRegularisation", "HEURES");
+        payload.put("statutCode", "PRESENT");
+        payload.put("heureEntreeMatin", "08:00");
+        payload.put("heureSortieMatin", "12:00");
+        payload.put("heureEntreeAm", "13:00");
+        payload.put("heureSortieAm", "21:00");
+        payload.put("dynamicIndemnites", Map.of());
+        assertTrue(pointageAnomalieService.regulariserPointage(pointageId, payload));
+        try (Connection c = dataSource.getConnection(); PreparedStatement check = c.prepareStatement(
+                "SELECT p.code_second_repas, p.montant_second_repas, pij.quantite, pij.montant_calcule "
+                        + "FROM pointage_jour p JOIN pointage_indemnite_jour pij ON pij.id_pointage = p.id_pointage "
+                        + "JOIN ref_indemnite i ON i.id_indemnite = pij.id_indemnite AND i.code = 'REPAS' "
+                        + "WHERE p.id_pointage = ?")) {
+            check.setInt(1, pointageId);
+            try (ResultSet result = check.executeQuery()) {
+                assertTrue(result.next());
+                assertEquals("REPAS_2_MAJORE", result.getString(1));
+                assertEquals(0, new BigDecimal("4000").compareTo(result.getBigDecimal(2)));
+                assertEquals(0, BigDecimal.ZERO.compareTo(result.getBigDecimal(3)));
+                assertEquals(0, new BigDecimal("4000").compareTo(result.getBigDecimal(4)));
+            }
+        }
+        payload.put("version", 2);
+        payload.put("heureSortieAm", "18:00");
+        assertTrue(pointageAnomalieService.regulariserPointage(pointageId, payload));
+        try (Connection c = dataSource.getConnection(); PreparedStatement check = c.prepareStatement(
+                "SELECT code_second_repas, montant_second_repas FROM pointage_jour WHERE id_pointage = ?")) {
+            check.setInt(1, pointageId);
+            try (ResultSet result = check.executeQuery()) {
+                assertTrue(result.next());
+                assertNull(result.getString(1));
+                assertEquals(0, BigDecimal.ZERO.compareTo(result.getBigDecimal(2)));
+            }
+        }
+    }
+
+    @Test
     @DisplayName("Congé oublié : demande validée liée à la journée et mouvement PRISE dans la même correction")
     void regularisationAbsenceLieCongesEtPointage() throws Exception {
         int pointageId;

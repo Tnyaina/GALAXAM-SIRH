@@ -605,7 +605,7 @@ public class CongeAnnuelExcelExportService {
             case "PRISE" -> "Prise de congé";
             case "AJUSTEMENT" -> "Ajustement manuel RH";
             case "ANNULATION" -> "Annulation demande";
-            case "EXPIRATION" -> "Expiration triennale";
+            case "EXPIRATION" -> "Expiration confirmée après examen";
             default -> type;
         };
     }

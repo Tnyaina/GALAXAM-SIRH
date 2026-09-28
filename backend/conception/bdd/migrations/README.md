@@ -13,7 +13,7 @@
 
 - Pour toute nouvelle installation (développement, recette, staging, production), **exécuter uniquement les 6 scripts canoniques dans l'ordre de 01 à 06**.
 - **Aucune exécution des scripts de ce dossier `migrations/` n'est nécessaire** après le passage des 6 scripts principaux.
-- Les scripts ci-dessous sont conservés pour l'historique et sont 100% idempotents (clauses `IF NOT EXISTS`, `ON CONFLICT`, et `WHERE NOT EXISTS`).
+- Les scripts ci-dessous sont conservés pour la mise à niveau des bases existantes. Ne pas les rejouer sans vérifier leur état d'application : tous ne sont pas entièrement idempotents.
 
 ## Détail des fusions réalisées
 
@@ -65,7 +65,11 @@ incompatible fait échouer l'index unique et demande un arbitrage explicite.
 | `26-09-28-sp34-identite-filiales.sql` | Adresse du siège, RCS, téléphone et courriel filiales | `02_schema_referentiels_rh.sql` |
 | `26-09-28-sp35-paie-acomptes-avances.sql` | Confirmation explicite versements & table imputation bulletin | `06_schema_paie.sql` |
 | `26-09-28-sp36-conge-expiration-examen-daf.sql` | Traçabilité des décisions DAF sur les droits candidats à prescription | `04_schema_conges.sql` |
+| `26-09-28-sp37-plafond-cumul-conges-optionnel.sql` | Plafond de cumul désactivable sans valeur de repli | `01_schema_core_securite.sql` |
+| `26-09-28-sp38-seuil-hebdomadaire-non-debrayable.sql` | Retrait de la bascule du seuil hebdomadaire historique non consommé | `01_schema_core_securite.sql` |
+| `26-09-28-sp39-second-repas-actif.sql` | Rétablit la désactivation des tranches de second repas après sp38 déjà appliqué | `01_schema_core_securite.sql` |
+| `26-09-28-sp40-second-repas-pointage.sql` | Trace le deuxième repas automatique dans le pointage, sans nouvelle indemnité | `05_schema_pointage.sql` |
 
 ### Remarques Opérationnelles
-- Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 80 tables et 9 vues cohérentes.
-- Les scripts du dossier `migrations/` sont idempotents et destinés uniquement à la mise à niveau de bases déjà déployées antérieurement.
+- Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 81 tables et 9 vues cohérentes.
+- Les scripts du dossier `migrations/` sont destinés uniquement à la mise à niveau de bases déjà déployées antérieurement ; vérifier l'état de chaque migration avant de la rejouer.

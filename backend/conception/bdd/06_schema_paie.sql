@@ -44,7 +44,8 @@ CREATE TABLE ref_type_cotisation (
     est_actif BOOLEAN DEFAULT TRUE,
     date_debut DATE NOT NULL DEFAULT '2026-01-01',
     date_fin DATE,
-    portee VARCHAR(20) DEFAULT 'SITE' CHECK (portee IN ('SITE', 'ENTREPRISE'))
+    portee VARCHAR(20) DEFAULT 'SITE' CHECK (portee IN ('SITE', 'ENTREPRISE')),
+    categorie VARCHAR(30) DEFAULT 'SANTE' CHECK (categorie IN ('PREVOYANCE', 'SANTE', 'FORMATION'))
 );
 
 CREATE INDEX idx_type_cotisation_config ON ref_type_cotisation(id_config_legale);
@@ -586,11 +587,11 @@ CREATE TRIGGER trg_bulletin_paie_ligne_immutabilite
 -- =====================================================================
 
 -- Cotisations Sociales Référentielles
-INSERT INTO ref_type_cotisation (id_type_cotisation, id_config_legale, code, libelle, taux_salarial, taux_patronal, plafonne, ordre, est_actif, date_debut, portee) VALUES
-(1, 2, 'CNAPS', 'Caisse Nationale de Prévoyance Sociale', 1.00, 13.00, TRUE, 1, TRUE, '2022-01-01', 'SITE'),
-(2, 2, 'OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, TRUE, 1, TRUE, '2022-01-01', 'SITE'),
-(3, 2, 'OMSI',  'Organisation Médicale Inter-entreprises', 1.50, 5.50, TRUE, 1, TRUE, '2022-01-01', 'SITE'),
-(4, 2, 'FMFP',  'Fonds Malgache de Formation Professionnelle', 0.00, 1.00, FALSE, 4, TRUE, '2022-01-01', 'ENTREPRISE');
+INSERT INTO ref_type_cotisation (id_type_cotisation, id_config_legale, code, libelle, taux_salarial, taux_patronal, plafonne, ordre, est_actif, date_debut, portee, categorie) VALUES
+(1, 2, 'CNAPS', 'Caisse Nationale de Prévoyance Sociale', 1.00, 13.00, TRUE, 1, TRUE, '2022-01-01', 'ENTREPRISE', 'PREVOYANCE'),
+(2, 2, 'OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, TRUE, 1, TRUE, '2022-01-01', 'SITE', 'SANTE'),
+(3, 2, 'OMSI',  'Organisation Médicale Inter-entreprises', 1.50, 5.50, TRUE, 1, TRUE, '2022-01-01', 'SITE', 'SANTE'),
+(4, 2, 'FMFP',  'Fonds Malgache de Formation Professionnelle', 0.00, 1.00, FALSE, 4, TRUE, '2022-01-01', 'ENTREPRISE', 'FORMATION');
 SELECT setval('ref_type_cotisation_id_type_cotisation_seq', (SELECT GREATEST(MAX(id_type_cotisation), 4) FROM ref_type_cotisation));
 
 -- Cotisations par Site (TNR: CNAPS+OSTIE, TMM: CNAPS+OMSI)

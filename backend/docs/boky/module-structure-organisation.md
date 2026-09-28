@@ -554,10 +554,10 @@ CREATE INDEX idx_parametre_categorie ON parametre_global(categorie);
 | **3** | `SEUIL_NUIT_DEBUT` | `POINTAGE` | `22:00` | LocalTime | Début du travail de nuit (Art. 83 Code Travail malgache) |
 | **4** | `SEUIL_NUIT_FIN` | `POINTAGE` | `05:00` | LocalTime | Fin de la période légale de nuit |
 | **5** | `MONTANT_REPAS_MIDI` | `POINTAGE` | `2000` | Montant Ar | Forfait journalier repas du midi (si présent) |
-| **6** | `SEUIL_2ND_REPAS_1` | `POINTAGE` | `19:30` | LocalTime | Heure de sortie minimale pour le 2ᵉ repas tranche 1 |
-| **7** | `MONTANT_2ND_REPAS_1` | `POINTAGE` | `2000` | Montant Ar | Montant du 2ᵉ repas tranche 1 (19h30 - 21h00) |
-| **8** | `SEUIL_2ND_REPAS_2` | `POINTAGE` | `21:00` | LocalTime | Heure de sortie minimale pour le 2ᵉ repas tranche 2 |
-| **9** | `MONTANT_2ND_REPAS_2` | `POINTAGE` | `4000` | Montant Ar | Montant du 2ᵉ repas tranche 2 (> 21h00) |
+| **6** | `SEUIL_2ND_REPAS_1` | `POINTAGE` | `19:30` | LocalTime | Sortie ouvrant un deuxième repas distinct, tranche 1 |
+| **7** | `MONTANT_2ND_REPAS_1` | `POINTAGE` | `2000` | Montant Ar | Montant du deuxième repas, tranche 1 |
+| **8** | `SEUIL_2ND_REPAS_2` | `POINTAGE` | `21:00` | LocalTime | Sortie ouvrant le deuxième repas majoré |
+| **9** | `MONTANT_2ND_REPAS_2` | `POINTAGE` | `4000` | Montant Ar | Montant du deuxième repas majoré |
 | **10**| `SEUIL_PAUSE_MIDI_MIN` | `POINTAGE` | `60` | Minutes | Seuil de détection « ne rentre pas midi » (TMM) |
 | **11**| `REDUCTION_DEPLACT_REPAS_MIDI` | `POINTAGE` | `1000` | Montant Ar | Déduction transport si repas midi alloué sur site |
 | **12**| `SEUIL_HEURES_JOUR` | `RH_GENERAL` | `8` | Heures | Durée légale de référence d'une journée de travail |
@@ -565,8 +565,8 @@ CREATE INDEX idx_parametre_categorie ON parametre_global(categorie);
 | **15**| `NB_MAX_RENOUVELLEMENTS_CDD` | `CONTRAT` | `2` | Entier | Nombre max de renouvellements par avenant (max 2) |
 | **37**| `DUREE_MAX_CONTRAT_CDD_MOIS`| `CONTRAT` | `24` | Mois | Durée max d'un contrat CDD unitaire (Art. 19 Code Travail) |
 | **16**| `MAX_RENOUVELLEMENTS_ESSAI`| `RH_GENERAL` | `1` | Entier | Renouvellements autorisés pour la période d'essai (1 max) |
-| **18**| `PLAFOND_CUMUL_SOLDE_CONGE_JOURS` | `CONGE` | `90` | Jours | Plafond solde cumulé congés payés (30j/an x 3 ans) |
-| **19**| `DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS` | `CONGE` | `36` | Mois | Seuil d'ancienneté des droits déclenchant leur examen DAF, sans débit automatique |
+| **18**| `PLAFOND_CUMUL_SOLDE_CONGE_JOURS` | `CONGE` | `90` | Jours | Plafond optionnel ; désactivé, acquisitions et bonifications sans plafond |
+| **19**| `DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS` | `CONGE` | `36` | Mois | Délai avant signalement des droits disponibles pour examen DAF, sans débit automatique |
 | **20**| `PLAFOND_SOLDE_CONGE_NEGATIF` | `CONGE` | `-10` | Jours | Anticipation max autorisée par dérogation RH |
 | **21**| `SEUIL_ALERTE_SOLDE_CONGE_FAIBLE` | `CONGE` | `3` | Jours | Déclenchement de l'indicateur visuel de solde faible |
 | **22**| `DELAI_PREAVIS_COURT_JOURS` | `CONGE` | `2` | Jours | Préavis minimum pour demande de courte durée |
@@ -581,7 +581,7 @@ CREATE INDEX idx_parametre_categorie ON parametre_global(categorie);
 | **32**| `SEUIL_RETARD_PENALITE_PP_MIN` | `PAIE` | `70` | Minutes | Retard mensuel déclenchant la pénalité sur prime performance |
 | **33**| `SEUIL_CONGES_PENALITE_PP_JOURS` | `PAIE` | `1.0` | Jours | Jours congés cumulés conditionnant la pénalité PP |
 | **34**| `TAUX_PENALITE_PP` | `PAIE` | `0.25` | Taux (25%) | Réduction appliquée sur la prime de performance |
-| **35**| `SEUIL_HEURES_SEMAINE_COMPENSATION` | `POINTAGE` | `40.0` | Heures | Seuil hebdomadaire normal déclencheur des HS |
+| **35**| `SEUIL_HEURES_SEMAINE_COMPENSATION` | `POINTAGE` | `40.0` | Heures | Ancien paramètre non consommé ; objectif calculé depuis la durée journalière et les jours requis |
 | **38**| `DUREE_REFERENCE_TCONGE_MOIS` | `CONGE` | `12` | Mois | Borne technique de référence de calcul de droit congé |
 | **39**| `EXONERATION_HS_IRSA_ACTIVE`| `PAIE` | `TRUE` | Booléen | Activation globale de l'exonération fiscale des HS |
 | **40**| `PLAFOND_MENSUEL_HS_EXONEREES` | `PAIE` | `20.00` | Heures | Plafond mensuel légal d'heures sup exonérées d'IRSA |
@@ -642,7 +642,7 @@ graph TD
 ```
 
 - **ACTIVE** : Le paramètre existe et est en vigueur $\rightarrow$ La valeur configurée s'applique.
-- **DISABLED** : L'administrateur a explicitement désactivé la règle (`est_actif = FALSE`) $\rightarrow$ Le moteur neutralise la règle (ex. pour `SEUIL_2ND_REPAS_1`, montant ramené à 0 Ar, seuil à null). **Il est rigoureusement interdit de basculer sur un fallback hardcodé**.
+- **DISABLED** : L'administrateur a explicitement désactivé la règle (`est_actif = FALSE`) $\rightarrow$ Le moteur applique l'effet métier documenté par le backend, sans reprendre la valeur configurée ni un fallback codé en dur. Certaines règles sont liées : la désactivation d'un paramètre de bonification coupe la bonification entière ; celle d'un paramètre d'exonération HS coupe l'exonération.
 - **MISSING** : La clé est introuvable pour la date requise $\rightarrow$ Lève une exception bloquante `BLOCKING_CONFIGURATION_ERROR` ou `PAYROLL_ALLOWANCE_CONFIGURATION_MISSING`. Le système refuse de calculer à l'aveugle.
 - **INVALID** : La chaîne présente ne peut être convertie dans le type attendu (ex. "ABC" pour un montant numérique) $\rightarrow$ Lève une exception immédiate `TCONGE_REFERENCE_DURATION_INVALID`.
 
@@ -652,15 +652,18 @@ graph TD
 
 Le backend distingue formellement la possibilité de désactivation via la colonne physique `est_desactivable BOOLEAN NOT NULL DEFAULT FALSE` :
 
-### 1. Constantes Système Indispensables (`est_desactivable = FALSE`)
-Paramètres sans lesquels les moteurs fondamentaux ne peuvent physiquement pas tourner :
-- `SEUIL_HEURES_JOUR`, `SEUIL_NUIT_DEBUT`, `SEUIL_NUIT_FIN`, `DUREE_MAX_CDD_MOIS`, `PLAFOND_CUMUL_SOLDE_CONGE_JOURS`.
+### 1. Paramètres non désactivables (`est_desactivable = FALSE`)
+Les constantes actives requises par les moteurs incluent :
+- `SEUIL_HEURES_JOUR`, `SEUIL_NUIT_DEBUT`, `SEUIL_NUIT_FIN`, `DUREE_MAX_CDD_MOIS`.
+- Le deuxième repas est une règle automatique du pointage, indépendante de l'attribution du premier repas. Son type et son montant sont tracés sur la journée ; pour la paie, le montant rejoint l'unique indemnité `REPAS`. Chaque tranche peut être désactivée sans valeur de repli. La tranche majorée remplace, sans cumuler, la première.
+- `SEUIL_HEURES_SEMAINE_COMPENSATION` est conservé pour l'historique et n'est plus désactivable : le seuil hebdomadaire opérationnel est la durée journalière configurée multipliée par les jours requis du tronçon de période (40 h pour cinq jours à 8 h, 32 h pour quatre, 16 h pour deux).
 - Si un utilisateur tente d'appeler l'API `/referentiel/parametres-globaux/{id}/toggle-actif` sur ces lignes, le contrôleur rejette la requête avec le code d'erreur 400 :
-  > *"Ce paramètre est une constante système indispensable et ne peut pas être désactivé."*
+  > *"Ce paramètre ne peut pas être désactivé."*
 
 ### 2. Règles Opérationnelles Optionnelles (`est_desactivable = TRUE`)
 Règles relevant de la politique interne de gestion de la société :
-- `SEUIL_2ND_REPAS_1`, `MONTANT_2ND_REPAS_1`, `SEUIL_2ND_REPAS_2`, `MONTANT_2ND_REPAS_2`, `REDUCTION_DEPLACT_REPAS_MIDI`, `SEUIL_RETARD_ASSIDUITE_MIN`, `EXONERATION_HS_IRSA_ACTIVE`.
+- `REDUCTION_DEPLACT_REPAS_MIDI`, `PLAFOND_CUMUL_SOLDE_CONGE_JOURS`, `PLAFOND_SOLDE_CONGE_NEGATIF`, `SEUIL_ALERTE_SOLDE_CONGE_FAIBLE`, les trois paramètres de bonification d'ancienneté, les quatre paramètres de primes de paie, `EXONERATION_HS_IRSA_ACTIVE` et `PLAFOND_MENSUEL_HS_EXONEREES`.
+- La désactivation de `PLAFOND_SOLDE_CONGE_NEGATIF` interdit la prise anticipée ; celle du plafond d'exonération HS supprime l'exonération. L'API fournit `effetDesactivation` pour afficher cette conséquence dans l'interface.
 - Ces paramètres peuvent être coupés (`est_actif = false`) sans compromettre l'intégrité de l'application.
 
 ---
@@ -771,7 +774,7 @@ Chaque ligne correspond à un exercice fiscal d'application de la Loi de Finance
 ### 24.1. Frontière avec Congés & Absences
 - **Structure fournit** : L'identité du salarié et son calendrier des jours fériés de site (`ref_calendrier_ferie`, `site_calendrier_ferie`).
 - **Paramétrage transverse fournit** : Les plafonds et préavis (`parametre_global`).
-- **Congés possède** : Les tables `ref_type_conge`, `ref_pool_conge_annuel` (pool des 10 jours de permissions exceptionnelles), `ref_motif_evenement_familial`, le moteur de décompte en jours ouvrables, le solde acquis et la prescription triennale.
+- **Congés possède** : Les tables `ref_type_conge`, `ref_pool_conge_annuel` (pool des 10 jours de permissions exceptionnelles), `ref_motif_evenement_familial`, le moteur de décompte en jours ouvrables, le solde acquis et le circuit d'examen DAF des droits arrivés au délai configuré.
 
 ### 24.2. Frontière avec Pointage & Présences
 - **Structure fournit** : Le site d'affectation (`id_site`), les horaires d'ouverture, l'état d'activation du plancher d'arrivée et l'heure minimale valorisée (`ref_site`).

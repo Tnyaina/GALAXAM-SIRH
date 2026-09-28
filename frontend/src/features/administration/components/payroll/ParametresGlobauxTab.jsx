@@ -64,45 +64,45 @@ const PARAMETRE_METADATA = {
         titre: "Seuil Horaire 2ᵉ Repas (Tranche 1)",
         icone: Coffee,
         unite: "heure",
-        explication: "Heure de sortie tardive ouvrant droit au 2nd repas de tranche 1 (ex: 19h30).",
+        explication: "Heure de sortie à partir de laquelle un deuxième repas distinct est accordé automatiquement.",
     },
     MONTANT_2ND_REPAS_1: {
         titre: "Montant 2ᵉ Repas (Tranche 1)",
         icone: Coins,
         unite: "Ar",
-        explication: "Indemnité accordée pour le travail tardif en tranche 1 (19h30 - 21h00).",
+        explication: "Montant du deuxième repas, indépendant du premier repas configuré pour le site.",
     },
     SEUIL_2ND_REPAS_2: {
         titre: "Seuil Horaire 2ᵉ Repas (Tranche 2)",
         icone: Coffee,
         unite: "heure",
-        explication: "Heure de sortie tardive déclenchant le 2nd repas renforcé de tranche 2 (ex: > 21h00).",
+        explication: "Heure de sortie à partir de laquelle le deuxième repas majoré remplace la première tranche.",
     },
     MONTANT_2ND_REPAS_2: {
         titre: "Montant 2ᵉ Repas (Tranche 2)",
         icone: Coins,
         unite: "Ar",
-        explication: "Indemnité renforcée accordée pour le travail tardif au-delà de 21h00.",
+        explication: "Montant du deuxième repas majoré, à la place du deuxième repas normal.",
     },
 
     // Congés & Absences
     PLAFOND_CUMUL_SOLDE_CONGE_JOURS: {
-        titre: "Plafond Solde Cumulé Congés",
+        titre: "Plafond optionnel du solde de congés",
         icone: Shield,
         unite: "jours",
-        explication: "Plafond maximum de cumul de congés payés. L'acquisition est bloquée ou tronquée au-delà.",
+        explication: "Actif, limite les acquisitions et bonifications au montant configuré. Désactivé, aucun plafond n'est appliqué.",
     },
     DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS: {
-        titre: "Prescription Triennale des Congés",
+        titre: "Délai avant examen des droits de congé",
         icone: Hourglass,
         unite: "mois",
-        explication: "Durée au terme de laquelle les reliquats de congés non pris expirent (purge FIFO).",
+        explication: "Ancienneté à partir de laquelle les droits disponibles sont signalés pour examen par la DAF. Aucun retrait automatique du solde.",
     },
     PLAFOND_SOLDE_CONGE_NEGATIF: {
-        titre: "Plafond Solde Négatif (Anticipation)",
+        titre: "Prise anticipée : plafond du solde négatif",
         icone: AlertTriangle,
         unite: "jours",
-        explication: "Limite autorisée de jours de congés pris par anticipation sous dérogation RH.",
+        explication: "Actif, autorise sous dérogation une prise anticipée dans la limite indiquée. Désactivé, la prise anticipée est refusée.",
     },
     SEUIL_ALERTE_SOLDE_CONGE_FAIBLE: {
         titre: "Seuil Alerte Solde Faible",
@@ -431,8 +431,13 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
     const handleToggleActif = async (param, e) => {
         if (e) e.stopPropagation();
 
+        if (getStatut(param) !== 'EN_VIGUEUR') {
+            toast.error("Seule une version en vigueur peut être basculée directement.");
+            return;
+        }
+
         if (!param.estDesactivable) {
-            toast.error("Cette règle système est incompressible et ne peut pas être désactivée.");
+            toast.error("Ce paramètre ne peut pas être désactivé.");
             return;
         }
 
@@ -449,7 +454,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
             toast.success(
                 nouveauStatut
                     ? `La règle ${param.codeParametre} a été activée.`
-                    : `La règle ${param.codeParametre} a été désactivée (valeur neutralisée).`
+                    : (param.effetDesactivation || `La règle ${param.codeParametre} a été désactivée.`)
             );
         } catch (err) {
             console.error('Erreur bascule statut paramètre:', err);
@@ -477,7 +482,9 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
             dateDebut: asNewVersion ? todayStr : fmtDateInput(param.dateDebut),
             dateFin: asNewVersion ? '' : fmtDateInput(param.dateFin),
             estActif: param.estActif != null ? param.estActif : true,
-            estDesactivable: param.estDesactivable != null ? param.estDesactivable : false
+            estDesactivable: param.estDesactivable != null ? param.estDesactivable : false,
+            effetDesactivation: param.effetDesactivation || '',
+            historiqueNonConsomme: Boolean(param.historiqueNonConsomme)
         });
 
         setShowModal(true);
@@ -807,10 +814,12 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                                             Règle Coupée
                                                                         </span>
                                                                     )
+                                                                ) : param.historiqueNonConsomme ? (
+                                                                    <span className="text-[11px] text-[var(--color-fg-muted)]">Ancien paramètre sans effet</span>
                                                                 ) : (
                                                                     <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--color-brand-600)]" title="Cette constante est indispensable et ne peut pas être coupée">
                                                                         <Lock size={12} />
-                                                                        Système Obligatoire
+                                                                    Système Obligatoire
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -821,14 +830,14 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                                     type="button"
                                                                     role="switch"
                                                                     aria-checked={param.estActif}
-                                                                    disabled={togglingId === param.idParametre}
+                                                                    disabled={togglingId === param.idParametre || statut !== 'EN_VIGUEUR'}
                                                                     onClick={(e) => handleToggleActif(param, e)}
                                                                     className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-none border transition-colors duration-150 ease-in-out focus:outline-none ${
                                                                         param.estActif 
                                                                             ? 'bg-[var(--color-success-500)] border-[var(--color-success-600)]' 
                                                                             : 'bg-[var(--color-bg-subtle)] border-[var(--color-border)]'
                                                                     }`}
-                                                                    title={param.estActif ? 'Cliquez pour désactiver cette règle' : 'Cliquez pour réactiver cette règle'}
+                                                                    title={statut !== 'EN_VIGUEUR' ? 'Version non en vigueur' : (param.effetDesactivation || 'Basculer cette règle')}
                                                                 >
                                                                     <span
                                                                         className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-none shadow-xs transform transition duration-150 ease-in-out mt-[2px] ml-[2px] ${
@@ -838,7 +847,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                                 </button>
                                                             ) : (
                                                                 <span className="text-[10px] text-[var(--color-fg-muted)] font-mono">
-                                                                    Non débrayable
+                                                                    {param.historiqueNonConsomme ? 'Sans effet sur les calculs' : 'Non débrayable'}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -846,7 +855,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                         {/* Valeur numérique / textuelle */}
                                                         <div>
                                                             <div className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider font-semibold">
-                                                                {estInactif ? 'Valeur Actuelle (Neutralisée)' : 'Valeur d’Application'}
+                                                                {estInactif ? 'Valeur enregistrée (inactive)' : 'Valeur d’Application'}
                                                             </div>
                                                             <div className={`text-xl font-black mt-0.5 tracking-tight ${
                                                                 estInactif ? 'text-[var(--color-fg-muted)] line-through' : 'text-[var(--color-fg)]'
@@ -859,6 +868,11 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                         <div className="text-xs text-[var(--color-fg-muted)] leading-relaxed line-clamp-2" title={meta?.explication || param.description}>
                                                             {meta?.explication || param.description || '-'}
                                                         </div>
+                                                        {estInactif && param.effetDesactivation && (
+                                                            <div className="text-xs text-[var(--color-warning-600)]" role="status">
+                                                                {param.effetDesactivation}
+                                                            </div>
+                                                        )}
 
                                                         {/* Validité */}
                                                         <div className="pt-2 border-t border-[var(--color-border-subtle)] flex items-center justify-between text-[11px] text-[var(--color-fg-muted)]">
@@ -951,6 +965,9 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                     <div>
                                                         <div className="font-bold text-xs">{titreAffiche}</div>
                                                         <div className="text-[10px] font-mono text-[var(--color-fg-muted)]">{p.codeParametre}</div>
+                                                        {!p.estActif && p.effetDesactivation && (
+                                                            <div className="text-[11px] text-[var(--color-warning-600)] mt-1">{p.effetDesactivation}</div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </Td>
@@ -962,6 +979,8 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                     <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-success-600)] font-bold">
                                                         <CheckCircle2 size={12} /> Règle débrayable
                                                     </span>
+                                                ) : p.historiqueNonConsomme ? (
+                                                    <span className="text-[11px] text-[var(--color-fg-muted)]">Ancien paramètre sans effet</span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-brand-600)] font-bold">
                                                         <Lock size={12} /> Système protégé
@@ -975,7 +994,8 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                             type="button"
                                                             role="switch"
                                                             aria-checked={p.estActif}
-                                                            disabled={togglingId === p.idParametre}
+                                                            disabled={togglingId === p.idParametre || statut !== 'EN_VIGUEUR'}
+                                                            title={statut !== 'EN_VIGUEUR' ? 'Version non en vigueur' : (p.effetDesactivation || 'Basculer cette règle')}
                                                             onClick={(e) => handleToggleActif(p, e)}
                                                             className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-none border transition-colors duration-150 ease-in-out ${
                                                                 p.estActif 
@@ -995,7 +1015,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                     </div>
                                                 ) : (
                                                     <span className="text-[11px] text-[var(--color-fg-muted)] font-medium flex items-center gap-1">
-                                                        <Lock size={11} /> Toujours actif
+                                                        <Lock size={11} /> {p.historiqueNonConsomme ? 'Sans effet' : 'Toujours actif'}
                                                     </span>
                                                 )}
                                             </Td>
@@ -1108,7 +1128,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                             {formData.categorie}
                                         </div>
                                         <div className="text-[11px] text-[var(--color-brand-600)] font-medium mt-0.5">
-                                            {formData.estDesactivable ? 'Règle débrayable' : 'Constante système'}
+                                            {formData.historiqueNonConsomme ? 'Ancien paramètre sans effet' : (formData.estDesactivable ? 'Règle débrayable' : 'Constante système')}
                                         </div>
                                     </div>
                                 </div>
@@ -1163,9 +1183,11 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                 État d'application de la règle
                                             </div>
                                             <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                                                {formData.estActif 
-                                                    ? 'La règle est actuellement active et prise en compte dans les calculs.' 
-                                                    : 'La règle est coupée — les moteurs ne l\'appliqueront pas.'}
+                                                {formData.estActif
+                                                    ? (formData.effetDesactivation
+                                                        ? `Si désactivée : ${formData.effetDesactivation}`
+                                                        : 'La règle est actuellement active.')
+                                                    : (formData.effetDesactivation || 'La règle est désactivée.')}
                                             </div>
                                         </div>
                                         <button

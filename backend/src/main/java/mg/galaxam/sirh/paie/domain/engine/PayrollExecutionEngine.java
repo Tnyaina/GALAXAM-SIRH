@@ -433,7 +433,8 @@ public class PayrollExecutionEngine {
 
             BigDecimal mntPrimePerf = MoneyRoundingPolicy.amount(primePerfBase.multiply(ratioPresence));
 
-            boolean penaliteApplicable = (input.getMinutesRetard() > input.getSeuilRetardMalusPerformanceMinutes())
+            boolean penaliteApplicable = input.isRegleMalusPerformanceActive()
+                    && (input.getMinutesRetard() > input.getSeuilRetardMalusPerformanceMinutes())
                     && (zeroIfNull(input.getNbJoursConges()).compareTo(zeroIfNull(input.getSeuilCongesMalusPerformanceJours())) > 0);
 
             BigDecimal malusPp = BigDecimal.ZERO;
@@ -453,8 +454,9 @@ public class PayrollExecutionEngine {
         }
 
         BigDecimal primeAssiduite = zeroIfNull(input.getPrimeAssiduiteForfait());
-        int seuilAssiduite = input.getSeuilRetardAssiduiteMinutes() > 0 ? input.getSeuilRetardAssiduiteMinutes() : 45;
-        if (primeAssiduite.compareTo(BigDecimal.ZERO) > 0 && input.getMinutesRetard() < seuilAssiduite) {
+        int seuilAssiduite = input.getSeuilRetardAssiduiteMinutes();
+        if (input.isReglePrimeAssiduiteActive() && primeAssiduite.compareTo(BigDecimal.ZERO) > 0
+                && input.getMinutesRetard() < seuilAssiduite) {
             lignes.add(creerLigne(bp, "PRIME_ASSIDUITE", "Prime d'Assiduité", "GAIN", "PRIME",
                     primeAssiduite, null, primeAssiduite, null, 100));
             totalPrimes = totalPrimes.add(primeAssiduite);
@@ -594,11 +596,15 @@ public class PayrollExecutionEngine {
         if (input.isSoumisSante()) {
             String organe = input.getCodeSanteOrgane() != null ? input.getCodeSanteOrgane().toUpperCase() : "OSTIE";
             boolean estOmsi = "OMSI".equals(organe);
+            boolean estOstie = "OSTIE".equals(organe);
 
-            String codeSanteSal = estOmsi ? "COTISATION_OMSI_SAL" : "COTISATION_OSTIE_SAL";
-            String libelleSanteSal = estOmsi ? "Cotisation OMSI Salariale (1.5%)" : "Cotisation OSTIE Salariale (1%)";
-            String codeSantePat = estOmsi ? "COTISATION_OMSI_PAT" : "COTISATION_OSTIE_PAT";
-            String libelleSantePat = estOmsi ? "Cotisation OMSI Patronale (5.5%)" : "Cotisation OSTIE Patronale (5%)";
+            String codeSanteSal = estOmsi ? "COTISATION_OMSI_SAL" : (estOstie ? "COTISATION_OSTIE_SAL" : "COTISATION_" + organe + "_SAL");
+            String salRateStr = input.getTauxSanteSalarialDecimal() != null ? input.getTauxSanteSalarialDecimal().movePointRight(2).stripTrailingZeros().toPlainString() : "0";
+            String libelleSanteSal = estOmsi ? "Cotisation OMSI Salariale (1.5%)" : (estOstie ? "Cotisation OSTIE Salariale (1%)" : "Cotisation Santé " + organe + " Salariale (" + salRateStr + "%)");
+
+            String codeSantePat = estOmsi ? "COTISATION_OMSI_PAT" : (estOstie ? "COTISATION_OSTIE_PAT" : "COTISATION_" + organe + "_PAT");
+            String patRateStr = input.getTauxSantePatronalDecimal() != null ? input.getTauxSantePatronalDecimal().movePointRight(2).stripTrailingZeros().toPlainString() : "0";
+            String libelleSantePat = estOmsi ? "Cotisation OMSI Patronale (5.5%)" : (estOstie ? "Cotisation OSTIE Patronale (5%)" : "Cotisation Santé " + organe + " Patronale (" + patRateStr + "%)");
 
             BigDecimal assietteSante = input.isEstPlafonneSante()
                     ? assietteSociale.min(plafondCnaps)

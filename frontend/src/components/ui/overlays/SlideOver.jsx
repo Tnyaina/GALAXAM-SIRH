@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { X } from 'lucide-react';
 
 const widths = {
+    sm: 'max-w-sm',
     md: 'max-w-md',
     lg: 'max-w-xl',
     xl: 'max-w-2xl',

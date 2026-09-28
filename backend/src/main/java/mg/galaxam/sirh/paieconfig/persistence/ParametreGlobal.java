@@ -24,6 +24,43 @@ public class ParametreGlobal extends ClassMere {
         this.setNomTable("PARAMETRE_GLOBAL");
     }
 
+    /** Effet métier fourni à l'interface avec l'état du paramètre. */
+    public String getEffetDesactivation() {
+        if (!Boolean.TRUE.equals(estDesactivable) || codeParametre == null) return null;
+        return switch (codeParametre.toUpperCase()) {
+            case "REDUCTION_DEPLACT_REPAS_MIDI" ->
+                    "La réduction de l'indemnité de déplacement ne s'applique plus.";
+            case "PLAFOND_CUMUL_SOLDE_CONGE_JOURS" ->
+                    "Les acquisitions et bonifications de congés ne sont plus plafonnées par cette règle.";
+            case "PLAFOND_SOLDE_CONGE_NEGATIF" ->
+                    "Les demandes de congé créant un solde négatif sont refusées.";
+            case "SEUIL_ALERTE_SOLDE_CONGE_FAIBLE" ->
+                    "L'alerte de solde de congé faible n'est plus émise.";
+            case "SEUIL_ANCIENNETE_BONIFICATION_ANS", "PALIER_ANNEES_BONIFICATION",
+                    "JOURS_BONIFICATION_PAR_PALIER" ->
+                    "La bonification d'ancienneté n'est plus calculée.";
+            case "SEUIL_RETARD_ASSIDUITE_MIN" ->
+                    "La prime d'assiduité n'est plus accordée par le calcul de paie.";
+            case "SEUIL_RETARD_PENALITE_PP_MIN", "SEUIL_CONGES_PENALITE_PP_JOURS", "TAUX_PENALITE_PP" ->
+                    "La pénalité retard/congé sur la prime de performance n'est plus appliquée.";
+            case "EXONERATION_HS_IRSA_ACTIVE", "PLAFOND_MENSUEL_HS_EXONEREES" ->
+                    "L'exonération IRSA des heures supplémentaires n'est plus appliquée.";
+            case "SEUIL_2ND_REPAS_1", "MONTANT_2ND_REPAS_1" ->
+                    "Le deuxième repas de la première tranche n'est plus accordé.";
+            case "SEUIL_2ND_REPAS_2", "MONTANT_2ND_REPAS_2" ->
+                    "Le deuxième repas majoré n'est plus accordé ; la première tranche reste applicable si elle est active.";
+            default -> null;
+        };
+    }
+
+    public boolean isHistoriqueNonConsomme() {
+        if (codeParametre == null) return false;
+        return switch (codeParametre.toUpperCase()) {
+            case "SEUIL_HEURES_SEMAINE_COMPENSATION" -> true;
+            default -> false;
+        };
+    }
+
     @Override
     public Integer getTuppleID() {
         return idParametre;

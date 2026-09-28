@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, ShieldAlert, FileText, Eye, Clock, RotateCcw, AlertTriangle, CheckCircle, Play, Power, Check, Edit2 } from 'lucide-react';
+import { Settings, ShieldAlert, FileText, Eye, Power, Check, Edit2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -7,7 +7,6 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import { useToast } from '@/components/ui/feedback/Toast';
 import congeService from '@/features/leave/api/congeService';
 import useConfirm from '@/hooks/useConfirm';
-import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import TypeCongeModal from './TypeCongeModal';
 import MotifFamilialModal from './MotifFamilialModal';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -28,8 +27,6 @@ export default function ParametresCongesTab() {
   // État des modales
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showMotifModal, setShowMotifModal] = useState(false);
-  const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
-  const [purging, setPurging] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
   // Chargement des données
@@ -119,29 +116,6 @@ export default function ParametresCongesTab() {
     });
   };
 
-  const handleExecuterPurge = async () => {
-    setPurging(true);
-    try {
-      const res = await congeService.declencherPurgeExpiration();
-      toast({
-        title: 'Purge Réussie',
-        message: res.message || 'La purge triennale des droits expirés a été exécutée avec succès.',
-        type: 'success',
-      });
-      setShowPurgeConfirm(false);
-      fetchParametres();
-    } catch (err) {
-      console.error(err);
-      toast({
-        title: 'Erreur',
-        message: err.response?.data || 'Impossible d\'exécuter la purge.',
-        type: 'error',
-      });
-    } finally {
-      setPurging(false);
-    }
-  };
-
   // Rendu
   return (
     <div className="space-y-6 ">
@@ -171,18 +145,6 @@ export default function ParametresCongesTab() {
           >
             <ShieldAlert size={16} />
             Événements Familiaux
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('prescription')}
-            className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-l-2  ${
-              activeSubTab === 'prescription' 
-                ? 'bg-[var(--color-brand-50)] text-[var(--color-brand-600)] border-[var(--color-brand-500)]' 
-                : 'bg-transparent text-[var(--color-fg-subtle)] border-transparent hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-fg)]'
-            }`}
-          >
-            <Clock size={16} />
-            Prescription & Purge Triennale
           </button>
 
         </div>
@@ -401,81 +363,6 @@ export default function ParametresCongesTab() {
             </Card>
           )}
 
-          {activeSubTab === 'prescription' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-[var(--color-brand-500)]" />
-                    <CardTitle>Cadre Légal & Règle Triennale de Prescription (Madagascar)</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardBody className="space-y-6">
-                  <div className="p-4 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 flex items-start gap-3">
-                    <AlertTriangle className="text-[var(--color-warning-600)] shrink-0 mt-0.5" size={20} />
-                    <div className="text-xs space-y-1.5 text-[var(--color-warning-700)] dark:text-[var(--color-warning-200)]">
-                      <p className="font-bold text-sm">Prescription légale après 3 ans (36 mois) :</p>
-                      <p className="leading-relaxed">
-                        Conformément au Code du travail malgache, les jours de congés payés acquis par un salarié doivent être pris dans un délai maximum de <strong>3 ans</strong> suivant leur ouverture de droit. Les droits non consommés au-delà de cette échéance sont légalement forclos et purgés du solde.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] space-y-2">
-                      <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-[var(--color-brand-600)]">
-                        <CheckCircle size={15} />
-                        Règle FIFO Active
-                      </div>
-                      <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
-                        Lorsqu'un employé pose des congés, le système consomme toujours en priorité ses droits les plus anciens.
-                      </p>
-                    </div>
-
-                    <div className="p-4 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] space-y-2">
-                      <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-[var(--color-brand-600)]">
-                        <Clock size={15} />
-                        Planificateur Nocturne
-                      </div>
-                      <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
-                        Exécution automatique chaque nuit à <strong>02h00</strong> et à chaque redémarrage de l'application.
-                      </p>
-                    </div>
-
-                    <div className="p-4 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] space-y-2">
-                      <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-[var(--color-brand-600)]">
-                        <RotateCcw size={15} />
-                        Traçabilité Complète
-                      </div>
-                      <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
-                        Chaque purge génère une écriture négative <code>EXPIRATION</code> dans le grand-livre des mouvements de solde.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-[var(--color-border-subtle)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                      <h4 className="text-sm font-bold text-[var(--color-fg)]">Déclenchement Manuel de la Purge Triennale</h4>
-                      <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-                        Forcer l'évaluation immédiate de tous les soldes pour régulariser les droits ayant dépassé 36 mois.
-                      </p>
-                    </div>
-
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => setShowPurgeConfirm(true)}
-                      loading={purging}
-                      icon={<Play size={14} />}
-                    >
-                      Exécuter la Purge Maintenant
-                    </Button>
-                  </div>
-                </CardBody>
-              </Card>
-            </div>
-          )}
-
         </div>
       </div>
 
@@ -494,17 +381,6 @@ export default function ParametresCongesTab() {
 
       <ConfirmModal />
 
-      <ConfirmDialog
-        isOpen={showPurgeConfirm}
-        title="Exécuter la Purge Triennale des Congés"
-        message="Cette opération va analyser l'ensemble des employés actifs et purger les droits acquis il y a plus de 36 mois qui n'ont pas encore été consommés selon la règle FIFO. Souhaitez-vous continuer ?"
-        confirmLabel="Lancer la purge"
-        cancelLabel="Annuler"
-        variant="warning"
-        loading={purging}
-        onConfirm={handleExecuterPurge}
-        onClose={() => setShowPurgeConfirm(false)}
-      />
     </div>
   );
 }

@@ -118,36 +118,6 @@ public class PointageService {
         }
     }
 
-    record MealTier(LocalTime threshold, BigDecimal amount) {}
-
-    static MealTier resolveMealTier(
-            Map<String, ParametreGlobal.ParametreEtat> params,
-            String thresholdCode, String amountCode) {
-        ParametreGlobal.ParametreResolution threshold = ParametreGlobal.resolve(params, thresholdCode);
-        ParametreGlobal.ParametreResolution amount = ParametreGlobal.resolve(params, amountCode);
-        if (threshold.isDisabled() || amount.isDisabled()) {
-            return new MealTier(null, BigDecimal.ZERO);
-        }
-        LocalTime resolvedThreshold;
-        try {
-            if (threshold.isMissing()) {
-                throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
-                        "Configuration absente : " + thresholdCode + ".");
-            }
-            String rawThreshold = threshold.valeur();
-            resolvedThreshold = LocalTime.parse(rawThreshold.length() == 5 ? rawThreshold : rawThreshold.substring(0, 8));
-        } catch (RuntimeException exception) {
-            throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
-                    "Seuil d'indemnité invalide : " + thresholdCode + ".");
-        }
-        BigDecimal resolvedAmount = parseMonetaryValue(amount, amountCode);
-        if (resolvedAmount == null || resolvedAmount.signum() < 0) {
-            throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
-                    "Configuration d'indemnité absente : " + amountCode + ".");
-        }
-        return new MealTier(resolvedThreshold, resolvedAmount);
-    }
-
     static LocalTime resolveOptionalTimeRule(
             Map<String, ParametreGlobal.ParametreEtat> params, String code) {
         ParametreGlobal.ParametreResolution resolution = ParametreGlobal.resolve(params, code);
@@ -163,6 +133,31 @@ public class PointageService {
             throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
                     "Valeur horaire invalide : " + code + ".");
         }
+    }
+
+    record MealTier(LocalTime threshold, BigDecimal amount) {}
+
+    static MealTier resolveMealTier(Map<String, ParametreGlobal.ParametreEtat> params,
+            String thresholdCode, String amountCode) {
+        var threshold = ParametreGlobal.resolve(params, thresholdCode);
+        var amount = ParametreGlobal.resolve(params, amountCode);
+        if (threshold.isDisabled() || amount.isDisabled()) return new MealTier(null, BigDecimal.ZERO);
+        return new MealTier(resolveOptionalTimeRule(params, thresholdCode),
+                requireMonetaryStateParameter(params, amountCode));
+    }
+
+    record SecondMealAward(String code, BigDecimal amount) {}
+
+    static SecondMealAward resolveSecondMealAward(boolean nonWorked, LocalTime afternoonExit,
+            MealTier first, MealTier second) {
+        if (nonWorked || afternoonExit == null) return null;
+        if (second.threshold() != null && !afternoonExit.isBefore(second.threshold())) {
+            return new SecondMealAward("REPAS_2_MAJORE", second.amount());
+        }
+        if (first.threshold() != null && !afternoonExit.isBefore(first.threshold())) {
+            return new SecondMealAward("REPAS_2", first.amount());
+        }
+        return null;
     }
 
     @Autowired
@@ -1747,7 +1742,7 @@ public class PointageService {
                 }
                 int workingDays = calendrierEngine.compterJoursOuvrables(perDebut, perFin, idSiteRow, c);
                 persistDynamicAllowances(dto.getDynamicIndemnites(), idPtg, idSiteRow, dtPtg,
-                        workingDays, estNonTravaille, c, psDyn);
+                        workingDays, estNonTravaille, toLocalTime(sa), c, psDyn);
 
                 // Recalcul du montant_total_indemnites dénormalisé depuis pointage_indemnite_jour
                 try (PreparedStatement psUpdateTotal = c.prepareStatement(
@@ -1903,7 +1898,7 @@ public class PointageService {
                 + "accorde = EXCLUDED.accorde, updated_at = CURRENT_TIMESTAMP";
         try (PreparedStatement statement = c.prepareStatement(upsert)) {
             persistDynamicAllowances(day.dynamicAllowances(), pointageId, day.siteId(), day.date(),
-                    workingDays, isNonWorkedStatus(day.statusCode()), c, statement);
+                    workingDays, isNonWorkedStatus(day.statusCode()), toLocalTime(day.afternoonExit()), c, statement);
         }
         updateRegularizedAllowanceTotal(pointageId, c);
     }
@@ -1924,7 +1919,8 @@ public class PointageService {
     }
 
     private void persistDynamicAllowances(Map<String, Object> selections, int pointageId, int siteId,
-            Date date, int workingDays, boolean nonWorked, Connection c, PreparedStatement statement) throws SQLException {
+            Date date, int workingDays, boolean nonWorked, LocalTime afternoonExit,
+            Connection c, PreparedStatement statement) throws SQLException {
         boolean repasFourniSansVersement = false;
         for (Map.Entry<String, Object> entry : selections.entrySet()) {
             if (!(entry.getValue() instanceof Map<?, ?> values)) continue;
@@ -1979,6 +1975,53 @@ public class PointageService {
             statement.setBigDecimal(5, amount);
             statement.setBoolean(6, granted);
             statement.executeUpdate();
+        }
+        persistSecondMeal(pointageId, date, nonWorked, afternoonExit, c, statement);
+    }
+
+    private void persistSecondMeal(int pointageId, Date date, boolean nonWorked, LocalTime afternoonExit,
+            Connection c, PreparedStatement statement) throws SQLException {
+        SecondMealAward award = null;
+        if (!nonWorked && afternoonExit != null) {
+            Map<String, ParametreGlobal.ParametreEtat> params = ParametreGlobal.loadEtatMapAtDate(date, c);
+            MealTier first = resolveMealTier(params, "SEUIL_2ND_REPAS_1", "MONTANT_2ND_REPAS_1");
+            MealTier second = resolveMealTier(params, "SEUIL_2ND_REPAS_2", "MONTANT_2ND_REPAS_2");
+            award = resolveSecondMealAward(false, afternoonExit, first, second);
+        }
+        BigDecimal amount = award == null ? BigDecimal.ZERO : MoneyRoundingPolicy.amount(award.amount());
+        try (PreparedStatement update = c.prepareStatement(
+                "UPDATE pointage_jour SET code_second_repas = ?, montant_second_repas = ? WHERE id_pointage = ?")) {
+            update.setString(1, award == null ? null : award.code());
+            update.setBigDecimal(2, amount);
+            update.setInt(3, pointageId);
+            update.executeUpdate();
+        }
+        if (award == null) return;
+        try (PreparedStatement lookup = c.prepareStatement(
+                "SELECT id_indemnite FROM ref_indemnite WHERE code = 'REPAS' AND est_actif = TRUE")) {
+            try (ResultSet result = lookup.executeQuery()) {
+                if (!result.next()) {
+                    throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
+                            "Indemnité REPAS absente du référentiel.");
+                }
+                int mealId = result.getInt(1);
+                try (PreparedStatement add = c.prepareStatement(
+                        "UPDATE pointage_indemnite_jour SET montant_calcule = montant_calcule + ?, "
+                                + "accorde = TRUE, updated_at = CURRENT_TIMESTAMP "
+                                + "WHERE id_pointage = ? AND id_indemnite = ? AND fraction = 'JOUR_ENTIER'")) {
+                    add.setBigDecimal(1, amount);
+                    add.setInt(2, pointageId);
+                    add.setInt(3, mealId);
+                    if (add.executeUpdate() > 0) return;
+                }
+                statement.setInt(1, pointageId);
+                statement.setInt(2, mealId);
+                statement.setString(3, "JOUR_ENTIER");
+                statement.setBigDecimal(4, BigDecimal.ZERO);
+                statement.setBigDecimal(5, amount);
+                statement.setBoolean(6, true);
+                statement.executeUpdate();
+            }
         }
     }
 

@@ -199,7 +199,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     const netImposable = bulletin ? (bulletin.revenuNetImposable ?? bulletin.salaireNetImposable ?? bulletin.netImposable) : null;
 
     const ligneCnaps = lignes.find(l => l.codeRubrique === 'COTISATION_CNAPS_SAL' || l.codeRubrique === 'CNAPS_SAL' || (l.libelleRubrique && l.libelleRubrique.toLowerCase().includes('cnaps')));
-    const ligneOstie = lignes.find(l => l.codeRubrique === 'COTISATION_OSTIE_SAL' || l.codeRubrique === 'OSTIE_SAL' || (l.libelleRubrique && (l.libelleRubrique.toLowerCase().includes('ostie') || l.libelleRubrique.toLowerCase().includes('santé'))));
+    const ligneOstie = lignes.find(l => l.codeRubrique === 'COTISATION_OSTIE_SAL' || l.codeRubrique === 'OSTIE_SAL' || l.codeRubrique === 'COTISATION_OMSI_SAL' || (l.codeRubrique && l.codeRubrique.startsWith('COTISATION_') && l.codeRubrique.endsWith('_SAL') && !l.codeRubrique.includes('CNAPS')) || (l.categorie === 'COTISATION_SALARIALE' && !l.codeRubrique?.includes('CNAPS')) || (l.libelleRubrique && (l.libelleRubrique.toLowerCase().includes('ostie') || l.libelleRubrique.toLowerCase().includes('omsi') || l.libelleRubrique.toLowerCase().includes('santé') || l.libelleRubrique.toLowerCase().includes('amit'))));
     const cnapsVal = bulletin ? (bulletin.cnapsSalariale ?? (ligneCnaps ? (ligneCnaps.montantSalarial ?? ligneCnaps.montantRetenue) : null)) : null;
     const ostieVal = bulletin ? (bulletin.ostieSalariale ?? (ligneOstie ? (ligneOstie.montantSalarial ?? ligneOstie.montantRetenue) : null)) : null;
 

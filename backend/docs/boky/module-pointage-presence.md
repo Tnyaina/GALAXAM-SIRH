@@ -509,10 +509,7 @@ Le module assure l'attribution automatique, l'ajustement et le scellement des in
 
 1. **Éligibilité de Base** : L'indemnité repas est accordée sur toute journée ouvrable travaillée où le collaborateur est physiquement présent sur site, sous réserve de la configuration active du site dans `site_indemnite_config`.
 2. **Cas des Sites à Montant Zéro** : Si un site offre la cantine en nature (ex : cantine d'entreprise à Tamatave), `montant_reference = 0.00`. L'indemnité monétaire est nulle.
-3. **Repas Supplémentaire pour Sortie Tardive** :
-   Le moteur `AttendanceEngine.calculateMealAmount()` supporte l'attribution d'un supplément si le salarié prolonge son activité au-delà de seuils horaires configurés dans `parametre_global` :
-   - Dépassement Seuil 1 (ex : sortie $\ge$ 19:30) $\rightarrow$ Majoration de montant 1.
-   - Dépassement Seuil 2 (ex : sortie $\ge$ 21:00) $\rightarrow$ Majoration de montant 2.
+3. **Deuxième repas pour sortie tardive** : indépendant du premier repas, il est attribué automatiquement selon l'heure de sortie de l'après-midi et les quatre paramètres datés de `parametre_global`. Le seuil 1 (ex. 19:30) donne le montant 1 ; le seuil 2 (ex. 21:00) donne le montant majoré 2 à la place du montant 1. La désactivation d'une tranche supprime cette tranche sans repli. Le type et le montant sont tracés sur `pointage_jour` ; la paie additionne ce montant à l'unique ligne `REPAS`, tandis que la fiche pointage distingue les deux repas.
 
 ### 9.3 Règle de Déplacement & Proratisations
 

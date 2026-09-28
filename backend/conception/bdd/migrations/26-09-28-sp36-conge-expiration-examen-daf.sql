@@ -21,3 +21,7 @@ CREATE INDEX IF NOT EXISTS idx_conge_expiration_examen_employe_date
 UPDATE parametre_global
 SET description = 'Ancienneté en mois à partir de laquelle les droits disponibles sont signalés pour examen DAF au titre de la prescription ; aucune expiration automatique'
 WHERE code_parametre = 'DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS';
+
+UPDATE parametre_global
+SET description = 'Plafond technique configuré du solde cumulé ; limite les acquisitions au-delà de cette valeur'
+WHERE code_parametre = 'PLAFOND_CUMUL_SOLDE_CONGE_JOURS';

@@ -385,7 +385,7 @@ public class NotificationRhScheduler {
             }
             insererNotification(c, null, "CONGE_EXPIRATION_PROCHE", "HAUTE",
                 "Droits de congé à examiner - " + nomPrenom,
-                String.format("%.2f", entry.getValue()) + " jours de congé approchent du seuil de prescription. Vérifiez la planification avec le salarié ; aucun retrait automatique n'est effectué.",
+                String.format("%.2f", entry.getValue()) + " jours de congé approchent du délai d'examen configuré. Vérifiez la planification avec le salarié ; aucun retrait automatique n'est effectué.",
                 "/employes/" + idEmploye + "?tab=conges", idEmploye);
         }
     }

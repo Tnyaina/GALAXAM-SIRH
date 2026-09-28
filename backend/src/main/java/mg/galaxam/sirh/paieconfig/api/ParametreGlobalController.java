@@ -67,6 +67,8 @@ public class ParametreGlobalController {
                 pg.setEstActif(request.getEstActif() != null ? request.getEstActif() : true);
                 pg.setEstDesactivable(request.getEstDesactivable() != null ? request.getEstDesactivable() : false);
 
+                verifierDesactivationDocumentee(pg);
+
                 pg.save(c);
                 AuditLog.audit(c, "CREATION", "parametre_global", String.valueOf(pg.getIdParametre()), null, pg);
 
@@ -95,7 +97,7 @@ public class ParametreGlobalController {
                 }
 
                 if (request.getEstActif() != null && !request.getEstActif() && !Boolean.TRUE.equals(existing.getEstDesactivable())) {
-                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Ce paramètre est une constante système indispensable et ne peut pas être désactivé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Ce paramètre ne peut pas être désactivé.");
                 }
 
                 existing.setCodeParametre(request.getCodeParametre());
@@ -110,6 +112,8 @@ public class ParametreGlobalController {
                 if (request.getEstDesactivable() != null) {
                     existing.setEstDesactivable(request.getEstDesactivable());
                 }
+
+                verifierDesactivationDocumentee(existing);
 
                 existing.update(c);
                 AuditLog.audit(c, "MODIFICATION", "parametre_global", String.valueOf(id), null, existing);
@@ -139,7 +143,17 @@ public class ParametreGlobalController {
                 }
 
                 if (!Boolean.TRUE.equals(existing.getEstDesactivable())) {
-                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Ce paramètre est une constante système indispensable et ne peut pas être désactivé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Ce paramètre ne peut pas être désactivé.");
+                }
+
+                verifierDesactivationDocumentee(existing);
+                java.time.LocalDate aujourdHui = java.time.LocalDate.now();
+                if (existing.getDateDebut() == null
+                        || existing.getDateDebut().toLocalDate().isAfter(aujourdHui)
+                        || (existing.getDateFin() != null && existing.getDateFin().toLocalDate().isBefore(aujourdHui))) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                            "Seule une version du paramètre en vigueur peut être basculée directement.");
                 }
 
                 boolean nouveauStatut;
@@ -162,6 +176,15 @@ public class ParametreGlobalController {
         } catch (Exception e) {
             e.printStackTrace();
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    private static void verifierDesactivationDocumentee(ParametreGlobal parametre) {
+        if (Boolean.TRUE.equals(parametre.getEstDesactivable())
+                && parametre.getEffetDesactivation() == null) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "La désactivation de ce paramètre n'a aucun effet métier vérifié. Corrigez d'abord son consommateur backend.");
         }
     }
 }

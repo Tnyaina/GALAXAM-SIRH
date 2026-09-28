@@ -20,6 +20,8 @@ public class RefTypeCotisation extends ClassMere {
     private Date dateFin;
     /** 'ENTREPRISE' (FMFP, ISI) ou 'SITE' (CNAPS, OSTIE, OMSI) */
     private String portee;
+    /** 'PREVOYANCE', 'SANTE', 'FORMATION' */
+    private String categorie = "SANTE";
     private boolean estActif = true;
 
     public RefTypeCotisation() {
@@ -56,13 +58,16 @@ public class RefTypeCotisation extends ClassMere {
         if (dateFin != null && dateFin.before(dateDebut)) {
             throw new IllegalArgumentException("La date de fin ne peut pas être antérieure à la date de début.");
         }
+        if (categorie == null || categorie.isBlank()) {
+            categorie = "SANTE";
+        }
     }
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         valider();
-        String sql = "INSERT INTO ref_type_cotisation (code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, est_actif) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_type_cotisation";
+        String sql = "INSERT INTO ref_type_cotisation (code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, categorie, est_actif) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_type_cotisation";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
@@ -71,7 +76,8 @@ public class RefTypeCotisation extends ClassMere {
             ps.setDate(5, dateDebut);
             ps.setDate(6, dateFin);
             ps.setString(7, portee != null ? portee : "SITE");
-            ps.setBoolean(8, estActif);
+            ps.setString(8, categorie != null ? categorie : "SANTE");
+            ps.setBoolean(9, estActif);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -86,7 +92,7 @@ public class RefTypeCotisation extends ClassMere {
     protected ClassMere modifier(Connection c) throws Exception {
         valider();
         String sql = "UPDATE ref_type_cotisation SET code = ?, libelle = ?, taux_salarial = ?, taux_patronal = ?, " +
-                     "date_debut = ?, date_fin = ?, portee = ?, est_actif = ? WHERE id_type_cotisation = ?";
+                     "date_debut = ?, date_fin = ?, portee = ?, categorie = ?, est_actif = ? WHERE id_type_cotisation = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
@@ -95,8 +101,9 @@ public class RefTypeCotisation extends ClassMere {
             ps.setDate(5, dateDebut);
             ps.setDate(6, dateFin);
             ps.setString(7, portee != null ? portee : "SITE");
-            ps.setBoolean(8, estActif);
-            ps.setInt(9, idTypeCotisation);
+            ps.setString(8, categorie != null ? categorie : "SANTE");
+            ps.setBoolean(9, estActif);
+            ps.setInt(10, idTypeCotisation);
             ps.executeUpdate();
         }
         return this;
@@ -118,7 +125,7 @@ public class RefTypeCotisation extends ClassMere {
     }
 
     public ClassMere rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, est_actif FROM ref_type_cotisation WHERE id_type_cotisation = ?";
+        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, categorie, est_actif FROM ref_type_cotisation WHERE id_type_cotisation = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
@@ -132,6 +139,7 @@ public class RefTypeCotisation extends ClassMere {
                     item.dateDebut = rs.getDate("date_debut");
                     item.dateFin = rs.getDate("date_fin");
                     item.portee = rs.getString("portee");
+                    item.categorie = rs.getString("categorie");
                     item.estActif = rs.getBoolean("est_actif");
                     return item;
                 }
@@ -141,7 +149,7 @@ public class RefTypeCotisation extends ClassMere {
     }
 
     public static List<RefTypeCotisation> listAll(Connection c) throws Exception {
-        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, est_actif FROM ref_type_cotisation ORDER BY code";
+        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, categorie, est_actif FROM ref_type_cotisation ORDER BY code";
         List<RefTypeCotisation> list = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -155,6 +163,7 @@ public class RefTypeCotisation extends ClassMere {
                 item.dateDebut = rs.getDate("date_debut");
                 item.dateFin = rs.getDate("date_fin");
                 item.portee = rs.getString("portee");
+                item.categorie = rs.getString("categorie");
                 item.estActif = rs.getBoolean("est_actif");
                 list.add(item);
             }
@@ -176,7 +185,7 @@ public class RefTypeCotisation extends ClassMere {
      * @param c  Connexion JDBC
      */
     public static List<RefTypeCotisation> listActiveAt(java.sql.Date at, Connection c) throws Exception {
-        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, est_actif "
+        String sql = "SELECT id_type_cotisation, code, libelle, taux_salarial, taux_patronal, date_debut, date_fin, portee, categorie, est_actif "
                 + "FROM ref_type_cotisation "
                 + "WHERE est_actif = true "
                 + "  AND date_debut <= ? "
@@ -197,6 +206,7 @@ public class RefTypeCotisation extends ClassMere {
                     item.dateDebut = rs.getDate("date_debut");
                     item.dateFin = rs.getDate("date_fin");
                     item.portee = rs.getString("portee");
+                    item.categorie = rs.getString("categorie");
                     item.estActif = rs.getBoolean("est_actif");
                     list.add(item);
                 }
@@ -307,6 +317,8 @@ public class RefTypeCotisation extends ClassMere {
     public void setDateFin(Date dateFin) { this.dateFin = dateFin; }
     public String getPortee() { return portee; }
     public void setPortee(String portee) { this.portee = portee; }
+    public String getCategorie() { return categorie; }
+    public void setCategorie(String categorie) { this.categorie = categorie; }
     public boolean isEstActif() { return estActif; }
     public void setEstActif(boolean estActif) { this.estActif = estActif; }
 }

@@ -71,6 +71,8 @@ public class CotisationController {
                 cot.setTauxPatronal(request.getTauxPatronal());
                 cot.setDateDebut(request.getDateDebut());
                 cot.setDateFin(request.getDateFin());
+                cot.setPortee(request.getPortee() != null ? request.getPortee() : "SITE");
+                cot.setCategorie(request.getCategorie() != null ? request.getCategorie() : "SANTE");
 
                 cot.save(c);
                 AuditLog.audit(c, "CREATION", "ref_type_cotisation", String.valueOf(cot.getIdTypeCotisation()), null, cot);
@@ -105,6 +107,8 @@ public class CotisationController {
                 existing.setTauxPatronal(request.getTauxPatronal());
                 existing.setDateDebut(request.getDateDebut());
                 existing.setDateFin(request.getDateFin());
+                if (request.getPortee() != null) existing.setPortee(request.getPortee());
+                if (request.getCategorie() != null) existing.setCategorie(request.getCategorie());
 
                 existing.update(c);
                 AuditLog.audit(c, "MODIFICATION", "ref_type_cotisation", String.valueOf(id), null, existing);

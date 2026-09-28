@@ -1,4 +1,4 @@
-import { User, Edit2, Power, RotateCcw, Briefcase, Building2, Calendar, Phone, Mail } from 'lucide-react';
+import { User, Edit2, Power, RotateCcw, Briefcase, Building2, Calendar, Phone, Mail, FileText } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import AuthenticatedImage from '@/components/ui/data-display/AuthenticatedImage';
@@ -11,6 +11,7 @@ export default function EmployeHeaderCard({
     onEdit,
     onDesactiver,
     onReactiver,
+    onOpenSummary,
 }) {
     if (!emp) return null;
 
@@ -147,6 +148,19 @@ export default function EmployeHeaderCard({
                 <div className="flex items-center lg:items-end flex-row lg:flex-col justify-between sm:justify-end gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 border-[var(--color-border-subtle)] shrink-0">
                     {/* Barre de boutons d'action */}
                     <div className="flex items-center gap-2">
+                        {onOpenSummary && (
+                            <Button
+                                onClick={onOpenSummary}
+                                variant="outline"
+                                size="sm"
+                                iconLeft={<FileText size={14} />}
+                                className="shadow-2xs text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border-[var(--color-brand-500)]/30 hover:bg-[var(--color-brand-500)]/10"
+                                title="Afficher la synthèse rapide du dossier collaborateur (Shift+S)"
+                            >
+                                Synthèse
+                            </Button>
+                        )}
+
                         {canWrite && (
                             <Button
                                 onClick={onEdit}

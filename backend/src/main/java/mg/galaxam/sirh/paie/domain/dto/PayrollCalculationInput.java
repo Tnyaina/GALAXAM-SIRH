@@ -232,6 +232,8 @@ public class PayrollCalculationInput {
     private BigDecimal diviseurMensuelHeures = PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES;
     private BigDecimal heuresJournalieresLegales = new BigDecimal("8.00");
     private int seuilRetardAssiduiteMinutes = 45;
+    private boolean reglePrimeAssiduiteActive = true;
+    private boolean regleMalusPerformanceActive = true;
     private int seuilRetardMalusPerformanceMinutes = 70;
     private BigDecimal seuilCongesMalusPerformanceJours = BigDecimal.ONE;
     private BigDecimal tauxMalusPerformance = new BigDecimal("0.25");
@@ -616,6 +618,10 @@ public class PayrollCalculationInput {
     public void setHeuresJournalieresLegales(BigDecimal heuresJournalieresLegales) { this.heuresJournalieresLegales = heuresJournalieresLegales; }
 
     public int getSeuilRetardAssiduiteMinutes() { return seuilRetardAssiduiteMinutes; }
+    public boolean isReglePrimeAssiduiteActive() { return reglePrimeAssiduiteActive; }
+    public void setReglePrimeAssiduiteActive(boolean active) { this.reglePrimeAssiduiteActive = active; }
+    public boolean isRegleMalusPerformanceActive() { return regleMalusPerformanceActive; }
+    public void setRegleMalusPerformanceActive(boolean active) { this.regleMalusPerformanceActive = active; }
     public void setSeuilRetardAssiduiteMinutes(int seuilRetardAssiduiteMinutes) { this.seuilRetardAssiduiteMinutes = seuilRetardAssiduiteMinutes; }
 
     public int getSeuilRetardMalusPerformanceMinutes() { return seuilRetardMalusPerformanceMinutes; }
