@@ -1,12 +1,14 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { AlertTriangle, Layers, Clock, Calendar, ArrowRight } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 
 function SupervisionAlertsPanel({ alertes = [], onActionClick, onVerifyDoublons }) {
+    const [expanded, setExpanded] = useState(false);
     if (!alertes || alertes.length === 0) return null;
 
     const totalUrgent = alertes.filter(a => a.variant === 'danger' || a.type === 'DOUBLON').length;
+    const visibleAlerts = expanded ? alertes : alertes.slice(0, 2);
 
     return (
         <div className="bg-[var(--color-surface)] border border-[var(--color-warning-500)]/30 shadow-sm overflow-hidden">
@@ -34,7 +36,7 @@ function SupervisionAlertsPanel({ alertes = [], onActionClick, onVerifyDoublons 
 
             {/* Liste des alertes avec distinction visuelle par criticité */}
             <div className="divide-y divide-[var(--color-border-subtle)]">
-                {alertes.map((al, idx) => {
+                {visibleAlerts.map((al, idx) => {
                     const isDanger = al.variant === 'danger' || al.type === 'DOUBLON';
                     const isWarning = al.variant === 'warning';
 
@@ -70,10 +72,7 @@ function SupervisionAlertsPanel({ alertes = [], onActionClick, onVerifyDoublons 
                                             {al.titre}
                                         </span>
                                     </div>
-                                    <div
-                                        className="text-xs text-[var(--color-fg-muted)] leading-relaxed"
-                                        dangerouslySetInnerHTML={{ __html: al.description }}
-                                    />
+                                    <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">{al.description}</p>
                                 </div>
                             </div>
 
@@ -102,6 +101,11 @@ function SupervisionAlertsPanel({ alertes = [], onActionClick, onVerifyDoublons 
                     );
                 })}
             </div>
+            {alertes.length > 2 && <div className="border-t border-[var(--color-border-subtle)] px-4 py-2">
+                <Button variant="ghost" size="xs" onClick={() => setExpanded(value => !value)}>
+                    {expanded ? 'Réduire les alertes' : `Voir les ${alertes.length - 2} autres alertes`}
+                </Button>
+            </div>}
         </div>
     );
 }

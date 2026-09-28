@@ -235,16 +235,7 @@ public class PayrollService {
             throw new IllegalStateException("BULLETIN_VALIDE_IMMUABLE: une réouverture contrôlée est requise avant recalcul.");
         }
         int bulletinId = precedent.getIdBulletin();
-        try (PreparedStatement ps = c.prepareStatement(
-                "UPDATE paie_avance_acompte SET montant_impute = 0, solde_restant = montant_initial, "
-                + "statut = 'APPROUVE', id_bulletin = NULL, updated_at = CURRENT_TIMESTAMP "
-                + "WHERE id_bulletin = ? AND id_employe = ? AND id_periode_paie = ? "
-                + "AND statut IN ('APPROUVE','IMPUTE_PAIE')")) {
-            ps.setInt(1, bulletinId);
-            ps.setInt(2, employeId);
-            ps.setInt(3, periodeId);
-            ps.executeUpdate();
-        }
+        restaurerImputationsMouvements(bulletinId, employeId, periodeId, c);
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT e.id_echeance, e.id_pret, e.montant_preleve "
                 + "FROM paie_pret_echeance e WHERE e.id_bulletin = ? AND e.id_periode_paie = ? FOR UPDATE")) {
@@ -277,6 +268,46 @@ public class PayrollService {
                     }
                 }
             }
+        }
+    }
+
+    private void restaurerImputationsMouvements(int bulletinId, int employeId, int periodeId, Connection c) throws Exception {
+        // La ligne de journal permet de retirer exactement la retenue de CE bulletin.
+        // Les dossiers historiques sans ligne gardent le comportement de reprise initial.
+        try (PreparedStatement ps = c.prepareStatement(
+                "UPDATE paie_avance_acompte a SET montant_impute = GREATEST(a.montant_impute - i.montant, 0), " +
+                "solde_restant = LEAST(a.solde_restant + i.montant, a.montant_initial), " +
+                "statut = 'APPROUVE', id_bulletin = NULL, updated_at = CURRENT_TIMESTAMP " +
+                "FROM paie_mouvement_imputation i WHERE i.id_avance = a.id_avance " +
+                "AND i.id_bulletin = ? AND a.id_employe = ?")) {
+            ps.setInt(1, bulletinId);
+            ps.setInt(2, employeId);
+            ps.executeUpdate();
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+                "DELETE FROM paie_mouvement_imputation WHERE id_bulletin = ?")) {
+            ps.setInt(1, bulletinId);
+            ps.executeUpdate();
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+                "UPDATE paie_avance_acompte a SET id_bulletin = (" +
+                "SELECT i.id_bulletin FROM paie_mouvement_imputation i WHERE i.id_avance = a.id_avance " +
+                "ORDER BY i.created_at DESC, i.id_imputation DESC LIMIT 1) " +
+                "WHERE a.id_employe = ? AND a.id_bulletin IS NULL " +
+                "AND EXISTS (SELECT 1 FROM paie_mouvement_imputation i WHERE i.id_avance = a.id_avance)")) {
+            ps.setInt(1, employeId);
+            ps.executeUpdate();
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+                "UPDATE paie_avance_acompte SET montant_impute = 0, solde_restant = montant_initial, " +
+                "statut = 'APPROUVE', id_bulletin = NULL, updated_at = CURRENT_TIMESTAMP " +
+                "WHERE id_bulletin = ? AND id_employe = ? AND id_periode_paie = ? " +
+                "AND statut IN ('APPROUVE','IMPUTE_PAIE') " +
+                "AND NOT EXISTS (SELECT 1 FROM paie_mouvement_imputation i WHERE i.id_avance = paie_avance_acompte.id_avance)")) {
+            ps.setInt(1, bulletinId);
+            ps.setInt(2, employeId);
+            ps.setInt(3, periodeId);
+            ps.executeUpdate();
         }
     }
 
@@ -523,13 +554,12 @@ public class PayrollService {
             bp.rouvrirBulletin(motif, idUtilisateur, c);
         }
 
-        // 1. Dé-imputer les avances et mouvements variables de la période pour permettre le re-calcul
-        String sqlUnfreezeAvances = "UPDATE paie_avance_acompte SET statut = 'APPROUVE', id_bulletin = NULL, " +
-                "montant_impute = 0, solde_restant = montant_initial " +
-                "WHERE id_periode_paie = ? AND id_bulletin IS NOT NULL AND statut IN ('APPROUVE','IMPUTE_PAIE')";
-        try (PreparedStatement ps = c.prepareStatement(sqlUnfreezeAvances)) {
-            ps.setInt(1, idPeriodePaie);
-            ps.executeUpdate();
+        // 1. Dé-imputer uniquement les retenues de ces bulletins : un reliquat peut
+        // déjà avoir été prélevé sur d'autres périodes.
+        for (BulletinPaie bp : bulletins) {
+            if (!"STC".equalsIgnoreCase(bp.getTypeBulletin())) {
+                restaurerImputationsMouvements(bp.getIdBulletin(), bp.getIdEmploye(), idPeriodePaie, c);
+            }
         }
 
         // 2. Dé-imputer les échéances de prêts prélevées sur cette période
@@ -906,15 +936,23 @@ public class PayrollService {
                 "FROM paie_avance_acompte paa " +
                 "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement " +
                 "LEFT JOIN paie_rubrique pr ON rtmp.id_rubrique = pr.id_rubrique " +
-                "WHERE paa.id_employe = ? AND paa.id_periode_paie = ? " +
-                "AND paa.statut = 'APPROUVE'";
+                "JOIN periode_paie periode_cible ON periode_cible.id_periode_paie = ? " +
+                "JOIN periode_paie periode_origine ON periode_origine.id_periode_paie = paa.id_periode_paie " +
+                "WHERE paa.id_employe = ? AND paa.statut = 'APPROUVE' " +
+                "AND paa.solde_restant > 0 AND (" +
+                "(rtmp.categorie IN ('ACOMPTE','AVANCE') AND paa.versement_confirme_at IS NOT NULL " +
+                "AND paa.date_paiement <= periode_cible.date_fin " +
+                "AND periode_origine.date_debut <= periode_cible.date_debut) " +
+                "OR (paa.id_periode_paie = periode_cible.id_periode_paie " +
+                "AND COALESCE(rtmp.categorie, '') NOT IN ('ACOMPTE','AVANCE'))) " +
+                "ORDER BY paa.date_demande, paa.id_avance FOR UPDATE OF paa";
 
         List<PaieAvanceAcompte> avances = new ArrayList<>();
         List<Integer> idsGains = new ArrayList<>();
 
         try (PreparedStatement ps = c.prepareStatement(sqlMouvements)) {
-            ps.setInt(1, idEmploye);
-            ps.setInt(2, idPeriodePaie);
+            ps.setInt(1, idPeriodePaie);
+            ps.setInt(2, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String sens = rs.getString("sens_effectif");
@@ -1077,8 +1115,6 @@ public class PayrollService {
                     "solde_restant = GREATEST(solde_restant - ?, 0), " +
                     "statut = CASE WHEN solde_restant - ? <= 0 THEN 'IMPUTE_PAIE' ELSE 'APPROUVE' END, " +
                     "id_bulletin = ?, " +
-                    "id_periode_paie = ?, " +
-                    "date_paiement = CURRENT_DATE, " +
                     "updated_at = CURRENT_TIMESTAMP " +
                     "WHERE id_avance = ?";
 
@@ -1088,8 +1124,17 @@ public class PayrollService {
                     ps.setBigDecimal(2, imputation.montantImpute());
                     ps.setBigDecimal(3, imputation.montantImpute());
                     ps.setInt(4, bp.getIdBulletin());
-                    ps.setInt(5, idPeriodePaie);
-                    ps.setInt(6, imputation.idMouvement());
+                    ps.setInt(5, imputation.idMouvement());
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO paie_mouvement_imputation (id_avance, id_bulletin, montant) VALUES (?, ?, ?)")) {
+                for (var imputation : complet.getImputationsMouvements()) {
+                    ps.setInt(1, imputation.idMouvement());
+                    ps.setInt(2, bp.getIdBulletin());
+                    ps.setBigDecimal(3, imputation.montantImpute());
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -1102,7 +1147,7 @@ public class PayrollService {
                     .collect(java.util.stream.Collectors.toSet());
             try (PreparedStatement ps = c.prepareStatement(
                     "UPDATE paie_avance_acompte SET montant_impute = montant_initial, solde_restant = 0, " +
-                            "statut = 'IMPUTE_PAIE', id_bulletin = ?, id_periode_paie = ?, date_paiement = CURRENT_DATE, updated_at = CURRENT_TIMESTAMP WHERE id_avance = ?")) {
+                            "statut = 'IMPUTE_PAIE', id_bulletin = ?, id_periode_paie = ?, updated_at = CURRENT_TIMESTAMP WHERE id_avance = ?")) {
                 for (Integer id : complet.getIdsAvancesImputees()) {
                     if (retenues.contains(id)) continue;
                     ps.setInt(1, bp.getIdBulletin());
@@ -1861,8 +1906,10 @@ public class PayrollService {
         // Les autres variables de paie (primes, retenues, frais) n'entrent pas dans ces montants.
         String sqlAvances = "SELECT " +
                 "COALESCE(SUM(CASE WHEN t.categorie = 'ACOMPTE' AND a.statut IN ('APPROUVE', 'IMPUTE_PAIE') " +
+                "AND a.versement_confirme_at IS NOT NULL " +
                 "THEN a.solde_restant ELSE 0 END), 0) AS acomptes_restants, " +
                 "COALESCE(SUM(CASE WHEN t.categorie = 'AVANCE' AND a.statut IN ('APPROUVE', 'IMPUTE_PAIE') " +
+                "AND a.versement_confirme_at IS NOT NULL " +
                 "THEN a.solde_restant ELSE 0 END), 0) AS avances_restantes, " +
                 "COUNT(*) FILTER (WHERE t.categorie IN ('ACOMPTE', 'AVANCE') AND a.statut = 'EN_ATTENTE') AS demandes_en_attente " +
                 "FROM paie_avance_acompte a " +

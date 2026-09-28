@@ -42,12 +42,13 @@ export default function EmployeList() {
     const [serviceFilter, setServiceFilter] = useState(searchParams.get('service') || '');
 
     // Tri (Preset par défaut : Hiérarchique par Département -> Service -> Nom)
-    const [sortPreset, setSortPreset] = useState('HIERARCHICAL');
-    const [columnSortConfig, setColumnSortConfig] = useState({ key: '', direction: 'asc' });
+    const [sortPreset, setSortPreset] = useState(searchParams.get('sort') || 'HIERARCHICAL');
+    const [columnSortConfig, setColumnSortConfig] = useState({ key: '', direction: searchParams.get('direction') || 'asc' });
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(Number(searchParams.get('page')) || 1);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(Number(searchParams.get('size')) || 10);
+    const requestSequence = useRef(0);
 
     // Modales
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -70,10 +71,10 @@ export default function EmployeList() {
 
     // Effets
     const loadEmployes = useCallback(async () => {
+        const requestId = ++requestSequence.current;
         setLoading(true);
         try {
-            const [data, stats] = await Promise.all([
-                employeService.getEmployes({
+            const data = await employeService.getEmployes({
                     q: debouncedSearch.trim() || undefined,
                     actif: statusFilter === 'ACTIVE' ? true : statusFilter === 'INACTIVE' ? false : undefined,
                     site: siteFilter || undefined,
@@ -83,42 +84,76 @@ export default function EmployeList() {
                     direction: columnSortConfig.direction,
                     page: currentPage,
                     size: pageSize
-                }),
-                employeService.getEmployeStats()
-            ]);
+                });
 
             const list = data?.content || (Array.isArray(data) ? data : []);
+            if (requestId !== requestSequence.current) return;
             setRawEmployes(list);
             setTotalElements(data?.totalElements ?? list.length);
 
-            if (stats) {
-                setStatsCounts(stats);
-            }
             setError('');
         } catch (err) {
+            if (requestId !== requestSequence.current) return;
             console.error('Erreur chargement employés:', err);
             setError('Impossible de charger la liste des employés.');
         } finally {
-            setLoading(false);
+            if (requestId === requestSequence.current) setLoading(false);
         }
     }, [debouncedSearch, statusFilter, siteFilter, departementFilter, serviceFilter,
         columnSortConfig, sortPreset, currentPage, pageSize]);
 
     useEffect(() => {
         loadEmployes();
+        return () => { requestSequence.current += 1; };
     }, [loadEmployes]);
+
+    useEffect(() => {
+        let active = true;
+        employeService.getEmployeStats()
+            .then(stats => { if (active && stats) setStatsCounts(stats); })
+            .catch(err => console.error('Erreur chargement indicateurs employés:', err));
+        return () => { active = false; };
+    }, []);
 
     // Synchronisation de l'état avec l'URL (débouncée)
     useEffect(() => {
-        const params = {};
-        if (debouncedSearch.trim()) params.q = debouncedSearch.trim();
-        if (statusFilter && statusFilter !== 'ALL') params.status = statusFilter;
-        if (siteFilter) params.site = siteFilter;
-        if (departementFilter) params.dept = departementFilter;
-        if (serviceFilter) params.service = serviceFilter;
-        if (currentPage > 1) params.page = String(currentPage);
-        setSearchParams(params, { replace: true });
-    }, [debouncedSearch, statusFilter, siteFilter, departementFilter, serviceFilter, currentPage, setSearchParams]);
+        const params = new URLSearchParams(searchParams);
+        ['q', 'status', 'site', 'dept', 'service', 'page', 'sort', 'direction', 'size'].forEach(key => params.delete(key));
+        if (searchQuery.trim()) params.set('q', searchQuery.trim());
+        if (statusFilter && statusFilter !== 'ALL') params.set('status', statusFilter);
+        if (siteFilter) params.set('site', siteFilter);
+        if (departementFilter) params.set('dept', departementFilter);
+        if (serviceFilter) params.set('service', serviceFilter);
+        if (currentPage > 1) params.set('page', String(currentPage));
+        if (columnSortConfig.key) {
+            params.set('sort', columnSortConfig.key);
+            params.set('direction', columnSortConfig.direction);
+        } else if (sortPreset !== 'HIERARCHICAL') {
+            params.set('sort', sortPreset);
+        }
+        if (pageSize !== 10) params.set('size', String(pageSize));
+        if (params.toString() !== searchParams.toString()) {
+            setSearchParams(params, { replace: true });
+        }
+    }, [searchQuery, statusFilter, siteFilter, departementFilter, serviceFilter, currentPage, columnSortConfig, sortPreset, pageSize, searchParams, setSearchParams]);
+
+    useEffect(() => {
+        setSearchQuery(searchParams.get('q') || '');
+        setStatusFilter(searchParams.get('status') || 'ALL');
+        setSiteFilter(searchParams.get('site') || '');
+        setDepartementFilter(searchParams.get('dept') || '');
+        setServiceFilter(searchParams.get('service') || '');
+        setCurrentPage(Number(searchParams.get('page')) || 1);
+        setPageSize(Number(searchParams.get('size')) || 10);
+        const sort = searchParams.get('sort') || 'HIERARCHICAL';
+        const isColumnSort = ['FONCTION', 'SITE', 'DATEEMBAUCHE', 'DEPARTEMENT', 'STATUT', 'MATRICULE'].includes(sort.toUpperCase());
+        const nextSortPreset = isColumnSort ? 'COLUMN' : (sort.includes('_') ? sort : 'HIERARCHICAL');
+        setSortPreset(previous => previous === nextSortPreset ? previous : nextSortPreset);
+        const nextColumnSort = ['NOM_ASC', 'NOM_DESC', 'MATRICULE_ASC', 'MATRICULE_DESC', 'ANCIENNETE_ASC', 'ANCIENNETE_DESC'].includes(sort)
+            ? { key: '', direction: 'asc' }
+            : { key: sort === 'HIERARCHICAL' || sort === 'SITE_SERVICE' ? '' : sort, direction: searchParams.get('direction') || 'asc' };
+        setColumnSortConfig(previous => previous.key === nextColumnSort.key && previous.direction === nextColumnSort.direction ? previous : nextColumnSort);
+    }, [searchParams]);
 
     const isFirstMount = useRef(true);
 
@@ -144,6 +179,7 @@ export default function EmployeList() {
 
     const handleSortChange = (key, direction) => {
         setColumnSortConfig({ key, direction });
+        setSortPreset('COLUMN');
     };
 
     const handleResetFilters = () => {
@@ -154,6 +190,12 @@ export default function EmployeList() {
         setServiceFilter('');
         setSortPreset('HIERARCHICAL');
         setColumnSortConfig({ key: '', direction: 'asc' });
+        setCurrentPage(1);
+    };
+
+    const handlePageSizeChange = (size) => {
+        setPageSize(size);
+        setCurrentPage(1);
     };
 
     const handleOpenCreate = () => {
@@ -255,7 +297,7 @@ export default function EmployeList() {
         }
     };
 
-    const displayTotal = statsCounts.total || rawEmployes.length;
+    const displayTotal = statsCounts.total ?? totalElements;
     const totalActifs = statsCounts.actifs;
     const totalInactifs = statsCounts.inactifs;
 
@@ -312,8 +354,8 @@ export default function EmployeList() {
             {/* Indicateurs et filtres de statut de cette liste. */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 <StatCard title="Total Collaborateurs" value={displayTotal} subtext="Effectif global de l'entreprise" icon={<Users size={18} />} color="brand" active={statusFilter === 'ALL'} onClick={() => setStatusFilter('ALL')} />
-                <StatCard title="Collaborateurs Actifs" value={totalActifs} subtext="En poste actuellement" icon={<UserCheck size={18} />} color="success" active={statusFilter === 'ACTIVE'} onClick={() => setStatusFilter('ACTIVE')} />
-                <StatCard title="Comptes Inactifs" value={totalInactifs} subtext="Dossiers archivés ou sortis" icon={<UserX size={18} />} color="danger" active={statusFilter === 'INACTIVE'} onClick={() => setStatusFilter('INACTIVE')} />
+                <StatCard title="Collaborateurs actifs" value={totalActifs} subtext="En poste actuellement" icon={<UserCheck size={18} />} color="success" active={statusFilter === 'ACTIVE'} onClick={() => setStatusFilter('ACTIVE')} />
+                <StatCard title="Collaborateurs inactifs" value={totalInactifs} subtext="Fiches actuellement désactivées" icon={<UserX size={18} />} color="danger" active={statusFilter === 'INACTIVE'} onClick={() => setStatusFilter('INACTIVE')} />
             </div>
 
             {/* Barre d'outils : recherche + filtres de structure + multi-tri */}
@@ -331,7 +373,7 @@ export default function EmployeList() {
                 sites={sites}
                 departements={departements}
                 services={services}
-                sortPreset={sortPreset}
+                sortPreset={columnSortConfig.key ? 'COLUMN' : sortPreset}
                 onSortPresetChange={(preset) => {
                     setSortPreset(preset);
                     setColumnSortConfig({ key: '', direction: 'asc' });
@@ -364,7 +406,7 @@ export default function EmployeList() {
                         totalItems={totalElements}
                         pageSize={pageSize}
                         onPageChange={setCurrentPage}
-                        onPageSizeChange={setPageSize}
+                        onPageSizeChange={handlePageSizeChange}
                         className="border-t border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-none"
                     />
                 )}

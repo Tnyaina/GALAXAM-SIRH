@@ -55,7 +55,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, onClose, onCreate
         } finally { setSubmitting(false); }
     };
 
-    return <Modal isOpen onClose={onClose} title="Demander un acompte ou une avance" size="md">
+    return <Modal isOpen onClose={onClose} title="Demander un acompte ou une avance" size="lg">
         <form onSubmit={submit} className="space-y-4">
             <p className="text-xs text-[var(--color-fg-muted)]">La demande sera enregistrée en attente d’approbation dans la campagne de paie sélectionnée.</p>
             {error && <Alert type="error" message={error} />}

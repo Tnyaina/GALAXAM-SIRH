@@ -52,3 +52,9 @@ SP34 (`26-09-28-sp34-identite-filiales.sql`) ajoute l'adresse du siège, le RCS
 et les coordonnées aux filiales. Il renseigne uniquement l'adresse GLX confirmée
 sans modifier les autres filiales. À appliquer aux bases
 existantes avant le code qui lit ces nouvelles colonnes.
+
+SP35 (`26-09-28-sp35-paie-acomptes-avances.sql`) ajoute la confirmation explicite
+des versements d'acomptes et avances ainsi que le journal des retenues par bulletin.
+À appliquer aux bases existantes avant le déploiement du code paie. Les anciens
+versements ne sont pas présumés confirmés : leur réalité doit être vérifiée par
+la DAF avant de poursuivre leur recouvrement automatique.

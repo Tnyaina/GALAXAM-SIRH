@@ -72,10 +72,11 @@ export const paieService = {
     },
 
     // --- Variables & Ajustements (Primes, Acomptes, Retenues) ---
-    listerAjustements: async (idPeriode = null, idEmploye = null) => {
+    listerAjustements: async (idPeriode = null, idEmploye = null, domaine = null) => {
         const params = {};
         if (idPeriode) params.idPeriode = idPeriode;
         if (idEmploye) params.idEmploye = idEmploye;
+        if (domaine) params.domaine = domaine;
         const response = await apiClient.get('paie/ajustements', { params });
         return response.data;
     },
@@ -91,6 +92,10 @@ export const paieService = {
         const response = await apiClient.post('paie/ajustements', payload);
         return response.data;
     },
+    syntheseAcomptesAvances: async () => (await apiClient.get('paie/ajustements/acomptes-avances/synthese')).data,
+    listerImputationsAcompteAvance: async (id) => (await apiClient.get(`paie/ajustements/${id}/imputations`)).data,
+    listerModesReglement: async () => (await apiClient.get('paie/ajustements/modes-reglement')).data,
+    confirmerVersementAcompteAvance: async (id, payload) => (await apiClient.post(`paie/ajustements/${id}/versement`, payload)).data,
 
     /**
      * P1-01 : Exécute une commande de workflow sur un ajustement (APPROVE, REJECT, CANCEL).

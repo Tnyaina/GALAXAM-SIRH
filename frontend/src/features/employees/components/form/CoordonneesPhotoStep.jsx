@@ -19,7 +19,7 @@ export default function CoordonneesPhotoStep({
             <Card padding className="bg-[var(--color-bg-subtle)]/60">
                 <div className="flex items-center justify-between pb-2 mb-3 border-b border-[var(--color-border-subtle)]">
                     <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                        <Camera size={14} className="text-brand-500" />
+                        <Camera size={14} className="text-[var(--color-brand-500)]" />
                         Photo de profil
                     </label>
                     <Badge variant="default" size="xs">Optionnel</Badge>

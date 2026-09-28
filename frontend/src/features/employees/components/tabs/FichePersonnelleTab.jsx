@@ -1,45 +1,34 @@
-import { User, Calendar, MapPin, Heart, Phone, Mail, Landmark, Shield, CreditCard } from 'lucide-react';
+import { User, MapPin, Heart, Landmark, Shield } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import { fmtDate } from '@/utils/dateUtils';
 
-const InfoBlock = ({ label, value, mono = false, icon, href }) => (
-    <div className="space-y-1">
-        <p className="text-[11px] font-medium text-[var(--color-fg-muted)]">{label}</p>
-        <div className="flex items-center gap-1.5">
-            {icon && <span className="text-[var(--color-fg-subtle)] shrink-0">{icon}</span>}
-            {href ? (
-                <a
-                    href={href}
-                    className={`text-xs sm:text-[13px] font-bold text-brand-600 hover:text-brand-700 hover:underline truncate ${mono ? 'font-mono' : ''}`}
-                >
-                    {value || '—'}
-                </a>
-            ) : (
-                <p className={`text-xs sm:text-[13px] font-bold text-[var(--color-fg)] truncate ${mono ? 'font-mono' : ''}`}>
-                    {value || '—'}
-                </p>
-            )}
-        </div>
+/**
+ * InfoRow — Ligne label / valeur épurée
+ * La hiérarchie visuelle est assurée par l'espacement et la typographie.
+ */
+const InfoRow = ({ label, children, mono = false }) => (
+    <div className="flex justify-between items-baseline gap-2 min-w-0 py-1.5 border-b border-[var(--color-border-subtle)]/50 last:border-0">
+        <span className="text-xs text-[var(--color-fg-muted)] shrink-0 font-medium">{label}</span>
+        <span className={`font-bold text-xs text-[var(--color-fg)] text-right truncate ${mono ? 'font-mono' : ''}`}>
+            {children || '—'}
+        </span>
     </div>
 );
 
-export default function FichePersonnelleTab({
-    emp,
-    comptes = []
-}) {
+export default function FichePersonnelleTab({ emp, comptes = [] }) {
     if (!emp) return null;
 
     return (
-        <div className="space-y-5 max-w-full">
-            {/* Section 1 : État Civil & Identité Juridique */}
+        <div className="space-y-4 font-sans">
+            {/* 1. Carte Principale : Identité Juridique & État Civil (Grille 2 volets équilibrée) */}
             <Card shadow="sm">
                 <CardHeader className="flex items-center justify-between">
                     <CardTitle size="sm" className="uppercase tracking-wider flex items-center gap-2">
-                        <User size={15} className="text-brand-500" />
-                        État Civil & Identité Juridique
+                        <User size={15} className="text-[var(--color-brand-500)]" />
+                        Identité Juridique &amp; État Civil
                     </CardTitle>
                     <div className="flex items-center gap-2">
                         {emp.situationFamiliale && (
@@ -47,109 +36,93 @@ export default function FichePersonnelleTab({
                                 {emp.situationFamiliale}
                             </Badge>
                         )}
-                        <Badge variant="default" size="xs">
-                            {emp.sexe === 'M' ? 'Masculin (M)' : 'Féminin (F)'}
-                        </Badge>
-                    </div>
-                </CardHeader>
-                <CardBody className="p-5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4">
-                        <InfoBlock
-                            label="Date de naissance"
-                            value={`${fmtDate(emp.dateNaissance)}${emp.age ? ` (${emp.age} ans)` : ''}`}
-                            icon={<Calendar size={13} />}
-                        />
-                        <InfoBlock label="Lieu de naissance" value={emp.lieuNaissance} icon={<MapPin size={13} />} />
-                        <InfoBlock label="Nationalité" value={emp.nationalite} />
-                        <InfoBlock label="Situation familiale" value={emp.situationFamiliale} icon={<Heart size={13} />} />
-
-                        <InfoBlock label="N° CIN" value={emp.cinNumero} mono icon={<CreditCard size={13} />} />
-                        <InfoBlock
-                            label="Délivrance CIN"
-                            value={emp.cinDateDelivrance ? `${fmtDate(emp.cinDateDelivrance)} à ${emp.cinLieuDelivrance || '—'}` : '—'}
-                        />
-                        <InfoBlock label="Filiation (Père)" value={emp.pereNomPrenom} />
-                        <InfoBlock label="Filiation (Mère)" value={emp.mereNomPrenom} />
-
-                        {emp.cinDuplicataDate && (
-                            <div className="sm:col-span-2">
-                                <InfoBlock
-                                    label="Duplicata CIN"
-                                    value={`${fmtDate(emp.cinDuplicataDate)} à ${emp.cinDuplicataLieu || '—'}`}
-                                />
-                            </div>
+                        {emp.sexe && (
+                            <Badge variant="default" size="xs">
+                                {emp.sexe === 'M' ? 'Masculin' : emp.sexe === 'F' ? 'Féminin' : emp.sexe}
+                            </Badge>
                         )}
-                        <div className="sm:col-span-2">
-                            <InfoBlock label="N° Permis de conduire" value={emp.permisConduireNumero} mono />
-                        </div>
                     </div>
-                </CardBody>
-            </Card>
-
-            {/* Section 2 : Domicile & Coordonnées */}
-            <Card shadow="sm">
-                <CardHeader>
-                    <CardTitle size="sm" className="uppercase tracking-wider flex items-center gap-2">
-                        <MapPin size={15} className="text-brand-500" />
-                        Domicile & Coordonnées
-                    </CardTitle>
                 </CardHeader>
                 <CardBody className="p-5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4">
-                        <div className="sm:col-span-2">
-                            <InfoBlock label="Adresse du domicile" value={emp.adresse} icon={<MapPin size={13} />} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        {/* Volet Gauche : État Civil & Filiation */}
+                        <div className="bg-[var(--color-bg-subtle)]/50 border border-[var(--color-border-subtle)] p-4 sm:p-5 space-y-2">
+                            <h4 className="font-bold text-[var(--color-fg)] uppercase tracking-wider text-xs pb-2 border-b border-[var(--color-border-subtle)] flex items-center gap-1.5">
+                                <Heart size={13} className="text-[var(--color-brand-500)]" />
+                                État Civil &amp; Filiation
+                            </h4>
+                            <div className="space-y-0.5 pt-1">
+                                <InfoRow label="Date de naissance">
+                                    {fmtDate(emp.dateNaissance)}{emp.age ? ` (${emp.age} ans)` : ''}
+                                </InfoRow>
+                                <InfoRow label="Lieu de naissance">{emp.lieuNaissance}</InfoRow>
+                                <InfoRow label="Nationalité">{emp.nationalite}</InfoRow>
+                                <InfoRow label="Situation familiale">{emp.situationFamiliale}</InfoRow>
+                                <InfoRow label="Filiation (Père)">{emp.pereNomPrenom}</InfoRow>
+                                <InfoRow label="Filiation (Mère)">{emp.mereNomPrenom}</InfoRow>
+                            </div>
                         </div>
-                        <InfoBlock label="Ville de résidence" value={emp.ville} />
-                        <InfoBlock
-                            label="Téléphone principal"
-                            value={emp.telephone}
-                            mono
-                            icon={<Phone size={13} />}
-                            href={emp.telephone ? `tel:${emp.telephone}` : null}
-                        />
-                        <div className="sm:col-span-4">
-                            <InfoBlock
-                                label="Adresse e-mail"
-                                value={emp.email}
-                                icon={<Mail size={13} />}
-                                href={emp.email ? `mailto:${emp.email}` : null}
-                            />
+
+                        {/* Volet Droit : Pièces Officielles & Sécurité Sociale */}
+                        <div className="bg-[var(--color-bg-subtle)]/50 border border-[var(--color-border-subtle)] p-4 sm:p-5 space-y-2">
+                            <h4 className="font-bold text-[var(--color-fg)] uppercase tracking-wider text-xs pb-2 border-b border-[var(--color-border-subtle)] flex items-center gap-1.5">
+                                <Shield size={13} className="text-[var(--color-brand-500)]" />
+                                Identité Légale &amp; CNaPS
+                            </h4>
+                            <div className="space-y-0.5 pt-1">
+                                <InfoRow label="N° Carte d'Identité (CIN)" mono>{emp.cinNumero}</InfoRow>
+                                <InfoRow label="Délivrance CIN">
+                                    {emp.cinDateDelivrance ? `${fmtDate(emp.cinDateDelivrance)} à ${emp.cinLieuDelivrance || '—'}` : null}
+                                </InfoRow>
+                                {emp.cinDuplicataDate && (
+                                    <InfoRow label="Duplicata CIN">
+                                        {`${fmtDate(emp.cinDuplicataDate)} à ${emp.cinDuplicataLieu || '—'}`}
+                                    </InfoRow>
+                                )}
+                                <InfoRow label="N° Permis de conduire" mono>{emp.permisConduireNumero}</InfoRow>
+                                <InfoRow label="N° Affiliation CNaPS" mono>{emp.numAffiliationCnaps}</InfoRow>
+                                <InfoRow label="Date déclaration CNaPS">{fmtDate(emp.dateDeclaration)}</InfoRow>
+                            </div>
                         </div>
                     </div>
                 </CardBody>
             </Card>
 
-            {/* Section 3 : Sécurité Sociale & Affiliations Bancaires */}
+            {/* 2. Carte Secondaire : Domicile & Coordonnées Bancaires */}
             <Card shadow="sm">
                 <CardHeader className="flex items-center justify-between">
                     <CardTitle size="sm" className="uppercase tracking-wider flex items-center gap-2">
-                        <Landmark size={15} className="text-brand-500" />
-                        Sécurité Sociale & Coordonnées Bancaires
+                        <Landmark size={15} className="text-[var(--color-brand-500)]" />
+                        Domicile &amp; Règlements Bancaires
                     </CardTitle>
-                    {emp.numAffiliationCnaps && (
-                        <Badge variant="default" size="xs" className="font-mono">
-                            CNaPS : {emp.numAffiliationCnaps}
+                    {comptes.length > 0 && (
+                        <Badge variant="brand" size="xs">
+                            {comptes.length} compte{comptes.length > 1 ? 's' : ''} enregistré{comptes.length > 1 ? 's' : ''}
                         </Badge>
                     )}
                 </CardHeader>
                 <CardBody className="p-5 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4">
-                        <InfoBlock label="N° Affiliation CNaPS" value={emp.numAffiliationCnaps} mono icon={<Shield size={13} />} />
-                        <InfoBlock label="Date déclaration CNaPS" value={fmtDate(emp.dateDeclaration)} />
+                    {/* Domicile en bandeau feutré */}
+                    <div className="bg-[var(--color-bg-subtle)]/50 border border-[var(--color-border-subtle)] p-3.5 sm:p-4 flex items-center gap-3 text-xs">
+                        <MapPin size={16} className="text-[var(--color-brand-500)] shrink-0" />
+                        <div>
+                            <span className="text-[11px] font-medium text-[var(--color-fg-muted)] block">Adresse de résidence</span>
+                            <span className="font-bold text-[var(--color-fg)]">
+                                {emp.adresse || 'Adresse non renseignée'}{emp.ville ? `, ${emp.ville}` : ''}
+                            </span>
+                        </div>
                     </div>
 
-                    <div className="pt-4 border-t border-[var(--color-border-subtle)] space-y-3">
-                        <div className="flex items-center justify-between">
-                            <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)]">
-                                Comptes Bancaires pour Virement ({comptes.length})
-                            </h4>
-                        </div>
+                    {/* Comptes bancaires */}
+                    <div className="space-y-2">
+                        <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)]">
+                            Comptes Bancaires pour Virement ({comptes.length})
+                        </h4>
                         {comptes.length > 0 ? (
                             <Table>
                                 <Thead>
                                     <Tr>
-                                        <Th>Banque</Th>
-                                        <Th>Agence</Th>
+                                        <Th>Banque &amp; Agence</Th>
                                         <Th>N° Compte / RIB</Th>
                                         <Th align="center">Usage</Th>
                                     </Tr>
@@ -157,10 +130,12 @@ export default function FichePersonnelleTab({
                                 <Tbody>
                                     {comptes.map((cb, i) => (
                                         <Tr key={i}>
-                                            <Td className="font-bold text-xs text-[var(--color-fg)]">
-                                                {cb.nomBanque || cb.libelleBanque || cb.codeBanque || (cb.idBanque ? `Banque #${cb.idBanque}` : '—')}
+                                            <Td>
+                                                <p className="font-bold text-xs text-[var(--color-fg)]">
+                                                    {cb.nomBanque || cb.libelleBanque || cb.codeBanque || (cb.idBanque ? `Banque #${cb.idBanque}` : '—')}
+                                                </p>
+                                                {cb.agence && <p className="text-[11px] text-[var(--color-fg-muted)]">{cb.agence}</p>}
                                             </Td>
-                                            <Td className="text-xs text-[var(--color-fg-muted)]">{cb.agence || '—'}</Td>
                                             <Td isData className="font-mono text-xs font-bold text-[var(--color-fg)]">
                                                 {cb.numCompteRib || '—'}
                                             </Td>

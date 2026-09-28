@@ -7,7 +7,6 @@ import {
 import employeService from '@/features/employees/api/employeService';
 import documentRhService from '@/features/employees/api/documentRhService';
 import EmployeHeaderCard from '@/features/employees/components/EmployeHeaderCard';
-import EmployeSideSummaryPanel from '@/features/employees/components/EmployeSideSummaryPanel';
 import Button from '@/components/ui/forms/Button';
 import { Select } from '@/components/ui/forms/Input';
 import Loading from '@/components/ui/feedback/Loading';
@@ -298,7 +297,7 @@ export default function EmployeFicheDetailPage() {
     if (error || !detailData) {
         return (
             <div className="space-y-6">
-                <Link to="/employes" className="inline-flex items-center gap-2 text-sm text-brand-500 hover:underline font-semibold">
+                <Link to="/employes" className="inline-flex items-center gap-2 text-sm text-[var(--color-brand-500)] hover:underline font-semibold">
                     <ArrowLeft size={16} />
                     Retour au Répertoire du personnel
                 </Link>
@@ -376,110 +375,96 @@ export default function EmployeFicheDetailPage() {
                 )}
             </div>
 
-            {/* Grille Master-Detail : Barre d'onglets figée + Contenu Métier Scrollable */}
-            <div className="flex-1 min-h-0 flex flex-col lg:flex-row items-stretch gap-3.5 overflow-hidden">
-                {/* Colonne Principale : Carte avec Tabs fixe et corps scrollable */}
-                <div className="flex-1 min-h-0 w-full bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xs flex flex-col overflow-hidden">
-                    <div className="shrink-0 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
-                        <Tabs
-                            tabs={mainTabs}
-                            activeTab={activeTab}
-                            onChange={handleTabChange}
-                            variant="underline"
-                        />
-                    </div>
-
-                    {/* Contenu de l'onglet actif avec scroll interne indépendant */}
-                    <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5">
-
-                        {/* Onglet 1: Fiche Personnelle */}
-                        {activeTab === 'personnel' && (
-                            <Suspense fallback={<TabLoader label="Chargement de la fiche personnelle..." />}>
-                                <FichePersonnelleTab
-                                    emp={emp}
-                                    comptes={comptes}
-                                    conjoint={conjoint}
-                                    enfants={enfants}
-                                    contactsUrgence={contactsUrgence}
-                                />
-                            </Suspense>
-                        )}
-
-                        {/* Onglet 2: Documents RH */}
-                        {activeTab === 'documents' && (
-                            <Suspense fallback={<TabLoader label="Chargement des documents RH..." />}>
-                                <DocumentsRhTab
-                                    documentsData={documentsData}
-                                    loadingDocs={loadingDocs}
-                                    canWrite={canWrite}
-                                    onOpenUploadModal={handleOpenUploadModal}
-                                    onDownloadDoc={handleDownloadDoc}
-                                    onDeleteDoc={handleDeleteDoc}
-                                />
-                            </Suspense>
-                        )}
-
-                        {/* Onglet 3: Famille & Contacts */}
-                        {activeTab === 'famille' && (
-                            <Suspense fallback={<TabLoader label="Chargement des contacts familiaux..." />}>
-                                <FamilleContactsTab
-                                    conjoint={conjoint}
-                                    enfants={enfants}
-                                    contactsUrgence={contactsUrgence}
-                                />
-                            </Suspense>
-                        )}
-
-                        {/* Onglet 4: Carrière & Affectation */}
-                        {activeTab === 'carriere' && (
-                            <Suspense fallback={<TabLoader label="Chargement du dossier carrière..." />}>
-                                <CarriereTab
-                                    idEmploye={id}
-                                    employe={emp}
-                                    nomEmploye={`${emp.nom || ''} ${emp.prenom || ''}`}
-                                    matriculeEmploye={emp.matricule}
-                                    canWrite={canWrite}
-                                    canValidate={canValidate}
-                                    autoOpenWorkflowId={searchParams.get('wf')}
-                                    onEmployeUpdated={loadEmployeDetail}
-                                />
-                            </Suspense>
-                        )}
-
-                        {/* Onglet 5: Congés & Absences */}
-                        {activeTab === 'conges' && (
-                            <Suspense fallback={<TabLoader label="Chargement des congés de l'employé..." />}>
-                                <CongesTab idEmploye={id} employe={emp} canWrite={canWrite} />
-                            </Suspense>
-                        )}
-
-                        {/* Onglet 6: Pointages & Présence */}
-                        {activeTab === 'pointage' && (
-                            <Suspense fallback={<TabLoader label="Chargement des pointages de l'employé..." />}>
-                                <PointageTab idEmploye={id} employe={emp} />
-                            </Suspense>
-                        )}
-
-                        {/* Onglet 7: Paie & Rémunération */}
-                        {activeTab === 'paie' && (
-                            <Suspense fallback={<TabLoader label="Chargement du dossier paie de l'employé..." />}>
-                                <EmployePaieTab idEmploye={id} employe={emp} canWrite={canWritePaie} />
-                            </Suspense>
-                        )}
-
-                    </div>
+            {/* Conteneur Principal : Barre d'onglets et corps de dossier pleine largeur */}
+            <div className="flex-1 min-h-0 w-full bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xs flex flex-col overflow-hidden">
+                <div className="shrink-0 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+                    <Tabs
+                        tabs={mainTabs}
+                        activeTab={activeTab}
+                        onChange={handleTabChange}
+                        variant="underline"
+                    />
                 </div>
 
-                {/* Volet Contextuel Permanent : Alignement plein et scroll indépendant */}
-                <aside className="w-full lg:w-64 xl:w-72 shrink-0 lg:overflow-y-auto">
-                    <EmployeSideSummaryPanel
-                        emp={emp}
-                        documentsCount={documentsData.documents.length}
-                        activeTab={activeTab}
-                        onNavigateTab={handleTabChange}
-                        canWrite={canWrite}
-                    />
-                </aside>
+                {/* Contenu de l'onglet actif avec scroll interne indépendant */}
+                <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5">
+
+                    {/* Onglet 1: Fiche Personnelle */}
+                    {activeTab === 'personnel' && (
+                        <Suspense fallback={<TabLoader label="Chargement de la fiche personnelle..." />}>
+                            <FichePersonnelleTab
+                                emp={emp}
+                                comptes={comptes}
+                                conjoint={conjoint}
+                                enfants={enfants}
+                                contactsUrgence={contactsUrgence}
+                            />
+                        </Suspense>
+                    )}
+
+                    {/* Onglet 2: Documents RH */}
+                    {activeTab === 'documents' && (
+                        <Suspense fallback={<TabLoader label="Chargement des documents RH..." />}>
+                            <DocumentsRhTab
+                                documentsData={documentsData}
+                                loadingDocs={loadingDocs}
+                                canWrite={canWrite}
+                                onOpenUploadModal={handleOpenUploadModal}
+                                onDownloadDoc={handleDownloadDoc}
+                                onDeleteDoc={handleDeleteDoc}
+                            />
+                        </Suspense>
+                    )}
+
+                    {/* Onglet 3: Famille & Contacts */}
+                    {activeTab === 'famille' && (
+                        <Suspense fallback={<TabLoader label="Chargement des contacts familiaux..." />}>
+                            <FamilleContactsTab
+                                conjoint={conjoint}
+                                enfants={enfants}
+                                contactsUrgence={contactsUrgence}
+                            />
+                        </Suspense>
+                    )}
+
+                    {/* Onglet 4: Carrière & Affectation */}
+                    {activeTab === 'carriere' && (
+                        <Suspense fallback={<TabLoader label="Chargement du dossier carrière..." />}>
+                            <CarriereTab
+                                idEmploye={id}
+                                employe={emp}
+                                nomEmploye={`${emp.nom || ''} ${emp.prenom || ''}`}
+                                matriculeEmploye={emp.matricule}
+                                canWrite={canWrite}
+                                canValidate={canValidate}
+                                autoOpenWorkflowId={searchParams.get('wf')}
+                                onEmployeUpdated={loadEmployeDetail}
+                            />
+                        </Suspense>
+                    )}
+
+                    {/* Onglet 5: Congés & Absences */}
+                    {activeTab === 'conges' && (
+                        <Suspense fallback={<TabLoader label="Chargement des congés de l'employé..." />}>
+                            <CongesTab idEmploye={id} employe={emp} canWrite={canWrite} />
+                        </Suspense>
+                    )}
+
+                    {/* Onglet 6: Pointages & Présence */}
+                    {activeTab === 'pointage' && (
+                        <Suspense fallback={<TabLoader label="Chargement des pointages de l'employé..." />}>
+                            <PointageTab idEmploye={id} employe={emp} />
+                        </Suspense>
+                    )}
+
+                    {/* Onglet 7: Paie & Rémunération */}
+                    {activeTab === 'paie' && (
+                        <Suspense fallback={<TabLoader label="Chargement du dossier paie de l'employé..." />}>
+                            <EmployePaieTab idEmploye={id} employe={emp} canWrite={canWritePaie} />
+                        </Suspense>
+                    )}
+
+                </div>
             </div>
 
             {/* Modale Téléversement Document RH (Lazy) */}

@@ -306,6 +306,9 @@ CREATE TABLE paie_avance_acompte (
     date_demande DATE NOT NULL DEFAULT CURRENT_DATE,
     date_accord DATE,
     date_paiement DATE,
+    versement_confirme_at TIMESTAMP WITH TIME ZONE,
+    versement_confirme_par INT REFERENCES utilisateur(id_utilisateur),
+    reference_versement VARCHAR(120),
     mode_reglement VARCHAR(30) DEFAULT 'VIREMENT',
     motif VARCHAR(255) NOT NULL,
     statut VARCHAR(20) NOT NULL DEFAULT 'EN_ATTENTE',
@@ -319,6 +322,16 @@ CREATE TABLE paie_avance_acompte (
     CONSTRAINT chk_avance_imputation CHECK (montant_initial > 0 AND montant_impute >= 0 AND solde_restant >= 0 AND montant_impute + solde_restant = montant_initial),
     CONSTRAINT chk_avance_statut CHECK (statut IN ('EN_ATTENTE', 'APPROUVE', 'REJETE', 'IMPUTE_PAIE', 'ANNULE'))
 );
+
+CREATE TABLE paie_mouvement_imputation (
+    id_imputation SERIAL PRIMARY KEY,
+    id_avance INT NOT NULL REFERENCES paie_avance_acompte(id_avance) ON DELETE RESTRICT,
+    id_bulletin INT NOT NULL REFERENCES bulletin_paie(id_bulletin) ON DELETE CASCADE,
+    montant NUMERIC(12,2) NOT NULL CHECK (montant > 0),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_mouvement_imputation_bulletin UNIQUE (id_avance, id_bulletin)
+);
+CREATE INDEX idx_mouvement_imputation_bulletin ON paie_mouvement_imputation(id_bulletin);
 
 CREATE OR REPLACE FUNCTION initialize_paie_avance_imputation()
 RETURNS TRIGGER AS $$

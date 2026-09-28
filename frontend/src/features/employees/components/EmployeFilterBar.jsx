@@ -80,7 +80,7 @@ export default function EmployeFilterBar({
     ], [filteredServices]);
 
     const sortOptions = useMemo(() => [
-        { value: 'HIERARCHICAL', label: 'Tri : Dépt → Service → Nom' },
+        { value: 'HIERARCHICAL', label: 'Tri : Département → Service → Nom' },
         { value: 'SITE_SERVICE', label: 'Tri : Site → Service → Nom' },
         { value: 'NOM_ASC', label: 'Tri : Nom (A → Z)' },
         { value: 'NOM_DESC', label: 'Tri : Nom (Z → A)' },
@@ -88,6 +88,7 @@ export default function EmployeFilterBar({
         { value: 'MATRICULE_DESC', label: 'Tri : Matricule (9 → 0)' },
         { value: 'ANCIENNETE_DESC', label: 'Tri : Ancienneté (Anciens)' },
         { value: 'ANCIENNETE_ASC', label: 'Tri : Ancienneté (Récents)' },
+        { value: 'COLUMN', label: 'Tri : colonne sélectionnée', estActif: false },
     ], []);
 
     // Rendu

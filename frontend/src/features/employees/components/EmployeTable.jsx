@@ -4,6 +4,7 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import AuthenticatedImage from '@/components/ui/data-display/AuthenticatedImage';
+import Button from '@/components/ui/forms/Button';
 
 const formatDateEmbauche = (dateStr) => {
     if (!dateStr) return '-';
@@ -67,17 +68,35 @@ export default function EmployeTable({
     };
 
     return (
+        <>
+        <div className="md:hidden divide-y divide-[var(--color-border-subtle)]">
+            {employes.map((emp) => {
+                const fullName = emp.nomComplet || `${emp.prenom || ''} ${emp.nom || ''}`.trim() || `Employé #${emp.idEmploye}`;
+                const fonction = emp.nomFonction || emp.libelleFonction || emp.fonction || 'Poste non renseigné';
+                const site = emp.nomSite || emp.libelleSite || emp.site;
+                const date = formatDateEmbauche(emp.dateEmbauche || emp.dateDeclaration || emp.createdAt);
+                return <article key={emp.idEmploye} className="p-3 space-y-2.5 hover:bg-[var(--color-bg-subtle)]">
+                    <button type="button" onClick={() => onOpenDetail(emp)} className="w-full text-left flex items-start justify-between gap-3">
+                        <span className="min-w-0">
+                            <span className="block font-semibold text-sm text-[var(--color-fg)] truncate">{fullName}</span>
+                            <span className="block mt-0.5 text-xs font-data text-[var(--color-fg-muted)]">{emp.matricule} · {fonction}</span>
+                            <span className="block mt-1 text-xs text-[var(--color-fg-subtle)]">{site || 'Site non renseigné'} · Entrée {date}</span>
+                        </span>
+                        {emp.estActif ? <Badge variant="success" size="sm" dot>Actif</Badge> : <Badge variant="default" size="sm" dot>Inactif</Badge>}
+                    </button>
+                    {emp.alerteContratTexte && emp.estActif && <Badge variant={emp.alerteContratNiveau === 'DANGER' ? 'danger' : emp.alerteContratNiveau === 'WARNING' ? 'warning' : 'brand'} size="xs" dot>{emp.alerteContratTexte}</Badge>}
+                    {(canWrite || canValidate) && <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                        {canWrite && <Button type="button" variant="ghost" size="sm" iconLeft={<Edit2 size={14} />} onClick={() => onOpenEdit(emp)}>Modifier</Button>}
+                        {canValidate && <Button type="button" variant={emp.estActif ? 'outline' : 'success'} size="sm" iconLeft={<Power size={14} />} onClick={() => onToggleStatus(emp)}>{emp.estActif ? 'Désactiver' : 'Réactiver'}</Button>}
+                    </div>}
+                </article>;
+            })}
+        </div>
+        <div className="hidden md:block">
         <Table divided className="border-none shadow-none">
             <Thead>
                 <Tr>
-                    <Th
-                        sortable
-                        sorted={sortConfig.key === 'matricule' ? sortConfig.direction : false}
-                        onSort={() => handleSort('matricule')}
-                        className="min-w-[220px]"
-                    >
-                        Collaborateur & Matricule
-                    </Th>
+                    <Th className="min-w-[220px]">Collaborateur & Matricule</Th>
                     <Th
                         sortable
                         sorted={sortConfig.key === 'fonction' ? sortConfig.direction : false}
@@ -94,9 +113,6 @@ export default function EmployeTable({
                     >
                         Site
                     </Th>
-                    <Th className="min-w-[170px]">
-                        Coordonnées
-                    </Th>
                     <Th
                         sortable
                         sorted={sortConfig.key === 'dateEmbauche' ? sortConfig.direction : false}
@@ -105,12 +121,7 @@ export default function EmployeTable({
                     >
                         Embauche
                     </Th>
-                    <Th
-                        sortable
-                        sorted={sortConfig.key === 'statut' ? sortConfig.direction : false}
-                        onSort={() => handleSort('statut')}
-                        className="min-w-[90px]"
-                    >
+                    <Th className="min-w-[90px]">
                         Statut
                     </Th>
                     <Th className="text-right w-[85px]">
@@ -163,10 +174,11 @@ export default function EmployeTable({
                                         </div>
                                         <div className="flex items-center gap-2 text-xs text-[var(--color-fg-muted)] mt-0.5 flex-wrap">
                                             <span className="font-mono font-semibold text-[var(--color-brand-500)]">{emp.matricule}</span>
-                                            {emp.cinNumero && (
-                                                <span className="text-[10px] text-[var(--color-fg-subtle)] font-mono">CIN: {emp.cinNumero}</span>
-                                            )}
                                         </div>
+                                        {(emp.telephone || emp.email) && <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-[var(--color-fg-muted)]">
+                                            {emp.telephone && <a href={`tel:${emp.telephone}`} onClick={e => e.stopPropagation()} className="inline-flex items-center gap-1 hover:text-[var(--color-brand-500)]"><Phone size={10} />{emp.telephone}</a>}
+                                            {emp.email && <a href={`mailto:${emp.email}`} onClick={e => e.stopPropagation()} className="inline-flex items-center gap-1 max-w-[180px] truncate hover:text-[var(--color-brand-500)]" title={emp.email}><Mail size={10} />{emp.email}</a>}
+                                        </div>}
                                     </div>
                                 </div>
                             </Td>
@@ -202,37 +214,7 @@ export default function EmployeTable({
                                 )}
                             </Td>
 
-                            {/* 4. Coordonnées */}
-                            <Td>
-                                <div className="space-y-1 text-xs">
-                                    {emp.telephone ? (
-                                        <a
-                                            href={`tel:${emp.telephone}`}
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="flex items-center gap-1.5 text-[var(--color-fg)] hover:text-[var(--color-brand-500)] font-mono text-xs transition-colors"
-                                        >
-                                            <Phone size={11} className="shrink-0 text-[var(--color-fg-subtle)]" />
-                                            <span>{emp.telephone}</span>
-                                        </a>
-                                    ) : null}
-                                    {emp.email ? (
-                                        <a
-                                            href={`mailto:${emp.email}`}
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="flex items-center gap-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] text-[11px] truncate transition-colors"
-                                            title={emp.email}
-                                        >
-                                            <Mail size={11} className="shrink-0 text-[var(--color-fg-subtle)]" />
-                                            <span className="truncate">{emp.email}</span>
-                                        </a>
-                                    ) : null}
-                                    {!emp.email && !emp.telephone && (
-                                        <span className="text-xs text-[var(--color-fg-subtle)]">-</span>
-                                    )}
-                                </div>
-                            </Td>
-
-                            {/* 5. Date d'embauche & Alerte Contrat */}
+                            {/* 4. Date d'embauche & Alerte Contrat */}
                             <Td isData className="text-xs">
                                 <div className="space-y-1">
                                     <div className="font-mono font-medium text-[var(--color-fg)]" title="Date d'embauche initiale">
@@ -280,29 +262,20 @@ export default function EmployeTable({
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     {canWrite && (
-                                        <button
-                                            type="button"
+                                        <Button
+                                            type="button" variant="ghost" size="sm" iconOnly icon={<Edit2 size={15} />}
                                             onClick={() => onOpenEdit(emp)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] cursor-pointer rounded-none transition-colors"
                                             title="Modifier la fiche employé"
                                             aria-label="Modifier l'employé"
-                                        >
-                                            <Edit2 size={15} />
-                                        </button>
+                                        />
                                     )}
                                     {canValidate && (
-                                        <button
-                                            type="button"
+                                            <Button
+                                            type="button" variant="ghost" className={emp.estActif ? 'text-[var(--color-danger-500)]' : 'text-[var(--color-success-500)]'} size="sm" iconOnly icon={<Power size={15} />}
                                             onClick={() => onToggleStatus(emp)}
-                                            className={`p-1.5 rounded-none cursor-pointer transition-colors ${emp.estActif
-                                                    ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
-                                                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
-                                                }`}
                                             title={emp.estActif ? "Désactiver l'employé" : "Réactiver l'employé"}
                                             aria-label={emp.estActif ? "Désactiver l'employé" : "Réactiver l'employé"}
-                                        >
-                                            <Power size={15} />
-                                        </button>
+                                        />
                                     )}
                                 </div>
                             </Td>
@@ -311,5 +284,7 @@ export default function EmployeTable({
                 })}
             </Tbody>
         </Table>
+        </div>
+        </>
     );
 }

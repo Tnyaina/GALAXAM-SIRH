@@ -2,7 +2,9 @@ package mg.galaxam.sirh.paie.api;
 
 
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
@@ -10,9 +12,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDate;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.dto.BusinessDecision;
 import mg.galaxam.sirh.paie.api.dto.PaieAjustementRequest;
+import mg.galaxam.sirh.paie.api.dto.ConfirmationVersementRequest;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
@@ -63,7 +67,9 @@ public class PaieAjustementController {
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> listerAjustements(
             @RequestParam(name = "idPeriode", required = false) Integer idPeriode,
-            @RequestParam(name = "idEmploye", required = false) Integer idEmploye) throws Exception {
+            @RequestParam(name = "idEmploye", required = false) Integer idEmploye,
+            @RequestParam(name = "domaine", required = false) String domaine,
+            Authentication authentication) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             StringBuilder sql = new StringBuilder(
                     "SELECT paa.*, " +
@@ -88,6 +94,9 @@ public class PaieAjustementController {
             if (idEmploye != null) {
                 sql.append("AND paa.id_employe = ? ");
                 params.add(idEmploye);
+            }
+            if ("ACOMPTE_AVANCE".equals(domaine)) {
+                sql.append("AND rtmp.categorie IN ('ACOMPTE', 'AVANCE') ");
             }
             sql.append("ORDER BY paa.date_demande DESC, paa.id_avance DESC");
 
@@ -118,12 +127,38 @@ public class PaieAjustementController {
                         map.put("provenance", rs.getString("provenance"));
                         map.put("dateDemande", rs.getDate("date_demande"));
                         map.put("datePaiement", rs.getDate("date_paiement"));
+                        map.put("versementConfirmeAt", rs.getTimestamp("versement_confirme_at"));
+                        map.put("dateVersementConfirme", rs.getTimestamp("versement_confirme_at") != null ? rs.getDate("date_paiement") : null);
+                        map.put("referenceVersement", rs.getString("reference_versement"));
+                        map.put("dateAccord", rs.getDate("date_accord"));
                         map.put("motif", rs.getString("motif"));
                         map.put("statut", rs.getString("statut"));
                         Timestamp uAt = rs.getTimestamp("updated_at");
                         map.put("version", uAt != null ? (int) (uAt.getTime() % Integer.MAX_VALUE) : 1);
                         map.put("idBulletin", rs.getObject("id_bulletin"));
                         map.put("modeReglement", rs.getString("mode_reglement"));
+                        String categorie = rs.getString("type_categorie");
+                        if ("ACOMPTE".equals(categorie) || "AVANCE".equals(categorie)) {
+                            String statut = rs.getString("statut");
+                            boolean verse = rs.getTimestamp("versement_confirme_at") != null;
+                            BigDecimal solde = rs.getBigDecimal("solde_restant");
+                            String etat = "EN_ATTENTE".equals(statut) ? "A_APPROUVER"
+                                    : "REJETE".equals(statut) ? "REJETE"
+                                    : "ANNULE".equals(statut) ? "ANNULE"
+                                    : !verse && ("IMPUTE_PAIE".equals(statut)
+                                        || rs.getBigDecimal("montant_impute").signum() > 0) ? "VERSEMENT_A_VERIFIER"
+                                    : !verse ? "A_VERSER"
+                                    : solde != null && solde.signum() == 0 ? "SOLDE"
+                                    : rs.getBigDecimal("montant_impute").signum() > 0 ? "REMBOURSEMENT_EN_COURS"
+                                    : "VERSE_A_IMPUTER";
+                            map.put("etatDossier", etat);
+                            boolean canWrite = PayrollPeriodUserContext.from(authentication).hasAny("PAIE_WRITE");
+                            map.put("actions", Map.of(
+                                    "APPROVE", canWrite && "EN_ATTENTE".equals(statut),
+                                    "REJECT", canWrite && "EN_ATTENTE".equals(statut),
+                                    "CONFIRM_VERSEMENT", canWrite && !verse
+                                            && ("APPROUVE".equals(statut) || "IMPUTE_PAIE".equals(statut))));
+                        }
                         resultats.add(map);
                     }
                 }
@@ -162,6 +197,141 @@ public class PaieAjustementController {
                 }
             }
             return ResponseEntity.ok(types);
+        }
+    }
+
+    @GetMapping("/modes-reglement")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> listerModesReglement() throws Exception {
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT code, libelle FROM ref_mode_paiement WHERE actif = TRUE ORDER BY libelle");
+             ResultSet rs = ps.executeQuery()) {
+            List<Map<String, String>> modes = new ArrayList<>();
+            while (rs.next()) modes.add(Map.of("code", rs.getString("code"), "libelle", rs.getString("libelle")));
+            return ResponseEntity.ok(modes);
+        }
+    }
+
+    @GetMapping("/acomptes-avances/synthese")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> syntheseAcomptesAvances() throws Exception {
+        String sql = "SELECT " +
+                "COUNT(*) FILTER (WHERE a.statut = 'EN_ATTENTE') AS a_approuver, " +
+                "COUNT(*) FILTER (WHERE a.statut = 'APPROUVE' AND a.versement_confirme_at IS NULL " +
+                "AND a.montant_impute = 0) AS a_verser, " +
+                "COUNT(*) FILTER (WHERE a.versement_confirme_at IS NULL AND a.montant_impute > 0) AS a_verifier, " +
+                "COUNT(*) FILTER (WHERE a.versement_confirme_at IS NOT NULL AND a.solde_restant > 0) AS en_recouvrement, " +
+                "COALESCE(SUM(a.solde_restant) FILTER (WHERE a.versement_confirme_at IS NOT NULL " +
+                "AND a.statut IN ('APPROUVE','IMPUTE_PAIE')), 0) AS encours_verse " +
+                "FROM paie_avance_acompte a JOIN ref_type_mouvement_paie t " +
+                "ON t.id_type_mouvement = a.id_type_mouvement " +
+                "WHERE t.categorie IN ('ACOMPTE','AVANCE')";
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            rs.next();
+            return ResponseEntity.ok(Map.of(
+                    "aApprouver", rs.getInt("a_approuver"),
+                    "aVerser", rs.getInt("a_verser"),
+                    "aVerifier", rs.getInt("a_verifier"),
+                    "enRecouvrement", rs.getInt("en_recouvrement"),
+                    "encoursVerse", rs.getBigDecimal("encours_verse")));
+        }
+    }
+
+    @GetMapping("/{id}/imputations")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> listerImputations(@PathVariable("id") int id) throws Exception {
+        String sql = "SELECT i.id_bulletin, i.montant, p.code AS code_periode, b.statut AS statut_bulletin " +
+                "FROM paie_mouvement_imputation i JOIN bulletin_paie b ON b.id_bulletin = i.id_bulletin " +
+                "JOIN periode_paie p ON p.id_periode_paie = b.id_periode_paie " +
+                "WHERE i.id_avance = ? ORDER BY p.date_debut, i.id_bulletin";
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<Map<String, Object>> rows = new ArrayList<>();
+                while (rs.next()) rows.add(Map.of(
+                        "idBulletin", rs.getInt("id_bulletin"),
+                        "montant", rs.getBigDecimal("montant"),
+                        "codePeriode", rs.getString("code_periode"),
+                        "statutBulletin", rs.getString("statut_bulletin")));
+                return ResponseEntity.ok(rows);
+            }
+        }
+    }
+
+    @PostMapping("/{id}/versement")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> confirmerVersement(@PathVariable("id") int id,
+            @Valid @RequestBody ConfirmationVersementRequest request) throws Exception {
+        if (request.dateVersement().isAfter(LocalDate.now())) {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                    "La date de versement ne peut pas être future.");
+        }
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                String sql = "SELECT a.statut, a.date_demande, a.date_accord, a.versement_confirme_at, a.updated_at, " +
+                        "t.categorie FROM paie_avance_acompte a LEFT JOIN ref_type_mouvement_paie t " +
+                        "ON t.id_type_mouvement = a.id_type_mouvement WHERE a.id_avance = ? FOR UPDATE OF a";
+                String categorie;
+                try (PreparedStatement ps = c.prepareStatement(sql)) {
+                    ps.setInt(1, id);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next()) throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
+                                "Demande introuvable.");
+                        categorie = rs.getString("categorie");
+                        if (!("ACOMPTE".equals(categorie) || "AVANCE".equals(categorie))
+                                || !("APPROUVE".equals(rs.getString("statut"))
+                                    || "IMPUTE_PAIE".equals(rs.getString("statut")))
+                                || rs.getTimestamp("versement_confirme_at") != null) {
+                            throw new SirhBusinessException(SirhErrorCode.STATE_CONFLICT,
+                                    "Seul un acompte ou une avance approuvé, ou un dossier historique imputé, peut être rapproché d'un versement.");
+                        }
+                        Timestamp updated = rs.getTimestamp("updated_at");
+                        int version = updated == null ? 1 : (int) (updated.getTime() % Integer.MAX_VALUE);
+                        if (request.expectedVersion() < 1 || request.expectedVersion() != version) {
+                            throw new SirhBusinessException(SirhErrorCode.PAYROLL_ADJUSTMENT_VERSION_CONFLICT,
+                                    "La demande a changé. Rechargez-la avant de confirmer le versement.");
+                        }
+                        Date accord = rs.getDate("date_accord");
+                        Date demande = rs.getDate("date_demande");
+                        Date plancher = accord != null ? accord : demande;
+                        if (plancher != null && request.dateVersement().isBefore(plancher.toLocalDate())) {
+                            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                    "Le versement ne peut pas précéder l'approbation.");
+                        }
+                    }
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT 1 FROM ref_mode_paiement WHERE code = ? AND actif = TRUE")) {
+                    ps.setString(1, request.modeReglement());
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next()) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                "Mode de règlement inconnu ou inactif.");
+                    }
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE paie_avance_acompte SET date_paiement = ?, mode_reglement = ?, " +
+                        "reference_versement = ?, versement_confirme_at = CURRENT_TIMESTAMP, " +
+                        "versement_confirme_par = ?, " +
+                        "statut = CASE WHEN solde_restant > 0 THEN 'APPROUVE' ELSE 'IMPUTE_PAIE' END, " +
+                        "updated_at = CURRENT_TIMESTAMP WHERE id_avance = ?")) {
+                    ps.setDate(1, Date.valueOf(request.dateVersement()));
+                    ps.setString(2, request.modeReglement());
+                    ps.setString(3, request.referenceVersement().trim());
+                    Integer userId = getCurrentUserId();
+                    if (userId != null) ps.setInt(4, userId); else ps.setNull(4, java.sql.Types.INTEGER);
+                    ps.setInt(5, id);
+                    ps.executeUpdate();
+                }
+                AuditLog.audit(c, "CONFIRM_VERSEMENT", "paie_avance_acompte", String.valueOf(id), null, request);
+                c.commit();
+                return ResponseEntity.ok(Map.of("idAvance", id, "versementConfirme", true));
+            } catch (Exception ex) {
+                c.rollback();
+                throw ex;
+            }
         }
     }
 
@@ -345,9 +515,11 @@ public class PaieAjustementController {
                 periodWorkflowService.requirePayrollAction(entity.getIdPeriodePaie(), PayrollAction.ADD_VARIABLE,
                         PayrollPeriodUserContext.from(authentication));
 
-                if ("IMPUTE_PAIE".equalsIgnoreCase(entity.getStatut())) {
+                if ("IMPUTE_PAIE".equalsIgnoreCase(entity.getStatut())
+                        || entity.getVersementConfirmeAt() != null
+                        || (entity.getMontantImpute() != null && entity.getMontantImpute().signum() > 0)) {
                     throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
-                            "Impossible de supprimer un mouvement déjà imputé sur un bulletin de paie.");
+                            "Impossible de supprimer un mouvement déjà versé ou imputé sur un bulletin de paie.");
                 }
 
                 entity.delete(c);
@@ -367,7 +539,7 @@ public class PaieAjustementController {
         if (auth != null && auth.getPrincipal() instanceof CustomUserDetails ud) {
             return ud.getIdUtilisateur();
         }
-        return 1;
+        return null;
     }
 
 }

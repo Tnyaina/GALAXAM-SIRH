@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import {
     Banknote,
     FileText,
@@ -25,10 +25,13 @@ import { fmtDate } from '@/utils/dateUtils';
 import paieService from '@/features/payroll/api/paieService';
 import stcService from '@/features/payroll/api/stcService';
 import { getErrorMessage } from '@/api/apiClient';
-import BulletinPaieDrawer from '@/features/payroll/components/views/BulletinPaieDrawer';
-import StcPreparationModal from '@/features/payroll/components/modals/stc/StcPreparationModal';
-import StcRecuModal from '@/features/payroll/components/modals/stc/StcRecuModal';
+
 import DemandeAcompteAvanceModal from './DemandeAcompteAvanceModal';
+
+// Lazy loading des lourds modules et modales de paie externes
+const BulletinPaieDrawer = lazy(() => import('@/features/payroll/components/views/BulletinPaieDrawer'));
+const StcPreparationModal = lazy(() => import('@/features/payroll/components/modals/stc/StcPreparationModal'));
+const StcRecuModal = lazy(() => import('@/features/payroll/components/modals/stc/StcRecuModal'));
 
 function AccordionSection({ id, icon, title, badge = null, children, defaultOpen = true, variant = 'default' }) {
     const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -270,14 +273,16 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                                 </Td>
                                                 <Td className="text-[var(--color-fg-muted)] max-w-[160px] truncate">{m.motif || '—'}</Td>
                                                 <Td>
-                                                    <Badge variant={m.statut === 'APPROUVE' || m.statut === 'VALIDE' || m.statut === 'REGLE' ? 'success' : m.statut === 'EN_ATTENTE' ? 'warning' : 'default'} size="xs">
-                                                        {m.statut}
+                                                    <Badge variant={m.etatDossier === 'SOLDE' || m.statut === 'VALIDE' || m.statut === 'REGLE' ? 'success' : m.etatDossier === 'A_APPROUVER' || m.etatDossier === 'VERSEMENT_A_VERIFIER' ? 'warning' : 'default'} size="xs">
+                                                        {({ A_APPROUVER: 'À approuver', A_VERSER: 'À verser', VERSEMENT_A_VERIFIER: 'Versement à vérifier', VERSE_A_IMPUTER: 'Versé, à retenir', REMBOURSEMENT_EN_COURS: 'Remboursement en cours', SOLDE: 'Soldé', REJETE: 'Rejeté', ANNULE: 'Annulé' })[m.etatDossier] || m.statut}
                                                     </Badge>
                                                 </Td>
                                                 <Td>
-                                                    {m.idBulletin
-                                                        ? <span className="text-[var(--color-success-600)] font-semibold font-mono">#{m.idBulletin}</span>
-                                                        : <span className="text-[var(--color-warning-600)]">En attente</span>
+                                                    {m.etatDossier
+                                                        ? <span className="text-[var(--color-fg-muted)]">Solde : {formatMoneyAr(m.soldeRestant)}</span>
+                                                        : m.idBulletin
+                                                            ? <span className="text-[var(--color-success-600)] font-semibold font-mono">#{m.idBulletin}</span>
+                                                            : <span className="text-[var(--color-warning-600)]">En attente</span>
                                                     }
                                                 </Td>
                                             </Tr>
@@ -339,28 +344,38 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                 </AccordionSection>
             )}
 
-            {/* ===== MODALES ===== */}
-            <BulletinPaieDrawer
-                isOpen={isDrawerOpen}
-                onClose={() => { setIsDrawerOpen(false); setSelectedBulletinId(null); }}
-                idBulletin={selectedBulletinId}
-                onRecalculateSuccess={chargerDonnees}
-            />
-            {isStcPrepOpen && (
-                <StcPreparationModal
-                    isOpen={isStcPrepOpen}
-                    onClose={() => setIsStcPrepOpen(false)}
-                    idEmploye={idEmploye}
-                    nomEmploye={synthese?.nomComplet || employe?.nom || ''}
-                    dateDepartInitiale={synthese?.dateFinContrat || null}
-                    motifInitial="DEMISSION"
-                    onStcValide={chargerDonnees}
-                />
-            )}
-            {selectedStcRecuId && (
-                <StcRecuModal isOpen={Boolean(selectedStcRecuId)} onClose={() => setSelectedStcRecuId(null)} idStc={selectedStcRecuId} />
-            )}
-            {isDemandeOpen && <DemandeAcompteAvanceModal idEmploye={idEmploye} onClose={() => setIsDemandeOpen(false)} onCreated={() => { setFeedbackMsg({ type: 'success', message: 'Demande enregistrée en attente d’approbation.' }); chargerDonnees(); }} />}
+            {/* ===== MODALES (Lazy) ===== */}
+            <Suspense fallback={null}>
+                {isDrawerOpen && (
+                    <BulletinPaieDrawer
+                        isOpen={isDrawerOpen}
+                        onClose={() => { setIsDrawerOpen(false); setSelectedBulletinId(null); }}
+                        idBulletin={selectedBulletinId}
+                        onRecalculateSuccess={chargerDonnees}
+                    />
+                )}
+                {isStcPrepOpen && (
+                    <StcPreparationModal
+                        isOpen={isStcPrepOpen}
+                        onClose={() => setIsStcPrepOpen(false)}
+                        idEmploye={idEmploye}
+                        nomEmploye={synthese?.nomComplet || employe?.nom || ''}
+                        dateDepartInitiale={synthese?.dateFinContrat || null}
+                        motifInitial="DEMISSION"
+                        onStcValide={chargerDonnees}
+                    />
+                )}
+                {selectedStcRecuId && (
+                    <StcRecuModal isOpen={Boolean(selectedStcRecuId)} onClose={() => setSelectedStcRecuId(null)} idStc={selectedStcRecuId} />
+                )}
+                {isDemandeOpen && (
+                    <DemandeAcompteAvanceModal
+                        idEmploye={idEmploye}
+                        onClose={() => setIsDemandeOpen(false)}
+                        onCreated={() => { setFeedbackMsg({ type: 'success', message: 'Demande enregistrée en attente d’approbation.' }); chargerDonnees(); }}
+                    />
+                )}
+            </Suspense>
         </div>
     );
 }

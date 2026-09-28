@@ -23,7 +23,7 @@ function SupervisionCompareModal({
         >
             <div className="space-y-4">
                 <Alert type="warning" title="Analyse des Contrats">
-                    Plusieurs enregistrements de contrat ont été détectés pour ce collaborateur. Comparez les dates et les numéros pour identifier les doublons à clôturer ou annuler.
+                    Des contrats de même type et de même date de début ont été détectés. Comparez les numéros, dates et affectations avant toute décision.
                 </Alert>
 
                 <div className="overflow-x-auto">

@@ -125,6 +125,22 @@ public class WorkflowRhController {
     // CONSULTATIONS (lecture seule — pas de transaction d'écriture)
     // =========================================================================
 
+    @GetMapping("/workflows/statuts")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getStatutsWorkflows() {
+        return transactionRunner.required(c -> {
+            java.util.List<java.util.Map<String, String>> statuts = new java.util.ArrayList<>();
+            try (java.sql.PreparedStatement ps = c.prepareStatement(
+                    "SELECT DISTINCT code_statut_workflow, libelle_statut_workflow FROM v_workflow_rh_cpl " +
+                    "WHERE code_statut_workflow IS NOT NULL ORDER BY libelle_statut_workflow");
+                 java.sql.ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) statuts.add(java.util.Map.of(
+                        "code", rs.getString(1), "libelle", rs.getString(2)));
+            }
+            return ResponseEntity.ok(statuts);
+        });
+    }
+
     @GetMapping("/workflows/{idWorkflow}")
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getWorkflow(@PathVariable Integer idWorkflow) {
@@ -147,9 +163,13 @@ public class WorkflowRhController {
             @RequestParam(required = false) String codeStatut,
             @RequestParam(required = false) Integer idSite,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "15") int size) {
+            @RequestParam(defaultValue = "15") int size,
+            org.springframework.security.core.Authentication authentication) {
         return transactionRunner.required(c -> {
             PageDTO<WorkflowRhCPL> result = WorkflowRhCPL.listerGlobal(q, codeTypeEvenement, codeStatut, idSite, page, size, c);
+            boolean canReadPaie = authentication != null && authentication.getAuthorities().stream()
+                    .anyMatch(a -> "PAIE_READ".equals(a.getAuthority()) || "ROLE_ADMIN".equals(a.getAuthority()));
+            if (!canReadPaie) result.getContent().forEach(wf -> wf.setSalaireBase(null));
             return ResponseEntity.ok(result);
         });
     }

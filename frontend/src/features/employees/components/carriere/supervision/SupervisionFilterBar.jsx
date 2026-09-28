@@ -16,6 +16,8 @@ function SupervisionFilterBar({
     doublonsOnly,
     onDoublonsToggle,
     sites = [],
+    statuses = [],
+    deadlines = [],
     totalCollaborateurs,
     totalContrats,
     onResetFilters,
@@ -32,24 +34,12 @@ function SupervisionFilterBar({
             }))
     ], [sites]);
 
-    const statutOptions = useMemo(() => [
-        { value: 'ALL', label: 'Tous les statuts de contrat' },
-        { value: 'ACTIF', label: 'Contrat actif' },
-        { value: 'PENDING', label: 'Planifié / En attente de signature' },
-        { value: 'A_SIGNER', label: 'En attente de signature' },
-        { value: 'BROUILLON', label: 'Brouillon' },
-        { value: 'SUSPENDU', label: 'Contrat suspendu' },
-        { value: 'CLOTURE', label: 'Contrat arrivé à terme (Clôturé)' },
-        { value: 'ROMPU', label: 'Contrat rompu anticipativement' },
-        { value: 'ANNULE', label: 'Contrat annulé' },
-    ], []);
+    const statutOptions = useMemo(() => statuses.map(s => ({ value: s.code, label: s.libelle })), [statuses]);
 
-    const echeanceOptions = useMemo(() => [
-        { value: '', label: 'Toutes les échéances' },
-        { value: '30J', label: 'Moins de 30 jours' },
-        { value: '60J', label: 'Moins de 60 jours' },
-        { value: 'ESSAI', label: 'Période d\'essai en cours' },
-    ], []);
+    const echeanceOptions = useMemo(() => deadlines.map(item => ({
+        value: item.code === 'ALL' ? '' : item.code,
+        label: item.libelle,
+    })), [deadlines]);
 
     // Rendu
     return (

@@ -244,7 +244,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false }) {
         <Card padding bordered className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--color-border-subtle)]">
             <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] dark:text-white flex items-center gap-2">
-              <Calendar size={14} className="text-brand-500" />
+              <Calendar size={14} className="text-[var(--color-brand-500)]" />
               Historique des Demandes de Congé
             </h4>
             <div className="flex items-center gap-3">

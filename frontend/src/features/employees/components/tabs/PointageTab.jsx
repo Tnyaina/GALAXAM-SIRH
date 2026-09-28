@@ -1136,17 +1136,17 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                     </span>
                                                 )}
                                                 {hs50Val > 0 && (
-                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-orange-500/10 text-orange-700 dark:text-orange-300 border border-orange-500/20">
+                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)] border border-[var(--color-danger-500)]/20">
                                                         +{hs50Val}h à 50%
                                                     </span>
                                                 )}
                                                 {nuitVal > 0 && (
-                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
+                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border border-[var(--color-brand-500)]/20">
                                                         +{nuitVal}h nuit
                                                     </span>
                                                 )}
                                                 {dimVal > 0 && (
-                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
+                                                    <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-[var(--color-info-500)]/10 text-[var(--color-info-700)] dark:text-[var(--color-info-300)] border border-[var(--color-info-500)]/20">
                                                         +{dimVal}h dimanche
                                                     </span>
                                                 )}

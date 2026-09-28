@@ -86,6 +86,10 @@ public class PayrollAdjustmentWorkflowService {
                 if (transition.blocked()) {
                     throw new SirhBusinessException(transition.errorCode(), transition.blockingMessage());
                 }
+                if (command == PayrollAdjustmentCommand.CANCEL && entity.getVersementConfirmeAt() != null) {
+                    throw new SirhBusinessException(SirhErrorCode.STATE_CONFLICT,
+                            "Un acompte ou une avance déjà versé ne peut pas être annulé par cette commande.");
+                }
 
                 // Exécution de la transition
                 entity.setStatut(transition.targetStatut());

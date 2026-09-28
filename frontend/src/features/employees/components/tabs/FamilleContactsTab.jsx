@@ -1,4 +1,4 @@
-import { Heart, Baby, ShieldAlert, Phone, MapPin, Calendar, Briefcase } from 'lucide-react';
+import { Heart, Baby, ShieldAlert, Phone, MapPin, Calendar, Briefcase, User } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -6,15 +6,12 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import useFiscalConfig, { evaluateEnfantIrsaEligibility } from '@/features/employees/hooks/useFiscalConfig';
 import { fmtDate } from '@/utils/dateUtils';
 
-const InfoBlock = ({ label, value, icon }) => (
-    <div className="space-y-1">
-        <p className="text-[11px] font-medium text-[var(--color-fg-muted)]">{label}</p>
-        <div className="flex items-center gap-1.5">
-            {icon && <span className="text-[var(--color-fg-subtle)] shrink-0">{icon}</span>}
-            <p className="text-xs sm:text-[13px] font-bold text-[var(--color-fg)] truncate">
-                {value || '—'}
-            </p>
-        </div>
+const InfoRow = ({ label, children }) => (
+    <div className="flex justify-between items-baseline gap-2 min-w-0 py-1 border-b border-[var(--color-border-subtle)]/50 last:border-0">
+        <span className="text-xs text-[var(--color-fg-muted)] shrink-0 font-medium">{label}</span>
+        <span className="font-bold text-xs text-[var(--color-fg)] text-right truncate">
+            {children || '—'}
+        </span>
     </div>
 );
 
@@ -22,7 +19,7 @@ export default function FamilleContactsTab({ conjoint, enfants = [], contactsUrg
     const { fiscalConfig } = useFiscalConfig();
     const hasConjoint = Boolean(conjoint && (conjoint.nom || conjoint.prenom));
 
-    // Évaluation dynamique selon la Loi de Finances active
+    // Évaluation dynamique IRSA
     const enfantsAvecEval = enfants.map(enf => ({
         ...enf,
         evalIrsa: evaluateEnfantIrsaEligibility(enf, fiscalConfig)
@@ -32,192 +29,183 @@ export default function FamilleContactsTab({ conjoint, enfants = [], contactsUrg
     const totalDeductionAr = deductiblesCount * fiscalConfig.deductionParCharge;
 
     return (
-        <div className="space-y-5">
-            {/* Carte 1 : Conjoint Déclaré */}
-            <Card shadow="sm">
-                <CardHeader className="flex items-center justify-between">
-                    <CardTitle size="sm" className="uppercase tracking-wider flex items-center gap-2">
-                        <Heart size={15} className="text-brand-500" />
-                        Conjoint Déclaré
-                    </CardTitle>
-                    <Badge variant={hasConjoint ? 'success' : 'default'} size="xs" dot={hasConjoint}>
-                        {hasConjoint ? 'Marié(e) / Déclaré' : 'Non déclaré'}
-                    </Badge>
-                </CardHeader>
-                <CardBody className="p-5">
-                    {hasConjoint ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4">
-                            <InfoBlock label="Nom" value={conjoint.nom} />
-                            <InfoBlock label="Prénom" value={conjoint.prenom} />
-                            <InfoBlock label="Date de naissance" value={fmtDate(conjoint.dateNaissance)} icon={<Calendar size={13} />} />
-                            <InfoBlock label="Lieu de naissance" value={conjoint.lieuNaissance} icon={<MapPin size={13} />} />
-                            <InfoBlock label="Employeur / Société" value={conjoint.societe} icon={<Briefcase size={13} />} />
-                            <InfoBlock label="Fonction / Métier" value={conjoint.fonction} />
-                        </div>
-                    ) : (
-                        <EmptyState
-                            icon={Heart}
-                            title="Aucun conjoint renseigné"
-                            description="Collaborateur célibataire ou conjoint non déclaré sur le dossier RH."
-                            compact
-                        />
-                    )}
-                </CardBody>
-            </Card>
-
-            {/* Carte 2 : Enfants Déclarés */}
+        <div className="space-y-4 font-sans">
+            {/* 1. Carte Principale : Foyer & Ayants Droit */}
             <Card shadow="sm">
                 <CardHeader className="flex flex-wrap items-center justify-between gap-3">
                     <CardTitle size="sm" className="uppercase tracking-wider flex items-center gap-2">
-                        <Baby size={15} className="text-brand-500" />
-                        Enfants Déclarés ({enfants.length})
+                        <Heart size={15} className="text-[var(--color-brand-500)]" />
+                        Situation Familiale &amp; Ayants Droit
                     </CardTitle>
-                    {enfants.length > 0 && (
-                        <div className="flex items-center gap-2">
-                            <Badge variant="default" size="xs">
-                                {enfants.filter(e => e.aCharge).length} à charge
+                    <div className="flex items-center gap-2">
+                        <Badge variant={hasConjoint ? 'success' : 'default'} size="xs">
+                            {hasConjoint ? 'Marié(e)' : 'Célibataire'}
+                        </Badge>
+                        <Badge variant="default" size="xs">
+                            {enfants.length} enfant{enfants.length > 1 ? 's' : ''}
+                        </Badge>
+                        {deductiblesCount > 0 && (
+                            <Badge variant="brand" size="xs" dot>
+                                {deductiblesCount} déductible{deductiblesCount > 1 ? 's' : ''} IRSA (-{totalDeductionAr.toLocaleString('fr-FR')} Ar)
                             </Badge>
-                            {deductiblesCount > 0 ? (
-                                <Badge variant="success" size="xs" dot>
-                                    {deductiblesCount} déductible{deductiblesCount > 1 ? 's' : ''} IRSA (-{totalDeductionAr.toLocaleString('fr-FR')} Ar/mois • {fiscalConfig.codeVersion})
-                                </Badge>
-                            ) : (
-                                <Badge variant="warning" size="xs">
-                                    Aucune déduction active ({fiscalConfig.codeVersion})
-                                </Badge>
-                            )}
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </CardHeader>
-                <CardBody className="p-0">
-                    {enfants.length > 0 ? (
-                        <Table>
-                            <Thead>
-                                <Tr>
-                                    <Th>Nom & Prénom</Th>
-                                    <Th>Sexe</Th>
-                                    <Th>Naissance & Âge</Th>
-                                    <Th>Statut Fiscal / Scolaire</Th>
-                                    <Th align="center">À Charge</Th>
-                                    <Th align="center">Déduction IRSA ({fiscalConfig.codeVersion})</Th>
-                                </Tr>
-                            </Thead>
-                            <Tbody>
-                                {enfantsAvecEval.map((enf, i) => (
-                                    <Tr key={i}>
-                                        <Td className="font-bold text-[var(--color-fg)]">
-                                            {enf.nom} {enf.prenom}
-                                        </Td>
-                                        <Td className="text-[var(--color-fg-muted)]">
-                                            {enf.sexe === 'M' ? 'Garçon' : enf.sexe === 'F' ? 'Fille' : (enf.sexe || '—')}
-                                        </Td>
-                                        <Td isData className="font-mono text-xs text-[var(--color-fg)]">
-                                            <div>{fmtDate(enf.dateNaissance)} {enf.evalIrsa.age !== null ? `(${enf.evalIrsa.age} ans)` : ''}</div>
-                                            {enf.lieuNaissance && (
-                                                <div className="text-[11px] font-sans text-[var(--color-fg-muted)] flex items-center gap-1 mt-0.5 font-normal">
-                                                    <MapPin size={10} className="shrink-0 text-[var(--color-fg-subtle)]" />
-                                                    <span className="truncate">{enf.lieuNaissance}</span>
-                                                </div>
-                                            )}
-                                        </Td>
-                                        <Td className="text-xs">
-                                            {enf.estHandicape ? (
-                                                <Badge variant="purple" size="xs">Situation de Handicap</Badge>
-                                            ) : enf.estEtudiant ? (
-                                                <div className="flex flex-col gap-0.5">
-                                                    <span className="font-semibold text-sky-600 dark:text-sky-400">Étudiant majeur</span>
-                                                    <span className="text-[11px] text-[var(--color-fg-subtle)]">
-                                                        {enf.certificatFourni ? `Certificat fourni ${enf.dateFinScolarite ? `(échéance ${fmtDate(enf.dateFinScolarite)})` : ''}` : 'Certificat manquant'}
-                                                    </span>
-                                                </div>
-                                            ) : (
-                                                <span className="text-[var(--color-fg-muted)]">
-                                                    {enf.evalIrsa.age !== null && enf.evalIrsa.age < fiscalConfig.ageLimiteDefaut ? 'Mineur à charge' : 'Majeur standard'}
-                                                </span>
-                                            )}
-                                        </Td>
-                                        <Td align="center">
-                                            {enf.aCharge ? (
-                                                <Badge variant="success" size="xs" className="font-bold">Oui</Badge>
-                                            ) : (
-                                                <Badge variant="default" size="xs">Non</Badge>
-                                            )}
-                                        </Td>
-                                        <Td align="center">
-                                            {enf.evalIrsa.eligible ? (
-                                                <Badge variant="success" size="xs" className="font-bold" title={enf.evalIrsa.motif}>
-                                                    -{fiscalConfig.deductionParCharge.toLocaleString('fr-FR')} Ar
-                                                </Badge>
-                                            ) : (
-                                                <Badge variant="default" size="xs" title={enf.evalIrsa.motif}>
-                                                    Exclu
-                                                </Badge>
-                                            )}
-                                        </Td>
-                                    </Tr>
-                                ))}
-                            </Tbody>
-                        </Table>
+                <CardBody className="p-5 space-y-5">
+                    {/* Section Conjoint */}
+                    {hasConjoint ? (
+                        <div className="bg-[var(--color-bg-subtle)]/50 border border-[var(--color-border-subtle)] p-4 sm:p-5 space-y-2">
+                            <h4 className="font-bold text-[var(--color-fg)] uppercase tracking-wider text-xs pb-2 border-b border-[var(--color-border-subtle)] flex items-center gap-1.5">
+                                <User size={13} className="text-[var(--color-brand-500)]" />
+                                Conjoint Déclaré
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1 pt-1">
+                                <InfoRow label="Nom &amp; Prénom">{conjoint.nom} {conjoint.prenom}</InfoRow>
+                                <InfoRow label="Date de naissance">
+                                    {fmtDate(conjoint.dateNaissance)}{conjoint.lieuNaissance ? ` à ${conjoint.lieuNaissance}` : ''}
+                                </InfoRow>
+                                <InfoRow label="Employeur / Métier">
+                                    {conjoint.societe ? `${conjoint.societe}${conjoint.fonction ? ` (${conjoint.fonction})` : ''}` : conjoint.fonction || '—'}
+                                </InfoRow>
+                            </div>
+                        </div>
                     ) : (
-                        <div className="p-5">
-                            <EmptyState
-                                icon={Baby}
-                                title="Aucun enfant déclaré"
-                                description="Aucun ayant droit ou personne à charge déclaré pour le calcul des déductions IRSA."
-                                compact
-                            />
+                        <div className="bg-[var(--color-bg-subtle)]/30 border border-[var(--color-border-subtle)]/60 px-4 py-2.5 flex items-center gap-2 text-xs text-[var(--color-fg-muted)]">
+                            <Heart size={14} className="text-[var(--color-fg-subtle)] shrink-0" />
+                            <span>Célibataire ou conjoint non déclaré sur le dossier RH.</span>
                         </div>
                     )}
+
+                    {/* Section Enfants */}
+                    <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)] flex items-center gap-1.5">
+                                <Baby size={13} className="text-[var(--color-brand-500)]" />
+                                Enfants Déclarés ({enfants.length})
+                            </h4>
+                        </div>
+
+                        {enfants.length > 0 ? (
+                            <Table>
+                                <Thead>
+                                    <Tr>
+                                        <Th>Enfant</Th>
+                                        <Th>Naissance &amp; Âge</Th>
+                                        <Th>Situation</Th>
+                                        <Th align="center">Déduction IRSA</Th>
+                                    </Tr>
+                                </Thead>
+                                <Tbody>
+                                    {enfantsAvecEval.map((enf, i) => (
+                                        <Tr key={i}>
+                                            <Td>
+                                                <p className="font-bold text-xs text-[var(--color-fg)]">
+                                                    {enf.nom} {enf.prenom}
+                                                </p>
+                                                <span className="text-[11px] text-[var(--color-fg-muted)]">
+                                                    {enf.sexe === 'M' ? 'Garçon' : enf.sexe === 'F' ? 'Fille' : '—'}
+                                                </span>
+                                            </Td>
+                                            <Td isData className="font-mono text-xs text-[var(--color-fg)]">
+                                                <span>{fmtDate(enf.dateNaissance)}</span>
+                                                {enf.evalIrsa.age !== null && (
+                                                    <span className="text-[var(--color-fg-muted)] font-sans ml-1">
+                                                        ({enf.evalIrsa.age} ans)
+                                                    </span>
+                                                )}
+                                            </Td>
+                                            <Td className="text-xs">
+                                                {enf.estHandicape ? (
+                                                    <Badge variant="purple" size="xs">Situation de Handicap</Badge>
+                                                ) : enf.estEtudiant ? (
+                                                    <span className="text-[var(--color-brand-600)] font-semibold">
+                                                        Étudiant{enf.certificatFourni ? ' (certificat fourni)' : ' (certificat en attente)'}
+                                                    </span>
+                                                ) : enf.evalIrsa.age !== null && enf.evalIrsa.age < fiscalConfig.ageLimiteDefaut ? (
+                                                    <span className="text-[var(--color-fg-muted)]">Mineur à charge</span>
+                                                ) : (
+                                                    <span className="text-[var(--color-fg-muted)]">Majeur</span>
+                                                )}
+                                            </Td>
+                                            <Td align="center">
+                                                {enf.evalIrsa.eligible ? (
+                                                    <Badge variant="success" size="xs" className="font-bold">
+                                                        -{fiscalConfig.deductionParCharge.toLocaleString('fr-FR')} Ar
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="default" size="xs">
+                                                        Non éligible
+                                                    </Badge>
+                                                )}
+                                            </Td>
+                                        </Tr>
+                                    ))}
+                                </Tbody>
+                            </Table>
+                        ) : (
+                            <div className="bg-[var(--color-bg-subtle)]/30 border border-[var(--color-border-subtle)]/60 px-4 py-2.5 flex items-center gap-2 text-xs text-[var(--color-fg-muted)]">
+                                <Baby size={14} className="text-[var(--color-fg-subtle)] shrink-0" />
+                                <span>Aucun enfant déclaré pour ce collaborateur.</span>
+                            </div>
+                        )}
+                    </div>
                 </CardBody>
             </Card>
 
-            {/* Carte 3 : Contacts d'Urgence */}
+            {/* 2. Carte Secondaire : Contacts d'Urgence */}
             <Card shadow="sm">
-                <CardHeader className="flex items-center justify-between">
-                    <CardTitle size="sm" className="uppercase tracking-wider flex items-center gap-2">
-                        <ShieldAlert size={15} className="text-brand-500" />
-                        Contacts d'Urgence ({contactsUrgence.length})
-                    </CardTitle>
-                    <span className="text-[11px] text-[var(--color-fg-subtle)]">
-                        À joindre prioritairement en cas d'accident ou d'incident sur site
-                    </span>
+                <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <div>
+                        <CardTitle size="sm" className="uppercase tracking-wider flex items-center gap-2">
+                            <ShieldAlert size={15} className="text-[var(--color-brand-500)]" />
+                            Contacts d'Urgence ({contactsUrgence.length})
+                        </CardTitle>
+                        <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                            Personnes de confiance à joindre en priorité en cas d'accident ou d'incident sur site
+                        </p>
+                    </div>
                 </CardHeader>
                 <CardBody className="p-5">
                     {contactsUrgence.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {contactsUrgence.map((ct, i) => (
-                                <Card key={i} padding shadow="none" className="bg-[var(--color-bg-subtle)]/60 space-y-2.5">
-                                    <div className="flex justify-between items-center">
+                                <div
+                                    key={i}
+                                    className="bg-[var(--color-bg-subtle)]/50 border border-[var(--color-border-subtle)] p-4 space-y-2.5"
+                                >
+                                    <div className="flex items-center justify-between gap-2">
                                         <p className="text-sm font-bold text-[var(--color-fg)]">
                                             {ct.nom} {ct.prenom}
                                         </p>
                                         <Badge variant="default" size="xs" className="font-semibold">
-                                            {ct.lienParente || 'Contact'}
+                                            {ct.lienParente || 'Proche'}
                                         </Badge>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3 text-xs pt-1">
-                                        <div>
-                                            <span className="text-[var(--color-fg-muted)] text-[11px] block mb-0.5">Téléphone d'urgence</span>
+                                    <div className="space-y-1.5 text-xs pt-1 border-t border-[var(--color-border-subtle)]">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[var(--color-fg-muted)] text-[11px]">Téléphone d'urgence</span>
                                             {ct.telephone ? (
                                                 <a
                                                     href={`tel:${ct.telephone}`}
-                                                    className="font-mono font-bold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1"
+                                                    className="font-mono font-bold text-[var(--color-brand-600)] hover:text-[var(--color-brand-700)] hover:underline flex items-center gap-1.5"
                                                 >
-                                                    <Phone size={12} />
+                                                    <Phone size={13} />
                                                     {ct.telephone}
                                                 </a>
                                             ) : (
                                                 <span className="text-[var(--color-fg-subtle)]">—</span>
                                             )}
                                         </div>
-                                        <div>
-                                            <span className="text-[var(--color-fg-muted)] text-[11px] block mb-0.5">Adresse / Domicile</span>
-                                            <span className="text-[var(--color-fg)] truncate block">
-                                                {ct.adresse || '—'}
-                                            </span>
-                                        </div>
+                                        {ct.adresse && (
+                                            <div className="flex items-center justify-between text-[11px]">
+                                                <span className="text-[var(--color-fg-muted)]">Adresse</span>
+                                                <span className="text-[var(--color-fg)] truncate max-w-[200px]">
+                                                    {ct.adresse}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
-                                </Card>
+                                </div>
                             ))}
                         </div>
                     ) : (

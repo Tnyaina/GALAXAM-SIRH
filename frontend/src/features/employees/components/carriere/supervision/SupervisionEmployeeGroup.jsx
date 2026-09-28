@@ -19,19 +19,19 @@ function SupervisionEmployeeGroup({
         <div
             className={`bg-[var(--color-surface)] border transition-all ${
                 hasDuplicateContract
-                    ? 'border-danger-500/80 shadow-sm'
+                    ? 'border-[var(--color-danger-500)]/80 shadow-sm'
                     : 'border-[var(--color-border-subtle)]'
             }`}
         >
             {/* En-tête de Groupe Collaborateur */}
-            <div
-                onClick={onToggleCollapse}
-                className={`flex items-center gap-3.5 p-4 cursor-pointer select-none transition-colors ${
+            <div className={`flex items-center gap-2 p-3 transition-colors ${
                     hasDuplicateContract
-                        ? 'bg-danger-500/5 hover:bg-danger-500/10'
-                        : 'hover:bg-[var(--color-bg-subtle)]/60'
-                }`}
-            >
+                        ? 'bg-[var(--color-danger-500)]/5'
+                        : 'bg-[var(--color-surface)]'
+                }`}>
+              <button type="button" onClick={onToggleCollapse} aria-expanded={!isCollapsed}
+                aria-label={`${isCollapsed ? 'Afficher' : 'Masquer'} les contrats de ${group.nomPrenom}`}
+                className="flex flex-1 min-w-0 items-center gap-3 text-left hover:bg-[var(--color-bg-subtle)] focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] p-1 rounded-none">
                 {/* Avatar */}
                 <Avatar name={group.nomPrenom} size="md" shape="square" />
 
@@ -44,11 +44,7 @@ function SupervisionEmployeeGroup({
                         <span className="font-data text-xs text-[var(--color-fg-subtle)]">
                             #{group.matricule}
                         </span>
-                        {hasDuplicateContract && (
-                            <Badge variant="danger" size="xs">
-                                Doublon détecté
-                            </Badge>
-                        )}
+                        {hasDuplicateContract && <Badge variant="danger" size="xs">Doublon à vérifier</Badge>}
                     </div>
                     <div className="text-xs text-[var(--color-fg-muted)] mt-0.5 truncate">
                         {group.nomSite || 'Site non défini'} · {group.nomFonction || 'Fonction non définie'}
@@ -60,18 +56,6 @@ function SupervisionEmployeeGroup({
                     <span className="text-xs font-bold text-[var(--color-fg-muted)]">
                         {group.contrats.length} contrat{group.contrats.length > 1 ? 's' : ''}
                     </span>
-                    {hasDuplicateContract && (
-                        <Button
-                            variant="danger"
-                            size="xs"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onOpenCompare(group);
-                            }}
-                        >
-                            Comparer
-                        </Button>
-                    )}
                     <ChevronDown
                         size={16}
                         className={`text-[var(--color-fg-subtle)] transition-transform duration-150 ${
@@ -79,15 +63,16 @@ function SupervisionEmployeeGroup({
                         }`}
                     />
                 </div>
+              </button>
+              {hasDuplicateContract && <Button variant="outline" size="xs" onClick={() => onOpenCompare(group)}>Comparer</Button>}
             </div>
 
             {/* Lignes de Contrats (si déplié) */}
             {!isCollapsed && (
                 <div className="border-t border-[var(--color-border-subtle)] divide-y divide-[var(--color-border-subtle)]">
                     {group.contrats.map((c, idx) => {
-                        const isPending = Boolean(c.isBrouillon || c.isPlanifie || (c.isActif && new Date(c.dateDebut) > new Date()));
-                        const isSoon = (c.joursRestantsFin !== null && c.joursRestantsFin <= 60 && c.joursRestantsFin >= 0) ||
-                                       (c.joursRestantsEssai !== null && c.joursRestantsEssai <= 60 && c.joursRestantsEssai >= 0);
+                        const isPending = Boolean(c.brouillon || c.planifie);
+                        const isSoon = Boolean(c.echeanceProche);
                         const isDuplicate = c.isDuplicate;
 
                         // Repère de bordure latérale
@@ -169,21 +154,12 @@ function SupervisionEmployeeGroup({
 
                                 {/* 5. Action (Cols 11-12) */}
                                 <div className="md:col-span-2 flex items-center justify-end gap-2">
-                                    {isDuplicate && (
-                                        <Button
-                                            variant="danger"
-                                            size="xs"
-                                            onClick={() => onOpenCompare(group)}
-                                        >
-                                            Comparer
-                                        </Button>
-                                    )}
                                     <Button
                                         variant="outline"
                                         size="xs"
                                         onClick={() => onNavigateCarriere(c.idEmploye)}
                                     >
-                                        Fiche
+                                        Ouvrir la carrière
                                     </Button>
                                 </div>
                             </div>

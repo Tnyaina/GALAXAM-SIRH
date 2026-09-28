@@ -248,10 +248,11 @@ public class EmployeCPL extends ClassMere {
 
         String orderBy = switch (sort == null ? "" : sort.toUpperCase()) {
             case "MATRICULE", "MATRICULE_ASC", "MATRICULE_DESC" -> "e.matricule";
+            case "NOM", "NOM_ASC", "NOM_DESC" -> "e.nom, e.prenom";
             case "DEPARTEMENT" -> "rd.libelle";
             case "FONCTION" -> "rf.libelle";
             case "SITE" -> "rs.libelle";
-            case "DATEEMBAUCHE", "ANCIENNETE_ASC", "ANCIENNETE_DESC" -> "ct.date_debut";
+            case "DATEEMBAUCHE", "ANCIENNETE_ASC", "ANCIENNETE_DESC" -> "COALESCE(c_emb.date_embauche_initiale, ct.date_debut, e.date_declaration)";
             case "STATUT" -> "e.est_actif";
             case "SITE_SERVICE" -> "rs.libelle, rserv.libelle, e.nom, e.prenom";
             case "HIERARCHICAL" -> "rd.libelle, rserv.libelle, e.nom, e.prenom";

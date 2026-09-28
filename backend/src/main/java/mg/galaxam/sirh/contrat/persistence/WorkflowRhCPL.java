@@ -300,6 +300,7 @@ public class WorkflowRhCPL {
     public String getLibelleCategoriePro() { return libelleCategoriePro; }
     public String getLibelleModeCalculPaie() { return libelleModeCalculPaie; }
     public BigDecimal getSalaireBase() { return salaireBase; }
+    public void setSalaireBase(BigDecimal salaireBase) { this.salaireBase = salaireBase; }
     public Date getDateDebutAffectation() { return dateDebutAffectation; }
     public Date getDateFinAffectation() { return dateFinAffectation; }
     public String getLibelleStatutAffectation() { return libelleStatutAffectation; }

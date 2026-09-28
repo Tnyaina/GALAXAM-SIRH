@@ -1,20 +1,24 @@
 import { useState, useEffect, useCallback, memo } from 'react';
-import { Search, RefreshCw, Layers, ChevronRight } from 'lucide-react';
+import { Search, RefreshCw, Layers, RotateCcw, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import contratService from '@/features/employees/api/contratService';
 import organisationService from '@/features/organization/api/organisationService';
 import Button from '@/components/ui/forms/Button';
+import Input from '@/components/ui/forms/Input';
+import Select from '@/components/ui/forms/Select';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Pagination from '@/components/ui/navigation/Pagination';
+import SlideOver from '@/components/ui/overlays/SlideOver';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import { Avatar } from '@/components/ui/data-display/Avatar';
 import { fmtDate, fmtAriary } from '@/features/dashboard/components/dashboardPresentation';
 import HasPermission from '@/features/auth/components/HasPermission';
 import useDebounce from '@/hooks/useDebounce';
+
+const PAGE_SIZE = 15;
 
 function SupervisionMouvementsTab() {
     const navigate = useNavigate();
@@ -22,324 +26,146 @@ function SupervisionMouvementsTab() {
     const [error, setError] = useState(null);
     const [workflows, setWorkflows] = useState([]);
     const [totalElements, setTotalElements] = useState(0);
-
-    // Filtres
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearch = useDebounce(searchQuery, 350);
-    const [selectedTypeEvenement, setSelectedTypeEvenement] = useState('ALL');
+    const [selectedType, setSelectedType] = useState('ALL');
     const [selectedStatut, setSelectedStatut] = useState('ALL');
     const [selectedSite, setSelectedSite] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const pageSize = 15;
-
-    // Référentiels
     const [typesEvenements, setTypesEvenements] = useState([]);
+    const [statuts, setStatuts] = useState([]);
     const [sites, setSites] = useState([]);
+    const [selected, setSelected] = useState(null);
 
     useEffect(() => {
         Promise.all([
-            contratService.getTypesEvenementRh().catch(() => []),
-            organisationService.getSites().catch(() => [])
-        ]).then(([evts, st]) => {
-            setTypesEvenements(Array.isArray(evts) ? evts : []);
-            setSites(Array.isArray(st) ? st : []);
-        });
+            contratService.getTypesEvenementRh(),
+            contratService.getStatutsWorkflows(),
+            organisationService.getSites(),
+        ]).then(([types, states, siteList]) => {
+            setTypesEvenements(Array.isArray(types) ? types : []);
+            setStatuts(Array.isArray(states) ? states : []);
+            setSites(Array.isArray(siteList) ? siteList : []);
+        }).catch(() => setError('Référentiels de recherche indisponibles.'));
     }, []);
 
     const fetchWorkflows = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const params = {
+            const data = await contratService.getWorkflowsGlobal({
                 page: currentPage,
-                size: pageSize,
+                size: PAGE_SIZE,
                 q: debouncedSearch.trim() || undefined,
-                codeTypeEvenement: selectedTypeEvenement !== 'ALL' ? selectedTypeEvenement : undefined,
+                codeTypeEvenement: selectedType !== 'ALL' ? selectedType : undefined,
                 codeStatut: selectedStatut !== 'ALL' ? selectedStatut : undefined,
                 idSite: selectedSite ? Number(selectedSite) : undefined,
-            };
-            const data = await contratService.getWorkflowsGlobal(params);
+            });
             setWorkflows(data?.content || []);
             setTotalElements(data?.totalElements || 0);
-        } catch (err) {
-            console.error('Erreur chargement journal des mouvements carrières:', err);
-            setError("Impossible de charger le journal des mouvements de carrière.");
+        } catch {
+            setError('Impossible de charger les mouvements de carrière.');
             setWorkflows([]);
+            setTotalElements(0);
         } finally {
             setLoading(false);
         }
-    }, [currentPage, pageSize, debouncedSearch, selectedTypeEvenement, selectedStatut, selectedSite]);
+    }, [currentPage, debouncedSearch, selectedType, selectedStatut, selectedSite]);
 
-    useEffect(() => {
-        fetchWorkflows();
-    }, [fetchWorkflows]);
+    useEffect(() => { fetchWorkflows(); }, [fetchWorkflows]);
 
-    const handleResetFilters = () => {
+    const resetFilters = () => {
         setSearchQuery('');
-        setSelectedTypeEvenement('ALL');
+        setSelectedType('ALL');
         setSelectedStatut('ALL');
         setSelectedSite('');
         setCurrentPage(1);
     };
+    const hasActiveFilters = Boolean(searchQuery || selectedType !== 'ALL' || selectedStatut !== 'ALL' || selectedSite);
+    const typeOptions = [{ value: 'ALL', label: 'Tous les mouvements' },
+        ...typesEvenements.map(type => ({ value: type.code, label: type.libelle }))];
+    const statutOptions = [{ value: 'ALL', label: 'Tous les états' },
+        ...statuts.map(state => ({ value: state.code, label: state.libelle }))];
+    const siteOptions = [{ value: '', label: 'Tous les sites' },
+        ...sites.filter(site => site.estActif !== false && site.actif !== false)
+            .map(site => ({ value: String(site.idSite), label: site.libelle || site.nomSite || site.codeSite }))];
 
-    const getEventBadgeVariant = (code) => {
-        switch (code) {
-            case 'EMBAUCHE_INITIALE': return 'primary';
-            case 'TITULARISATION':
-            case 'CONFIRMATION_ESSAI': return 'success';
-            case 'PROMOTION': return 'brand';
-            case 'MUTATION': return 'info';
-            case 'REVISION_SALAIRE': return 'warning';
-            case 'RUPTURE':
-            case 'FIN_CONTRAT': return 'danger';
-            default: return 'default';
-        }
-    };
-
-    const hasActiveFilters = Boolean(searchQuery || selectedTypeEvenement !== 'ALL' || selectedStatut !== 'ALL' || selectedSite);
-
-    return (
-        <div className="space-y-4">
-            {/* Barre de Filtres */}
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 flex flex-wrap items-center gap-3">
-                {/* Recherche */}
-                <div className="relative min-w-[240px] flex-1">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-subtle)]" />
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                        placeholder="Recherche matricule, collaborateur, motif..."
-                        className="w-full pl-9 pr-3 py-2 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]"
-                    />
-                </div>
-
-                {/* Filtre Type d'Événement */}
-                <select
-                    value={selectedTypeEvenement}
-                    onChange={(e) => { setSelectedTypeEvenement(e.target.value); setCurrentPage(1); }}
-                    className="py-2 px-3 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] min-w-[190px]"
-                >
-                    <option value="ALL">Tous les types d'évolution</option>
-                    {typesEvenements.map((t, idx) => (
-                        <option key={t.idTypeEvenementRh || t.code || idx} value={t.code}>{t.libelle}</option>
-                    ))}
-                </select>
-
-                {/* Filtre Statut */}
-                <select
-                    value={selectedStatut}
-                    onChange={(e) => { setSelectedStatut(e.target.value); setCurrentPage(1); }}
-                    className="py-2 px-3 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] min-w-[150px]"
-                >
-                    <option value="ALL">Tous les statuts</option>
-                    <option value="ACTIF">Actif / Validé</option>
-                    <option value="PLANIFIE">Planifié (effet futur)</option>
-                    <option value="BROUILLON">Brouillon</option>
-                    <option value="ANNULE">Annulé</option>
-                </select>
-
-                {/* Filtre Site */}
-                <select
-                    value={selectedSite}
-                    onChange={(e) => { setSelectedSite(e.target.value); setCurrentPage(1); }}
-                    className="py-2 px-3 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)] min-w-[150px]"
-                >
-                    <option value="">Tous les sites</option>
-                    {sites.map((s, idx) => (
-                        <option key={s.idSite || idx} value={s.idSite}>
-                            {s.libelle || s.nomSite || s.codeSite || `Site #${s.idSite}`}{s.codeSite ? ` (${s.codeSite})` : ''}
-                        </option>
-                    ))}
-                </select>
-
-                <Button
-                    variant="outline"
-                    size="sm"
-                    iconLeft={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
-                    onClick={fetchWorkflows}
-                >
-                    Actualiser
-                </Button>
+    return <div className="space-y-3.5">
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_repeat(3,minmax(150px,auto))] gap-2">
+                <Input aria-label="Rechercher un mouvement" value={searchQuery}
+                    onChange={event => { setSearchQuery(event.target.value); setCurrentPage(1); }}
+                    placeholder="Matricule, nom ou motif…" iconLeft={<Search size={14} />} />
+                <Select aria-label="Type de mouvement" value={selectedType} options={typeOptions}
+                    onChange={value => { setSelectedType(value); setCurrentPage(1); }} />
+                <Select aria-label="État du mouvement" value={selectedStatut} options={statutOptions}
+                    onChange={value => { setSelectedStatut(value); setCurrentPage(1); }} />
+                <Select aria-label="Site du mouvement" value={selectedSite} options={siteOptions}
+                    onChange={value => { setSelectedSite(value); setCurrentPage(1); }} />
             </div>
-
-            {/* Ligne des Résultats & Reset */}
-            <div className="flex items-center justify-between text-xs text-[var(--color-fg-muted)] px-1">
-                <span>
-                    <strong className="text-[var(--color-fg)]">{totalElements}</strong> mouvement(s) de carrière enregistré(s)
-                </span>
-                {hasActiveFilters && (
-                    <button
-                        type="button"
-                        onClick={handleResetFilters}
-                        className="text-xs font-bold text-[var(--color-brand-600)] hover:underline cursor-pointer"
-                    >
-                        Réinitialiser tous les filtres
-                    </button>
-                )}
-            </div>
-
-            {/* Erreur */}
-            {error && <Alert type="error" title="Erreur">{error}</Alert>}
-
-            {/* Skeleton */}
-            {loading && <SkeletonTable rows={8} />}
-
-            {/* État vide */}
-            {!loading && !error && workflows.length === 0 && (
-                <EmptyState
-                    icon={Layers}
-                    title="Aucun mouvement de carrière trouvé"
-                    description="Aucun événement ne correspond aux critères de filtre sélectionnés."
-                    action={
-                        <Button variant="outline" size="sm" onClick={handleResetFilters}>
-                            Réinitialiser les filtres
-                        </Button>
-                    }
-                />
-            )}
-
-            {/* Table du Journal des Mouvements */}
-            {!loading && !error && workflows.length > 0 && (
-                <Table>
-                    <Thead>
-                        <Tr>
-                            <Th>Date d'Effet</Th>
-                            <Th>Collaborateur</Th>
-                            <Th>Type de Mouvement</Th>
-                            <Th>Type &amp; N° Contrat</Th>
-                            <Th>Poste &amp; Affectation</Th>
-                            <Th>Rémunération</Th>
-                            <Th>Statut</Th>
-                            <Th align="right">Action</Th>
-                        </Tr>
-                    </Thead>
-                    <Tbody>
-                        {workflows.map((wf) => {
-                            const isFuture = wf.dateEffet && new Date(wf.dateEffet) > new Date();
-                            const isAnnule = Boolean(wf.isAnnule);
-                            const isPlanifie = Boolean(wf.isPlanifie) || (isFuture && !isAnnule);
-                            const motifAnnulation = wf.motif || wf.commentaire;
-
-                            return (
-                                <Tr
-                                    key={wf.idWorkflow}
-                                    onClick={() => navigate(`/employes/${wf.idEmploye}?tab=carriere${wf.idWorkflow ? `&wf=${wf.idWorkflow}` : ''}`)}
-                                    className="cursor-pointer group"
-                                    title="Cliquer pour ouvrir la fiche carrière du collaborateur"
-                                >
-                                    {/* Date d'effet */}
-                                    <Td className="font-data">
-                                        <div className="font-bold text-[var(--color-fg)]">
-                                            {fmtDate(wf.dateEffet || wf.dateDemande)}
-                                        </div>
-                                        {isPlanifie && (
-                                            <div className="text-[10px] font-bold text-[var(--color-brand-600)]">
-                                                Prise d'effet future
-                                            </div>
-                                        )}
-                                    </Td>
-
-                                    {/* Collaborateur */}
-                                    <Td>
-                                        <div className="flex items-center gap-2.5">
-                                            <Avatar name={wf.nomPrenomEmploye} size="sm" shape="square" />
-                                            <div className="min-w-0">
-                                                <div className="font-extrabold text-[var(--color-fg)] group-hover:text-brand-500 transition-colors truncate">
-                                                    {wf.nomPrenomEmploye}
-                                                </div>
-                                                <div className="font-data text-[11px] text-[var(--color-fg-subtle)]">
-                                                    #{wf.matriculeEmploye}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </Td>
-
-                                    {/* Type d'événement */}
-                                    <Td>
-                                        <Badge variant={getEventBadgeVariant(wf.codeTypeEvenement)} size="xs">
-                                            {wf.libelleTypeEvenement || wf.codeTypeEvenement}
-                                        </Badge>
-                                        {wf.motif && !isAnnule && (
-                                            <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5 truncate max-w-[180px]">
-                                                {wf.motif}
-                                            </div>
-                                        )}
-                                    </Td>
-
-                                    {/* Type & N° Contrat */}
-                                    <Td>
-                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                            {wf.libelleTypeContrat && (
-                                                <Badge variant={getEventBadgeVariant(wf.libelleTypeContrat)} size="xs">
-                                                    {wf.libelleTypeContrat}
-                                                </Badge>
-                                            )}
-                                            <span className="font-mono font-bold text-[var(--color-brand-600)]">
-                                                {wf.numeroContratCible || wf.numeroContratSource || '—'}
-                                            </span>
-                                        </div>
-                                    </Td>
-
-                                    {/* Poste & Affectation */}
-                                    <Td>
-                                        <div className="font-semibold text-[var(--color-fg)]">
-                                            {wf.libelleFonction || 'Fonction inchangée'}
-                                        </div>
-                                        <div className="text-[11px] text-[var(--color-fg-muted)]">
-                                            {wf.libelleSite || 'Site'} {wf.libelleDepartement ? `· ${wf.libelleDepartement}` : ''}
-                                        </div>
-                                    </Td>
-
-                                    {/* Rémunération (protégée par PAIE_READ) */}
-                                    <Td className="font-data">
-                                        <HasPermission authority="PAIE_READ" fallback={<span className="text-[var(--color-fg-subtle)] text-[11px] ">Confidentiel</span>}>
-                                            {wf.salaireBase ? (
-                                                <span className="font-bold text-[var(--color-fg)]">
-                                                    {fmtAriary(wf.salaireBase)} Ar
-                                                </span>
-                                            ) : (
-                                                <span className="text-[var(--color-fg-subtle)]">—</span>
-                                            )}
-                                        </HasPermission>
-                                    </Td>
-
-                                    {/* Statut */}
-                                    <Td>
-                                        <StatusBadge status={wf.codeStatutWorkflow} label={wf.libelleStatutWorkflow} size="xs" />
-                                        {isAnnule && motifAnnulation && (
-                                            <div className="text-[10px] text-danger-500 font-normal mt-0.5 max-w-[180px] truncate" title={`Motif : ${motifAnnulation}`}>
-                                                Motif : {motifAnnulation}
-                                            </div>
-                                        )}
-                                    </Td>
-
-                                    {/* Actions */}
-                                    <Td align="right">
-                                        <span className="text-xs font-semibold text-[var(--color-brand-600)] group-hover:text-[var(--color-brand-700)] inline-flex items-center gap-0.5">
-                                            Carrière <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                                        </span>
-                                    </Td>
-                                </Tr>
-                            );
-                        })}
-                    </Tbody>
-                </Table>
-            )}
-
-            {/* Pagination */}
-            {totalElements > pageSize && (
-                <div className="border border-[var(--color-border-subtle)]">
-                    <Pagination
-                        currentPage={currentPage}
-                        totalItems={totalElements}
-                        pageSize={pageSize}
-                        onPageChange={setCurrentPage}
-                    />
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--color-fg-muted)]">
+                <span><strong className="text-[var(--color-fg)]">{totalElements}</strong> mouvement(s) trouvé(s)</span>
+                <div className="flex gap-2">
+                    {hasActiveFilters && <Button variant="ghost" size="xs" iconLeft={<RotateCcw size={12} />} onClick={resetFilters}>Réinitialiser</Button>}
+                    <Button variant="outline" size="xs" iconLeft={<RefreshCw size={12} className={loading ? 'animate-spin' : ''} />} onClick={fetchWorkflows}>Actualiser</Button>
                 </div>
-            )}
+            </div>
         </div>
-    );
+
+        {error && <Alert type="error" message={error} />}
+        {loading && <SkeletonTable rows={8} />}
+        {!loading && !error && workflows.length === 0 && <EmptyState icon={Layers} title="Aucun mouvement trouvé"
+            description="Modifiez les filtres pour consulter d'autres mouvements."
+            action={hasActiveFilters && <Button variant="outline" size="sm" onClick={resetFilters}>Réinitialiser</Button>} />}
+        {!loading && !error && workflows.length > 0 && <div className="overflow-x-auto border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+            <Table>
+                <Thead><Tr>
+                    <Th>Date d'effet</Th><Th>Collaborateur</Th><Th>Mouvement</Th><Th>Poste / site</Th><Th>État</Th><Th align="right">Détail</Th>
+                </Tr></Thead>
+                <Tbody>{workflows.map(wf => <Tr key={wf.idWorkflow}>
+                    <Td className="font-data whitespace-nowrap">{fmtDate(wf.dateEffet || wf.dateDemande)}</Td>
+                    <Td><span className="block font-semibold text-[var(--color-fg)]">{wf.nomPrenomEmploye}</span>
+                        <span className="text-[11px] text-[var(--color-fg-muted)]">#{wf.matriculeEmploye}</span></Td>
+                    <Td><span className="block font-semibold">{wf.libelleTypeEvenement || wf.codeTypeEvenement}</span>
+                        {wf.motif && <span className="block max-w-48 truncate text-[11px] text-[var(--color-fg-muted)]" title={wf.motif}>{wf.motif}</span>}</Td>
+                    <Td><span className="block">{wf.libelleFonction || '—'}</span>
+                        <span className="text-[11px] text-[var(--color-fg-muted)]">{wf.libelleSite || '—'}</span></Td>
+                    <Td><StatusBadge status={wf.codeStatutWorkflow} label={wf.libelleStatutWorkflow} size="xs" />
+                        {wf.isPlanifie && <span className="block mt-1 text-[11px] text-[var(--color-brand-600)]">Effet planifié</span>}</Td>
+                    <Td align="right"><Button variant="outline" size="xs" iconLeft={<Eye size={12} />} onClick={() => setSelected(wf)}>Voir</Button></Td>
+                </Tr>)}</Tbody>
+            </Table>
+        </div>}
+        {totalElements > PAGE_SIZE && <Pagination currentPage={currentPage} totalItems={totalElements}
+            pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />}
+
+        <SlideOver isOpen={Boolean(selected)} onClose={() => setSelected(null)}
+            title={selected?.libelleTypeEvenement || 'Mouvement RH'}
+            subtitle={selected && `${selected.nomPrenomEmploye} · #${selected.matriculeEmploye}`} width="lg">
+            {selected && <div className="space-y-4 text-sm">
+                <div className="flex flex-wrap gap-2">
+                    <Badge variant="primary" size="xs">{selected.libelleTypeEvenement || selected.codeTypeEvenement}</Badge>
+                    <StatusBadge status={selected.codeStatutWorkflow} label={selected.libelleStatutWorkflow} size="xs" />
+                </div>
+                <dl className="grid grid-cols-[minmax(120px,1fr)_2fr] gap-x-3 gap-y-2 border-y border-[var(--color-border-subtle)] py-3">
+                    <dt className="text-[var(--color-fg-muted)]">Date d'effet</dt><dd>{fmtDate(selected.dateEffet || selected.dateDemande)}</dd>
+                    <dt className="text-[var(--color-fg-muted)]">Contrat</dt><dd>{selected.numeroContratCible || selected.numeroContratSource || '—'}{selected.libelleTypeContrat ? ` · ${selected.libelleTypeContrat}` : ''}</dd>
+                    <dt className="text-[var(--color-fg-muted)]">Fonction</dt><dd>{selected.libelleFonction || '—'}</dd>
+                    <dt className="text-[var(--color-fg-muted)]">Site</dt><dd>{selected.libelleSite || '—'}</dd>
+                    <dt className="text-[var(--color-fg-muted)]">Département</dt><dd>{selected.libelleDepartement || '—'}</dd>
+                    <HasPermission authority="PAIE_READ">{selected.salaireBase != null && <>
+                        <dt className="text-[var(--color-fg-muted)]">Salaire de base</dt>
+                        <dd>{fmtAriary(selected.salaireBase)} Ar</dd>
+                    </>}</HasPermission>
+                </dl>
+                {selected.motif && <p><strong>Motif :</strong> {selected.motif}</p>}
+                {selected.isAnnule && selected.commentaire && <Alert type="warning" message={selected.commentaire} />}
+                <Button onClick={() => navigate(`/employes/${selected.idEmploye}?tab=carriere&wf=${selected.idWorkflow}`)}>
+                    Ouvrir la carrière
+                </Button>
+            </div>}
+        </SlideOver>
+    </div>;
 }
 
 export default memo(SupervisionMouvementsTab);

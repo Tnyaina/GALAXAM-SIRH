@@ -49,6 +49,7 @@ public class PaieAvanceAcompte extends ClassMere {
     private Integer approuvePar;
     private Timestamp createdAt;
     private Timestamp updatedAt;
+    private Timestamp versementConfirmeAt;
 
     public PaieAvanceAcompte() {
         this.setNomTable("PAIE_AVANCE_ACOMPTE");
@@ -296,6 +297,7 @@ public class PaieAvanceAcompte extends ClassMere {
         a.setApprouvePar(rs.wasNull() ? null : appPar);
         a.setCreatedAt(rs.getTimestamp("created_at"));
         a.setUpdatedAt(rs.getTimestamp("updated_at"));
+        a.setVersementConfirmeAt(rs.getTimestamp("versement_confirme_at"));
         return a;
     }
 
@@ -361,4 +363,6 @@ public class PaieAvanceAcompte extends ClassMere {
 
     public Timestamp getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Timestamp updatedAt) { this.updatedAt = updatedAt; }
+    public Timestamp getVersementConfirmeAt() { return versementConfirmeAt; }
+    public void setVersementConfirmeAt(Timestamp versementConfirmeAt) { this.versementConfirmeAt = versementConfirmeAt; }
 }

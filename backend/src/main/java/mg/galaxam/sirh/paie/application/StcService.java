@@ -245,8 +245,10 @@ public class StcService {
         BigDecimal totalPrets = PaiePret.calculerCapitalRestantTotal(idEmploye, c);
         prep.setCapitalRestantPrets(totalPrets);
 
-        String sqlAvances = "SELECT COALESCE(SUM(montant), 0) FROM paie_avance_acompte " +
-                "WHERE id_employe = ? AND statut IN ('EN_ATTENTE', 'APPROUVE')";
+        String sqlAvances = "SELECT COALESCE(SUM(a.solde_restant), 0) FROM paie_avance_acompte a " +
+                "JOIN ref_type_mouvement_paie t ON t.id_type_mouvement = a.id_type_mouvement " +
+                "WHERE a.id_employe = ? AND t.categorie IN ('ACOMPTE','AVANCE') " +
+                "AND a.versement_confirme_at IS NOT NULL AND a.statut = 'APPROUVE'";
         try (PreparedStatement psAv = c.prepareStatement(sqlAvances)) {
             psAv.setInt(1, idEmploye);
             try (ResultSet rsAv = psAv.executeQuery()) {
@@ -769,15 +771,46 @@ public class StcService {
             PaiePret.solderPretsPourStc(req.getIdEmploye(), simulation.getSoldePretsDeduit(), bpStc.getIdBulletin(), c);
         }
 
-        // 4. Clôture des avances en cours avec rattachement au bulletin STC
-        String sqlCloseAvances = "UPDATE paie_avance_acompte SET statut = 'IMPUTE_PAIE', id_bulletin = ?, " +
-                "motif = CONCAT(COALESCE(motif, ''), ' [Soldé par STC ', ?, ']') " +
-                "WHERE id_employe = ? AND statut IN ('EN_ATTENTE', 'APPROUVE')";
-        try (PreparedStatement psAv = c.prepareStatement(sqlCloseAvances)) {
-            psAv.setInt(1, bpStc.getIdBulletin());
-            psAv.setString(2, numRecu);
-            psAv.setInt(3, req.getIdEmploye());
-            psAv.executeUpdate();
+        // 4. Le STC n'impute que la somme réellement retenue, sur les fonds versés.
+        BigDecimal resteAImputer = simulation.getSoldeAvancesDeduit();
+        if (resteAImputer != null && resteAImputer.signum() > 0) {
+            String sqlDossiers = "SELECT a.id_avance, a.solde_restant FROM paie_avance_acompte a " +
+                    "JOIN ref_type_mouvement_paie t ON t.id_type_mouvement = a.id_type_mouvement " +
+                    "WHERE a.id_employe = ? AND t.categorie IN ('ACOMPTE','AVANCE') " +
+                    "AND a.versement_confirme_at IS NOT NULL AND a.statut = 'APPROUVE' " +
+                    "AND a.solde_restant > 0 ORDER BY a.date_paiement, a.id_avance FOR UPDATE OF a";
+            try (PreparedStatement ps = c.prepareStatement(sqlDossiers)) {
+                ps.setInt(1, req.getIdEmploye());
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next() && resteAImputer.signum() > 0) {
+                        int idAvance = rs.getInt("id_avance");
+                        BigDecimal montant = rs.getBigDecimal("solde_restant").min(resteAImputer);
+                        try (PreparedStatement update = c.prepareStatement(
+                                "UPDATE paie_avance_acompte SET montant_impute = montant_impute + ?, " +
+                                "solde_restant = solde_restant - ?, " +
+                                "statut = CASE WHEN solde_restant - ? <= 0 THEN 'IMPUTE_PAIE' ELSE 'APPROUVE' END, " +
+                                "id_bulletin = ?, updated_at = CURRENT_TIMESTAMP WHERE id_avance = ?")) {
+                            update.setBigDecimal(1, montant);
+                            update.setBigDecimal(2, montant);
+                            update.setBigDecimal(3, montant);
+                            update.setInt(4, bpStc.getIdBulletin());
+                            update.setInt(5, idAvance);
+                            update.executeUpdate();
+                        }
+                        try (PreparedStatement journal = c.prepareStatement(
+                                "INSERT INTO paie_mouvement_imputation (id_avance, id_bulletin, montant) VALUES (?, ?, ?)")) {
+                            journal.setInt(1, idAvance);
+                            journal.setInt(2, bpStc.getIdBulletin());
+                            journal.setBigDecimal(3, montant);
+                            journal.executeUpdate();
+                        }
+                        resteAImputer = resteAImputer.subtract(montant);
+                    }
+                }
+            }
+            if (resteAImputer.signum() > 0) {
+                throw new IllegalStateException("STC_AVANCES_INCOHERENTES: montant à imputer supérieur aux soldes versés.");
+            }
         }
 
         // 5. Désactivation optionnelle de l'employé et clôture carrière

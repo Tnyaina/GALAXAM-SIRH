@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { Briefcase, RefreshCw, Download, FileText, TrendingUp } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import contratService from '@/features/employees/api/contratService';
@@ -7,17 +7,18 @@ import PageHeader from '@/components/ui/navigation/PageHeader';
 import Tabs from '@/components/ui/navigation/Tabs';
 import Button from '@/components/ui/forms/Button';
 import EmptyState from '@/components/ui/data-display/EmptyState';
-import StatCard from '@/components/ui/data-display/StatCard';
 import Alert from '@/components/ui/feedback/Alert';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Pagination from '@/components/ui/navigation/Pagination';
 import SEO from '@/components/system/SEO';
+import Loading from '@/components/ui/feedback/Loading';
 import useDebounce from '@/hooks/useDebounce';
 
 import SupervisionAlertsPanel from '@/features/employees/components/carriere/supervision/SupervisionAlertsPanel';
 import SupervisionFilterBar from '@/features/employees/components/carriere/supervision/SupervisionFilterBar';
 import SupervisionEmployeeGroup from '@/features/employees/components/carriere/supervision/SupervisionEmployeeGroup';
 import SupervisionCompareModal from '@/features/employees/components/carriere/supervision/SupervisionCompareModal';
+
 import SupervisionMouvementsTab from '@/features/employees/components/carriere/supervision/SupervisionMouvementsTab';
 
 const VALID_MAIN_TABS = ['contrats', 'mouvements'];
@@ -43,6 +44,7 @@ export default function CarrieresSupervisionPage() {
     const [error, setError] = useState(null);
     const [contrats, setContrats] = useState([]);
     const [totalElements, setTotalElements] = useState(0);
+    const [totalContratsFiltres, setTotalContratsFiltres] = useState(0);
     const [stats, setStats] = useState({
         totalContrats: 0,
         contratsActifs: 0,
@@ -63,7 +65,7 @@ export default function CarrieresSupervisionPage() {
     const pageSize = 15;
 
     // État d'accordéon (groupes pliés/dépliés)
-    const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+    const [expandedGroups, setExpandedGroups] = useState(new Set());
 
     // Modale de comparaison des doublons
     const [compareModalOpen, setCompareModalOpen] = useState(false);
@@ -71,11 +73,17 @@ export default function CarrieresSupervisionPage() {
 
     // Référentiels
     const [sites, setSites] = useState([]);
+    const [contractStatuses, setContractStatuses] = useState([]);
+    const [contractDeadlines, setContractDeadlines] = useState([]);
 
     useEffect(() => {
-        organisationService.getSites()
-            .then(data => setSites(Array.isArray(data) ? data : []))
-            .catch(err => console.error('Erreur chargement sites:', err));
+        Promise.all([organisationService.getSites(), contratService.getFiltresContrats()])
+            .then(([siteList, filters]) => {
+                setSites(Array.isArray(siteList) ? siteList : []);
+                setContractStatuses(Array.isArray(filters?.statuts) ? filters.statuts : []);
+                setContractDeadlines(Array.isArray(filters?.echeances) ? filters.echeances : []);
+            })
+            .catch(() => setError('Référentiels de recherche indisponibles.'));
     }, []);
 
     const fetchStatsAndAlerts = useCallback(async () => {
@@ -107,10 +115,12 @@ export default function CarrieresSupervisionPage() {
             const data = await contratService.getContratsGlobal(params);
             setContrats(data?.content || []);
             setTotalElements(data?.totalElements || 0);
+            setTotalContratsFiltres(data?.totalContrats || 0);
         } catch (err) {
             console.error('Erreur chargement contrats global:', err);
             setError("Impossible de charger le registre des contrats et carrières.");
             setContrats([]);
+            setTotalContratsFiltres(0);
         } finally {
             setLoading(false);
         }
@@ -145,7 +155,7 @@ export default function CarrieresSupervisionPage() {
         if (next.toString() !== searchParams.toString()) {
             setSearchParams(next, { replace: true });
         }
-    }, [selectedStatut, selectedEcheance, doublonsOnly, selectedSite, debouncedSearch, currentPage]);
+    }, [selectedStatut, selectedEcheance, doublonsOnly, selectedSite, debouncedSearch, currentPage, searchParams, setSearchParams]);
 
     // Regroupement des contrats par collaborateur
     const groupedByEmployee = useMemo(() => {
@@ -169,7 +179,7 @@ export default function CarrieresSupervisionPage() {
     }, [contrats]);
 
     const toggleGroupCollapse = (key) => {
-        setCollapsedGroups((prev) => {
+        setExpandedGroups((prev) => {
             const next = new Set(prev);
             if (next.has(key)) next.delete(key);
             else next.add(key);
@@ -209,9 +219,22 @@ export default function CarrieresSupervisionPage() {
         }
     };
 
-    const handleOpenCompare = (empGroup) => {
-        setSelectedEmployeeToCompare(empGroup);
-        setCompareModalOpen(true);
+    const handleOpenCompare = async (empGroup) => {
+        try {
+            const fullHistory = [];
+            let page = 1;
+            let totalPages = 1;
+            do {
+                const data = await contratService.getContratsGlobal({ idEmploye: empGroup.idEmploye, page, size: 50 });
+                fullHistory.push(...(data?.content || []));
+                totalPages = data?.totalPages || 1;
+                page += 1;
+            } while (page <= totalPages);
+            setSelectedEmployeeToCompare({ ...empGroup, contrats: fullHistory });
+            setCompareModalOpen(true);
+        } catch {
+            setError('Impossible de charger tous les contrats du salarié pour la comparaison.');
+        }
     };
 
     const hasActiveFilters = Boolean(
@@ -221,13 +244,13 @@ export default function CarrieresSupervisionPage() {
     const tabsList = [
         {
             id: 'contrats',
-            label: 'Registre des Contrats & Échéances',
+            label: 'Contrats',
             icon: FileText,
             badge: stats.totalContrats || undefined
         },
         {
             id: 'mouvements',
-            label: 'Journal des Mouvements & Évolutions',
+            label: 'Mouvements',
             icon: TrendingUp
         }
     ];
@@ -241,8 +264,8 @@ export default function CarrieresSupervisionPage() {
 
             {/* En-tête Format Standard Galaxam */}
             <PageHeader
-                title="Supervision Globale des Contrats & Carrières"
-                subtitle="Pilotage centralisé des contrats de travail, des périodes d'essai, des évolutions et mouvements de carrière."
+                title="Contrats et carrières"
+                subtitle="Contrats, échéances et mouvements RH des collaborateurs."
                 icon={Briefcase}
                 breadcrumbs={[
                     { label: 'Tableau de bord', href: '/dashboard' },
@@ -250,14 +273,14 @@ export default function CarrieresSupervisionPage() {
                     { label: 'Supervision des Carrières' }
                 ]}
                 actions={
-                    <>
+                    activeMainTab === 'contrats' ? <>
                         <Button
                             variant="outline"
                             size="sm"
                             iconLeft={<Download size={14} />}
                             onClick={handleExportCsv}
                         >
-                            Exporter
+                            Exporter tous les contrats
                         </Button>
                         <Button
                             variant="outline"
@@ -267,7 +290,7 @@ export default function CarrieresSupervisionPage() {
                         >
                             Actualiser
                         </Button>
-                    </>
+                    </> : null
                 }
             />
 
@@ -285,21 +308,22 @@ export default function CarrieresSupervisionPage() {
                     {/* Notifications d'Erreur */}
                     {error && <Alert type="error" onClose={() => setError(null)}>{error}</Alert>}
 
-                    {/* Indicateurs-filtres propres à cette supervision. */}
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
-                        <StatCard title="Contrats au total" value={stats.totalContrats ?? 0} subtext="Tous statuts confondus" color="neutral" active={selectedStatut === 'ALL' && !doublonsOnly && !selectedEcheance} onClick={() => handleKpiFilterClick({ statut: 'ALL', doublons: false, echeance: '' })} />
-                        <StatCard title="Contrats actifs" value={stats.contratsActifs ?? 0} subtext="En cours d'exécution" color="success" active={selectedStatut === 'ACTIF' && !doublonsOnly && !selectedEcheance} onClick={() => handleKpiFilterClick({ statut: 'ACTIF', doublons: false, echeance: '' })} />
-                        <StatCard title="Planifiés / À signer" value={stats.enAttenteSignature ?? 0} subtext="Effet futur ou brouillon" color="brand" active={selectedStatut === 'PENDING' && !doublonsOnly && !selectedEcheance} onClick={() => handleKpiFilterClick({ statut: 'PENDING', doublons: false, echeance: '' })} />
-                        <StatCard title="Échéances < 60 jours" value={stats.echeances60Jours ?? 0} subtext="Essai ou fin de contrat" color="warning" active={selectedEcheance === '60J' && !doublonsOnly} onClick={() => handleKpiFilterClick({ statut: 'ALL', doublons: false, echeance: '60J' })} />
-                        <StatCard title="Doublons potentiels" value={stats.doublonsPotentiels ?? 0} subtext="Dossiers à vérifier" color="danger" active={doublonsOnly} onClick={() => handleKpiFilterClick({ statut: 'ALL', doublons: true, echeance: '' })} />
+                    {/* Repères compacts : les chiffres globaux restent distincts des résultats filtrés. */}
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-fg-muted)]">Repères globaux · cliquez pour filtrer</p>
+                    <div className="flex flex-wrap gap-2" aria-label="Filtres rapides des contrats">
+                        {[
+                            { label: 'Tous', value: stats.totalContrats, active: selectedStatut === 'ALL' && !doublonsOnly && !selectedEcheance, filter: { statut: 'ALL', doublons: false, echeance: '' } },
+                            { label: 'Actifs', value: stats.contratsActifs, active: selectedStatut === 'ACTIF' && !doublonsOnly && !selectedEcheance, filter: { statut: 'ACTIF', doublons: false, echeance: '' } },
+                            { label: 'À préparer', value: stats.enAttenteSignature, active: selectedStatut === 'PENDING' && !doublonsOnly, filter: { statut: 'PENDING', doublons: false, echeance: '' } },
+                            { label: 'Échéance < 60 j', value: stats.echeances60Jours, active: selectedEcheance === '60J', filter: { statut: 'ALL', doublons: false, echeance: '60J' } },
+                            { label: 'Doublons à vérifier', value: stats.doublonsPotentiels, active: doublonsOnly, filter: { statut: 'ALL', doublons: true, echeance: '' } },
+                        ].map(item => (
+                            <Button key={item.label} type="button" size="xs" variant={item.active ? 'primary' : 'outline'}
+                                aria-pressed={item.active} onClick={() => handleKpiFilterClick(item.filter)}>
+                                {item.label} <strong className="ml-1 font-data">{item.value ?? 0}</strong>
+                            </Button>
+                        ))}
                     </div>
-
-                    {/* Alertes Prioritaires (« À TRAITER EN PRIORITÉ ») */}
-                    <SupervisionAlertsPanel
-                        alertes={alertesPrioritaires}
-                        onActionClick={(url) => navigate(url)}
-                        onVerifyDoublons={() => { setDoublonsOnly(true); setCurrentPage(1); }}
-                    />
 
                     {/* Barre de Filtres Complète */}
                     <SupervisionFilterBar
@@ -314,10 +338,18 @@ export default function CarrieresSupervisionPage() {
                         doublonsOnly={doublonsOnly}
                         onDoublonsToggle={(val) => { setDoublonsOnly(val); setCurrentPage(1); }}
                         sites={sites}
-                        totalCollaborateurs={groupedByEmployee.length}
-                        totalContrats={totalElements}
+                        statuses={contractStatuses}
+                        deadlines={contractDeadlines}
+                        totalCollaborateurs={totalElements}
+                        totalContrats={totalContratsFiltres}
                         onResetFilters={handleResetFilters}
                         hasActiveFilters={hasActiveFilters}
+                    />
+
+                    <SupervisionAlertsPanel
+                        alertes={alertesPrioritaires}
+                        onActionClick={(url) => navigate(url)}
+                        onVerifyDoublons={() => { setDoublonsOnly(true); setCurrentPage(1); }}
                     />
 
                     {/* Chargement Skeleton */}
@@ -344,7 +376,7 @@ export default function CarrieresSupervisionPage() {
                                 <SupervisionEmployeeGroup
                                     key={group.key}
                                     group={group}
-                                    isCollapsed={collapsedGroups.has(group.key)}
+                                    isCollapsed={!expandedGroups.has(group.key)}
                                     onToggleCollapse={() => toggleGroupCollapse(group.key)}
                                     onOpenCompare={handleOpenCompare}
                                     onNavigateCarriere={(idEmp) => navigate(`/employes/${idEmp}?tab=carriere`)}
@@ -375,11 +407,11 @@ export default function CarrieresSupervisionPage() {
                             En attente de signature
                         </span>
                         <span className="inline-flex items-center gap-1.5">
-                            <span className="w-3 h-1 bg-warning-500 inline-block" />
+                            <span className="w-3 h-1 bg-[var(--color-warning-500)] inline-block" />
                             Échéance proche (&lt; 60 j)
                         </span>
                         <span className="inline-flex items-center gap-1.5">
-                            <span className="w-3 h-1 bg-danger-500 inline-block" />
+                            <span className="w-3 h-1 bg-[var(--color-danger-500)] inline-block" />
                             Doublon potentiel à vérifier
                         </span>
                     </div>
@@ -396,7 +428,9 @@ export default function CarrieresSupervisionPage() {
 
             {/* ONGLET 2 : JOURNAL DES MOUVEMENTS & ÉVOLUTIONS CARRIÈRE */}
             {activeMainTab === 'mouvements' && (
-                <SupervisionMouvementsTab />
+                <Suspense fallback={<Loading display="page" label="Chargement des mouvements…" />}>
+                    <SupervisionMouvementsTab />
+                </Suspense>
             )}
         </div>
     );

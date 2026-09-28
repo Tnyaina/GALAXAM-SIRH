@@ -21,6 +21,9 @@ public class ContratTravailGlobalDTO {
     private Date dateFinEssai;
     private Integer joursRestantsFin;
     private Integer joursRestantsEssai;
+    private Boolean planifie;
+    private Boolean brouillon;
+    private Boolean echeanceProche;
 
     public ContratTravailGlobalDTO() {}
 
@@ -78,6 +81,13 @@ public class ContratTravailGlobalDTO {
 
     public Integer getJoursRestantsEssai() { return joursRestantsEssai; }
     public void setJoursRestantsEssai(Integer joursRestantsEssai) { this.joursRestantsEssai = joursRestantsEssai; }
+
+    public Boolean getPlanifie() { return planifie; }
+    public void setPlanifie(Boolean planifie) { this.planifie = planifie; }
+    public Boolean getBrouillon() { return brouillon; }
+    public void setBrouillon(Boolean brouillon) { this.brouillon = brouillon; }
+    public Boolean getEcheanceProche() { return echeanceProche; }
+    public void setEcheanceProche(Boolean echeanceProche) { this.echeanceProche = echeanceProche; }
 
     private Boolean isDuplicate = false;
     public Boolean getIsDuplicate() { return isDuplicate; }

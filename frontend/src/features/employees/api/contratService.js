@@ -266,6 +266,10 @@ const contratService = {
         const response = await apiClient.get('/contrats', { params });
         return response.data;
     },
+    getFiltresContrats: async () => {
+        const response = await apiClient.get('/contrats/filtres');
+        return response.data;
+    },
 
     /**
      * Statistiques consolidées des contrats (KPIs).
@@ -289,6 +293,10 @@ const contratService = {
      */
     getWorkflowsGlobal: async (params = {}) => {
         const response = await apiClient.get('/workflows', { params });
+        return response.data;
+    },
+    getStatutsWorkflows: async () => {
+        const response = await apiClient.get('/workflows/statuts');
         return response.data;
     },
 

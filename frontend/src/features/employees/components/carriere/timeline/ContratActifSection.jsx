@@ -148,8 +148,8 @@ export default function ContratActifSection({
 
             {/* Alerte informative si contrat futur planifié */}
             {isContratFutur && (
-                <div className="bg-brand-500/10 border border-brand-500/25 p-3 rounded-none text-xs flex items-center gap-2.5 text-brand-700 dark:text-brand-300">
-                    <Info size={16} className="shrink-0 text-brand-500" />
+                <div className="bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/25 p-3 rounded-none text-xs flex items-center gap-2.5 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]">
+                    <Info size={16} className="shrink-0 text-[var(--color-brand-500)]" />
                     <span>
                         Contrat à terme différé : ce contrat a été validé et prendra automatiquement effet le <strong>{fmtDate(contratActif.dateDebut)}</strong>.
                     </span>
@@ -157,13 +157,13 @@ export default function ContratActifSection({
             )}
 
             <details open className="space-y-3 border-t border-[var(--color-border-subtle)] pt-3">
-                <summary className="cursor-pointer text-sm font-semibold text-[var(--color-fg)] hover:text-brand-500 transition-colors">Détails du contrat et de l’affectation</summary>
+                <summary className="cursor-pointer text-sm font-semibold text-[var(--color-fg)] hover:text-[var(--color-brand-500)] transition-colors">Détails du contrat et de l’affectation</summary>
             {/* Grille Contrat + Affectation — séparation par surface, pas par bordures répétées */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
                 {/* Bloc 1 : Termes du Contrat */}
                 <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-4 sm:p-5 space-y-2.5">
                     <h4 className="font-bold text-[var(--color-fg)] uppercase tracking-wider text-xs pb-2 border-b border-[var(--color-border-subtle)] flex items-center gap-1.5">
-                        <Building size={13} className="text-brand-500" /> Termes Contractuels
+                        <Building size={13} className="text-[var(--color-brand-500)]" /> Termes Contractuels
                     </h4>
                     <div className="space-y-2">
                         <InfoRow label="Type de contrat">{contratActif?.libelleTypeContrat || workflowCplActif?.libelleTypeContrat || '—'}</InfoRow>
@@ -227,7 +227,7 @@ export default function ContratActifSection({
                 {/* Bloc 2 : Affectation Courante */}
                 <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-4 sm:p-5 space-y-2.5">
                     <h4 className="font-bold text-[var(--color-fg)] uppercase tracking-wider text-xs pb-2 border-b border-[var(--color-border-subtle)] flex items-center gap-1.5">
-                        <Landmark size={13} className="text-brand-500" /> Affectation Courante
+                        <Landmark size={13} className="text-[var(--color-brand-500)]" /> Affectation Courante
                     </h4>
                     <div className="space-y-2">
                         <InfoRow label="Site">{affectationActive?.libelleSite || workflowCplActif?.libelleSite || '—'}</InfoRow>

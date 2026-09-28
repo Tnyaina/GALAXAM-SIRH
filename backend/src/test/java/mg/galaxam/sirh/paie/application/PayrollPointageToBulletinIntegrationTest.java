@@ -99,6 +99,36 @@ class PayrollPointageToBulletinIntegrationTest {
                     statement.setInt(1, employeeId);
                     statement.executeUpdate();
                 }
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "UPDATE paie_avance_acompte SET date_paiement = '2026-09-24', " +
+                        "versement_confirme_at = CURRENT_TIMESTAMP, reference_versement = 'RECETTE-E2E' " +
+                        "WHERE id_employe = ? AND type_mouvement = 'ACOMPTE_15'")) {
+                    statement.setInt(1, employeeId);
+                    statement.executeUpdate();
+                }
+                int avanceId;
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "INSERT INTO paie_avance_acompte (id_employe, id_periode_paie, type_mouvement, id_type_mouvement, " +
+                        "sens, montant, montant_initial, solde_restant, motif, statut, date_paiement, " +
+                        "versement_confirme_at, reference_versement) " +
+                        "SELECT ?, ?, code, id_type_mouvement, sens, 100000, 100000, 100000, " +
+                        "'Avance versée pour recette', 'APPROUVE', '2026-09-24', CURRENT_TIMESTAMP, 'RECETTE-AVANCE' " +
+                        "FROM ref_type_mouvement_paie WHERE code = 'AVANCE_SPECIALE' RETURNING id_avance")) {
+                    statement.setInt(1, employeeId);
+                    statement.setInt(2, periodId);
+                    try (ResultSet rows = statement.executeQuery()) { rows.next(); avanceId = rows.getInt(1); }
+                }
+                int avanceNonVerseeId;
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "INSERT INTO paie_avance_acompte (id_employe, id_periode_paie, type_mouvement, id_type_mouvement, " +
+                        "sens, montant, montant_initial, solde_restant, motif, statut) " +
+                        "SELECT ?, ?, code, id_type_mouvement, sens, 20000, 20000, 20000, " +
+                        "'Avance approuvée sans preuve de versement', 'APPROUVE' " +
+                        "FROM ref_type_mouvement_paie WHERE code = 'AVANCE_SPECIALE' RETURNING id_avance")) {
+                    statement.setInt(1, employeeId);
+                    statement.setInt(2, periodId);
+                    try (ResultSet rows = statement.executeQuery()) { rows.next(); avanceNonVerseeId = rows.getInt(1); }
+                }
                 int loanId;
                 try (PreparedStatement statement = connection.prepareStatement(
                         "INSERT INTO paie_pret (id_employe, reference_pret, montant_total, montant_mensualite, "
@@ -152,6 +182,58 @@ class PayrollPointageToBulletinIntegrationTest {
                 assertEquals(result.getBulletin().getIdBulletin(), recalcul.getBulletin().getIdBulletin());
                 assertEquals(result.getBulletin().getNetAPayer(), recalcul.getBulletin().getNetAPayer(),
                         "Un recalcul ne doit ni perdre la prime ni prélever une seconde fois l'acompte ou le prêt");
+                BigDecimal imputePremierePeriode;
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "SELECT montant_impute, solde_restant, date_paiement FROM paie_avance_acompte WHERE id_avance = ?")) {
+                    statement.setInt(1, avanceId);
+                    try (ResultSet rows = statement.executeQuery()) {
+                        rows.next();
+                        imputePremierePeriode = rows.getBigDecimal("montant_impute");
+                        assertTrue(imputePremierePeriode.signum() > 0 && imputePremierePeriode.compareTo(new BigDecimal("100000")) < 0);
+                        assertEquals(Date.valueOf("2026-09-24"), rows.getDate("date_paiement"),
+                                "Le calcul ne doit pas remplacer la date du versement réel");
+                    }
+                }
+                int nextPeriod = CongeTestFixtureHelper.createPeriodePaie(connection,
+                        "E2E-SUIV-" + employeeId, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 2), "VALIDEE");
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, " +
+                        "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, " +
+                        "heure_entree_matin_effective, total_heures, version) " +
+                        "VALUES (?, ?, 1, ?, (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT'), " +
+                        "'08:00', '12:00', '13:00', '17:00', '08:00', 8, 1)")) {
+                    statement.setInt(1, employeeId); statement.setInt(2, nextPeriod);
+                    statement.setDate(3, Date.valueOf("2026-10-01")); statement.executeUpdate();
+                    statement.setDate(3, Date.valueOf("2026-10-02")); statement.executeUpdate();
+                }
+                assertTrue(pointageSyntheseService.preflightPeriode(nextPeriod, connection).pret());
+                pointageSyntheseService.gelerPeriode(nextPeriod, null, connection);
+                payrollService.calculerBulletinEmploye(employeeId, nextPeriod, false, null, connection);
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "SELECT a.montant_impute, a.solde_restant, a.id_periode_paie, COUNT(i.id_imputation) AS nb " +
+                        "FROM paie_avance_acompte a JOIN paie_mouvement_imputation i ON i.id_avance = a.id_avance " +
+                        "WHERE a.id_avance = ? GROUP BY a.id_avance")) {
+                    statement.setInt(1, avanceId);
+                    try (ResultSet rows = statement.executeQuery()) {
+                        rows.next();
+                        assertTrue(rows.getBigDecimal("montant_impute").compareTo(imputePremierePeriode) > 0,
+                                "Le reliquat versé doit être retenu sur la période suivante");
+                        assertEquals(0, rows.getBigDecimal("montant_impute").add(rows.getBigDecimal("solde_restant"))
+                                .compareTo(new BigDecimal("100000")));
+                        assertEquals(periodId, rows.getInt("id_periode_paie"), "La période d'origine reste inchangée");
+                        assertEquals(2, rows.getInt("nb"), "Chaque retenue est tracée par bulletin");
+                    }
+                }
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "SELECT montant_impute, solde_restant FROM paie_avance_acompte WHERE id_avance = ?")) {
+                    statement.setInt(1, avanceNonVerseeId);
+                    try (ResultSet rows = statement.executeQuery()) {
+                        assertTrue(rows.next());
+                        assertEquals(0, rows.getBigDecimal("montant_impute").compareTo(BigDecimal.ZERO),
+                                "Une approbation seule ne déclenche aucune retenue");
+                        assertEquals(0, rows.getBigDecimal("solde_restant").compareTo(new BigDecimal("20000")));
+                    }
+                }
                 try (PreparedStatement statement = connection.prepareStatement(
                         "SELECT capital_rembourse FROM paie_pret WHERE id_pret = ?")) {
                     statement.setInt(1, loanId);

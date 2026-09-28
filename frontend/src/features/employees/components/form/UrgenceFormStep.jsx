@@ -16,16 +16,18 @@ export default function UrgenceFormStep({
             <div className="flex items-center justify-between">
                 <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                        <ShieldAlert size={14} className="text-brand-500" />
+                        <ShieldAlert size={14} className="text-[var(--color-brand-500)]" />
                         Contacts d'urgence ({formData.contactsUrgence.length})
                     </h3>
-                    <p className="text-[11px] text-[var(--color-fg-subtle)]">
-                        Personnes à contacter en priorité en cas d'accident ou d'urgence.
+                    <p className="text-[11px] text-[var(--color-fg-subtle)] mt-0.5">
+                        Personnes à contacter en priorité en cas d'accident ou d'incident sur site.
                     </p>
                 </div>
-                <Button type="button" onClick={addContact} variant="outline" size="xs" iconLeft={<Plus size={14} />}>
-                    Ajouter
-                </Button>
+                {formData.contactsUrgence.length > 0 && (
+                    <Button type="button" onClick={addContact} variant="outline" size="xs" iconLeft={<Plus size={14} />}>
+                        Ajouter un contact
+                    </Button>
+                )}
             </div>
 
             {formData.contactsUrgence.length === 0 ? (

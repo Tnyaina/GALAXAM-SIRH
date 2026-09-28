@@ -101,30 +101,37 @@ export default function FamilleFormStep({
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
                     <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                <Baby size={14} className="text-brand-500" />
+                                <Baby size={14} className="text-[var(--color-brand-500)]" />
                                 Enfants ({formData.enfants.length})
                             </h3>
-                            {enfantsEligiblesCount > 0 && (
+                            {enfantsEligiblesCount > 0 ? (
                                 <Badge variant="success" size="xs" dot>
-                                    {enfantsEligiblesCount} déductible{enfantsEligiblesCount > 1 ? 's' : ''} (-{totalDeductionAr.toLocaleString('fr-FR')} Ar/mois • {fiscalConfig.codeVersion})
+                                    {enfantsEligiblesCount} déductible{enfantsEligiblesCount > 1 ? 's' : ''} (-{totalDeductionAr.toLocaleString('fr-FR')} Ar/mois)
+                                </Badge>
+                            ) : (
+                                <Badge variant="brand" size="xs">
+                                    IRSA : -{fiscalConfig.deductionParCharge.toLocaleString('fr-FR')} Ar / enfant éligible
                                 </Badge>
                             )}
                         </div>
-                        <p className="text-[11px] text-[var(--color-fg-subtle)]">
-                            Règle fiscale IRSA ({fiscalConfig.codeVersion}) : déduction de {fiscalConfig.deductionParCharge.toLocaleString('fr-FR')} Ar/mois par enfant éligible (&lt; {fiscalConfig.ageLimiteDefaut} ans, ou &lt; {fiscalConfig.ageLimiteEtudiant} ans si étudiant certifié, ou sans limite si handicap).
+                        <p className="text-[11px] text-[var(--color-fg-subtle)] mt-0.5">
+                            Déclaration des enfants à charge pour le calcul automatique des allègements fiscaux IRSA.
                         </p>
                     </div>
-                    <Button type="button" onClick={addEnfant} variant="outline" size="xs" iconLeft={<Plus size={14} />}>
-                        Ajouter
-                    </Button>
+                    {formData.enfants.length > 0 && (
+                        <Button type="button" onClick={addEnfant} variant="outline" size="xs" iconLeft={<Plus size={14} />}>
+                            Ajouter un enfant
+                        </Button>
+                    )}
                 </div>
 
                 {formData.enfants.length === 0 ? (
                     <EmptyState
                         icon={Baby}
-                        title="Aucun enfant enregistré"
+                        title="Aucun enfant déclaré"
+                        description="Renseignez les enfants à charge du foyer pour appliquer les déductions d'impôt sur salaire."
                         compact
                         actionLabel="Ajouter un enfant"
                         onAction={addEnfant}
