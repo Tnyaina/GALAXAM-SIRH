@@ -590,9 +590,8 @@ INSERT INTO ref_type_cotisation (id_type_cotisation, id_config_legale, code, lib
 (1, 2, 'CNAPS', 'Caisse Nationale de Prévoyance Sociale', 1.00, 13.00, TRUE, 1, TRUE, '2022-01-01', 'SITE'),
 (2, 2, 'OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, TRUE, 1, TRUE, '2022-01-01', 'SITE'),
 (3, 2, 'OMSI',  'Organisation Médicale Inter-entreprises', 1.50, 5.50, TRUE, 1, TRUE, '2022-01-01', 'SITE'),
-(4, 2, 'ISI',   'Impôt Synthétique Intermédiaire', 0.00, 5.00, TRUE, 1, TRUE, '2022-01-01', 'ENTREPRISE'),
-(5, 2, 'FMFP',  'Fonds Malgache de Formation Professionnelle', 0.00, 1.00, FALSE, 5, TRUE, '2022-01-01', 'ENTREPRISE');
-SELECT setval('ref_type_cotisation_id_type_cotisation_seq', (SELECT GREATEST(MAX(id_type_cotisation), 5) FROM ref_type_cotisation));
+(4, 2, 'FMFP',  'Fonds Malgache de Formation Professionnelle', 0.00, 1.00, FALSE, 4, TRUE, '2022-01-01', 'ENTREPRISE');
+SELECT setval('ref_type_cotisation_id_type_cotisation_seq', (SELECT GREATEST(MAX(id_type_cotisation), 4) FROM ref_type_cotisation));
 
 -- Cotisations par Site (TNR: CNAPS+OSTIE, TMM: CNAPS+OMSI)
 INSERT INTO site_cotisation (id_site, id_type_cotisation, est_plafonne_sante) VALUES

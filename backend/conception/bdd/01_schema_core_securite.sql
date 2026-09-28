@@ -264,7 +264,7 @@ INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, d
 (16, 'MAX_RENOUVELLEMENTS_ESSAI', 'RH_GENERAL', '1', 'Nombre maximal de renouvellements autorisés pour une période d essai (droit malgache : 1 seul renouvellement)', '2026-01-01', NULL, TRUE, FALSE),
 (18, 'PLAFOND_CUMUL_SOLDE_CONGE_JOURS', 'CONGE', '90', 'Plafond légal du solde cumulé de congés payés (30j acquis/an x 3 ans de prescription, Art. 85)', '2026-01-01', NULL, TRUE, FALSE),
 (19, 'DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS', 'CONGE', '36', 'Ancienneté en mois à partir de laquelle les droits disponibles sont signalés pour examen DAF au titre de la prescription ; aucune expiration automatique', '2026-01-01', NULL, TRUE, FALSE),
-(20, 'PLAFOND_SOLDE_CONGE_NEGATIF', 'CONGE', '-10', 'Solde négatif maximum autorisable par dérogation RH lors d une prise de congé par anticipation (2 à 4 mois d acquisition future)', '2026-01-01', NULL, TRUE, TRUE),
+(20, 'PLAFOND_SOLDE_CONGE_NEGATIF', 'CONGE', '-10', 'Solde négatif maximum autorisable par dérogation RH lors d une prise de congé par anticipation (2 à 4 mois d acquisition future)', '2026-01-01', NULL, FALSE, TRUE),
 (21, 'SEUIL_ALERTE_SOLDE_CONGE_FAIBLE', 'CONGE', '3', 'Nombre de jours de solde en-dessous duquel l alerte SOLDE_CONGE_FAIBLE se déclenche', '2026-01-01', NULL, TRUE, TRUE),
 (22, 'DELAI_PREAVIS_COURT_JOURS', 'CONGE', '2', 'Préavis minimum (en jours avant date_debut) pour une demande courte durée (Art. 85)', '2026-01-01', NULL, TRUE, FALSE),
 (23, 'DELAI_PREAVIS_LONG_JOURS', 'CONGE', '15', 'Préavis minimum pour une demande longue durée (seuil défini par SEUIL_JOURS_PREAVIS_LONG)', '2026-01-01', NULL, TRUE, FALSE),
@@ -281,6 +281,7 @@ INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, d
 (35, 'SEUIL_HEURES_SEMAINE_COMPENSATION', 'POINTAGE', '40.0', 'Seuil hebdomadaire normal d heures travaillées pour compensation des retards et déclenchement des HS', '2026-01-01', NULL, TRUE, TRUE),
 (38, 'DUREE_REFERENCE_TCONGE_MOIS', 'CONGE', '12', 'TECHNICAL_VALIDITY_LOWER_BOUND — borne technique de validité du paramètre. Ne représente ni le début de la règle métier, ni le début d une campagne TCONGE, ni une date historique.', '2000-01-01', NULL, TRUE, FALSE),
 (39, 'EXONERATION_HS_IRSA_ACTIVE', 'PAIE', 'TRUE', 'Activation globale de l exonération fiscale des heures supplémentaires (CGI 01.03.03-9°)', '2026-01-01', NULL, TRUE, TRUE),
-(40, 'PLAFOND_MENSUEL_HS_EXONEREES', 'PAIE', '20.00', 'Plafond mensuel légal d heures supplémentaires exonérées d IRSA (CGI 01.03.03-9°)', '2026-01-01', NULL, TRUE, TRUE)
+(40, 'PLAFOND_MENSUEL_HS_EXONEREES', 'PAIE', '20.00', 'Plafond mensuel légal d heures supplémentaires exonérées d IRSA (CGI 01.03.03-9°)', '2026-01-01', NULL, TRUE, TRUE),
+(41, 'TAUX_ISI', 'PAIE', '5.00', 'Taux légal de la retenue libératoire ISI pour prestataires et consultants (CGI Madagascar)', '2022-01-01', NULL, TRUE, FALSE)
 ON CONFLICT (code_parametre, date_debut) DO UPDATE SET valeur = EXCLUDED.valeur, description = EXCLUDED.description, est_actif = EXCLUDED.est_actif, est_desactivable = EXCLUDED.est_desactivable;
-SELECT setval('parametre_global_id_parametre_seq', (SELECT GREATEST(MAX(id_parametre), 40) FROM parametre_global));
+SELECT setval('parametre_global_id_parametre_seq', (SELECT GREATEST(MAX(id_parametre), 41) FROM parametre_global));

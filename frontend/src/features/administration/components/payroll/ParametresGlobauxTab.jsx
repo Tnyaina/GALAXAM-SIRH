@@ -184,6 +184,26 @@ const PARAMETRE_METADATA = {
         unite: "fois",
         explication: "Nombre maximal de renouvellements de période d'essai autorisés par le Code du Travail (1 fois).",
     },
+
+    // Paie & Fiscalité
+    TAUX_ISI: {
+        titre: "Taux Retenue Libératoire ISI",
+        icone: Coins,
+        unite: "%",
+        explication: "Taux légal d'Impôt Synthétique Intermédiaire (5%) retenu à la source sur le montant brut des honoraires des consultants et travailleurs temporaires (CGI).",
+    },
+    EXONERATION_HS_IRSA_ACTIVE: {
+        titre: "Exonération Fiscale des HS",
+        icone: ShieldCheck,
+        unite: "",
+        explication: "Activation globale de l'exonération d'IRSA sur les heures supplémentaires (CGI Art. 01.03.03-9°).",
+    },
+    PLAFOND_MENSUEL_HS_EXONEREES: {
+        titre: "Plafond Mensuel HS Exonérées",
+        icone: Clock,
+        unite: "heures",
+        explication: "Nombre maximum d'heures supplémentaires exonérées d'IRSA par mois (CGI Art. 01.03.03-9°).",
+    },
 };
 
 function getStatut(param) {
@@ -242,6 +262,10 @@ function formatValeurAffichage(code, valeur) {
         if (meta.unite === 'Ar') {
             const num = Number(v);
             return isNaN(num) ? `${v} Ar` : `${num.toLocaleString('fr-MG', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Ar`;
+        }
+        if (meta.unite === '%') {
+            const num = Number(v);
+            return isNaN(num) ? `${v}%` : `${num}%`;
         }
         if (meta.unite === 'heure') return v;
         return `${v} ${meta.unite}`;

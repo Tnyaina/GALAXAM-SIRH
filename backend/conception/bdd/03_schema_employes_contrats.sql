@@ -657,3 +657,29 @@ INSERT INTO ref_type_document (id_type_document, libelle, categorie, description
 (8, 'RIB', 'Paie', 'Coordonnées bancaires', FALSE);
 
 SELECT setval('ref_type_document_id_type_document_seq', (SELECT GREATEST(MAX(id_type_document), 8) FROM ref_type_document));
+
+INSERT INTO employe (id_employe, matricule, nom, prenom, sexe, date_naissance, lieu_naissance, nationalite, situation_familiale, cin_numero, cin_date_delivrance, cin_lieu_delivrance, adresse, ville, telephone, email, num_affiliation_cnaps, date_declaration, est_actif) VALUES (1, '1', 'RANDRASANA', 'Eric Jean-Joel', 'M', '1966-02-14', 'Antananarivo', 'Malgache', 'Marie', '101211101179', '1984-03-20', 'Antananarivo', 'Antananarivo', 'Antananarivo', '+261340000001', NULL, '780531', '2002-01-01', TRUE);
+
+INSERT INTO employe (id_employe, matricule, nom, prenom, sexe, date_naissance, lieu_naissance, nationalite, situation_familiale, cin_numero, cin_date_delivrance, cin_lieu_delivrance, adresse, ville, telephone, email, num_affiliation_cnaps, date_declaration, est_actif) VALUES (2, '35', 'RALAMBOMANANA', 'Tatamo Michele', 'F', '1967-06-03', 'Antananarivo', 'Malgache', 'Marie', '117392000208', '1985-08-15', 'Antananarivo', 'Antananarivo', 'Antananarivo', '+261340000035', 'daf@galaxam.com', '819288', '2002-09-02', TRUE);
+
+INSERT INTO contrat_travail (id_contrat, id_employe, id_filiale, id_type_contrat, id_type_intervenant, id_statut_rh, id_type_evenement_initial, numero_contrat, date_signature, date_debut, date_fin, duree_essai_mois, date_fin_essai, comptabilise_effectif, description, commentaire) VALUES (1, 1, 1, 1, 1, 4, (SELECT id_type_evenement_rh FROM ref_type_evenement_rh WHERE code = 'EMBAUCHE_INITIALE'), 'CTR-2002-0001', '2002-01-01', '2002-01-01', NULL, 0, NULL, TRUE, 'Directeur Général', 'Seed historique - embauche initiale validée');
+
+INSERT INTO contrat_travail (id_contrat, id_employe, id_filiale, id_type_contrat, id_type_intervenant, id_statut_rh, id_type_evenement_initial, numero_contrat, date_signature, date_debut, date_fin, duree_essai_mois, date_fin_essai, comptabilise_effectif, description, commentaire) VALUES (2, 2, 1, 1, 1, 4, (SELECT id_type_evenement_rh FROM ref_type_evenement_rh WHERE code = 'EMBAUCHE_INITIALE'), 'CTR-2002-0035', '2002-09-02', '2002-09-02', NULL, 0, NULL, TRUE, 'Directrice Administrative et Financière', 'Seed historique - embauche initiale validée');
+
+INSERT INTO employe_affectation_carriere (id_affectation, id_employe, id_contrat, id_statut_rh, id_motif_mouvement, id_site, id_departement, id_service, id_fonction, id_responsable_hierarchique, id_categorie_professionnelle, id_mode_calcul_paie, salaire_base, date_debut, date_fin, description, commentaire) VALUES (1, 1, 1, 4, (SELECT id_motif_mouvement FROM ref_motif_mouvement WHERE code = 'EMBAUCHE'), 1, 1, 1, (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'DG'), NULL, 1, 1, 5000000.00, '2002-01-01', NULL, 'Direction générale de GALAXAM Logistics', 'Seed historique');
+
+INSERT INTO employe_affectation_carriere (id_affectation, id_employe, id_contrat, id_statut_rh, id_motif_mouvement, id_site, id_departement, id_service, id_fonction, id_responsable_hierarchique, id_categorie_professionnelle, id_mode_calcul_paie, salaire_base, date_debut, date_fin, description, commentaire) VALUES (2, 2, 2, 4, (SELECT id_motif_mouvement FROM ref_motif_mouvement WHERE code = 'EMBAUCHE'), 1, 1, 1, (SELECT id_fonction FROM ref_fonction WHERE code_fonction = 'DAF'), 1, 1, 1, 3500000.00, '2002-09-02', NULL, 'Direction administrative et financière', 'Seed historique');
+
+INSERT INTO workflow_rh (id_workflow, id_employe, id_type_evenement_rh, id_statut_rh, id_contrat_source, id_contrat_cible, id_affectation_source, id_affectation_cible, date_demande, date_effet, motif, commentaire, id_demandeur, id_valideur) VALUES (1, 1, (SELECT id_type_evenement_rh FROM ref_type_evenement_rh WHERE code = 'EMBAUCHE_INITIALE'), 4, NULL, 1, NULL, 1, '2002-01-01', '2002-01-01', 'Embauche initiale', 'Workflow historique simulé comme déjà validé', NULL, NULL);
+
+INSERT INTO workflow_rh (id_workflow, id_employe, id_type_evenement_rh, id_statut_rh, id_contrat_source, id_contrat_cible, id_affectation_source, id_affectation_cible, date_demande, date_effet, motif, commentaire, id_demandeur, id_valideur) VALUES (2, 2, (SELECT id_type_evenement_rh FROM ref_type_evenement_rh WHERE code = 'EMBAUCHE_INITIALE'), 4, NULL, 2, NULL, 2, '2002-09-02', '2002-09-02', 'Embauche initiale', 'Workflow historique simulé comme déjà validé', NULL, NULL);
+
+INSERT INTO employe_conjoint (id_conjoint, id_employe, nom, prenom, date_naissance, lieu_naissance, societe, fonction) VALUES (1, 1, 'RALAMBOMANANA', 'Tatamo Michele', '1967-06-03', 'Antananarivo', 'Galaxam Logistics', 'DAF');
+
+INSERT INTO employe_conjoint (id_conjoint, id_employe, nom, prenom, date_naissance, lieu_naissance, societe, fonction) VALUES (2, 2, 'RANDRASANA', 'Eric Jean-Joel', '1966-02-14', 'Antananarivo', 'Galaxam Logistics', 'DG');
+
+SELECT setval('employe_id_employe_seq', 2, TRUE);
+SELECT setval('contrat_travail_id_contrat_seq', 2, TRUE);
+SELECT setval('employe_affectation_carriere_id_affectation_seq', 2, TRUE);
+SELECT setval('workflow_rh_id_workflow_seq', 2, TRUE);
+SELECT setval('employe_conjoint_id_conjoint_seq', 2, TRUE);
