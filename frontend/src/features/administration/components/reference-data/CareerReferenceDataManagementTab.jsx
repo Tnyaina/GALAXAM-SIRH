@@ -233,7 +233,7 @@ export default function CareerReferenceDataManagementTab() {
                 onClose={() => setShowModalCp(false)}
                 title="Modifier la Catégorie Professionnelle"
                 icon={<Award size={18} />}
-                size="md"
+                size="lg"
                 footer={
                     <>
                         <Button type="button" onClick={() => setShowModalCp(false)} variant="ghost" size="sm" disabled={submitting}>

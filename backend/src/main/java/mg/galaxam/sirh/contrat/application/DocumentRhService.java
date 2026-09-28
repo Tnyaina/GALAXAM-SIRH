@@ -86,8 +86,7 @@ public class DocumentRhService {
     private static final Map<String, String> MANUAL_CONTRACT_FIELDS = Map.of(
             "{{SIGNATAIRE_NOM}}", "[Nom du signataire à compléter avant signature]",
             "{{SIGNATAIRE_FONCTION}}", "[Fonction du signataire à compléter avant signature]",
-            "{{SIGNATAIRE_VILLE}}", "[Ville de signature à compléter avant signature]",
-            "{{TEMPS_TRAVAIL}}", "[Durée et répartition du travail à compléter avant signature]");
+            "{{SIGNATAIRE_VILLE}}", "[Ville de signature à compléter avant signature]");
     private static final Pattern CONTRACT_VARIABLE = Pattern.compile("\\{\\{[^{}]+}}");
 
     @Autowired
@@ -182,7 +181,10 @@ public class DocumentRhService {
         }
         // La date de signature reste à renseigner à la signature ; aucune date fictive.
         putContrat(vars, "SIGNATAIRE_DATE", contrat.getDateSignature() == null ? "À renseigner lors de la signature" : dateContrat(contrat.getDateSignature()));
-        for (String key : List.of("TEMPS_TRAVAIL", "STAGE_ETABLISSEMENT", "STAGE_REFERENT_ETABLISSEMENT", "STAGE_GRATIFICATION", "PRESTATION_MONTANT", "PRESTATION_MODALITES_PAIEMENT")) {
+        if (!"PRESTATION".equals(code)) {
+            putContrat(vars, "TEMPS_TRAVAIL", resoudreTempsTravailContrat(contrat, c));
+        }
+        for (String key : List.of("STAGE_ETABLISSEMENT", "STAGE_REFERENT_ETABLISSEMENT", "STAGE_GRATIFICATION", "PRESTATION_MONTANT", "PRESTATION_MODALITES_PAIEMENT")) {
             putContrat(vars, key, configurationContrat("contrats." + idContrat, key));
         }
         return preparerApercuContrat(contrat, aff, employee, code, template, vars);
@@ -218,6 +220,21 @@ public class DocumentRhService {
 
     private static void putContrat(Map<String, String> vars, String name, String value) {
         vars.put("{{" + name + "}}", value == null ? "" : value.trim());
+    }
+
+    private String resoudreTempsTravailContrat(ContratTravail contrat, Connection c) throws Exception {
+        if (contrat.getDateDebut() == null) {
+            throw new SirhBusinessException(SirhErrorCode.CONTRACT_DOCUMENT_DATA_MISSING,
+                    "Date de début absente : durée hebdomadaire de référence indéterminée.");
+        }
+        var config = mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale.findActiveAt(
+                c, contrat.getDateDebut().toLocalDate());
+        if (config == null || config.getDureeHebdoLegale() == null
+                || config.getDureeHebdoLegale().signum() <= 0) {
+            throw new SirhBusinessException(SirhErrorCode.LEGAL_CONFIG_MISSING,
+                    "Durée hebdomadaire de référence absente pour le " + contrat.getDateDebut() + ".");
+        }
+        return config.getDureeHebdoLegale().stripTrailingZeros().toPlainString() + " heures par semaine";
     }
 
     private static String dateContrat(java.sql.Date date) {

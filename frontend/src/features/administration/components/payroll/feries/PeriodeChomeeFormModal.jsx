@@ -37,7 +37,7 @@ export default function PeriodeChomeeFormModal({
             isOpen={isOpen}
             onClose={onClose}
             title={editingPeriode ? "Modifier la période exceptionnelle" : "Déclarer une période exceptionnelle"}
-            size="md"
+            size="lg"
             footer={
                 <>
                     <Button variant="ghost" onClick={onClose} disabled={submitting}>Annuler</Button>

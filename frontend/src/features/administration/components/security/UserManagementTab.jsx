@@ -342,7 +342,7 @@ export default function UserManagementTab() {
                 onClose={() => setShowUserModal(false)}
                 title={selectedUser ? "Modifier l'utilisateur" : "Nouvel utilisateur"}
                 icon={<UserPlus size={18} />}
-                size="md"
+                size="lg"
                 footer={
                     <>
                         <Button type="button" onClick={() => setShowUserModal(false)} variant="ghost" size="sm" disabled={submitting}>

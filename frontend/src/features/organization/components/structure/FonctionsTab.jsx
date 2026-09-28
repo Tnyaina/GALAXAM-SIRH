@@ -18,7 +18,7 @@ function FonctionFormModal({ isOpen, onClose, onSubmit, editingFonction, formDat
             onClose={onClose}
             title={editingFonction ? "Modifier le Poste / Fonction" : "Nouveau Poste / Fonction"}
             icon={<Briefcase size={18} />}
-            size="md"
+            size="lg"
             footer={<><Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>Annuler</Button><Button type="submit" form="fonction-form" variant="primary" size="sm" loading={submitting}>{editingFonction ? "Enregistrer les modifications" : "Créer le poste"}</Button></>}
         >
             <form id="fonction-form" onSubmit={onSubmit} className="space-y-4">

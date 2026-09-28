@@ -742,6 +742,8 @@ export default function PeriodePaiePage() {
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
                 title="Créer une Nouvelle Période de Paie"
+                icon={<CalendarRange size={18} />}
+                size="lg"
             >
                 <form onSubmit={handleCreate} className="space-y-4">
                     {/* Bannière de suggestion automatique */}

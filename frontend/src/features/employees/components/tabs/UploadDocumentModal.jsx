@@ -47,7 +47,7 @@ export default function UploadDocumentModal({
             onClose={onClose}
             title="Téléverser un Document RH"
             icon={<Upload size={18} />}
-            size="md"
+            size="lg"
             footer={
                 <>
                     <Button 

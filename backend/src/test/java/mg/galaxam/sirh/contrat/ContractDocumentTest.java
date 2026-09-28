@@ -23,6 +23,7 @@ class ContractDocumentTest {
     Map<String, Object> contract, employee, assignment;
     String type = "CDI";
     String mode = "MENSUEL";
+    BigDecimal dureeHebdoReference = new BigDecimal("40.00");
     String adresseSiege = "3e étage, Tour Forello, Tanjombato";
     String rcs;
     String initialAssignmentQuery;
@@ -102,6 +103,8 @@ class ContractDocumentTest {
             else if (sql.contains("FROM ref_type_document")) values = Map.of("id_type_document", 6, "libelle", "Contrat de travail", "actif", true);
             else if (sql.startsWith("SELECT * FROM workflow_rh")) values = Map.of("id_workflow", 8, "id_employe", 7, "id_contrat_cible", 42);
             else if (sql.contains("FROM ref_mode_calcul_paie")) values = Map.of("1", sql.startsWith("SELECT code ") ? mode : "Libellé de paie modifiable");
+            else if (sql.contains("FROM paie_config_legale")) values = dureeHebdoReference == null
+                    ? Map.of() : Map.of("duree_hebdo_legale", dureeHebdoReference);
             else if (sql.contains("FROM ref_filiale")) values = sql.startsWith("SELECT adresse_siege ")
                     ? (adresseSiege == null ? Map.of() : Map.of("1", adresseSiege))
                     : sql.startsWith("SELECT rcs ") ? (rcs == null ? Map.of() : Map.of("1", rcs))
@@ -118,6 +121,7 @@ class ContractDocumentTest {
         var dto = service.preparerContrat(42, db());
         assertEquals(code, dto.codeTypeContrat()); assertEquals("BROUILLON", dto.statut());
         assertEquals("Contrat_" + code + "_modele.docx", dto.template()); assertTrue(dto.isGenerationPossible(), dto.donneesManquantes().toString());
+        if (!"PRESTATION".equals(code)) assertEquals("40 heures par semaine", dto.variables().get("{{TEMPS_TRAVAIL}}"));
         assertEquals(42, dto.affectation().getIdContrat());
         assertTrue(initialAssignmentQuery.contains("ORDER BY a.date_debut, a.id_affectation"));
         assertEquals("Valeur historique", dto.variables().get("{{POSTE_FONCTION}}"));
@@ -215,12 +219,24 @@ class ContractDocumentTest {
         env.setProperty("app.documents.contrats.contrats.42.TEMPS_TRAVAIL", "");
         var draft = service.preparerContrat(42, db());
         assertTrue(draft.isGenerationPossible(), draft.donneesManquantes().toString());
-        assertEquals(4, draft.avertissements().stream()
-                .filter(key -> Set.of("{{SIGNATAIRE_NOM}}", "{{SIGNATAIRE_FONCTION}}", "{{SIGNATAIRE_VILLE}}", "{{TEMPS_TRAVAIL}}").contains(key)).count());
+        assertEquals(3, draft.avertissements().stream()
+                .filter(key -> Set.of("{{SIGNATAIRE_NOM}}", "{{SIGNATAIRE_FONCTION}}", "{{SIGNATAIRE_VILLE}}").contains(key)).count());
         assertEquals("[Nom du signataire à compléter avant signature]", draft.variables().get("{{SIGNATAIRE_NOM}}"));
+        assertEquals("40 heures par semaine", draft.variables().get("{{TEMPS_TRAVAIL}}"));
         var output = new ByteArrayOutputStream();
         service.genererContratDocx(draft, output);
         assertTrue(output.size() > 0);
+    }
+    @Test void timeReferenceIgnoresOldContractPropertyAndReadsEffectiveConfiguration() throws Exception {
+        env.setProperty("app.documents.contrats.contrats.42.TEMPS_TRAVAIL", "35 heures par semaine");
+        dureeHebdoReference = new BigDecimal("39.50");
+        var dto = service.preparerContrat(42, db());
+        assertEquals("39.5 heures par semaine", dto.variables().get("{{TEMPS_TRAVAIL}}"));
+    }
+    @Test void missingEffectiveTimeConfigurationFailsExplicitly() throws Exception {
+        dureeHebdoReference = null;
+        assertEquals(SirhErrorCode.LEGAL_CONFIG_MISSING,
+                assertThrows(SirhBusinessException.class, () -> service.preparerContrat(42, db())).getErrorCode());
     }
     @Test void missingEmployeeIdentityBlocksDocx() throws Exception { employee.remove("cin_numero"); assertTrue(service.preparerContrat(42, db()).donneesManquantes().contains("{{EMPLOYE_CIN}}")); }
     @Test void unknownAndResidualVariablesFail() throws Exception {

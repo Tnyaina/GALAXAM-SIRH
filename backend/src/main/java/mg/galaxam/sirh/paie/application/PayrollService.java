@@ -1739,14 +1739,22 @@ public class PayrollService {
                 "ct.date_debut AS date_debut_contrat, ct.date_fin AS date_fin_contrat, " +
                 "f.libelle AS fonction_nom, d.libelle AS dept_nom, s.libelle AS site_nom " +
                 "FROM employe e " +
-                "LEFT JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
-                "LEFT JOIN contrat_travail ct ON (eac.id_contrat = ct.id_contrat OR ct.id_employe = e.id_employe) " +
+                "LEFT JOIN LATERAL (SELECT contrat.* FROM contrat_travail contrat " +
+                "LEFT JOIN ref_statut_rh statut ON contrat.id_statut_rh = statut.id_statut_rh " +
+                "WHERE contrat.id_employe = e.id_employe " +
+                "ORDER BY CASE WHEN statut.code = 'ACTIF' THEN 0 ELSE 1 END, " +
+                "contrat.date_debut DESC NULLS LAST, contrat.id_contrat DESC LIMIT 1) ct ON TRUE " +
+                "LEFT JOIN LATERAL (SELECT affectation.* FROM employe_affectation_carriere affectation " +
+                "LEFT JOIN ref_statut_rh statut_affectation ON affectation.id_statut_rh = statut_affectation.id_statut_rh " +
+                "WHERE affectation.id_contrat = ct.id_contrat " +
+                "ORDER BY CASE WHEN statut_affectation.code = 'ACTIF' THEN 0 ELSE 1 END, " +
+                "affectation.date_debut DESC, affectation.id_affectation DESC LIMIT 1) eac ON TRUE " +
                 "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                 "LEFT JOIN ref_fonction f ON eac.id_fonction = f.id_fonction " +
                 "LEFT JOIN ref_departement d ON eac.id_departement = d.id_departement " +
                 "LEFT JOIN ref_site s ON eac.id_site = s.id_site " +
                 "WHERE e.id_employe = ? " +
-                "ORDER BY (CASE WHEN rsc.code = 'ACTIF' THEN 1 ELSE 2 END), eac.date_debut DESC NULLS LAST, ct.date_debut DESC NULLS LAST LIMIT 1";
+                "LIMIT 1";
 
         BigDecimal salaireBase = BigDecimal.ZERO;
         try (PreparedStatement ps = c.prepareStatement(sqlContrat)) {
@@ -1770,6 +1778,21 @@ public class PayrollService {
             }
         }
         synthese.put("salaireBaseContractuel", salaireBase);
+
+        // La décision STC reste côté serveur ; une simulation existante est reprise dans l'historique.
+        boolean contratTermine = "CLOTURE".equals(synthese.get("codeStatutContrat"))
+                || "ROMPU".equals(synthese.get("codeStatutContrat"));
+        boolean stcExistant = false;
+        if (contratTermine) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT EXISTS (SELECT 1 FROM paie_stc WHERE id_employe = ? AND statut <> 'ANNULE')")) {
+                ps.setInt(1, idEmploye);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) stcExistant = rs.getBoolean(1);
+                }
+            }
+        }
+        synthese.put("stcActionRequise", contratTermine && !stcExistant);
 
         // 2. Taux horaire légal backend-driven (diviseur conventionnel légal)
         BigDecimal diviseur = new BigDecimal("173.3333");
@@ -1802,7 +1825,7 @@ public class PayrollService {
         }
         synthese.put("tauxJournalierConge", tauxConge);
 
-        // 4. Dernier bulletin de paie payé / validé
+        // 4. Dernier bulletin, quel que soit son état. Une fin de période n'est pas une date de paiement.
         String sqlLastBulletin = "SELECT b.id_bulletin, b.total_gains_bruts, b.net_a_payer, b.statut, b.date_calcul, " +
                 "p.code AS code_periode, p.libelle AS libelle_periode, p.date_fin AS date_fin_periode " +
                 "FROM bulletin_paie b " +
@@ -1816,7 +1839,8 @@ public class PayrollService {
                     synthese.put("dernierBulletinId", rs.getInt("id_bulletin"));
                     synthese.put("dernierePeriodeCode", rs.getString("code_periode"));
                     synthese.put("dernierePeriodeLibelle", rs.getString("libelle_periode"));
-                    synthese.put("derniereDatePaiement", rs.getDate("date_fin_periode"));
+                    synthese.put("derniereDateFinPeriode", rs.getDate("date_fin_periode"));
+                    synthese.put("derniereDateCalcul", rs.getTimestamp("date_calcul"));
                     synthese.put("dernierBrut", rs.getBigDecimal("total_gains_bruts"));
                     synthese.put("dernierNet", rs.getBigDecimal("net_a_payer"));
                     synthese.put("dernierStatut", rs.getString("statut"));
@@ -1824,7 +1848,8 @@ public class PayrollService {
                     synthese.put("dernierBulletinId", null);
                     synthese.put("dernierePeriodeCode", null);
                     synthese.put("dernierePeriodeLibelle", null);
-                    synthese.put("derniereDatePaiement", null);
+                    synthese.put("derniereDateFinPeriode", null);
+                    synthese.put("derniereDateCalcul", null);
                     synthese.put("dernierBrut", null);
                     synthese.put("dernierNet", null);
                     synthese.put("dernierStatut", null);
@@ -1832,16 +1857,24 @@ public class PayrollService {
             }
         }
 
-        // 5. Avances et acomptes en attente d'imputation (non encore rattachés à un bulletin)
-        String sqlAvances = "SELECT COALESCE(SUM(montant), 0) AS total_avances, COUNT(*) AS nb_avances " +
-                "FROM paie_avance_acompte " +
-                "WHERE id_employe = ? AND (statut = 'APPROUVE' OR statut = 'VALIDE') AND id_bulletin IS NULL";
+        // 5. Distinguer les demandes et les soldes réels des acomptes/avances.
+        // Les autres variables de paie (primes, retenues, frais) n'entrent pas dans ces montants.
+        String sqlAvances = "SELECT " +
+                "COALESCE(SUM(CASE WHEN t.categorie = 'ACOMPTE' AND a.statut IN ('APPROUVE', 'IMPUTE_PAIE') " +
+                "THEN a.solde_restant ELSE 0 END), 0) AS acomptes_restants, " +
+                "COALESCE(SUM(CASE WHEN t.categorie = 'AVANCE' AND a.statut IN ('APPROUVE', 'IMPUTE_PAIE') " +
+                "THEN a.solde_restant ELSE 0 END), 0) AS avances_restantes, " +
+                "COUNT(*) FILTER (WHERE t.categorie IN ('ACOMPTE', 'AVANCE') AND a.statut = 'EN_ATTENTE') AS demandes_en_attente " +
+                "FROM paie_avance_acompte a " +
+                "LEFT JOIN ref_type_mouvement_paie t ON t.id_type_mouvement = a.id_type_mouvement " +
+                "WHERE a.id_employe = ?";
         try (PreparedStatement ps = c.prepareStatement(sqlAvances)) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    synthese.put("totalAvancesEnCours", rs.getBigDecimal("total_avances"));
-                    synthese.put("nbAvancesEnCours", rs.getInt("nb_avances"));
+                    synthese.put("acomptesRestants", rs.getBigDecimal("acomptes_restants"));
+                    synthese.put("avancesRestantes", rs.getBigDecimal("avances_restantes"));
+                    synthese.put("demandesAcompteAvanceEnAttente", rs.getInt("demandes_en_attente"));
                 }
             }
         }

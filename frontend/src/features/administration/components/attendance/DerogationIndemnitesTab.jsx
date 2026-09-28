@@ -190,7 +190,7 @@ export default function DerogationIndemnitesTab() {
                 onClose={closeModal}
                 title={editingDerogation ? 'Modifier l\'exclusion d\'indemnité' : 'Exclure un employé d\'une indemnité'}
                 icon={<ShieldAlert size={18} />}
-                size="md"
+                size="lg"
                 footer={
                     <>
                         <Button type="button" variant="ghost" size="sm" onClick={closeModal} disabled={submitting}>

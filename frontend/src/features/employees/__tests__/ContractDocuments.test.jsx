@@ -71,7 +71,7 @@ describe('Contrats : génération et archivage', () => {
         expect(document.body.textContent).toContain('Adresse de l’entreprise');
     });
     it('avertit des champs à compléter manuellement sans désactiver le canevas DOCX', async () => {
-        documentService.getContratData.mockResolvedValue({ ...prepared, avertissements: ['{{SIGNATAIRE_NOM}}', '{{TEMPS_TRAVAIL}}'] });
+        documentService.getContratData.mockResolvedValue({ ...prepared, avertissements: ['{{SIGNATAIRE_NOM}}'] });
         await render();
         expect(button('Télécharger DOCX').disabled).toBe(false);
         expect(document.body.textContent).toContain('À vérifier ou compléter avant signature');

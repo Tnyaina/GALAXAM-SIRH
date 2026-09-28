@@ -254,7 +254,7 @@ export default function DocumentTypeManagementTab() {
                 onClose={() => setShowModal(false)}
                 title={selectedType ? 'Modifier le Type de Document' : 'Nouveau Type de Document'}
                 icon={<FileText size={18} />}
-                size="md"
+                size="lg"
                 footer={
                     <>
                         <Button type="button" onClick={() => setShowModal(false)} variant="ghost" size="sm" disabled={submitting}>

@@ -21,7 +21,7 @@ export default function ServiceFormModal({
             onClose={onClose}
             title={editingService ? "Modifier le Service" : "Nouveau Service"}
             icon={<Layers size={18} />}
-            size="md"
+            size="lg"
             footer={
                 <>
                     <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>

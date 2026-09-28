@@ -329,7 +329,7 @@ export default function MenuManagementTab() {
                 onClose={() => setShowMenuModal(false)}
                 title={selectedMenu ? "Modifier le Menu" : "Créer un nouveau Menu"}
                 icon={<Plus size={18} />}
-                size="md"
+                size="lg"
                 footer={
                     <>
                         <Button type="button" onClick={() => setShowMenuModal(false)} variant="ghost" size="sm" disabled={submitting}>
