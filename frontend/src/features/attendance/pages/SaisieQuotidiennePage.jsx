@@ -315,6 +315,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
 
     // Confirmation finale d'enregistrement via le récapitulatif
     const handleConfirmSave = async () => {
+        if (saving || grilleData.some(row => row._previewPending || row._previewError)) return;
         const ok = await saveAll();
         if (ok) {
             setModifiedEmpIds(new Set());
@@ -501,6 +502,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                         onConfirm={handleConfirmSave}
                         saving={saving}
                         grilleData={grilleData}
+                        modifiedEmpIds={modifiedEmpIds}
                         siteIndemnites={siteIndemnites}
                         selectedDate={selectedDate}
                         siteLabel={siteLabel}

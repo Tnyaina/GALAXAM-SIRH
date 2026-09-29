@@ -17,8 +17,9 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import Loading from '@/components/ui/feedback/Loading';
 import Alert from '@/components/ui/feedback/Alert';
 import { attendanceService } from '@/features/attendance/api/attendanceApi';
-import { formatMonnaie, formatHeuresMinutes, formatHeuresDecimal, formatDualHours, getStatutPointageBadge } from '@/features/attendance/utils/attendanceDisplayUtils';
+import { formatMonnaie, formatHeuresMinutes, formatHeuresDecimal, getStatutPointageBadge } from '@/features/attendance/utils/attendanceDisplayUtils';
 import { fmtDate } from '@/utils/dateUtils';
+import WeeklyPointageCalculationTable from '@/features/attendance/components/WeeklyPointageCalculationTable';
 
 export default function PointageDetailHebdoModal({
     isOpen,
@@ -73,11 +74,8 @@ export default function PointageDetailHebdoModal({
     // Données dérivées de la fiche
     const recap = ficheData?.recap || ficheData?.recapitulatif || {};
     const kpis = ficheData?.kpis || {};
-    const regles = ficheData?.reglesAppliquees || {};
     const bilansHebdo = ficheData?.bilansHebdo || [];
     const pointages = ficheData?.pointagesData || ficheData?.pointages || [];
-    const dureeHebdo = Number(regles.dureeHebdoLegale || kpis.dureeHebdoLegale || 0);
-    const dureeJour = dureeHebdo > 0 ? dureeHebdo / 5 : null;
 
     const totalIndemnitesStr = kpis.totalIndemnitesMois || recap.totalIndemnites;
     const allowanceCodes = [...new Set(pointages.flatMap((pointage) =>
@@ -246,9 +244,7 @@ export default function PointageDetailHebdoModal({
                                         Comprendre le calcul et la compensation hebdomadaire :
                                     </p>
                                     <p className="text-[11px] leading-relaxed">
-                                        L&apos;objectif est de {dureeHebdo ? <strong>{dureeHebdo} heures par semaine</strong> : 'la durée hebdomadaire configurée'} et il est réduit pour les congés et jours fériés.
-                                        Les heures réalisées au-delà de {dureeJour ? `${dureeJour} h sur une journée` : 'la durée d’une journée'} compensent d&apos;abord les heures manquantes de cette même semaine.
-                                        Seul le solde devient une heure supplémentaire ou une retenue. Les retards restent visibles séparément pour le suivi de l&apos;assiduité.
+                                        Comparez les heures réalisées à l&apos;objectif de la semaine, ajusté pour les congés et jours fériés. Le résultat paie indique les heures supplémentaires ou le déficit retenu après compensation au sein de la semaine. Les retards sont un indicateur de ponctualité : ils ne sont pas déduits une seconde fois des heures réalisées.
                                     </p>
                                 </div>
                             </div>
@@ -266,7 +262,7 @@ export default function PointageDetailHebdoModal({
                                 }`}
                             >
                                 <Scale size={13} />
-                                Décomposition Hebdomadaire &amp; Compensation ({bilansHebdo.length} semaines)
+                                Calcul par semaine ({bilansHebdo.length} semaines)
                             </button>
                             <button
                                 type="button"
@@ -284,145 +280,7 @@ export default function PointageDetailHebdoModal({
 
                         {/* 4. CONTENU ONGLET 1 : DÉCOMPOSITION HEBDOMADAIRE */}
                         {activeTab === 'hebdo' && (
-                            <div className="space-y-3">
-                                <Table density="compact" divided>
-                                    <Thead>
-                                        <Tr>
-                                            <Th className="w-32">Semaine</Th>
-                                            <Th className="text-center w-14">Jours</Th>
-                                            <Th className="text-center w-24">Objectif semaine</Th>
-                                            <Th className="text-center w-28">Heures faites</Th>
-                                            <Th className="text-center w-20 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]" title="Retards observés, indépendamment de la compensation">Retards</Th>
-                                            <Th className="text-center w-20 text-[var(--color-info-700)] dark:text-[var(--color-info-200)]" title="Temps au-delà de la durée normale d'une journée">Heures en plus</Th>
-                                            <Th className="text-center w-24 text-[var(--color-success-600)] dark:text-[var(--color-success-400)]" title="Part des heures en plus utilisée pour couvrir un manque de la semaine">Utilisées</Th>
-                                            <Th className="text-center w-32">Résultat paie</Th>
-                                        </Tr>
-                                    </Thead>
-                                    <Tbody>
-                                        {bilansHebdo.length === 0 ? (
-                                            <Tr>
-                                                <Td colSpan={8} className="text-center py-6 text-xs text-[var(--color-fg-muted)]">
-                                                    Aucune semaine calculée pour cette période.
-                                                </Td>
-                                            </Tr>
-                                        ) : (
-                                            bilansHebdo.map((b, idx) => {
-                                                const dDeb = b.debutSemaine || b.dateDebut;
-                                                const dFin = b.finSemaine || b.dateFin;
-                                                const numSem = b.numeroSemaine ?? b.numSemaine ?? (idx + 1);
-                                                const joursOuv = b.nbJoursTroncon ?? b.joursOuvrables;
-                                                const seuil = b.seuilHeuresTroncon ?? b.heuresAttendues ?? 40;
-                                                const faitVal = b.totalHeuresTravaillees ?? b.heuresFaites ?? 0;
-                                                const faitHhMm = formatHeuresMinutes(faitVal);
-                                                const faitDec = formatHeuresDecimal(faitVal);
-
-                                                // Retards
-                                                const retHeures = b.heuresRetard != null ? b.heuresRetard : (b.minutesRetard ? b.minutesRetard / 60 : 0);
-                                                const retMin = b.minutesRetard != null ? b.minutesRetard : Math.round(retHeures * 60);
-
-                                                // Surplus & Compensation
-                                                const surplus = b.heuresHsBrutes ?? b.heuresSuppBrutes ?? 0;
-                                                const compense = b.heuresCompensees ?? 0;
-                                                const hs30 = b.heuresHs30 ?? b.heuresSuppNettes30 ?? 0;
-                                                const hs50 = b.heuresHs50 ?? b.heuresSuppNettes50 ?? 0;
-                                                const retenue = b.heuresDeficit ?? b.heuresAbsenceRetenues ?? 0;
-                                                const totalHs = b.heuresHsNettes != null ? b.heuresHsNettes : (hs30 + hs50);
-
-                                                return (
-                                                    <Tr key={dDeb || idx}>
-                                                        {/* Semaine */}
-                                                        <Td className="font-mono text-xs">
-                                                            <div className="font-bold text-[var(--color-fg)]">
-                                                                Semaine {numSem}
-                                                            </div>
-                                                            <div className="text-[10px] text-[var(--color-fg-muted)]">
-                                                                du {fmtDate(dDeb)} au {fmtDate(dFin)}
-                                                            </div>
-                                                        </Td>
-
-                                                        {/* Jours ouvrés */}
-                                                        <Td className="text-center font-mono text-xs">
-                                                            {joursOuv != null ? `${joursOuv}j` : '—'}
-                                                        </Td>
-
-                                                        {/* Objectif */}
-                                                        <Td className="text-center font-mono text-xs font-semibold text-[var(--color-fg-muted)]">
-                                                            {formatDualHours(seuil, { primary: 'hhmm' })}
-                                                        </Td>
-
-                                                        {/* Heures faites */}
-                                                        <Td className="text-center font-mono text-xs">
-                                                            <span className="font-bold text-[var(--color-fg)]">{faitHhMm}</span>
-                                                            <span className="block text-[9px] text-[var(--color-fg-muted)]">({faitDec})</span>
-                                                        </Td>
-
-                                                        {/* Retards (Avertissement) */}
-                                                        <Td className="text-center font-mono text-xs">
-                                                            {retMin > 0 ? (
-                                                                <span className="font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]">
-                                                                    {formatDualHours(retHeures, { primary: 'hhmm' })}
-                                                                    <span className="block text-[9px] font-normal">{retMin} min</span>
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-[var(--color-fg-subtle)]">—</span>
-                                                            )}
-                                                        </Td>
-
-                                                        {/* Surplus brut journalier */}
-                                                        <Td className="text-center font-mono text-xs">
-                                                            {surplus > 0 ? (
-                                                                <span className="font-bold text-[var(--color-info-700)] dark:text-[var(--color-info-200)]">
-                                                                    +{formatDualHours(surplus, { primary: 'hhmm' })}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-[var(--color-fg-subtle)]">—</span>
-                                                            )}
-                                                        </Td>
-
-                                                        {/* Compensé */}
-                                                        <Td className="text-center font-mono text-xs">
-                                                            {compense > 0 ? (
-                                                                <span 
-                                                                    className="attendance-compensation inline-block px-1.5 py-0.5 font-bold"
-                                                                    title={`${formatHeuresMinutes(compense)} ont compensé des heures manquantes de cette semaine.`}
-                                                                >
-                                                                    {formatDualHours(compense, { primary: 'hhmm' })}
-                                                                    <span className="block text-[9px] font-normal font-sans">compensées</span>
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-[var(--color-fg-subtle)]">—</span>
-                                                            )}
-                                                        </Td>
-
-                                                        {/* Impact Paie */}
-                                                        <Td className="text-center font-mono text-xs">
-                                                            {totalHs > 0 ? (
-                                                                <div className="flex flex-col items-center">
-                                                                    <span className="attendance-overtime px-1.5 py-0.5 font-bold">
-                                                                        +{formatDualHours(totalHs, { primary: 'hhmm' })} HS
-                                                                    </span>
-                                                                    <span className="attendance-duration-secondary mt-0.5">
-                                                                        {hs30 > 0 ? `(${formatHeuresDecimal(hs30)} à 30%)` : ''}
-                                                                        {hs50 > 0 ? ` (${formatHeuresDecimal(hs50)} à 50%)` : ''}
-                                                                    </span>
-                                                                </div>
-                                                            ) : retenue > 0 ? (
-                                                                <span className="attendance-retention inline-block px-1.5 py-0.5 font-bold">
-                                                                    -{formatDualHours(retenue, { primary: 'hhmm' })} Retenue
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-[var(--color-fg-subtle)] font-sans text-xs">
-                                                                    0h00 (Équilibré)
-                                                                </span>
-                                                            )}
-                                                        </Td>
-                                                    </Tr>
-                                                );
-                                            })
-                                        )}
-                                    </Tbody>
-                                </Table>
-                            </div>
+                            <WeeklyPointageCalculationTable weeks={bilansHebdo} pointages={pointages} />
                         )}
 
                         {/* 5. CONTENU ONGLET 2 : JOURNAL QUOTIDIEN */}

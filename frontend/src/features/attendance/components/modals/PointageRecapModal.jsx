@@ -13,12 +13,13 @@ export default function PointageRecapModal({
     saving = false,
     grilleData = [],
     siteIndemnites = [],
+    modifiedEmpIds = new Set(),
     selectedDate = '',
     siteLabel = ''
 }) {
     // Effet : raccourci clavier de validation immédiate avec Entrée.
     useEffect(() => {
-        if (!isOpen || saving) return;
+        if (!isOpen || saving || grilleData.some(r => r._previewPending || r._previewError)) return;
 
         const handleKeyDown = (e) => {
             if (e.key === 'Enter') {
@@ -30,15 +31,19 @@ export default function PointageRecapModal({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, saving, onConfirm]);
+    }, [isOpen, saving, onConfirm, grilleData]);
     // Données dérivées pour le récapitulatif journalier.
     const safeData = Array.isArray(grilleData) ? grilleData : [];
+    const pending = safeData.filter(r => r._previewPending);
+    const previewErrors = safeData.filter(r => r._previewError);
+    const cannotConfirm = saving || pending.length > 0 || previewErrors.length > 0;
 
     const totalInscrits = safeData.length;
     const presents = safeData.filter(r => r.present || r.dispensePointage || r.ferieTravaille || r.samediTravaille || r.dimancheTravaille);
     const retards = safeData.filter(r => r.retard);
     const cumulRetard = safeData.reduce((acc, r) => acc + (Number(r.minutesRetard) || 0), 0);
     const anomalies = safeData.filter(r => r.hasValidationError || r.anomalie);
+    const autonomes = safeData.filter(r => r.dispensePointage);
     const allowanceChoices = (row) => siteIndemnites.flatMap((allowance) => {
         const choice = row.dynamicIndemnites?.[String(allowance.idIndemnite)];
         if (!choice) return [];
@@ -88,6 +93,7 @@ export default function PointageRecapModal({
                             variant="primary"
                             size="md"
                             loading={saving}
+                            disabled={cannotConfirm}
                             onClick={onConfirm}
                             className="font-bold flex items-center gap-2 shadow-xs px-5"
                         >
@@ -140,6 +146,17 @@ export default function PointageRecapModal({
                         </div>
                     ))}
                 </div>
+                <p className="text-xs text-[var(--color-fg-muted)]">
+                    {modifiedEmpIds.size} ligne(s) modifiée(s) à enregistrer · {autonomes.length} autonome(s) inclus dans les présences
+                    {pending.length > 0 && ` · ${pending.length} calcul(s) en cours`}
+                    {previewErrors.length > 0 && ` · ${previewErrors.length} calcul(s) échoué(s)`}
+                </p>
+                {previewErrors.length > 0 && (
+                    <div role="alert" className="p-3 text-xs text-danger-600 border border-danger-500">
+                        Corrigez ou relancez la saisie des lignes dont la prévisualisation a échoué avant de confirmer.
+                        {previewErrors.map(row => <div key={row.idEmploye}>{row.nom} {row.prenom} : {row._previewError}</div>)}
+                    </div>
+                )}
 
                 {/* 3. Alerte Anomalies si présentes */}
                 {anomalies.length > 0 && (
@@ -147,9 +164,13 @@ export default function PointageRecapModal({
                         <AlertTriangle size={17} className="text-[var(--color-warning-600)] shrink-0 mt-0.5" />
                         <div>
                             <p className="font-bold">{anomalies.length} anomalie(s) de saisie constatée(s) :</p>
-                            <p className="text-[11.5px] opacity-90 mt-0.5 leading-relaxed">
-                                Certains salariés ont des Saisies incomplets. Vous pouvez confirmer pour figer l'état actuel ou cliquer sur « Corriger la saisie » pour rectifier.
-                            </p>
+                            {anomalies.map(row => (
+                                <p key={row.idEmploye} className="text-[11.5px] mt-1">
+                                    {row.nom} {row.prenom} : {row.validationMessages?.length
+                                        ? row.validationMessages.join(' · ')
+                                        : 'Statut d’anomalie enregistré ; modifiez la ligne pour relancer le calcul.'}
+                                </p>
+                            ))}
                         </div>
                     </div>
                 )}
@@ -190,8 +211,8 @@ export default function PointageRecapModal({
                                         <Td className="py-2.5 px-3 text-center font-mono text-[12px]">{matinStr}</Td>
                                         <Td className="py-2.5 px-3 text-center font-mono text-[12px]">{amStr}</Td>
                                         <Td className="py-2.5 px-3 text-center font-mono font-bold text-[12.5px]">
-                                            <div>{formatHeuresMinutes(row.totalHeures, true)}</div>
-                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatHeuresDecimal(row.totalHeures)})</div>
+                                            <div>{row._previewPending ? 'Calcul…' : row._previewError ? '—' : formatHeuresMinutes(row.totalHeures, true)}</div>
+                                            {!row._previewPending && !row._previewError && <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatHeuresDecimal(row.totalHeures)})</div>}
                                         </Td>
                                         <Td className="py-2.5 px-3 text-center font-mono">
                                             {row.minutesRetard > 0 ? (

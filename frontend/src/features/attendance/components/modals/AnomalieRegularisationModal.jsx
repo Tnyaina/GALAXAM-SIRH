@@ -36,7 +36,7 @@ export default function AnomalieRegularisationModal({
     onSuccess
 }) {
     // État local : onglet, soumission et formulaire de régularisation.
-    const [activeTab, setActiveTab] = useState('HEURES'); // 'HEURES' ou 'ABSENCE'
+    const [activeTab, setActiveTab] = useState('HEURES'); // 'HEURES', 'ABSENCE' ou 'RETARD_REEL'
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [dayPreview, setDayPreview] = useState(null);
@@ -184,7 +184,7 @@ export default function AnomalieRegularisationModal({
         if (e) e.preventDefault();
         setError('');
 
-        if (!motifAjustement || motifAjustement.trim().length < 3) {
+        if (activeTab !== 'RETARD_REEL' && (!motifAjustement || motifAjustement.trim().length < 3)) {
             setError('Un motif explicatif est obligatoire pour régulariser un pointage (minimum 3 caractères).');
             return;
         }
@@ -192,7 +192,7 @@ export default function AnomalieRegularisationModal({
         try {
             const payload = {
                 version: anomalie.version,
-                motifAjustement: motifAjustement.trim(),
+                motifAjustement: activeTab === 'RETARD_REEL' ? 'Retard réel confirmé' : motifAjustement.trim(),
                 typeRegularisation: activeTab,
                 idEmploye: anomalie.idEmploye,
                 idPeriodePaie: anomalie.idPeriodePaie,
@@ -201,7 +201,9 @@ export default function AnomalieRegularisationModal({
                 horaireContinuJour: activeTab === 'HEURES' && modePresence === 'CONTINU'
             };
 
-            if (activeTab === 'HEURES') {
+            if (activeTab === 'RETARD_REEL') {
+                // Les horaires et les minutes déjà enregistrés restent inchangés.
+            } else if (activeTab === 'HEURES') {
                 if (allowancesLoading || allowancesError) {
                     setError(allowancesError || 'Chargement des indemnités en cours.');
                     setSaving(false);
@@ -313,7 +315,7 @@ export default function AnomalieRegularisationModal({
                             loading={saving}
                             className="rounded-none"
                         >
-                            Enregistrer la régularisation
+                            {activeTab === 'RETARD_REEL' ? 'Confirmer le retard réel' : 'Enregistrer la régularisation'}
                         </Button>
                     </div>
                 </div>
@@ -369,6 +371,18 @@ export default function AnomalieRegularisationModal({
 
                 {/* Onglets de mode */}
                 <div className="flex border-b border-[var(--color-border-subtle)]">
+                    {anomalie.typeAnomalie === 'RETARD' && (
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('RETARD_REEL')}
+                            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors rounded-none ${activeTab === 'RETARD_REEL'
+                                ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                                : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}
+                        >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Confirmer le pointage réel</span>
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => setActiveTab('HEURES')}
@@ -394,6 +408,13 @@ export default function AnomalieRegularisationModal({
                         <span>Régularisation d&apos;Absence (Congé / Déduction)</span>
                     </button>
                 </div>
+
+                {activeTab === 'RETARD_REEL' && (
+                    <div className="p-4 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-xs text-[var(--color-fg)] space-y-2">
+                        <p className="font-semibold">Les horaires saisis sont exacts et le retard de {anomalie.minutesRetard} min est réel.</p>
+                        <p>Confirmer marque ce pointage « Régularisé ». Les horaires et les minutes de retard restent inchangés.</p>
+                    </div>
+                )}
 
                 {/* CONTENU ONGLET 1 : HEURES RÉELLES */}
                 {activeTab === 'HEURES' && (
@@ -639,7 +660,7 @@ export default function AnomalieRegularisationModal({
                                         {optionAutreDemiJournee === 'AUCUNE' && (
                                             <div>
                                                 <strong className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">Impact : </strong>
-                                                L'absence sur {labelDemiJournee} est autorisée par la hiérarchie. Le calcul et l'impact paie sont confirmés par le backend.
+                                                L'absence sur {labelDemiJournee} est autorisée par la hiérarchie.
                                             </div>
                                         )}
                                         {optionAutreDemiJournee === 'CONGE_PAYE' && (
@@ -662,7 +683,7 @@ export default function AnomalieRegularisationModal({
                         {/* Synthèse calculée des heures */}
                         <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none flex items-center justify-between text-xs">
                             <span className="text-[var(--color-fg-muted)]">
-                                Total d&apos;heures de travail calculé par le backend :
+                                Total d&apos;heures de travail calculé :
                             </span>
                             <span className="font-mono font-bold text-sm text-[var(--color-fg)]">
                                 {previewPending ? 'Calcul…' : dayPreview?.totalHeures != null ? `${dayPreview.totalHeures} h` : '—'}
@@ -929,7 +950,7 @@ export default function AnomalieRegularisationModal({
                 )}
 
                 {/* Motif / Commentaire obligatoire */}
-                <div className="space-y-1.5">
+                {activeTab !== 'RETARD_REEL' && <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-[var(--color-fg)] flex items-center justify-between">
                         <span>Motif / Note explicative de régularisation <span className="text-[var(--color-error)]">*</span></span>
                         <span className="text-[10px] text-[var(--color-fg-muted)]">Minimum 3 caractères</span>
@@ -944,7 +965,7 @@ export default function AnomalieRegularisationModal({
                         placeholder="Précisez le motif (ex: Oubli badgeage sortie, justificatif médical reçu, permission accordée...)"
                         className="w-full text-xs p-2.5 rounded-none border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] placeholder:text-[var(--color-fg-muted)]"
                     />
-                </div>
+                </div>}
             </div>
         </Modal>
     );

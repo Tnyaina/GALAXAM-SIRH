@@ -250,7 +250,7 @@ public class SaisiePointageJourDTO {
 
     // Backend-driven booleans pour l'interface UI (Zero comparaison de string en dur sur le front)
     public boolean isRepos() { return "REPOS".equalsIgnoreCase(codeStatut); }
-    public boolean isPresent() { return "PRESENT".equalsIgnoreCase(codeStatut); }
+    public boolean isPresent() { return "PRESENT".equalsIgnoreCase(codeStatut) || "DEMI_JOURNEE".equalsIgnoreCase(codeStatut); }
     public boolean isRetard() { return "RETARD".equalsIgnoreCase(codeStatut) || (minutesRetard != null && minutesRetard > 0); }
     public boolean isConge() { return "CONGE".equalsIgnoreCase(codeStatut); }
     public boolean isAbsenceJustifiee() { return "ABSENCE_JUSTIFIEE".equalsIgnoreCase(codeStatut); }
@@ -259,7 +259,7 @@ public class SaisiePointageJourDTO {
     public boolean isDimancheTravaille() { return "DIMANCHE_TRAVAILLE".equalsIgnoreCase(codeStatut); }
     public boolean isSamediTravaille() { return "SAMEDI_TRAVAILLE".equalsIgnoreCase(codeStatut); }
     public boolean isDispensePointage() {
-        if (isFerieChome() || isConge() || isAbsenceJustifiee() || isRepos()) return false;
+        if (isFerieChome() || isConge() || isAbsence() || isRepos()) return false;
         return estAutonome || "DISPENSE_POINTAGE".equalsIgnoreCase(codeStatut);
     }
     public boolean isAnomalie() { return "ANOMALIE_SAISIE".equalsIgnoreCase(codeStatut); }
@@ -267,13 +267,7 @@ public class SaisiePointageJourDTO {
     public boolean isAbsence() { return isAbsenceJustifiee() || isAbsenceNonJustifiee(); }
 
     public boolean isNonSaisi() {
-        if (isRepos() || isConge() || isAbsenceJustifiee() || isAbsenceNonJustifiee() || isFerieChome() || isFerieTravaille() || isDimancheTravaille() || isSamediTravaille()) {
-            return false;
-        }
-        if (estAutonome || isDispensePointage()) {
-            return false;
-        }
-        return (totalHeures == null || totalHeures.compareTo(0.0) == 0);
+        return "NON_SAISI".equalsIgnoreCase(codeStatut);
     }
 
     public boolean isCongeFull() { return "FULL_DAY".equalsIgnoreCase(typeCongeJour); }
@@ -286,7 +280,7 @@ public class SaisiePointageJourDTO {
         if (isFerieChome()) return "neutral";
         if (isDimancheTravaille()) return "purple";
         if (isSamediTravaille() || isDispensePointage()) return "brand";
-        if (isRetard() || isAnomalie() || isAbsenceNonJustifiee()) return "error";
+        if (isAnomalie() || isAbsenceNonJustifiee()) return "error";
         if (isConge() || isAbsenceJustifiee()) return "warning";
         if (isPresent()) return "success";
         return "neutral";
@@ -304,7 +298,6 @@ public class SaisiePointageJourDTO {
         if (isDispensePointage()) return "Forfait 8h";
         if (isConge()) return "Congé";
         if (isAbsenceJustifiee()) return "Absence justifiée";
-        if (isRetard()) return "Retard";
         if (isAnomalie()) return "Incomplet";
         if (isAbsenceNonJustifiee()) return "Absent";
         if (isPresent()) return "Présent";

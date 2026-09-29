@@ -351,8 +351,9 @@ INSERT INTO ref_statut_pointage_jour (id_statut_jour, code, libelle, decompte_ab
 (8, 'SAMEDI_TRAVAILLE', 'Samedi travaillé', FALSE, TRUE),
 (9, 'DIMANCHE_TRAVAILLE', 'Dimanche travaillé', FALSE, TRUE),
 (10, 'DISPENSE_POINTAGE', 'Poste autonome — dispense de pointage', FALSE, FALSE),
-(11, 'DEMI_JOURNEE', 'Demi-journée travaillée', FALSE, TRUE);
-SELECT setval('ref_statut_pointage_jour_id_statut_jour_seq', (SELECT GREATEST(MAX(id_statut_jour), 11) FROM ref_statut_pointage_jour));
+(11, 'DEMI_JOURNEE', 'Demi-journée travaillée', FALSE, TRUE),
+(12, 'REPOS', 'Repos hebdomadaire', FALSE, FALSE);
+SELECT setval('ref_statut_pointage_jour_id_statut_jour_seq', (SELECT GREATEST(MAX(id_statut_jour), 12) FROM ref_statut_pointage_jour));
 
 -- Indemnités de Référence (Repas et Déplacement intégrés au brut cotisable/imposable selon politique DAF)
 INSERT INTO ref_indemnite (id_indemnite, code, libelle, imposable_irsa, soumis_cotisation, fractionnable) VALUES

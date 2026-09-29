@@ -7,8 +7,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.text.Normalizer;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class DocumentRhCPL extends ClassMere {
 
@@ -167,6 +171,32 @@ public class DocumentRhCPL extends ClassMere {
 
     public String getNomOriginal() { return nomOriginal; }
     public void setNomOriginal(String nomOriginal) { this.nomOriginal = nomOriginal; }
+
+    /** Nom lisible destiné à l'interface et aux téléchargements ; le nom original reste conservé. */
+    public String getNomAffichage() {
+        List<String> parts = new ArrayList<>();
+        parts.add(isContratSigne() ? "CONTRAT_SIGNE" : slug(typeDocumentLibelle));
+        if (numeroContrat != null && !numeroContrat.isBlank()) parts.add(slug(numeroContrat));
+
+        LocalDate date = dateDocument != null ? dateDocument.toLocalDate()
+                : createdAt != null ? createdAt.toLocalDateTime().toLocalDate() : null;
+        if (date != null) parts.add(date.format(DateTimeFormatter.BASIC_ISO_DATE));
+        if (idDocument != null) parts.add("DOC-" + idDocument);
+
+        String safeExtension = extension == null || extension.isBlank()
+                ? "bin" : slug(extension).toLowerCase(Locale.ROOT);
+        return String.join("_", parts) + "." + safeExtension;
+    }
+
+    private static String slug(String value) {
+        if (value == null || value.isBlank()) return "DOCUMENT";
+        String ascii = Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "");
+        String normalized = ascii.toUpperCase(Locale.ROOT)
+                .replaceAll("[^A-Z0-9]+", "_")
+                .replaceAll("^_+|_+$", "");
+        return normalized.isBlank() ? "DOCUMENT" : normalized;
+    }
 
     public String getNomStockage() { return nomStockage; }
     public void setNomStockage(String nomStockage) { this.nomStockage = nomStockage; }

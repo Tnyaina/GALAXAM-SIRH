@@ -169,6 +169,8 @@ La cohérence temporelle entre contrat, affectation, paie et présence dépend d
 
 `ref_type_document` définit la catégorie, le caractère obligatoire, les extensions autorisées et la taille maximale. `document_rh` conserve le nom d'origine, le nom de stockage, le chemin, l'extension, la taille, la date du document, le commentaire, le salarié et les liens facultatifs vers un contrat (`id_contrat`) ou workflow (`id_workflow`).
 
+Le nom d'origine reste conservé pour la traçabilité. L'interface et les téléchargements utilisent un nom lisible calculé selon la convention `TYPE[_REFERENCE_CONTRAT]_AAAAMMJJ_DOC-ID.extension` (ex. `CONTRAT_SIGNE_CTR_2026_00001_20260929_DOC-42.pdf`). Les fichiers gardent un nom UUID sur disque ; les photos restent servies par l'endpoint authentifié de l'employé et ne sont pas renommées en fichier prévisible.
+
 Le contrôleur de téléversement vérifie que le fichier n'est pas vide, que le type documentaire existe et est actif, que la taille respecte le maximum configuré et que l'extension figure dans la liste autorisée. Le fichier est stocké sur disque sous un nom UUID, puis sa métadonnée est enregistrée en base. Lors du dépôt d'un contrat signé (type `CONTRAT_SIGNE`), les champs `idContrat` et `idWorkflow` associent le document à la pièce contractuelle concernée. En cas d'échec SQL de la transaction, le fichier physique déposé sur disque fait l'objet d'un nettoyage compensatoire automatique. Le téléchargement passe par un endpoint authentifié ; la suppression des métadonnées et du fichier est exposée par une route dédiée.
 
 ### 8.1 Génération Officielle des Contrats de Travail (Word DOCX)

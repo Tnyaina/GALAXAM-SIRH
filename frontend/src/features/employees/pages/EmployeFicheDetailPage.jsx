@@ -294,9 +294,9 @@ export default function EmployeFicheDetailPage() {
         }
     };
 
-    const handleDownloadDoc = async (idDoc, nomOriginal) => {
+    const handleDownloadDoc = async (idDoc, nomFichier) => {
         try {
-            await documentRhService.downloadDocument(idDoc, nomOriginal);
+            await documentRhService.downloadDocument(idDoc, nomFichier);
         } catch (err) {
             console.error('Erreur téléchargement document:', err);
             setError('Erreur lors du téléchargement du document.');

@@ -888,6 +888,7 @@ FROM ref_statut_pointage_jour ORDER BY id_statut_jour;
 | 9 | `DIMANCHE_TRAVAILLE` | Dimanche travaillé (sujétion dominicale) | NON | OUI |
 | 10 | `DISPENSE_POINTAGE` | Poste autonome / dispense de pointage | NON | NON |
 | 11 | `DEMI_JOURNEE` | Demi-journée travaillée (présence partielle) | NON | OUI |
+| 12 | `REPOS` | Repos hebdomadaire (samedi ou dimanche non travaillé) | NON | NON |
 
 ---
 

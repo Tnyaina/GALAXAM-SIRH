@@ -199,6 +199,38 @@ class PointagePhase6IntegrationTest {
     }
 
     @Test
+    @DisplayName("Transmission refusée si une période partiellement saisie contient des journées ouvrables manquantes")
+    void testTransmissionRefuseJourneesManquantes() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE periode_paie SET date_fin = '2026-09-28' WHERE id_periode_paie = ?")) {
+                    ps.setInt(1, testPeriodId);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, " +
+                    "id_statut_jour, heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, total_heures) " +
+                    "VALUES (?, ?, ?, '2026-09-01', " +
+                    "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT'), " +
+                    "'08:00', '12:00', '13:00', '17:00', 8)")) {
+                    ps.setInt(1, employeId);
+                    ps.setInt(2, testPeriodId);
+                    ps.setInt(3, activeSiteId);
+                    ps.executeUpdate();
+                }
+                var actions = payrollPeriodWorkflowService.describeActions(testPeriodId, "EN_COURS",
+                        new PayrollPeriodUserContext(adminUserId, Set.of("ROLE_ADMIN")), c);
+                assertFalse(actions.get("SUBMIT").allowed());
+                assertTrue(actions.get("SUBMIT").reasonCodes().contains("POINTAGE_JOURNEES_MANQUANTES"));
+            } finally {
+                c.rollback();
+            }
+        }
+    }
+
+    @Test
     @DisplayName("Paie : validation et sorties bloquées si un salarié inclus n'a pas de bulletin")
     void testValidationPaieExigeTousLesBulletins() throws Exception {
         try (Connection c = dataSource.getConnection()) {

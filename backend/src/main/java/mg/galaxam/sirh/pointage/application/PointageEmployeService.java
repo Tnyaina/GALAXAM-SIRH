@@ -225,10 +225,10 @@ public class PointageEmployeService {
         if (hDebutMatin == null || hFinAm == null || (!siteContinu && (hFinMatin == null || hDebutAm == null))) {
             throw new IllegalStateException("Horaires du site incomplets pour la fiche Pointage de l'employé " + idEmploye + ".");
         }
-        dureeJourMins = siteContinu
-                ? Duration.between(hDebutMatin, hFinAm).toMinutes()
-                : Duration.between(hDebutMatin, hFinMatin).toMinutes()
-                    + Duration.between(hDebutAm, hFinAm).toMinutes();
+        dureeJourMins = hFinMatin != null && hDebutAm != null
+                ? Duration.between(hDebutMatin, hFinMatin).toMinutes()
+                    + Duration.between(hDebutAm, hFinAm).toMinutes()
+                : Duration.between(hDebutMatin, hFinAm).toMinutes();
         if (dureeJourMins <= 0) {
             throw new IllegalStateException("Durée journalière du site invalide pour l'employé " + idEmploye + ".");
         }

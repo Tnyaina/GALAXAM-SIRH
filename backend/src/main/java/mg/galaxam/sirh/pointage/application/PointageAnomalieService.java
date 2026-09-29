@@ -353,7 +353,9 @@ public class PointageAnomalieService {
                             countAbsences++;
                         } else if (dto.getMinutesRetard() != null && dto.getMinutesRetard() > 0) {
                             dto.setTypeAnomalie("RETARD");
-                            dto.setDescriptionAnomalie("Retard de " + dto.getMinutesRetard() + " min sans motif régularisé.");
+                            dto.setDescriptionAnomalie(hasMotif
+                                    ? "Retard de " + dto.getMinutesRetard() + " min régularisé : " + dto.getMotifAjustement()
+                                    : "Retard de " + dto.getMinutesRetard() + " min à vérifier : corriger les horaires s'ils sont erronés, sinon confirmer le pointage réel.");
                             dto.setSeverite("MOYENNE");
                             dto.setBloquantTransmission(false);
                             dto.setStatutAnomalie(hasMotif ? "done" : "todo");
@@ -463,7 +465,7 @@ public class PointageAnomalieService {
                 }
 
                 long nbAnomaliesSemaine = anomalies.stream()
-                        .filter(a -> semCode.equals(a.getSemaineCode()))
+                        .filter(a -> semCode.equals(a.getSemaineCode()) && "todo".equals(a.getStatutAnomalie()))
                         .count();
 
                 int joursOuvresSem = calendrierOuvrableEngine.compterJoursOuvrables(wDeb, wFin, idSite, c);
@@ -726,6 +728,28 @@ public class PointageAnomalieService {
                         }
                     }
                 }
+            }
+
+            if ("RETARD_REEL".equalsIgnoreCase(typeRegularisation)) {
+                Integer providedVersion = parseInteger(payload.get("version"));
+                if (idPointage <= 0 || providedVersion == null || !providedVersion.equals(currentVersion)) {
+                    throw new IllegalStateException("Le pointage a changé. Rechargez la journée avant de confirmer le retard.");
+                }
+                Integer userId = currentUserId();
+                if (userId == null) throw new IllegalStateException("Utilisateur de régularisation introuvable.");
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE pointage_jour SET motif_ajustement = 'Retard réel confirmé', " +
+                        "ajuste_par = ?, date_ajustement = CURRENT_TIMESTAMP, version = version + 1, " +
+                        "updated_at = CURRENT_TIMESTAMP WHERE id_pointage = ? AND version = ? AND minutes_retard > 0")) {
+                    ps.setInt(1, userId);
+                    ps.setInt(2, idPointage);
+                    ps.setInt(3, providedVersion);
+                    if (ps.executeUpdate() != 1) {
+                        throw new IllegalStateException("Ce pointage ne contient plus de retard à confirmer.");
+                    }
+                }
+                c.commit();
+                return true;
             }
 
             // Détermination du statut cible et calcul des heures

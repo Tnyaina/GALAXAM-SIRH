@@ -167,6 +167,8 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     const transmissionBlockReason = (actions.SUBMIT?.reasonCodes || []).map(code => ({
         PERIOD_NOT_ENDED: 'La période n’est pas encore terminée.',
         POINTAGE_EMPTY: 'Aucun pointage n’a été saisi pour cette période.',
+        POINTAGE_POPULATION_EMPTY: 'Aucun collaborateur éligible n’a été trouvé pour cette période.',
+        POINTAGE_JOURNEES_MANQUANTES: 'Des journées ouvrables restent sans pointage. Complétez la saisie avant de transmettre.',
         BLOCKING_ANOMALIES: 'Des anomalies bloquantes doivent être régularisées.',
     }[code] || code)).join(' · ');
 
@@ -181,8 +183,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             if (filterDate && ano.datePointage !== filterDate) {
                 return false;
             }
-            // Filtre par statut de traitement (À régulariser vs Régularisé)
-            if (filterStatutTraitement === 'TODO' && ano.statutAnomalie === 'done') {
+            if (filterStatutTraitement === 'TODO' && ano.statutAnomalie !== 'todo') {
                 return false;
             }
             if (filterStatutTraitement === 'DONE' && ano.statutAnomalie !== 'done') {
@@ -516,10 +517,10 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                     <div>
                         <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
                             <Shield size={14} className="text-[var(--color-brand-500)]" />
-                            Anomalies de pointage &amp; Saisies incomplètes
+                            Anomalies de pointage &amp; retards à vérifier
                         </h2>
                         <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                            {filteredAnomalies.length} anomalie{filteredAnomalies.length > 1 ? 's' : ''} détectée{filteredAnomalies.length > 1 ? 's' : ''}
+                            {filteredAnomalies.length} élément{filteredAnomalies.length > 1 ? 's' : ''} de suivi
                             {nbBloquantes > 0 && ` — dont ${nbBloquantes} bloquante(s) avant transmission`}
                         </p>
                     </div>
@@ -546,7 +547,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                             }}
                             options={[
                                 { value: 'ALL', label: 'Tous les statuts' },
-                                { value: 'TODO', label: 'À régulariser' },
+                                { value: 'TODO', label: 'À vérifier / régulariser' },
                                 { value: 'DONE', label: 'Déjà régularisés' },
                             ]}
                             className="text-xs w-full"
@@ -640,7 +641,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 </div>
 
                 <p className="px-4 py-2 border-b border-[var(--color-border-subtle)] text-xs text-[var(--color-fg-muted)]">
-                    Les sévérités sont indiquées dans chaque ligne. Une anomalie bloquante empêche la transmission; les autres restent à examiner.
+                    Un retard peut être corrigé si la saisie est erronée, ou confirmé comme réel. Dans les deux cas, il reste tracé et passe à « Régularisé ».
                 </p>
 
                 {/* Tableau des anomalies */}
@@ -740,7 +741,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                                 ) : (
                                                     <span className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-semibold inline-flex items-center gap-1 text-[11px]">
                                                         <Clock size={12} />
-                                                        À régulariser
+                                                        {ano.typeAnomalie === 'RETARD' ? 'À vérifier' : 'À régulariser'}
                                                     </span>
                                                 )}
                                             </Td>
@@ -754,7 +755,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                                     disabled={isLocked}
                                                     className="font-bold text-[11px] h-[28px]"
                                                 >
-                                                    {isDone ? 'Modifier' : 'Régulariser'}
+                                                    {isDone ? 'Modifier' : ano.typeAnomalie === 'RETARD' ? 'Vérifier' : 'Régulariser'}
                                                 </Button>
                                             </Td>
                                         </Tr>

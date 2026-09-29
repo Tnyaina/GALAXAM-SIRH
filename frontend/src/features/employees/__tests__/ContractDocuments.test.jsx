@@ -16,7 +16,7 @@ vi.mock('@/features/employees/api/contratService', () => ({ default: { getContra
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root, host;
 const contrat = { idContrat: 42, idEmploye: 7, numeroContrat: 'CTR-2026-0042', codeStatutContrat: 'BROUILLON' };
-const prepared = { codeTypeContrat: 'CDD', statut: 'BROUILLON', generationPossible: true, donneesManquantes: [], avertissements: [], variables: { '{{EMPLOYE_NOM_COMPLET}}': 'Rakoto Jean', '{{POSTE_FONCTION}}': 'Poste historique' }, paragraphes: ['Canevas interne', '[Clause à valider par la DAF/RH]'] };
+const prepared = { codeTypeContrat: 'CDD', statut: 'BROUILLON', generationPossible: true, donneesManquantes: [], avertissements: [], variables: { '{{EMPLOYE_NOM_COMPLET}}': 'Rakoto Jean', '{{POSTE_FONCTION}}': 'Poste historique' }, paragraphes: ['Contrat de travail', '[Clause à modifier par la DAF/RH]'] };
 const signed = { idDocument: 18, idContrat: 42, contratSigne: true, numeroContrat: 'CTR-2026-0042', codeTypeContrat: 'CDD', nomOriginal: 'signe.pdf', typeDocumentLibelle: 'Contrat de travail' };
 const button = text => [...document.querySelectorAll('button')].find(element => element.textContent === text);
 const click = async text => { await act(async () => { button(text).click(); }); };
@@ -31,10 +31,10 @@ afterEach(async () => { await act(async () => root.unmount()); host.remove(); })
 describe('Contrats : génération et archivage', () => {
     it('permet génération et modification au brouillon, puis télécharge le contrat choisi', async () => {
         const edit = vi.fn(); await render({ onEdit: edit });
-        expect(button('Télécharger DOCX').disabled).toBe(false);
+        expect(button('Télécharger le DOCX').disabled).toBe(false);
         await click('Modifier'); expect(edit).toHaveBeenCalled();
-        await click('Télécharger DOCX'); expect(documentService.downloadContratDocx).toHaveBeenCalledWith(42, 'Contrat_CTR-2026-0042.docx');
-        await click('Aperçu'); expect(document.body.textContent).toContain('[Clause à valider par la DAF/RH]');
+        await click('Télécharger le DOCX'); expect(documentService.downloadContratDocx).toHaveBeenCalledWith(42, 'Contrat_CTR-2026-0042.docx');
+        await click('Aperçu du contrat'); expect(document.body.textContent).toContain('[Clause à modifier par la DAF/RH]');
     });
     it('préremplit et verrouille le type, puis transmet employé et contrat sans ressaisie', async () => {
         documentRhService.uploadDocument.mockResolvedValue(signed); await render(); await click('Déposer le contrat signé');
@@ -44,37 +44,37 @@ describe('Contrats : génération et archivage', () => {
         await act(async () => { input.dispatchEvent(new Event('change', { bubbles: true })); });
         await act(async () => { document.querySelector('#upload-doc-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
         expect(documentRhService.uploadDocument).toHaveBeenCalledWith(7, file, 66, '', '', { idContrat: 42 });
-        expect(document.body.textContent).toContain('Contrat signé ✓');
+        expect(document.body.textContent).toContain('1 document déposé');
     });
     it('utilise les mêmes actions et le même archivage pour TEMPORAIRE horaire', async () => {
         documentService.getContratData.mockResolvedValue({ ...prepared, codeTypeContrat: 'TEMPORAIRE', variables: { ...prepared.variables, '{{REMUNERATION_BASE}}': '12 500,50 Ar par heure', '{{REMUNERATION_MODE}}': 'Taux horaire' } });
         documentRhService.getDocumentsByEmploye.mockResolvedValue({ documents: [{ ...signed, codeTypeContrat: 'TEMPORAIRE' }] });
         await render(); expect(document.body.textContent).toContain('TEMPORAIRE'); expect(document.body.textContent).toContain('12 500,50 Ar par heure');
-        expect(button('Aperçu').disabled).toBe(false); expect(button('Télécharger DOCX').disabled).toBe(false);
-        expect(button('Déposer le contrat signé').disabled).toBe(false); expect(document.body.textContent).toContain('Contrat signé ✓');
-        await click('Télécharger DOCX'); expect(documentService.downloadContratDocx).toHaveBeenCalledWith(42, 'Contrat_CTR-2026-0042.docx');
+        expect(button('Aperçu du contrat').disabled).toBe(false); expect(button('Télécharger le DOCX').disabled).toBe(false);
+        expect(button('Déposer une nouvelle version signée').disabled).toBe(false); expect(document.body.textContent).toContain('1 document déposé');
+        await click('Télécharger le DOCX'); expect(documentService.downloadContratDocx).toHaveBeenCalledWith(42, 'Contrat_CTR-2026-0042.docx');
     });
     it('affiche les fichiers signés uniquement pour le contrat demandé et permet consultation', async () => {
         documentRhService.getDocumentsByEmploye.mockResolvedValue({ documents: [signed, { ...signed, idContrat: 99, nomOriginal: 'autre.pdf' }] });
         await render(); expect(document.body.textContent).toContain('signe.pdf'); expect(document.body.textContent).not.toContain('autre.pdf');
-        await click('Voir le document'); expect(documentRhService.viewDocument).toHaveBeenCalledWith(18);
+        await click('Voir'); expect(documentRhService.viewDocument).toHaveBeenCalledWith(18);
         await click('Télécharger'); expect(documentRhService.downloadDocument).toHaveBeenCalledWith(18, 'signe.pdf');
     });
     it('affiche une erreur backend et permet toujours le dépôt du scan', async () => {
         documentService.getContratData.mockRejectedValue(new Error('CONTRACT_ASSIGNMENT_MISSING'));
-        await render(); expect(button('Télécharger DOCX').disabled).toBe(true); expect(button('Déposer le contrat signé').disabled).toBe(false);
+        await render(); expect(button('Télécharger le DOCX').disabled).toBe(true); expect(button('Déposer le contrat signé').disabled).toBe(false);
         expect(document.body.textContent).toContain('CONTRACT_ASSIGNMENT_MISSING');
     });
     it('bloque DOCX pour des données manquantes sans bloquer aperçu ou archivage', async () => {
         documentService.getContratData.mockResolvedValue({ ...prepared, generationPossible: false, donneesManquantes: ['{{ENTREPRISE_ADRESSE}}'], statut: 'ACTIF' });
-        await render({ onEdit: vi.fn() }); expect(button('Modifier')).toBeUndefined(); expect(button('Télécharger DOCX').disabled).toBe(true); expect(button('Aperçu').disabled).toBe(false);
+        await render({ onEdit: vi.fn() }); expect(button('Modifier')).toBeUndefined(); expect(button('Télécharger le DOCX').disabled).toBe(true); expect(button('Aperçu du contrat').disabled).toBe(false);
         expect(document.body.textContent).toContain('Adresse de l’entreprise');
     });
     it('avertit des champs à compléter manuellement sans désactiver le canevas DOCX', async () => {
         documentService.getContratData.mockResolvedValue({ ...prepared, avertissements: ['{{SIGNATAIRE_NOM}}'] });
         await render();
-        expect(button('Télécharger DOCX').disabled).toBe(false);
-        expect(document.body.textContent).toContain('À vérifier ou compléter avant signature');
+        expect(button('Télécharger le DOCX').disabled).toBe(false);
+        expect(document.body.textContent).toContain('À compléter ou vérifier dans le DOCX');
     });
     it('permet l’accès direct aux documents du contrat actif', async () => {
         const open=vi.fn();

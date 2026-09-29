@@ -30,6 +30,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -195,7 +196,7 @@ public class DocumentRhController {
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> downloadDocument(@PathVariable int idDocument) {
         try (Connection c = dataSource.getConnection()) {
-            DocumentRh doc = new DocumentRh().rechercherParId(idDocument, c);
+            DocumentRhCPL doc = new DocumentRhCPL().rechercherParId(idDocument, c);
             if (doc == null) {
                 throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Document non trouvé.");
             }
@@ -214,7 +215,8 @@ public class DocumentRhController {
             return ResponseEntity.ok()
                     .cacheControl(CacheControl.noStore().cachePrivate())
                     .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + doc.getNomOriginal() + "\"")
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            ContentDisposition.inline().filename(doc.getNomAffichage(), java.nio.charset.StandardCharsets.UTF_8).build().toString())
                     .body(resource);
 
         } catch (Exception e) {

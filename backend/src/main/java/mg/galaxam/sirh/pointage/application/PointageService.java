@@ -301,18 +301,27 @@ public class PointageService {
         };
     }
 
-    private static String resolveDayStatus(SaisiePointageJourDTO dto, AttendanceEngine.Result result, LocalDate date) {
+    static String resolveDayStatus(SaisiePointageJourDTO dto, AttendanceEngine.Result result, LocalDate date) {
         String code = dto.getCodeStatut();
-        if (code == null || code.isBlank() || "NON_SAISI".equals(code)) {
-            code = toPersistenceStatus(result, dto);
-            if (date.getDayOfWeek() == DayOfWeek.SATURDAY && result.workedMinutes() > 0) code = "SAMEDI_TRAVAILLE";
-        } else if ("FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())) {
-            if (!dto.isCongePaye()) code = "ABSENCE_JUSTIFIEE";
-            else if (!dto.isCongeDecompteSolde() && "CONGE".equalsIgnoreCase(code)) code = "DISPENSE_POINTAGE";
-        } else if ("PRESENT".equals(code) && result.workedMinutes() > 0 && CalendrierOuvrableEngine.isWeekend(date)) {
-            code = date.getDayOfWeek() == DayOfWeek.SATURDAY ? "SAMEDI_TRAVAILLE" : "DIMANCHE_TRAVAILLE";
+        if (!result.anomalies().isEmpty()) return "ANOMALIE_SAISIE";
+        if ("FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())) {
+            return toPersistenceStatus(result, dto);
         }
-        return "RETARD".equals(code) ? "PRESENT" : code;
+        // Absence is an explicit administrative decision; presence, rest and anomaly
+        // are calculated afresh from the punches and the calendar.
+        if ("ABSENCE_JUSTIFIEE".equals(code) || "ABSENCE_NON_JUSTIFIEE".equals(code)) return code;
+        boolean hasPunch = hasTime(dto.getHeureEntreeMatin()) || hasTime(dto.getHeureSortieMatin())
+                || hasTime(dto.getHeureEntreeAm()) || hasTime(dto.getHeureSortieAm());
+        if (!hasPunch && !dto.isFerieJour() && !CalendrierOuvrableEngine.isWeekend(date)
+                && !dto.isEstAutonome() && dto.getTypeCongeJour() == null) return "NON_SAISI";
+        String calculated = toPersistenceStatus(result, dto);
+        if (date.getDayOfWeek() == DayOfWeek.SATURDAY && result.workedMinutes() > 0
+                && !dto.isFerieJour()) return "SAMEDI_TRAVAILLE";
+        return calculated;
+    }
+
+    private static boolean hasTime(String value) {
+        return value != null && !value.isBlank() && !"—".equals(value) && !"--:--".equals(value);
     }
 
     private static void normalizeDayIntent(SaisiePointageJourDTO dto, LocalTime startMorning, LocalTime endMorning,
@@ -444,6 +453,7 @@ public class PointageService {
             case "SAMEDI_TRAVAILLE" -> "Samedi travaillé";
             case "DIMANCHE_TRAVAILLE" -> "Dimanche travaillé";
             case "REPOS" -> "Repos";
+            case "NON_SAISI" -> "Non saisi";
             default -> "Non saisi";
         };
     }
@@ -1094,7 +1104,7 @@ public class PointageService {
                                 dto.setHeureSortieMatin((String) siteParams.get("heureFinMatin"));
                                 dto.setHeureEntreeAm((String) siteParams.get("heureDebutAm"));
                                 dto.setHeureSortieAm((String) siteParams.get("heureFinAm"));
-                                dto.setTotalHeures(0.0);
+                                dto.setTotalHeures(dureeJourReference);
                                 dto.setMinutesRetard(0);
                                 dto.setCodeStatut("DISPENSE_POINTAGE");
                                 dto.setLibelleStatut("Autonome");
@@ -1435,7 +1445,7 @@ public class PointageService {
         String sqlUpdate = "UPDATE pointage_jour SET " +
                 "heure_entree_matin = ?, heure_sortie_matin = ?, heure_entree_am = ?, heure_sortie_am = ?, " +
                 "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, " +
-                "motif_ajustement = ?, id_statut_jour = COALESCE((SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT')), " +
+                "motif_ajustement = ?, id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
                 "montant_total_indemnites = ?, horaire_continu_jour = ?, heure_entree_matin_effective = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_pointage = ? AND version = ? RETURNING id_pointage, version";
 
@@ -1445,7 +1455,7 @@ public class PointageService {
                 "heures_matin, heures_am, total_heures, minutes_retard, heures_nuit, " +
                 "motif_ajustement, id_statut_jour, montant_total_indemnites, horaire_continu_jour, heure_entree_matin_effective, version, updated_at" +
                 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " +
-                "COALESCE((SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT')), " +
+                "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
                 "?, ?, ?, 1, CURRENT_TIMESTAMP) RETURNING id_pointage, version";
 
         String sqlDynInd = "INSERT INTO pointage_indemnite_jour (" +
@@ -1588,6 +1598,11 @@ public class PointageService {
                 LocalTime siteFinA = sH[3];
 
                 normalizeDayIntent(dto, siteDebM, siteFinM, siteDebA, siteFinA);
+                // Une nouvelle sauvegarde de la journée rouvre l'examen d'un retard
+                // confirmé sur une version antérieure du pointage.
+                if ("Retard réel confirmé".equalsIgnoreCase(dto.getMotifAjustement())) {
+                    dto.setMotifAjustement(null);
+                }
 
                 Time em = parseTime(dto.getHeureEntreeMatin());
                 Time sm = parseTime(dto.getHeureSortieMatin());
@@ -1624,6 +1639,10 @@ public class PointageService {
                 int retMins = Math.toIntExact(dailyResult.lateMinutes());
 
                 String codeStatut = resolveDayStatus(dto, dailyResult, datePtg);
+                if ("NON_SAISI".equals(codeStatut)) {
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                            "Aucun horaire ou statut d'absence n'a été saisi pour l'employé ID " + dto.getIdEmploye() + ".");
+                }
 
                 // 2. Contrôle P0-5 : Concurrence & Optimistic Locking
                 psCheckRow.setInt(1, dto.getIdEmploye());

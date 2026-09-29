@@ -122,9 +122,42 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                             item.codeStatut, item.typeCongeJour, item.horaireContinu, item.estAutonome, item.ferieJour,
                             item.congePaye, item.congeDecompteSolde
                         ]);
-                        return currentSignature === inputSignature
-                            ? { ...item, ...preview, _previewPending: false, _previewError: null }
-                            : item;
+                        if (currentSignature !== inputSignature) return item;
+
+                        // The preview endpoint returns the full DTO, including the editable
+                        // times. Keep the values currently being edited and apply only its
+                        // calculated/validation fields; otherwise an async preview can
+                        // replace a user's draft with normalized or stale input values.
+                        return {
+                            ...item,
+                            heuresMatin: preview.heuresMatin,
+                            heuresAm: preview.heuresAm,
+                            totalHeures: preview.totalHeures,
+                            heuresNuit: preview.heuresNuit,
+                            minutesRetard: preview.minutesRetard,
+                            codeStatut: preview.codeStatut,
+                            libelleStatut: preview.libelleStatut,
+                            hasValidationError: preview.hasValidationError,
+                            validationMessages: preview.validationMessages || [],
+                            statusActions: preview.statusActions || [],
+                            statutBadgeVariant: preview.statutBadgeVariant,
+                            statutBadgeLabel: preview.statutBadgeLabel,
+                            present: preview.present,
+                            retard: preview.retard,
+                            conge: preview.conge,
+                            absenceJustifiee: preview.absenceJustifiee,
+                            absenceNonJustifiee: preview.absenceNonJustifiee,
+                            nonSaisi: preview.nonSaisi,
+                            anomalie: preview.anomalie,
+                            dispensePointage: preview.dispensePointage,
+                            ferieTravaille: preview.ferieTravaille,
+                            ferieChome: preview.ferieChome,
+                            samediTravaille: preview.samediTravaille,
+                            dimancheTravaille: preview.dimancheTravaille,
+                            repos: preview.repos,
+                            _previewPending: false,
+                            _previewError: null
+                        };
                     }));
                 } catch (previewError) {
                     setGrilleData((current) => current.map((item) => item.idEmploye === id && item._previewPending
@@ -146,7 +179,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         setGrilleData((prev) =>
             prev.map((row) => {
                 if (row.idEmploye !== idEmploye) return row;
-                const updated = { ...row, [field]: value };
+                const updated = { ...row, [field]: value, codeStatut: 'NON_SAISI' };
                 return markForPreview(updated);
             })
         );
@@ -160,7 +193,8 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                 const updated = {
                     ...row,
                     horaireContinu: nextVal,
-                    horaireContinuJour: nextVal
+                    horaireContinuJour: nextVal,
+                    codeStatut: 'NON_SAISI'
                 };
                 return markForPreview(updated);
             })
@@ -198,6 +232,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                     heureSortieMatin: hFinM,
                     heureEntreeAm: hDebA,
                     heureSortieAm: hFinA,
+                    codeStatut: 'NON_SAISI',
                 };
                 return markForPreview(filled);
             })
@@ -288,7 +323,8 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                     heureEntreeMatin: hDebM,
                     heureSortieMatin: hFinM,
                     heureEntreeAm: hDebA,
-                    heureSortieAm: hFinA
+                    heureSortieAm: hFinA,
+                    codeStatut: 'NON_SAISI'
                 };
                 return markForPreview(filled);
             })
@@ -306,7 +342,8 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                     const filled = {
                         ...row,
                         heureSortieMatin: row.heureSortieMatin || hFinM,
-                        heureEntreeAm: row.heureEntreeAm || hDebA
+                        heureEntreeAm: row.heureEntreeAm || hDebA,
+                        codeStatut: 'NON_SAISI'
                     };
                     return markForPreview(filled);
                 }

@@ -836,6 +836,11 @@ public class PayrollPeriodWorkflowService {
         if (count(connection, "SELECT COUNT(*) FROM pointage_jour WHERE id_periode_paie = ?", periodId) == 0) {
             return ActionCapability.denied("POINTAGE_EMPTY");
         }
+        var preflight = pointageSyntheseService.preflightPeriode(periodId, connection);
+        if (preflight.nombreEmployes() == 0) return ActionCapability.denied("POINTAGE_POPULATION_EMPTY");
+        if (!preflight.journeesManquantes().isEmpty()) {
+            return ActionCapability.denied("POINTAGE_JOURNEES_MANQUANTES");
+        }
         String blockingSql = "SELECT COUNT(*) FROM pointage_jour p "
                 + "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour "
                 + "WHERE p.id_periode_paie = ? AND (st.code = 'ANOMALIE_SAISIE' "

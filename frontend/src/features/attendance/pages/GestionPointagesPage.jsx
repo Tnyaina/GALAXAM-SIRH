@@ -99,7 +99,9 @@ export default function GestionPointagesPage() {
                             pageSize: 1
                         });
                         if (isMounted) {
-                            setAnomaliesCount(res?.totalElements ?? res?.anomalies?.length ?? 0);
+                            setAnomaliesCount(res?.kpis?.anomaliesActives
+                                ?? res?.anomalies?.filter(item => item.statutAnomalie === 'todo').length
+                                ?? 0);
                         }
                     } catch {
                         if (isMounted) setAnomaliesCount(0);

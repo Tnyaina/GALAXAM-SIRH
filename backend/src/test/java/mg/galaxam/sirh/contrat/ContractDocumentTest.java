@@ -132,7 +132,7 @@ class ContractDocumentTest {
             assertTrue(text.contains("Rakoto Jean")); assertTrue(text.contains("CTR-2026-0042"));
             assertEquals("Title", doc.getParagraphs().stream().filter(p -> p.getText().startsWith("Contrat de") || p.getText().startsWith("Convention de")).findFirst().orElseThrow().getStyle());
             assertFalse(doc.getAllPictures().isEmpty(), "Le logo doit être conservé à la génération");
-            assertTrue(text.contains("Canevas interne")); assertFalse(text.contains("{{")); assertFalse(text.contains("}}"));
+            assertFalse(text.contains("Canevas interne")); assertFalse(text.contains("Canevas à valider")); assertFalse(text.contains("{{")); assertFalse(text.contains("}}"));
             assertTrue(text.contains("["), "Les zones de clauses restent dans le canevas");
         }
     }

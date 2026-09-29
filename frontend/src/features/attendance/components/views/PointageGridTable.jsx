@@ -408,6 +408,11 @@ export default function PointageGridTable({
                                             onStatusChange={(newStatut, motif) => onUpdateStatut?.(row.idEmploye, newStatut, motif)}
                                             disabled={isReadOnlyForUser || Boolean(row.ferieChome) || Boolean(row.conge)}
                                         />
+                                        {row.validationMessages?.length > 0 && (
+                                            <div className="mt-1 text-[10px] text-danger-600 dark:text-danger-400 text-left" role="alert">
+                                                {row.validationMessages.map((message, index) => <div key={index}>{message}</div>)}
+                                            </div>
+                                        )}
                                     </Td>
 
                                     {/* 9. Colonnes Dynamiques d'Indemnités avec Cases à cocher */}

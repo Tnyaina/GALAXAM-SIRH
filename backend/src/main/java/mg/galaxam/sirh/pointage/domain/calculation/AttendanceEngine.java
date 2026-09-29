@@ -249,9 +249,12 @@ public class AttendanceEngine {
                 : Result.Status.PUBLIC_HOLIDAY_OFF;
         if (sunday && worked > 0) return Result.Status.SUNDAY_WORKED;
         if (weekend && worked == 0) return Result.Status.REST;
-        if (c.autonomous() && !hasPunch) return Result.Status.AUTONOMOUS;
+        if (c.autonomous() && !weekend) return Result.Status.AUTONOMOUS;
         if (worked == 0) return Result.Status.ABSENT;
-        if (c.leavePart() != Context.LeavePart.NONE || worked < scheduled) {
+        boolean oneSegmentOnly = !c.continuousSchedule()
+                && ((c.morningEntry() != null && c.morningExit() != null)
+                    != (c.afternoonEntry() != null && c.afternoonExit() != null));
+        if (c.leavePart() != Context.LeavePart.NONE || oneSegmentOnly) {
             return Result.Status.HALF_DAY;
         }
         return Result.Status.PRESENT;

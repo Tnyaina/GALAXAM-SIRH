@@ -46,7 +46,7 @@ export default function DocumentsRhTab({
             if (selectedCategory === 'OBLIGATOIRES' && !doc.typeDocumentObligatoire) return false;
             if (selectedCategory === 'CONTRATS' && !doc.idContrat) return false;
             if (debouncedSearch) {
-                const matchNom = doc.nomOriginal?.toLowerCase().includes(debouncedSearch);
+                const matchNom = `${doc.nomAffichage || ''} ${doc.nomOriginal || ''}`.toLowerCase().includes(debouncedSearch);
                 const matchComment = doc.commentaire?.toLowerCase().includes(debouncedSearch);
                 const matchType = doc.typeDocumentLibelle?.toLowerCase().includes(debouncedSearch);
                 const matchContrat = doc.numeroContrat?.toLowerCase().includes(debouncedSearch);
@@ -219,8 +219,8 @@ export default function DocumentsRhTab({
                                                     <FileText size={15} />
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <p className="font-bold text-xs text-[var(--color-fg)] truncate max-w-sm" title={doc.nomOriginal}>
-                                                        {doc.nomOriginal}
+                                                    <p className="font-bold text-xs text-[var(--color-fg)] truncate max-w-sm" title={doc.nomAffichage || doc.nomOriginal}>
+                                                        {doc.nomAffichage || doc.nomOriginal}
                                                     </p>
                                                     <p className="text-[11px] text-[var(--color-fg-muted)] truncate">
                                                         {doc.typeDocumentLibelle}
@@ -254,7 +254,7 @@ export default function DocumentsRhTab({
                                                     type="button"
                                                     variant="ghost"
                                                     size="xs"
-                                                    onClick={() => onDownloadDoc(doc.idDocument, doc.nomOriginal)}
+                                                    onClick={() => onDownloadDoc(doc.idDocument, doc.nomAffichage || doc.nomOriginal)}
                                                     iconLeft={<Download size={13} className="text-[var(--color-brand-600)]" />}
                                                     title="Visualiser / Télécharger"
                                                 >
@@ -265,7 +265,7 @@ export default function DocumentsRhTab({
                                                         type="button"
                                                         variant="ghost"
                                                         size="xs"
-                                                        onClick={() => onDeleteDoc(doc.idDocument, doc.nomOriginal)}
+                                                        onClick={() => onDeleteDoc(doc.idDocument, doc.nomAffichage || doc.nomOriginal)}
                                                         iconLeft={<Trash2 size={13} className="text-[var(--color-danger-500)]" />}
                                                         title="Supprimer"
                                                         aria-label="Supprimer le document"
