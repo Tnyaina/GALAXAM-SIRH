@@ -12,6 +12,13 @@
  * @param {string|Date|null|undefined} d
  * @returns {string} Date au format "YYYY-MM-DD" ou "" si vide/invalide
  */
+export function shiftIsoDate(value, days) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return '';
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day + days));
+    return date.toISOString().slice(0, 10);
+}
+
 export function fmtDateInput(d) {
     if (!d) return '';
     if (d instanceof Date) {

@@ -360,7 +360,16 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
             if (targetEmpIds && targetEmpIds.size > 0) {
                 payload = grilleData.filter(r => targetEmpIds.has(r.idEmploye));
             } else if (initialGrilleData && initialGrilleData.length > 0) {
-                payload = grilleData.filter((row) => isRowModified(row, initialGrilleData));
+                payload = grilleData.filter((row) => {
+                    // Un autonome sans pointage persisté doit toujours être inclus :
+                    // ses indemnités (cochées par défaut) ne sont jamais en DB et ne seront
+                    // jamais détectées comme "modifiées" par isRowModified car initial == courant.
+                    // Exception : on exclut les week-ends et fériés chômés sans pointage existant
+                    // (le backend les skipperait de toute façon, inutile de les envoyer).
+                    const isWeekendOrFerie = row.codeStatut === 'REPOS' || row.codeStatut === 'FERIE_CHOME';
+                    const isAutonomeNonPersiste = row.estAutonome && !row.idPointage && !isWeekendOrFerie;
+                    return isAutonomeNonPersiste || isRowModified(row, initialGrilleData);
+                });
             }
 
             if (payload.length === 0) {

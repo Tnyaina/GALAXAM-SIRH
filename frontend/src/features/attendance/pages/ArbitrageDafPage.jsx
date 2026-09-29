@@ -195,7 +195,14 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
     const periodActions = currentPeriodeObj?.availableActions || {};
     const isPendingDaf = ['A_VALIDER', 'TRANSMIS_DAF'].includes(currentPeriodeObj?.statutCode);
-    const canApprove = !loading && !loadError && preflight?.pret === true && periodActions.APPROVE?.allowed === true;
+    const isPreflightPret = Boolean(
+        preflight && (
+            preflight.pret !== undefined
+                ? preflight.pret
+                : (!preflight.blocages?.length && !preflight.journeesManquantes?.length && (preflight.nombreEmployes > 0))
+        )
+    );
+    const canApprove = !loading && !loadError && isPreflightPret && periodActions.APPROVE?.allowed === true;
     const canReject = periodActions.REJECT?.allowed === true;
     const approvalBlockCode = periodActions.APPROVE?.reasonCodes?.[0];
     const approvalBlockMessage = {
@@ -516,33 +523,39 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                     <span>{loadError} Les données précédentes ont été masquées.</span>
                     <Button type="button" variant="outline" size="sm" onClick={loadData}>Réessayer</Button>
                 </div>}
-                {!loadError && isPendingDaf && preflight && !preflight.pret && (
+                {!loadError && isPendingDaf && preflight && !isPreflightPret && (
                     <div role="status" aria-live="polite" className="border border-[var(--color-warning-300)] bg-[var(--color-warning-50)] p-4 text-sm text-[var(--color-warning-900)] space-y-2">
                         <strong>Validation en attente de correction</strong>
                         {preflight.nombreEmployes === 0 && <p>Aucun collaborateur dans la synthèse de période.</p>}
                         {preflight.journeesManquantes?.length > 0 && <>
-                            <p>{preflight.journeesManquantes.length} journée(s) ouvrable(s) sans pointage ni statut explicite. Saisissez une présence, une absence ou un congé avant le gel.</p>
-                            <div className="flex flex-wrap gap-2">{preflight.journeesManquantes.slice(0, 8).map((jour) => (
+                            <p><strong>{preflight.journeesManquantes.length} journée(s) ouvrable(s)</strong> sans pointage ni statut explicite. Cliquez sur une journée pour ouvrir la saisie au bon jour.</p>
+                            <div className="flex flex-wrap gap-2">{preflight.journeesManquantes.slice(0, 12).map((jour) => (
                                 <button key={`${jour.idEmploye}-${jour.date}`} type="button"
-                                    className="border border-[var(--color-warning-400)] bg-[var(--color-surface)] px-2 py-1 hover:bg-[var(--color-warning-100)]"
-                                    onClick={() => navigate(`/pointages?tab=saisie&periode=${selectedPeriode}`)}>
-                                    {jour.matricule} · {jour.date} · ouvrir la saisie
+                                    className="border border-[var(--color-warning-400)] bg-[var(--color-surface)] px-2 py-1 text-xs font-mono hover:bg-[var(--color-warning-100)]"
+                                    title={`${jour.nom} ${jour.prenom} — journée du ${jour.date} sans pointage`}
+                                    onClick={() => navigate(`/pointages?tab=saisie&date=${jour.date}${jour.idSite ? `&site=${jour.idSite}` : ''}`)}>
+                                    {jour.matricule} · {jour.date}
                                 </button>
                             ))}</div>
-                            {preflight.journeesManquantes.length > 8 && <p>+ {preflight.journeesManquantes.length - 8} autres journées à traiter.</p>}
+                            {preflight.journeesManquantes.length > 12 && <p className="text-xs">+ {preflight.journeesManquantes.length - 12} autres journées à traiter.</p>}
                         </>}
                         {preflight.blocages?.length > 0 && <>
                             <p>{preflight.blocages.length} collaborateur(s) ont des HS sans semaine de rattachement. Corrigez leur journée avant de sceller le pointage.</p>
                             <div className="flex flex-wrap gap-2">{preflight.blocages.map((blocker) => (
                                 <button key={blocker.idEmploye} type="button" className="border border-[var(--color-warning-400)] bg-[var(--color-surface)] px-2 py-1 hover:bg-[var(--color-warning-100)]"
                                     onClick={() => { setSearchTerm(blocker.matricule || `${blocker.nom} ${blocker.prenom}`); setCurrentPage(1); }}>
-                                    {blocker.matricule} · {blocker.nom} {blocker.prenom} · {(blocker.minutesHsSansSemaine / 60).toFixed(2)} h à rattacher
+                                    {blocker.matricule} · {blocker.nom} {blocker.prenom} · {(blocker.minutesHsSansSemaine / 60).toFixed(2)} h HS non rattachées
                                 </button>
                             ))}</div>
                         </>}
+                        {preflight.nombreEmployes > 0 && !preflight.journeesManquantes?.length && !preflight.blocages?.length && (
+                            <p className="text-xs text-[var(--color-warning-800)]">
+                                Condition de blocage non résolue. Cliquez sur <strong>Actualiser les calculs</strong> puis rechargez la page.
+                            </p>
+                        )}
                     </div>
                 )}
-                {!loadError && isDaf && isPendingDaf && preflight?.pret && !canApprove && approvalBlockMessage && (
+                {!loadError && isDaf && isPendingDaf && isPreflightPret && !canApprove && approvalBlockMessage && (
                     <div role="status" aria-live="polite" className="border border-[var(--color-warning-300)] bg-[var(--color-warning-50)] p-3 text-sm text-[var(--color-warning-900)]">
                         Validation en attente : {approvalBlockMessage}
                     </div>
@@ -644,6 +657,22 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                     ))}
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    {[
+                        { label: 'Heures de nuit', value: kpis ? `${formatHeuresMinutes(kpis.totalNuit)} (${formatHeuresDecimal(kpis.totalNuit)})` : '—', icon: Moon },
+                        { label: 'Heures du dimanche', value: kpis ? `${formatHeuresMinutes(kpis.totalDimanche)} (${formatHeuresDecimal(kpis.totalDimanche)})` : '—', icon: Calendar },
+                        { label: 'Heures des jours fériés', value: kpis ? `${formatHeuresMinutes(kpis.totalFerie)} (${formatHeuresDecimal(kpis.totalFerie)})` : '—', icon: Award },
+                    ].map(kpi => (
+                        <div key={kpi.label} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex items-center gap-3">
+                            <kpi.icon size={18} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shrink-0" />
+                            <div>
+                                <div className="text-[11px] text-[var(--color-fg-muted)] font-medium">{kpi.label}</div>
+                                <div className="text-sm font-bold font-mono text-[var(--color-fg)]">{kpi.value}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
                 {/* Toggle Synthèse / Gantt */}
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-4">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 gap-3">
@@ -735,10 +764,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                             ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]'
                                             : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
                                     }`}
-                                    title="Afficher ou masquer les colonnes techniques de calcul (Surplus journalier et Compensé)"
+                                    title={showAuditColumns ? 'Masquer le détail des calculs : surplus journalier et heures utilisées en compensation' : 'Afficher le détail des calculs : surplus journalier et heures utilisées en compensation'}
+                                    aria-label={showAuditColumns ? 'Masquer le détail des calculs' : 'Afficher le détail des calculs'}
                                 >
                                     <Scale size={13} />
-                                    <span className="hidden md:inline">{showAuditColumns ? 'Masquer calculs' : 'Mode audit (Surplus/Compensé)'}</span>
+                                    <span className="hidden md:inline">{showAuditColumns ? 'Masquer le détail des calculs' : 'Afficher le détail des calculs'}</span>
                                 </button>
                             )}
                         </div>
@@ -762,13 +792,6 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             </div>
                         ) : (
                             <div className="space-y-0 overflow-x-auto">
-                                {/* Bannière explicative règle de compensation */}
-                                <div className="attendance-info mb-3 p-2.5 text-xs flex items-center gap-2">
-                                    <Scale size={15} className="shrink-0" />
-                                    <div>
-                                        <strong>Compensation hebdomadaire :</strong> les heures en plus sur une journée compensent d&apos;abord les heures manquantes de la même semaine. L&apos;objectif est automatiquement ajusté pour les congés et jours fériés. Le solde devient une <span className="font-semibold text-[var(--color-purple-700)] dark:text-[var(--color-purple-200)]">heure supplémentaire</span> ou une <span className="font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">retenue sur salaire</span>. Les retards restent suivis séparément.
-                                    </div>
-                                </div>
 
                                 <Table density="compact" divided bordered={false}>
                                     <Thead>
@@ -786,11 +809,13 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     <Award size={11} /> HS 50%
                                                 </span>
                                             </Th>
-                                                    <Th className="text-center w-14">
+                                            <Th className="text-center w-14">
                                                         <span className="inline-flex items-center gap-1 text-[var(--color-info-700)] dark:text-[var(--color-info-200)]">
                                                     <Moon size={11} /> Nuit
                                                 </span>
                                             </Th>
+                                            <Th className="text-center w-16">Dimanche</Th>
+                                            <Th className="text-center w-16">Férié</Th>
                                                     <Th className="text-center w-28">
                                                         <span className="inline-flex items-center gap-1 text-[var(--color-orange-700)] dark:text-[var(--color-orange-200)]">
                                                     <Banknote size={11} /> Indemnités
@@ -835,6 +860,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                             const hs30Finales = row.minutesHs30Finales != null ? row.minutesHs30Finales / 60 : (row.heuresHs30 || 0);
                                             const hs50Finales = row.minutesHs50Finales != null ? row.minutesHs50Finales / 60 : (row.heuresHs50 || 0);
                                             const absenceFinale = row.minutesAbsenceFinale != null ? row.minutesAbsenceFinale / 60 : (row.heuresAbsenceRetenues || 0);
+                                            const heuresQualifiees = (row.tronconsSemaine || []).reduce((totals, week) => ({
+                                                nuit: totals.nuit + Number(week.heuresNuit || 0),
+                                                dimanche: totals.dimanche + Number(week.heuresDimanche || 0),
+                                                ferie: totals.ferie + Number(week.heuresFerie || 0),
+                                            }), { nuit: 0, dimanche: 0, ferie: 0 });
                                             const totalIndRow = allowanceEntries.reduce((total, [, amount]) => total + Number(amount || 0), 0);
                                             const allowanceDetails = allowanceEntries.map(([code, amount]) =>
                                                 `• ${code} : ${formatMonnaie(amount || 0)}`).join('\n');
@@ -907,14 +937,18 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                         )}
                                                     </Td>
                                                     <Td className="text-center">
-                                                        {(row.heuresNuitTotal || 0) > 0 ? (
-                                                            <span className="attendance-info inline-block attendance-duration text-xs font-bold px-1.5 py-0.5" title={`${formatHeuresMinutes(row.heuresNuitTotal)}`}>
-                                                                {formatHeuresMinutes(row.heuresNuitTotal)}
-                                                                <span className="attendance-duration-secondary block">({formatHeuresDecimal(row.heuresNuitTotal)})</span>
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
-                                                        )}
+                                                        <span className="attendance-info inline-block attendance-duration text-xs font-bold px-1.5 py-0.5">
+                                                            {formatHeuresMinutes(heuresQualifiees.nuit)}
+                                                            <span className="attendance-duration-secondary block">({formatHeuresDecimal(heuresQualifiees.nuit)})</span>
+                                                        </span>
+                                                    </Td>
+                                                    <Td className="text-center font-mono text-xs">
+                                                        {formatHeuresMinutes(heuresQualifiees.dimanche)}
+                                                        <span className="attendance-duration-secondary block">({formatHeuresDecimal(heuresQualifiees.dimanche)})</span>
+                                                    </Td>
+                                                    <Td className="text-center font-mono text-xs">
+                                                        {formatHeuresMinutes(heuresQualifiees.ferie)}
+                                                        <span className="attendance-duration-secondary block">({formatHeuresDecimal(heuresQualifiees.ferie)})</span>
                                                     </Td>
                                                     {/* Total Indemnités regroupé */}
                                                     <Td
@@ -1119,7 +1153,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 title={`Arbitrage & Gel : ${currentPeriodeObj?.libelle || ''} ?`}
                 message="Cette action fige les données de pointage de la période. La paie utilisera le solde final d’absence horaire et de HS 30 %, ainsi que les autres qualifications et indemnités figées. Vous pourrez ensuite contrôler les bulletins avant validation. Confirmer l’arbitrage et le scellement ?"
                 confirmLabel="Valider l'arbitrage & Sceller le pointage"
-                variant="success"
+                variant="primary"
                 loading={processing}
             />
 

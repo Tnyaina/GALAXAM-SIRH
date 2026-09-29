@@ -10,7 +10,7 @@ const variants = {
   danger:
     'bg-[var(--color-danger-500)] hover:bg-[var(--color-danger-600)] text-[var(--color-on-color)] border border-[var(--color-danger-500)]',
   success:
-    'bg-[var(--color-success-500)] hover:bg-[var(--color-success-600)] text-[var(--color-on-color)] border border-[var(--color-success-500)]',
+    'bg-[var(--color-brand-600)] hover:bg-[var(--color-brand-700)] text-[var(--color-on-color)] border border-[var(--color-brand-600)]',
 };
 
 const sizes = {

@@ -248,10 +248,10 @@ export default function WorkflowDraftSummaryModal({
                             </div>
                         </div>
                     ) : isActif ? (
-                        <div className="bg-success-500/10 border border-success-500/20 p-4 rounded-none flex items-start gap-3">
-                            <CheckCircle size={18} className="text-success-600 flex-shrink-0 mt-0.5" />
+                        <div className="bg-[var(--color-success-500)]/10 border border-[var(--color-success-500)]/20 p-4 rounded-none flex items-start gap-3">
+                            <CheckCircle size={18} className="text-[var(--color-success-600)] flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
-                                <p className="font-bold text-success-700 dark:text-success-400">
+                                <p className="font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
                                     {isEmbauche ? 'Embauche Initiale Validée et Appliquée' : isConfirmationEssai ? 'Confirmation d\'Essai Validée avec Succès' : isRenouvellementEssai ? 'Renouvellement d\'Essai Validé et Appliqué' : 'Événement RH Validé et Actif'}
                                 </p>
                                 <p className="text-[var(--color-fg-muted)]">
@@ -272,16 +272,16 @@ export default function WorkflowDraftSummaryModal({
                             </div>
                         </div>
                     ) : isAnnule ? (
-                        <div className="bg-danger-500/10 border border-danger-500/30 p-4 rounded-none flex items-start gap-3">
-                            <XCircle size={18} className="text-danger-600 flex-shrink-0 mt-0.5" />
+                        <div className="bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/30 p-4 rounded-none flex items-start gap-3">
+                            <XCircle size={18} className="text-[var(--color-danger-600)] flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
-                                <p className="font-bold text-danger-700 dark:text-danger-400">
+                                <p className="font-bold text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)]">
                                     Mouvement RH Annulé / Rejeté
                                 </p>
                                 <p className="text-[var(--color-fg-muted)]">
                                     {currentWf.commentaire || currentWf.motif ? (
                                         <>
-                                            <span className="font-semibold text-danger-600 dark:text-danger-400">Motif :</span> {currentWf.commentaire || currentWf.motif}
+                                            <span className="font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">Motif :</span> {currentWf.commentaire || currentWf.motif}
                                         </>
                                     ) : (
                                         "Ce mouvement RH a été annulé et n'a produit aucun effet contractuel."
@@ -298,8 +298,8 @@ export default function WorkflowDraftSummaryModal({
 
                     {/* Bloc Synthèse Période d'Essai si l'événement concerne l'essai */}
                     {(isConfirmationEssai || isRenouvellementEssai || (isEmbauche && (currentWf.dureeEssaiMois || currentWf.dateFinEssai))) && (
-                        <div className="bg-warning-500/10 border border-warning-500/30 p-4 rounded-none space-y-2">
-                            <div className="flex justify-between items-center text-xs font-bold text-warning-800 dark:text-warning-300">
+                        <div className="bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 p-4 rounded-none space-y-2">
+                            <div className="flex justify-between items-center text-xs font-bold text-[var(--color-warning-800)] dark:text-[var(--color-warning-300)]">
                                 <span className="flex items-center gap-1.5">
                                     <Clock size={16} /> Synthèse Période d'Essai — {currentWf.libelleTypeEvenement || 'Mouvement'}
                                 </span>
@@ -307,7 +307,7 @@ export default function WorkflowDraftSummaryModal({
                                     {isConfirmationEssai ? 'ESSAI CONFIRMÉ' : isRenouvellementEssai ? 'ESSAI RENOUVELÉ' : 'PÉRIODE D\'ESSAI INITIALE'}
                                 </Badge>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs pt-1 border-t border-warning-500/20">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs pt-1 border-t border-[var(--color-warning-500)]/20">
                                 <div>
                                     <span className="text-[var(--color-fg-subtle)] text-[10px] block font-semibold uppercase">Durée d'Essai :</span>
                                     <span className="font-bold text-[var(--color-fg)]">{currentWf.dureeEssaiMois || '-'} Mois</span>
@@ -408,8 +408,8 @@ export default function WorkflowDraftSummaryModal({
 
                     {/* Zone de confirmation pour l'annulation — motif obligatoire, seule action qui justifie une étape dédiée */}
                     {(isBrouillon || isPlanifieFutur) && isCancelling && (
-                        <div className="p-4 border rounded-none space-y-3 bg-danger-500/10 border-danger-500/30">
-                            <h4 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-danger-700 dark:text-danger-400">
+                        <div className="p-4 border rounded-none space-y-3 bg-[var(--color-danger-500)]/10 border-[var(--color-danger-500)]/30">
+                            <h4 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)]">
                                 <AlertTriangle size={16} />
                                 {isPlanifieFutur ? 'Confirmation de l\'annulation de la planification RH' : 'Confirmation de l\'annulation du brouillon'}
                             </h4>
@@ -480,7 +480,7 @@ export default function WorkflowDraftSummaryModal({
                                     <Button
                                         type="button"
                                         onClick={handleValiderConfirm}
-                                        variant="success"
+                                        variant="primary"
                                         size="md"
                                         iconLeft={<CheckCircle size={16} />}
                                         loading={submitting}
@@ -489,7 +489,7 @@ export default function WorkflowDraftSummaryModal({
                                     </Button>
                                 ) : (
                                     <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-muted)] rounded-none">
-                                        <ShieldAlert size={14} className="text-warning-500 shrink-0" />
+                                        <ShieldAlert size={14} className="text-[var(--color-warning-500)] shrink-0" />
                                         <span>Validation réservée aux responsables habilités</span>
                                     </div>
                                 )}

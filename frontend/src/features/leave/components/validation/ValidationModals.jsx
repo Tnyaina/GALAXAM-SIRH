@@ -265,7 +265,7 @@ export default function ValidationModals({
                 <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                   <span className="text-[10px] text-[var(--color-fg-muted)] block">Solde Après</span>
                   <span className={`font-mono font-bold text-xs ${soldeApres != null && soldeApres < 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
-                    {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : 'Simulation indisponible'}
+                    {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : '-'}
                   </span>
                 </div>
               </div>
@@ -343,7 +343,7 @@ export default function ValidationModals({
               <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                 <span className="text-[10px] text-[var(--color-fg-muted)] block">Solde Après</span>
                 <span className={`font-mono font-bold text-xs ${soldeApres != null && soldeApres < 0 ? 'text-[var(--color-danger-600)] font-bold' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
-                  {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : 'Simulation indisponible'}
+                  {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : '-'}
                 </span>
               </div>
             </div>

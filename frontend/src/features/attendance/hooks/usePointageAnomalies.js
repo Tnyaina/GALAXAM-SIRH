@@ -58,11 +58,11 @@ export function usePointageAnomalies(initialFilters = {}) {
         return () => controller.abort();
     }, [loadAnomalies]);
 
-    const regulariser = async (idPointage, payload) => {
+    const regulariser = async (idPointage, payload, { reload = true } = {}) => {
         try {
             const res = await attendanceService.regulariser(idPointage, payload);
             if (res && (res.success || res.status === 200)) {
-                await loadAnomalies();
+                if (reload) await loadAnomalies();
                 return res;
             }
             return res || { success: false, error: 'Échec de la régularisation.' };

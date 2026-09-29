@@ -566,8 +566,12 @@ public class PayrollPeriodWorkflowService {
         String blockingIssues = "SELECT COUNT(*) FROM pointage_jour p "
                 + "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour "
                 + "WHERE p.id_periode_paie = ? AND (st.code = 'ANOMALIE_SAISIE' "
-                + "OR (st.code = 'ABSENCE_NON_JUSTIFIEE' "
-                + "AND (p.motif_ajustement IS NULL OR TRIM(p.motif_ajustement) = '')))";
+                + "OR (st.code IN ('ABSENCE_NON_JUSTIFIEE', 'ABSENCE_JUSTIFIEE') "
+                + "AND p.date_ajustement IS NULL AND p.id_demande_conge IS NULL "
+                + "AND NOT EXISTS (SELECT 1 FROM demande_conge dc "
+                + "JOIN ref_statut_demande_conge dsc ON dsc.id_statut_demande_conge = dc.id_statut_demande_conge "
+                + "WHERE dc.id_employe = p.id_employe AND p.date_pointage BETWEEN dc.date_debut AND dc.date_fin "
+                + "AND dsc.code = 'VALIDE')))";
         try (PreparedStatement statement = connection.prepareStatement(blockingIssues)) {
             statement.setInt(1, periodId);
             try (ResultSet result = statement.executeQuery()) {
@@ -844,8 +848,12 @@ public class PayrollPeriodWorkflowService {
         String blockingSql = "SELECT COUNT(*) FROM pointage_jour p "
                 + "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour "
                 + "WHERE p.id_periode_paie = ? AND (st.code = 'ANOMALIE_SAISIE' "
-                + "OR (st.code = 'ABSENCE_NON_JUSTIFIEE' "
-                + "AND (p.motif_ajustement IS NULL OR TRIM(p.motif_ajustement) = '')))";
+                + "OR (st.code IN ('ABSENCE_NON_JUSTIFIEE', 'ABSENCE_JUSTIFIEE') "
+                + "AND p.date_ajustement IS NULL AND p.id_demande_conge IS NULL "
+                + "AND NOT EXISTS (SELECT 1 FROM demande_conge dc "
+                + "JOIN ref_statut_demande_conge dsc ON dsc.id_statut_demande_conge = dc.id_statut_demande_conge "
+                + "WHERE dc.id_employe = p.id_employe AND p.date_pointage BETWEEN dc.date_debut AND dc.date_fin "
+                + "AND dsc.code = 'VALIDE')))";
         return count(connection, blockingSql, periodId) == 0
                 ? ActionCapability.permit()
                 : ActionCapability.denied("BLOCKING_ANOMALIES");

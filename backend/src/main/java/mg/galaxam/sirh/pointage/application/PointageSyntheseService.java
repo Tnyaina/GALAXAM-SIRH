@@ -641,6 +641,14 @@ public class PointageSyntheseService {
             tDto.setHeuresDeficit(minutesToHours(deficitTroncon));
             tDto.setHeuresHs30(minutesToHours(res.overtime30Minutes()));
             tDto.setHeuresHs50(minutesToHours(res.overtime50Minutes()));
+            tDto.setHeuresNuit(minutesToHours(res.days().stream()
+                    .mapToLong(AttendanceEngine.Result::nightMinutes).sum()));
+            tDto.setHeuresDimanche(minutesToHours(res.days().stream()
+                    .filter(AttendanceEngine.Result::sunday)
+                    .mapToLong(AttendanceEngine.Result::workedMinutes).sum()));
+            tDto.setHeuresFerie(minutesToHours(res.days().stream()
+                    .filter(AttendanceEngine.Result::publicHoliday)
+                    .mapToLong(AttendanceEngine.Result::workedMinutes).sum()));
             tronconsList.add(tDto);
         }
 
@@ -947,7 +955,8 @@ public class PointageSyntheseService {
             resp.put("currentPage", 1);
             resp.put("pageSize", size);
             resp.put("kpis", Map.of(
-                "totalSalaries", 0, "totalHeures", 0.0, "totalHs30", 0.0, "totalHs50", 0.0, "totalRetardMins", 0, "totalIndemnites", 0.0
+                "totalSalaries", 0, "totalHeures", 0.0, "totalHs30", 0.0, "totalHs50", 0.0,
+                "totalNuit", 0.0, "totalDimanche", 0.0, "totalFerie", 0.0, "totalRetardMins", 0, "totalIndemnites", 0.0
             ));
             resp.put("alertCounts", Map.of(
                 "all", 0, "hs", 0, "nuit", 0, "retard", 0, "compense", 0, "absence", 0
@@ -961,9 +970,26 @@ public class PointageSyntheseService {
         Set<Integer> employeesWithCompensation = new HashSet<>();
         double totalHs30 = 0;
         double totalHs50 = 0;
+        double totalNuit = 0;
+        double totalDimanche = 0;
+        double totalFerie = 0;
+        double totalHeures = 0;
+        BigDecimal totalIndemnites = BigDecimal.ZERO;
         for (PointageSyntheseMensuelleDTO dto : periodValues) {
+            // Les KPI de synthèse doivent suivre le même calcul et la même population
+            // que les lignes du tableau (notamment les collaborateurs autonomes).
+            totalHeures += dto.getTotalHeuresTravaillees();
             totalHs30 += dto.getMinutesHs30Finales() / 60.0;
             totalHs50 += dto.getMinutesHs50Finales() / 60.0;
+            if (dto.getMontantsIndemnites() != null) {
+                totalIndemnites = totalIndemnites.add(dto.getMontantsIndemnites().values().stream()
+                        .filter(amount -> amount != null).reduce(BigDecimal.ZERO, BigDecimal::add));
+            }
+            if (dto.getTronconsSemaine() != null) {
+                totalNuit += dto.getTronconsSemaine().stream().mapToDouble(PointageTronconSemaineDTO::getHeuresNuit).sum();
+                totalDimanche += dto.getTronconsSemaine().stream().mapToDouble(PointageTronconSemaineDTO::getHeuresDimanche).sum();
+                totalFerie += dto.getTronconsSemaine().stream().mapToDouble(PointageTronconSemaineDTO::getHeuresFerie).sum();
+            }
             if (dto.getMinutesHs30Finales() > 0 || dto.getMinutesHs50Finales() > 0) employeesWithHs.add(dto.getIdEmploye());
             if (dto.getTronconsSemaine() != null && dto.getTronconsSemaine().stream()
                     .anyMatch(w -> w.getHeuresHsBrutes() > w.getHeuresHsNettes())) {
@@ -1005,7 +1031,8 @@ public class PointageSyntheseService {
             resp.put("currentPage", page);
             resp.put("pageSize", size);
             resp.put("kpis", Map.of(
-                "totalSalaries", 0, "totalHeures", 0.0, "totalHs30", 0.0, "totalHs50", 0.0, "totalRetardMins", 0, "totalIndemnites", 0.0
+                "totalSalaries", 0, "totalHeures", 0.0, "totalHs30", 0.0, "totalHs50", 0.0,
+                "totalNuit", 0.0, "totalDimanche", 0.0, "totalFerie", 0.0, "totalRetardMins", 0, "totalIndemnites", 0.0
             ));
             resp.put("alertCounts", Map.of(
                 "all", 0, "hs", 0, "nuit", 0, "retard", 0, "compense", 0, "absence", 0
@@ -1068,10 +1095,9 @@ public class PointageSyntheseService {
         }
 
         // 3. Global KPIs
-        double totalHeures = 0;
         int totalRetardMins = 0;
         StringBuilder sqlKpi = new StringBuilder(
-            "SELECT COALESCE(SUM(pj.total_heures), 0) AS tot_h, COALESCE(SUM(pj.minutes_retard), 0) AS tot_ret " +
+            "SELECT COALESCE(SUM(pj.minutes_retard), 0) AS tot_ret " +
             "FROM pointage_jour pj JOIN employe e ON pj.id_employe = e.id_employe " +
             "WHERE pj.id_periode_paie = ? AND e.est_actif = TRUE "
         );
@@ -1081,7 +1107,6 @@ public class PointageSyntheseService {
             if (idSite != null && idSite > 0) psKpi.setInt(2, idSite);
             try (ResultSet rsKpi = psKpi.executeQuery()) {
                 if (rsKpi.next()) {
-                    totalHeures = rsKpi.getDouble("tot_h");
                     totalRetardMins = rsKpi.getInt("tot_ret");
                 }
             }
@@ -1233,10 +1258,14 @@ public class PointageSyntheseService {
 
         Map<String, Object> kpisMap = new HashMap<>();
         kpisMap.put("totalSalaries", countAll);
-        kpisMap.put("totalHeures", Math.round(totalHeures * 10.0) / 10.0);
+        kpisMap.put("totalHeures", Math.round(totalHeures * 100.0) / 100.0);
         kpisMap.put("totalHs30", Math.round(totalHs30 * 100.0) / 100.0);
-        kpisMap.put("totalHs50", Math.round(totalHs50 * 10.0) / 10.0);
+        kpisMap.put("totalHs50", Math.round(totalHs50 * 100.0) / 100.0);
         kpisMap.put("totalRetardMins", totalRetardMins);
+        kpisMap.put("totalIndemnites", totalIndemnites);
+        kpisMap.put("totalNuit", Math.round(totalNuit * 100.0) / 100.0);
+        kpisMap.put("totalDimanche", Math.round(totalDimanche * 100.0) / 100.0);
+        kpisMap.put("totalFerie", Math.round(totalFerie * 100.0) / 100.0);
 
         Map<String, Object> alertCountsMap = new HashMap<>();
         alertCountsMap.put("all", countAll);
@@ -1365,12 +1394,20 @@ public class PointageSyntheseService {
 
     public record PointagePreflight(int idPeriodePaie, int nombreEmployes, List<Blocker> blocages,
                                    List<JourneeManquante> journeesManquantes) {
+        @com.fasterxml.jackson.annotation.JsonProperty("pret")
         public boolean pret() { return blocages.isEmpty() && journeesManquantes.isEmpty() && nombreEmployes > 0; }
+
+        @com.fasterxml.jackson.annotation.JsonProperty("pret")
+        public boolean isPret() { return pret(); }
 
         public record Blocker(int idEmploye, String matricule, String nom, String prenom,
                               int minutesHsSansSemaine) {}
         public record JourneeManquante(int idEmploye, String matricule, String nom, String prenom,
-                                      LocalDate date) {}
+                                      LocalDate date, Integer idSite) {
+            public JourneeManquante(int idEmploye, String matricule, String nom, String prenom, LocalDate date) {
+                this(idEmploye, matricule, nom, prenom, date, null);
+            }
+        }
     }
 
     private record AffectationOuvrable(LocalDate debut, LocalDate fin, int siteId) {
@@ -1434,7 +1471,7 @@ public class PointageSyntheseService {
                     feriesParSite.put(active.siteId(), feries);
                 }
                 if (!feries.contains(jour)) manquantes.add(new PointagePreflight.JourneeManquante(
-                        employe.getIdEmploye(), employe.getMatricule(), employe.getNom(), employe.getPrenom(), jour));
+                        employe.getIdEmploye(), employe.getMatricule(), employe.getNom(), employe.getPrenom(), jour, active.siteId()));
             }
         }
         return manquantes;

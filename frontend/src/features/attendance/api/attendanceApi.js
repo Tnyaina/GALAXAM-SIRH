@@ -33,7 +33,13 @@ const attendanceApi = {
         getPeriod: async ({ idPeriodePaie, idSite, search, filtre, page = 1, size = 25 }) => (await apiClient.get('/pointages/synthese', { params: { idPeriodePaie, idSite, search, filtre, page, size } })).data,
         getWeeks: async ({ idPeriodePaie, idSite }) => (await apiClient.get('/pointages/synthese/semaines', { params: { idPeriodePaie, idSite } })).data,
         getWeekDetail: async ({ idPeriodePaie, dateDebut, dateFin, idSite }) => (await apiClient.get('/pointages/synthese/semaine-detail', { params: { idPeriodePaie, dateDebut, dateFin, idSite } })).data,
-        getPreflight: async ({ idPeriodePaie }) => (await apiClient.get('/pointages/synthese/preflight', { params: { idPeriodePaie } })).data,
+        getPreflight: async ({ idPeriodePaie }) => {
+            const data = (await apiClient.get('/pointages/synthese/preflight', { params: { idPeriodePaie } })).data;
+            if (data && data.pret === undefined) {
+                data.pret = Boolean(!data.blocages?.length && !data.journeesManquantes?.length && (data.nombreEmployes > 0));
+            }
+            return data;
+        },
         getAdjustments: async ({ idPeriodePaie, idEmploye }) => (await apiClient.get('/pointages/synthese/ajustements', { params: { idPeriodePaie, idEmploye } })).data,
         createAdjustment: async ({ idPeriodePaie, idEmploye, minutesSignees, motif }) => (await apiClient.post('/pointages/synthese/ajustements', { minutesSignees, motif }, { params: { idPeriodePaie, idEmploye } })).data,
         cancelAdjustment: async ({ idPeriodePaie, idEmploye, idAjustement, motif }) => (await apiClient.post(`/pointages/synthese/ajustements/${idAjustement}/annuler`, { motif }, { params: { idPeriodePaie, idEmploye } })).data,
@@ -65,7 +71,8 @@ export const attendanceService = {
     regulariser: attendanceApi.anomalies.regularize,
     getFicheEmploye: attendanceApi.employees.getSheet,
     exportExcel: attendanceApi.employees.exportExcel,
-    exportPdf: attendanceApi.employees.exportPdf
+    exportPdf: attendanceApi.employees.exportPdf,
+    getPreflight: attendanceApi.summary.getPreflight
 };
 export const pointageSyntheseService = {
     getSynthese: attendanceApi.summary.getPeriod,

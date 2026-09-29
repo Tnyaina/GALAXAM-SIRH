@@ -17,6 +17,7 @@ public class PointageJourDTO {
     private String date;        // Format "dd/MM" ex "24/08"
     private String dateComplete;// Format "YYYY-MM-DD"
     private String jour;        // ex "Lun."
+    private boolean weekend;    // true si samedi ou dimanche (non ouvré)
     private String entree;      // ex "08:00"
     private String sortiePause; // ex "12:00"
     private String retourPause; // ex "13:00"
@@ -88,6 +89,9 @@ public class PointageJourDTO {
 
     public String getJour() { return jour; }
     public void setJour(String jour) { this.jour = jour; }
+
+    public boolean isWeekend() { return weekend; }
+    public void setWeekend(boolean weekend) { this.weekend = weekend; }
 
     public String getEntree() { return entree; }
     public void setEntree(String entree) { this.entree = entree; }

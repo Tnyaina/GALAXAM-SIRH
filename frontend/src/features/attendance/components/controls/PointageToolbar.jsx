@@ -123,7 +123,7 @@ export default function PointageToolbar({
                             }
                             disabled:opacity-50 disabled:cursor-not-allowed
                         `}
-                        title={dirtyCount > 0 ? `${dirtyCount} modification(s) non enregistrée(s) — Ctrl+S` : 'Enregistrer les pointages (Ctrl+S)'}
+                        title={dirtyCount > 0 ? `${dirtyCount} modification(s) non enregistrée(s) — Entrée depuis une heure ou Ctrl+S` : 'Enregistrer les pointages (Entrée depuis une heure ou Ctrl+S)'}
                     >
                         {saving ? (
                             <span className="animate-spin inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full" />
@@ -136,7 +136,7 @@ export default function PointageToolbar({
                                 {dirtyCount}
                             </span>
                         )}
-                        <span className="hidden xl:inline text-[10px] opacity-60 font-normal">(Ctrl+S)</span>
+                        <span className="hidden xl:inline text-[10px] opacity-60 font-normal">(Entrée / Ctrl+S)</span>
                     </button>
                 </div>
             </div>

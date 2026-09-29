@@ -1,5 +1,5 @@
 import FormError from '@/components/ui/feedback/FormError';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getErrorMessage } from '@/api/apiClient';
 import { 
     Clock, 
@@ -18,7 +18,7 @@ import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Input from '@/components/ui/forms/Input';
 import { Avatar } from '@/components/ui/data-display/Avatar';
-import { fmtDate } from '@/utils/dateUtils';
+import { fmtDate, shiftIsoDate } from '@/utils/dateUtils';
 import { attendanceService } from '@/features/attendance/api/attendanceApi';
 
 const MOTIFS_FAMILIAUX = [
@@ -38,6 +38,7 @@ export default function AnomalieRegularisationModal({
     // État local : onglet, soumission et formulaire de régularisation.
     const [activeTab, setActiveTab] = useState('HEURES'); // 'HEURES', 'ABSENCE' ou 'RETARD_REEL'
     const [saving, setSaving] = useState(false);
+    const submissionInFlight = useRef(false);
     const [error, setError] = useState('');
     const [dayPreview, setDayPreview] = useState(null);
     const [previewPending, setPreviewPending] = useState(false);
@@ -57,6 +58,7 @@ export default function AnomalieRegularisationModal({
     // Formulaire Mode 2 : Absence
     const [optionAbsence, setOptionAbsence] = useState('CONGE_PAYE'); // 'CONGE_PAYE', 'PERMISSION_EXCEPTIONNELLE', 'ABSENCE_DEDUITE'
     const [congeDuree, setCongeDuree] = useState('1.0'); // '1.0' ou '0.5'
+    const [dateReprise, setDateReprise] = useState('');
     const [demiJourneeMoment, setDemiJourneeMoment] = useState('MATIN');
     const [motifFamilial, setMotifFamilial] = useState(MOTIFS_FAMILIAUX[0].value);
     const [statutAbsenceDeduite, setStatutAbsenceDeduite] = useState('ABSENCE_JUSTIFIEE');
@@ -105,6 +107,7 @@ export default function AnomalieRegularisationModal({
 
         setOptionAbsence('CONGE_PAYE');
         setCongeDuree('1.0');
+        setDateReprise(shiftIsoDate(anomalie.datePointage, 1));
         setDemiJourneeMoment('MATIN');
         setMotifFamilial(MOTIFS_FAMILIAUX[0].value);
         setStatutAbsenceDeduite('ABSENCE_JUSTIFIEE');
@@ -149,7 +152,11 @@ export default function AnomalieRegularisationModal({
     const soldeAcquis = anomalie?.soldeCongesAcquis ?? 0;
     const soldePris = anomalie?.soldeCongesPris ?? 0;
 
-    const nbJoursAImputer = parseFloat(congeDuree) || 1.0;
+    const dernierJourConge = shiftIsoDate(dateReprise, -1);
+    const nbJoursAImputer = congeDuree === '0.5' ? 0.5 :
+        anomalie?.datePointage && dateReprise > anomalie.datePointage
+            ? Math.round((Date.parse(`${dateReprise}T00:00:00Z`) - Date.parse(`${anomalie.datePointage}T00:00:00Z`)) / 86400000)
+            : 0;
 
     useEffect(() => {
         if (!isOpen || !anomalie || activeTab !== 'HEURES') return undefined;
@@ -180,14 +187,20 @@ export default function AnomalieRegularisationModal({
     }, [isOpen, anomalie, activeTab, modePresence, heureEntreeMatin, heureSortieMatin, heureEntreeAm, heureSortieAm]);
 
     // Action de sauvegarde
-    const handleSubmit = async (e) => {
+    const handleSubmit = useCallback(async (e) => {
         if (e) e.preventDefault();
+        if (saving || submissionInFlight.current) return;
         setError('');
 
         if (activeTab !== 'RETARD_REEL' && (!motifAjustement || motifAjustement.trim().length < 3)) {
             setError('Un motif explicatif est obligatoire pour régulariser un pointage (minimum 3 caractères).');
             return;
         }
+        if (activeTab === 'ABSENCE' && optionAbsence === 'CONGE_PAYE' && nbJoursAImputer <= 0) {
+            setError('La date de reprise doit être postérieure au premier jour de congé.');
+            return;
+        }
+        submissionInFlight.current = true;
         setSaving(true);
         try {
             const payload = {
@@ -256,9 +269,11 @@ export default function AnomalieRegularisationModal({
             } else {
                 // Régularisation d'absence
                 payload.optionAbsence = optionAbsence;
+                payload.dynamicIndemnites = dynamicAllowances;
                 if (optionAbsence === 'CONGE_PAYE') {
                     payload.statutCode = 'CONGE';
                     payload.nbJoursCongeDecompte = nbJoursAImputer;
+                    payload.dateReprise = congeDuree === '0.5' ? shiftIsoDate(anomalie.datePointage, 1) : dateReprise;
                     payload.estDemiJournee = (congeDuree === '0.5');
                     payload.momentDemiJournee = demiJourneeMoment;
                 } else if (optionAbsence === 'PERMISSION_EXCEPTIONNELLE') {
@@ -282,9 +297,31 @@ export default function AnomalieRegularisationModal({
             console.error('Erreur régularisation pointage:', err);
             setError(err?.message || 'Erreur lors de la sauvegarde de la régularisation.');
         } finally {
+            submissionInFlight.current = false;
             setSaving(false);
         }
-    };
+    }, [saving, activeTab, motifAjustement, optionAbsence, nbJoursAImputer, anomalie,
+        modePresence, heureEntreeMatin, heureSortieMatin, heureEntreeAm, heureSortieAm,
+        allowancesLoading, allowancesError, previewPending, dayPreview, optionAutreDemiJournee,
+        dynamicAllowances, congeDuree, dateReprise, demiJourneeMoment, motifFamilial,
+        statutAbsenceDeduite, onSuccess, onClose]);
+
+    useEffect(() => {
+        if (!isOpen || saving) return undefined;
+        const handleEnter = (event) => {
+            if (event.key !== 'Enter' || event.repeat || event.isComposing ||
+                event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+            const target = event.target;
+            if (!(target instanceof Element) || !target.closest('[role="dialog"]') ||
+                target.closest('textarea, select, [role="combobox"], [contenteditable="true"]')) return;
+            const focusedButton = target.closest('button');
+            if (focusedButton && focusedButton.dataset.regularisationSelected !== 'true') return;
+            event.preventDefault();
+            handleSubmit();
+        };
+        window.addEventListener('keydown', handleEnter);
+        return () => window.removeEventListener('keydown', handleEnter);
+    }, [isOpen, saving, handleSubmit]);
 
     if (!isOpen || !anomalie) return null;
 
@@ -316,6 +353,7 @@ export default function AnomalieRegularisationModal({
                             className="rounded-none"
                         >
                             {activeTab === 'RETARD_REEL' ? 'Confirmer le retard réel' : 'Enregistrer la régularisation'}
+                            <span className="ml-2 text-[10px] font-normal opacity-70">Entrée ↵</span>
                         </Button>
                     </div>
                 </div>
@@ -374,6 +412,7 @@ export default function AnomalieRegularisationModal({
                     {anomalie.typeAnomalie === 'RETARD' && (
                         <button
                             type="button"
+                            data-regularisation-selected={activeTab === 'RETARD_REEL'}
                             onClick={() => setActiveTab('RETARD_REEL')}
                             className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors rounded-none ${activeTab === 'RETARD_REEL'
                                 ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
@@ -385,6 +424,7 @@ export default function AnomalieRegularisationModal({
                     )}
                     <button
                         type="button"
+                        data-regularisation-selected={activeTab === 'HEURES'}
                         onClick={() => setActiveTab('HEURES')}
                         className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors rounded-none ${
                             activeTab === 'HEURES'
@@ -397,6 +437,7 @@ export default function AnomalieRegularisationModal({
                     </button>
                     <button
                         type="button"
+                        data-regularisation-selected={activeTab === 'ABSENCE'}
                         onClick={() => setActiveTab('ABSENCE')}
                         className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors rounded-none ${
                             activeTab === 'ABSENCE'
@@ -427,6 +468,7 @@ export default function AnomalieRegularisationModal({
                             <div className="grid grid-cols-4 gap-2">
                                 <button
                                     type="button"
+                                    data-regularisation-selected={modePresence === 'JOURNEE'}
                                     onClick={() => handleModeChange('JOURNEE')}
                                     className={`p-2.5 rounded-none border text-left transition-all ${
                                         modePresence === 'JOURNEE'
@@ -445,6 +487,7 @@ export default function AnomalieRegularisationModal({
 
                                 <button
                                     type="button"
+                                    data-regularisation-selected={modePresence === 'MATIN_SEUL'}
                                     onClick={() => handleModeChange('MATIN_SEUL')}
                                     className={`p-2.5 rounded-none border text-left transition-all ${
                                         modePresence === 'MATIN_SEUL'
@@ -463,6 +506,7 @@ export default function AnomalieRegularisationModal({
 
                                 <button
                                     type="button"
+                                    data-regularisation-selected={modePresence === 'APRES_MIDI_SEUL'}
                                     onClick={() => handleModeChange('APRES_MIDI_SEUL')}
                                     className={`p-2.5 rounded-none border text-left transition-all ${
                                         modePresence === 'APRES_MIDI_SEUL'
@@ -481,6 +525,7 @@ export default function AnomalieRegularisationModal({
 
                                 <button
                                     type="button"
+                                    data-regularisation-selected={modePresence === 'CONTINU'}
                                     onClick={() => handleModeChange('CONTINU')}
                                     className={`p-2.5 rounded-none border text-left transition-all ${
                                         modePresence === 'CONTINU'
@@ -619,6 +664,7 @@ export default function AnomalieRegularisationModal({
                                     <div className="grid grid-cols-3 gap-2">
                                         <button
                                             type="button"
+                                            data-regularisation-selected={optionAutreDemiJournee === 'AUCUNE'}
                                             onClick={() => setOptionAutreDemiJournee('AUCUNE')}
                                             className={`p-2 rounded-none text-left border text-xs transition-all cursor-pointer ${
                                                 optionAutreDemiJournee === 'AUCUNE'
@@ -631,6 +677,7 @@ export default function AnomalieRegularisationModal({
                                         </button>
                                         <button
                                             type="button"
+                                            data-regularisation-selected={optionAutreDemiJournee === 'CONGE_PAYE'}
                                             onClick={() => setOptionAutreDemiJournee('CONGE_PAYE')}
                                             className={`p-2 rounded-none text-left border text-xs transition-all cursor-pointer ${
                                                 optionAutreDemiJournee === 'CONGE_PAYE'
@@ -643,6 +690,7 @@ export default function AnomalieRegularisationModal({
                                         </button>
                                         <button
                                             type="button"
+                                            data-regularisation-selected={optionAutreDemiJournee === 'ABSENCE_DEDUITE'}
                                             onClick={() => setOptionAutreDemiJournee('ABSENCE_DEDUITE')}
                                             className={`p-2 rounded-none text-left border text-xs transition-all cursor-pointer ${
                                                 optionAutreDemiJournee === 'ABSENCE_DEDUITE'
@@ -767,6 +815,7 @@ export default function AnomalieRegularisationModal({
                             <div className="grid grid-cols-3 gap-2">
                                 <button
                                     type="button"
+                                    data-regularisation-selected={optionAbsence === 'CONGE_PAYE'}
                                     onClick={() => setOptionAbsence('CONGE_PAYE')}
                                     className={`p-3 rounded-none border text-left transition-all ${
                                         optionAbsence === 'CONGE_PAYE'
@@ -785,6 +834,7 @@ export default function AnomalieRegularisationModal({
 
                                 <button
                                     type="button"
+                                    data-regularisation-selected={optionAbsence === 'PERMISSION_EXCEPTIONNELLE'}
                                     onClick={() => setOptionAbsence('PERMISSION_EXCEPTIONNELLE')}
                                     className={`p-3 rounded-none border text-left transition-all ${
                                         optionAbsence === 'PERMISSION_EXCEPTIONNELLE'
@@ -803,6 +853,7 @@ export default function AnomalieRegularisationModal({
 
                                 <button
                                     type="button"
+                                    data-regularisation-selected={optionAbsence === 'ABSENCE_DEDUITE'}
                                     onClick={() => setOptionAbsence('ABSENCE_DEDUITE')}
                                     className={`p-3 rounded-none border text-left transition-all ${
                                         optionAbsence === 'ABSENCE_DEDUITE'
@@ -831,6 +882,7 @@ export default function AnomalieRegularisationModal({
                                     <div className="flex gap-2">
                                         <button
                                             type="button"
+                                            data-regularisation-selected={congeDuree === '1.0'}
                                             onClick={() => setCongeDuree('1.0')}
                                             className={`px-3 py-1 rounded-none text-xs font-semibold border ${
                                                 congeDuree === '1.0'
@@ -838,10 +890,11 @@ export default function AnomalieRegularisationModal({
                                                     : 'bg-[var(--color-surface)] text-[var(--color-fg)] border-[var(--color-border-subtle)]'
                                             }`}
                                         >
-                                            Journée entière (1.0 j)
+                                            Journée(s) entière(s)
                                         </button>
                                         <button
                                             type="button"
+                                            data-regularisation-selected={congeDuree === '0.5'}
                                             onClick={() => setCongeDuree('0.5')}
                                             className={`px-3 py-1 rounded-none text-xs font-semibold border ${
                                                 congeDuree === '0.5'
@@ -853,6 +906,18 @@ export default function AnomalieRegularisationModal({
                                         </button>
                                     </div>
                                 </div>
+
+                                {congeDuree !== '0.5' && (
+                                    <div className="space-y-1">
+                                        <label htmlFor="regularisation-date-reprise" className="block text-xs font-semibold">Date de reprise prévue</label>
+                                        <Input id="regularisation-date-reprise" type="date" value={dateReprise}
+                                            min={shiftIsoDate(anomalie?.datePointage, 1) || undefined}
+                                            onChange={(event) => setDateReprise(event.target.value)} required />
+                                        {nbJoursAImputer > 0 && <p className="text-xs text-[var(--color-fg-muted)]">
+                                            Congé du {fmtDate(anomalie.datePointage)} au {fmtDate(dernierJourConge)} inclus : <strong>{nbJoursAImputer} jour{nbJoursAImputer > 1 ? 's' : ''} calendaires débités</strong>. La reprise n&apos;est pas débitée.
+                                        </p>}
+                                    </div>
+                                )}
 
                                 {congeDuree === '0.5' && (
                                     <div className="flex items-center gap-3 text-xs pt-1">
@@ -883,7 +948,9 @@ export default function AnomalieRegularisationModal({
                                     <div className="flex items-center gap-1.5">
                                         <Info className="w-4 h-4 shrink-0" />
                                         <span>
-                                            Le solde et les règles d’éligibilité seront vérifiés par le module Congés à la validation.
+                                            {nbJoursAImputer > 1
+                                                ? 'Le module Congés vérifiera le solde pour toute la période. Si le solde est insuffisant, aucune journée ne sera régularisée.'
+                                                : 'Le module Congés vérifiera le solde disponible et confirmera le nombre de jours couverts.'}
                                         </span>
                                     </div>
                                 </div>
@@ -946,6 +1013,67 @@ export default function AnomalieRegularisationModal({
                                 </div>
                             </div>
                         )}
+
+                        {/* Indemnités lors de la régularisation d'absence */}
+                        <div className="p-3 border border-[var(--color-border-subtle)] rounded-none space-y-2">
+                            <div className="flex items-center justify-between">
+                                <div className="text-xs font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
+                                    <Wallet className="w-3.5 h-3.5 text-[var(--color-fg-muted)]" />
+                                    <span>Indemnités du jour</span>
+                                </div>
+                                <span className="text-[10px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] bg-[var(--color-warning-500)]/10 px-1.5 py-0.5 font-semibold">
+                                    Décochées par défaut — exception manuelle
+                                </span>
+                            </div>
+                            {allowancesLoading && <p className="text-xs text-[var(--color-fg-muted)]">Chargement des indemnités du site…</p>}
+                            {allowancesError && <p className="text-xs text-[var(--color-danger-700)]">{allowancesError}</p>}
+                            {!allowancesLoading && !allowancesError && availableAllowances.length === 0 && (
+                                <p className="text-xs text-[var(--color-fg-muted)]">Aucune indemnité journalière configurée pour ce site.</p>
+                            )}
+                            {!allowancesLoading && !allowancesError && availableAllowances.length > 0 && (
+                                <div className="flex flex-wrap gap-4 text-xs">
+                                    {availableAllowances.map((allowance) => {
+                                        const key = String(allowance.idIndemnite);
+                                        const selection = dynamicAllowances[key] || {};
+                                        const fractionable = allowance.estFractionnable ?? allowance.fractionnable;
+                                        const updateSelection = (field, value) => setDynamicAllowances((previous) => ({
+                                            ...previous,
+                                            [key]: { ...previous[key], [field]: value }
+                                        }));
+                                        return (
+                                            <div key={key} className="flex items-center gap-2 text-[var(--color-fg)]">
+                                                <span className="font-medium">{allowance.libelle || allowance.code}</span>
+                                                {fractionable ? (
+                                                    <>
+                                                        <label className="flex items-center gap-1 cursor-pointer">
+                                                            <input type="checkbox" checked={Boolean(selection.matin)}
+                                                                onChange={(event) => updateSelection('matin', event.target.checked)}
+                                                                className="w-3.5 h-3.5 accent-brand-600" />
+                                                            <span>Aller</span>
+                                                        </label>
+                                                        <label className="flex items-center gap-1 cursor-pointer">
+                                                            <input type="checkbox" checked={Boolean(selection.am)}
+                                                                onChange={(event) => updateSelection('am', event.target.checked)}
+                                                                className="w-3.5 h-3.5 accent-brand-600" />
+                                                            <span>Retour</span>
+                                                        </label>
+                                                    </>
+                                                ) : (
+                                                    <label className="flex items-center gap-1 cursor-pointer" title={`Accorder une exception d'indemnité sur ce jour d'absence — ${allowance.libelle || allowance.code}`}>
+                                                        <input type="checkbox" checked={Boolean(selection.accordee)}
+                                                            onChange={(event) => updateSelection('accordee', event.target.checked)}
+                                                            className="w-3.5 h-3.5 accent-brand-600" />
+                                                        <span className={selection.accordee ? 'text-[var(--color-success-600)] font-bold' : 'text-[var(--color-fg-muted)]'}>
+                                                            {selection.accordee ? 'Accordée' : 'Non accordée'}
+                                                        </span>
+                                                    </label>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 

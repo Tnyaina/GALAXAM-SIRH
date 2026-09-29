@@ -33,10 +33,10 @@ export default function ConfirmDialog({
     if (!isOpen) return null;
 
     const iconColors = {
-        danger: 'text-[var(--color-danger-500)] bg-[var(--color-danger-500)]/10 border-[var(--color-danger-500)]/30',
-        warning: 'text-[var(--color-warning-500)] bg-[var(--color-warning-500)]/10 border-[var(--color-warning-500)]/30',
-        primary: 'text-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10 border-[var(--color-brand-500)]/30',
-        success: 'text-[var(--color-success-500)] bg-[var(--color-success-500)]/10 border-[var(--color-success-500)]/30',
+        danger: 'text-[var(--color-danger-500)] bg-[var(--color-danger-50)] border-[var(--color-danger-200)]',
+        warning: 'text-[var(--color-warning-500)] bg-[var(--color-warning-50)] border-[var(--color-warning-200)]',
+        primary: 'text-[var(--color-brand-600)] bg-[var(--color-brand-50)] border-[var(--color-brand-200)]',
+        success: 'text-[var(--color-brand-600)] bg-[var(--color-brand-50)] border-[var(--color-brand-200)]',
     };
 
     return (
@@ -51,7 +51,7 @@ export default function ConfirmDialog({
                 <div className="p-4 sm:p-5 space-y-3">
                     <div className="flex items-start gap-3">
                         <div className={`p-2.5 border shrink-0 rounded-none ${iconColors[variant] || iconColors.danger}`}>
-                            {variant === 'success' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
+                            {variant === 'success' || variant === 'primary' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
                         </div>
                         <div className="space-y-0.5 min-w-0 flex-1">
                             <h3 id="confirm-dialog-title" className="text-sm sm:text-base font-bold text-[var(--color-fg)]">

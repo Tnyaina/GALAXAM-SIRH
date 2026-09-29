@@ -1,6 +1,7 @@
 import { AlertTriangle, Info, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
 import FieldError from '@/components/ui/forms/FieldError';
+import { shiftIsoDate } from '@/utils/dateUtils';
 
 export default function DatesCongeSection({
   dateDebut, setDateDebut,
@@ -125,23 +126,24 @@ export default function DatesCongeSection({
           </div>
           <div className="space-y-1.5">
             <label htmlFor="leave-date-end" className="block text-sm font-semibold text-[var(--color-fg)]">
-              Date de fin <span className="text-danger-500">*</span>
+              Date de reprise prévue <span className="text-danger-500">*</span>
             </label>
             <Input
               id="leave-date-end"
               type="date"
               error={fieldErrors.dateFin}
-              value={estDemiJournee ? dateDebut : dateFin}
+              value={shiftIsoDate(estDemiJournee ? dateDebut : dateFin, 1)}
               disabled={estDemiJournee}
-              min={dateDebut || undefined}
+              min={shiftIsoDate(dateDebut, 1) || undefined}
               onChange={(e) => {
-                setDateFin(e.target.value);
+                setDateFin(shiftIsoDate(e.target.value, -1));
                 setFieldErrors((prev) => ({ ...prev, dateFin: null }));
               }}
               required
             />
           </div>
         </div>
+        {dateFin && <p className="mt-2 text-xs text-[var(--color-fg-muted)]">Dernier jour de congé couvert : <strong>{dateFin}</strong>. La date de reprise n&apos;est pas débitée.</p>}
 
         {/* Alerte Préavis / Rétroactivité explicite */}
         {preavisInfo?.isDepasse && (

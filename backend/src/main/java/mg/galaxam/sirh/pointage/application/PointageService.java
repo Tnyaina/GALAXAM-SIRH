@@ -337,20 +337,29 @@ public class PointageService {
             dto.setIndemniteDeplacementRecue(false);
             dto.setIndemniteRepasRecue(false);
             if ("CONGE".equals(code)) dto.setTypeCongeJour("FULL_DAY");
-            Map<String, Object> cleared = new HashMap<>();
+            Map<String, Object> normalized = new HashMap<>();
             if (dto.getDynamicIndemnites() != null) {
                 dto.getDynamicIndemnites().forEach((key, value) -> {
                     if (value instanceof Map<?, ?> current) {
                         Map<String, Object> updated = new HashMap<>();
                         current.forEach((k, v) -> updated.put(String.valueOf(k), v));
-                        updated.put("accordee", false);
-                        updated.put("matin", false);
-                        updated.put("am", false);
-                        cleared.put(key, updated);
+                        if ("CONGE".equals(code)) {
+                            // Pour les conges : conserver les valeurs explicitement cochees (exception manuelle).
+                            // Ne pas forcer a false si l'utilisateur a explicitement accorde l'indemnite.
+                            updated.putIfAbsent("accordee", false);
+                            updated.putIfAbsent("matin", false);
+                            updated.putIfAbsent("am", false);
+                        } else {
+                            // Pour les absences justifiees/non-justifiees : toujours effacer.
+                            updated.put("accordee", false);
+                            updated.put("matin", false);
+                            updated.put("am", false);
+                        }
+                        normalized.put(key, updated);
                     }
                 });
             }
-            dto.setDynamicIndemnites(cleared);
+            dto.setDynamicIndemnites(normalized);
         } else if ("PRESENT".equals(code)
                 && dto.getHeureEntreeMatin() == null && dto.getHeureSortieMatin() == null
                 && dto.getHeureEntreeAm() == null && dto.getHeureSortieAm() == null) {
@@ -1446,7 +1455,8 @@ public class PointageService {
                 "heure_entree_matin = ?, heure_sortie_matin = ?, heure_entree_am = ?, heure_sortie_am = ?, " +
                 "heures_matin = ?, heures_am = ?, total_heures = ?, minutes_retard = ?, heures_nuit = ?, " +
                 "motif_ajustement = ?, id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
-                "montant_total_indemnites = ?, horaire_continu_jour = ?, heure_entree_matin_effective = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP " +
+                "montant_total_indemnites = ?, horaire_continu_jour = ?, heure_entree_matin_effective = ?, " +
+                "ajuste_par = NULL, date_ajustement = NULL, version = version + 1, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_pointage = ? AND version = ? RETURNING id_pointage, version";
 
         String sqlInsert = "INSERT INTO pointage_jour (" +
@@ -1951,8 +1961,11 @@ public class PointageService {
             DailyAllowanceTariff tariff = loadDailyAllowanceTariff(c, siteId, allowanceId, date);
             boolean morning = Boolean.TRUE.equals(values.get("matin"));
             boolean afternoon = Boolean.TRUE.equals(values.get("am"));
-            boolean requested = !nonWorked && (tariff.fractionable()
-                    ? morning || afternoon : Boolean.TRUE.equals(values.get("accordee")));
+            boolean explicitlyGranted = tariff.fractionable()
+                    ? (morning || afternoon)
+                    : Boolean.TRUE.equals(values.get("accordee"));
+            // Sur un jour non-travaille (conge, absence...) : autoriser uniquement si explicitement accorde (exception manuelle).
+            boolean requested = explicitlyGranted && (!nonWorked || explicitlyGranted);
             BigDecimal units = tariff.fractionable()
                     ? (morning ? new BigDecimal("0.5") : BigDecimal.ZERO)
                             .add(afternoon ? new BigDecimal("0.5") : BigDecimal.ZERO)

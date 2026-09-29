@@ -5,7 +5,6 @@ import {
     AlertTriangle,
     CheckCircle2,
     Calendar,
-    Send,
     Search,
     Shield,
     Building2,
@@ -28,10 +27,9 @@ import Badge from '@/components/ui/data-display/Badge';
 import StatCard from '@/components/ui/data-display/StatCard';
 import { fmtDate } from '@/utils/dateUtils';
 import organisationService from '@/features/organization/api/organisationService';
-import { periodePaieService } from '@/features/attendance/api/attendanceApi';
+import { periodePaieService, pointageSyntheseService } from '@/features/attendance/api/attendanceApi';
 import usePointageAnomalies from '@/features/attendance/hooks/usePointageAnomalies';
 import Pagination from '@/components/ui/navigation/Pagination';
-import { getErrorMessage } from '@/api/apiClient';
 
 const AnomalieRegularisationModal = lazy(() => import('@/features/attendance/components/modals/AnomalieRegularisationModal'));
 
@@ -62,7 +60,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     const [filterSeverite, setFilterSeverite] = useState('ALL');
     const [filterSemaine, setFilterSemaine] = useState('ALL'); // 'ALL', 'S1', 'S2', ...
     const [filterDate, setFilterDate] = useState('');
-    const [filterStatutTraitement, setFilterStatutTraitement] = useState('ALL'); // 'ALL', 'TODO', 'DONE'
+    const [filterStatutTraitement, setFilterStatutTraitement] = useState('TODO'); // 'ALL', 'TODO', 'DONE'
     const [isSemainesCollapsed, setIsSemainesCollapsed] = useState(true);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
@@ -71,10 +69,9 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     // Modale de régularisation
     const [selectedAnomalie, setSelectedAnomalie] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-
-    // État de transmission DAF
-    const [transmitting, setTransmitting] = useState(false);
-    const [showTransmissionConfirm, setShowTransmissionConfirm] = useState(false);
+    const [selectedRetards, setSelectedRetards] = useState(() => new Map());
+    const [isBulkConfirmOpen, setIsBulkConfirmOpen] = useState(false);
+    const [bulkRegularising, setBulkRegularising] = useState(false);
 
     // Hook unifié des anomalies & semaines
     const {
@@ -144,11 +141,68 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         }
     }, [selectedPeriodeId, selectedSiteId, searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Période courante
+    useEffect(() => {
+        setSelectedRetards(new Map());
+    }, [selectedPeriodeId, selectedSiteId]);
+
     // Données dérivées
     const currentPeriodeObj = useMemo(() =>
         periodes.find(p => String(p.idPeriodePaie) === String(selectedPeriodeId)) || null,
     [periodes, selectedPeriodeId]);
+
+    // Preflight global de la période pour détecter précisément les journées manquantes par site
+    const [preflight, setPreflight] = useState(null);
+
+    useEffect(() => {
+        if (!selectedPeriodeId) return;
+        let cancelled = false;
+        pointageSyntheseService.getPreflight({ idPeriodePaie: Number(selectedPeriodeId) })
+            .then(res => { if (!cancelled) setPreflight(res); })
+            .catch(() => { if (!cancelled) setPreflight(null); });
+        return () => { cancelled = true; };
+    }, [selectedPeriodeId, anomalies]);
+
+    const isSiteFiltered = Number(selectedSiteId) > 0;
+    const selectedSiteObj = useMemo(() =>
+        sites.find(s => String(s.idSite || s.id) === String(selectedSiteId)) || null,
+    [sites, selectedSiteId]);
+    const selectedSiteCode = selectedSiteObj?.codeSite || selectedSiteObj?.code || '';
+
+    // Analyse des journées ouvrables manquantes par site
+    const sitesWithMissingDays = useMemo(() => {
+        if (!preflight?.journeesManquantes?.length) return [];
+        const missingBySite = {};
+        preflight.journeesManquantes.forEach(m => {
+            const sid = m.idSite ? String(m.idSite) : 'unknown';
+            missingBySite[sid] = (missingBySite[sid] || 0) + 1;
+        });
+        return sites
+            .filter(s => (missingBySite[String(s.idSite || s.id)] || 0) > 0)
+            .map(s => ({
+                ...s,
+                nbManquantes: missingBySite[String(s.idSite || s.id)]
+            }));
+    }, [preflight, sites]);
+
+    const currentSiteMissingCount = useMemo(() => {
+        if (!isSiteFiltered || !preflight?.journeesManquantes?.length) return 0;
+        return preflight.journeesManquantes.filter(m => String(m.idSite) === String(selectedSiteId)).length;
+    }, [isSiteFiltered, preflight, selectedSiteId]);
+
+    const otherIncompleteSites = useMemo(() => {
+        return sitesWithMissingDays.filter(s => String(s.idSite || s.id) !== String(selectedSiteId));
+    }, [sitesWithMissingDays, selectedSiteId]);
+
+    const handleSwitchSite = (targetSiteId) => {
+        const sid = Number(targetSiteId);
+        setSelectedSiteId(sid);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            if (sid > 0) next.set('site', String(sid));
+            else next.delete('site');
+            return next;
+        }, { replace: true });
+    };
 
     const actions = currentPeriodeObj?.availableActions || {};
     const isLocked = actions.REGULARIZE_ANOMALY?.allowed !== true;
@@ -171,6 +225,39 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         POINTAGE_JOURNEES_MANQUANTES: 'Des journées ouvrables restent sans pointage. Complétez la saisie avant de transmettre.',
         BLOCKING_ANOMALIES: 'Des anomalies bloquantes doivent être régularisées.',
     }[code] || code)).join(' · ');
+
+    const hasJourneesManquantes = (actions.SUBMIT?.reasonCodes || []).includes('POINTAGE_JOURNEES_MANQUANTES');
+    const isCurrentSiteClean = isSiteFiltered && currentSiteMissingCount === 0;
+
+    const transmissionBlockTitle = useMemo(() => {
+        if (canTransmitDaf) return 'La période est prête à être transmise.';
+        if (hasJourneesManquantes) {
+            if (isCurrentSiteClean) {
+                return `Pointages complets pour le site ${selectedSiteCode || 'sélectionné'} · Transmission globale en attente`;
+            }
+            if (isSiteFiltered) {
+                return `Des journées ouvrables (${currentSiteMissingCount} j) restent sans pointage sur ${selectedSiteCode}.`;
+            }
+            return 'Des journées ouvrables restent sans pointage sur la période.';
+        }
+        return transmissionBlockReason || 'Le workflow ne permet pas encore la transmission.';
+    }, [canTransmitDaf, hasJourneesManquantes, isCurrentSiteClean, isSiteFiltered, currentSiteMissingCount, selectedSiteCode, transmissionBlockReason]);
+
+    const transmissionBlockSubtitle = useMemo(() => {
+        if (canTransmitDaf) return 'Pour transmettre la période à la DAF, utilisez le bouton de l’étape « Synthèse & Contrôle ». ';
+        if (hasJourneesManquantes && isCurrentSiteClean) {
+            const otherList = otherIncompleteSites.map(s => `${s.codeSite || s.code || s.libelle} (${s.nbManquantes} j)`).join(', ');
+            return `La transmission pour contrôle s'applique à l'ensemble des sites de la période. Des pointages restent à finaliser sur : ${otherList || 'd’autres sites (ex. TMM)'}.`;
+        }
+        if (hasJourneesManquantes && !isSiteFiltered && sitesWithMissingDays.length > 0) {
+            const list = sitesWithMissingDays.map(s => `${s.codeSite || s.code || s.libelle} (${s.nbManquantes} j)`).join(', ');
+            return `Répartition des journées à compléter : ${list}.`;
+        }
+        if (nbBloquantes > 0) {
+            return `${nbBloquantes} anomalie(s) bloquante(s) recensée(s) par le contrôle.`;
+        }
+        return null;
+    }, [canTransmitDaf, hasJourneesManquantes, isCurrentSiteClean, otherIncompleteSites, isSiteFiltered, sitesWithMissingDays, nbBloquantes]);
 
     // Filtrage dynamique des anomalies
     const filteredAnomalies = useMemo(() => {
@@ -220,6 +307,59 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         return filteredAnomalies.slice(start, start + pageSize);
     }, [filteredAnomalies, currentPage, pageSize]);
 
+    const isBulkRetardEligible = (anomalie) => anomalie?.typeAnomalie === 'RETARD'
+        && anomalie.statutAnomalie === 'todo'
+        && Number(anomalie.minutesRetard) > 0
+        && Number(anomalie.idPointage) > 0
+        && Number.isInteger(Number(anomalie.version));
+    const visibleRetardsEligible = paginatedAnomalies.filter(isBulkRetardEligible);
+    const allVisibleRetardsSelected = visibleRetardsEligible.length > 0
+        && visibleRetardsEligible.every(ano => selectedRetards.has(String(ano.idPointage)));
+
+    const toggleRetardSelection = (anomalie) => {
+        const key = String(anomalie.idPointage);
+        setSelectedRetards(previous => {
+            const next = new Map(previous);
+            if (next.has(key)) next.delete(key);
+            else next.set(key, anomalie);
+            return next;
+        });
+    };
+
+    const toggleVisibleRetards = () => {
+        setSelectedRetards(previous => {
+            const next = new Map(previous);
+            if (allVisibleRetardsSelected) visibleRetardsEligible.forEach(ano => next.delete(String(ano.idPointage)));
+            else visibleRetardsEligible.forEach(ano => next.set(String(ano.idPointage), ano));
+            return next;
+        });
+    };
+
+    const handleBulkConfirmRetards = async () => {
+        const items = [...selectedRetards.values()];
+        if (!items.length || bulkRegularising) return;
+        setBulkRegularising(true);
+        let succeeded = 0;
+        const failed = [];
+        try {
+            for (const ano of items) {
+                const result = await regulariser(ano.idPointage, {
+                    typeRegularisation: 'RETARD_REEL',
+                    version: Number(ano.version),
+                }, { reload: false });
+                if (result?.success || result === true) succeeded += 1;
+                else failed.push(ano);
+            }
+            setSelectedRetards(new Map());
+            setIsBulkConfirmOpen(false);
+            await loadAnomalies();
+            if (succeeded > 0) toast.success(`${succeeded} retard${succeeded > 1 ? 's' : ''} confirmé${succeeded > 1 ? 's' : ''} comme réel${succeeded > 1 ? 's' : ''}.`);
+            if (failed.length > 0) toast.error(`${failed.length} retard${failed.length > 1 ? 's' : ''} n'ont pas pu être régularisés. Rechargez la liste et vérifiez-les individuellement.`);
+        } finally {
+            setBulkRegularising(false);
+        }
+    };
+
     // Gestion de l'ouverture de la modale de régularisation
     // Actions
     const handleOpenRegularisation = (anomalie) => {
@@ -247,34 +387,6 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         }
     };
 
-
-    // Transmission officielle à la DAF
-    const handleTransmettreDaf = async () => {
-        if (!selectedPeriodeId || !canTransmitDaf) return;
-        setTransmitting(true);
-        try {
-            const siteParam = Number(selectedSiteId) > 0 ? Number(selectedSiteId) : undefined;
-            const res = await periodePaieService.executeCommand(currentPeriodeObj.idPeriodePaie, 'SUBMIT', {
-                version: currentPeriodeObj.version,
-                idSite: siteParam
-            });
-            if (res?.decision === 'ALLOWED') {
-                toast.success('Période transmise pour validation avec succès.');
-                window.dispatchEvent(new Event('pointage-period-updated'));
-                setShowTransmissionConfirm(false);
-                const updatedList = await periodePaieService.getAllPeriodes();
-                if (updatedList) setPeriodes(updatedList);
-                await loadAnomalies();
-            } else {
-                toast.error(res?.message || 'Erreur lors de la transmission.');
-            }
-        } catch (err) {
-            console.error('Erreur transmission validation:', err);
-            toast.error(getErrorMessage(err, 'Impossible de transmettre la période pour validation.'));
-        } finally {
-            setTransmitting(false);
-        }
-    };
 
     // Rendu
     return (
@@ -362,9 +474,13 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 <StatCard
                     title="Pointages saisis"
                     value={`${kpis?.joursSaisis ?? 0} / ${kpis?.joursTheoriques ?? 0}`}
-                    subtext="Jours saisis / jours attendus"
+                    subtext={
+                        isSiteFiltered
+                            ? `Jours couverts (${selectedSiteCode || 'Site'}) · ${currentSiteMissingCount === 0 && (kpis?.joursTheoriques ?? 0) > 0 ? 'À jour ✓' : 'Incomplet'}`
+                            : "Jours saisis / jours attendus (Tous sites)"
+                    }
                     icon={<Calendar size={17} />}
-                    color="brand"
+                    color={isSiteFiltered && currentSiteMissingCount === 0 && (kpis?.joursTheoriques ?? 0) > 0 ? 'success' : 'brand'}
                 />
                 <StatCard
                     title="Bloquantes avant transmission"
@@ -644,11 +760,44 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                     Un retard peut être corrigé si la saisie est erronée, ou confirmé comme réel. Dans les deux cas, il reste tracé et passe à « Régularisé ».
                 </p>
 
+                {selectedRetards.size > 0 && (
+                    <div className="flex flex-col gap-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-xs text-[var(--color-fg-muted)]">
+                            <strong className="text-[var(--color-fg)]">{selectedRetards.size}</strong> retard{selectedRetards.size > 1 ? 's' : ''} sélectionné{selectedRetards.size > 1 ? 's' : ''} pour confirmation comme réel.
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedRetards(new Map())}>
+                                Effacer la sélection
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="primary"
+                                size="sm"
+                                iconLeft={<CheckCircle2 size={14} />}
+                                disabled={isLocked || bulkRegularising}
+                                onClick={() => setIsBulkConfirmOpen(true)}
+                            >
+                                Confirmer les retards sélectionnés
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Tableau des anomalies */}
                 <div className="overflow-x-auto border-b border-[var(--color-border-subtle)]">
                     <Table density="compact" divided bordered={false}>
                         <Thead className="sticky top-0 bg-[var(--color-surface)] z-10 shadow-xs">
                             <Tr>
+                                <Th className="w-10 text-center">
+                                    <input
+                                        type="checkbox"
+                                        aria-label="Sélectionner tous les retards vérifiables de cette page"
+                                        checked={allVisibleRetardsSelected}
+                                        disabled={isLocked || visibleRetardsEligible.length === 0}
+                                        onChange={toggleVisibleRetards}
+                                        className="accent-[var(--color-brand-500)] cursor-pointer disabled:cursor-not-allowed"
+                                    />
+                                </Th>
                                 <Th className="min-w-[200px]">Salarié</Th>
                                 <Th className="text-center w-20">Semaine</Th>
                                 <Th className="w-24">Date</Th>
@@ -665,11 +814,23 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
 
                                     const isDone = ano.statutAnomalie === 'done';
 
-                                    return (
+                                        return (
                                         <Tr
                                             key={`${ano.idPointage}-${ano.idEmploye}-${ano.datePointage}`}
                                             className={`border-l-4 ${severity.border}`}
                                         >
+                                            <Td className="text-center">
+                                                {isBulkRetardEligible(ano) && (
+                                                    <input
+                                                        type="checkbox"
+                                                        aria-label={`Sélectionner le retard de ${ano.nom || ''} ${ano.prenom || ''} du ${fmtDate(ano.datePointage)}`}
+                                                        checked={selectedRetards.has(String(ano.idPointage))}
+                                                        disabled={isLocked || bulkRegularising}
+                                                        onChange={() => toggleRetardSelection(ano)}
+                                                        className="accent-[var(--color-brand-500)] cursor-pointer disabled:cursor-not-allowed"
+                                                    />
+                                                )}
+                                            </Td>
                                             {/* Employé */}
                                             <Td>
                                                 <div className="flex items-center gap-2">
@@ -741,7 +902,8 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                                 ) : (
                                                     <span className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-semibold inline-flex items-center gap-1 text-[11px]">
                                                         <Clock size={12} />
-                                                        {ano.typeAnomalie === 'RETARD' ? 'À vérifier' : 'À régulariser'}
+                                                        {ano.typeAnomalie === 'RETARD' || ano.statutCode === 'ABSENCE_JUSTIFIEE'
+                                                            ? 'À vérifier' : 'À régulariser'}
                                                     </span>
                                                 )}
                                             </Td>
@@ -755,7 +917,8 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                                     disabled={isLocked}
                                                     className="font-bold text-[11px] h-[28px]"
                                                 >
-                                                    {isDone ? 'Modifier' : ano.typeAnomalie === 'RETARD' ? 'Vérifier' : 'Régulariser'}
+                                                    {isDone ? 'Modifier' : ano.typeAnomalie === 'RETARD' || ano.statutCode === 'ABSENCE_JUSTIFIEE'
+                                                        ? 'Vérifier' : 'Régulariser'}
                                                 </Button>
                                             </Td>
                                         </Tr>
@@ -763,7 +926,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 })
                             ) : (
                                 <Tr>
-                                    <Td colSpan={7} className="py-12 text-center text-xs text-[var(--color-fg-muted)]">
+                                    <Td colSpan={8} className="py-12 text-center text-xs text-[var(--color-fg-muted)]">
                                         {loading ? 'Chargement des anomalies…' : 'Aucune anomalie détectée pour cette sélection.'}
                                     </Td>
                                 </Tr>
@@ -792,32 +955,40 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                             )}
                             <div>
                                 <p className="font-semibold text-[var(--color-fg)]">
-                                    {canTransmitDaf
-                                        ? 'La période peut être transmise pour contrôle.'
-                                        : transmissionBlockReason || 'Le workflow ne permet pas encore la transmission.'}
+                                    {transmissionBlockTitle}
                                 </p>
-                                {nbBloquantes > 0 && !canTransmitDaf && (
+                                {transmissionBlockSubtitle && (
                                     <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
-                                        {nbBloquantes} anomalie(s) bloquante(s) recensée(s) par le contrôle.
+                                        {transmissionBlockSubtitle}
                                     </p>
+                                )}
+                                {hasJourneesManquantes && isCurrentSiteClean && otherIncompleteSites.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSwitchSite(0)}
+                                            className="text-xs font-semibold text-[var(--color-brand-600)] hover:underline"
+                                        >
+                                            Afficher tous les sites (Vue globale)
+                                        </button>
+                                        {otherIncompleteSites[0] && (
+                                            <>
+                                                <span className="text-xs text-[var(--color-fg-subtle)]">·</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSwitchSite(otherIncompleteSites[0].idSite || otherIncompleteSites[0].id)}
+                                                    className="text-xs font-semibold text-[var(--color-brand-600)] hover:underline"
+                                                >
+                                                    Basculer sur {otherIncompleteSites[0].codeSite || otherIncompleteSites[0].code}
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </div>
 
                         <div className="flex flex-wrap items-center justify-end gap-2">
-                            {canTransmitDaf && (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setShowTransmissionConfirm(true)}
-                                    disabled={transmitting}
-                                    loading={transmitting}
-                                    iconLeft={<Send size={14} />}
-                                >
-                                    Transmettre pour validation
-                                </Button>
-                            )}
                             <Button
                                 type="button"
                                 variant="primary"
@@ -849,16 +1020,17 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
 
             {/* Dialogue de confirmation de transmission pour validation */}
             <ConfirmDialog
-                isOpen={showTransmissionConfirm}
-                onClose={() => setShowTransmissionConfirm(false)}
-                onConfirm={handleTransmettreDaf}
-                title="Confirmer la transmission pour validation"
-                message="Êtes-vous sûr de vouloir transmettre la période de pointage pour validation ? Cette action fige la saisie pour les agents de site et transmet le dossier pour validation finale."
-                confirmLabel="Confirmer et transmettre"
+                isOpen={isBulkConfirmOpen}
+                onClose={() => !bulkRegularising && setIsBulkConfirmOpen(false)}
+                onConfirm={handleBulkConfirmRetards}
+                title="Confirmer plusieurs retards réels"
+                message={`Confirmer comme réels les ${selectedRetards.size} retard${selectedRetards.size > 1 ? 's' : ''} sélectionnés ? Les horaires et les minutes de retard ne seront pas modifiés. Chaque pointage sera vérifié avec sa version actuelle.`}
+                confirmLabel="Confirmer les retards"
                 cancelLabel="Annuler"
                 variant="primary"
-                loading={transmitting}
+                loading={bulkRegularising}
             />
+
         </div>
     );
 }

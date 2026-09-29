@@ -418,13 +418,18 @@ export default function PointageGridTable({
                                     {/* 9. Colonnes Dynamiques d'Indemnités avec Cases à cocher */}
                                     {siteIndemnites.map((ind) => {
                                         const dynObj = row.dynamicIndemnites?.[String(ind.idIndemnite)] || {};
-                                        const isAccordee = dynObj.accordee !== false && !isCongeFull;
+                                        // Sur un jour de congé : décoché par défaut SAUF si l'utilisateur a explicitement coché
+                                        const isAccordee = isCongeFull
+                                            ? (dynObj.accordee === true) // exception manuelle explicite uniquement
+                                            : (dynObj.accordee !== false);
                                         const isFractionnable = ind.estFractionnable !== undefined ? ind.estFractionnable : ind.fractionnable;
 
                                         if (isFractionnable) {
                                             const montantTrajet = ind.montantTrajet;
-                                            const matVal = !isCongeFull && Boolean(dynObj.matin);
-                                            const amVal = !isCongeFull && Boolean(dynObj.am);
+                                            // Sur congé : décoché par défaut, sauf exception manuelle explicite
+                                            const matVal = isCongeFull ? (dynObj.matin === true) : Boolean(dynObj.matin);
+                                            const amVal = isCongeFull ? (dynObj.am === true) : Boolean(dynObj.am);
+                                            const hasCongeException = isCongeFull && (matVal || amVal);
 
                                             return (
                                                 <Td key={ind.idIndemnite} className="px-3 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
@@ -434,12 +439,17 @@ export default function PointageGridTable({
                                                                 Suggestion : {dynObj.motifSuggestion} · exception possible
                                                             </span>
                                                         )}
+                                                        {hasCongeException && (
+                                                            <span className="text-[9px] font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] bg-[var(--color-warning-500)]/10 px-1 leading-tight">
+                                                                Exc. congé
+                                                            </span>
+                                                        )}
                                                         <div className="flex items-center justify-center gap-3">
-                                                            <label className={`inline-flex items-center gap-1 text-[11px] font-semibold ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Trajet aller (matin) — ${fmtMoney(montantTrajet)}`}>
+                                                            <label className={`inline-flex items-center gap-1 text-[11px] font-semibold ${isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Trajet aller (matin) — ${fmtMoney(montantTrajet)}${isCongeFull ? ' · Jour de congé (exception)' : ''}`}>
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={matVal}
-                                                                    disabled={isReadOnlyForUser || isCongeFull}
+                                                                    disabled={isReadOnlyForUser}
                                                                     onChange={(e) => {
                                                                         onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked, 'MATIN');
                                                                     }}
@@ -448,11 +458,11 @@ export default function PointageGridTable({
                                                                 <span className={matVal ? 'text-[var(--color-fg)] font-bold' : 'text-[var(--color-fg-muted)]'}>Aller</span>
                                                             </label>
 
-                                                            <label className={`inline-flex items-center gap-1 text-[11px] font-semibold ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Trajet retour (soir) — ${fmtMoney(montantTrajet)}`}>
+                                                            <label className={`inline-flex items-center gap-1 text-[11px] font-semibold ${isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Trajet retour (soir) — ${fmtMoney(montantTrajet)}${isCongeFull ? ' · Jour de congé (exception)' : ''}`}>
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={amVal}
-                                                                    disabled={isReadOnlyForUser || isCongeFull}
+                                                                    disabled={isReadOnlyForUser}
                                                                     onChange={(e) => {
                                                                         onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked, 'APRES_MIDI');
                                                                     }}
@@ -470,11 +480,14 @@ export default function PointageGridTable({
                                         const useGlobalIfZero = !!ind.useGlobalIfZero;
                                         const repasFourniSansVersement = ind.code === 'REPAS'
                                             && Number(ind.montantReference) === 0;
-                                        const checked = !isCongeFull && (dynObj.accordee !== undefined
-                                            ? Boolean(dynObj.accordee) : (useGlobalIfZero ? false : isAccordee));
+                                        // Sur congé : décoché par défaut, sauf si l'utilisateur a coché explicitement
+                                        const checked = dynObj.accordee !== undefined
+                                            ? Boolean(dynObj.accordee)
+                                            : (isCongeFull ? false : (useGlobalIfZero ? false : isAccordee));
                                         const montantEffectif = useGlobalIfZero && checked
                                             ? (ind.montantGlobal || ind.montantJour || 0)
                                             : (ind.montantJour || ind.montantReference || 0);
+                                        const isCongeException = isCongeFull && checked;
 
                                         return (
                                             <Td key={ind.idIndemnite} className="px-3 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
@@ -484,10 +497,17 @@ export default function PointageGridTable({
                                                                 Suggestion : {dynObj.motifSuggestion} · exception possible
                                                             </span>
                                                         )}
+                                                        {isCongeException && (
+                                                            <span className="text-[9px] font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] bg-[var(--color-warning-500)]/10 px-1 leading-tight">
+                                                                Exc. congé
+                                                            </span>
+                                                        )}
                                                         <label
-                                                            className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium ${isCongeFull || isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`}
+                                                            className={`inline-flex items-center gap-1.5 text-[11.5px] font-medium ${isReadOnlyForUser ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`}
                                                             title={repasFourniSansVersement
                                                                 ? 'Repas fourni sur site : 0 Ar versé et réduction du déplacement selon le paramètre de la période'
+                                                                : isCongeFull
+                                                                ? `Jour de congé — Décoché par défaut. Cocher pour accorder une exception : ${fmtMoney(montantEffectif)}`
                                                                 : useGlobalIfZero
                                                                 ? `Non inclus dans les indemnites du site — Si coche, applique le parametre global : ${fmtMoney(ind.montantGlobal || 0)}/j`
                                                                 : `Accordee — ${fmtMoney(montantEffectif)}`
@@ -496,7 +516,7 @@ export default function PointageGridTable({
                                                             <input
                                                                 type="checkbox"
                                                                 checked={checked}
-                                                                disabled={isReadOnlyForUser || isCongeFull}
+                                                                disabled={isReadOnlyForUser}
                                                                 onChange={(e) => {
                                                                     onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked);
                                                                 }}

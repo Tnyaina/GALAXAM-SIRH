@@ -403,8 +403,23 @@ public class CongeService {
     public RegularisationCongeResult regulariserCongeAnnuelDepuisPointageStructure(
             int employeeId, Date date, double days, String momentDemiJournee,
             String comment, Integer currentUserId, Connection c) throws Exception {
+        return regulariserCongeAnnuelDepuisPointageStructure(employeeId, date, date, days,
+                momentDemiJournee, comment, currentUserId, c);
+    }
+
+    public RegularisationCongeResult regulariserCongeAnnuelDepuisPointageStructure(
+            int employeeId, Date date, Date endDate, double days, String momentDemiJournee,
+            String comment, Integer currentUserId, Connection c) throws Exception {
         if (date == null || days <= 0.0) {
             throw new IllegalArgumentException("La date et une durée d'absence positive sont requises.");
+        }
+        if (endDate == null || endDate.before(date)) {
+            throw new IllegalArgumentException("La fin du congé doit être postérieure ou égale à son début.");
+        }
+        if (!date.equals(endDate) &&
+                BigDecimal.valueOf(days).compareTo(calculateurEngine.calculerNombreJours(
+                        date.toLocalDate(), endDate.toLocalDate(), false)) != 0) {
+            throw new IllegalArgumentException("Le nombre de jours doit couvrir tout l'intervalle calendaire.");
         }
 
         // 1. Idempotence : si une régularisation a déjà été effectuée pour cette date, la retourner sans double débit
@@ -416,7 +431,7 @@ public class CongeService {
                 "ORDER BY d.id_demande_conge DESC LIMIT 1")) {
             statement.setInt(1, employeeId);
             statement.setDate(2, date);
-            statement.setDate(3, date);
+            statement.setDate(3, endDate);
             try (ResultSet result = statement.executeQuery()) {
                 if (result.next()) {
                     int existingId = result.getInt("id_demande_conge");
@@ -434,7 +449,7 @@ public class CongeService {
                 "SELECT 1 FROM demande_conge WHERE id_employe = ? AND date_debut <= ? AND date_fin >= ? " +
                 "AND id_statut_demande_conge NOT IN (SELECT id_statut_demande_conge FROM ref_statut_demande_conge WHERE code IN ('REFUSE', 'ANNULE', 'REJETE')) LIMIT 1")) {
             statement.setInt(1, employeeId);
-            statement.setDate(2, date);
+            statement.setDate(2, endDate);
             statement.setDate(3, date);
             try (ResultSet result = statement.executeQuery()) {
                 if (result.next()) {
@@ -448,6 +463,10 @@ public class CongeService {
         java.math.BigDecimal soldeDisponible = (solde != null && solde.getSoldeActuel() != null)
                 ? solde.getSoldeActuel() : java.math.BigDecimal.ZERO;
         double soldeAvant = soldeDisponible.doubleValue();
+
+        if (!date.equals(endDate) && soldeDisponible.compareTo(BigDecimal.valueOf(days)) < 0) {
+            throw new IllegalArgumentException("Solde de congé insuffisant pour couvrir toute la période de " + days + " jours.");
+        }
 
         double joursCouverts = Math.min(days, Math.max(0.0, soldeAvant));
         joursCouverts = java.math.BigDecimal.valueOf(joursCouverts).setScale(2, java.math.RoundingMode.HALF_UP).doubleValue();
@@ -468,7 +487,7 @@ public class CongeService {
         demande.setIdEmploye(employeeId);
         demande.setIdTypeConge(annualType.getIdTypeConge());
         demande.setDateDebut(date);
-        demande.setDateFin(date);
+        demande.setDateFin(endDate);
         demande.setNbJoursDecomptes(java.math.BigDecimal.valueOf(joursCouverts));
         boolean isDemi = (joursCouverts == 0.5);
         demande.setEstDemiJournee(isDemi);
@@ -840,6 +859,16 @@ public class CongeService {
         }
         verifierPeriodePaieModifiable(d.getIdEmploye(), d.getDateDebut(), d.getDateFin(), c);
 
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT 1 FROM pointage_jour WHERE id_demande_conge = ? " +
+                "AND COALESCE(total_heures, 0) <> 0 LIMIT 1")) {
+            ps.setInt(1, idDemande);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) throw new IllegalStateException(
+                        "Un pointage lié à ce congé contient des heures travaillées. Vérifiez-le avant d'annuler la demande.");
+            }
+        }
+
         RefTypeConge type = RefTypeConge.rechercherParId(d.getIdTypeConge(), c);
         String motif = motifAnnulation != null && !motifAnnulation.isBlank() ? motifAnnulation.trim() : null;
         if ("VALIDE".equals(statut) && type != null && type.isDecompteSoldeAcquis()) {
@@ -857,7 +886,19 @@ public class CongeService {
         if (annule == null) throw new IllegalStateException("Statut ANNULE non trouvé dans le référentiel.");
         d.setIdStatutDemandeConge(annule.getIdStatutDemandeConge());
         if (motif != null) d.setMotifRefus(motif);
-        return (DemandeConge) d.update(c);
+        DemandeConge annulee = (DemandeConge) d.update(c);
+        if ("VALIDE".equals(statut)) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE pointage_jour SET id_demande_conge = NULL, " +
+                    "id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'ABSENCE_NON_JUSTIFIEE'), " +
+                    "motif_ajustement = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP " +
+                    "WHERE id_demande_conge = ? AND COALESCE(total_heures, 0) = 0")) {
+                ps.setString(1, "Congé annulé" + (motif != null ? " : " + motif : ""));
+                ps.setInt(2, idDemande);
+                ps.executeUpdate();
+            }
+        }
+        return annulee;
     }
 
     private void verifierPeriodePaieModifiable(Integer idEmploye, Date debut, Date fin, Connection c) throws Exception {

@@ -201,10 +201,13 @@ Périodes de 12 mois bornées et historisation du taux journalier `TCONGE` avec 
 ## 4. Règles de Gestion Métier (RG) Détaillées
 
 ### RG-CON-01 : Décompte Calendaire Strict & Demi-Journées
+- L'écran de demande saisit le **premier jour de congé** et la **date de reprise prévue** (premier jour non couvert). Il convertit cette dernière en `date_fin = date_reprise - 1 jour` avant la simulation et l'enregistrement. La colonne `date_fin` reste inclusive dans la base et les API existantes.
+- Exemple : congé à compter du vendredi 7, reprise le lundi 10 → `date_fin` dimanche 9, **3 jours débités**. Une reprise le samedi 8 débite seulement le vendredi.
 - Décompte standard : tous les jours calendaires inclus entre `date_debut` et `date_fin` sont décomptés :
   $$\text{nb\_jours\_decomptes} = (\text{date\_fin} - \text{date\_debut}) + 1$$
   *(Les samedis, dimanches et jours fériés intercalés sont obligatoirement comptabilisés conformément à la base calendaire de l'Art. 85)*.
 - **Demi-journée** : Si `est_demi_journee = true`, alors $\text{date\_debut} = \text{date\_fin}$, $\text{nb\_jours\_decomptes} = 0{,}5$, et le moment doit être explicitement renseigné (`MATIN` ou `APRES_MIDI`).
+- Une demande existante est réaffichée avec `date_reprise = date_fin + 1 jour`. Le choix de la reprise est une aide à la saisie ; les calculs de solde, de valorisation et les exports continuent de lire l'intervalle inclusif enregistré.
 
 ### RG-CON-02 : Acquisition Mensuelle Légale & Idempotence
 - Base normale : **2,50 jours calendaires** par mois de service effectif (Art. 85), lue dans `paie_config_legale.acquisition_conge_mensuel_jours` selon le mois concerné. Une configuration absente ou illisible bloque l'acquisition.
@@ -323,6 +326,14 @@ Le backend calcule dynamiquement pour chaque demande la liste des actions autori
 ---
 
 ## 6. Intégrations Certifiées : Pointage, Paie & STC
+
+### Date de reprise dans la régularisation Pointage
+
+Quand une demande validée issue d'une régularisation est annulée, le solde est restitué et les pointages liés redeviennent des absences non justifiées dans la même transaction. Leur lien avec la demande est retiré et leur version est incrémentée ; ils peuvent ensuite être traités de nouveau dans le suivi des anomalies.
+
+La régularisation d'une absence en congé annuel demande aussi une **date de reprise**. Le serveur en déduit la fin incluse (`reprise - 1 jour`) et le nombre de jours calendaires ; il ne se fie pas au nombre de jours transmis par l'interface. Une reprise le lundi après un vendredi absent crée une seule demande du vendredi au dimanche et un seul mouvement `PRISE` de trois jours. Les samedis, dimanches et jours chômés sont inclus dans le débit calendaire, sans création de pointages travaillés sur ces dates.
+
+Les journées ouvrables supplémentaires de l'intervalle sont vérifiées puis liées à la même demande `VALIDE` dans la transaction de régularisation. Un pointage déjà travaillé, un congé existant ou une période de pointage non ouverte bloque l'opération entière. Pour une régularisation couvrant plusieurs jours, le solde doit couvrir **toute** la durée : aucune répartition partielle implicite entre congé et absence n'est effectuée. Le traitement historique d'une seule journée et la demi-journée restent distincts.
 
 ### 6.1 Pont Réel Congés $\rightarrow$ Pointage (Gestion du Temps)
 L'approbation d'une demande de congé met à jour automatiquement la grille de pointage mensuelle via `PointageSaisieService` :

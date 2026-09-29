@@ -8,6 +8,7 @@ import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
 import mg.galaxam.sirh.paie.application.PayrollService;
 import mg.galaxam.sirh.pointage.api.dto.SaisiePointageJourDTO;
+import mg.galaxam.sirh.pointage.api.dto.PointageSyntheseMensuelleDTO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,6 +27,7 @@ import java.sql.Time;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -195,6 +197,28 @@ class PointagePhase6IntegrationTest {
             assertTrue(preflight.journeesManquantes().stream()
                     .anyMatch(jour -> jour.idEmploye() == employeId
                             && jour.date().equals(LocalDate.of(2026, 9, 1))));
+        }
+    }
+
+    @Test
+    @DisplayName("Les KPI heures et indemnités reprennent les totaux de la synthèse complète")
+    void testKpisSyntheseAlignesSurToutesLesLignes() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            var synthese = pointageSyntheseService.getSynthesePeriode(testPeriodId, null, c);
+            var page = pointageSyntheseService.getSynthesePeriodePaginee(testPeriodId, null, null, null, 1, 10000, c);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> kpis = (Map<String, Object>) page.get("kpis");
+
+            double heuresAttendues = synthese.stream()
+                    .mapToDouble(PointageSyntheseMensuelleDTO::getTotalHeuresTravaillees).sum();
+            BigDecimal indemnitesAttendues = synthese.stream()
+                    .flatMap(dto -> dto.getMontantsIndemnites().values().stream())
+                    .filter(amount -> amount != null)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            assertEquals(Math.round(heuresAttendues * 100.0) / 100.0,
+                    ((Number) kpis.get("totalHeures")).doubleValue(), 0.001);
+            assertEquals(0, indemnitesAttendues.compareTo((BigDecimal) kpis.get("totalIndemnites")));
         }
     }
 

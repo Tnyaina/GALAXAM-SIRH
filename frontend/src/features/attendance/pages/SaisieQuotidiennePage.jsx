@@ -213,7 +213,10 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     };
 
     const handleKeyDown = (e, idEmploye, fieldIndex) => {
-        if (e.key === 'ArrowRight') {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleRequestSave();
+        } else if (e.key === 'ArrowRight') {
             for (let nextIndex = fieldIndex + 1; nextIndex <= 3; nextIndex++) {
                 const nextEl = inputRefs.current[idEmploye]?.[nextIndex];
                 if (nextEl && !nextEl.disabled) {

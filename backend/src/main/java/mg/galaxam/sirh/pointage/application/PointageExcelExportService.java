@@ -1,204 +1,196 @@
 package mg.galaxam.sirh.pointage.application;
 
-import mg.galaxam.sirh.pointage.api.dto.*;
+import mg.galaxam.sirh.pointage.api.dto.FichePointageEmployeDTO;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
-import java.io.*;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.text.Normalizer;
 import java.util.*;
 
-/** Remplit le modèle GALAXAM ; seules les sommes de présentation restent des formules. */
+/** Fiche de présence destinée au salarié : journal, soldes utiles et indemnités. */
 @Service
 public class PointageExcelExportService {
     public byte[] genererExcelFicheEmploye(FichePointageEmployeDTO fiche) throws IOException {
         return genererExcelFicheEmploye(PointageDocumentData.from(fiche));
     }
+
     public byte[] genererExcelFicheEmploye(PointageDocumentData data) throws IOException {
-        try (InputStream input = new ClassPathResource("templates/mensuel/MODELE_POINTAGE_EXCEL.xlsx").getInputStream();
-             Workbook workbook = new XSSFWorkbook(input); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            Sheet sheet = workbook.getSheetAt(0);
-            var fiche = data.fiche();
-            replace(sheet, "{{NOM}}", PointageDocumentData.value(fiche.getNomComplet()));
-            replace(sheet, "{{MATRICULE}}", PointageDocumentData.value(fiche.getMatricule()));
-            replace(sheet, "{{FONCTION}}", PointageDocumentData.value(fiche.getFonction()));
-            replace(sheet, "{{SITE}}", PointageDocumentData.value(fiche.getSiteNom()));
-            replace(sheet, "{{CATEGORIE}}", PointageDocumentData.value(fiche.getCategorie()));
-            replace(sheet, "{{PERIODE}}", PointageDocumentData.value(fiche.getDateDebut()) + " → " + PointageDocumentData.value(fiche.getDateFin()));
-            replace(sheet, "{{PROVENANCE}}", data.note());
-            List<String> codes = journalCodes(data);
-            int n = codes.size(), columns = Math.max(12, 10 + n);
-            int start = expand(sheet, "{{JOURNAL}}", 32, PointageDocumentData.days(fiche).size());
-            Row header = sheet.getRow(start - 1);
-            for (int col = 9; col < columns; col++) set(header, col, null);
-            for (int i = 0; i < n; i++) set(header,9+i,codes.get(i) + " (unité)");
-            set(header,9+n,"Observation");
-            int index = 0;
-            for (var day : PointageDocumentData.days(fiche)) {
-                Row row = sheet.getRow(start + index++);
-                clear(row);
-                set(row,0,day.getDateComplete()); set(row,1,day.getJour()); set(row,2,status(day.getStatut()));
-                set(row,3,day.getEntree()); set(row,4,day.getSortiePause()); set(row,5,day.getRetourPause()); set(row,6,day.getSortie());
-                set(row,7,day.getTotalHeuresDecimal()); set(row,8,day.getMinutesRetard());
-                for (int i=0;i<n;i++) { var item=day.getIndemnites().get(codes.get(i)); set(row,9+i,item==null || !item.accordee() ? BigDecimal.ZERO : item.quantite()); }
-                set(row,9+n,day.getObservation());
-                for (int col=7;col<9+n;col++) row.getCell(col).setCellStyle(numericStyle(workbook,row.getCell(col).getCellStyle(),"0.00"));
+        try (var book = new XSSFWorkbook(); var output = new ByteArrayOutputStream()) {
+            Sheet sheet = book.createSheet("Fiche de présence");
+            CellStyle title = style(book, true, (short) 16, "24432E", "FFFFFF");
+            CellStyle section = style(book, true, (short) 11, "E9EFEA", "24432E");
+            CellStyle header = style(book, true, (short) 10, "E9EFEA", "24432E");
+            CellStyle text = style(book, false, (short) 10, "FFFFFF", "253328");
+            CellStyle money = book.createCellStyle(); money.cloneStyleFrom(text);
+            money.setDataFormat(book.createDataFormat().getFormat("# ##0 \"Ar\""));
+            CellStyle note = style(book, false, (short) 9, "F4F5F2", "626A61");
+            CellStyle duration = book.createCellStyle(); duration.cloneStyleFrom(text); duration.setWrapText(true);
+            int row = 0;
+            merged(sheet, row++, 0, 9, "FICHE DE PRÉSENCE", title);
+            var f = data.fiche();
+            merged(sheet, row++, 0, 9, "Période : " + PointageDocumentData.date(f.getDateDebut()) + " au " + PointageDocumentData.date(f.getDateFin()), section);
+            merged(sheet, row++, 0, 9, "Salarié : " + PointageDocumentData.value(f.getNomComplet()) + "  ·  Matricule : " + PointageDocumentData.value(f.getMatricule()), text);
+            merged(sheet, row++, 0, 9, "Fonction : " + PointageDocumentData.value(f.getFonction()) + "  ·  Site : " + PointageDocumentData.value(f.getSiteNom()), text);
+            merged(sheet, row++, 0, 9, data.versionSnapshot() == null ? "Données provisoires · Édité le " + data.edition() : "Période validée · Édité le " + data.edition(), note);
+            row++;
+            int journalTitle = row;
+            merged(sheet, row++, 0, 9, "JOURNAL DES PRÉSENCES", section);
+            String[] headings = {"Date", "Jour", "Statut", "Entrée", "Pause", "Retour", "Sortie", "Heures", "Retard (min)", "Observation"};
+            for (int c = 0; c < headings.length; c++) cell(sheet, row, c, headings[c], header);
+            row++;
+            int firstDay = row;
+            for (var d : PointageDocumentData.days(f)) {
+                Object[] values = {PointageDocumentData.date(d.getDateComplete()), cleanWeekday(d.getJour()), status(d.getStatut()),
+                        d.getEntree(), d.getSortiePause(), d.getRetourPause(), d.getSortie(), PointageDocumentData.dualHours(d.getTotalHeuresDecimal()),
+                        d.getMinutesRetard(), d.getObservation()};
+                for (int c = 0; c < values.length; c++) cell(sheet, row, c, values[c], text);
+                row++;
             }
-            int total = locate(sheet,"TOTAL JOURNAL");
-            Row totalRow=sheet.getRow(total);
-            for(int col=7;col<columns;col++)set(totalRow,col,null);
-            for(int col=7;col<9+n;col++){
-                Cell cell=cell(totalRow,col); String letter=org.apache.poi.ss.util.CellReference.convertNumToColString(col);
-                cell.setCellFormula("SUM("+letter+(start+1)+":"+letter+total+")");
-                cell.setCellStyle(numericStyle(workbook,header.getCell(7).getCellStyle(),"0.00"));
+            cell(sheet, row, 0, "Total", header);
+            if (row > firstDay) {
+                for (int c : new int[]{7, 8}) {
+                    if (c == 7) {
+                        double totalHours = PointageDocumentData.days(f).stream().mapToDouble(d -> d.getTotalHeuresDecimal() == null ? 0 : d.getTotalHeuresDecimal()).sum();
+                        cell(sheet, row, c, PointageDocumentData.dualHours(totalHours), text);
+                    } else {
+                        Cell total = cell(sheet, row, c, null, text);
+                        total.setCellFormula("SUM(I" + (firstDay + 1) + ":I" + row + ")");
+                    }
+                }
             }
-            List<PointageTronconSemaineDTO> weeks=fiche.getBilansHebdo()==null ? List.of() : fiche.getBilansHebdo();
-            int weekStart=expand(sheet,"{{SEMAINES}}",6,weeks.size());
-            int wi=0;
-            for(var w:weeks){Row row=sheet.getRow(weekStart+wi++);clear(row);Object[] vals={"S"+w.getNumeroSemaine(),w.getDebutSemaine(),w.getFinSemaine(),w.getSeuilHeuresTroncon(),w.getTotalHeuresTravaillees(),Math.round(w.getHeuresRetard()*60),w.getHeuresCompensees(),w.getHeuresDeficit(),w.getHeuresHs30(),w.getHeuresHs50()};for(int i=0;i<vals.length;i++)set(row,i,vals[i]);}
-            if(data.versionSnapshot()!=null) replace(sheet,"BILAN HEBDOMADAIRE","BILAN HEBDOMADAIRE (RECONSTITUÉ)");
-            Row balance=sheet.getRow(locate(sheet,"{{BILAN}}"));clear(balance);
-            for(int i=0;i<data.bilan().size();i++)set(balance,i,data.bilan().get(i));
-            int allowanceStart=expand(sheet,"{{INDEMNITES}}",8,data.indemnites().size());
-            int ai=0;
-            for(var a:data.indemnites()){Row row=sheet.getRow(allowanceStart+ai++);clear(row);set(row,0,a.code());set(row,1,a.libelle());set(row,5,a.quantite());set(row,6,a.montant());set(row,7,a.periodicite());}
-            int adjustmentStart=expand(sheet,"{{AJUSTEMENTS}}",6,data.ajustements().size());
-            int ji=0;
-            for(var a:data.ajustements()){Row row=sheet.getRow(adjustmentStart+ji++);clear(row);set(row,0,PointageDocumentData.hours(a.minutes()));set(row,1,a.motif());set(row,8,a.date());set(row,9,a.auteur());set(row,10,a.statut());row.setHeightInPoints(Math.max(38,Math.min(400,16+12*(float)Math.ceil(PointageDocumentData.value(a.motif()).length()/85.0))));}
-            if(data.ajustements().isEmpty())set(sheet.getRow(adjustmentStart),1,"Aucune régularisation DAF");
-            // Les placeholders de lignes non utilisées sont effacés ; les autres sont une erreur de modèle.
-            for(Row row:sheet)for(Cell cell:row)if(cell.getCellType()==CellType.STRING){
-                String text=cell.getStringCellValue();
-                if(Set.of("{{JOURNAL}}","{{SEMAINES}}","{{INDEMNITES}}","{{AJUSTEMENTS}}").contains(text))cell.setBlank();
-                else if(text.contains("{{"))throw new IOException("POINTAGE_TEMPLATE_INVALID : variable non remplacée " + text);
+            row += 2;
+            merged(sheet, row++, 0, 9, "SYNTHÈSE HEBDOMADAIRE", section);
+            String[] weekHeaders = {"Semaine", "Jours", "Heures faites", "Objectif ajusté", "Déficit", "HS 30 %", "HS 50 %", "Nuit", "Dimanche", "Férié"};
+            for (int c = 0; c < weekHeaders.length; c++) cell(sheet, row, c, weekHeaders[c], header);
+            row++;
+            var weeks = f.getBilansHebdo() == null ? List.<mg.galaxam.sirh.pointage.api.dto.PointageTronconSemaineDTO>of() : f.getBilansHebdo();
+            for (var week : weeks) {
+                cell(sheet, row, 0, "S" + week.getNumeroSemaine() + " · " + PointageDocumentData.date(week.getDebutSemaine())
+                        + " au " + PointageDocumentData.date(week.getFinSemaine()), duration);
+                cell(sheet, row, 1, week.getNbJoursTroncon() + " j", text);
+                double[] values = {week.getTotalHeuresTravaillees(), week.getSeuilHeuresTroncon(), week.getHeuresDeficit(),
+                        week.getHeuresHs30(), week.getHeuresHs50(), week.getHeuresNuit(), week.getHeuresDimanche(), week.getHeuresFerie()};
+                for (int c = 0; c < values.length; c++) cell(sheet, row, c + 2, compactHours(values[c]), duration);
+                sheet.getRow(row).setHeightInPoints(29);
+                row++;
             }
-            for(int col=0;col<columns;col++)if(sheet.getColumnWidth(col)<2700)sheet.setColumnWidth(col,2700);
-            sheet.createFreezePane(3,7); sheet.setRepeatingRows(new CellRangeAddress(0,6,-1,-1));
-            sheet.getPrintSetup().setLandscape(true);sheet.getPrintSetup().setPaperSize(PrintSetup.A4_PAPERSIZE);sheet.getPrintSetup().setFitWidth((short)1);sheet.getPrintSetup().setFitHeight((short)0);sheet.setFitToPage(true);
-            workbook.setPrintArea(0,0,columns-1,0,sheet.getLastRowNum());
-            workbook.getCreationHelper().createFormulaEvaluator().evaluateAll();
-            workbook.write(output);return output.toByteArray();
+            if (weeks.isEmpty()) merged(sheet, row++, 0, 9, "Aucune synthèse hebdomadaire disponible.", note);
+            merged(sheet, row++, 0, 9, "Déficit et HS après compensation dans chaque semaine. Nuit, dimanche et férié qualifient des heures déjà travaillées.", note);
+            row++;
+            if (!data.appliedAdjustments().isEmpty()) {
+                merged(sheet, row++, 0, 9, "AJUSTEMENTS APPLIQUÉS AU SOLDE", section);
+                for (var adjustment : data.appliedAdjustments()) {
+                    cell(sheet, row, 0, PointageDocumentData.date(adjustment.date()), text);
+                    cell(sheet, row, 1, PointageDocumentData.signedDualMinutes(adjustment.minutes()), text);
+                    merged(sheet, row, 2, 9, PointageDocumentData.value(adjustment.motif()), text);
+                    sheet.getRow(row).setHeightInPoints(30);
+                    row++;
+                }
+                row++;
+            }
+            merged(sheet, row++, 0, 9, "RAPPROCHEMENT DU SOLDE", section);
+            row = summary(sheet, row, "HS hebdomadaires après compensation (30 % + 50 %)", sum(at(data.bilan(), 1), at(data.bilan(), 2)), text);
+            row = summary(sheet, row, "Déficits hebdomadaires restants", negate(at(data.bilan(), 0)), text);
+            row = summary(sheet, row, "Ajustements de période", at(data.bilan(), 3), text);
+            row = summary(sheet, row, "Solde final", at(data.bilan(), 4), text);
+            row++;
+            merged(sheet, row++, 0, 9, "INCIDENCE FINALE SUR LA PAIE", section);
+            row = summary(sheet, row, "Absence horaire à retenir", at(data.bilan(), 5), text);
+            row = summary(sheet, row, "Heures supplémentaires à 30 %", at(data.bilan(), 6), text);
+            row = summary(sheet, row, "Heures supplémentaires à 50 %", at(data.bilan(), 7), text);
+            row = summary(sheet, row, "Heures de nuit", at(data.bilan(), 8), text);
+            row = summary(sheet, row, "Heures du dimanche", at(data.bilan(), 9), text);
+            row = summary(sheet, row, "Heures des jours fériés", at(data.bilan(), 10), text);
+            row++;
+            merged(sheet, row++, 0, 9, "INDEMNITÉS DE POINTAGE", section);
+            for (var allowance : data.indemnites()) {
+                if (allowance.montant() == null || allowance.montant().signum() == 0) continue;
+                merged(sheet, row, 0, 5, PointageDocumentData.value(allowance.libelle()), text);
+                cell(sheet, row++, 7, PointageDocumentData.ariary(allowance.montant()), money);
+            }
+            merged(sheet, row++, 0, 9, "Montants arrondis à l'ariary après calcul. Le bulletin de paie reste la référence pour le versement.", note);
+            if (data.versionSnapshot() == null) merged(sheet, row++, 0, 9, "Fiche provisoire : les pointages peuvent encore être corrigés.", note);
+            for (int c = 0; c < 10; c++) sheet.setColumnWidth(c, new int[]{6800, 4600, 4200, 4700, 4200, 4200, 4200, 4200, 4200, 10000}[c]);
+            sheet.createFreezePane(0, journalTitle + 2);
+            sheet.setRepeatingRows(new CellRangeAddress(0, journalTitle + 1, -1, -1));
+            sheet.getPrintSetup().setLandscape(true);
+            sheet.getPrintSetup().setPaperSize(PrintSetup.A4_PAPERSIZE);
+            sheet.getPrintSetup().setFitWidth((short) 1);
+            sheet.getPrintSetup().setFitHeight((short) 0);
+            sheet.setFitToPage(true);
+            book.setPrintArea(0, 0, 9, 0, row);
+            book.getCreationHelper().createFormulaEvaluator().evaluateAll();
+            book.write(output);
+            return output.toByteArray();
         }
     }
-    static List<String> journalCodes(PointageDocumentData data) {
-        Set<String> codes=new TreeSet<>(data.fiche().getIndemnitesDisponibles().keySet());
-        for(var day:PointageDocumentData.days(data.fiche()))codes.addAll(day.getIndemnites().keySet());
-        return List.copyOf(codes);
+
+    private static BigDecimal at(List<BigDecimal> values, int index) { return values == null || values.size() <= index ? null : values.get(index); }
+    private static BigDecimal sum(BigDecimal a, BigDecimal b) { return a == null && b == null ? null : (a == null ? BigDecimal.ZERO : a).add(b == null ? BigDecimal.ZERO : b); }
+    private static BigDecimal negate(BigDecimal value) { return value == null ? null : value.negate(); }
+    private static String compactHours(double hours) { return PointageDocumentData.dualHours(hours).replace(" (", "\n("); }
+    private static int summary(Sheet sheet, int row, String label, BigDecimal value, CellStyle text) {
+        merged(sheet, row, 0, 5, label, text);
+        cell(sheet, row, 7, PointageDocumentData.dualHours(value), text);
+        return row + 1;
     }
-    static String status(String code){return formatStatutLabel(code);}
-    private static Cell cell(Row row,int col){Cell c=row.getCell(col);return c==null?row.createCell(col):c;}
-    private static void set(Row row,int col,Object value){Cell c=cell(row,col);if(value==null)c.setCellValue("—");else if(value instanceof Number n)c.setCellValue(n.doubleValue());else c.setCellValue(value.toString());}
-    private static void clear(Row row){for(Cell cell:row)cell.setBlank();}
-    private static CellStyle numericStyle(Workbook w,CellStyle base,String format){CellStyle style=w.createCellStyle();style.cloneStyleFrom(base);style.setDataFormat(w.createDataFormat().getFormat(format));return style;}
-    private static int locate(Sheet s,String text){for(Row row:s)for(Cell c:row)if(c.getCellType()==CellType.STRING&&text.equals(c.getStringCellValue()))return row.getRowNum();throw new IllegalStateException("POINTAGE_TEMPLATE_INVALID : repère absent " + text);}
-    private static void replace(Sheet s,String marker,String value){boolean found=false;for(Row row:s)for(Cell c:row)if(c.getCellType()==CellType.STRING&&marker.equals(c.getStringCellValue())){c.setCellValue(value);found=true;}if(!found)throw new IllegalStateException("POINTAGE_TEMPLATE_INVALID : " + marker);}
-    private static int expand(Sheet s,String marker,int capacity,int count){
-        int start=locate(s,marker),extra=Math.max(0,count-capacity);
-        if(extra>0){
-            Row model=s.getRow(start);Map<Integer,CellStyle> styles=new HashMap<>();for(Cell c:model)styles.put(c.getColumnIndex(),c.getCellStyle());float height=model.getHeightInPoints();
-            List<CellRangeAddress> merges=new ArrayList<>();for(var merge:s.getMergedRegions())if(merge.getFirstRow()==start&&merge.getLastRow()==start)merges.add(merge.copy());
-            s.shiftRows(start+capacity,s.getLastRowNum(),extra,true,false);
-            for(int i=0;i<extra;i++){Row row=s.createRow(start+capacity+i);row.setHeightInPoints(height);styles.forEach((col,style)->row.createCell(col).setCellStyle(style));for(var m:merges)s.addMergedRegion(new CellRangeAddress(row.getRowNum(),row.getRowNum(),m.getFirstColumn(),m.getLastColumn()));}
-        }
-        return start;
+    private static Cell cell(Sheet sheet, int rowIndex, int column, Object value, CellStyle style) {
+        Row row = sheet.getRow(rowIndex); if (row == null) row = sheet.createRow(rowIndex);
+        Cell cell = row.getCell(column); if (cell == null) cell = row.createCell(column);
+        cell.setCellStyle(style);
+        if (value == null || value.toString().isBlank()) cell.setCellValue("—");
+        else if (value instanceof Number number) cell.setCellValue(number.doubleValue());
+        else cell.setCellValue(value.toString());
+        return cell;
+    }
+    private static void merged(Sheet sheet, int row, int first, int last, String value, CellStyle style) {
+        for (int c = first; c <= last; c++) cell(sheet, row, c, c == first ? value : null, style);
+        sheet.addMergedRegion(new CellRangeAddress(row, row, first, last));
+    }
+    private static CellStyle style(Workbook book, boolean bold, short size, String background, String foreground) {
+        CellStyle style = book.createCellStyle();
+        Font font = book.createFont(); font.setBold(bold); font.setFontHeightInPoints(size);
+        font.setColor("FFFFFF".equals(foreground) ? IndexedColors.WHITE.getIndex() : IndexedColors.BLACK.getIndex());
+        style.setFont(font); style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setFillForegroundColor("24432E".equals(background) ? IndexedColors.DARK_GREEN.getIndex() :
+                "FFFFFF".equals(background) ? IndexedColors.WHITE.getIndex() : IndexedColors.GREY_25_PERCENT.getIndex());
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        return style;
+    }
+    private static String cleanWeekday(String value) { return value == null ? "—" : value.replace("..", "."); }
+    static String status(String code) {
+        if (code == null) return "Non saisi";
+        return switch (code.toUpperCase(Locale.ROOT)) {
+            case "CONGE", "CONGE_PAYE" -> "Congé payé";
+            case "FERIE_CHOME" -> "Férié chômé";
+            case "REPOS" -> "Repos";
+            case "ABSENT", "ABSENCE_NON_JUSTIFIEE" -> "Absent";
+            case "ABSENCE_JUSTIFIEE" -> "Absence justifiée";
+            case "DISPENSE_POINTAGE" -> "Dispensé";
+            case "DEMI_JOURNEE" -> "Demi-journée";
+            case "SAMEDI_TRAVAILLE" -> "Samedi travaillé";
+            case "DIMANCHE_TRAVAILLE" -> "Dimanche travaillé";
+            case "FERIE_TRAVAILLE" -> "Férié travaillé";
+            case "NON_SAISI", "PLANIFIE", "NON_ECHU" -> "Non saisi";
+            default -> "Présent";
+        };
     }
     public static String buildExportFilename(FichePointageEmployeDTO fiche, String extension) {
-        String nom = "Employe";
-        String p = "P";
-        if (fiche.getNom() != null && !fiche.getNom().trim().isEmpty()) {
-            nom = fiche.getNom().trim();
-        } else if (fiche.getNomComplet() != null && !fiche.getNomComplet().trim().isEmpty()) {
-            String[] parts = fiche.getNomComplet().trim().split("\\s+");
-            nom = parts[0];
-            if (parts.length > 1 && !parts[1].isEmpty()) {
-                p = parts[1].substring(0, 1).toUpperCase();
-            }
-        }
-        if (fiche.getPrenom() != null && !fiche.getPrenom().trim().isEmpty()) {
-            p = fiche.getPrenom().trim().substring(0, 1).toUpperCase();
-        }
-        String matricule = fiche.getMatricule() != null && !fiche.getMatricule().trim().isEmpty()
-                && !fiche.getMatricule().equals("—")
-                ? fiche.getMatricule().trim() : "0000";
-
-        String periode = resolveLibellePeriode(fiche.getLibellePeriode(), fiche.getCodePeriode(), fiche.getDateDebut(), fiche.getDateFin());
-
-        nom = sanitizeForFilename(nom);
-        p = sanitizeForFilename(p);
-        matricule = sanitizeForFilename(matricule);
-        periode = sanitizeForFilename(periode);
-
-        return String.format("Pointage_%s_%s_%s_%s.%s", nom, p, matricule, periode, extension);
+        String nom = fiche.getNom() != null && !fiche.getNom().isBlank() ? fiche.getNom() :
+                fiche.getNomComplet() == null ? "Employe" : fiche.getNomComplet().split("\\s+")[0];
+        String initiale = fiche.getPrenom() != null && !fiche.getPrenom().isBlank() ? fiche.getPrenom().substring(0, 1) : "P";
+        String matricule = fiche.getMatricule() == null || fiche.getMatricule().isBlank() ? "0000" : fiche.getMatricule();
+        String periode = fiche.getLibellePeriode() != null && !fiche.getLibellePeriode().isBlank() && !"Periode".equalsIgnoreCase(fiche.getLibellePeriode())
+                ? fiche.getLibellePeriode() : fiche.getCodePeriode() == null ? "Periode" : fiche.getCodePeriode();
+        return "Pointage_" + safe(nom) + "_" + safe(initiale) + "_" + safe(matricule) + "_" + safe(periode) + "." + extension;
     }
-
-    private static String resolveLibellePeriode(String libelle, String code, String dateDebut, String dateFin) {
-        if (libelle != null && !libelle.trim().isEmpty() && !libelle.equalsIgnoreCase("Periode")) {
-            return libelle.trim();
-        }
-        if (code != null && code.trim().matches("\\d{4}[-_]\\d{2}")) {
-            String[] parts = code.trim().split("[-_]");
-            int year = Integer.parseInt(parts[0]);
-            int month = Integer.parseInt(parts[1]);
-            String[] mois = {"Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin", "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre"};
-            if (month >= 1 && month <= 12) {
-                return mois[month - 1] + "_" + year;
-            }
-        }
-        if (code != null && !code.trim().isEmpty()) {
-            return code.trim();
-        }
-        if (dateDebut != null && dateFin != null) {
-            return dateDebut + "_" + dateFin;
-        }
-        return "Periode";
+    private static String safe(String value) {
+        String ascii = Normalizer.normalize(value, Normalizer.Form.NFD).replaceAll("[^\\p{ASCII}]", "");
+        return ascii.replaceAll("[^a-zA-Z0-9_-]", "_").replaceAll("_+", "_");
     }
-
-    private static String sanitizeForFilename(String input) {
-        if (input == null || input.isEmpty()) return "X";
-        String normalized = java.text.Normalizer.normalize(input, java.text.Normalizer.Form.NFD);
-        String ascii = normalized.replaceAll("[^\\p{ASCII}]", "");
-        String sanitized = ascii.replaceAll("[^a-zA-Z0-9_-]", "_").replaceAll("_+", "_");
-        return sanitized.isEmpty() ? "X" : sanitized;
-    }
-
-    private static String formatStatutLabel(String statut) {
-        if (statut == null || statut.trim().isEmpty()) return "Présent";
-        switch (statut.toUpperCase()) {
-            case "CONGE":
-            case "CONGE_PAYE":
-                return "Congé payé";
-            case "FERIE_CHOME":
-                return "Férié chômé";
-            case "REPOS":
-                return "Repos";
-            case "ABSENT":
-            case "ABSENCE_NON_JUSTIFIEE":
-            case "ABSENCE_JUSTIFIEE":
-                return "Absent";
-            case "DISPENSE_POINTAGE":
-                return "Dispensé";
-            case "DEMI_JOURNEE":
-                return "Demi-journée";
-            case "SAMEDI_TRAVAILLE":
-                return "Samedi travaillé";
-            case "DIMANCHE_TRAVAILLE":
-                return "Dimanche (+40%)";
-            case "FERIE_TRAVAILLE":
-                return "Férié (+100%)";
-            case "RETARD":
-                return "Retard";
-            case "NON_CONCERNE":
-                return "Non concerné";
-            case "PLANIFIE":
-                return "Planifié";
-            case "NON_ECHU":
-                return "—";
-            case "PRESENT":
-            default:
-                return "Présent";
-        }
-    }
-
 }

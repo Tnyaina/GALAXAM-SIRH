@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { Fragment, useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     Clock,
@@ -32,6 +32,7 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import { getTodayDateString } from '@/utils/dateUtils';
+import { formatHeuresDecimal, formatHeuresMinutes } from '@/features/attendance/utils/attendanceDisplayUtils';
 import WeeklyPointageCalculationTable from '@/features/attendance/components/WeeklyPointageCalculationTable';
 
 const DafAjustementPointageModal = lazy(() => import('@/features/attendance/components/modals/DafAjustementPointageModal'));
@@ -86,6 +87,38 @@ export default function PointageTab({ idEmploye, employe = null }) {
         const h = parseFloat(parts[0]) || 0;
         const m = parseFloat(parts[1]) || 0;
         return Math.round((h + m / 60.0) * 100.0) / 100.0;
+    };
+
+    const formatHhMmWithDecimal = (str) => {
+        if (!str || typeof str !== 'string' || !str.includes('h') || str === '—') return null;
+        const isNeg = str.startsWith('-') || str.startsWith('−');
+        const isPos = str.startsWith('+');
+        const clean = str.replace(/^[+−-]/, '').trim();
+        const parts = clean.split('h');
+        const h = parseFloat(parts[0]) || 0;
+        const m = parseFloat(parts[1]) || 0;
+        const dec = (h + m / 60.0).toFixed(2);
+        return `${isNeg ? '−' : isPos ? '+' : ''}${dec}h`;
+    };
+
+    const parseEcartToDecimal = (str) => {
+        if (!str || typeof str !== 'string' || str === '—' || str === '00 min' || str === '00h00' || str.includes('(')) return null;
+        const isNeg = str.startsWith('-') || str.startsWith('−');
+        const isPos = str.startsWith('+');
+        const clean = str.replace(/^[+−-]/, '').trim();
+        if (clean.includes('h')) {
+            const parts = clean.split('h');
+            const h = parseFloat(parts[0]) || 0;
+            const m = parseFloat(parts[1]) || 0;
+            const dec = (h + m / 60.0).toFixed(2);
+            return `${isNeg ? '−' : isPos ? '+' : ''}${dec}h`;
+        }
+        if (clean.includes('min')) {
+            const m = parseFloat(clean.replace('min', '').trim()) || 0;
+            const dec = (m / 60.0).toFixed(2);
+            return `${isNeg ? '−' : isPos ? '+' : ''}${dec}h`;
+        }
+        return null;
     };
 
     // 1. Charger la liste des périodes de paie officielles
@@ -266,6 +299,11 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const totalRetardHhMm = kpis.retardCumule || '—';
     const displayEcart = recap.ecartCumule || '—';
     const dynamicAllowanceTotals = ficheData?.totauxIndemnites || {};
+    const heuresQualifiees = (ficheData?.bilansHebdo || []).reduce((totals, week) => ({
+        nuit: totals.nuit + Number(week.heuresNuit || 0),
+        dimanche: totals.dimanche + Number(week.heuresDimanche || 0),
+        ferie: totals.ferie + Number(week.heuresFerie || 0),
+    }), { nuit: 0, dimanche: 0, ferie: 0 });
     const actions = !loading && !error ? ficheData?.availableActions || {} : {};
     const currIndexInList = periodesList.findIndex(p => p.idPeriodePaie === selectedPeriodeId);
 
@@ -690,6 +728,13 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                 ptg.horaireContinu ||
                                                 (ptg.sortiePause === '12:00' && ptg.retourPause === '12:00')
                                             );
+                                            const isWeekendDay = Boolean(
+                                                ptg.weekend ?? (
+                                                    ptg.jour?.startsWith('Sam') ||
+                                                    ptg.jour?.startsWith('Dim') ||
+                                                    (ptg.dateComplete && [0, 6].includes(new Date(`${ptg.dateComplete}T00:00:00`).getDay()))
+                                                )
+                                            );
 
                                             return (
                                                 <Tr
@@ -723,7 +768,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                                         Congé Payé
                                                                     </span>
                                                                     <span className="text-[11px] text-[var(--color-sky-600)] dark:text-[var(--color-sky-400)] font-sans">
-                                                                        · Jour d'absence légale (Objectif hebdomadaire abaissé de {dureeJourNormale || '—'}h)
+                                                                        {isWeekendDay
+                                                                            ? "· Jour non ouvré (objectif inchangé)"
+                                                                            : `· Jour d'absence légale (Objectif hebdomadaire abaissé de ${dureeJourNormale || '—'}h)`
+                                                                        }
                                                                     </span>
                                                                 </div>
                                                             ) : isFerie ? (
@@ -732,7 +780,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                                         Férié Chômé Légal
                                                                     </span>
                                                                     <span className="text-[11px] text-[var(--color-purple-600)] dark:text-[var(--color-purple-400)] font-sans">
-                                                                        · Jour chômé payé (Objectif hebdomadaire abaissé de {dureeJourNormale || '—'}h)
+                                                                        {isWeekendDay
+                                                                            ? "· Jour non ouvré (objectif inchangé)"
+                                                                            : `· Jour chômé payé (Objectif hebdomadaire abaissé de ${dureeJourNormale || '—'}h)`
+                                                                        }
                                                                     </span>
                                                                 </div>
                                                             ) : isRepos ? (
@@ -785,18 +836,25 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                                 )}
                                                             </Td>
                                                             <Td className="font-mono text-xs text-center py-2.5 px-3">
-                                                                {ptg.ecart && ptg.ecart.startsWith('-') ? (
-                                                                    <span className="text-[var(--color-danger-500)] dark:text-[var(--color-danger-400)] font-bold">
-                                                                        {ptg.ecart}
-                                                                    </span>
-                                                                ) : ptg.ecart && ptg.ecart.startsWith('+') ? (
-                                                                    <span className="text-[var(--color-success-500)] dark:text-[var(--color-success-400)] font-bold">
-                                                                        {ptg.ecart}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-[var(--color-fg-muted)]">
-                                                                        {ptg.ecart}
-                                                                    </span>
+                                                                <div>
+                                                                    {ptg.ecart && ptg.ecart.startsWith('-') ? (
+                                                                        <span className="text-[var(--color-danger-500)] dark:text-[var(--color-danger-400)] font-bold">
+                                                                            {ptg.ecart}
+                                                                        </span>
+                                                                    ) : ptg.ecart && ptg.ecart.startsWith('+') ? (
+                                                                        <span className="text-[var(--color-success-500)] dark:text-[var(--color-success-400)] font-bold">
+                                                                            {ptg.ecart}
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-[var(--color-fg-muted)]">
+                                                                            {ptg.ecart || '—'}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                {parseEcartToDecimal(ptg.ecart) && (
+                                                                    <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">
+                                                                        ({parseEcartToDecimal(ptg.ecart)})
+                                                                    </div>
                                                                 )}
                                                             </Td>
                                                         </>
@@ -854,9 +912,14 @@ export default function PointageTab({ idEmploye, employe = null }) {
 
                                             {/* Col 9 : Écart Cumulé (vs 8h) */}
                                             <td className="font-mono text-xs font-bold text-center py-2.5 px-3">
-                                                <span className={displayEcart && displayEcart.startsWith('-') ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : displayEcart && displayEcart.startsWith('+') ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]'}>
+                                                <div className={displayEcart && displayEcart.startsWith('-') ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : displayEcart && displayEcart.startsWith('+') ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]'}>
                                                     {displayEcart || '—'}
-                                                </span>
+                                                </div>
+                                                {parseEcartToDecimal(displayEcart) && (
+                                                    <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">
+                                                        ({parseEcartToDecimal(displayEcart)})
+                                                    </div>
+                                                )}
                                             </td>
 
                                             {/* Col 10 : Statut (Jours Travaillés) */}
@@ -866,7 +929,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
 
                                             {dynamicAllowances.map((allowance) => (
                                                 <td key={allowance.code} className="font-mono text-xs font-bold text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10">
-                                                    {Number(dynamicAllowanceTotals[allowance.code] || 0).toLocaleString('fr-FR')} Ar
+                                                    {Math.round(Number(dynamicAllowanceTotals[allowance.code] || 0)).toLocaleString('fr-FR')} Ar
                                                 </td>
                                             ))}
                                         </tr>
@@ -879,14 +942,85 @@ export default function PointageTab({ idEmploye, employe = null }) {
                     {ficheData?.soldePeriode && (
                         <Card padding bordered>
                             <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-                                <div><h3 className="text-sm font-bold">Bilan et régularisations</h3><p className="text-xs text-[var(--color-fg-muted)] mt-1">Résultats calculés par le serveur pour la période affichée. Les HS 30 % et 50 % participent au rapprochement. Nuit, dimanche et férié conservent leurs qualifications.</p></div>
+                                <div>
+                                    <h3 className="text-sm font-bold">Bilan final de la période</h3>
+                                    <p className="text-xs text-[var(--color-fg-muted)] mt-1">Résultat calculé par le serveur et ventilation à prendre en compte en paie.</p>
+                                </div>
                                 {ficheData.idPeriode && <Button variant="outline" size="sm" onClick={() => setShowBalance(true)}>{actions.ADJUST_BALANCE ? 'Ajuster le solde de période' : 'Voir les régularisations'}</Button>}
                             </div>
-                            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                                {[['Déficit des semaines', recap.deficitHebdo], ['HS cumulées (30 % + 50 %)', recap.hsTotalHebdo], ['Ajustements', recap.ajustements], ['Solde final', recap.soldeFinal]].map(([label, value]) => <div key={label} className="bg-[var(--color-bg-subtle)] p-3"><dt className="text-[var(--color-fg-muted)]">{label}</dt><dd className="mt-1 font-mono text-base font-bold">{value || '—'}</dd></div>)}
-                            </dl>
-                            {recap.alerteSolde && <Alert type="warning" message={recap.alerteSolde} />}
-                            <p className="text-xs mt-3">{recap.regleVentilation}</p><p className="text-xs mt-3">Absence finale : <strong>{recap.absenceFinale}</strong> · HS 30 % finales : <strong>{recap.hs30Finales}</strong> · HS 50 % finales : <strong>{recap.hs50Finales}</strong></p>
+
+                            <div className="grid gap-3 lg:grid-cols-[minmax(12rem,0.8fr)_2fr]">
+                                <div className="border-2 border-[var(--color-brand-500)]/40 bg-[var(--color-brand-500)]/5 p-5 sm:p-6">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Solde final</p>
+                                    <p className={`mt-2 font-mono text-4xl sm:text-5xl leading-tight font-bold ${String(recap.soldeFinal || '').startsWith('-') || String(recap.soldeFinal || '').startsWith('−') ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
+                                        {recap.soldeFinal || '—'}
+                                    </p>
+                                    {formatHhMmWithDecimal(recap.soldeFinal) && <p className="mt-1 font-mono text-sm text-[var(--color-fg-muted)]">({formatHhMmWithDecimal(recap.soldeFinal)})</p>}
+                                </div>
+
+                                <div>
+                                    <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">Incidence finale sur la paie</h4>
+                                    <dl className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                        {[
+                                            { label: 'Absence à retenir', value: recap.absenceFinale, tone: 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' },
+                                            { label: 'Heures supplémentaires à 30 %', value: recap.hs30Finales, tone: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' },
+                                            { label: 'Heures supplémentaires à 50 %', value: recap.hs50Finales, tone: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' },
+                                        ].map(({ label, value, tone }) => (
+                                            <div key={label} className="border border-[var(--color-border-subtle)] p-3">
+                                                <dt className="text-xs text-[var(--color-fg-muted)]">{label}</dt>
+                                                <dd className={`mt-1 font-mono text-lg font-bold ${tone}`}>{value || '—'}</dd>
+                                                {formatHhMmWithDecimal(value) && <dd className="font-mono text-[11px] text-[var(--color-fg-muted)]">({formatHhMmWithDecimal(value)})</dd>}
+                                            </div>
+                                        ))}
+                                    </dl>
+                                </div>
+                            </div>
+
+                            <div className="mt-4">
+                                <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">Heures qualifiées sur la période</h4>
+                                <dl className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                    {[
+                                        { label: 'Nuit', value: heuresQualifiees.nuit },
+                                        { label: 'Dimanche', value: heuresQualifiees.dimanche },
+                                        { label: 'Jour férié', value: heuresQualifiees.ferie },
+                                    ].map(({ label, value }) => (
+                                        <div key={label} className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3">
+                                            <dt className="text-xs text-[var(--color-fg-muted)]">{label}</dt>
+                                            <dd className="mt-1 font-mono text-lg font-bold text-[var(--color-fg)]">{formatHeuresMinutes(value)}</dd>
+                                            <dd className="font-mono text-[11px] text-[var(--color-fg-muted)]">({formatHeuresDecimal(value)})</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                                <p className="mt-2 text-xs text-[var(--color-fg-muted)]">Ces qualifications décrivent les heures travaillées. Elles peuvent se chevaucher et ne s&apos;ajoutent pas une seconde fois au solde final.</p>
+                            </div>
+
+                            <details className="mt-4 border-t border-[var(--color-border-subtle)] pt-3">
+                                <summary className="cursor-pointer text-xs font-semibold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">Voir le rapprochement du solde</summary>
+                                <div className="mt-3 space-y-3">
+                                    <p className="text-xs text-[var(--color-fg-muted)]">Les semaines sont d’abord compensées séparément. Le rapprochement de période reprend ensuite ces totaux :</p>
+                                    <dl className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] sm:items-stretch">
+                                        {[
+                                            { label: 'HS hebdomadaires après compensation (30 % + 50 %)', value: recap.hsTotalHebdo },
+                                            { label: 'Déficits restants', value: recap.deficitHebdo },
+                                            { label: 'Ajustements de période', value: recap.ajustements },
+                                            { label: 'Solde final', value: recap.soldeFinal },
+                                        ].map(({ label, value }, index) => (
+                                            <Fragment key={label}>
+                                                {index > 0 && <div className="hidden items-center justify-center text-lg font-bold text-[var(--color-fg-muted)] sm:flex" aria-hidden="true">{index === 1 ? '−' : index === 2 ? '+' : '='}</div>}
+                                                <div className={index === 3 ? 'border-2 border-[var(--color-brand-500)]/40 bg-[var(--color-brand-500)]/5 p-4' : 'border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3'}>
+                                                    <dt className="text-[11px] text-[var(--color-fg-muted)]">{label}</dt>
+                                                    <dd className={`mt-1 font-mono font-bold text-[var(--color-fg)] ${index === 3 ? 'text-xl sm:text-2xl' : 'text-sm'}`}>{value || '—'}</dd>
+                                                    {formatHhMmWithDecimal(value) && <dd className={`font-mono text-[var(--color-fg-muted)] ${index === 3 ? 'text-xs' : 'text-[11px]'}`}>({formatHhMmWithDecimal(value)})</dd>}
+                                                </div>
+                                            </Fragment>
+                                        ))}
+                                    </dl>
+                                    <p className="text-xs text-[var(--color-fg-muted)]">Les retards restent un indicateur de ponctualité et ne sont pas déduits une seconde fois.</p>
+                                    {recap.regleVentilation && <p className="text-xs">{recap.regleVentilation}</p>}
+                                </div>
+                            </details>
+
+                            {recap.alerteSolde && <div className="mt-3"><Alert type="warning" message={recap.alerteSolde} /></div>}
                             {!ficheData.idPeriode && <p className="text-xs text-[var(--color-fg-muted)] mt-2">Sélectionnez une période de paie pour consulter ses régularisations.</p>}
                         </Card>
                     )}
@@ -1014,7 +1148,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                 )}
                                             </div>
                                             <span className="font-mono text-sm font-bold text-[var(--color-orange-600)] dark:text-[var(--color-orange-400)] shrink-0">
-                                                {Number(dynamicAllowanceTotals[allowance.code] || 0).toLocaleString('fr-FR')} Ar
+                                                {Math.round(Number(dynamicAllowanceTotals[allowance.code] || 0)).toLocaleString('fr-FR')} Ar
                                             </span>
                                         </div>
                                     ))}

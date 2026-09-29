@@ -56,6 +56,7 @@ export default function TimeInput({
 
     const handleKeyDown = (e) => {
         if (onKeyDown) onKeyDown(e);
+        if (e.defaultPrevented) return;
         if (e.key === 'Enter' && onComplete) {
             e.preventDefault();
             onComplete(inputValue);

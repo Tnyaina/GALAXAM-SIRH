@@ -52,9 +52,9 @@ public class DemandeCongeController {
         }
 
         try (Connection c = dataSource.getConnection()) {
-            Date dateDebut = Date.valueOf(req.get("dateDebut").toString());
+            Date dateDebut = parseDate(req.get("dateDebut").toString());
             Date dateFin = req.get("dateFin") != null && !req.get("dateFin").toString().isBlank()
-                    ? Date.valueOf(req.get("dateFin").toString()) : null;
+                    ? parseDate(req.get("dateFin").toString()) : null;
             Integer idEmploye = optionalInt(req.get("idEmploye"));
             Integer idTypeConge = optionalInt(req.get("idTypeConge"));
             Integer idMotif = optionalInt(req.get("idMotifEvenementFamilial"));
@@ -76,8 +76,8 @@ public class DemandeCongeController {
         }
 
         try (Connection c = dataSource.getConnection()) {
-            Date dateDebut = Date.valueOf(req.get("dateDebut").toString());
-            Date dateFin = Date.valueOf(req.get("dateFin").toString());
+            Date dateDebut = parseDate(req.get("dateDebut").toString());
+            Date dateFin = parseDate(req.get("dateFin").toString());
             boolean estDemiJournee = req.containsKey("estDemiJournee") && Boolean.parseBoolean(req.get("estDemiJournee").toString());
             String momentDemiJournee = req.get("momentDemiJournee") != null ? req.get("momentDemiJournee").toString() : null;
             Integer idEmploye = req.get("idEmploye") != null && !req.get("idEmploye").toString().isBlank() 
@@ -117,8 +117,8 @@ public class DemandeCongeController {
                     d.setIdMotifEvenementFamilial(Integer.parseInt(req.get("idMotifEvenementFamilial").toString()));
                 }
 
-                d.setDateDebut(Date.valueOf(req.get("dateDebut").toString()));
-                d.setDateFin(Date.valueOf(req.get("dateFin").toString()));
+                d.setDateDebut(parseDate(req.get("dateDebut").toString()));
+                d.setDateFin(parseDate(req.get("dateFin").toString()));
 
                 if (req.get("estDemiJournee") != null) {
                     d.setEstDemiJournee(Boolean.parseBoolean(req.get("estDemiJournee").toString()));
@@ -206,7 +206,7 @@ public class DemandeCongeController {
                                 "Ce congé validé a déjà commencé ou est passé. Il ne peut plus être modifié directement.");
                     }
                     if (req.containsKey("dateDebut")) {
-                        Date newD = Date.valueOf(req.get("dateDebut").toString());
+                        Date newD = parseDate(req.get("dateDebut").toString());
                         if (newD.toLocalDate().isBefore(java.time.LocalDate.now())) {
                             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                                     mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_DATES_INVALIDES,
@@ -251,9 +251,9 @@ public class DemandeCongeController {
                 }
 
                 if (req.containsKey("dateDebut"))
-                    d.setDateDebut(Date.valueOf(req.get("dateDebut").toString()));
+                    d.setDateDebut(parseDate(req.get("dateDebut").toString()));
                 if (req.containsKey("dateFin"))
-                    d.setDateFin(Date.valueOf(req.get("dateFin").toString()));
+                    d.setDateFin(parseDate(req.get("dateFin").toString()));
 
                 if (req.containsKey("estDemiJournee"))
                     d.setEstDemiJournee(Boolean.parseBoolean(req.get("estDemiJournee").toString()));
@@ -566,5 +566,24 @@ public class DemandeCongeController {
 
     private static boolean bool(Object value) {
         return value != null && Boolean.parseBoolean(value.toString());
+    }
+
+    /**
+     * Normalise une chaîne de date avant de la passer à {@link Date#valueOf}.
+     * Accepte "yyyy-MM-dd" et les variantes ISO 8601 avec heure ("yyyy-MM-ddTHH:mm:ss...").
+     * Lève une {@link IllegalArgumentException} avec un message clair si le format est invalide.
+     */
+    private static Date parseDate(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException("La date fournie est vide ou nulle.");
+        }
+        // Tronquer au format yyyy-MM-dd si la chaîne contient un 'T' (ISO 8601 avec heure)
+        String normalized = raw.contains("T") ? raw.substring(0, raw.indexOf('T')) : raw.trim();
+        try {
+            return Date.valueOf(normalized);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Format de date invalide : \"" + raw + "\". Format attendu : yyyy-MM-dd.");
+        }
     }
 }

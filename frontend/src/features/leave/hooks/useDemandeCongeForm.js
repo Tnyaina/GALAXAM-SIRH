@@ -210,7 +210,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
         setNbJoursOuvres(0);
         setConflitReport(null);
         setCheckingConflits(false);
-        setFieldErrors((prev) => ({ ...prev, dateFin: 'La date de fin doit être postérieure ou égale à la date de début.' }));
+        setFieldErrors((prev) => ({ ...prev, dateFin: 'La reprise doit être postérieure au premier jour de congé.' }));
       }
     } else {
       setNbJoursDecomptes(0);
@@ -230,7 +230,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
     if (!targetEmployeId) nextFieldErrors.idEmploye = 'Sélectionnez un employé.';
     if (!idTypeConge) nextFieldErrors.idTypeConge = 'Sélectionnez un type de congé.';
     if (!dateDebut) nextFieldErrors.dateDebut = 'Renseignez la date de début.';
-    if (!dateFin) nextFieldErrors.dateFin = 'Renseignez la date de fin.';
+    if (!dateFin) nextFieldErrors.dateFin = 'Renseignez la date de reprise prévue.';
     if (isExceptionnel && !idMotifEvenementFamilial) {
       nextFieldErrors.idMotifEvenementFamilial = "Sélectionnez un motif d'événement familial.";
     }

@@ -566,6 +566,7 @@ public class PointageEmployeService {
                 dayName = dayName.substring(0, 1).toUpperCase() + dayName.substring(1) + ".";
             }
             dto.setJour(dayName);
+            dto.setWeekend(isWeekend);
 
             PointageRecord rec = pointageMap.get(curr);
 
@@ -1088,6 +1089,7 @@ public class PointageEmployeService {
         list.forEach(jour -> jour.getIndemnites().values().stream()
                 .filter(PointageJourDTO.IndemniteJourDTO::accordee)
                 .forEach(indemnite -> totauxIndemnites.merge(indemnite.code(), zeroIfNull(indemnite.montant()), BigDecimal::add)));
+        totauxIndemnites.replaceAll((k, v) -> v.setScale(0, RoundingMode.HALF_UP));
         result.setTotauxIndemnites(totauxIndemnites);
         result.setKpis(kpis);
         result.setRecap(recap);

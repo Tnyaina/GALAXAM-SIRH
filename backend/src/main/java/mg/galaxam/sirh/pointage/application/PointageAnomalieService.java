@@ -159,7 +159,8 @@ public class PointageAnomalieService {
                 "s.heure_debut_apres_midi AS heure_debut_am_site, s.heure_fin_apres_midi AS heure_fin_am_site, p.date_pointage, " +
                 "p.heure_entree_matin, p.heure_sortie_matin, p.heure_entree_am, p.heure_sortie_am, " +
                 "p.total_heures, p.minutes_retard, st.code AS statut_code, st.libelle AS statut_libelle, " +
-                "p.motif_ajustement, p.montant_total_indemnites, " +
+                "p.motif_ajustement, p.date_ajustement, p.id_demande_conge, " +
+                "ltr_valide.id_demande_conge AS demande_validee_id, p.montant_total_indemnites, " +
                 "pij_repas.accorde AS repas_accorde, pij_dep.accorde AS dep_accorde, pij_dep.quantite AS dep_quantite, pij_dep.fraction AS dep_fraction, " +
                 "ltr_conge.libelle_conge AS demande_en_attente_libelle, " +
                 "p.id_periode_paie, per.code AS periode_code, per.libelle AS periode_libelle, per_st.code AS statut_periode_code, " +
@@ -184,6 +185,12 @@ public class PointageAnomalieService {
                 "   WHERE dc.id_employe = p.id_employe AND p.date_pointage BETWEEN dc.date_debut AND dc.date_fin " +
                 "   AND sc.code = 'EN_ATTENTE' LIMIT 1" +
                 ") ltr_conge ON TRUE " +
+                "LEFT JOIN LATERAL (" +
+                "   SELECT dc.id_demande_conge FROM demande_conge dc " +
+                "   JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
+                "   WHERE dc.id_employe = p.id_employe AND p.date_pointage BETWEEN dc.date_debut AND dc.date_fin " +
+                "   AND sc.code = 'VALIDE' LIMIT 1" +
+                ") ltr_valide ON TRUE " +
                 "LEFT JOIN v_solde_conge_employe vsc ON p.id_employe = vsc.id_employe " +
                 "WHERE (" +
                 "   st.code = 'ANOMALIE_SAISIE' " +
@@ -299,6 +306,9 @@ public class PointageAnomalieService {
                         // Qualification de l'anomalie, sévérité & blocage
                         String stCode = dto.getStatutCode();
                         boolean hasMotif = dto.getMotifAjustement() != null && !dto.getMotifAjustement().trim().isEmpty();
+                        boolean absenceTraitee = rs.getTimestamp("date_ajustement") != null
+                                || rs.getObject("id_demande_conge") != null
+                                || rs.getObject("demande_validee_id") != null;
 
                         boolean hasMatinComplet = (em != null && sm != null && ea == null && sa == null);
                         boolean hasAmComplet = (em == null && sm == null && ea != null && sa != null);
@@ -324,32 +334,38 @@ public class PointageAnomalieService {
                             countBloquantes++;
                         } else if ("ABSENCE_NON_JUSTIFIEE".equals(stCode)) {
                             dto.setTypeAnomalie("ABSENCE");
-                            if (dto.getDemandeEnAttenteLibelle() != null && !dto.getDemandeEnAttenteLibelle().isBlank()) {
+                            if (absenceTraitee) {
+                                dto.setDescriptionAnomalie("Absence non justifiée confirmée" +
+                                        (hasMotif ? " : " + dto.getMotifAjustement() : "."));
+                                dto.setSeverite("FAIBLE");
+                                countFaibles++;
+                            } else if (dto.getDemandeEnAttenteLibelle() != null && !dto.getDemandeEnAttenteLibelle().isBlank()) {
                                 dto.setDescriptionAnomalie("Absence : demande de " + dto.getDemandeEnAttenteLibelle() + " en attente de validation.");
                                 dto.setSeverite("MOYENNE");
-                                dto.setBloquantTransmission(false);
                                 countMoyennes++;
                             } else if (!hasMotif) {
                                 dto.setDescriptionAnomalie("Absence non justifiée (non régularisée sur jour ouvré).");
                                 dto.setSeverite("CRITIQUE");
                                 dto.setBloquantTransmission(true);
                                 countCritiques++;
-                                countBloquantes++;
                             } else {
                                 dto.setDescriptionAnomalie("Absence non justifiée avec proposition : " + dto.getMotifAjustement());
                                 dto.setSeverite("HAUTE");
-                                dto.setBloquantTransmission(false);
                                 countHautes++;
                             }
-                            dto.setStatutAnomalie(hasMotif ? "done" : "todo");
+                            dto.setBloquantTransmission(!absenceTraitee);
+                            if (!absenceTraitee) countBloquantes++;
+                            dto.setStatutAnomalie(absenceTraitee ? "done" : "todo");
                             countAbsences++;
                         } else if ("ABSENCE_JUSTIFIEE".equals(stCode)) {
                             dto.setTypeAnomalie("ABSENCE");
-                            dto.setDescriptionAnomalie("Absence justifiée avec motif.");
-                            dto.setSeverite("FAIBLE");
-                            dto.setBloquantTransmission(false);
-                            dto.setStatutAnomalie("done");
-                            countFaibles++;
+                            dto.setDescriptionAnomalie(absenceTraitee
+                                    ? "Absence justifiée confirmée : " + dto.getMotifAjustement()
+                                    : "Absence justifiée à vérifier : " + dto.getMotifAjustement());
+                            dto.setSeverite(absenceTraitee ? "FAIBLE" : "MOYENNE");
+                            dto.setBloquantTransmission(!absenceTraitee);
+                            dto.setStatutAnomalie(absenceTraitee ? "done" : "todo");
+                            if (absenceTraitee) countFaibles++; else { countMoyennes++; countBloquantes++; }
                             countAbsences++;
                         } else if (dto.getMinutesRetard() != null && dto.getMinutesRetard() > 0) {
                             dto.setTypeAnomalie("RETARD");
@@ -761,20 +777,35 @@ public class PointageAnomalieService {
             double hNuit = 0.0;
             Time emEffectif = null;
             Integer validatedLeaveId = null;
+            Date leaveEndDate = null;
+            List<LeavePointageDay> extraLeaveDays = List.of();
 
             if ("ABSENCE".equalsIgnoreCase(typeRegularisation) || "CONGE_PAYE".equalsIgnoreCase(optionAbsence) || "PERMISSION_EXCEPTIONNELLE".equalsIgnoreCase(optionAbsence) || "ABSENCE_DEDUITE".equalsIgnoreCase(optionAbsence)) {
                 // Régularisation d'absence
                 em = null; sm = null; ea = null; sa = null;
 
                 if ("CONGE_PAYE".equalsIgnoreCase(optionAbsence) || "CONGE".equalsIgnoreCase(codeStatut)) {
-                    double nbJours = parseDouble(payload.get("nbJoursCongeDecompte"), 1.0);
-                    if (nbJours <= 0) nbJours = 1.0;
+                    String returnDateValue = payload.get("dateReprise") != null ? payload.get("dateReprise").toString() : null;
+                    LocalDate returnDate = returnDateValue == null || returnDateValue.isBlank()
+                            ? datePtg.toLocalDate().plusDays(1) : LocalDate.parse(returnDateValue);
+                    if (!returnDate.isAfter(datePtg.toLocalDate())) {
+                        throw new IllegalArgumentException("La date de reprise doit être postérieure au premier jour de congé.");
+                    }
+                    leaveEndDate = Date.valueOf(returnDate.minusDays(1));
+                    boolean halfDay = parseBoolean(payload.get("estDemiJournee"));
+                    if (halfDay && !leaveEndDate.equals(datePtg)) {
+                        throw new IllegalArgumentException("Une demi-journée ne peut pas couvrir plusieurs dates.");
+                    }
+                    double nbJours = halfDay ? 0.5 : ChronoUnit.DAYS.between(datePtg.toLocalDate(), returnDate);
+                    if (nbJours > 1) {
+                        extraLeaveDays = verifierIntervalleRegularisation(c, idEmp, datePtg.toLocalDate(), leaveEndDate.toLocalDate());
+                    }
 
                     // Créer la demande de congé annuel et débiter le solde dans mouvement_solde_conge
                     String momentConge = payload.get("momentDemiJournee") != null
                             ? payload.get("momentDemiJournee").toString() : null;
                     mg.galaxam.sirh.conge.application.RegularisationCongeResult regRes = congeService.regulariserCongeAnnuelDepuisPointageStructure(
-                            idEmp, datePtg, nbJours, momentConge, motif, currentUserId(), c);
+                            idEmp, datePtg, leaveEndDate, nbJours, momentConge, motif, currentUserId(), c);
                     validatedLeaveId = regRes.demandeId();
 
                     if (regRes.joursCouverts() >= nbJours) {
@@ -857,6 +888,15 @@ public class PointageAnomalieService {
                             hMatin, hAm, totalH, retMins, hNuit, motif, codeStatut,
                             isJourneeContinue, targetVer,
                             emEffectif, dynamicAllowances, validatedLeaveId), c);
+            try (PreparedStatement confirmed = c.prepareStatement(
+                    "UPDATE pointage_jour SET ajuste_par = ?, date_ajustement = CURRENT_TIMESTAMP WHERE id_pointage = ?")) {
+                confirmed.setObject(1, currentUserId());
+                confirmed.setInt(2, persistedId);
+                confirmed.executeUpdate();
+            }
+            if (!extraLeaveDays.isEmpty() && validatedLeaveId != null) {
+                enregistrerJoursCongeSupplementaires(c, idEmp, extraLeaveDays, validatedLeaveId, motif);
+            }
             if (idPer != null && datePtg != null) {
             }
             c.commit();
@@ -875,6 +915,68 @@ public class PointageAnomalieService {
         }
     }
 }
+
+    private record LeavePointageDay(LocalDate date, int siteId, int periodId, int pointageId, int version) {}
+
+    private List<LeavePointageDay> verifierIntervalleRegularisation(Connection c, int employeeId,
+            LocalDate start, LocalDate end) throws SQLException {
+        var holidays = calendrierOuvrableEngine.getDatesFeriesEtChomeesEmploye(start, end, employeeId, c);
+        List<LeavePointageDay> days = new ArrayList<>();
+        for (LocalDate day = start.plusDays(1); !day.isAfter(end); day = day.plusDays(1)) {
+            if (CalendrierOuvrableEngine.isWeekend(day) || holidays.contains(day)) continue;
+            int siteId = calendrierOuvrableEngine.resolveSiteAt(employeeId, day, c);
+            pointageSaisieService.verifierEligibilitePointage(c, employeeId, siteId, Date.valueOf(day));
+
+            int periodId;
+            try (PreparedStatement period = c.prepareStatement(
+                    "SELECT p.id_periode_paie, s.code FROM periode_paie p " +
+                    "JOIN ref_statut_periode_paie s ON s.id_statut_periode = p.id_statut_periode " +
+                    "WHERE ? BETWEEN p.date_debut AND p.date_fin FOR SHARE OF p")) {
+                period.setDate(1, Date.valueOf(day));
+                try (ResultSet result = period.executeQuery()) {
+                    if (!result.next()) throw new IllegalStateException("Aucune période de pointage pour le " + day + ".");
+                    periodId = result.getInt(1);
+                    if (!"EN_COURS".equals(result.getString(2))) {
+                        throw new IllegalStateException("La période du " + day + " n'est plus ouverte à la saisie.");
+                    }
+                }
+            }
+
+            int pointageId = 0;
+            int version = 1;
+            try (PreparedStatement existing = c.prepareStatement(
+                    "SELECT p.id_pointage, COALESCE(p.version, 1), COALESCE(p.total_heures, 0), " +
+                    "st.code, p.id_demande_conge FROM pointage_jour p " +
+                    "JOIN ref_statut_pointage_jour st ON st.id_statut_jour = p.id_statut_jour " +
+                    "WHERE p.id_employe = ? AND p.date_pointage = ? FOR UPDATE OF p")) {
+                existing.setInt(1, employeeId);
+                existing.setDate(2, Date.valueOf(day));
+                try (ResultSet result = existing.executeQuery()) {
+                    if (result.next()) {
+                        String status = result.getString(4);
+                        if (result.getDouble(3) > 0 || result.getObject(5) != null ||
+                                !List.of("ABSENCE_NON_JUSTIFIEE", "ABSENCE_JUSTIFIEE", "NON_SAISI", "ANOMALIE_SAISIE").contains(status)) {
+                            throw new IllegalStateException("Le " + day + " possède déjà un pointage ou un congé à examiner avant régularisation.");
+                        }
+                        pointageId = result.getInt(1);
+                        version = result.getInt(2);
+                    }
+                }
+            }
+            days.add(new LeavePointageDay(day, siteId, periodId, pointageId, version));
+        }
+        return days;
+    }
+
+    private void enregistrerJoursCongeSupplementaires(Connection c, int employeeId,
+            List<LeavePointageDay> days, int leaveId, String reason) throws SQLException {
+        for (LeavePointageDay day : days) {
+            pointageSaisieService.saveRegularizedDay(new PointageService.RegularizedDayWrite(
+                    day.pointageId(), employeeId, day.periodId(), day.siteId(), Date.valueOf(day.date()),
+                    null, null, null, null, 0, 0, 0, 0, 0, reason, "CONGE", false,
+                    day.version(), null, Map.of(), leaveId), c);
+        }
+    }
 
     private static Integer parseInteger(Object val) {
         if (val == null) return null;
