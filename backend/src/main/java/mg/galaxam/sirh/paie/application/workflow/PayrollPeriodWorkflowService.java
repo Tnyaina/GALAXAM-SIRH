@@ -140,7 +140,7 @@ public class PayrollPeriodWorkflowService {
                     List.of(),
                     outputViews(selected, user, connection),
                     // P1-02 : nextStep calculé par le backend selon statut + actions disponibles
-                    computeNextStep(selected.id(), selected.state(), actions),
+                    computeNextStep(selected.id(), selected.state(), actions, currentStep),
                     currentStep,
                     campaignSteps,
                     recalcRequired,
@@ -249,7 +249,7 @@ public class PayrollPeriodWorkflowService {
      * </ul>
      */
     private PayrollPeriodContextView.NextStep computeNextStep(
-            int periodId, String state, Map<String, ActionCapability> actions) {
+            int periodId, String state, Map<String, ActionCapability> actions, String currentStep) {
         if (actions == null || actions.isEmpty()) return null;
         if (actions.getOrDefault("EDIT_POINTAGE", ActionCapability.denied("NA")).allowed()) {
             return new PayrollPeriodContextView.NextStep("SAISIE", "/pointages?tab=saisie");
@@ -260,11 +260,22 @@ public class PayrollPeriodWorkflowService {
         if (actions.getOrDefault("APPROVE", ActionCapability.denied("NA")).allowed()) {
             return new PayrollPeriodContextView.NextStep("VALIDATION_POINTAGE", "/pointages?tab=validation");
         }
-        if (actions.getOrDefault("CLOSE", ActionCapability.denied("NA")).allowed()) {
-            return new PayrollPeriodContextView.NextStep("CLOTURE", "/paie/periodes/" + periodId + "/sorties");
-        }
         if ("VALIDEE".equals(state)) {
-            return new PayrollPeriodContextView.NextStep("PREPARATION_PAIE", "/paie/periodes/" + periodId + "/preparation");
+            // CLOSE porte sur la clôture administrative, pas sur la prochaine
+            // étape consultable du cycle. Il peut être autorisé dès VALIDEE,
+            // alors que les bulletins ne sont pas encore calculés.
+            if (actions.getOrDefault("GENERATE_OUTPUT", ActionCapability.denied("NA")).allowed()) {
+                return new PayrollPeriodContextView.NextStep("SORTIES", "/paie/periodes/" + periodId + "/sorties");
+            }
+            String step = currentStep == null ? "PREPARATION" : currentStep;
+            String destination = switch (step) {
+                case "CALCULATION" -> "/paie/periodes/" + periodId + "/calcul";
+                case "CONTROL" -> "/paie/periodes/" + periodId + "/controle";
+                case "VALIDATION" -> "/paie/periodes/" + periodId + "/validation";
+                case "OUTPUTS" -> "/paie/periodes/" + periodId + "/sorties";
+                default -> "/paie/periodes/" + periodId + "/preparation";
+            };
+            return new PayrollPeriodContextView.NextStep(step, destination);
         }
         return new PayrollPeriodContextView.NextStep(
                 "CLOTUREE".equals(state) || "PAIE_VALIDEE".equals(state) ? "SORTIES" : "POINTAGE",

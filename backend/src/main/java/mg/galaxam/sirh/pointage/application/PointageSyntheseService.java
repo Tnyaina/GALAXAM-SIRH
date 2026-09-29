@@ -956,6 +956,7 @@ public class PointageSyntheseService {
             resp.put("pageSize", size);
             resp.put("kpis", Map.of(
                 "totalSalaries", 0, "totalHeures", 0.0, "totalHs30", 0.0, "totalHs50", 0.0,
+                "totalAbsenceFinaleMins", 0,
                 "totalNuit", 0.0, "totalDimanche", 0.0, "totalFerie", 0.0, "totalRetardMins", 0, "totalIndemnites", 0.0
             ));
             resp.put("alertCounts", Map.of(
@@ -970,6 +971,7 @@ public class PointageSyntheseService {
         Set<Integer> employeesWithCompensation = new HashSet<>();
         double totalHs30 = 0;
         double totalHs50 = 0;
+        long totalAbsenceFinaleMins = 0;
         double totalNuit = 0;
         double totalDimanche = 0;
         double totalFerie = 0;
@@ -981,6 +983,7 @@ public class PointageSyntheseService {
             totalHeures += dto.getTotalHeuresTravaillees();
             totalHs30 += dto.getMinutesHs30Finales() / 60.0;
             totalHs50 += dto.getMinutesHs50Finales() / 60.0;
+            totalAbsenceFinaleMins += dto.getMinutesAbsenceFinale() == null ? 0 : dto.getMinutesAbsenceFinale();
             if (dto.getMontantsIndemnites() != null) {
                 totalIndemnites = totalIndemnites.add(dto.getMontantsIndemnites().values().stream()
                         .filter(amount -> amount != null).reduce(BigDecimal.ZERO, BigDecimal::add));
@@ -1032,6 +1035,7 @@ public class PointageSyntheseService {
             resp.put("pageSize", size);
             resp.put("kpis", Map.of(
                 "totalSalaries", 0, "totalHeures", 0.0, "totalHs30", 0.0, "totalHs50", 0.0,
+                "totalAbsenceFinaleMins", 0,
                 "totalNuit", 0.0, "totalDimanche", 0.0, "totalFerie", 0.0, "totalRetardMins", 0, "totalIndemnites", 0.0
             ));
             resp.put("alertCounts", Map.of(
@@ -1261,6 +1265,7 @@ public class PointageSyntheseService {
         kpisMap.put("totalHeures", Math.round(totalHeures * 100.0) / 100.0);
         kpisMap.put("totalHs30", Math.round(totalHs30 * 100.0) / 100.0);
         kpisMap.put("totalHs50", Math.round(totalHs50 * 100.0) / 100.0);
+        kpisMap.put("totalAbsenceFinaleMins", totalAbsenceFinaleMins);
         kpisMap.put("totalRetardMins", totalRetardMins);
         kpisMap.put("totalIndemnites", totalIndemnites);
         kpisMap.put("totalNuit", Math.round(totalNuit * 100.0) / 100.0);

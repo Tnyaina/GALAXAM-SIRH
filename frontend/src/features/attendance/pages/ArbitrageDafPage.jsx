@@ -638,12 +638,14 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                     )}
                 </Card>
 
-                {/* KPI Cards — 5 indicateurs clés */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                {/* Valeurs finales utilisées lors du scellement et indicateurs de suivi. */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-2.5">
                     {[
                         { label: 'Salariés', value: kpis?.totalSalaries ?? '—', icon: Users, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
                         { label: 'Heures totales', value: kpis ? `${formatHeuresDecimal(kpis.totalHeures)} (${formatHeuresMinutes(kpis.totalHeures)})` : '—', icon: Clock, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
-                        { label: 'HS30 + HS50', value: kpis ? `${formatHeuresDecimal(kpis.totalHs30 + kpis.totalHs50)} (${formatHeuresMinutes(kpis.totalHs30 + kpis.totalHs50)})` : '—', icon: TrendingUp, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
+                        { label: 'Absence finale', value: kpis ? `${formatHeuresMinutes((kpis.totalAbsenceFinaleMins ?? 0) / 60)} (${formatHeuresDecimal((kpis.totalAbsenceFinaleMins ?? 0) / 60)})` : '—', icon: AlertTriangle, color: 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' },
+                        { label: 'HS 30 % finales', value: kpis ? `${formatHeuresMinutes(kpis.totalHs30)} (${formatHeuresDecimal(kpis.totalHs30)})` : '—', icon: TrendingUp, color: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' },
+                        { label: 'HS 50 % finales', value: kpis ? `${formatHeuresMinutes(kpis.totalHs50)} (${formatHeuresDecimal(kpis.totalHs50)})` : '—', icon: TrendingUp, color: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' },
                         { label: 'Retards cumulés', value: kpis ? `${formatHeuresDecimal(kpis.totalRetardMins / 60)} (${formatHeuresMinutes(kpis.totalRetardMins / 60)})` : '—', icon: AlertTriangle, color: 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' },
                         { label: 'Indemnités totales', value: kpis ? formatMonnaie(kpis.totalIndemnites) : '—', icon: Banknote, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
                     ].map(kpi => (
@@ -1151,7 +1153,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 onClose={() => setShowValiderModal(false)}
                 onConfirm={handleValiderPeriode}
                 title={`Arbitrage & Gel : ${currentPeriodeObj?.libelle || ''} ?`}
-                message="Cette action fige les données de pointage de la période. La paie utilisera le solde final d’absence horaire et de HS 30 %, ainsi que les autres qualifications et indemnités figées. Vous pourrez ensuite contrôler les bulletins avant validation. Confirmer l’arbitrage et le scellement ?"
+                message="Cette action fige les données de pointage de la période. La paie reprendra pour chaque salarié l’absence horaire finale, les HS finales à 30 % et à 50 %, ainsi que les qualifications et indemnités figées. Vérifiez ces valeurs dans la synthèse avant de confirmer."
                 confirmLabel="Valider l'arbitrage & Sceller le pointage"
                 variant="primary"
                 loading={processing}

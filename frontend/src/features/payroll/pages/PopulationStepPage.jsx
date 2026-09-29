@@ -30,8 +30,11 @@ const DECISION_LABELS = {
 };
 
 const getPopulationReasonLabel = (code) => {
-    if (!code) return 'Éligible';
+    if (!code) return 'Éligible selon les critères de la campagne';
     const labels = {
+        NO_APPLICABLE_ASSIGNMENT: 'Aucune affectation ne couvre la période',
+        AMBIGUOUS_ASSIGNMENT: 'Plusieurs affectations couvrent la période',
+        NO_APPLICABLE_CONTRACT: 'Contrat ou régime d’intervenant manquant pour la période',
         CAREER_AMBIGUOUS: 'Configuration de carrière ambiguë',
         NO_ACTIVE_CONTRACT: 'Aucun contrat actif sur la période',
         CONTRACT_ENDED: 'Contrat expiré avant la période',
@@ -117,6 +120,15 @@ export default function PopulationStepPage() {
             }}
         >
             <div className="space-y-4">
+                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4 py-3 text-xs text-[var(--color-fg-muted)]">
+                    <p className="font-semibold text-[var(--color-fg)]">Règles appliquées à la population</p>
+                    <p className="mt-1">
+                        La période est évaluée du {context?.selectedPeriod?.startDate || 'début'} au {context?.selectedPeriod?.endDate || 'terme'}.
+                        Un salarié actif est inclus si une seule affectation couvre cette période et si son contrat et son type d’intervenant sont résolus.
+                        Sans affectation applicable, il est exclu. Plusieurs affectations, ou un contrat/type d’intervenant manquant, bloquent sa ligne.
+                    </p>
+                </div>
+
                 {/* Barre de synthèse Population (V1 Full V3) */}
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4 text-xs flex-wrap">
@@ -195,22 +207,24 @@ export default function PopulationStepPage() {
                                             </Td>
                                             <Td className="text-xs">
                                                 <Badge variant="secondary" size="sm">
-                                                    {p.typeContrat || p.contrat || 'CDI'}
+                                                    {p.typeContrat || '—'}
                                                 </Badge>
+                                                {p.contractNumber && <span className="block mt-0.5 text-[10px] text-[var(--color-fg-subtle)]">{p.contractNumber}</span>}
+                                                {p.regime && <span className="block mt-0.5 text-[10px] text-[var(--color-fg-subtle)]">{p.regime}</span>}
                                             </Td>
                                             <Td className="text-xs text-[var(--color-fg-muted)]">
-                                                {p.nomSite || p.site || '–'}
+                                                {p.nomSite || '–'}
                                             </Td>
                                             <Td className="text-xs">
-                                                {p.statutEmploye || p.situation || 'Actif'}
+                                                {p.statutEmploye || '–'}
                                             </Td>
                                             <Td>
                                                 <Badge variant={variant} size="sm">
                                                     {label}
                                                 </Badge>
                                             </Td>
-                                            <Td className="text-xs text-[var(--color-fg-muted)] max-w-xs truncate" title={p.motif || p.reason}>
-                                                {getPopulationReasonLabel(p.reason || p.motif)}
+                                            <Td className="text-xs text-[var(--color-fg-muted)] max-w-xs truncate" title={getPopulationReasonLabel(p.reasonCode || p.reason || p.motif)}>
+                                                {getPopulationReasonLabel(p.reasonCode || p.reason || p.motif)}
                                             </Td>
                                         </Tr>
                                     );

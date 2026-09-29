@@ -22,13 +22,16 @@ public class PayrollPopulationResolver {
 
     public PayrollPopulation resolve(int periodId, Connection connection) throws SQLException {
         Period period = loadPeriod(periodId, connection);
-        String sql = "SELECT e.id_employe, e.matricule, e.nom, e.prenom, eac.id_affectation, "
-                + "ct.id_contrat, ct.numero_contrat, tri.code AS regime "
+        String sql = "SELECT e.id_employe, e.matricule, e.nom, e.prenom, e.est_actif, eac.id_affectation, "
+                + "ct.id_contrat, ct.numero_contrat, rtc.libelle AS type_contrat, "
+                + "rs.libelle AS nom_site, tri.libelle AS regime "
                 + "FROM employe e "
                 + "LEFT JOIN employe_affectation_carriere eac ON eac.id_employe = e.id_employe "
                 + "AND eac.date_debut <= ? AND (eac.date_fin IS NULL OR eac.date_fin >= ?) "
                 + "LEFT JOIN contrat_travail ct ON ct.id_contrat = eac.id_contrat "
                 + "AND ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?) "
+                + "LEFT JOIN ref_type_contrat rtc ON rtc.id_type_contrat = ct.id_type_contrat "
+                + "LEFT JOIN ref_site rs ON rs.id_site = eac.id_site "
                 + "LEFT JOIN ref_type_intervenant tri ON tri.id_type_intervenant = ct.id_type_intervenant "
                 + "WHERE e.est_actif = TRUE ORDER BY e.matricule, eac.date_debut";
         Map<Integer, List<Row>> rowsByEmployee = new LinkedHashMap<>();
@@ -44,7 +47,8 @@ public class PayrollPopulationResolver {
                             employeeId, result.getString("matricule"),
                             (result.getString("nom") + " " + result.getString("prenom")).trim(),
                             (Integer) result.getObject("id_affectation"), (Integer) result.getObject("id_contrat"),
-                            result.getString("numero_contrat"),
+                            result.getString("numero_contrat"), result.getString("type_contrat"),
+                            result.getString("nom_site"), result.getBoolean("est_actif"),
                             result.getString("regime")));
                 }
             }
@@ -73,7 +77,8 @@ public class PayrollPopulationResolver {
 
     private PayrollPopulationMember member(Row row, String decision, String reasonCode) {
         return new PayrollPopulationMember(row.employeeId(), row.matricule(), row.employeeName(),
-                row.contractNumber(), row.regime(), decision, reasonCode);
+                row.typeContrat(), row.contractNumber(), row.nomSite(),
+                row.employeeActive() ? "Actif" : "Inactif", row.regime(), decision, reasonCode);
     }
 
     private Period loadPeriod(int periodId, Connection connection) throws SQLException {
@@ -102,5 +107,6 @@ public class PayrollPopulationResolver {
 
     private record Period(int id, String code, LocalDate startDate, LocalDate endDate) {}
     private record Row(int employeeId, String matricule, String employeeName, Integer assignmentId,
-                       Integer contractId, String contractNumber, String regime) {}
+                       Integer contractId, String contractNumber, String typeContrat, String nomSite,
+                       boolean employeeActive, String regime) {}
 }

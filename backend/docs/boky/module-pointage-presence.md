@@ -866,6 +866,13 @@ repas à 0 Ar est accordé sur un site concerné, la réduction paramétrée de
 1 000 Ar porte sur le déplacement accordé ce jour-là, avec un plancher à
 zéro. Les deux gains restent séparés sur le bulletin.
 
+Dans l'écran **Contrôle & Validation**, les indicateurs de période affichent
+séparément l'absence horaire finale, les HS 30 % finales et les HS 50 % finales.
+La fenêtre de solde d'un salarié place ces trois valeurs avant le détail des
+semaines. Le solde signé et ses composantes expliquent le résultat ; la
+validation s'appuie sur les durées finales calculées en minutes par le serveur.
+Les équivalents décimaux affichés sont arrondis à deux chiffres.
+
 ---
 
 ### 18.1 Glossaire Méthodologique & Métier

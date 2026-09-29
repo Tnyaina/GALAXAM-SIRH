@@ -65,6 +65,13 @@ export default function PreparationStepPage() {
 
     const pointageCheck = readiness.find(check => check.code === 'POINTAGE_FROZEN');
     const isPointageGele = pointageCheck?.status === 'PASS';
+    const plafondCnapsRaw = legalConfig?.plafondCotisationMensuel
+        ?? (legalConfig?.smeNational != null && legalConfig?.plafondCotisationNbSme != null
+            ? Number(legalConfig.smeNational) * Number(legalConfig.plafondCotisationNbSme)
+            : null);
+    const plafondCnaps = plafondCnapsRaw != null && Number.isFinite(Number(plafondCnapsRaw))
+        ? Number(plafondCnapsRaw)
+        : null;
 
     // Construction de la checklist des prérequis V1 Full V3
     const checklistItems = useMemo(() => {
@@ -121,9 +128,11 @@ export default function PreparationStepPage() {
             {
                 id: 'FISCAL_SOCIAL',
                 label: 'Fiscal & social',
-                status: legalConfig ? 'PASS' : 'BLOCKING',
+                status: !legalConfig ? 'BLOCKING' : plafondCnaps == null ? 'WARNING' : 'PASS',
                 summary: legalConfig
-                    ? `Barème LF ${legalConfig.anneeFiscale || 'CGI'} actif. Plafond CNaPS : ${formatMoneyAr(legalConfig.plafondCnaps)}.`
+                    ? plafondCnaps == null
+                        ? `Barème LF ${legalConfig.anneeFiscale || 'CGI'} actif. Plafond CNaPS non résolu : vérifiez le SME et le multiplicateur configurés.`
+                        : `Barème LF ${legalConfig.anneeFiscale || 'CGI'} actif. Plafond CNaPS : ${formatMoneyAr(plafondCnaps)}.`
                     : 'Aucune configuration fiscale applicable à la date de la période.',
                 source: 'Paramètres Légaux',
                 action: { label: 'Paramètres fiscaux', onClick: () => navigate('/admin/parametres?module=paie&tab=reglementation_fiscale') },
@@ -136,12 +145,20 @@ export default function PreparationStepPage() {
                 source: 'Pointage / Configuration',
             },
         ];
-    }, [isPointageGele, actions, legalConfig, navigate]);
+    }, [isPointageGele, actions, legalConfig, plafondCnaps, navigate]);
 
     // Décompte de readiness
     const nbPrets = checklistItems.filter(i => i.status === 'PASS').length;
     const nbWarnings = checklistItems.filter(i => i.status === 'WARNING').length + warnings.length;
-    const nbBlockers = checklistItems.filter(i => i.status === 'BLOCKING').length + issues.length;
+    // Le contexte de période remonte aussi des problèmes propres aux étapes
+    // ultérieures (ex. paie non encore calculée). Ils ne bloquent pas la
+    // préparation et ne doivent pas gonfler son compteur.
+    const preparationIssues = issues.filter(issue => ![
+        'POINTAGE_NOT_FROZEN',
+        'PAYROLL_NOT_CALCULATED',
+        'PAYROLL_ALREADY_VALIDATED',
+    ].includes(issue?.code));
+    const nbBlockers = checklistItems.filter(i => i.status === 'BLOCKING').length + preparationIssues.length;
 
     // Rendu
     return (
@@ -201,6 +218,16 @@ export default function PreparationStepPage() {
                         code="PAYROLL_READINESS_UNAVAILABLE"
                     />
                 )}
+
+                {preparationIssues.map(issue => (
+                    <PayrollIssuePanel
+                        key={issue.code || issue.message}
+                        severity="BLOCKER"
+                        title="Prérequis de préparation à vérifier"
+                        message={issue.message}
+                        code={issue.code}
+                    />
+                ))}
 
                 {/* Liste des 8 Contrôles de Readiness (V1 Full V3) */}
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] divide-y divide-[var(--color-border-subtle)]">

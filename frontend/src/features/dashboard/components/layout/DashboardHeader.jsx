@@ -40,7 +40,7 @@ export default function DashboardHeader({
     totalAlertesContrats = 0
 }) {
     // Contexte
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
     const toast = useToast();
 
     // État local
@@ -131,15 +131,26 @@ export default function DashboardHeader({
 
     // P1-02 : La route de destination est fournie par le backend via periodContext.nextStep.destination
     // ou via availableActions. Le frontend ne reconstruit pas de logique conditionnelle par rôle/statut.
+    const peutAccederPaie = hasPermission('PAIE_READ');
+    const peutAccederPointage = hasPermission('POINTAGE_READ')
+        && ['ROLE_ADMIN', 'ROLE_AGENT_POINTAGE'].includes(user?.role);
+    const routePeriode = (periodeId, destinationWorkflow = null) => {
+        if (!periodeId) return null;
+        if (peutAccederPaie) return destinationWorkflow || `/paie?periodId=${periodeId}`;
+        if (peutAccederPointage) return `/pointages?tab=suivi&periode=${periodeId}`;
+        return null;
+    };
+
     const periodeRoute = (() => {
         if (!activePeriodeId) return null; // pas de navigation sans période active
+        if (!peutAccederPaie) return routePeriode(activePeriodeId);
         // Priorité 1 : nextStep calculé par le backend selon rôle + statut
         if (periodContext?.nextStep?.destination) return periodContext.nextStep.destination;
         // Priorité 2 : action EDIT_POINTAGE disponible selon backend
         const actions = periodContext?.availableActions || activePeriode?.availableActions || {};
-        if (actions.EDIT_POINTAGE?.allowed === true) return '/pointages?tab=saisie';
+        if (actions.EDIT_POINTAGE?.allowed === true) return `/pointages?tab=saisie&periode=${activePeriodeId}`;
         // Priorité 3 : vue de suivi de la période
-        return `/paie/periodes/${activePeriodeId}/preparation`;
+        return routePeriode(activePeriodeId);
     })();
 
     // Widget rappel périodes de paie : affiche les périodes récentes non clôturées (en excluant l'active si déjà affichée)
@@ -149,6 +160,18 @@ export default function DashboardHeader({
             return p.statutCode !== 'CLOTUREE' && (!activePeriodeId || pId !== activePeriodeId);
         })
         .slice(0, 3);
+
+    const activePeriodeChipContent = (
+        <>
+            <span className={`inline-block w-2 h-2 rounded-full ${statutStyle.dot}`} />
+            <span className="font-semibold text-[11px] text-[var(--color-brand-200)] uppercase tracking-wider">Période RH :</span>
+            <span className="font-bold text-xs text-[var(--color-on-color)] font-mono">{activePeriodeLibelle}</span>
+            <span className={`px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider ${statutStyle.badge}`}>
+                {activePeriodeStatutLibelle}
+            </span>
+            {periodeRoute && <span className="text-[11px] text-[var(--color-brand-200)] group-hover:translate-x-0.5 transition-transform font-bold">→</span>}
+        </>
+    );
 
     // Rendu
     return (
@@ -179,19 +202,16 @@ export default function DashboardHeader({
                         {/* Widget période active — Backend-driven (DSH-001) */}
                         {activePeriode && activePeriodeId && (
                             <div className="mt-2.5 flex items-center gap-2">
-                                <Link
+                                {periodeRoute ? <Link
                                     to={periodeRoute}
                                     className="inline-flex items-center gap-2 px-2.5 py-1 bg-[var(--color-surface)]/10 hover:bg-[var(--color-surface)]/20 border border-[var(--color-on-color)]/20 text-xs text-[var(--color-on-color)] transition-all group shadow-2xs"
                                     title="Accéder au cockpit de la période active"
                                 >
-                                    <span className={`inline-block w-2 h-2 rounded-full ${statutStyle.dot}`} />
-                                    <span className="font-semibold text-[11px] text-[var(--color-brand-200)] uppercase tracking-wider">Période RH :</span>
-                                    <span className="font-bold text-xs text-[var(--color-on-color)] font-mono">{activePeriodeLibelle}</span>
-                                    <span className={`px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider ${statutStyle.badge}`}>
-                                        {activePeriodeStatutLibelle}
-                                    </span>
-                                    <span className="text-[11px] text-[var(--color-brand-200)] group-hover:translate-x-0.5 transition-transform font-bold">→</span>
-                                </Link>
+                                    {activePeriodeChipContent}
+                                </Link> : <span
+                                    className="inline-flex items-center gap-2 px-2.5 py-1 bg-[var(--color-surface)]/10 border border-[var(--color-on-color)]/20 text-xs text-[var(--color-on-color)]"
+                                    title="Aucun accès disponible pour cette période"
+                                >{activePeriodeChipContent}</span>}
                             </div>
                         )}
                     </div>
@@ -228,20 +248,31 @@ export default function DashboardHeader({
                                 const pId = p.idPeriodePaie ?? p.id;
                                 if (!pId) return null;
                                 const style = resolveStatutStyle(p.statutCode || p.state);
-                                return (
-                                    <Link
-                                        key={pId}
-                                        to={`/paie/periodes/${pId}/preparation`}
-                                        className="inline-flex items-center gap-2 px-2.5 py-1 bg-[var(--color-surface)]/10 hover:bg-[var(--color-surface)]/20 border border-[var(--color-on-color)]/20 text-xs text-[var(--color-on-color)] transition-all group shadow-2xs"
-                                        title={p.libelle || p.label || p.code}
-                                    >
+                                const destination = routePeriode(pId);
+                                const content = (
+                                    <>
                                         <span className={`inline-block w-1.5 h-1.5 rounded-full ${style.dot}`} />
                                         <span className="font-mono font-bold text-xs text-[var(--color-on-color)]">{p.code || p.libelle || p.label}</span>
                                         <span className={`px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider ${style.badge}`}>
                                             {p.statutLibelle || p.statutCode || p.state}
                                         </span>
-                                        <span className="text-[11px] text-[var(--color-brand-200)] group-hover:translate-x-0.5 transition-transform font-bold">→</span>
+                                        {destination && <span className="text-[11px] text-[var(--color-brand-200)] group-hover:translate-x-0.5 transition-transform font-bold">→</span>}
+                                    </>
+                                );
+                                return (
+                                    destination ? <Link
+                                        key={pId}
+                                        to={destination}
+                                        className="inline-flex items-center gap-2 px-2.5 py-1 bg-[var(--color-surface)]/10 hover:bg-[var(--color-surface)]/20 border border-[var(--color-on-color)]/20 text-xs text-[var(--color-on-color)] transition-all group shadow-2xs"
+                                        title={p.libelle || p.label || p.code}
+                                    >
+                                        {content}
                                     </Link>
+                                        : <span
+                                            key={pId}
+                                            className="inline-flex items-center gap-2 px-2.5 py-1 bg-[var(--color-surface)]/10 border border-[var(--color-on-color)]/20 text-xs text-[var(--color-on-color)]"
+                                            title="Aucun accès disponible pour cette période"
+                                        >{content}</span>
                                 );
                             })}
                         </div>

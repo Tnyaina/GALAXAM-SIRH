@@ -109,8 +109,27 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
     return (
         <Modal isOpen={Boolean(employe)} onClose={onClose} title={`Solde horaire de période — ${employe?.nom || ''} ${employe?.prenom || ''}`} size="4xl">
             <div className="p-5 space-y-5 text-sm">
-                <p className="text-[var(--color-fg-muted)]">1. Vérifiez les semaines. 2. Documentez chaque correction d’heures. 3. Contrôlez le solde avant validation de la période. Les badges restent inchangés.</p>
-                <p className="rounded border border-[var(--color-border-subtle)] p-3 text-[var(--color-fg)]">Après le gel, la paie reprend l’absence horaire et les HS 30 % et HS 50 % finales. Les congés sont décomptés et indemnisés sur leurs propres lignes.</p>
+                <p className="text-[var(--color-fg-muted)]">Vérifiez les valeurs finales, puis les semaines et les ajustements qui les expliquent avant de valider la période.</p>
+                <section className="space-y-2" aria-label="Valeurs finales utilisées par la paie">
+                    <div>
+                        <h3 className="font-semibold">Valeurs finales utilisées par la paie</h3>
+                        <p className="text-xs text-[var(--color-fg-muted)]">Ces durées seront figées lors de la validation du pointage. Les congés restent traités sur leurs propres lignes.</p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {[
+                            ['Absence horaire à retenir', recap.absenceFinale, 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'],
+                            ['HS finales à 30 %', recap.hs30Finales, 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'],
+                            ['HS finales à 50 %', recap.hs50Finales, 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'],
+                        ].map(([label, value, tone]) => (
+                            <div key={label} className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3">
+                                <span className="text-xs text-[var(--color-fg-muted)]">{label}</span>
+                                <strong className={`block mt-1 font-mono text-xl ${tone}`}>{value || '—'}</strong>
+                                {decimalFromHhMm(value) && <span className="block font-mono text-xs text-[var(--color-fg-muted)]">({decimalFromHhMm(value)})</span>}
+                            </div>
+                        ))}
+                    </div>
+                </section>
+                <p className="rounded border border-[var(--color-border-subtle)] p-3 text-xs text-[var(--color-fg-muted)]">Les durées qualifiées de nuit, dimanche et jour férié sont déjà comprises dans le temps travaillé. Elles sont ventilées séparément en paie.</p>
                 <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left border-collapse min-w-[900px]">
                         <thead><tr className="border-b border-[var(--color-border-subtle)]"><th className="py-2">Semaine</th><th>Objectif</th><th>Travaillé</th><th>Déficit</th><th>HS 30 %</th><th>HS 50 %</th><th>Nuit</th><th>Dimanche</th><th>Jour férié</th></tr></thead>
@@ -130,6 +149,8 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                         ))}</tbody>
                     </table>
                 </div>
+                <section className="space-y-2">
+                <h3 className="font-semibold">Rapprochement du solde</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs items-stretch">
                     {[
                         ['Déficit cumulé', recap.deficitHebdo],
@@ -142,12 +163,14 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                             {decimalFromHhMm(value) && <span className="block mt-0.5 text-[11px] text-[var(--color-fg-muted)]">({decimalFromHhMm(value)})</span>}
                         </div>
                     ))}
-                    <div className="border-2 border-[var(--color-brand-500)]/40 bg-[var(--color-brand-500)]/5 p-3 sm:p-4">
+                    <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 sm:p-4">
                         <span className="text-[var(--color-fg-muted)]">Solde final</span>
-                        <strong className={`block mt-1 text-2xl sm:text-3xl leading-tight ${String(recap.soldeFinal || '').startsWith('-') || String(recap.soldeFinal || '').startsWith('−') ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>{recap.soldeFinal || '—'}</strong>
-                        {decimalFromHhMm(recap.soldeFinal) && <span className="block mt-1 text-sm text-[var(--color-fg-muted)]">({decimalFromHhMm(recap.soldeFinal)})</span>}
+                        <strong className="block mt-1 text-base leading-tight">{recap.soldeFinal || '—'}</strong>
+                        {decimalFromHhMm(recap.soldeFinal) && <span className="block mt-0.5 text-[11px] text-[var(--color-fg-muted)]">({decimalFromHhMm(recap.soldeFinal)})</span>}
                     </div>
                 </div>
+                <p className="text-xs text-[var(--color-fg-muted)]">Le calcul est fait en minutes ; les équivalents décimaux sont arrondis pour l’affichage.</p>
+                </section>
                 <section className="space-y-3 border-t border-[var(--color-border-subtle)] pt-4">
                     <h3 className="font-semibold">Heures qualifiées incluses dans le temps travaillé</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
@@ -164,10 +187,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                     </div>
                     <p className="text-xs text-[var(--color-fg-muted)]">Ces heures sont déjà comprises dans « Travaillé » et dans le solde final. Les qualifications peuvent se chevaucher (par exemple, une heure de nuit un dimanche) : elles décrivent les heures à ventiler en paie, elles ne s’ajoutent pas une seconde fois au solde.</p>
                 </section>
-                <div className="text-xs border-l-2 border-[var(--color-brand-500)] pl-3">
-                    Absence finale : {recap.absenceFinale || '—'} · HS 30 % finales : {recap.hs30Finales || '—'} · HS 50 % finales : {recap.hs50Finales || '—'}
-                    <div className="text-[var(--color-fg-muted)] mt-1">{recap.regleVentilation}</div>
-                </div>
+                {recap.regleVentilation && <p className="text-xs text-[var(--color-fg-muted)]">{recap.regleVentilation}</p>}
                 {recap.alerteSolde && <p role="alert" className="text-[var(--color-danger-600)] text-xs">{recap.alerteSolde}</p>}
                 <section className="space-y-2">
                     <h3 className="font-semibold">Ajustements d’heures</h3>
