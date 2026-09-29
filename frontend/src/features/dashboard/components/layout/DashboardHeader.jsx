@@ -22,12 +22,12 @@ function resolveStatutStyle(statutCode) {
             return { dot: 'bg-[var(--color-warning-400)] animate-pulse', badge: 'bg-[var(--color-warning-400)] text-[var(--color-warning-700)]' };
         case 'EN_COURS':
         case 'CALCULE':
-            return { dot: 'bg-[var(--color-success-400)] animate-pulse', badge: 'bg-[var(--color-success-500)] text-white' };
+            return { dot: 'bg-[var(--color-success-400)] animate-pulse', badge: 'bg-[var(--color-success-500)] text-[var(--color-on-color)]' };
         case 'VALIDEE':
         case 'CLOTUREE':
-            return { dot: 'bg-[var(--color-info-200)]', badge: 'bg-[var(--color-info-500)] text-white' };
+            return { dot: 'bg-[var(--color-info-200)]', badge: 'bg-[var(--color-info-500)] text-[var(--color-on-color)]' };
         default:
-            return { dot: 'bg-white/50', badge: 'bg-white/20 text-white' };
+            return { dot: 'bg-[var(--color-surface)]/50', badge: 'bg-[var(--color-surface)]/20 text-[var(--color-on-color)]' };
     }
 }
 
@@ -154,7 +154,7 @@ export default function DashboardHeader({
     return (
         <>
             {/* Conteneur unifié Header + Rappel périodes (même pattern vert brand) */}
-            <div className="bg-[var(--color-brand-800)] text-white shadow-xs">
+            <div className="bg-[var(--color-brand-800)] text-[var(--color-on-color)] shadow-xs">
                 {/* Bannière de bienvenue */}
                 <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3">
                     <div>
@@ -165,7 +165,7 @@ export default function DashboardHeader({
                             {greeting}, {user?.identifiant || 'utilisateur'}
                         </h2>
                         {loading ? (
-                            <Skeleton className="h-3.5 w-64 bg-white/20 mt-1" />
+                            <Skeleton className="h-3.5 w-64 bg-[var(--color-surface)]/20 mt-1" />
                         ) : (
                             <p className="text-[var(--color-brand-100)] text-xs">
                                 {demandesCongeAValiderCount > 0
@@ -181,12 +181,12 @@ export default function DashboardHeader({
                             <div className="mt-2.5 flex items-center gap-2">
                                 <Link
                                     to={periodeRoute}
-                                    className="inline-flex items-center gap-2 px-2.5 py-1 bg-white/10 hover:bg-white/20 border border-white/20 text-xs text-white transition-all group shadow-2xs"
+                                    className="inline-flex items-center gap-2 px-2.5 py-1 bg-[var(--color-surface)]/10 hover:bg-[var(--color-surface)]/20 border border-[var(--color-on-color)]/20 text-xs text-[var(--color-on-color)] transition-all group shadow-2xs"
                                     title="Accéder au cockpit de la période active"
                                 >
                                     <span className={`inline-block w-2 h-2 rounded-full ${statutStyle.dot}`} />
                                     <span className="font-semibold text-[11px] text-[var(--color-brand-200)] uppercase tracking-wider">Période RH :</span>
-                                    <span className="font-bold text-xs text-white font-mono">{activePeriodeLibelle}</span>
+                                    <span className="font-bold text-xs text-[var(--color-on-color)] font-mono">{activePeriodeLibelle}</span>
                                     <span className={`px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider ${statutStyle.badge}`}>
                                         {activePeriodeStatutLibelle}
                                     </span>
@@ -201,7 +201,7 @@ export default function DashboardHeader({
                             loading={loading}
                             variant="ghost"
                             size="sm"
-                            className="bg-white/15 hover:bg-white/25 text-white border-transparent"
+                            className="bg-[var(--color-surface)]/15 hover:bg-[var(--color-surface)]/25 text-[var(--color-on-color)] border-transparent"
                             icon={<RefreshCw size={14} />}
                         >
                             Actualiser
@@ -216,10 +216,10 @@ export default function DashboardHeader({
 
                 {/* Barre de rappel des périodes de paie — Même pattern esthétique que le header */}
                 {periodesRappel.length > 0 && (
-                    <div className="px-3.5 sm:px-4 py-2 bg-black/20 border-t border-white/10 flex items-center gap-3 overflow-x-auto">
-                        <div className="flex items-center gap-1.5 shrink-0 text-white">
-                            <CalendarClock size={13} className="shrink-0 text-white" />
-                            <span className="text-[11px] font-semibold uppercase tracking-wider font-data text-white">
+                    <div className="px-3.5 sm:px-4 py-2 bg-[var(--color-overlay)]/20 border-t border-[var(--color-on-color)]/10 flex items-center gap-3 overflow-x-auto">
+                        <div className="flex items-center gap-1.5 shrink-0 text-[var(--color-on-color)]">
+                            <CalendarClock size={13} className="shrink-0 text-[var(--color-on-color)]" />
+                            <span className="text-[11px] font-semibold uppercase tracking-wider font-data text-[var(--color-on-color)]">
                                 Périodes paie :
                             </span>
                         </div>
@@ -232,11 +232,11 @@ export default function DashboardHeader({
                                     <Link
                                         key={pId}
                                         to={`/paie/periodes/${pId}/preparation`}
-                                        className="inline-flex items-center gap-2 px-2.5 py-1 bg-white/10 hover:bg-white/20 border border-white/20 text-xs text-white transition-all group shadow-2xs"
+                                        className="inline-flex items-center gap-2 px-2.5 py-1 bg-[var(--color-surface)]/10 hover:bg-[var(--color-surface)]/20 border border-[var(--color-on-color)]/20 text-xs text-[var(--color-on-color)] transition-all group shadow-2xs"
                                         title={p.libelle || p.label || p.code}
                                     >
                                         <span className={`inline-block w-1.5 h-1.5 rounded-full ${style.dot}`} />
-                                        <span className="font-mono font-bold text-xs text-white">{p.code || p.libelle || p.label}</span>
+                                        <span className="font-mono font-bold text-xs text-[var(--color-on-color)]">{p.code || p.libelle || p.label}</span>
                                         <span className={`px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider ${style.badge}`}>
                                             {p.statutLibelle || p.statutCode || p.state}
                                         </span>
@@ -251,7 +251,7 @@ export default function DashboardHeader({
 
             {/* Message offline */}
             {!isOnline && (
-                <div role="alert" className="bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 px-5 py-4 text-xs text-[var(--color-warning-500)] flex items-center gap-3">
+                <div role="status" aria-live="polite" className="bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 px-5 py-4 text-xs text-[var(--color-warning-500)] flex items-center gap-3">
                     <AlertTriangle size={16} className="shrink-0" />
                     <span className="font-semibold">Connexion perdue. Affichage des dernières données en cache.</span>
                 </div>

@@ -22,13 +22,13 @@ const MODULES = [
 
 export default function ParametresModulesPanel() {
     const [searchParams, setSearchParams] = useSearchParams();
-    
+
     // Niveau 1: Module
     const activeModule = searchParams.get('module') || 'paie';
-    
+
     // Niveau 2: Sous-onglet
     const activeTab = searchParams.get('tab') || (
-        activeModule === 'paie' ? 'reglementation_fiscale' : 
+        activeModule === 'paie' ? 'reglementation_fiscale' :
         activeModule === 'conges' ? 'regles_acquisition' :
         activeModule === 'pointage' ? 'parametres_globaux_pointage' :
         'parametres_globaux_systeme'
@@ -39,7 +39,7 @@ export default function ParametresModulesPanel() {
         if (moduleId === 'conges') defaultTab = 'parametres_globaux_conges';
         else if (moduleId === 'pointage') defaultTab = 'parametres_globaux_pointage';
         else if (moduleId === 'general') defaultTab = 'parametres_globaux_systeme';
-        
+
         setSearchParams({ module: moduleId, tab: defaultTab });
     };
 
@@ -72,10 +72,10 @@ export default function ParametresModulesPanel() {
         { id: 'parametres_globaux_contrats', label: 'Règles Contrats & CDD', icon: <FileText size={16} /> },
     ];
 
-    const currentTabs = activeModule === 'paie' 
-        ? paieTabs 
-        : activeModule === 'conges' 
-        ? congesTabs 
+    const currentTabs = activeModule === 'paie'
+        ? paieTabs
+        : activeModule === 'conges'
+        ? congesTabs
         : activeModule === 'pointage'
         ? pointageTabs
         : generalTabs;
@@ -104,8 +104,8 @@ export default function ParametresModulesPanel() {
                             key={mod.id}
                             onClick={() => handleModuleChange(mod.id)}
                             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors border ${
-                                isActive 
-                                ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)] shadow-xs' 
+                                isActive
+                                ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] border-[var(--color-brand-500)] shadow-xs'
                                 : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-fg)]'
                             }`}
                         >
@@ -118,11 +118,11 @@ export default function ParametresModulesPanel() {
 
             {/* Niveau 2 : Sélecteur d'onglets principal avec persistance URL */}
             <div className="space-y-4">
-                <Tabs 
-                    tabs={currentTabs} 
-                    activeTab={activeTab === 'majorations_params' ? 'majorations' : activeTab} 
-                    onChange={handleTabChange} 
-                    variant="underline" 
+                <Tabs
+                    tabs={currentTabs}
+                    activeTab={activeTab === 'majorations_params' ? 'majorations' : activeTab}
+                    onChange={handleTabChange}
+                    variant="underline"
                 />
 
                 {/* Contenu de l'onglet actif avec le SkeletonTable standardisé */}

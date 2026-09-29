@@ -10,7 +10,13 @@ async function exportDocument(idEmploye, format, params) {
 /** Tous les appels Pointage et son contrat de période, regroupés par intention. */
 const attendanceApi = {
     daily: {
-        getGrid: async ({ idSite, date }) => (await apiClient.get('/pointages/saisie', { params: { idSite, date } })).data,
+        getGrid: async ({ idSite, date }) => {
+            const parsedSite = Number(idSite);
+            if (!parsedSite || parsedSite <= 0) {
+                throw new Error(`Identifiant de site obligatoire et strictement positif pour la saisie (reçu: ${idSite}).`);
+            }
+            return (await apiClient.get('/pointages/saisie', { params: { idSite: parsedSite, date } })).data;
+        },
         preview: async (pointage) => (await apiClient.post('/pointages/saisie/preview', pointage)).data,
         saveBatch: async (pointages) => (await apiClient.post('/pointages/saisie/batch', pointages)).data
     },

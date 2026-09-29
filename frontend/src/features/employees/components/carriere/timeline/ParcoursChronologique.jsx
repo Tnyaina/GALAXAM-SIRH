@@ -195,7 +195,7 @@ export default function ParcoursChronologique({
         if (code.includes('PROMOTION') || code.includes('REVALORISATION')) return <TrendingUp size={15} className="text-[var(--color-info-500)]" />;
         if (code.includes('MUTATION')) return <MapPin size={15} className="text-[var(--color-warning-500)]" />;
         if (code.includes('CONFIRMATION')) return <FileCheck size={15} className="text-[var(--color-success-500)]" />;
-        if (code.includes('RENOUVELLEMENT')) return <RotateCw size={15} className="text-sky-500" />;
+        if (code.includes('RENOUVELLEMENT')) return <RotateCw size={15} className="text-[var(--color-sky-500)]" />;
         return <FileText size={15} className="text-[var(--color-fg-muted)]" />;
     };
 

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { getErrorMessage } from '@/api/apiClient';
-import { Briefcase, ShieldAlert, Save, X, FileSignature, Eye, EyeOff, UserPlus, RotateCcw, Handshake } from 'lucide-react';
+import { Briefcase, Save, X, FileSignature, Eye, EyeOff, UserPlus, RotateCcw, Handshake } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { Textarea } from '@/components/ui/forms/Input';
+import FormError from '@/components/ui/feedback/FormError';
 import Loading from '@/components/ui/feedback/Loading';
 import contratService from '@/features/employees/api/contratService';
 import { useContractReferentiels } from '@/features/employees/hooks/useContractReferentiels';
@@ -258,17 +259,17 @@ export default function EmbaucheModal({
     return (
         <div 
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-            className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-y-auto ${mounted ? 'opacity-100' : 'opacity-0'}`}
+            className={`fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-overlay)]/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-y-auto ${mounted ? 'opacity-100' : 'opacity-0'}`}
         >
-            <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl w-full max-w-[1440px] max-h-[95vh] flex flex-col overflow-hidden">
+            <div className="bg-[var(--color-surface)] dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl w-full max-w-[1440px] max-h-[95vh] flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="px-7 py-4 border-b border-ink-150 dark:border-ink-700 flex items-center justify-between bg-ink-50/50 dark:bg-ink-950/40">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-brand-500 text-white rounded-none flex items-center justify-center shadow-md">
+                        <div className="w-10 h-10 bg-brand-500 text-[var(--color-on-color)] rounded-none flex items-center justify-center shadow-md">
                             <Briefcase size={20} />
                         </div>
                         <div>
-                            <h2 className="font-bold text-lg text-ink-900 dark:text-white flex items-center gap-2">
+                            <h2 className="font-bold text-lg text-ink-900 dark:text-[var(--color-on-color)] flex items-center gap-2">
                                 {isEditMode
                                     ? 'Corriger le Brouillon de Contrat'
                                     : hasHistory
@@ -279,7 +280,7 @@ export default function EmbaucheModal({
                                 </span>
                             </h2>
                             <p className="text-xs text-ink-400">
-                                Saisie du contrat et affectation pour <strong className="text-ink-800 dark:text-white">{nomEmploye}</strong>
+                                Saisie du contrat et affectation pour <strong className="text-ink-800 dark:text-[var(--color-on-color)]">{nomEmploye}</strong>
                             </p>
                         </div>
                     </div>
@@ -292,7 +293,7 @@ export default function EmbaucheModal({
                             {showPreviewMobile ? <EyeOff size={14} /> : <Eye size={14} />}
                             {showPreviewMobile ? 'Masquer Aperçu' : 'Aperçu'}
                         </button>
-                        <button onClick={onClose} className="p-1.5 text-ink-400 hover:text-ink-800 dark:hover:text-white hover:bg-ink-100 dark:hover:bg-ink-800 rounded-none  cursor-pointer">
+                        <button onClick={onClose} className="p-1.5 text-ink-400 hover:text-ink-800 dark:hover:text-[var(--color-on-color)] hover:bg-ink-100 dark:hover:bg-ink-800 rounded-none  cursor-pointer">
                             <X size={20} />
                         </button>
                     </div>
@@ -306,12 +307,7 @@ export default function EmbaucheModal({
                             <Loading display="page" label="Chargement des référentiels..." />
                         ) : (
                             <form id="embauche-form" onSubmit={handleSubmit} className="space-y-4">
-                                {errorMsg && (
-                                    <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-none p-3 text-xs flex items-center gap-2">
-                                        <ShieldAlert size={16} />
-                                        {errorMsg}
-                                    </div>
-                                )}
+                                {errorMsg && <FormError message={errorMsg} />}
 
                                 {/* Nature de la contractualisation si collaborateur inactif avec historique */}
                                 {hasHistory && !isEditMode && (
@@ -342,11 +338,11 @@ export default function EmbaucheModal({
                                                         className={`p-3 border rounded-none cursor-pointer transition-all ${
                                                             isSel
                                                                 ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500/30'
-                                                                : 'border-ink-200 dark:border-ink-800 hover:border-brand-300 bg-white dark:bg-ink-950/40'
+                                                                : 'border-ink-200 dark:border-ink-800 hover:border-brand-300 bg-[var(--color-surface)] dark:bg-ink-950/40'
                                                         }`}
                                                     >
                                                         <div className="flex items-center justify-between">
-                                                            <span className="text-xs font-bold text-ink-900 dark:text-white flex items-center gap-2">
+                                                            <span className="text-xs font-bold text-ink-900 dark:text-[var(--color-on-color)] flex items-center gap-2">
                                                                 {opt.icon && <opt.icon size={15} className={isSel ? 'text-brand-500' : 'text-ink-400'} />}
                                                                 {opt.title}
                                                             </span>

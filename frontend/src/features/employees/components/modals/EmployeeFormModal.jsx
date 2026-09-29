@@ -1,3 +1,4 @@
+import FormError from '@/components/ui/feedback/FormError';
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { User, CreditCard, Award, Phone, Users, Shield, ShieldAlert, Landmark, Building, Check, ArrowRight, ArrowLeft } from 'lucide-react';
 import organisationService from '@/features/organization/api/organisationService';
@@ -5,7 +6,6 @@ import employeService from '@/features/employees/api/employeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
 import Modal from '@/components/ui/overlays/Modal';
-import Alert from '@/components/ui/feedback/Alert';
 import Input, { AutocompleteInput } from '@/components/ui/forms/Input';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import { Card } from '@/components/ui/data-display/Card';
@@ -62,18 +62,18 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
 
     const [formData, setFormData] = useState({ ...EMPTY_FORM });
 
-    const loadBanques = async () => { 
-        try { 
+    const loadBanques = async () => {
+        try {
             const data = await organisationService.getBanques();
-            setBanques(data || []); 
+            setBanques(data || []);
         } catch (err) {
             console.error('Erreur chargement banques:', err);
-        } 
+        }
     };
 
     // Effets : initialisent le formulaire et chargent les banques à l'ouverture.
-    useEffect(() => { 
-        loadBanques(); 
+    useEffect(() => {
+        loadBanques();
     }, []);
 
     useEffect(() => {
@@ -91,29 +91,29 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
             }
 
             setFormData({
-                matricule: e.matricule || '', 
-                nom: e.nom || '', 
+                matricule: e.matricule || '',
+                nom: e.nom || '',
                 prenom: e.prenom || '',
                 sexe: e.sexe || 'M',
-                dateNaissance: fmtDate(e.dateNaissance), 
+                dateNaissance: fmtDate(e.dateNaissance),
                 lieuNaissance: e.lieuNaissance || '',
                 nationalite: isKnownNat ? nat : 'Autre',
-                pereNomPrenom: e.pereNomPrenom || '', 
+                pereNomPrenom: e.pereNomPrenom || '',
                 mereNomPrenom: e.mereNomPrenom || '',
                 situationFamiliale: e.situationFamiliale || 'Celibataire',
-                cinNumero: e.cinNumero || '', 
+                cinNumero: e.cinNumero || '',
                 cinDateDelivrance: fmtDate(e.cinDateDelivrance),
                 cinLieuDelivrance: e.cinLieuDelivrance || '',
-                cinDuplicataDate: fmtDate(e.cinDuplicataDate), 
+                cinDuplicataDate: fmtDate(e.cinDuplicataDate),
                 cinDuplicataLieu: e.cinDuplicataLieu || '',
                 permisConduireNumero: e.permisConduireNumero || '',
                 permisConduireDateDelivrance: fmtDate(e.permisConduireDateDelivrance),
                 permisConduireLieuDelivrance: e.permisConduireLieuDelivrance || '',
-                adresse: e.adresse || '', 
-                ville: e.ville || '', 
-                telephone: e.telephone || '', 
+                adresse: e.adresse || '',
+                ville: e.ville || '',
+                telephone: e.telephone || '',
                 email: e.email || '',
-                numAffiliationCnaps: e.numAffiliationCnaps || '', 
+                numAffiliationCnaps: e.numAffiliationCnaps || '',
                 photoUrl: e.photoUrl || '',
                 dateDeclaration: fmtDate(e.dateDeclaration),
                 conjoint: {
@@ -125,10 +125,10 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                     fonction: employeData.conjoint?.fonction || e.conjointFonction || ''
                 },
                 enfants: (employeData.enfants || []).map(enf => ({
-                    nom: enf.nom || '', 
-                    prenom: enf.prenom || '', 
+                    nom: enf.nom || '',
+                    prenom: enf.prenom || '',
                     sexe: enf.sexe || 'M',
-                    dateNaissance: fmtDate(enf.dateNaissance), 
+                    dateNaissance: fmtDate(enf.dateNaissance),
                     lieuNaissance: enf.lieuNaissance || '',
                     aCharge: enf.aCharge !== undefined ? enf.aCharge : true,
                     estEtudiant: enf.estEtudiant || false,
@@ -138,11 +138,11 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                 })),
                 contactsUrgence: (employeData.contactsUrgence?.length > 0)
                     ? employeData.contactsUrgence.map(ct => ({
-                        nom: ct.nom || '', 
-                        prenom: ct.prenom || '', 
+                        nom: ct.nom || '',
+                        prenom: ct.prenom || '',
                         lienParente: ct.lienParente || 'Autre',
-                        telephone: ct.telephone || '', 
-                        adresse: ct.adresse || '', 
+                        telephone: ct.telephone || '',
+                        adresse: ct.adresse || '',
                         societe: ct.societe || ''
                     }))
                     : [{ nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }],
@@ -270,7 +270,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
     const handleBlurMatricule = async () => {
         const mat = formData.matricule?.trim();
         if (!mat) return;
-        
+
         if (employeData) {
             const oldMat = (employeData.employe || employeData).matricule;
             if (oldMat === mat) {
@@ -327,7 +327,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
 
     const handleSave = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
-        
+
         // En création, la touche Entrée avant le dernier onglet avance simplement d'une étape
         if (!employeData && activeStep < STEPS.length - 1) {
             handleNext();
@@ -349,7 +349,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
             setErrorMsg(validationResult.error);
             return;
         }
-        
+
         setErrorMsg('');
         const finalNat = isCustomNat ? customNationalite : formData.nationalite;
 
@@ -384,12 +384,12 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                     </Button>
                     <div className="flex items-center gap-2">
                         {activeStep > 0 && (
-                            <Button 
+                            <Button
                                 key="wizard-prev-btn"
-                                type="button" 
-                                onClick={handlePrev} 
-                                variant="outline" 
-                                size="sm" 
+                                type="button"
+                                onClick={handlePrev}
+                                variant="outline"
+                                size="sm"
                                 iconLeft={<ArrowLeft size={14} />}
                                 disabled={isSubmitting}
                             >
@@ -398,16 +398,16 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                         )}
                         {/* Bouton de sauvegarde directe en mode modification */}
                         {employeData && activeStep < STEPS.length - 1 && (
-                            <Button 
+                            <Button
                                 key="wizard-quick-save-btn"
-                                type="button" 
+                                type="button"
                                 onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     handleSave(e);
-                                }} 
-                                variant="outline" 
-                                size="sm" 
+                                }}
+                                variant="outline"
+                                size="sm"
                                 loading={isSubmitting}
                                 iconLeft={<Check size={14} />}
                             >
@@ -415,31 +415,31 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                             </Button>
                         )}
                         {activeStep < STEPS.length - 1 ? (
-                            <Button 
+                            <Button
                                 key="wizard-next-btn"
-                                type="button" 
+                                type="button"
                                 onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     handleNext();
-                                }} 
-                                variant="primary" 
+                                }}
+                                variant="primary"
                                 size="sm"
                                 iconRight={<ArrowRight size={14} />}
                             >
                                 {STEPS[activeStep + 1]?.label}
                             </Button>
                         ) : (
-                            <Button 
+                            <Button
                                 key="wizard-submit-btn"
-                                type="button" 
+                                type="button"
                                 onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     handleSave(e);
-                                }} 
-                                variant="primary" 
-                                size="sm" 
+                                }}
+                                variant="primary"
+                                size="sm"
                                 loading={isSubmitting}
                                 iconRight={<Check size={14} />}
                             >
@@ -471,16 +471,16 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                                 className={`flex items-center gap-2 py-2.5 px-3 border-b-2 text-xs font-semibold whitespace-nowrap transition-all rounded-none ${
                                     isActive
                                         ? 'border-[var(--color-brand-500)] text-[var(--color-brand-500)] bg-[var(--color-surface)] shadow-2xs font-bold'
-                                        : canClick 
-                                            ? 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] cursor-pointer' 
+                                        : canClick
+                                            ? 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] cursor-pointer'
                                             : 'border-transparent text-[var(--color-fg-subtle)]/50 cursor-not-allowed opacity-60'
                                 }`}
                             >
                                 <span className={`w-5 h-5 rounded-none flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                    isCompleted 
-                                        ? 'bg-success-500/15 text-success-600 dark:text-success-400' 
-                                        : isActive 
-                                            ? 'bg-[var(--color-brand-500)] text-white' 
+                                    isCompleted
+                                        ? 'bg-success-500/15 text-success-600 dark:text-success-400'
+                                        : isActive
+                                            ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)]'
                                             : 'bg-ink-200 dark:bg-ink-800 text-[var(--color-fg-muted)]'
                                 }`}>
                                     {isCompleted ? <Check size={12} strokeWidth={3} /> : idx + 1}
@@ -499,7 +499,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                 {/* Formulaire & Contenu de l'étape */}
                 <form id="employe-wizard-form" onSubmit={handleSave} className="p-2 space-y-4 max-h-[62vh] overflow-y-auto pr-3">
                     {errorMsg && (
-                        <Alert type="error" message={errorMsg} />
+                        <FormError message={errorMsg} />
                     )}
 
                     <Suspense fallback={<SkeletonForm fields={6} />}>

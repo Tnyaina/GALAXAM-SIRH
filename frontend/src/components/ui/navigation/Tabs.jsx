@@ -64,7 +64,7 @@ export function Tabs({
 
     // Variant 'pills'
     return (
-        <div className={`flex border-b border-[var(--color-border-subtle)] ${bgClass} rounded-none p-2 gap-2 shadow-sm overflow-x-auto ${className}`}>
+        <div className={`flex flex-wrap border-b border-[var(--color-border-subtle)] ${bgClass} rounded-none p-0 gap-2 shadow-none overflow-x-auto ${className}`}>
             {tabs.map((tab) => {
                 const isActive = activeTab === tab.id;
                 return (
@@ -81,7 +81,7 @@ export function Tabs({
                         {tab.count !== undefined && (
                             <span className={`ml-1.5 px-1.5 py-0.5 text-[10px] font-data font-bold rounded-none ${
                                 isActive
-                                    ? 'bg-white/20 text-white'
+                                    ? 'bg-[var(--color-surface)]/20 text-[var(--color-on-color)]'
                                     : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'
                             }`}>
                                 {tab.count}

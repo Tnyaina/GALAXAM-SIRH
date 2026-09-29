@@ -112,14 +112,14 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                     Absence finale : {recap.absenceFinale || '—'} · HS 30 % finales : {recap.hs30Finales || '—'} · HS 50 % finales : {recap.hs50Finales || '—'}
                     <div className="text-[var(--color-fg-muted)] mt-1">{recap.regleVentilation} Les qualifications dimanche, férié et nuit sont conservées.</div>
                 </div>
-                {recap.alerteSolde && <p role="alert" className="text-rose-600 text-xs">{recap.alerteSolde}</p>}
+                {recap.alerteSolde && <p role="alert" className="text-[var(--color-danger-600)] text-xs">{recap.alerteSolde}</p>}
                 <section className="space-y-2">
                     <h3 className="font-semibold">Ajustements d’heures</h3>
-                    {loading ? <p>Chargement…</p> : ajustements === null ? <p className="text-amber-700">Liste indisponible. Rechargez pour modifier les ajustements.</p> : ajustements.length === 0 ? <p className="text-[var(--color-fg-muted)]">Aucun ajustement.</p> : ajustements.map((item) => (
+                    {loading ? <p>Chargement…</p> : ajustements === null ? <p className="text-[var(--color-warning-700)]">Liste indisponible. Rechargez pour modifier les ajustements.</p> : ajustements.length === 0 ? <p className="text-[var(--color-fg-muted)]">Aucun ajustement.</p> : ajustements.map((item) => (
                         <div key={item.id} className="border-b py-2 text-xs">
                             <div className="flex items-start justify-between gap-3">
                                 <div><strong>{item.minutesSignees > 0 ? '+' : ''}{decimalHours(item.minutesSignees)}</strong> · {item.motif}<div className="text-[var(--color-fg-muted)]">{item.statut} · {item.dateSaisie}</div></div>
-                                {canAdjust && item.statut === 'VALIDE' && <button type="button" disabled={saving} onClick={() => { setCancelingId(item.id); setMotifAnnulation(''); }} className="text-rose-600 hover:underline">Annuler</button>}
+                                {canAdjust && item.statut === 'VALIDE' && <button type="button" disabled={saving} onClick={() => { setCancelingId(item.id); setMotifAnnulation(''); }} className="text-[var(--color-danger-600)] hover:underline">Annuler</button>}
                             </div>
                             {cancelingId === item.id && <div className="w-full mt-2 space-y-2">
                                 <input value={motifAnnulation} onChange={(e) => setMotifAnnulation(e.target.value)} placeholder="Motif d’annulation" aria-label="Motif d’annulation" className="w-full border p-2" />
@@ -138,7 +138,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                     <input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Motif précis (obligatoire)" aria-label="Motif de l’ajustement" className="w-full border p-2" />
                     <Button disabled={!inputValid || !canAdjust || ajustements === null || saving} onClick={create}>Enregistrer l’ajustement</Button>
                 </section>}
-                {error && <p role="alert" className="text-rose-600">{error}</p>}
+                {error && <p role="alert" className="text-[var(--color-danger-600)]">{error}</p>}
             </div>
         </Modal>
     );

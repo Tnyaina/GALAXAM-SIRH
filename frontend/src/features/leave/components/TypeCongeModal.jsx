@@ -5,7 +5,7 @@ import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Modal from '@/components/ui/overlays/Modal';
-import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 const EMPTY_FORM = {
@@ -83,7 +83,7 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
 
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
-      setError('Veuillez corriger les champs indiqués ci-dessous avant de continuer.');
+      setError(null);
       return;
     }
 
@@ -136,7 +136,7 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
       }
     >
       <form id="typeCongeForm" onSubmit={handleSubmit} className="space-y-5 text-sm">
-        {error && <Alert type="error" message={error} />}
+        {error && <FormError message={error} />}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
@@ -147,13 +147,9 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
               onChange={(e) => handleChange('code', e.target.value)}
               placeholder="Code unique, ex : ANNUEL"
               disabled={!!initialData}
+              error={fieldErrors.code}
               hint={initialData ? 'Le code ne peut pas être modifié après création.' : 'Identifiant technique, ex : ANNUEL, MALADIE'}
             />
-            {fieldErrors.code && (
-              <p className="text-xs text-danger-500 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {fieldErrors.code}
-              </p>
-            )}
           </div>
           <div className="space-y-1.5">
             <Input
@@ -162,12 +158,8 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
               value={formData.libelle}
               onChange={(e) => handleChange('libelle', e.target.value)}
               placeholder="Ex : Congé annuel payé"
+              error={fieldErrors.libelle}
             />
-            {fieldErrors.libelle && (
-              <p className="text-xs text-danger-500 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {fieldErrors.libelle}
-              </p>
-            )}
           </div>
         </div>
 
@@ -181,12 +173,8 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
               value={formData.exigeAncienneteMinMois}
               onChange={(e) => handleChange('exigeAncienneteMinMois', e.target.value)}
               hint="Ancienneté requise, ex : 12 mois"
+              error={fieldErrors.exigeAncienneteMinMois}
             />
-            {fieldErrors.exigeAncienneteMinMois && (
-              <p className="text-xs text-danger-500 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {fieldErrors.exigeAncienneteMinMois}
-              </p>
-            )}
           </div>
           <div className="space-y-1.5">
             <Input
@@ -198,12 +186,8 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
               onChange={(e) => handleChange('dureeFixeJours', e.target.value)}
               placeholder="Ex : 98 pour Maternité"
               hint="Durée forfaitaire obligatoire"
+              error={fieldErrors.dureeFixeJours}
             />
-            {fieldErrors.dureeFixeJours && (
-              <p className="text-xs text-danger-500 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {fieldErrors.dureeFixeJours}
-              </p>
-            )}
           </div>
           <div className="space-y-1.5">
             <Input
@@ -215,12 +199,8 @@ export default function TypeCongeModal({ isOpen, onClose, onSuccess, initialData
               onChange={(e) => handleChange('plafondJoursEpisode', e.target.value)}
               placeholder="Ex : 30 pour Maladie"
               hint="Max. par absence continue"
+              error={fieldErrors.plafondJoursEpisode}
             />
-            {fieldErrors.plafondJoursEpisode && (
-              <p className="text-xs text-danger-500 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {fieldErrors.plafondJoursEpisode}
-              </p>
-            )}
           </div>
         </div>
 

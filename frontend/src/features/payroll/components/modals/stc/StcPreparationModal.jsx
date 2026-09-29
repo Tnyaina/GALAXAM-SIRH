@@ -12,6 +12,7 @@ import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { fmtDate } from '@/utils/dateUtils';
 import stcService from '@/features/payroll/api/stcService';
@@ -309,7 +310,7 @@ export default function StcPreparationModal({
 
                 {errorMsg && (
                     <div className="mb-4">
-                        <Alert type="error" title="Erreur STC" message={errorMsg} onClose={() => setErrorMsg(null)} />
+                        <FormError title="Erreur STC" message={errorMsg} onClose={() => setErrorMsg(null)} />
                     </div>
                 )}
 
@@ -318,15 +319,15 @@ export default function StcPreparationModal({
                         {/* Indicateur d'étapes */}
                         <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-3 text-xs">
                             <div className={`flex items-center gap-1.5 font-bold ${step === 'PREPARATION' ? 'text-[var(--color-brand-600)]' : 'text-[var(--color-fg-muted)]'}`}>
-                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'PREPARATION' ? 'bg-[var(--color-brand-600)] text-white' : 'bg-[var(--color-bg-subtle)]'}`}>1</span>
+                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'PREPARATION' ? 'bg-[var(--color-brand-600)] text-[var(--color-on-color)]' : 'bg-[var(--color-bg-subtle)]'}`}>1</span>
                                 <span>Paramètres & Données</span>
                             </div>
                             <div className={`flex items-center gap-1.5 font-bold ${step === 'SIMULATION' ? 'text-[var(--color-brand-600)]' : 'text-[var(--color-fg-muted)]'}`}>
-                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'SIMULATION' ? 'bg-[var(--color-brand-600)] text-white' : 'bg-[var(--color-bg-subtle)]'}`}>2</span>
+                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'SIMULATION' ? 'bg-[var(--color-brand-600)] text-[var(--color-on-color)]' : 'bg-[var(--color-bg-subtle)]'}`}>2</span>
                                 <span>Simulation & Contrôle</span>
                             </div>
                             <div className={`flex items-center gap-1.5 font-bold ${step === 'VALIDE' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-fg-muted)]'}`}>
-                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'VALIDE' ? 'bg-[var(--color-success-600)] text-white' : 'bg-[var(--color-bg-subtle)]'}`}>3</span>
+                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'VALIDE' ? 'bg-[var(--color-success-600)] text-[var(--color-on-color)]' : 'bg-[var(--color-bg-subtle)]'}`}>3</span>
                                 <span>Validation & Reçu</span>
                             </div>
                         </div>
@@ -581,7 +582,7 @@ export default function StcPreparationModal({
                                             )}
                                         </tbody>
                                         <tfoot>
-                                            <tr className="bg-[var(--color-ink-950)] text-white font-bold">
+                                            <tr className="bg-[var(--color-ink-950)] text-[var(--color-on-color)] font-bold">
                                                 <td className="p-3 font-sans uppercase tracking-wider text-xs">
                                                     NET À PAYER AU SALARIÉ
                                                     <span className="text-[10px] text-[var(--color-ink-200)] block font-normal">

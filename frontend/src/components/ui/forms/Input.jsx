@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import FieldError from './FieldError';
 
 export default function Input({
   label,
@@ -13,10 +14,18 @@ export default function Input({
   labelClassName = '',
   containerClassName = '',
   onWheel,
+  id,
+  'aria-describedby': describedBy,
+  'aria-invalid': ariaInvalid,
   ...props
 }) {
+  const reactId = useId();
+  const fieldId = id || `field-${reactId}`;
+  const feedbackId = `${fieldId}-feedback`;
   const leftIcon = icon || iconLeft;
   const hintText = hint || helpText || helperText;
+  const feedback = error || hintText;
+  const feedbackIds = [describedBy, feedback ? feedbackId : null].filter(Boolean).join(' ') || undefined;
 
   const handleWheel = (e) => {
     if (props.type === 'number') {
@@ -30,7 +39,7 @@ export default function Input({
   return (
     <div className={`flex flex-col gap-1 ${containerClassName}`}>
       {label && (
-        <label className={`text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
+        <label htmlFor={fieldId} className={`text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
           {label}
           {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
         </label>
@@ -42,6 +51,9 @@ export default function Input({
           </div>
         )}
         <input
+          id={fieldId}
+          aria-invalid={error ? true : ariaInvalid}
+          aria-describedby={feedbackIds}
           onWheel={handleWheel}
           className={`
             w-full bg-[var(--color-surface)] border rounded-none text-xs sm:text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]
@@ -61,8 +73,8 @@ export default function Input({
           </div>
         )}
       </div>
-      {error && <p className="text-[11px] text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-      {hintText && !error && <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
+      {error && <FieldError id={feedbackId} className="mt-0.5">{error}</FieldError>}
+      {hintText && !error && <p id={feedbackId} className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
     </div>
   );
 }
@@ -78,17 +90,26 @@ export function Textarea({
   className = '',
   ...props
 }) {
+  const reactId = useId();
+  const fieldId = props.id || `textarea-${reactId}`;
+  const describedBy = props['aria-describedby'];
   const hintText = hint || helpText || helperText;
+  const feedback = error || hintText;
+  const feedbackIds = [describedBy, feedback ? `${fieldId}-feedback` : null].filter(Boolean).join(' ') || undefined;
 
   return (
     <div className={`flex flex-col gap-1 ${containerClassName}`}>
       {label && (
-        <label className={`text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
+        <label htmlFor={fieldId} className={`text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
           {label}
           {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
         </label>
       )}
       <textarea
+        {...props}
+        id={fieldId}
+        aria-invalid={error ? true : props['aria-invalid']}
+        aria-describedby={feedbackIds}
         className={`
           w-full bg-[var(--color-surface)] border rounded-none text-xs sm:text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]
           px-3 py-1.5 outline-none resize-none
@@ -97,10 +118,9 @@ export function Textarea({
           ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}
           ${className}
         `}
-        {...props}
       />
-      {error && <p className="text-[11px] text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-      {hintText && !error && <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
+      {error && <FieldError id={`${fieldId}-feedback`} className="mt-0.5">{error}</FieldError>}
+      {hintText && !error && <p id={`${fieldId}-feedback`} className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
     </div>
   );
 }
@@ -117,17 +137,26 @@ export function Select({
   className = '',
   ...props
 }) {
+  const reactId = useId();
+  const fieldId = props.id || `select-${reactId}`;
+  const describedBy = props['aria-describedby'];
   const hintText = hint || helpText || helperText;
+  const feedback = error || hintText;
+  const feedbackIds = [describedBy, feedback ? `${fieldId}-feedback` : null].filter(Boolean).join(' ') || undefined;
 
   return (
     <div className={`flex flex-col gap-1 ${containerClassName}`}>
       {label && (
-        <label className={`text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
+        <label htmlFor={fieldId} className={`text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
           {label}
           {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
         </label>
       )}
       <select
+        {...props}
+        id={fieldId}
+        aria-invalid={error ? true : props['aria-invalid']}
+        aria-describedby={feedbackIds}
         className={`
           w-full bg-[var(--color-surface)] border rounded-none text-xs sm:text-sm text-[var(--color-fg)]
           px-3 py-1.5 outline-none cursor-pointer
@@ -136,12 +165,11 @@ export function Select({
           ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}
           ${className}
         `}
-        {...props}
       >
         {children || <option value="" disabled>Sélectionner...</option>}
       </select>
-      {error && <p className="text-[11px] text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-      {hintText && !error && <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
+      {error && <FieldError id={`${fieldId}-feedback`} className="mt-0.5">{error}</FieldError>}
+      {hintText && !error && <p id={`${fieldId}-feedback`} className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
     </div>
   );
 }
@@ -156,20 +184,25 @@ export function Checkbox({
   className = '',
   ...props
 }) {
+  const reactId = useId();
+  const feedbackId = `checkbox-${reactId}-feedback`;
   const hintText = hint || helpText || helperText;
+  const describedBy = [props['aria-describedby'], error || hintText ? feedbackId : null].filter(Boolean).join(' ') || undefined;
 
   return (
     <div className={`flex flex-col gap-1 ${containerClassName}`}>
       <label className="flex items-center gap-2 cursor-pointer group">
         <input
+          {...props}
           type="checkbox"
+          aria-invalid={error ? true : props['aria-invalid']}
+          aria-describedby={describedBy}
           className={`
             w-4 h-4 border-2 rounded-none accent-[var(--color-brand-500)] cursor-pointer
             disabled:cursor-not-allowed
             ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)]'}
             ${className}
           `}
-          {...props}
         />
         {label && (
           <span className="text-sm text-[var(--color-fg)] group-hover:text-[var(--color-brand-500)]  ">
@@ -178,8 +211,8 @@ export function Checkbox({
           </span>
         )}
       </label>
-      {error && <p className="text-xs text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-      {hintText && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
+      {error && <FieldError id={feedbackId} className="mt-0.5">{error}</FieldError>}
+      {hintText && !error && <p id={feedbackId} className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
     </div>
   );
 }
@@ -194,20 +227,25 @@ export function Radio({
   className = '',
   ...props
 }) {
+  const reactId = useId();
+  const feedbackId = `radio-${reactId}-feedback`;
   const hintText = hint || helpText || helperText;
+  const describedBy = [props['aria-describedby'], error || hintText ? feedbackId : null].filter(Boolean).join(' ') || undefined;
 
   return (
     <div className={`flex flex-col gap-1 ${containerClassName}`}>
       <label className="flex items-center gap-2 cursor-pointer group">
         <input
+          {...props}
           type="radio"
+          aria-invalid={error ? true : props['aria-invalid']}
+          aria-describedby={describedBy}
           className={`
             w-4 h-4 border-2 accent-[var(--color-brand-500)] cursor-pointer
             disabled:cursor-not-allowed
             ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)]'}
             ${className}
           `}
-          {...props}
         />
         {label && (
           <span className="text-sm text-[var(--color-fg)] group-hover:text-[var(--color-brand-500)]  ">
@@ -216,8 +254,8 @@ export function Radio({
           </span>
         )}
       </label>
-      {error && <p className="text-xs text-[var(--color-danger-500)] font-semibold mt-0.5">{error}</p>}
-      {hintText && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
+      {error && <FieldError id={feedbackId} className="mt-0.5">{error}</FieldError>}
+      {hintText && !error && <p id={feedbackId} className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
     </div>
   );
 }

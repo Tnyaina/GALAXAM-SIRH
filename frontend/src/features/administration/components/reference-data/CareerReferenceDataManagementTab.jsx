@@ -8,8 +8,10 @@ import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Modal from '@/components/ui/overlays/Modal';
+import { Card, CardHeader } from '@/components/ui/data-display/Card';
 
 export default function CareerReferenceDataManagementTab() {
     // État local : référentiels, retours d'action et modales.
@@ -103,8 +105,8 @@ export default function CareerReferenceDataManagementTab() {
             {error && <Alert type="error" message={error} />}
 
             {/* Section 1: Catégories Professionnelles */}
-            <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-4 rounded-none border border-[var(--color-border-subtle)] shadow-sm gap-4">
+            <Card className="overflow-hidden p-0" shadow="none">
+                <CardHeader divided className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3.5">
                     <div>
                         <h2 className="text-base font-bold text-[var(--color-fg)] flex items-center gap-2">
                             <Award size={18} className="text-[var(--color-brand-500)]" />
@@ -112,11 +114,11 @@ export default function CareerReferenceDataManagementTab() {
                         </h2>
                         <p className="text-xs text-[var(--color-fg-muted)]">Classification socioprofessionnelle des emplois (Cadres, Agents de maîtrise, Employés, Ouvriers)</p>
                     </div>
-                </div>
+                </CardHeader>
 
                 {loading ? (
                     <div className="p-4">
-                        <SkeletonTable rows={5} columns={6} />
+                        <SkeletonTable rows={5} columns={6} bordered={false} />
                     </div>
                 ) : categoriesPro.length === 0 ? (
                     <div className="p-8">
@@ -124,10 +126,11 @@ export default function CareerReferenceDataManagementTab() {
                             icon={Award}
                             title="Aucune catégorie professionnelle"
                             description="Aucune catégorie professionnelle répertoriée."
+                            bordered={false}
                         />
                     </div>
                 ) : (
-                    <Table>
+                    <Table bordered={false}>
                         <Thead>
                             <Th>Code</Th>
                             <Th>Libellé</Th>
@@ -169,7 +172,7 @@ export default function CareerReferenceDataManagementTab() {
                         </Tbody>
                     </Table>
                 )}
-            </div>
+            </Card>
 
             {/* Section 2: Modes de calcul de paie, Motifs et Types d'Événements RH */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -179,7 +182,7 @@ export default function CareerReferenceDataManagementTab() {
                         <CreditCard size={15} className="text-[var(--color-brand-500)]" />
                         Modes de Paie ({modesPaie.length})
                     </h3>
-                    <div className="divide-y divide-[var(--color-border-subtle)] border border-[var(--color-border-subtle)] rounded-none max-h-[260px] overflow-y-auto">
+                    <div className="divide-y divide-[var(--color-border-subtle)] max-h-[260px] overflow-y-auto">
                         {modesPaie.map((mp) => (
                             <div key={mp.idModeCalculPaie} className="p-3 flex items-center justify-between">
                                 <div>
@@ -198,7 +201,7 @@ export default function CareerReferenceDataManagementTab() {
                         <ArrowUpRight size={15} className="text-[var(--color-brand-500)]" />
                         Motifs de Mouvements ({motifsMouvement.length})
                     </h3>
-                    <div className="divide-y divide-[var(--color-border-subtle)] border border-[var(--color-border-subtle)] rounded-none max-h-[260px] overflow-y-auto">
+                    <div className="divide-y divide-[var(--color-border-subtle)] max-h-[260px] overflow-y-auto">
                         {motifsMouvement.map((mm) => (
                             <div key={mm.idMotifMouvement} className="p-3 flex items-center justify-between">
                                 <p className="text-xs font-semibold text-[var(--color-fg)]">{mm.libelle}</p>
@@ -214,7 +217,7 @@ export default function CareerReferenceDataManagementTab() {
                         <Award size={15} className="text-[var(--color-brand-500)]" />
                         Types d'Événements RH ({typesEvenement.length})
                     </h3>
-                    <div className="divide-y divide-[var(--color-border-subtle)] border border-[var(--color-border-subtle)] rounded-none max-h-[260px] overflow-y-auto">
+                    <div className="divide-y divide-[var(--color-border-subtle)] max-h-[260px] overflow-y-auto">
                         {typesEvenement.map((te) => (
                             <div key={te.idTypeEvenementRh || te.code} className="p-3 flex items-center justify-between">
                                 <div>
@@ -247,7 +250,7 @@ export default function CareerReferenceDataManagementTab() {
                 }
             >
                 <form id="cp-form" onSubmit={handleSubmitCp} className="space-y-4">
-                    {modalError && <Alert type="error" message={modalError} />}
+                    {modalError && <FormError message={modalError} />}
                     <Input
                         label="Code Catégorie"
                         required

@@ -1943,10 +1943,10 @@ public class PointageService {
             boolean repasSansVersement = "REPAS".equalsIgnoreCase(tariff.code())
                     && tariff.siteAmount().signum() == 0;
             if (requested && unitAmount.signum() == 0 && !repasSansVersement
-                    && tariff.siteAmount().signum() == 0
-                    && tariff.exceptionParameterCode() == null) {
+                    && tariff.siteAmount().signum() == 0) {
                 throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
-                        "Aucun montant d'exception configuré pour l'indemnité " + tariff.code() + ".");
+                        "Le tarif de l'indemnité " + tariff.code()
+                                + " est nul : aucune indemnité monétaire ne peut être accordée.");
             }
             boolean granted = requested && (unitAmount.signum() > 0 || repasSansVersement);
             BigDecimal quantity = granted ? units : BigDecimal.ZERO;

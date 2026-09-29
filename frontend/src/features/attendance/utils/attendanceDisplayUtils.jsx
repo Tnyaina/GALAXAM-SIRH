@@ -55,7 +55,7 @@ export const getStatutPointageBadge = (codeStatut, minutesRetard = 0) => {
 
     // En BDD, le retard est qualifié par le statut PRESENT avec minutes_retard > 0
     if ((upper === 'PRESENT' || upper === 'RETARD') && minutesRetard > 0) {
-        return <Badge variant="danger">Retard ({minutesRetard} min)</Badge>;
+        return <Badge variant="warning">Retard ({minutesRetard} min)</Badge>;
     }
 
     switch (upper) {
@@ -95,9 +95,9 @@ export const getStatutPointageBadge = (codeStatut, minutesRetard = 0) => {
 export function getAttendanceBadgeClass(variant) {
     switch (variant) {
         case 'violet':
-        case 'purple': return 'bg-violet-500/10 border-violet-500/40 text-violet-700 dark:text-violet-300';
-        case 'warning': return 'bg-amber-500/10 border-amber-500/40 text-amber-700 dark:text-amber-300';
-        case 'info': return 'bg-sky-500/10 border-sky-500/40 text-sky-700 dark:text-sky-300';
+        case 'purple':
+        case 'info': return 'bg-[var(--color-info-500)]/10 border-[var(--color-info-500)]/40 text-[var(--color-info-700)] dark:text-[var(--color-info-300)]';
+        case 'warning': return 'bg-[var(--color-warning-500)]/10 border-[var(--color-warning-500)]/40 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]';
         default: return 'bg-[var(--color-bg-subtle)] border-[var(--color-border)] text-[var(--color-fg-muted)]';
     }
 }

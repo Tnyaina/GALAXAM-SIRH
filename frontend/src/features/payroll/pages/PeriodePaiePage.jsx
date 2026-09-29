@@ -493,7 +493,7 @@ export default function PeriodePaiePage() {
                             onClick={handleOpenCreateWithSuggestion}
                             variant="primary"
                             size="sm"
-                            icon={<Sparkles size={14} className="text-amber-300" />}
+                            icon={<Sparkles size={14} className="text-[var(--color-warning-300)]" />}
                             title={`Créer automatiquement la suite logique : ${nextSuggestion.libelle} (${nextSuggestion.dateDebut} au ${nextSuggestion.dateFin})`}
                         >
                             Créer {nextSuggestion.libelle} (Suggéré)
@@ -630,7 +630,7 @@ export default function PeriodePaiePage() {
                                             <Td className="font-mono font-bold text-brand-600 dark:text-brand-400">
                                                 {p.code}
                                             </Td>
-                                            <Td className="font-semibold text-ink-900 dark:text-white">
+                                            <Td className="font-semibold text-ink-900 dark:text-[var(--color-on-color)]">
                                                 {p.libelle}
                                             </Td>
                                             <Td className="text-xs font-mono">{p.dateDebut}</Td>
@@ -748,10 +748,10 @@ export default function PeriodePaiePage() {
                 <form onSubmit={handleCreate} className="space-y-4">
                     {/* Bannière de suggestion automatique */}
                     {nextSuggestion && (
-                        <div className="p-3 bg-amber-500/10 dark:bg-amber-950/25 border border-amber-500/30 flex items-center justify-between gap-3 text-xs">
+                        <div className="p-3 bg-[var(--color-warning-500)]/10 dark:bg-[var(--color-warning-950)]/25 border border-[var(--color-warning-500)]/30 flex items-center justify-between gap-3 text-xs">
                             <div className="flex items-center gap-2">
-                                <Sparkles size={16} className="text-amber-600 dark:text-amber-400 shrink-0" />
-                                <span className="text-amber-950 dark:text-amber-200">
+                                <Sparkles size={16} className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] shrink-0" />
+                                <span className="text-[var(--color-warning-950)] dark:text-[var(--color-warning-200)]">
                                     Suite suggérée : <strong>{nextSuggestion.libelle}</strong> ({nextSuggestion.dateDebut} au {nextSuggestion.dateFin})
                                 </span>
                             </div>
@@ -763,7 +763,7 @@ export default function PeriodePaiePage() {
                                     dateDebut: nextSuggestion.dateDebut,
                                     dateFin: nextSuggestion.dateFin
                                 })}
-                                className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-900 dark:text-amber-200 font-bold text-[11px] border border-amber-500/40 cursor-pointer whitespace-nowrap transition-colors"
+                                className="px-2 py-1 bg-[var(--color-warning-500)]/20 hover:bg-[var(--color-warning-500)]/30 text-[var(--color-warning-900)] dark:text-[var(--color-warning-200)] font-bold text-[11px] border border-[var(--color-warning-500)]/40 cursor-pointer whitespace-nowrap transition-colors"
                             >
                                 Appliquer la suggestion
                             </button>

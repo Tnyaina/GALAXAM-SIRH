@@ -78,7 +78,6 @@ export default function ContratActifSection({
     contratActif,
     affectationActive,
     workflowCplActif,
-    workflowsList = [],
     contratsList = [],
     brouillonWf,
     workflowPlanifieFutur,

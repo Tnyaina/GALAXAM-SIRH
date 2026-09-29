@@ -35,7 +35,7 @@ export default function PayrollPeriodStepper({
         CURRENT: {
             icon: (n) => (
                 <span className="w-[15px] h-[15px] rounded-full flex items-center justify-center
-                    bg-[var(--color-brand-500)] text-white text-[9px] font-bold shrink-0"
+                    bg-[var(--color-brand-500)] text-[var(--color-on-color)] text-[9px] font-bold shrink-0"
                     aria-label="Étape courante">
                     {n}
                 </span>

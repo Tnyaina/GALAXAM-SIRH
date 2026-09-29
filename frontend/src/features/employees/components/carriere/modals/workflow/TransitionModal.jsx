@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, ShieldAlert, Save, X, Eye, EyeOff, FileSignature, Building2, MessageSquareText, Layers } from 'lucide-react';
+import { RefreshCw, Save, X, Eye, EyeOff, FileSignature, Building2, MessageSquareText, Layers } from 'lucide-react';
+import FormError from '@/components/ui/feedback/FormError';
 import Button from '@/components/ui/forms/Button';
 import { Textarea } from '@/components/ui/forms/Input';
 import Loading from '@/components/ui/feedback/Loading';
@@ -71,24 +72,24 @@ export default function TransitionModal({
     return (
         <div 
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-            className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-y-auto transition-opacity duration-200 ${mounted ? 'opacity-100' : 'opacity-0'}`}
+            className={`fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-overlay)]/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-y-auto transition-opacity duration-200 ${mounted ? 'opacity-100' : 'opacity-0'}`}
         >
-            <div className="bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl w-full max-w-[1440px] max-h-[95vh] flex flex-col overflow-hidden">
+            <div className="bg-[var(--color-surface)] dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl w-full max-w-[1440px] max-h-[95vh] flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="px-7 py-4 border-b border-ink-150 dark:border-ink-700 flex items-center justify-between bg-ink-50/50 dark:bg-ink-950/40">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-brand-500 text-white rounded-none flex items-center justify-center shadow-md">
+                        <div className="w-10 h-10 bg-brand-500 text-[var(--color-on-color)] rounded-none flex items-center justify-center shadow-md">
                             <RefreshCw size={20} />
                         </div>
                         <div>
-                            <h2 className="font-bold text-lg text-ink-900 dark:text-white flex items-center gap-2">
+                            <h2 className="font-bold text-lg text-ink-900 dark:text-[var(--color-on-color)] flex items-center gap-2">
                                 {isEditMode ? 'Corriger le Brouillon de Transition' : (typeEvObj?.libelle || 'Transition de Carrière')}
                                 <span className="text-xs px-2 py-0.5 bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] border border-[var(--color-warning-500)]/20 font-mono rounded-none">
                                     BROUILLON
                                 </span>
                             </h2>
                             <p className="text-xs text-ink-400">
-                                Mouvement RH pour <strong className="text-ink-800 dark:text-white">{nomEmploye}</strong>
+                                Mouvement RH pour <strong className="text-ink-800 dark:text-[var(--color-on-color)]">{nomEmploye}</strong>
                             </p>
                         </div>
                     </div>
@@ -101,7 +102,7 @@ export default function TransitionModal({
                             {showPreviewMobile ? <EyeOff size={14} /> : <Eye size={14} />}
                             {showPreviewMobile ? 'Masquer Aperçu' : 'Aperçu'}
                         </button>
-                        <button onClick={onClose} className="p-1.5 text-ink-400 hover:text-ink-800 dark:hover:text-white hover:bg-ink-100 dark:hover:bg-ink-800 rounded-none cursor-pointer">
+                        <button onClick={onClose} className="p-1.5 text-ink-400 hover:text-ink-800 dark:hover:text-[var(--color-on-color)] hover:bg-ink-100 dark:hover:bg-ink-800 rounded-none cursor-pointer">
                             <X size={20} />
                         </button>
                     </div>
@@ -115,12 +116,7 @@ export default function TransitionModal({
                             <Loading display="page" label="Chargement des référentiels..." />
                         ) : (
                             <form id="transition-form" onSubmit={handleSubmit} className="space-y-4">
-                                {errorMsg && (
-                                    <div className="bg-danger-500/10 text-danger-600 dark:text-danger-500 border border-danger-500/20 rounded-none p-3 text-xs flex items-center gap-2">
-                                        <ShieldAlert size={16} />
-                                        {errorMsg}
-                                    </div>
-                                )}
+                                {errorMsg && <FormError message={errorMsg} />}
                                 
                                 <TransitionTypeSection 
                                     relevantEvTypes={relevantEvTypes} 
@@ -209,8 +205,8 @@ export default function TransitionModal({
                                     className={`
                                         flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150 cursor-pointer
                                         ${previewTab === 'comparatif'
-                                            ? 'bg-white dark:bg-ink-800 text-brand-500 shadow-xs border border-ink-200/50 dark:border-ink-600'
-                                            : 'text-ink-500 hover:text-ink-900 dark:hover:text-white'
+                                            ? 'bg-[var(--color-surface)] dark:bg-ink-800 text-brand-500 shadow-xs border border-ink-200/50 dark:border-ink-600'
+                                            : 'text-ink-500 hover:text-ink-900 dark:hover:text-[var(--color-on-color)]'
                                         }
                                     `}
                                 >
@@ -223,8 +219,8 @@ export default function TransitionModal({
                                     className={`
                                         flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150 cursor-pointer
                                         ${previewTab === 'document'
-                                            ? 'bg-white dark:bg-ink-800 text-brand-500 shadow-xs border border-ink-200/50 dark:border-ink-600'
-                                            : 'text-ink-500 hover:text-ink-900 dark:hover:text-white'
+                                            ? 'bg-[var(--color-surface)] dark:bg-ink-800 text-brand-500 shadow-xs border border-ink-200/50 dark:border-ink-600'
+                                            : 'text-ink-500 hover:text-ink-900 dark:hover:text-[var(--color-on-color)]'
                                         }
                                     `}
                                 >

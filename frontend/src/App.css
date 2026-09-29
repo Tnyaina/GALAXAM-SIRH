@@ -1,7 +1,6 @@
-/* Ce fichier ne définit aucune couleur en dur : --accent, --border,
-   --text-h, --social-bg, --shadow... sont désormais alias vers les tokens
-   du design system (voir index.css §5). Il hérite donc automatiquement de
-   la nouvelle palette marine/ambre — rien à changer ici. */
+/* Styles historiques du starter, actuellement non importés par le point
+   d'entrée React. S'ils sont réutilisés, leurs alias de couleur sont définis
+   dans index.css et doivent continuer à pointer vers ses tokens sémantiques. */
 
 .counter {
   font-size: 16px;

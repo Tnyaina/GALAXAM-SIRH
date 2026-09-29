@@ -153,10 +153,10 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                         {synthese.dernierStatut && <Badge variant={synthese.dernierStatut === 'VALIDE' || synthese.dernierStatut === 'CLOTURE' ? 'success' : 'info'} size="xs">{synthese.dernierStatut}</Badge>}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
-                        <StatCard title="Salaire de base" value={formatMoneyAr(synthese.salaireBaseContractuel)} subtext="Montant contractuel de l'affectation" icon={<Banknote size={16} />} color="brand" />
-                        <StatCard title="Net du dernier bulletin" value={synthese.dernierBulletinId ? formatMoneyAr(synthese.dernierNet) : '—'} subtext={synthese.dernierBulletinId ? `Brut : ${formatMoneyAr(synthese.dernierBrut)}` : 'Aucun bulletin calculé'} icon={<FileText size={16} />} color="success" />
-                        <StatCard title="Acomptes à imputer" value={formatMoneyAr(synthese.acomptesRestants)} subtext="Solde approuvé non soldé" icon={<Receipt size={16} />} color="neutral" />
-                        <StatCard title="Avances en cours" value={formatMoneyAr(synthese.avancesRestantes)} subtext="Solde approuvé restant" icon={<Receipt size={16} />} color="neutral" />
+                        <StatCard title="Salaire de base" value={formatMoneyAr(synthese.salaireBaseContractuel)} subtext="Montant contractuel de l'affectation" icon={<Banknote size={16} />} color="brand" bordered={false} />
+                        <StatCard title="Net du dernier bulletin" value={synthese.dernierBulletinId ? formatMoneyAr(synthese.dernierNet) : '—'} subtext={synthese.dernierBulletinId ? `Brut : ${formatMoneyAr(synthese.dernierBrut)}` : 'Aucun bulletin calculé'} icon={<FileText size={16} />} color="success" bordered={false} />
+                        <StatCard title="Acomptes à imputer" value={formatMoneyAr(synthese.acomptesRestants)} subtext="Solde approuvé non soldé" icon={<Receipt size={16} />} color="neutral" bordered={false} />
+                        <StatCard title="Avances en cours" value={formatMoneyAr(synthese.avancesRestantes)} subtext="Solde approuvé restant" icon={<Receipt size={16} />} color="neutral" bordered={false} />
                     </div>
                     {(synthese.demandesAcompteAvanceEnAttente ?? 0) > 0 && <p className="text-xs text-[var(--color-fg-muted)]">{synthese.demandesAcompteAvanceEnAttente} demande(s) en attente d’approbation · détail dans les mouvements ci-dessous.</p>}
                 </Card>

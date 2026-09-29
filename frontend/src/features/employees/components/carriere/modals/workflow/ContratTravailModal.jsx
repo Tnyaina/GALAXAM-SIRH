@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import HasPermission from '@/features/auth/components/HasPermission';
 import { DocumentFrame } from '@/features/employees/components/carriere/ContractDocument';
 import UploadDocumentModal from '@/features/employees/components/tabs/UploadDocumentModal';
@@ -13,7 +14,8 @@ import { getErrorMessage } from '@/api/apiClient';
 export default function ContratTravailModal({ isOpen, onClose, employe, contrat, onEdit, onDocumentUploaded }) {
     // État local
     const [data, setData] = useState(null);
-    const [error, setError] = useState('');
+    const [loadError, setLoadError] = useState('');
+    const [actionError, setActionError] = useState('');
     const [busy, setBusy] = useState(false);
     const [preview, setPreview] = useState(false);
     const [documents, setDocuments] = useState([]);
@@ -36,13 +38,13 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
     useEffect(() => {
         if (!isOpen || !idContrat) return;
         let cancelled = false;
-        setData(null); setError(''); setDocuments([]); setPreview(false); setUploadOpen(false);
+        setData(null); setLoadError(''); setActionError(''); setDocuments([]); setPreview(false); setUploadOpen(false);
         documentService.getContratData(idContrat).then(result => {
             if (!cancelled) setData(result);
-        }).catch(err => { if (!cancelled) setError(getErrorMessage(err, "Impossible de préparer le contrat.")); });
+        }).catch(err => { if (!cancelled) setLoadError(getErrorMessage(err, "Impossible de préparer le contrat.")); });
         documentRhService.getDocumentsByEmploye(idEmploye).then(result => {
             if (!cancelled) setDocuments(result.documents || []);
-        }).catch(err => { if (!cancelled) setError(getErrorMessage(err, "Impossible de consulter les documents signés.")); });
+        }).catch(err => { if (!cancelled) setLoadError(getErrorMessage(err, "Impossible de consulter les documents signés.")); });
         return () => { cancelled = true; };
     }, [isOpen, idContrat, idEmploye]);
 
@@ -55,8 +57,8 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
 
     // Actions
     const handleAction = async operation => {
-        setBusy(true); setError('');
-        try { await operation(); } catch (err) { setError(getErrorMessage(err, "L'opération a échoué.")); }
+        setBusy(true); setActionError('');
+        try { await operation(); } catch (err) { setActionError(getErrorMessage(err, "L'opération a échoué.")); }
         finally { setBusy(false); }
     };
     const handleOpenUpload = () => handleAction(async () => {
@@ -79,13 +81,14 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
     // Rendu
     if (!isOpen) return null;
     return createPortal(<>
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 print:static print:bg-white print:p-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--color-overlay)]/60 print:static print:bg-[var(--color-surface)] print:p-0">
             <section role="dialog" aria-modal="true" aria-label="Contrat de travail" className="w-full max-w-4xl max-h-[92vh] overflow-y-auto bg-[var(--color-surface)] p-6 space-y-4 print:max-h-none print:overflow-visible">
                 <div className="flex justify-between gap-3 print:hidden">
                     <h3 className="font-bold">{data?.codeTypeContrat || contrat?.libelleTypeContrat} — {contrat?.numeroContrat}</h3>
                     <Button onClick={onClose} disabled={uploading}>Fermer</Button>
                 </div>
-                {error && <Alert type="error" message={error} />}
+                {loadError && <Alert type="error" message={loadError} />}
+                {actionError && <FormError message={actionError} />}
                 <p>Statut : {data?.statut || contrat?.codeStatutContrat}</p>
                 {data && <>
                     <dl className="grid grid-cols-2 gap-2 text-sm print:hidden">

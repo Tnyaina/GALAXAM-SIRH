@@ -167,7 +167,7 @@ export default function PopulationStepPage() {
                             Aucun salarié ne correspond aux critères de filtre.
                         </div>
                     ) : (
-                        <Table size="sm" hover bordered={false}>
+                        <Table density="compact" bordered={false}>
                             <Thead>
                                 <Tr>
                                     <Th>Salarié</Th>

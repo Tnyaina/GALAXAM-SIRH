@@ -1,11 +1,11 @@
 import { useId } from 'react';
 import Modal from './Modal';
 import Button from '@/components/ui/forms/Button';
-import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 
 /**
  * FormModal — Composant réutilisable pour standardiser toutes les modales de formulaire (CRUD).
- * Encapsule le Modal, la balise <form>, l'affichage d'erreur Alert et le footer avec boutons Annuler / Valider.
+ * Encapsule le Modal, la balise <form>, l'affichage d'erreur de soumission et le footer avec boutons Annuler / Valider.
  *
  * @param {boolean} isOpen - État d'ouverture
  * @param {function} onClose - Handler de fermeture
@@ -81,7 +81,7 @@ export default function FormModal({
             footer={customFooter !== undefined ? customFooter : defaultFooter}
         >
             <form id={computedFormId} onSubmit={onSubmit} className="space-y-4">
-                {error && <Alert type="error" message={error} />}
+                {error && <FormError message={error} />}
                 {children}
             </form>
         </Modal>

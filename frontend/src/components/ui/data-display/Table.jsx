@@ -1,24 +1,48 @@
-import { Children, isValidElement, useEffect, useRef, forwardRef } from 'react';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { Children, createContext, forwardRef, isValidElement, useContext, useEffect, useRef } from 'react';
+import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
+
+const TableContext = createContext({ density: 'comfortable', rowHover: true });
 
 /* ============================================================================
    TABLE — wrapper
-   Props ajoutés :
+   Props :
    - maxHeight   : active un scroll vertical + en-tête collant (ex: '480px')
    - toolbar     : contenu affiché au-dessus du <table> (ex: <TableSelectionBar />)
+   - bordered    : cadre de surface autonome (false si intégrée dans une Card déjà encadrée)
    ============================================================================ */
-export function Table({ children, className = '', maxHeight, toolbar, divided = false, bordered = true, style, ...props }) {
-    // Rendu de la primitive de table partagée.
+export function Table({
+  children,
+  className = '',
+  tableClassName = '',
+  tableProps = {},
+  maxHeight,
+  toolbar,
+  divided = false,
+  bordered = true,
+  density: densityProp,
+  size,
+  rowHover = true,
+  style,
+  'aria-label': ariaLabel,
+  ...containerProps
+}) {
+  const density = densityProp || (size === 'sm' ? 'compact' : 'comfortable');
+  const contextValue = { density, rowHover };
+
   return (
-    <div
-      className={`relative ${bordered ? 'border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-sm' : ''} rounded-none ${maxHeight ? 'overflow-auto' : 'overflow-x-auto'
-        } ${divided ? '[&_th:not(:last-child)]:border-r [&_th:not(:last-child)]:border-[var(--color-border-subtle)] [&_td:not(:last-child)]:border-r [&_td:not(:last-child)]:border-[var(--color-border-subtle)]' : ''} ${className}`}
-      style={{ ...(maxHeight ? { maxHeight } : null), ...style }}
-      {...props}
-    >
-      {toolbar}
-      <table className="w-full border-collapse text-sm">{children}</table>
-    </div>
+    <TableContext.Provider value={contextValue}>
+      <div
+        className={`relative ${bordered ? 'border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-sm' : ''} rounded-none ${maxHeight ? 'overflow-auto' : 'overflow-x-auto'
+          } ${divided ? '[&_th:not(:last-child)]:border-r [&_th:not(:last-child)]:border-[var(--color-border-subtle)] [&_td:not(:last-child)]:border-r [&_td:not(:last-child)]:border-[var(--color-border-subtle)]' : ''} ${className}`}
+        style={{ ...(maxHeight ? { maxHeight } : null), ...style }}
+        {...containerProps}
+      >
+        {toolbar}
+        <table {...tableProps} aria-label={tableProps['aria-label'] || ariaLabel} className={`w-full border-collapse text-sm ${tableClassName}`}>
+          {children}
+        </table>
+      </div>
+    </TableContext.Provider>
   );
 }
 
@@ -45,7 +69,8 @@ export function Thead({ children, className = '', sticky = false, ...props }) {
 }
 
 /* TH */
-export function Th({ children, sortable, sorted, onSort, className = '', ...props }) {
+export function Th({ children, sortable, sorted, onSort, sortLabel, scope = 'col', className = '', ...props }) {
+  const { density } = useContext(TableContext);
   const isCentered = className.includes('text-center');
   const isRight = className.includes('text-right');
   const justifyClass = isCentered
@@ -56,30 +81,28 @@ export function Th({ children, sortable, sorted, onSort, className = '', ...prop
 
   return (
     <th
-      className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] whitespace-nowrap
+      scope={scope}
+      className={`${density === 'compact' ? 'px-2 py-1.5 text-[9px]' : 'px-3 py-2 text-[10px]'} font-bold uppercase tracking-wider text-[var(--color-fg-muted)] whitespace-nowrap
         ${!isCentered && !isRight ? 'text-left' : ''}
-        ${sortable ? 'cursor-pointer select-none transition-colors duration-[var(--duration-fast)] hover:text-[var(--color-fg)]' : ''}
         ${className}
       `}
       aria-sort={sortable ? (sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : 'none') : undefined}
-      onClick={sortable ? onSort : undefined}
       {...props}
     >
-      <div className={`flex items-center gap-1.5 ${justifyClass}`}>
-        {children}
-        {sortable && (
-          <span className="flex flex-col">
-            <ChevronUp
-              size={9}
-              className={sorted === 'asc' ? 'text-[var(--color-brand-500)]' : 'text-[var(--color-fg-subtle)]'}
-            />
-            <ChevronDown
-              size={9}
-              className={sorted === 'desc' ? 'text-[var(--color-brand-500)]' : 'text-[var(--color-fg-subtle)]'}
-            />
-          </span>
-        )}
-      </div>
+      {sortable ? (
+        <button
+          type="button"
+          onClick={onSort}
+          aria-label={sortLabel ? `Trier par ${sortLabel}` : undefined}
+          disabled={!onSort}
+          className={`inline-flex w-full items-center gap-1.5 ${justifyClass} text-left font-[inherit] text-inherit transition-colors duration-[var(--duration-fast)] hover:text-[var(--color-fg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] disabled:cursor-default`}
+        >
+          {children}
+          {sorted === 'asc' ? <ChevronUp size={13} aria-hidden="true" /> : sorted === 'desc' ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronsUpDown size={13} className="text-[var(--color-fg-subtle)]" aria-hidden="true" />}
+        </button>
+      ) : (
+        <div className={`flex items-center gap-1.5 ${justifyClass}`}>{children}</div>
+      )}
     </th>
   );
 }
@@ -93,7 +116,7 @@ export function ThCheckbox({ checked = false, indeterminate = false, onChange, c
   }, [indeterminate]);
 
   return (
-    <th className={`w-10 px-3 py-2 ${className}`} {...props}>
+    <th scope="col" className={`w-10 px-3 py-2 ${className}`} {...props}>
       <Checkbox ref={ref} checked={checked} onChange={onChange} aria-label="Tout sélectionner" />
     </th>
   );
@@ -117,13 +140,14 @@ export function Tbody({ children, className = '', zebra = false, ...props }) {
    Le fond de sélection est plus visible (10% -> 12%) et une fine barre
    latérale marque clairement la ligne cochée, en plus du fond. */
 export function Tr({ children, onClick, selected = false, className = '', ...props }) {
+  const { rowHover } = useContext(TableContext);
   return (
     <tr
       className={`
         transition-colors duration-[var(--duration-fast)]
         ${selected
           ? 'bg-[var(--color-brand-500)]/[0.12] text-[var(--color-fg)] shadow-[inset_2px_0_0_0_var(--color-brand-500)]'
-          : 'hover:bg-[var(--color-surface-hover)]'
+          : rowHover ? 'hover:bg-[var(--color-surface-hover)]' : ''
         }
         ${onClick ? 'cursor-pointer' : ''}
         ${className}
@@ -138,9 +162,10 @@ export function Tr({ children, onClick, selected = false, className = '', ...pro
 
 /* TD */
 export function Td({ children, muted = false, isData = false, className = '', ...props }) {
+  const { density } = useContext(TableContext);
   return (
     <td
-      className={`px-3 py-2 text-xs ${muted ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-fg)]'
+      className={`${density === 'compact' ? 'px-2 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'} ${muted ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-fg)]'
         } ${isData ? 'font-data' : ''} ${className}`}
       {...props}
     >
@@ -182,12 +207,12 @@ export function TableSelectionBar({ count, onClear, actions, className = '' }) {
   if (!count) return null;
   return (
     <div
-      className={`flex items-center justify-between border-b border-[var(--color-border-subtle)] bg-[var(--color-brand-500)]/[0.08] px-3 py-2 text-xs font-medium text-[var(--color-fg)] ${className}`}
+      className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-brand-500)]/[0.08] px-3 py-2 text-xs font-medium text-[var(--color-fg)] ${className}`}
     >
       <span>
         {count} ligne{count > 1 ? 's' : ''} sélectionnée{count > 1 ? 's' : ''}
       </span>
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-3">
         {actions}
         <button
           type="button"
@@ -207,11 +232,17 @@ export function TableEmpty({ colSpan, title = 'Aucune donnée', description, cla
   return (
     <tr>
       <td colSpan={colSpan} className={`px-3 py-10 text-center ${className}`}>
+        <div role="status" aria-live="polite">
         <p className="text-sm font-medium text-[var(--color-fg-muted)]">{title}</p>
         {description && <p className="mt-1 text-xs text-[var(--color-fg-subtle)]">{description}</p>}
+        </div>
       </td>
     </tr>
   );
+}
+
+export function TableCaption({ children, className = '', ...props }) {
+  return <caption className={`px-3 py-2 text-left text-xs text-[var(--color-fg-muted)] ${className}`} {...props}>{children}</caption>;
 }
 
 /* TFOOT */

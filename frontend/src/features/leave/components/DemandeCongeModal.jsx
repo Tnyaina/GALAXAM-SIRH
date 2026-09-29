@@ -3,6 +3,7 @@ import Button from '@/components/ui/forms/Button';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import Badge from '@/components/ui/data-display/Badge';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { Textarea } from '@/components/ui/forms/Input';
@@ -109,7 +110,7 @@ export default function DemandeCongeModal({
         {/* Message d'erreur global */}
         {error && (
           <div className="mb-4">
-            <Alert type="error" message={typeof error === 'string' ? error : JSON.stringify(error)} />
+            <FormError message={typeof error === 'string' ? error : JSON.stringify(error)} />
           </div>
         )}
 

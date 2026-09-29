@@ -257,6 +257,7 @@ export default function MouvementsSoldeTable({
               description={safeMouvements.length === 0
                 ? "Aucun mouvement de solde n'a encore été enregistré pour ce collaborateur."
                 : "Aucun résultat ne correspond aux filtres de recherche sélectionnés."}
+              bordered={false}
             />
           </div>
         ) : (

@@ -178,7 +178,7 @@ export default function ParametresCongesTab() {
               </CardHeader>
               <CardBody className="p-0">
                 {loading ? (
-                    <div className="p-4"><SkeletonTable rows={5} columns={8} /></div>
+                    <div className="p-4"><SkeletonTable rows={5} columns={8} bordered={false} /></div>
                 ) : types.filter(t => showInactive || t.estActif !== false).length === 0 ? (
                     <div className="p-8">
                         <EmptyState
@@ -187,6 +187,7 @@ export default function ParametresCongesTab() {
                             description="Veuillez ajouter un type de congé pour commencer."
                             actionLabel="Nouveau Type"
                             onAction={() => { setSelectedItem(null); setShowTypeModal(true); }}
+                            bordered={false}
                         />
                     </div>
                 ) : (
@@ -299,7 +300,7 @@ export default function ParametresCongesTab() {
               </CardHeader>
               <CardBody className="p-0">
                 {loading ? (
-                    <div className="p-4"><SkeletonTable rows={5} columns={4} /></div>
+                    <div className="p-4"><SkeletonTable rows={5} columns={4} bordered={false} /></div>
                 ) : motifs.filter(m => showInactive || m.estActif !== false).length === 0 ? (
                     <div className="p-8">
                         <EmptyState
@@ -308,6 +309,7 @@ export default function ParametresCongesTab() {
                             description="Veuillez ajouter un événement familial pour commencer."
                             actionLabel="Ajouter"
                             onAction={() => { setSelectedItem(null); setShowMotifModal(true); }}
+                            bordered={false}
                         />
                     </div>
                 ) : (

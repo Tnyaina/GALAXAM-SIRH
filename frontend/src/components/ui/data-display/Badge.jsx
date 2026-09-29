@@ -8,9 +8,9 @@ const variants = {
   danger:    'bg-[var(--color-danger-500)]/15 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] border border-[var(--color-danger-500)]/30',
   error:     'bg-[var(--color-danger-500)]/15 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] border border-[var(--color-danger-500)]/30',
   info:      'bg-[var(--color-info-500)]/15 text-[var(--color-info-600)] dark:text-[var(--color-info-200)] border border-[var(--color-info-500)]/30',
-  sky:       'bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30',
-  purple:    'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30',
-  orange:    'bg-orange-500/15 text-orange-700 dark:text-orange-300 border border-orange-500/30',
+  sky:       'bg-[var(--color-sky-500)]/15 text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)] border border-[var(--color-sky-500)]/30',
+  purple:    'bg-[var(--color-purple-500)]/15 text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] border border-[var(--color-purple-500)]/30',
+  orange:    'bg-[var(--color-orange-500)]/15 text-[var(--color-orange-700)] dark:text-[var(--color-orange-300)] border border-[var(--color-orange-500)]/30',
   neutral:   'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]',
 };
 
@@ -39,9 +39,9 @@ const dotColors = {
   default: 'bg-[var(--color-fg-subtle)]',
   neutral: 'bg-[var(--color-fg-subtle)]',
   info:    'bg-[var(--color-info-500)]',
-  sky:     'bg-sky-500',
-  purple:  'bg-purple-500',
-  orange:  'bg-orange-500',
+  sky:     'bg-[var(--color-sky-500)]',
+  purple:  'bg-[var(--color-purple-500)]',
+  orange:  'bg-[var(--color-orange-500)]',
 };
 
 export default function Badge({

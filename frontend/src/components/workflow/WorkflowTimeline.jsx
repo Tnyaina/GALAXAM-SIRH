@@ -3,13 +3,13 @@ import { CheckCircle2, Circle, Clock, AlertCircle, XCircle } from 'lucide-react'
 const STATUS_CONFIG = {
     COMPLETED: {
         icon: CheckCircle2,
-        dotClass: 'bg-[var(--color-success-500)] text-white',
+        dotClass: 'bg-[var(--color-success-500)] text-[var(--color-on-color)]',
         lineClass: 'bg-[var(--color-success-500)]',
         labelClass: 'text-[var(--color-fg)] font-semibold',
     },
     CURRENT: {
         icon: Clock,
-        dotClass: 'bg-[var(--color-brand-500)] text-white ring-4 ring-[var(--color-brand-500)]/20 animate-pulse',
+        dotClass: 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] ring-4 ring-[var(--color-brand-500)]/20 animate-pulse',
         lineClass: 'bg-[var(--color-border)]',
         labelClass: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] font-bold',
     },
@@ -21,13 +21,13 @@ const STATUS_CONFIG = {
     },
     WARNING: {
         icon: AlertCircle,
-        dotClass: 'bg-[var(--color-warning-500)] text-white',
+        dotClass: 'bg-[var(--color-warning-500)] text-[var(--color-on-color)]',
         lineClass: 'bg-[var(--color-border)]',
         labelClass: 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-medium',
     },
     REJECTED: {
         icon: XCircle,
-        dotClass: 'bg-[var(--color-danger-500)] text-white',
+        dotClass: 'bg-[var(--color-danger-500)] text-[var(--color-on-color)]',
         lineClass: 'bg-[var(--color-border)]',
         labelClass: 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)] font-semibold',
     },

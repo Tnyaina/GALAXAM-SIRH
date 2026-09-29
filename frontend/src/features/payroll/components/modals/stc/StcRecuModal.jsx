@@ -237,7 +237,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                                 )}
                             </tbody>
                             <tfoot>
-                                <tr className="bg-[var(--color-ink-950)] text-white font-bold">
+                                <tr className="bg-[var(--color-ink-950)] text-[var(--color-on-color)] font-bold">
                                     <td className="p-3 font-sans uppercase tracking-wider text-xs">
                                         NET À PAYER DÉFINITIF
                                         <span className="text-[10px] text-[var(--color-ink-200)] block font-normal capitalize">

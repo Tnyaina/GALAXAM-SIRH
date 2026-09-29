@@ -1,10 +1,11 @@
+import FormError from '@/components/ui/feedback/FormError';
 import { useEffect, useState } from 'react';
 import contratService from '@/features/employees/api/contratService';
 import { Upload } from 'lucide-react';
+import Alert from '@/components/ui/feedback/Alert';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea, Select } from '@/components/ui/forms/Input';
-import Alert from '@/components/ui/feedback/Alert';
 
 export default function UploadDocumentModal({
     isOpen,
@@ -73,7 +74,7 @@ export default function UploadDocumentModal({
         >
             <form id="upload-doc-form" onSubmit={onSubmit} className="space-y-4">
                 {docErrorMsg && (
-                    <Alert type="error" message={docErrorMsg} />
+                    <FormError message={docErrorMsg} />
                 )}
 
                 {contractReference && <p>Contrat : <strong>{contractReference}</strong></p>}

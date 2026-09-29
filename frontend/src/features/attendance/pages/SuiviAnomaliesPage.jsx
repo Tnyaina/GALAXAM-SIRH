@@ -27,6 +27,7 @@ import SEO from '@/components/system/SEO';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { Avatar } from '@/components/ui/data-display/Avatar';
+import Badge from '@/components/ui/data-display/Badge';
 import { fmtDate } from '@/utils/dateUtils';
 import organisationService from '@/features/organization/api/organisationService';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
@@ -35,6 +36,13 @@ import Pagination from '@/components/ui/navigation/Pagination';
 import { getErrorMessage } from '@/api/apiClient';
 
 const AnomalieRegularisationModal = lazy(() => import('@/features/attendance/components/modals/AnomalieRegularisationModal'));
+
+const SEVERITY_PRESENTATION = {
+    CRITIQUE: { label: 'Critique', badge: 'danger', border: 'border-l-[var(--color-danger-500)]' },
+    HAUTE: { label: 'Élevée', badge: 'warning', border: 'border-l-[var(--color-warning-500)]' },
+    MOYENNE: { label: 'Moyenne', badge: 'info', border: 'border-l-[var(--color-info-500)]' },
+    FAIBLE: { label: 'Faible', badge: 'neutral', border: 'border-l-[var(--color-border)]' },
+};
 
 export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onTabChange }) {
     // Contexte, navigation et hook métier
@@ -345,10 +353,10 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                 {[
                     { label: 'Salariés suivis', value: kpis?.collaborateursSuivis || 0, icon: Users, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
-                    { label: 'Jours pointés', value: `${kpis?.joursSaisis || 0} / ${kpis?.joursTheoriques || 0} j`, icon: Calendar, color: 'text-[var(--color-info-600)] dark:text-[var(--color-info-400)]' },
-                    { label: 'Heures travaillées', value: `${Math.round(kpis?.heuresCumulees || 0)}h`, icon: Clock, color: 'text-[var(--color-brand-500)] dark:text-[var(--color-brand-300)]' },
+                    { label: 'Jours pointés', value: `${kpis?.joursSaisis || 0} / ${kpis?.joursTheoriques || 0} j`, icon: Calendar, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
+                    { label: 'Heures travaillées', value: `${Math.round(kpis?.heuresCumulees || 0)}h`, icon: Clock, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
                     { label: 'Anomalies actives', value: `${kpis?.anomaliesActives || 0}`, badge: kpis?.anomaliesCritiques > 0 ? `${kpis.anomaliesCritiques} crit.` : null, icon: AlertTriangle, color: 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' },
-                    { label: 'Indemnités prév.', value: `${Math.round(kpis?.indemnitesPrevisionnelles || 0).toLocaleString('fr-FR')} Ar`, icon: Banknote, color: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' },
+                    { label: 'Indemnités prév.', value: `${Math.round(kpis?.indemnitesPrevisionnelles || 0).toLocaleString('fr-FR')} Ar`, icon: Banknote, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
                 ].map(kpi => (
                     <div key={kpi.label} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex items-center gap-3">
                         <kpi.icon size={20} className={`${kpi.color} shrink-0`} />
@@ -639,22 +647,22 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 {/* Légende de sévérité */}
                 <div className="px-3 py-2 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex items-center gap-5 text-[11px] text-[var(--color-fg-muted)] flex-wrap">
                     <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 bg-[#B23B34]" />
+                        <span className="w-2 h-2 bg-[var(--color-danger-500)]" />
                         <strong className="text-[var(--color-fg)]">Critique :</strong> Bloque la transmission pour validation (oubli d'horaire ou absence sans statut)
                     </span>
                     <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 bg-[#B5720A]" />
+                        <span className="w-2 h-2 bg-[var(--color-warning-500)]" />
                         <strong className="text-[var(--color-fg)]">Élevée :</strong> Absence qualifiée à justifier
                     </span>
                     <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 bg-[#345C82]" />
+                        <span className="w-2 h-2 bg-[var(--color-info-500)]" />
                         <strong className="text-[var(--color-fg)]">Moyenne :</strong> Retard ou écart mineur
                     </span>
                 </div>
 
                 {/* Tableau des anomalies */}
                 <div className="overflow-x-auto border-b border-[var(--color-border-subtle)]">
-                    <Table size="sm" divided bordered={false}>
+                    <Table density="compact" divided bordered={false}>
                         <Thead className="sticky top-0 bg-[var(--color-surface)] z-10 shadow-xs">
                             <Tr>
                                 <Th className="min-w-[200px]">Salarié</Th>
@@ -669,17 +677,14 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         <Tbody>
                             {paginatedAnomalies && paginatedAnomalies.length > 0 ? (
                                 paginatedAnomalies.map((ano) => {
-                                    const sevBorderColor = 
-                                        ano.severite === 'CRITIQUE' ? 'border-l-[#B23B34]' :
-                                        ano.severite === 'HAUTE' ? 'border-l-[#B5720A]' :
-                                        ano.severite === 'MOYENNE' ? 'border-l-[#345C82]' : 'border-l-[#6E7266]';
+                                    const severity = SEVERITY_PRESENTATION[ano.severite] || SEVERITY_PRESENTATION.FAIBLE;
 
                                     const isDone = ano.statutAnomalie === 'done';
 
                                     return (
                                         <Tr
                                             key={`${ano.idPointage}-${ano.idEmploye}-${ano.datePointage}`}
-                                            className={`border-l-4 ${sevBorderColor}`}
+                                            className={`border-l-4 ${severity.border}`}
                                         >
                                             {/* Employé */}
                                             <Td>
@@ -739,16 +744,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
 
                                             {/* Sévérité Chip */}
                                             <Td className="text-center">
-                                                <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 ${
-                                                    ano.severite === 'CRITIQUE' ? 'bg-[#FBEAE8] text-[#B23B34] dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800' :
-                                                    ano.severite === 'HAUTE' ? 'bg-[#FCEFDD] text-[#B5720A] dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800' :
-                                                    ano.severite === 'MOYENNE' ? 'bg-[#E8F0F7] text-[#345C82] dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800' :
-                                                    'bg-[#EFEEE6] text-[#6E7266] dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200'
-                                                }`}>
-                                                    {ano.severite === 'CRITIQUE' ? 'Critique' :
-                                                     ano.severite === 'HAUTE' ? 'Élevée' :
-                                                     ano.severite === 'MOYENNE' ? 'Moyenne' : 'Faible'}
-                                                </span>
+                                                <Badge variant={severity.badge} size="xs">{severity.label}</Badge>
                                             </Td>
 
                                             {/* Statut */}
@@ -809,23 +805,23 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                     <div className="flex items-center gap-5 flex-wrap">
                         {/* Statut des points bloquants ou prérequis */}
                         {nbBloquantes > 0 ? (
-                            <div className="flex items-center gap-2 text-xs font-semibold text-rose-600 dark:text-rose-400">
-                                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+                            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                                <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-danger-500)] animate-pulse" />
                                 <span>{nbBloquantes} anomalie(s) bloquante(s) non régularisée(s) (pointages incomplets ou absences sans motif)</span>
                             </div>
                         ) : hasIncompleteWeeks ? (
-                            <div className="flex items-center gap-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                                <AlertTriangle size={15} className="text-amber-500" />
+                            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]">
+                                <AlertTriangle size={15} className="text-[var(--color-warning-500)]" />
                                 <span>Saisie en cours : {nbSemainesRestantes} semaine(s) incomplète(s) avant clôture de période</span>
                             </div>
                         ) : !canTransmitDaf ? (
-                            <div className="flex items-center gap-2 text-xs font-semibold text-sky-600 dark:text-sky-400">
-                                <Clock size={15} className="text-sky-500" />
+                            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-sky-600)] dark:text-[var(--color-sky-400)]">
+                                <Clock size={15} className="text-[var(--color-sky-500)]" />
                                 <span>{transmissionBlockReason || 'Transmission indisponible pour cette période.'}</span>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                <CheckCircle2 size={15} className="text-emerald-500" />
+                            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
+                                <CheckCircle2 size={15} className="text-[var(--color-success-500)]" />
                                 <span>Période échue et conforme — Prête pour contrôle et validation</span>
                             </div>
                         )}

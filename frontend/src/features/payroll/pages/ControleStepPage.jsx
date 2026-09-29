@@ -231,12 +231,12 @@ export default function ControleStepPage() {
                             type="button"
                             onClick={() => setFilterTab('TO_EXAMINE')}
                             className={`px-3 py-1 text-xs font-semibold rounded transition-colors flex items-center gap-1.5 ${filterTab === 'TO_EXAMINE'
-                                ? 'bg-[var(--color-warning-500)] text-white shadow-xs'
+                                ? 'bg-[var(--color-warning-500)] text-[var(--color-on-color)] shadow-xs'
                                 : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'}`}
                         >
                             À examiner
                             {countToExamine > 0 && (
-                                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/25">
+                                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[var(--color-surface)]/25">
                                     {countToExamine}
                                 </span>
                             )}
@@ -245,7 +245,7 @@ export default function ControleStepPage() {
                             type="button"
                             onClick={() => setFilterTab('ALL')}
                             className={`px-3 py-1 text-xs font-semibold rounded transition-colors flex items-center gap-1.5 ${filterTab === 'ALL'
-                                ? 'bg-[var(--color-brand-600)] text-white shadow-xs'
+                                ? 'bg-[var(--color-brand-600)] text-[var(--color-on-color)] shadow-xs'
                                 : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'}`}
                         >
                             Tous
@@ -255,7 +255,7 @@ export default function ControleStepPage() {
                             type="button"
                             onClick={() => setFilterTab('REVIEWED')}
                             className={`px-3 py-1 text-xs font-semibold rounded transition-colors flex items-center gap-1.5 ${filterTab === 'REVIEWED'
-                                ? 'bg-[var(--color-brand-600)] text-white shadow-xs'
+                                ? 'bg-[var(--color-brand-600)] text-[var(--color-on-color)] shadow-xs'
                                 : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'}`}
                         >
                             Contrôlés

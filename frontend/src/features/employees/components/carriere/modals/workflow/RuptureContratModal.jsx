@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getErrorMessage } from '@/api/apiClient';
 import {
-    UserMinus, ShieldAlert, X, FileSignature, Eye, EyeOff, Calendar, AlertOctagon,
+    UserMinus, X, FileSignature, Eye, EyeOff, Calendar, AlertOctagon,
     Clock, Calculator, ArrowRight, CheckCircle2, HelpCircle, CalendarDays
 } from 'lucide-react';
+import FormError from '@/components/ui/feedback/FormError';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea, Select } from '@/components/ui/forms/Input';
 import Loading from '@/components/ui/feedback/Loading';
@@ -39,7 +40,7 @@ const MODES_PREAVIS = [
         key: 'DISPENSE_PAYEE',
         titre: 'Dispensé par l\'employeur (Payé)',
         badge: 'Sortie immédiate indemnisée',
-        badgeClass: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30',
+        badgeClass: 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] border-[var(--color-warning-500)]/30',
         impactTitre: 'Sortie effective immédiate',
         impactStc: 'Indemnité compensatrice versée au STC (salaire de base × mois de préavis)',
         desc: 'L\'employeur libère le salarié immédiatement de son obligation de travail, mais prend à sa charge l\'intégralité du préavis sous forme d\'Indemnité Compensatrice dans le STC.'
@@ -116,7 +117,7 @@ function RupturePreview({
                     <Clause label="Type de contrat" value={libTypeContrat} />
                     <Clause label="Date d'entrée initiale" value={fmtDateFr(contratActif?.dateDebut || workflowActif?.dateDebutContrat)} />
                     <Clause label="Date de notification" value={fmtDateFr(formData.dateNotification)} />
-                    <Clause label="Sortie effective (Prise d'effet)" value={fmtDateFr(formData.dateEffet)} className="font-bold text-ink-900 dark:text-white" />
+                    <Clause label="Sortie effective (Prise d'effet)" value={fmtDateFr(formData.dateEffet)} className="font-bold text-ink-900 dark:text-[var(--color-on-color)]" />
                 </ArticleBlock>
 
                 <ArticleBlock n="2" title="Modalités du Préavis & Sortie">
@@ -128,7 +129,7 @@ function RupturePreview({
                         <Clause
                             label="Indemnité préavis (STC)"
                             value={`${fmtMoneyMGA(indemniteEstimee)} (à régler au STC)`}
-                            className="text-amber-600 dark:text-amber-400 font-bold"
+                            className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-bold"
                         />
                     )}
                 </ArticleBlock>
@@ -471,11 +472,11 @@ export default function RuptureContratModal({
 
     // Rendu
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-5 bg-black/60 backdrop-blur-[3px]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-5 bg-[var(--color-overlay)]/60 backdrop-blur-[3px]">
             <div className="absolute inset-0" onClick={onClose} />
             <div
                 className={`
-                    relative bg-white dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl
+                    relative bg-[var(--color-surface)] dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl
                     w-full max-w-[1440px] max-h-[95vh] overflow-hidden flex flex-col
                     transform transition-all duration-200
                     ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
@@ -500,7 +501,7 @@ export default function RuptureContratModal({
                                 {showPreviewMobile ? <EyeOff size={14} /> : <Eye size={14} />}
                                 {showPreviewMobile ? 'Masquer l\'aperçu' : 'Voir le document'}
                             </button>
-                            <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-none">
+                            <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-[var(--color-on-color)] p-1 rounded-none">
                                 <X size={20} />
                             </button>
                         </div>
@@ -510,11 +511,11 @@ export default function RuptureContratModal({
                 {/* MODAL ÉCRAN DE SUCCÈS / ENCHAÎNEMENT AVEC STC */}
                 {savedDraftResult ? (
                     <div className="p-8 md:p-12 flex flex-col items-center justify-center text-center max-w-2xl mx-auto space-y-6">
-                        <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 flex items-center justify-center rounded-none shadow-sm">
+                        <div className="w-16 h-16 bg-[var(--color-success-500)]/10 border border-[var(--color-success-500)]/30 text-[var(--color-success-600)] flex items-center justify-center rounded-none shadow-sm">
                             <CheckCircle2 size={36} />
                         </div>
                         <div className="space-y-2">
-                            <h2 className="text-xl font-bold text-ink-900 dark:text-white">
+                            <h2 className="text-xl font-bold text-ink-900 dark:text-[var(--color-on-color)]">
                                 Brouillon de Rupture Enregistré
                             </h2>
                             <p className="text-xs text-ink-500 dark:text-ink-400 leading-relaxed">
@@ -533,7 +534,7 @@ export default function RuptureContratModal({
                             </div>
                             <div className="flex justify-between border-b border-ink-150 dark:border-ink-800 pb-1.5">
                                 <span className="text-ink-400">Date de sortie effective :</span>
-                                <span className="font-bold text-ink-900 dark:text-white">{fmtDateFr(formData.dateEffet)}</span>
+                                <span className="font-bold text-ink-900 dark:text-[var(--color-on-color)]">{fmtDateFr(formData.dateEffet)}</span>
                             </div>
                             <div className="flex justify-between border-b border-ink-150 dark:border-ink-800 pb-1.5">
                                 <span className="text-ink-400">Modalité du préavis :</span>
@@ -541,7 +542,7 @@ export default function RuptureContratModal({
                             </div>
                             <div className="flex justify-between pt-1">
                                 <span className="text-ink-400">Impact Solde de Tout Compte :</span>
-                                <span className="font-bold text-amber-600 dark:text-amber-400">
+                                <span className="font-bold text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]">
                                     {formData.modePreavis === 'DISPENSE_PAYEE' && indemniteEstimee > 0
                                         ? `${fmtMoneyMGA(indemniteEstimee)} d'indemnité compensatrice`
                                         : '0 Ar (Aucune indemnité compensatrice de préavis)'}
@@ -580,12 +581,7 @@ export default function RuptureContratModal({
 
                         {/* COLONNE GAUCHE (6/12) : Formulaire interactif */}
                         <form onSubmit={handleSubmit} className={`p-4 sm:p-5 space-y-5 lg:col-span-6 overflow-y-auto ${showPreviewMobile ? 'hidden lg:block' : 'block'}`}>
-                            {errorMsg && (
-                                <div className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-4 rounded-none text-xs font-semibold flex items-center gap-2">
-                                    <ShieldAlert size={16} className="flex-shrink-0" />
-                                    <span>{errorMsg}</span>
-                                </div>
-                            )}
+                            {errorMsg && <FormError message={errorMsg} />}
 
                             {loadingRef ? (
                                 <div className="py-12 flex justify-center">
@@ -686,7 +682,7 @@ export default function RuptureContratModal({
                                                                 cursor-pointer p-3 border transition-all text-left flex items-start gap-3
                                                                 ${isSelected
                                                                     ? 'border-danger-500 bg-danger-500/5 ring-1 ring-danger-500/20'
-                                                                    : 'border-ink-200 dark:border-ink-800 hover:border-ink-300 dark:hover:border-ink-700 bg-white dark:bg-ink-900'}
+                                                                    : 'border-ink-200 dark:border-ink-800 hover:border-ink-300 dark:hover:border-ink-700 bg-[var(--color-surface)] dark:bg-ink-900'}
                                                             `}
                                                         >
                                                             <input
@@ -698,7 +694,7 @@ export default function RuptureContratModal({
                                                             />
                                                             <div className="flex-1 space-y-1">
                                                                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                                                                    <span className="text-xs font-bold text-ink-900 dark:text-white">
+                                                                    <span className="text-xs font-bold text-ink-900 dark:text-[var(--color-on-color)]">
                                                                         {mode.titre}
                                                                     </span>
                                                                     <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 border ${mode.badgeClass}`}>
@@ -752,7 +748,7 @@ export default function RuptureContratModal({
                                                 </li>
                                                 <li className="flex items-start gap-2">
                                                     <span className="font-semibold text-ink-700 dark:text-ink-200 w-32 flex-shrink-0">• Impact STC :</span>
-                                                    <span className={formData.modePreavis === 'DISPENSE_PAYEE' && indemniteEstimee > 0 ? 'text-amber-600 dark:text-amber-400 font-bold' : ''}>
+                                                    <span className={formData.modePreavis === 'DISPENSE_PAYEE' && indemniteEstimee > 0 ? 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-bold' : ''}>
                                                         {formData.modePreavis === 'DISPENSE_PAYEE' && indemniteEstimee > 0
                                                             ? `${libelleDuree} compensé(s) soit env. ${fmtMoneyMGA(indemniteEstimee)} d'indemnité compensatrice dans le STC.`
                                                             : '0 Ar d\'indemnité de préavis (les mois effectués sont payés sous forme de salaires réguliers).'}

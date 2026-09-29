@@ -1,8 +1,8 @@
+import FormError from '@/components/ui/feedback/FormError';
 import { MapPin, Clock, Sun, Sunset } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Input, { Select, Checkbox } from '@/components/ui/forms/Input';
-import Alert from '@/components/ui/feedback/Alert';
 
 export default function SiteFormModal({
     isOpen,
@@ -36,7 +36,7 @@ export default function SiteFormModal({
             }
         >
             <form id="site-form" onSubmit={onSubmit} className="space-y-4">
-                {actionError && <Alert type="error" message={actionError} />}
+                {actionError && <FormError message={actionError} />}
 
                 {/* Section 1 : Informations Générales */}
                 <div className="space-y-3">
@@ -135,7 +135,7 @@ export default function SiteFormModal({
 
                         <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none space-y-2.5">
                             <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-fg)] border-b border-[var(--color-border-subtle)] pb-1.5">
-                                <Sunset size={14} className="text-orange-500 shrink-0" />
+                                <Sunset size={14} className="text-[var(--color-orange-500)] shrink-0" />
                                 <span>Plage 2 : Après-midi</span>
                             </div>
                             <div className="space-y-2">

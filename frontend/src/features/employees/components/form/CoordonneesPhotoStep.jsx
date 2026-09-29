@@ -38,14 +38,14 @@ export default function CoordonneesPhotoStep({
                             )}
                         />
                         {uploadingPhoto && (
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <div className="absolute inset-0 bg-[var(--color-overlay)]/40 flex items-center justify-center">
                                 <Loading type="spinner" color="brand" size="md" />
                             </div>
                         )}
                     </div>
                     <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-3">
-                            <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] text-white rounded-none cursor-pointer transition-colors">
+                            <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-600)] text-[var(--color-on-color)] rounded-none cursor-pointer transition-colors">
                                 <Upload size={14} />
                                 {uploadingPhoto ? 'Téléversement...' : 'Parcourir un fichier'}
                                 <input 

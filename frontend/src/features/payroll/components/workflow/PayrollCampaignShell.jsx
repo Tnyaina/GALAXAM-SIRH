@@ -145,7 +145,7 @@ export default function PayrollCampaignShell({
                             <button
                                 type="button"
                                 onClick={() => navigate(`/paie/periodes/${activePeriod.id}/calcul`)}
-                                className="px-2.5 py-1 text-xs font-semibold bg-[var(--color-warning-500)] text-white hover:opacity-90 transition-opacity cursor-pointer shrink-0"
+                                className="px-2.5 py-1 text-xs font-semibold bg-[var(--color-warning-500)] text-[var(--color-on-color)] hover:opacity-90 transition-opacity cursor-pointer shrink-0"
                             >
                                 Aller au calcul
                             </button>

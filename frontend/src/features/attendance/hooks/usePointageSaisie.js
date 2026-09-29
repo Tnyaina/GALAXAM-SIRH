@@ -6,7 +6,7 @@ import { getTodayDateString } from '@/utils/dateUtils';
 
 export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateString()) {
     // État local : site et date sélectionnés.
-    const [selectedSite, setSelectedSite] = useState(initialSiteId);
+    const [selectedSite, setSelectedSite] = useState(() => (Number(initialSiteId) > 0 ? Number(initialSiteId) : null));
     const [selectedDate, setSelectedDate] = useState(initialDate);
 
     // Effets : synchronisent les valeurs initiales fournies par le parent.
@@ -17,8 +17,9 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
     }, [initialDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
-        if (initialSiteId && initialSiteId !== selectedSite) {
-            setSelectedSite(initialSiteId);
+        const nextSiteId = Number(initialSiteId);
+        if (nextSiteId > 0 && nextSiteId !== Number(selectedSite)) {
+            setSelectedSite(nextSiteId);
         }
     }, [initialSiteId]); // eslint-disable-line react-hooks/exhaustive-deps
     // État local : grille, paramètres et états de requête.
@@ -56,11 +57,20 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
     });
 
     const loadData = useCallback(async () => {
+        const siteId = Number(selectedSite);
+        if (!siteId || siteId <= 0) {
+            setGrilleData([]);
+            setInitialGrilleData([]);
+            setSiteParams(null);
+            setSiteIndemnites([]);
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         setError(null);
         try {
             const data = await attendanceService.getGrilleSaisie({
-                idSite: selectedSite,
+                idSite: siteId,
                 date: selectedDate
             });
             if (data) {

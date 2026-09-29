@@ -67,7 +67,7 @@ export function Avatar({
             role="img"
             aria-label={name || 'Avatar'}
             className={`
-            ${SIZES[size]} ${shapeClass} bg-[var(--color-brand-500)] text-white
+            ${SIZES[size]} ${shapeClass} bg-[var(--color-brand-500)] text-[var(--color-on-color)]
             flex items-center justify-center font-bold font-data uppercase tracking-wider
             border border-[var(--color-brand-500)] select-none shadow-sm
           `}

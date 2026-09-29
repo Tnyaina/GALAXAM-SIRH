@@ -155,7 +155,7 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
         <>
             {open && (
                 <div
-                    className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-40 lg:hidden"
+                    className="fixed inset-0 bg-[var(--color-overlay)]/60 backdrop-blur-[2px] z-40 lg:hidden"
                     onClick={onClose}
                 />
             )}
@@ -207,7 +207,7 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                         variant="ghost"
                         size="xs"
                         onClick={onClose}
-                        className="lg:hidden !p-1 !text-[var(--color-sidebar-fg)] hover:!text-white hover:!bg-white/10"
+                        className="lg:hidden !p-1 !text-[var(--color-sidebar-fg)] hover:!text-[var(--color-on-color)] hover:!bg-[var(--color-surface)]/10"
                         aria-label="Fermer le menu"
                         iconLeft={<X size={16} />}
                     />
@@ -251,12 +251,12 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                                 <Avatar name={user?.identifiant || 'Utilisateur'} size="sm" shape="square" />
                                 {!collapsed && (
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-[12px] font-bold truncate text-white leading-tight">
+                                        <p className="text-[12px] font-bold truncate text-[var(--color-on-color)] leading-tight">
                                             {user?.identifiant}
                                         </p>
                                         {user?.role && (
                                             <div className="mt-1">
-                                                <span className="inline-block text-[9px] font-mono font-bold tracking-wider uppercase px-1.5 py-0.5 bg-white/15 text-white border border-white/25">
+                                                <span className="inline-block text-[9px] font-mono font-bold tracking-wider uppercase px-1.5 py-0.5 bg-[var(--color-surface)]/15 text-[var(--color-on-color)] border border-[var(--color-on-color)]/25">
                                                     {user.role}
                                                 </span>
                                             </div>
@@ -271,7 +271,7 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                                     size="sm"
                                     onClick={handleLogout}
                                     title="Déconnexion"
-                                    className="!p-1.5 !text-[var(--color-sidebar-fg)] hover:!text-red-400 hover:!bg-white/10 shrink-0"
+                                    className="!p-1.5 !text-[var(--color-sidebar-fg)] hover:!text-[var(--color-danger-400)] hover:!bg-[var(--color-surface)]/10 shrink-0"
                                     iconLeft={<LogOut size={15} />}
                                 />
                             ) : (
@@ -280,7 +280,7 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                                     size="sm"
                                     onClick={handleLogout}
                                     title="Déconnexion"
-                                    className="hidden lg:flex mt-2 !p-1.5 !text-[var(--color-sidebar-fg)] hover:!text-red-400 hover:!bg-white/10 shrink-0"
+                                    className="hidden lg:flex mt-2 !p-1.5 !text-[var(--color-sidebar-fg)] hover:!text-[var(--color-danger-400)] hover:!bg-[var(--color-surface)]/10 shrink-0"
                                     iconLeft={<LogOut size={15} />}
                                 />
                             )}

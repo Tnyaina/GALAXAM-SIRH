@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
-import { Search, User, X, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useRef, useId } from 'react';
+import { Search, User, X } from 'lucide-react';
 import employeService from '@/features/employees/api/employeService';
 import { useDebounce } from '@/hooks/useDebounce';
+import FieldError from './FieldError';
 
 export default function EmployeSearchSelect({
   label = 'Employé',
@@ -18,6 +19,8 @@ export default function EmployeSearchSelect({
   const [empSearchQuery, setEmpSearchQuery] = useState('');
   const [showEmpDropdown, setShowEmpDropdown] = useState(false);
   const [listEmployes, setListEmployes] = useState([]);
+  const fieldId = `employee-select-${useId()}`;
+  const feedbackId = `${fieldId}-feedback`;
   const [loadingList, setLoadingList] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -158,7 +161,7 @@ export default function EmployeSearchSelect({
   return (
     <div className={`space-y-1.5 relative ${className}`} ref={dropdownRef}>
       {label && (
-        <label className="block text-sm font-semibold text-[var(--color-fg)]">
+        <label htmlFor={selectedEmployeObj ? undefined : fieldId} className="block text-sm font-semibold text-[var(--color-fg)]">
           {label} {required && <span className="text-danger-500">*</span>}
         </label>
       )}
@@ -167,7 +170,7 @@ export default function EmployeSearchSelect({
         /* Carte récapitulative de l'employé sélectionné */
         <div className="flex items-center justify-between p-2 sm:p-2.5 border border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/5 text-xs sm:text-sm font-sans">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-[var(--color-brand-500)] text-white flex items-center justify-center font-bold text-xs shrink-0">
+            <div className="w-8 h-8 bg-[var(--color-brand-500)] text-[var(--color-on-color)] flex items-center justify-center font-bold text-xs shrink-0">
               {(selectedEmployeObj.prenom?.[0] || selectedEmployeObj.nom?.[0] || 'E').toUpperCase()}
             </div>
             <div>
@@ -197,6 +200,7 @@ export default function EmployeSearchSelect({
           <div className="relative flex items-center">
             <Search className="w-4 h-4 absolute left-2.5 text-[var(--color-fg-muted)] pointer-events-none" />
             <input
+              id={fieldId}
               type="text"
               disabled={disabled}
               value={empSearchQuery}
@@ -207,6 +211,7 @@ export default function EmployeSearchSelect({
               onFocus={() => !disabled && setShowEmpDropdown(true)}
               placeholder={placeholder}
               aria-invalid={!!error}
+              aria-describedby={error ? feedbackId : undefined}
               className={`w-full pl-8 pr-3 py-1.5 bg-[var(--color-bg-subtle)] border rounded-none text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none text-xs sm:text-sm ${error
                   ? 'border-danger-500 focus:border-danger-500'
                   : 'border-[var(--color-border-subtle)] focus:border-[var(--color-brand-500)]'
@@ -252,11 +257,7 @@ export default function EmployeSearchSelect({
         </div>
       )}
 
-      {error && (
-        <p className="text-xs text-danger-500 flex items-center gap-1">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {error}
-        </p>
-      )}
+      {error && <FieldError id={feedbackId}>{error}</FieldError>}
     </div>
   );
 }

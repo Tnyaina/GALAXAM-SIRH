@@ -39,7 +39,7 @@ export default function SlideOver({
 
     return (
         <div className="fixed inset-0 z-50 flex justify-end">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={onClose} />
+            <div className="absolute inset-0 bg-[var(--color-overlay)]/60 backdrop-blur-[2px]" onClick={onClose} />
 
             <div
                 role="dialog"

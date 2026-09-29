@@ -1,8 +1,8 @@
+import FormError from '@/components/ui/feedback/FormError';
 import { Layers } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Input, { Select } from '@/components/ui/forms/Input';
-import Alert from '@/components/ui/feedback/Alert';
 
 export default function ServiceFormModal({
     isOpen,
@@ -34,7 +34,7 @@ export default function ServiceFormModal({
             }
         >
             <form id="service-form" onSubmit={onSubmit} className="space-y-4">
-                {actionError && <Alert type="error" message={actionError} />}
+                {actionError && <FormError message={actionError} />}
 
                 <Select
                     label="Département Parent de Rattachement"

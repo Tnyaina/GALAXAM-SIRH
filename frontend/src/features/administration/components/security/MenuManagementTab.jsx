@@ -11,6 +11,7 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useToast } from '@/components/ui/feedback/Toast';
@@ -343,7 +344,7 @@ export default function MenuManagementTab() {
                 }
             >
                 <form id="menu-form" onSubmit={handleSaveMenu} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-                    {modalError && <Alert type="error" message={modalError} />}
+                    {modalError && <FormError message={modalError} />}
                     <Input
                         label="Code Identifiant (Unique)"
                         required

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { UserCheck, ShieldAlert, X, FileSignature, Eye, EyeOff } from 'lucide-react';
+import { UserCheck, X, FileSignature, Eye, EyeOff } from 'lucide-react';
+import FormError from '@/components/ui/feedback/FormError';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea } from '@/components/ui/forms/Input';
 import contratService from '@/features/employees/api/contratService';
@@ -156,14 +157,14 @@ export default function ConfirmationEssaiModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-5 bg-black/60 backdrop-blur-[3px]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-5 bg-[var(--color-overlay)]/60 backdrop-blur-[3px]">
             {/* Overlay cliquable */}
             <div className="absolute inset-0" onClick={onClose} />
 
             {/* Modal Centré Split-Screen 50 / 50 */}
             <div
                 className={`
-                    relative bg-white dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-none shadow-2xl
+                    relative bg-[var(--color-surface)] dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-none shadow-2xl
                     w-full max-w-[94vw] h-[90vh] overflow-hidden flex flex-col
                     transform   
                     ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
@@ -188,7 +189,7 @@ export default function ConfirmationEssaiModal({
                                 {showPreviewMobile ? <EyeOff size={14} /> : <Eye size={14} />}
                                 {showPreviewMobile ? 'Masquer l\'aperçu' : 'Voir l\'avenant'}
                             </button>
-                            <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-white p-1 rounded-none">
+                            <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-[var(--color-on-color)] p-1 rounded-none">
                                 <X size={20} />
                             </button>
                         </div>
@@ -200,12 +201,7 @@ export default function ConfirmationEssaiModal({
 
                     {/* COLONNE GAUCHE (50%) : Formulaire */}
                     <form onSubmit={handleSubmit} className="w-full lg:w-1/2 min-w-0 overflow-y-auto p-4 sm:p-5 space-y-4 border-b lg:border-b-0 lg:border-r border-ink-150 dark:border-ink-700">
-                        {errorMsg && (
-                            <div className="bg-danger-500/10 border border-danger-500/30 text-danger-600 dark:text-danger-400 p-3 rounded-none text-xs font-semibold flex items-center gap-2">
-                                <ShieldAlert size={16} className="flex-shrink-0" />
-                                <span>{errorMsg}</span>
-                            </div>
-                        )}
+                        {errorMsg && <FormError message={errorMsg} />}
 
                         {/* Aperçu mobile repliable */}
                         {showPreviewMobile && (
@@ -213,7 +209,7 @@ export default function ConfirmationEssaiModal({
                         )}
 
                         <p className="text-xs text-ink-600 dark:text-ink-300 font-normal">
-                            Confirme officiellement l'essai pour <span className="font-bold text-ink-900 dark:text-white">{nomEmploye}</span> : le poste, le site et le salaire actuels sont reconduits sans changement, seul le statut d'essai est levé.
+                            Confirme officiellement l'essai pour <span className="font-bold text-ink-900 dark:text-[var(--color-on-color)]">{nomEmploye}</span> : le poste, le site et le salaire actuels sont reconduits sans changement, seul le statut d'essai est levé.
                         </p>
 
                         <Input

@@ -10,6 +10,8 @@ Chaque domaine est autonome sous `features/<domaine>/`.
 
 Les utilitaires réellement transversaux restent dans `src/utils/` : dates, monnaie, navigation et icônes. Un fichier de feature ne les réexporte pas : il les importe directement.
 
+Les règles globales de hiérarchie visuelle, de responsive et d’usage des tokens sont définies dans [`frontend/CONVENTIONS.md`](../../CONVENTIONS.md). Ce document complète ces règles avec les conventions d’organisation des features.
+
 ## Convention de nommage
 
 - Une route se termine par `Page`.
@@ -19,9 +21,9 @@ Les utilitaires réellement transversaux restent dans `src/utils/` : dates, monn
 - Un hook commence par `use`.
 - Une frontière HTTP se termine par `Service`.
 
-## Structure interne obligatoire d'un fichier React
+## Structure de lecture recommandée pour un fichier React
 
-Un composant React ne mélange pas les responsabilités. Son ordre est toujours :
+Un composant React doit séparer clairement rendu, état, chargement et actions. Pour les composants complexes, cet ordre facilite la lecture :
 
 1. imports groupés (React, routeur, UI, feature, partagé) ;
 2. imports lazy et constantes statiques ;
@@ -34,4 +36,4 @@ Un composant React ne mélange pas les responsabilités. Son ordre est toujours 
 9. rendu JSX ;
 10. petits sous-composants locaux, uniquement s'ils ne sont pas réutilisés.
 
-Les commentaires de section utilisent exactement les intitulés `// État local`, `// Données dérivées`, `// Effets`, `// Actions` et `// Rendu`. Ils sont omis lorsque la section n'existe pas. Une page complexe peut ainsi être lue de haut en bas sans chercher où se trouve une action ou un chargement.
+Ces intitulés de section sont facultatifs : les ajouter uniquement lorsqu’ils clarifient un composant conséquent. Ne pas ajouter de commentaires de structure à un composant simple ni découper artificiellement un fichier pour respecter un ordre rigide.

@@ -93,7 +93,7 @@ export default function PointageRecapModal({
                         >
                             <CheckCircle2 size={16} />
                             <span>Confirmer &amp; Enregistrer</span>
-                            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-white/20 border border-white/30 text-white leading-none">
+                            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-[var(--color-surface)]/20 border border-[var(--color-on-color)]/30 text-[var(--color-on-color)] leading-none">
                                 Entrée ↵
                             </kbd>
                         </Button>
@@ -125,26 +125,26 @@ export default function PointageRecapModal({
                     </div>
                     <div className="p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xs">
                         <p className="text-[11px] font-bold uppercase text-[var(--color-fg-muted)] flex items-center gap-1.5 tracking-wider">
-                            <Clock size={14} className="text-danger-500" /> Retards
+                            <Clock size={14} className="text-[var(--color-warning-600)]" /> Retards
                         </p>
-                        <p className={`text-xl font-bold font-mono mt-1.5 ${retards.length > 0 ? 'text-danger-600' : 'text-[var(--color-fg)]'}`}>
+                        <p className={`text-xl font-bold font-mono mt-1.5 ${retards.length > 0 ? 'text-[var(--color-warning-700)]' : 'text-[var(--color-fg)]'}`}>
                             {retards.length} <span className="text-xs font-normal text-[var(--color-fg-muted)] font-sans">({cumulRetard} min)</span>
                         </p>
                     </div>
                     {allowanceCounts.map((allowance) => (
                         <div key={allowance.idIndemnite} className="p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xs">
                             <p className="text-[11px] font-bold uppercase text-[var(--color-fg-muted)] flex items-center gap-1.5 tracking-wider">
-                                <Gift size={14} className="text-indigo-500" /> {allowance.code}
+                                <Gift size={14} className="text-[var(--color-info-500)]" /> {allowance.code}
                             </p>
-                            <p className="text-xl font-bold font-mono text-indigo-600 mt-1.5">{allowance.count}</p>
+                            <p className="text-xl font-bold font-mono text-[var(--color-info-600)] mt-1.5">{allowance.count}</p>
                         </div>
                     ))}
                 </div>
 
                 {/* 3. Alerte Anomalies si présentes */}
                 {anomalies.length > 0 && (
-                    <div className="p-3.5 bg-amber-500/10 border-l-4 border-l-amber-500 flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
-                        <AlertTriangle size={17} className="text-amber-600 shrink-0 mt-0.5" />
+                    <div className="p-3.5 bg-[var(--color-warning-500)]/10 border-l-4 border-l-amber-500 flex items-start gap-2.5 text-xs text-[var(--color-warning-900)] dark:text-[var(--color-warning-200)]">
+                        <AlertTriangle size={17} className="text-[var(--color-warning-600)] shrink-0 mt-0.5" />
                         <div>
                             <p className="font-bold">{anomalies.length} anomalie(s) de saisie constatée(s) :</p>
                             <p className="text-[11.5px] opacity-90 mt-0.5 leading-relaxed">
@@ -197,7 +197,7 @@ export default function PointageRecapModal({
                                             {row.minutesRetard > 0 ? (
                                                 <span className="text-danger-600 font-bold">+{row.minutesRetard}m</span>
                                             ) : (
-                                                <span className="text-emerald-600 font-medium">0m</span>
+                                                <span className="text-[var(--color-success-600)] font-medium">0m</span>
                                             )}
                                         </Td>
                                         <Td className="py-2.5 px-3 text-center">
@@ -208,7 +208,7 @@ export default function PointageRecapModal({
                                         <Td className="py-2.5 px-3 text-center text-[11px]">
                                             <div className="flex flex-wrap items-center justify-center gap-1.5">
                                                 {choices.map((choice) => (
-                                                    <span key={choice} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold text-[11px] border border-blue-500/20">
+                                                    <span key={choice} className="inline-flex items-center gap-1 px-2 py-0.5 bg-[var(--color-info-500)]/10 text-[var(--color-info-700)] dark:text-[var(--color-info-300)] font-semibold text-[11px] border border-[var(--color-info-500)]/20">
                                                         <Gift size={12} /> {choice}
                                                     </span>
                                                 ))}

@@ -303,6 +303,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
                   description={statusFilter === 'ALL' && !debouncedSearch
                     ? "Aucune demande de congé n'a encore été enregistrée pour ce collaborateur."
                     : "Essayez de modifier vos filtres de statut ou votre recherche."}
+                  bordered={false}
                 />
               </div>
             ) : (

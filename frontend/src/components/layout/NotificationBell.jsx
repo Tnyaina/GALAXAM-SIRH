@@ -174,7 +174,7 @@ export default function NotificationBell() {
                 >
                     <Bell size={16} strokeWidth={1.75} />
                     {totalNonLues > 0 && (
-                        <span className="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] flex items-center justify-center text-[8.5px] font-bold leading-none text-white bg-[var(--color-danger-500)] rounded-none px-1 ring-1 ring-[var(--color-surface)] font-data">
+                        <span className="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] flex items-center justify-center text-[8.5px] font-bold leading-none text-[var(--color-on-color)] bg-[var(--color-danger-500)] rounded-none px-1 ring-1 ring-[var(--color-surface)] font-data">
                             {totalNonLues > 99 ? '99+' : totalNonLues}
                         </span>
                     )}

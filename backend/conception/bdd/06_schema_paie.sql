@@ -588,10 +588,10 @@ CREATE TRIGGER trg_bulletin_paie_ligne_immutabilite
 
 -- Cotisations Sociales Référentielles
 INSERT INTO ref_type_cotisation (id_type_cotisation, id_config_legale, code, libelle, taux_salarial, taux_patronal, plafonne, ordre, est_actif, date_debut, portee, categorie) VALUES
-(1, 2, 'CNAPS', 'Caisse Nationale de Prévoyance Sociale', 1.00, 13.00, TRUE, 1, TRUE, '2022-01-01', 'ENTREPRISE', 'PREVOYANCE'),
-(2, 2, 'OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, TRUE, 1, TRUE, '2022-01-01', 'SITE', 'SANTE'),
-(3, 2, 'OMSI',  'Organisation Médicale Inter-entreprises', 1.50, 5.50, TRUE, 1, TRUE, '2022-01-01', 'SITE', 'SANTE'),
-(4, 2, 'FMFP',  'Fonds Malgache de Formation Professionnelle', 0.00, 1.00, FALSE, 4, TRUE, '2022-01-01', 'ENTREPRISE', 'FORMATION');
+(1, 2, 'CNAPS', 'Caisse Nationale de Prévoyance Sociale', 1.00, 13.00, TRUE, 1, TRUE, '2001-07-01', 'ENTREPRISE', 'PREVOYANCE'),
+(2, 2, 'OSTIE', 'Organisation Sanitaire Tananarivienne', 1.00, 5.00, TRUE, 1, TRUE, '2001-07-01', 'SITE', 'SANTE'),
+(3, 2, 'OMSI',  'Organisation Médicale Inter-entreprises', 1.50, 5.50, TRUE, 1, TRUE, '2001-07-01', 'SITE', 'SANTE'),
+(4, 2, 'FMFP',  'Fonds Malgache de Formation Professionnelle', 0.00, 1.00, FALSE, 4, TRUE, '2001-07-01', 'ENTREPRISE', 'FORMATION');
 SELECT setval('ref_type_cotisation_id_type_cotisation_seq', (SELECT GREATEST(MAX(id_type_cotisation), 4) FROM ref_type_cotisation));
 
 -- Cotisations par Site (TNR: CNAPS+OSTIE, TMM: CNAPS+OMSI)
@@ -603,11 +603,11 @@ INSERT INTO site_cotisation (id_site, id_type_cotisation, est_plafonne_sante) VA
 
 -- Barèmes IRSA Officiels (LF_2024_2025: 5 Tranches jusqu'au 31/12/2025, LF_2026: 6 Tranches dès le 01/01/2026)
 INSERT INTO bareme_irsa (id_config_legale, numero_tranche, tranche_min, tranche_max, taux, date_debut, date_fin) VALUES
-(1, 1, 0.00, 350000.00, 0.00, '2022-01-01', '2025-12-31'),
-(1, 2, 350000.00, 400000.00, 5.00, '2022-01-01', '2025-12-31'),
-(1, 3, 400000.00, 500000.00, 10.00, '2022-01-01', '2025-12-31'),
-(1, 4, 500000.00, 600000.00, 15.00, '2022-01-01', '2025-12-31'),
-(1, 5, 600000.00, NULL, 20.00, '2022-01-01', '2025-12-31'),
+(1, 1, 0.00, 350000.00, 0.00, '2001-07-01', '2025-12-31'),
+(1, 2, 350000.00, 400000.00, 5.00, '2001-07-01', '2025-12-31'),
+(1, 3, 400000.00, 500000.00, 10.00, '2001-07-01', '2025-12-31'),
+(1, 4, 500000.00, 600000.00, 15.00, '2001-07-01', '2025-12-31'),
+(1, 5, 600000.00, NULL, 20.00, '2001-07-01', '2025-12-31'),
 (3, 1, 0.00, 350000.00, 0.00, '2026-01-01', '2026-02-28'),
 (3, 2, 350000.00, 400000.00, 5.00, '2026-01-01', '2026-02-28'),
 (3, 3, 400000.00, 500000.00, 10.00, '2026-01-01', '2026-02-28'),
@@ -624,12 +624,12 @@ SELECT setval('bareme_irsa_id_tranche_seq', (SELECT GREATEST(MAX(id_tranche), 17
 
 -- Majorations d'Heures Supplémentaires & Spéciales (LF_2024_2025 et LF_2026)
 INSERT INTO ref_taux_majoration (id_config_legale, type_majoration, taux, description, date_debut, date_fin) VALUES
--- Ancien barème (2022 - 2025) - LF_2024_2025 (ID 1)
-(1, 'HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine (+30%)', '2022-01-01', '2025-12-31'),
-(1, 'HS_50', 0.50, 'Au-delà de la 48ᵉ heure (+50%)', '2022-01-01', '2025-12-31'),
-(1, 'NUIT', 0.30, 'Heures de nuit (22h - 05h) (+30%)', '2022-01-01', '2025-12-31'),
-(1, 'DIMANCHE', 0.40, 'Travail le dimanche (+40%)', '2022-01-01', '2025-12-31'),
-(1, 'FERIE', 1.00, 'Travail jour férié (+100%)', '2022-01-01', '2025-12-31'),
+-- Ancien barème (2001 - 2025) - LF_2024_2025 (ID 1)
+(1, 'HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine (+30%)', '2001-07-01', '2025-12-31'),
+(1, 'HS_50', 0.50, 'Au-delà de la 48ᵉ heure (+50%)', '2001-07-01', '2025-12-31'),
+(1, 'NUIT', 0.30, 'Heures de nuit (22h - 05h) (+30%)', '2001-07-01', '2025-12-31'),
+(1, 'DIMANCHE', 0.40, 'Travail le dimanche (+40%)', '2001-07-01', '2025-12-31'),
+(1, 'FERIE', 1.00, 'Travail jour férié (+100%)', '2001-07-01', '2025-12-31'),
 
 -- Nouveau barème 2026 (Période transitoire Janv-Févr 2026 - ID 3)
 (3, 'HS_30', 0.30, '41ᵉ à 48ᵉ heure de la semaine (+30%)', '2026-01-01', '2026-02-28'),

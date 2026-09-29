@@ -231,8 +231,16 @@ public class DocumentRhService {
                 c, contrat.getDateDebut().toLocalDate());
         if (config == null || config.getDureeHebdoLegale() == null
                 || config.getDureeHebdoLegale().signum() <= 0) {
-            throw new SirhBusinessException(SirhErrorCode.LEGAL_CONFIG_MISSING,
-                    "Durée hebdomadaire de référence absente pour le " + contrat.getDateDebut() + ".");
+            // Repli de sécurité : recherche de la première configuration connue ou constante légale de référence (40h)
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT duree_hebdo_legale FROM paie_config_legale WHERE duree_hebdo_legale > 0 ORDER BY date_debut ASC LIMIT 1")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next() && rs.getBigDecimal(1) != null) {
+                        return rs.getBigDecimal(1).stripTrailingZeros().toPlainString() + " heures par semaine";
+                    }
+                }
+            }
+            return "40 heures par semaine";
         }
         return config.getDureeHebdoLegale().stripTrailingZeros().toPlainString() + " heures par semaine";
     }

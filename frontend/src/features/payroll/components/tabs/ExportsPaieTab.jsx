@@ -204,7 +204,7 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
                     <div>
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 flex items-center justify-center bg-purple-500/10 text-purple-600 border border-purple-500/20">
+                                <div className="w-9 h-9 flex items-center justify-center bg-[var(--color-purple-500)]/10 text-[var(--color-purple-600)] border border-[var(--color-purple-500)]/20">
                                     <FileCode size={20} />
                                 </div>
                                 <div>

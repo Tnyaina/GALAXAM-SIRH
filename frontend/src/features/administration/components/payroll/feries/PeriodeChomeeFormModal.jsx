@@ -4,6 +4,7 @@ import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import { Select } from '@/components/ui/forms/Input';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 
 export default function PeriodeChomeeFormModal({
     isOpen,
@@ -46,7 +47,7 @@ export default function PeriodeChomeeFormModal({
             }
         >
             <div className="space-y-5">
-                {actionError && <Alert type="error" message={typeof actionError === 'string' ? actionError : JSON.stringify(actionError)} />}
+                {actionError && <FormError message={typeof actionError === 'string' ? actionError : JSON.stringify(actionError)} />}
                 
                 <Alert type="info" message="Si la date de fin n'est pas encore connue, laissez le champ vide. La période sera considérée comme 'En cours'." />
 

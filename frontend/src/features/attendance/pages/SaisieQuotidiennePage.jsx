@@ -43,7 +43,8 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
         return todayStr;
     }, [paramDate, activePeriode?.dateDebut, activePeriode?.dateFin, todayStr]);
 
-    const initialSite = paramSite ? Number(paramSite) : 1;
+    const parsedParamSite = paramSite ? Number(paramSite) : null;
+    const initialSite = (parsedParamSite && parsedParamSite > 0) ? parsedParamSite : null;
 
     useEffect(() => {
         const fetchSites = async () => {
@@ -107,15 +108,38 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
         setModifiedEmpIds(dirtySet);
     }, [grilleData, initialGrilleData, isRowModified]);
 
+    // Synchronisation automatique si le site initial n'est pas encore défini ou invalide
+    useEffect(() => {
+        if (sites && sites.length > 0) {
+            const activeSites = sites.filter(s => s.estActif !== false && s.actif !== false);
+            const validSites = activeSites.length > 0 ? activeSites : sites;
+            const isCurrentValid = validSites.some(s => Number(s.idSite) === Number(selectedSite));
+            if (!isCurrentValid) {
+                const defaultSite = validSites[0];
+                if (defaultSite?.idSite) {
+                    setSelectedSite(defaultSite.idSite);
+                    setSearchParams(prev => {
+                        const next = new URLSearchParams(prev);
+                        next.set('site', String(defaultSite.idSite));
+                        return next;
+                    }, { replace: true });
+                }
+            }
+        }
+    }, [sites, selectedSite, setSelectedSite, setSearchParams]);
+
     // Changement de site ou de date
     const handleSiteChange = (siteId) => {
-        setSelectedSite(siteId);
-        setCurrentPage(1);
-        setSearchParams(prev => {
-            const next = new URLSearchParams(prev);
-            next.set('site', String(siteId));
-            return next;
-        });
+        const sid = Number(siteId);
+        if (sid > 0) {
+            setSelectedSite(sid);
+            setCurrentPage(1);
+            setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                next.set('site', String(sid));
+                return next;
+            });
+        }
     };
 
     const handleDateChange = (dateStr) => {
@@ -364,7 +388,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                         <button
                             type="button"
                             onClick={() => handleDateChange(getTodayDateString())}
-                            className="px-3 py-1.5 text-xs font-bold bg-[var(--color-warning-600)] hover:bg-[var(--color-warning-700)] text-white rounded-none cursor-pointer transition-colors shrink-0 shadow-xs"
+                            className="px-3 py-1.5 text-xs font-bold bg-[var(--color-warning-600)] hover:bg-[var(--color-warning-700)] text-[var(--color-on-color)] rounded-none cursor-pointer transition-colors shrink-0 shadow-xs"
                         >
                             Revenir à aujourd'hui ({getTodayDateString()})
                         </button>

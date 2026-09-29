@@ -27,7 +27,7 @@ export default function NetworkStatusBanner() {
     // Rendu : indisponibilité, restauration ou absence de bannière.
     if (unavailable) {
         return (
-            <div role="alert" className="fixed inset-x-0 bottom-0 z-[100] flex items-center justify-center gap-2 border-t border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/15 px-4 py-2.5 text-xs font-medium text-[var(--color-fg)] shadow-lg">
+            <div role="status" aria-live="polite" className="fixed inset-x-0 bottom-0 z-[100] flex items-center justify-center gap-2 border-t border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/15 px-4 py-2.5 text-xs font-medium text-[var(--color-fg)] shadow-lg">
                 <CloudOff size={16} className="text-[var(--color-warning-600)]" />
                 <span>{online ? 'Serveur momentanément inaccessible. Les modifications ne sont pas envoyées.' : 'Vous êtes hors ligne. Les modifications ne sont pas envoyées.'}</span>
             </div>

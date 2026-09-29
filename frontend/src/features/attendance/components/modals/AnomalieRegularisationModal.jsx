@@ -1,3 +1,4 @@
+import FormError from '@/components/ui/feedback/FormError';
 import { useState, useEffect } from 'react';
 import { getErrorMessage } from '@/api/apiClient';
 import { 
@@ -16,7 +17,6 @@ import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Input from '@/components/ui/forms/Input';
-import Alert from '@/components/ui/feedback/Alert';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import { fmtDate } from '@/utils/dateUtils';
 import { attendanceService } from '@/features/attendance/api/attendanceApi';
@@ -113,7 +113,7 @@ export default function AnomalieRegularisationModal({
     }, [anomalie, isOpen]);
 
     useEffect(() => {
-        if (!isOpen || !anomalie?.idSite || !anomalie?.datePointage) return undefined;
+        if (!isOpen || !anomalie?.idSite || Number(anomalie.idSite) <= 0 || !anomalie?.datePointage) return undefined;
         let cancelled = false;
         setAllowancesLoading(true);
         setAllowancesError('');
@@ -362,9 +362,9 @@ export default function AnomalieRegularisationModal({
                 </div>
 
                 {error && (
-                    <Alert type="error" title="Action requise" className="rounded-none">
+                    <FormError title="Action requise" className="rounded-none">
                         {error}
-                    </Alert>
+                    </FormError>
                 )}
 
                 {/* Onglets de mode */}
@@ -432,7 +432,7 @@ export default function AnomalieRegularisationModal({
                                     }`}
                                 >
                                     <div className="text-xs font-semibold flex items-center gap-1.5">
-                                        <Sun className="w-3.5 h-3.5 text-amber-500" />
+                                        <Sun className="w-3.5 h-3.5 text-[var(--color-warning-500)]" />
                                         <span>Matinée seule</span>
                                     </div>
                                     <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">
@@ -450,7 +450,7 @@ export default function AnomalieRegularisationModal({
                                     }`}
                                 >
                                     <div className="text-xs font-semibold flex items-center gap-1.5">
-                                        <Sunset className="w-3.5 h-3.5 text-orange-500" />
+                                        <Sunset className="w-3.5 h-3.5 text-[var(--color-orange-500)]" />
                                         <span>Après-midi seul</span>
                                     </div>
                                     <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">
@@ -468,7 +468,7 @@ export default function AnomalieRegularisationModal({
                                     }`}
                                 >
                                     <div className="text-xs font-semibold flex items-center gap-1.5">
-                                        <Clock className="w-3.5 h-3.5 text-indigo-500" />
+                                        <Clock className="w-3.5 h-3.5 text-[var(--color-info-500)]" />
                                         <span>Continue</span>
                                     </div>
                                     <div className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">
@@ -508,7 +508,7 @@ export default function AnomalieRegularisationModal({
                                 }`}>
                                     <div className="text-xs font-semibold text-[var(--color-fg)] flex items-center justify-between">
                                         <div className="flex items-center gap-1.5">
-                                            <Sun className="w-3.5 h-3.5 text-amber-500" />
+                                            <Sun className="w-3.5 h-3.5 text-[var(--color-warning-500)]" />
                                             <span>Matinée</span>
                                         </div>
                                         {modePresence === 'APRES_MIDI_SEUL' && (
@@ -550,7 +550,7 @@ export default function AnomalieRegularisationModal({
                                 }`}>
                                     <div className="text-xs font-semibold text-[var(--color-fg)] flex items-center justify-between">
                                         <div className="flex items-center gap-1.5">
-                                            <Sunset className="w-3.5 h-3.5 text-orange-500" />
+                                            <Sunset className="w-3.5 h-3.5 text-[var(--color-orange-500)]" />
                                             <span>Après-midi</span>
                                         </div>
                                         {modePresence === 'MATIN_SEUL' && (
@@ -644,13 +644,13 @@ export default function AnomalieRegularisationModal({
                                         )}
                                         {optionAutreDemiJournee === 'CONGE_PAYE' && (
                                             <div>
-                                                <strong className="text-emerald-700 dark:text-emerald-400">Impact : </strong>
+                                                <strong className="text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">Impact : </strong>
                                                 Le module Congés confirmera le débit de solde et le traitement de cette demi-journée.
                                             </div>
                                         )}
                                         {optionAutreDemiJournee === 'ABSENCE_DEDUITE' && (
                                             <div>
-                                                <strong className="text-rose-700 dark:text-rose-400">Impact : </strong>
+                                                <strong className="text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)]">Impact : </strong>
                                                 Absence non excusée. Les heures non faites de {labelDemiJournee} feront l'objet d'une retenue sur le bulletin de paie.
                                             </div>
                                         )}
@@ -675,7 +675,7 @@ export default function AnomalieRegularisationModal({
                                 Indemnités du jour
                             </div>
                             {allowancesLoading && <p className="text-xs">Chargement des indemnités du site…</p>}
-                            {allowancesError && <p className="text-xs text-red-700">{allowancesError}</p>}
+                            {allowancesError && <p className="text-xs text-[var(--color-danger-700)]">{allowancesError}</p>}
                             {!allowancesLoading && !allowancesError && availableAllowances.length === 0 && (
                                 <p className="text-xs">Aucune indemnité journalière configurée pour ce site.</p>
                             )}
@@ -813,7 +813,7 @@ export default function AnomalieRegularisationModal({
                                             onClick={() => setCongeDuree('1.0')}
                                             className={`px-3 py-1 rounded-none text-xs font-semibold border ${
                                                 congeDuree === '1.0'
-                                                    ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                                                    ? 'bg-[var(--color-primary)] text-[var(--color-on-color)] border-[var(--color-primary)]'
                                                     : 'bg-[var(--color-surface)] text-[var(--color-fg)] border-[var(--color-border-subtle)]'
                                             }`}
                                         >
@@ -824,7 +824,7 @@ export default function AnomalieRegularisationModal({
                                             onClick={() => setCongeDuree('0.5')}
                                             className={`px-3 py-1 rounded-none text-xs font-semibold border ${
                                                 congeDuree === '0.5'
-                                                    ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                                                    ? 'bg-[var(--color-primary)] text-[var(--color-on-color)] border-[var(--color-primary)]'
                                                     : 'bg-[var(--color-surface)] text-[var(--color-fg)] border-[var(--color-border-subtle)]'
                                             }`}
                                         >

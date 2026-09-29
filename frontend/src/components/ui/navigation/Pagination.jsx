@@ -132,7 +132,7 @@ export default function Pagination({
                                 className={`
                   min-w-[28px] h-[28px] px-2 font-data text-xs font-semibold rounded-none border cursor-pointer flex items-center justify-center
                   ${isActive
-                                        ? 'bg-[var(--color-brand-500)] border-[var(--color-brand-500)] text-white'
+                                        ? 'bg-[var(--color-brand-500)] border-[var(--color-brand-500)] text-[var(--color-on-color)]'
                                         : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg)] hover:bg-[var(--color-surface-hover)]'
                                     }
                 `}

@@ -8,6 +8,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
@@ -268,7 +269,7 @@ export default function DocumentTypeManagementTab() {
                 }
             >
                 <form id="doc-type-form" onSubmit={handleSubmit} className="space-y-4">
-                    {modalError && <Alert type="error" message={modalError} />}
+                    {modalError && <FormError message={modalError} />}
                     <Input
                         label="Libellé du document"
                         required

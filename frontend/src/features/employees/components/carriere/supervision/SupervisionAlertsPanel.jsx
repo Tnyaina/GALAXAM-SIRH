@@ -15,7 +15,7 @@ function SupervisionAlertsPanel({ alertes = [], onActionClick, onVerifyDoublons 
             {/* Header d'Alerte Prioritaire */}
             <div className="px-5 py-3.5 bg-gradient-to-r from-[var(--color-warning-500)]/15 via-[var(--color-warning-500)]/5 to-transparent border-b border-[var(--color-warning-500)]/20 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                    <div className="w-6 h-6 rounded-none bg-[var(--color-warning-500)] text-white flex items-center justify-center shadow-xs">
+                    <div className="w-6 h-6 rounded-none bg-[var(--color-warning-500)] text-[var(--color-on-color)] flex items-center justify-center shadow-xs">
                         <AlertTriangle size={14} strokeWidth={2.5} />
                     </div>
                     <h2 className="text-xs font-extrabold uppercase tracking-wider text-[var(--color-warning-700)] dark:text-[var(--color-warning-200)]">

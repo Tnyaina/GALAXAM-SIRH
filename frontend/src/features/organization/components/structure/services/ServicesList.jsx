@@ -4,6 +4,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
+import { Card, CardHeader } from '@/components/ui/data-display/Card';
 
 export default function ServicesList({
     selectedDepartement,
@@ -14,10 +15,10 @@ export default function ServicesList({
     onToggleServiceStatus,
 }) {
     return (
-        <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-4 sm:p-5 space-y-4 flex flex-col h-full">
+        <Card className="space-y-4 flex flex-col h-full p-0 overflow-hidden" shadow="sm">
             {selectedDepartement ? (
                 <div className="space-y-4 flex-1 flex flex-col">
-                    <div className="flex flex-col sm:flex-row justify-between sm:items-center pb-3 border-b border-[var(--color-border-subtle)] gap-3">
+                    <CardHeader divided className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                         <div>
                             <h4 className="font-bold text-sm sm:text-base text-[var(--color-fg)] flex items-center gap-2">
                                 <Layers size={18} className="text-[var(--color-brand-500)]" />
@@ -35,11 +36,11 @@ export default function ServicesList({
                         >
                             Nouveau Service
                         </Button>
-                    </div>
+                    </CardHeader>
 
                     {loadingServices ? (
                         <div className="p-4">
-                            <SkeletonTable rows={5} columns={4} />
+                            <SkeletonTable rows={5} columns={4} bordered={false} />
                         </div>
                     ) : (
                         <div className="flex-1 overflow-x-auto">
@@ -101,6 +102,7 @@ export default function ServicesList({
                                                     description={`Créez le premier service sous le département "${selectedDepartement.libelle}".`}
                                                     actionLabel="Ajouter un service"
                                                     onAction={onOpenCreateService}
+                                                    bordered={false}
                                                 />
                                             </Td>
                                         </Tr>
@@ -117,6 +119,6 @@ export default function ServicesList({
                     <p className="text-xs text-[var(--color-fg-muted)] mt-1">Sélectionnez un département à gauche pour afficher ses services rattachés.</p>
                 </div>
             )}
-        </div>
+        </Card>
     );
 }

@@ -13,22 +13,22 @@ import Badge from '@/components/ui/data-display/Badge';
 const STATUS_PRESENTATION = {
     PRESENT: {
         icon: CheckCircle2,
-        dotColor: 'bg-emerald-500',
-        textColor: 'text-emerald-700 dark:text-emerald-400',
-        bgHover: 'hover:bg-emerald-500/10'
+        dotColor: 'bg-[var(--color-success-500)]',
+        textColor: 'text-[var(--color-success-700)] dark:text-[var(--color-success-400)]',
+        bgHover: 'hover:bg-[var(--color-success-500)]/10'
     },
     ABSENCE_JUSTIFIEE: {
         icon: AlertTriangle,
-        dotColor: 'bg-amber-500',
-        textColor: 'text-amber-700 dark:text-amber-400',
-        bgHover: 'hover:bg-amber-500/10',
+        dotColor: 'bg-[var(--color-warning-500)]',
+        textColor: 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]',
+        bgHover: 'hover:bg-[var(--color-warning-500)]/10',
         requiresMotif: true
     },
     ABSENCE_NON_JUSTIFIEE: {
         icon: XCircle,
-        dotColor: 'bg-rose-500',
-        textColor: 'text-rose-700 dark:text-rose-400',
-        bgHover: 'hover:bg-rose-500/10'
+        dotColor: 'bg-[var(--color-danger-500)]',
+        textColor: 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)]',
+        bgHover: 'hover:bg-[var(--color-danger-500)]/10'
     }
 };
 
@@ -319,8 +319,8 @@ export default function StatusPickerPopover({
                             onClick={() => handleApply(selectedStatut)}
                             className={`inline-flex items-center gap-1 px-3 py-1 text-[11px] font-bold rounded shadow-xs cursor-pointer ${
                                 !isMotifValid
-                                    ? 'bg-gray-400 dark:bg-gray-600 text-white cursor-not-allowed opacity-60'
-                                    : 'bg-brand-600 hover:bg-brand-700 text-white'
+                                    ? 'bg-[var(--color-fg-subtle)] dark:bg-[var(--color-bg-subtle)] text-[var(--color-on-color)] cursor-not-allowed opacity-60'
+                                    : 'bg-brand-600 hover:bg-brand-700 text-[var(--color-on-color)]'
                             }`}
                         >
                             <Check size={12} />

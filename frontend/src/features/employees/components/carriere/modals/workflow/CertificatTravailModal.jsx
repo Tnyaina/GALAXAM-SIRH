@@ -121,7 +121,7 @@ export default function CertificatTravailModal({
     const departement = docData?.dernierDepartement || affectation?.libelleDepartement || '';
 
     return createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-6 bg-black/60 backdrop-blur-[2px] print:p-0 print:bg-white print:static print:block">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-6 bg-[var(--color-overlay)]/60 backdrop-blur-[2px] print:p-0 print:bg-[var(--color-surface)] print:static print:block">
             {/* Règles CSS dédiées à l'impression A4 évitant le cadrage déformé et masquant le reste de la page */}
             <style>{`
                 @media print {
@@ -130,7 +130,7 @@ export default function CertificatTravailModal({
                         margin: 12mm 15mm;
                     }
                     html, body {
-                        background: #ffffff !important;
+                        background: var(--color-print-paper) !important;
                         height: auto !important;
                         min-height: auto !important;
                         overflow: visible !important;
@@ -163,17 +163,17 @@ export default function CertificatTravailModal({
             {/* Modale Container */}
             <div
                 className={`
-                    relative bg-white border border-gray-300 rounded shadow-2xl
+                    relative bg-[var(--color-surface)] border border-[var(--color-border)] rounded shadow-2xl
                     w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col
                     transform print:shadow-none print:border-none print:w-full print:max-w-none print:h-auto print:max-h-none print:overflow-visible print:transform-none print:p-0
                     ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
                 `}
             >
                 {/* Barre d'actions (masquée à l'impression) */}
-                <div className="px-6 py-3.5 border-b border-gray-200 bg-gray-50 flex-shrink-0 flex items-center justify-between print:hidden">
+                <div className="px-6 py-3.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex-shrink-0 flex items-center justify-between print:hidden">
                     <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm text-gray-900">Certificat de Travail</span>
-                        <span className="text-xs text-gray-500">({refDoc})</span>
+                        <span className="font-semibold text-sm text-[var(--color-fg)]">Certificat de Travail</span>
+                        <span className="text-xs text-[var(--color-fg-muted)]">({refDoc})</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <Button
@@ -199,7 +199,7 @@ export default function CertificatTravailModal({
                         </Button>
                         <button
                             onClick={onClose}
-                            className="text-gray-400 hover:text-gray-700 p-1 ml-2 rounded hover:bg-gray-200 transition-colors"
+                            className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)] p-1 ml-2 rounded hover:bg-[var(--color-border-subtle)] transition-colors"
                             aria-label="Fermer"
                         >
                             <X size={18} />
@@ -208,17 +208,17 @@ export default function CertificatTravailModal({
                 </div>
 
                 {/* Options (masquée à l'impression) */}
-                <div className="px-6 py-2.5 bg-gray-100/70 border-b border-gray-200 flex flex-wrap items-center justify-between gap-4 flex-shrink-0 print:hidden text-xs text-gray-700">
+                <div className="px-6 py-2.5 bg-[var(--color-bg-subtle)]/70 border-b border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-4 flex-shrink-0 print:hidden text-xs text-[var(--color-fg)]">
                     <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-600">Période prise en compte :</span>
-                        <div className="inline-flex bg-gray-200 p-0.5 rounded">
+                        <span className="font-medium text-[var(--color-fg-muted)]">Période prise en compte :</span>
+                        <div className="inline-flex bg-[var(--color-border-subtle)] p-0.5 rounded">
                             <button
                                 type="button"
                                 onClick={() => setTypeAnciennete('globale')}
                                 className={`px-2.5 py-0.5 rounded text-xs transition-colors ${
                                     typeAnciennete === 'globale'
-                                        ? 'bg-white text-gray-900 font-semibold shadow-xs'
-                                        : 'text-gray-600 hover:text-gray-900'
+                                        ? 'bg-[var(--color-surface)] text-[var(--color-fg)] font-semibold shadow-xs'
+                                        : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                                 }`}
                             >
                                 Carrière complète
@@ -228,8 +228,8 @@ export default function CertificatTravailModal({
                                 onClick={() => setTypeAnciennete('contrat')}
                                 className={`px-2.5 py-0.5 rounded text-xs transition-colors ${
                                     typeAnciennete === 'contrat'
-                                        ? 'bg-white text-gray-900 font-semibold shadow-xs'
-                                        : 'text-gray-600 hover:text-gray-900'
+                                        ? 'bg-[var(--color-surface)] text-[var(--color-fg)] font-semibold shadow-xs'
+                                        : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                                 }`}
                             >
                                 Contrat actuel
@@ -238,14 +238,14 @@ export default function CertificatTravailModal({
                     </div>
 
                     {dureeTotaleTexte && (
-                        <div className="text-gray-600 text-xs">
-                            Durée totale : <span className="font-medium text-gray-900">{dureeTotaleTexte}</span>
+                        <div className="text-[var(--color-fg-muted)] text-xs">
+                            Durée totale : <span className="font-medium text-[var(--color-fg)]">{dureeTotaleTexte}</span>
                         </div>
                     )}
                 </div>
 
                 {/* Feuille de document officielle — Rendu 1:1 modèle Word (Police Calibri, sobre, sans déco superflue) */}
-                <div className="flex-1 overflow-y-auto p-6 lg:p-10 bg-gray-200/60 print:bg-white print:p-0 print:overflow-visible print:block">
+                <div className="flex-1 overflow-y-auto p-6 lg:p-10 bg-[var(--color-border-subtle)]/60 print:bg-[var(--color-surface)] print:p-0 print:overflow-visible print:block">
                     {loadingData ? (
                         <div className="py-20 flex justify-center print:hidden">
                             <Loading size="lg" label="Chargement du certificat de travail..." />
@@ -254,42 +254,42 @@ export default function CertificatTravailModal({
                         <div
                             ref={printRef}
                             id="certificat-print-sheet"
-                            className="w-full max-w-[720px] mx-auto bg-white p-10 md:p-14 shadow-md text-black leading-relaxed print:shadow-none print:p-0"
+                            className="w-full max-w-[720px] mx-auto bg-[var(--color-surface)] p-10 md:p-14 shadow-md text-[var(--color-fg)] leading-relaxed print:shadow-none print:p-0"
                             style={{ fontFamily: "Calibri, 'Segoe UI', Arial, sans-serif" }}
                         >
                             {/* EN-TÊTE DE SOCIÉTÉ OFFICIEL */}
-                            <div className="text-center pb-3 border-b-2 border-[#1f3864]">
-                                <div className="text-base md:text-lg font-bold tracking-wider uppercase text-[#1f3864]">
+                            <div className="text-center pb-3 border-b-2 border-[var(--color-print-brand)]">
+                                <div className="text-base md:text-lg font-bold tracking-wider uppercase text-[var(--color-print-brand)]">
                                     {ent.nom}
                                 </div>
-                                <div className="text-xs text-gray-700 mt-1">
+                                <div className="text-xs text-[var(--color-fg)] mt-1">
                                     {ent.adresse} · {ent.ville} · {ent.pays}
                                 </div>
-                                <div className="text-xs text-gray-700">
+                                <div className="text-xs text-[var(--color-fg)]">
                                     {ent.nif && <span>NIF : {ent.nif}</span>}
                                     {ent.nif && ent.stat && <span> · </span>}
                                     {ent.stat && <span>STAT : {ent.stat}</span>}
                                     {ent.rcs && <span> · {ent.rcs}</span>}
                                 </div>
-                                <div className="text-xs text-gray-700">
+                                <div className="text-xs text-[var(--color-fg)]">
                                     Tél. : {ent.telephone} · Email : {ent.email}
                                 </div>
                             </div>
 
                             {/* TITRE DU DOCUMENT */}
                             <div className="text-center mt-8 mb-4">
-                                <h1 className="text-lg md:text-xl font-bold uppercase tracking-wide text-black">
+                                <h1 className="text-lg md:text-xl font-bold uppercase tracking-wide text-[var(--color-fg)]">
                                     CERTIFICAT DE TRAVAIL
                                 </h1>
                             </div>
 
                             {/* RÉFÉRENCE ET DATE */}
-                            <div className="text-right text-xs text-gray-700 mb-6">
+                            <div className="text-right text-xs text-[var(--color-fg)] mb-6">
                                 Référence : {refDoc} — {sig.ville}, le {sig.dateEmissionTexte}
                             </div>
 
                             {/* TEXTE DU CERTIFICAT CONFORME AU MODÈLE DOCX */}
-                            <div className="space-y-4 text-xs md:text-sm text-justify leading-relaxed text-black">
+                            <div className="space-y-4 text-xs md:text-sm text-justify leading-relaxed text-[var(--color-fg)]">
                                 <p>
                                     Je soussigné(e), <strong>{sig.nom}</strong>, agissant en qualité de <strong>{sig.fonction}</strong> de la société <strong>{ent.nom}</strong>
                                     {ent.adresse ? `, dont le siège social est situé ${ent.adresse}` : ''}
@@ -345,13 +345,13 @@ export default function CertificatTravailModal({
                             </div>
 
                             {/* SIGNATURE & CACHET (ALIGNÉ À DROITE, CONFORME MODÈLE) */}
-                            <div className="mt-12 text-right text-xs leading-relaxed text-black">
+                            <div className="mt-12 text-right text-xs leading-relaxed text-[var(--color-fg)]">
                                 <p>{sig.ville ? `${sig.ville}, le ` : 'Le '}{sig.dateEmissionTexte}</p>
                                 <p className="italic mt-1">Fait pour servir et valoir ce que de droit.</p>
                                 <div className="pt-6">
                                     <p className="font-bold">{sig.nom}</p>
                                     <p>{sig.fonction}</p>
-                                    <p className="text-gray-500 pt-1">Signature et cachet de l'entreprise</p>
+                                    <p className="text-[var(--color-fg-muted)] pt-1">Signature et cachet de l'entreprise</p>
                                 </div>
                             </div>
                         </div>

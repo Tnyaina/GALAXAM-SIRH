@@ -200,7 +200,7 @@ export default function CarriereModalCoordinator({
 
             {/* Overlay de chargement fluide */}
             {isTransitioning && (
-                <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs">
+                <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[var(--color-overlay)]/60 backdrop-blur-xs">
                     <div className="flex flex-col items-center gap-4 p-6 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-2xl max-w-sm w-full text-center">
                         <Loading size="md" label="Enregistrement en cours..." />
                         <p className="text-[11px] text-[var(--color-fg-subtle)] -mt-2">

@@ -4,6 +4,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import { Textarea, Checkbox } from '@/components/ui/forms/Input';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
@@ -410,7 +411,7 @@ export default function ValidationModals({
         }
       >
         <div className="space-y-4">
-          {actionError && <Alert type="error" message={typeof actionError === 'string' ? actionError : JSON.stringify(actionError)} />}
+          {actionError && <FormError message={typeof actionError === 'string' ? actionError : JSON.stringify(actionError)} />}
           <Alert type="warning" message="Le refus d'une demande de congé doit être justifié." />
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
@@ -455,7 +456,7 @@ export default function ValidationModals({
         }
       >
         <div className="space-y-4">
-          {actionError && <Alert type="error" message={typeof actionError === 'string' ? actionError : JSON.stringify(actionError)} />}
+          {actionError && <FormError message={typeof actionError === 'string' ? actionError : JSON.stringify(actionError)} />}
 
           {selectedDemande?.codeStatutDemande === 'VALIDE' ? (
             <Alert

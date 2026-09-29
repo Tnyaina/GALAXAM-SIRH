@@ -181,18 +181,18 @@ export default function EmployeSideSummaryPanel({
                                 onClick={() => onNavigateTab(id)}
                                 className={`w-full py-2 px-3 text-xs flex items-center justify-between font-semibold border transition-colors rounded-none cursor-pointer leading-tight ${
                                     isActive
-                                        ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)] shadow-2xs'
+                                        ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] border-[var(--color-brand-500)] shadow-2xs'
                                         : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-hover)] hover:border-[var(--color-border)]'
                                 }`}
                             >
                                 <span className="flex items-center gap-2">
-                                    <Icon size={14} className={isActive ? 'text-white' : 'text-[var(--color-brand-500)]'} />
+                                    <Icon size={14} className={isActive ? 'text-[var(--color-on-color)]' : 'text-[var(--color-brand-500)]'} />
                                     <span>{label}</span>
                                 </span>
                                 {count !== undefined && (
                                     <span className={`text-[10px] font-bold px-1.5 py-0.5 border ${
                                         isActive
-                                            ? 'bg-white/20 text-white border-white/30'
+                                            ? 'bg-[var(--color-surface)]/20 text-[var(--color-on-color)] border-[var(--color-on-color)]/30'
                                             : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)]'
                                     }`}>
                                         {count}

@@ -1,3 +1,4 @@
+import FormError from '@/components/ui/feedback/FormError';
 import { useState, useEffect } from 'react';
 import { Users } from 'lucide-react';
 import congeService from '@/features/leave/api/congeService';
@@ -5,7 +6,6 @@ import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Modal from '@/components/ui/overlays/Modal';
-import Alert from '@/components/ui/feedback/Alert';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initialData = null }) {
@@ -49,10 +49,6 @@ export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initial
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.code.trim() || !formData.libelle.trim() || !formData.nbJoursAutorises) {
-      setError('Veuillez remplir tous les champs obligatoires.');
-      return;
-    }
 
     try {
       setLoading(true);
@@ -102,7 +98,7 @@ export default function MotifFamilialModal({ isOpen, onClose, onSuccess, initial
       }
     >
       <form id="motifForm" onSubmit={handleSubmit} className="space-y-4">
-        {error && <Alert type="error" message={error} />}
+        {error && <FormError message={error} />}
 
         <Input
           label="Code (ex: MARIAGE, NAISSANCE)"

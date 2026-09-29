@@ -100,7 +100,7 @@ export default function HistoriqueWorkflowsTable({ workflowsList = [], onSelectW
                                                 }}
                                                 variant="outline"
                                                 size="xs"
-                                                className="border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+                                                className="border-[var(--color-warning-500)]/30 text-[var(--color-warning-600)] hover:bg-[var(--color-warning-500)]/10"
                                             >
                                                 Relecture
                                             </Button>

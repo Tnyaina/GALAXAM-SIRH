@@ -9,6 +9,7 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
 
@@ -23,7 +24,7 @@ function FonctionFormModal({ isOpen, onClose, onSubmit, editingFonction, formDat
             footer={<><Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>Annuler</Button><Button type="submit" form="fonction-form" variant="primary" size="sm" loading={submitting}>{editingFonction ? "Enregistrer les modifications" : "Créer le poste"}</Button></>}
         >
             <form id="fonction-form" onSubmit={onSubmit} className="space-y-4">
-                {actionError && <Alert type="error" message={actionError} />}
+                {actionError && <FormError message={actionError} />}
                 <Input label="Code Fonction / Poste" required disabled={!!editingFonction} value={formData.codeFonction} onChange={(event) => setFormData({ ...formData, codeFonction: event.target.value.toUpperCase() })} placeholder="Ex: DG, DAF, DECLARANT, CHAUFFEUR" />
                 <Input label="Intitulé du Poste" required value={formData.libelle} onChange={(event) => setFormData({ ...formData, libelle: event.target.value })} placeholder="Ex: Responsable des Opérations Douanières" />
                 <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-1">

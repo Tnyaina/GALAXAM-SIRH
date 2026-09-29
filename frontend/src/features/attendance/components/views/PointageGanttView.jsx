@@ -99,7 +99,7 @@ export default function PointageGanttView({
                                         <span>{sem.title}</span>
                                         {sem.estValidee && <CheckCircle2 size={10} className="text-[var(--color-success-600)]" />}
                                         {sem.nbAnomalies > 0 && !sem.estValidee && (
-                                            <span className="px-1 py-0.5 text-[8px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 leading-none">
+                                            <span className="px-1 py-0.5 text-[8px] font-bold bg-[var(--color-warning-500)]/20 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] border border-[var(--color-warning-500)]/40 leading-none">
                                                 {sem.nbAnomalies}
                                             </span>
                                         )}
@@ -126,7 +126,7 @@ export default function PointageGanttView({
                                 <CheckCircle2 size={10} /> Semaine calculee
                             </span>
                         ) : selectedSemaine.nbAnomalies > 0 ? (
-                            <span className="flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 border border-amber-500/40 bg-amber-500/10 px-2 py-0.5">
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] border border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10 px-2 py-0.5">
                                 <AlertTriangle size={10} /> {selectedSemaine.nbAnomalies} anomalie(s)
                             </span>
                         ) : (
@@ -169,7 +169,7 @@ export default function PointageGanttView({
                                                     : isFuture
                                                         ? 'bg-[var(--color-bg-subtle)]/30 text-[var(--color-fg-muted)] opacity-60'
                                                         : day.isWeekend
-                                                            ? 'bg-amber-500/5 text-[var(--color-fg-muted)]'
+                                                            ? 'bg-[var(--color-warning-500)]/5 text-[var(--color-fg-muted)]'
                                                             : 'text-[var(--color-fg)]'
                                                 }`}
                                         >
@@ -295,7 +295,7 @@ function GanttCell({ cellData, day }) {
                 <span className="text-[8px] font-mono leading-tight opacity-80">{timeStr}</span>
             )}
             {cellData?.retard && cellData?.minutesRetard > 0 && (
-                <span className="text-[7px] font-bold text-orange-600 dark:text-orange-400 leading-tight">
+                <span className="text-[7px] font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] leading-tight">
                     -{cellData.minutesRetard}min
                 </span>
             )}
@@ -345,13 +345,13 @@ function GanttTooltip({ tooltip, tooltipRef }) {
                 <TooltipRow label="Statut" value={<span className="font-bold">{label}</span>} />
 
                 {isDimancheTravaille && (
-                    <div className="px-1.5 py-0.5 bg-indigo-500/10 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 font-bold text-[9.5px]">
+                    <div className="px-1.5 py-0.5 bg-[var(--color-info-500)]/10 border border-[var(--color-info-500)]/30 text-[var(--color-info-700)] dark:text-[var(--color-info-300)] font-bold text-[9.5px]">
                         Dimanche travaillé
                     </div>
                 )}
 
                 {(cellData?.ferieJour || cellData?.codeStatut === 'FERIE_TRAVAILLE') && hasWorked && (
-                    <div className="px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 font-bold text-[9.5px]">
+                    <div className="px-1.5 py-0.5 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 text-[var(--color-warning-800)] dark:text-[var(--color-warning-200)] font-bold text-[9.5px]">
                         Jour férié travaillé
                     </div>
                 )}
@@ -364,11 +364,11 @@ function GanttTooltip({ tooltip, tooltipRef }) {
                 )}
 
                 {Number(cellData?.heuresNuit || 0) > 0 && (
-                    <TooltipRow label="Heures de nuit" value={<span className="font-mono text-sky-600 dark:text-sky-400 font-bold">{Number(cellData.heuresNuit).toFixed(2)}h</span>} />
+                    <TooltipRow label="Heures de nuit" value={<span className="font-mono text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] font-bold">{Number(cellData.heuresNuit).toFixed(2)}h</span>} />
                 )}
 
                 {cellData?.retard && cellData?.minutesRetard > 0 && (
-                    <TooltipRow label="Retard" value={`-${cellData.minutesRetard} min`} className="text-orange-600 dark:text-orange-400 font-bold" />
+                    <TooltipRow label="Retard" value={`-${cellData.minutesRetard} min`} className="text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-bold" />
                 )}
 
                 <div className="pt-1 mt-1 border-t border-[var(--color-border-subtle)] space-y-1">
@@ -381,7 +381,7 @@ function GanttTooltip({ tooltip, tooltipRef }) {
                 </div>
 
                 {cellData?.motifAbsence && (
-                    <TooltipRow label="Motif" value={cellData.motifAbsence} className="text-rose-600" />
+                    <TooltipRow label="Motif" value={cellData.motifAbsence} className="text-[var(--color-danger-600)]" />
                 )}
             </div>
 
@@ -488,12 +488,12 @@ function getStatutStyle(cellData, day) {
 
     // Dimanche travaillé (avec majoration)
     if (isSunday(day) && hasWorked) {
-        return { bg: 'bg-indigo-500/15', border: 'border-indigo-500/50', text: 'text-indigo-800 dark:text-indigo-200 font-bold' };
+        return { bg: 'bg-[var(--color-info-500)]/15', border: 'border-[var(--color-info-500)]/50', text: 'text-[var(--color-info-800)] dark:text-[var(--color-info-200)] font-bold' };
     }
 
     // Samedi travaillé
     if (isSaturday(day) && hasWorked) {
-        return { bg: 'bg-emerald-500/15', border: 'border-emerald-500/50', text: 'text-emerald-800 dark:text-emerald-200 font-bold' };
+        return { bg: 'bg-[var(--color-success-500)]/15', border: 'border-[var(--color-success-500)]/50', text: 'text-[var(--color-success-800)] dark:text-[var(--color-success-200)] font-bold' };
     }
 
     // Weekend sans travail = Repos légal (y compris cadres autonomes)
@@ -505,14 +505,14 @@ function getStatutStyle(cellData, day) {
     if (cellData.codeStatut === 'REPOS' || cellData.repos) return { bg: 'bg-[var(--color-bg-subtle)]/40', border: 'border-[var(--color-border-subtle)]', text: 'text-[var(--color-fg-muted)] opacity-55' };
     if (cellData.ferieJour) return { bg: 'bg-[var(--color-bg-subtle)]', border: 'border-[var(--color-border)]', text: 'text-[var(--color-fg-muted)]' };
     if (cellData.absenceNonJustifiee || cellData.codeStatut === 'ABSENCE_NON_JUSTIFIEE') return { bg: 'bg-[var(--color-danger-500)]/10', border: 'border-[var(--color-danger-500)]/40', text: 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' };
-    if (cellData.conge || cellData.absenceJustifiee || cellData.codeStatut === 'CONGE') return { bg: 'bg-sky-500/10', border: 'border-sky-500/40', text: 'text-sky-700 dark:text-sky-300' };
+    if (cellData.conge || cellData.absenceJustifiee || cellData.codeStatut === 'CONGE') return { bg: 'bg-[var(--color-sky-500)]/10', border: 'border-[var(--color-sky-500)]/40', text: 'text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)]' };
 
     if (cellData.dispensePointage && !weekend) {
         if (cellData.planifie) return { bg: 'bg-[var(--color-bg-subtle)]', border: 'border-dashed border-[var(--color-border-subtle)]', text: 'text-[var(--color-fg-muted)]' };
-        return { bg: 'bg-violet-500/10', border: 'border-violet-500/40', text: 'text-violet-700 dark:text-violet-300' };
+                return { bg: 'bg-[var(--color-info-500)]/10', border: 'border-[var(--color-info-500)]/40', text: 'text-[var(--color-info-700)] dark:text-[var(--color-info-300)]' };
     }
 
-    if (cellData.retard && cellData.minutesRetard > 0) return { bg: 'bg-orange-500/10', border: 'border-orange-500/40', text: 'text-orange-700 dark:text-orange-300' };
+    if (cellData.retard && cellData.minutesRetard > 0) return { bg: 'bg-[var(--color-warning-500)]/10', border: 'border-[var(--color-warning-500)]/40', text: 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]' };
     if (cellData.present || hasWorked) return { bg: 'bg-[var(--color-success-500)]/10', border: 'border-[var(--color-success-500)]/40', text: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' };
 
     return { bg: 'bg-[var(--color-bg-subtle)]', border: 'border-[var(--color-border-subtle)]', text: 'text-[var(--color-fg-muted)]' };
@@ -569,10 +569,10 @@ function getTimeString(cellData, day) {
 
 const GANTT_STATUTS = [
     { code: 'PRESENT', label: 'Présent', bg: 'bg-[var(--color-success-500)]/10', border: 'border-[var(--color-success-500)]/40' },
-    { code: 'DIMANCHE', label: 'Dimanche (Majoré)', bg: 'bg-indigo-500/15', border: 'border-indigo-500/50' },
-    { code: 'AUTONOME', label: 'Autonome', bg: 'bg-violet-500/10', border: 'border-violet-500/40' },
-    { code: 'RETARD', label: 'Retard', bg: 'bg-orange-500/10', border: 'border-orange-500/40' },
-    { code: 'CONGE', label: 'Congé', bg: 'bg-sky-500/10', border: 'border-sky-500/40' },
+    { code: 'DIMANCHE', label: 'Dimanche (Majoré)', bg: 'bg-[var(--color-info-500)]/15', border: 'border-[var(--color-info-500)]/50' },
+    { code: 'AUTONOME', label: 'Autonome', bg: 'bg-[var(--color-info-500)]/10', border: 'border-[var(--color-info-500)]/40' },
+    { code: 'RETARD', label: 'Retard', bg: 'bg-[var(--color-warning-500)]/10', border: 'border-[var(--color-warning-500)]/40' },
+    { code: 'CONGE', label: 'Congé', bg: 'bg-[var(--color-sky-500)]/10', border: 'border-[var(--color-sky-500)]/40' },
     { code: 'ABSENT_NJ', label: 'Abs. N.J.', bg: 'bg-[var(--color-danger-500)]/10', border: 'border-[var(--color-danger-500)]/40' },
     { code: 'FERIE', label: 'Férié', bg: 'bg-[var(--color-bg-subtle)]', border: 'border-[var(--color-border)]' },
     { code: 'REPOS', label: 'Repos', bg: 'bg-[var(--color-bg-subtle)]/40', border: 'border-[var(--color-border-subtle)]' },

@@ -1,5 +1,6 @@
 import { AlertTriangle, Info, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
+import FieldError from '@/components/ui/forms/FieldError';
 
 export default function DatesCongeSection({
   dateDebut, setDateDebut,
@@ -56,9 +57,9 @@ export default function DatesCongeSection({
         {/* Sélection du moment si demi-journée */}
         {estDemiJournee && (
           <div className="p-3 bg-info-500/5 border border-info-500/20 space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+            <p id="leave-moment-label" className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
               Moment de la journée <span className="text-danger-500">*</span>
-            </label>
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <label className={`flex items-center gap-2 p-2.5 border cursor-pointer text-sm font-medium transition-colors ${
                 momentDemiJournee === 'MATIN' 
@@ -71,6 +72,9 @@ export default function DatesCongeSection({
                   value="MATIN"
                   checked={momentDemiJournee === 'MATIN'}
                   onChange={(e) => setMomentDemiJournee(e.target.value)}
+                  aria-labelledby="leave-moment-label"
+                  aria-invalid={!!fieldErrors.momentDemiJournee}
+                  aria-describedby={fieldErrors.momentDemiJournee ? 'leave-moment-error' : undefined}
                   className="accent-[var(--color-brand-500)]"
                 />
                 Matin (Matinée)
@@ -86,26 +90,27 @@ export default function DatesCongeSection({
                   value="APRES_MIDI"
                   checked={momentDemiJournee === 'APRES_MIDI'}
                   onChange={(e) => setMomentDemiJournee(e.target.value)}
+                  aria-labelledby="leave-moment-label"
+                  aria-invalid={!!fieldErrors.momentDemiJournee}
+                  aria-describedby={fieldErrors.momentDemiJournee ? 'leave-moment-error' : undefined}
                   className="accent-[var(--color-brand-500)]"
                 />
                 Après-midi (Deuxième partie)
               </label>
             </div>
-            {fieldErrors.momentDemiJournee && (
-              <p className="text-xs text-danger-500 flex items-center gap-1 mt-1">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {fieldErrors.momentDemiJournee}
-              </p>
-            )}
+            <FieldError id="leave-moment-error" className="mt-1">{fieldErrors.momentDemiJournee}</FieldError>
           </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <label className="block text-sm font-semibold text-[var(--color-fg)]">
+            <label htmlFor="leave-date-start" className="block text-sm font-semibold text-[var(--color-fg)]">
               Date {estDemiJournee ? 'du congé' : 'de début'} <span className="text-danger-500">*</span>
             </label>
             <Input
+              id="leave-date-start"
               type="date"
+              error={fieldErrors.dateDebut}
               value={dateDebut}
               onChange={(e) => {
                 const val = e.target.value;
@@ -117,18 +122,15 @@ export default function DatesCongeSection({
               }}
               required
             />
-            {fieldErrors.dateDebut && (
-              <p className="text-xs text-danger-500 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {fieldErrors.dateDebut}
-              </p>
-            )}
           </div>
           <div className="space-y-1.5">
-            <label className="block text-sm font-semibold text-[var(--color-fg)]">
+            <label htmlFor="leave-date-end" className="block text-sm font-semibold text-[var(--color-fg)]">
               Date de fin <span className="text-danger-500">*</span>
             </label>
             <Input
+              id="leave-date-end"
               type="date"
+              error={fieldErrors.dateFin}
               value={estDemiJournee ? dateDebut : dateFin}
               disabled={estDemiJournee}
               min={dateDebut || undefined}
@@ -138,11 +140,6 @@ export default function DatesCongeSection({
               }}
               required
             />
-            {fieldErrors.dateFin && (
-              <p className="text-xs text-danger-500 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {fieldErrors.dateFin}
-              </p>
-            )}
           </div>
         </div>
 

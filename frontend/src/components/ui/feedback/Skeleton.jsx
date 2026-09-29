@@ -78,12 +78,13 @@ export function SkeletonStatCard({ className = '' }) {
   );
 }
 
-export function SkeletonTable({ rows = 5, columns = 4 }) {
+export function SkeletonTable({ rows = 5, columns, cols, bordered = true, className = '' }) {
+  const columnCount = columns ?? cols ?? 4;
   return (
-    <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none overflow-hidden">
+    <div className={`${bordered ? 'border border-[var(--color-border-subtle)] bg-[var(--color-surface)]' : ''} rounded-none overflow-hidden ${className}`}>
       {/* Header fictif */}
       <div className="flex items-center gap-4 px-4 py-3 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)]">
-        {Array.from({ length: columns }).map((_, i) => (
+        {Array.from({ length: columnCount }).map((_, i) => (
           <Skeleton key={i} className="h-3 flex-1" />
         ))}
       </div>

@@ -7,7 +7,7 @@ import {
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
-import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import { Textarea } from '@/components/ui/forms/Input';
 import { useAuth } from '@/context/AuthContext';
 import HasPermission from '@/features/auth/components/HasPermission';
@@ -177,7 +177,7 @@ export default function WorkflowDraftSummaryModal({
     return (
         <div 
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 overflow-y-auto"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-overlay)]/50 backdrop-blur-[2px] p-4 overflow-y-auto"
         >
             <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl max-w-4xl w-full my-8 overflow-hidden flex flex-col max-h-[90vh]">
 
@@ -219,7 +219,7 @@ export default function WorkflowDraftSummaryModal({
                 {/* Body Content */}
                 <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
                     {errorMsg && (
-                        <Alert type="error" message={errorMsg} />
+                        <FormError message={errorMsg} />
                     )}
 
                     {/* Alerte Information */}

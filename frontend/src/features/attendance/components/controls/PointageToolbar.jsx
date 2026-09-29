@@ -37,7 +37,7 @@ export default function PointageToolbar({
                     <div className="flex items-center gap-1 shrink-0">
                         <Select
                             options={siteOptions}
-                            value={selectedSite}
+                            value={selectedSite ? String(selectedSite) : ''}
                             onChange={(val) => onSiteChange(val)}
                             disabled={isReadOnly}
                             placeholder="Sélectionner un site..."
@@ -116,7 +116,7 @@ export default function PointageToolbar({
                         className={`
                             flex items-center gap-1.5 px-4 h-[32px] text-xs font-bold shrink-0 transition-all cursor-pointer border whitespace-nowrap
                             ${dirtyCount > 0
-                                ? 'bg-[var(--color-brand-600)] hover:bg-[var(--color-brand-700)] text-white border-[var(--color-brand-600)] shadow-sm'
+                                ? 'bg-[var(--color-brand-600)] hover:bg-[var(--color-brand-700)] text-[var(--color-on-color)] border-[var(--color-brand-600)] shadow-sm'
                                 : isReadOnly
                                     ? 'bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] opacity-50 cursor-not-allowed'
                                     : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-fg-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)]'
@@ -132,7 +132,7 @@ export default function PointageToolbar({
                         )}
                         <span>{saving ? 'Enregistrement…' : dirtyCount > 0 ? 'Enregistrer' : 'Enregistré'}</span>
                         {dirtyCount > 0 && (
-                            <span className="bg-white/25 text-white text-[10px] font-mono px-1.5 py-0.5 rounded-none leading-none">
+                            <span className="bg-[var(--color-surface)]/25 text-[var(--color-on-color)] text-[10px] font-mono px-1.5 py-0.5 rounded-none leading-none">
                                 {dirtyCount}
                             </span>
                         )}

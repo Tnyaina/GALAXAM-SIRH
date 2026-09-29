@@ -285,14 +285,14 @@ export default function PointageDetailHebdoModal({
                         {/* 4. CONTENU ONGLET 1 : DÉCOMPOSITION HEBDOMADAIRE */}
                         {activeTab === 'hebdo' && (
                             <div className="space-y-3">
-                                <Table size="sm" divided>
+                                <Table density="compact" divided>
                                     <Thead>
                                         <Tr>
                                             <Th className="w-32">Semaine</Th>
                                             <Th className="text-center w-14">Jours</Th>
                                             <Th className="text-center w-24">Objectif semaine</Th>
                                             <Th className="text-center w-28">Heures faites</Th>
-                                            <Th className="text-center w-20 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]" title="Retards observés, indépendamment de la compensation">Retards</Th>
+                                            <Th className="text-center w-20 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]" title="Retards observés, indépendamment de la compensation">Retards</Th>
                                             <Th className="text-center w-20 text-[var(--color-info-700)] dark:text-[var(--color-info-200)]" title="Temps au-delà de la durée normale d'une journée">Heures en plus</Th>
                                             <Th className="text-center w-24 text-[var(--color-success-600)] dark:text-[var(--color-success-400)]" title="Part des heures en plus utilisée pour couvrir un manque de la semaine">Utilisées</Th>
                                             <Th className="text-center w-32">Résultat paie</Th>
@@ -356,10 +356,10 @@ export default function PointageDetailHebdoModal({
                                                             <span className="block text-[9px] text-[var(--color-fg-muted)]">({faitDec})</span>
                                                         </Td>
 
-                                                        {/* Retards (Rouge) */}
+                                                        {/* Retards (Avertissement) */}
                                                         <Td className="text-center font-mono text-xs">
                                                             {retMin > 0 ? (
-                                                                <span className="font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                                                                <span className="font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]">
                                                                     {formatDualHours(retHeures, { primary: 'hhmm' })}
                                                                     <span className="block text-[9px] font-normal">{retMin} min</span>
                                                                 </span>
@@ -428,7 +428,7 @@ export default function PointageDetailHebdoModal({
                         {/* 5. CONTENU ONGLET 2 : JOURNAL QUOTIDIEN */}
                         {activeTab === 'quotidien' && (
                             <div className="space-y-3">
-                                <Table size="sm" divided>
+                                <Table density="compact" divided>
                                     <Thead>
                                         <Tr>
                                             <Th className="w-24">Date</Th>
@@ -437,7 +437,7 @@ export default function PointageDetailHebdoModal({
                                             <Th className="text-center w-16">Pause Dép.</Th>
                                             <Th className="text-center w-16">Pause Ret.</Th>
                                             <Th className="text-center w-16">Sortie</Th>
-                                            <Th className="text-center w-18 text-rose-700 dark:text-rose-400">Retard</Th>
+                                            <Th className="text-center w-18 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]">Retard</Th>
                                             <Th className="text-center w-20">Fait</Th>
                                             <Th className="text-center w-20">Écart</Th>
                                             <Th className="text-center w-28">Statut</Th>
@@ -489,10 +489,10 @@ export default function PointageDetailHebdoModal({
                                                         <Td className="text-center font-mono text-xs">
                                                             {sortie}
                                                         </Td>
-                                                        {/* Retard (Rouge) */}
+                                                        {/* Retard (Avertissement) */}
                                                         <Td className="text-center font-mono text-xs">
                                                             {retMin > 0 ? (
-                                                                <span className="font-bold text-rose-700 dark:text-rose-400">
+                                                                <span className="font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]">
                                                                     +{retMin}m
                                                                 </span>
                                                             ) : (
@@ -506,7 +506,7 @@ export default function PointageDetailHebdoModal({
                                                         {/* Écart vs Norme */}
                                                         <Td className="text-center font-mono text-xs">
                                                             {ecartStr && ecartStr !== '00 min' && ecartStr !== '0.00h' && ecartStr !== '—' ? (
-                                                                <span className={isEcartPos ? "text-indigo-700 dark:text-indigo-300 font-bold" : "text-rose-700 dark:text-rose-400 font-bold"}>
+                                                                <span className={isEcartPos ? "text-[var(--color-info-700)] dark:text-[var(--color-info-300)] font-bold" : "text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] font-bold"}>
                                                                     {ecartStr}
                                                                 </span>
                                                             ) : (

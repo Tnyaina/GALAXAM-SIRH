@@ -124,7 +124,7 @@ export default function PointageGridTable({
                                 className={`
                                     px-2.5 py-1 text-[11px] transition-all cursor-pointer border h-[26px] whitespace-nowrap flex items-center shrink-0
                                     ${isActive
-                                        ? 'bg-brand-600 border-brand-600 text-white font-bold'
+                                        ? 'bg-brand-600 border-brand-600 text-[var(--color-on-color)] font-bold'
                                         : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)]'
                                     }
                                 `}
@@ -140,7 +140,7 @@ export default function PointageGridTable({
 
                 {/* 2. Légende & Info */}
                 <div className="flex items-center gap-3 text-[11px]">
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[var(--color-warning-500)] inline-block"></span> Congé</span>
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[var(--color-sky-500)] inline-block"></span> Congé</span>
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[var(--color-ink-350)] inline-block"></span> Férié</span>
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[var(--color-info-500)] inline-block"></span> Cadre</span>
                     <span className="flex items-center gap-1.5"><span className="w-2 h-2 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] inline-block"></span> Non saisi</span>
@@ -257,7 +257,7 @@ export default function PointageGridTable({
                                                     {row.badgeProfilLabel && (
                                                         <span
                                                             className={`text-[9px] font-bold px-1 py-0.2 tracking-wide shrink-0 ${row.badgeProfilVariant === 'purple'
-                                                                    ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300'
+                                                                    ? 'bg-[var(--color-info-500)]/10 text-[var(--color-info-700)] dark:text-[var(--color-info-300)]'
                                                                     : 'bg-brand-500/15 text-brand-700 dark:text-brand-300'
                                                                 }`}
                                                             title={row.badgeProfilTooltip || row.badgeProfilLabel}
@@ -270,8 +270,8 @@ export default function PointageGridTable({
                                                             type="button"
                                                             onClick={() => onToggleHoraireContinu?.(row.idEmploye)}
                                                             className={`text-[9px] px-1.5 py-0.2 font-sans font-semibold rounded border transition-colors cursor-pointer shrink-0 ${
-                                                                row.horaireContinu 
-                                                                    ? 'bg-amber-500/20 text-amber-800 dark:text-amber-200 border-amber-500/40 hover:bg-amber-500/30' 
+                                                                row.horaireContinu
+                                                                    ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border-[var(--color-brand-500)]/40 hover:bg-[var(--color-brand-500)]/20'
                                                                     : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)]'
                                                             }`}
                                                             title={row.horaireContinu ? "Journée continue active (sans pause déjeuner). Cliquer pour rétablir la pause." : "Activer la journée continue (sans pause déjeuner 1h)"}
@@ -303,10 +303,10 @@ export default function PointageGridTable({
 
                                     {/* 3 & 4. Sortie Matin + Retour Midi (ou Continu sans pause) */}
                                     {row.horaireContinu ? (
-                                        <Td colSpan={2} className="px-2 py-1.5 text-center bg-amber-500/5 dark:bg-amber-500/10 border-l border-[var(--color-border-subtle)]">
+                                        <Td colSpan={2} className="px-2 py-1.5 text-center bg-[var(--color-brand-500)]/5 dark:bg-[var(--color-brand-500)]/10 border-l border-[var(--color-border-subtle)]">
                                             <div className="flex items-center justify-center gap-1.5 py-0.5">
-                                                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-300 select-none">
-                                                    <FastForward size={11} className="shrink-0 text-amber-600 dark:text-amber-400" /> Continu (sans pause)
+                                                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] select-none">
+                                                    <FastForward size={11} className="shrink-0 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]" /> Continu (sans pause)
                                                 </span>
                                                 {!isReadOnlyForUser && (
                                                     <button
@@ -379,7 +379,7 @@ export default function PointageGridTable({
                                             )}
                                             {row._previewError && <span className="text-[9px] text-danger-600" title={row._previewError}>Prévisualisation indisponible</span>}
                                             {row.heuresNuit > 0 && (
-                                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-purple-700 dark:text-purple-300 bg-purple-500/10 px-1 mt-0.5">
+                                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] bg-[var(--color-purple-500)]/10 px-1 mt-0.5">
                                                     <Moon size={9} /> nuit
                                                 </span>
                                             )}
@@ -499,7 +499,7 @@ export default function PointageGridTable({
                                                             />
                                                             <span className={checked
                                                                 ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-bold'
-                                                                : useGlobalIfZero ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--color-fg-muted)]'
+                                                                : useGlobalIfZero ? 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' : 'text-[var(--color-fg-muted)]'
                                                             }>
                                                                 {checked && repasFourniSansVersement
                                                                     ? 'Fourni · 0 Ar'
@@ -510,7 +510,7 @@ export default function PointageGridTable({
                                                             </span>
                                                         </label>
                                                         {useGlobalIfZero && !checked && (
-                                                            <span className="text-[9px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1 leading-tight">
+                                                            <span className="text-[9px] text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] bg-[var(--color-warning-500)]/10 px-1 leading-tight">
                                                                 opt.
                                                             </span>
                                                         )}
@@ -560,7 +560,7 @@ export default function PointageGridTable({
                             size="xs"
                             variant="outline"
                             onClick={handleApplyBulkStandard}
-                            icon={<Clock size={13} className="text-emerald-500" />}
+                            icon={<Clock size={13} className="text-[var(--color-success-500)]" />}
                             title="Préremplir les horaires configurés du site pour les lignes sélectionnées"
                         >
                             Horaires du site
@@ -578,7 +578,7 @@ export default function PointageGridTable({
                             size="xs"
                             variant="outline"
                             onClick={handleOpenCollectiveAbsence}
-                            icon={<UserX size={13} className="text-amber-500" />}
+                            icon={<UserX size={13} className="text-[var(--color-warning-500)]" />}
                             title="Déclarer une absence collective pour toute la sélection"
                         >
                             Absence collective…
@@ -593,7 +593,7 @@ export default function PointageGridTable({
                 onClose={() => setShowCollectiveAbsenceModal(false)}
                 title="Absence collective"
                 size="md"
-                icon={<UserX size={18} className="text-amber-500" />}
+                icon={<UserX size={18} className="text-[var(--color-warning-500)]" />}
                 footer={
                     <div className="flex items-center justify-end gap-3 w-full">
                         <Button
@@ -607,7 +607,7 @@ export default function PointageGridTable({
                             variant="primary"
                             size="sm"
                             onClick={handleConfirmCollectiveAbsence}
-                            className="bg-amber-600 hover:bg-amber-700 text-white border-none"
+                            className="bg-[var(--color-warning-600)] hover:bg-[var(--color-warning-700)] text-[var(--color-on-color)] border-none"
                         >
                             Appliquer l'absence
                         </Button>

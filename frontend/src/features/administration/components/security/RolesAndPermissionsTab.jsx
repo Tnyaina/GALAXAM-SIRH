@@ -6,6 +6,7 @@ import referentielService from '@/features/administration/api/referentielService
 import Tabs from '@/components/ui/navigation/Tabs';
 import { SkeletonCard, SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
@@ -17,7 +18,7 @@ import { useMenu } from '@/hooks/useMenu';
 
 
 function RoleFormModal({ isOpen, onClose, onSubmit, editingRole, formData, setFormData, roleModalError, submitting = false }) {
-    return <Modal isOpen={isOpen} onClose={onClose} title={editingRole ? 'Modifier le Rôle' : 'Nouveau Rôle'} icon={<Shield size={18} />} size="md" footer={<><Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>Annuler</Button><Button type="submit" form="role-form" variant="primary" size="sm" loading={submitting}>{editingRole ? 'Mettre à jour' : 'Créer le rôle'}</Button></>}><form id="role-form" onSubmit={onSubmit} className="space-y-4">{roleModalError && <Alert type="error" message={roleModalError} />}<Input label="Code du rôle (ex: ADMIN_PAIE, SUPERVISEUR)" required disabled={!!editingRole} value={formData.codeRole} onChange={(event) => setFormData({ ...formData, codeRole: event.target.value.toUpperCase() })} placeholder="ADMIN_RH" /><Input label="Libellé complet" required value={formData.libelle} onChange={(event) => setFormData({ ...formData, libelle: event.target.value })} placeholder="Administrateur RH" /></form></Modal>;
+    return <Modal isOpen={isOpen} onClose={onClose} title={editingRole ? 'Modifier le Rôle' : 'Nouveau Rôle'} icon={<Shield size={18} />} size="md" footer={<><Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>Annuler</Button><Button type="submit" form="role-form" variant="primary" size="sm" loading={submitting}>{editingRole ? 'Mettre à jour' : 'Créer le rôle'}</Button></>}><form id="role-form" onSubmit={onSubmit} className="space-y-4">{roleModalError && <FormError message={roleModalError} />}<Input label="Code du rôle (ex: ADMIN_PAIE, SUPERVISEUR)" required disabled={!!editingRole} value={formData.codeRole} onChange={(event) => setFormData({ ...formData, codeRole: event.target.value.toUpperCase() })} placeholder="ADMIN_RH" /><Input label="Libellé complet" required value={formData.libelle} onChange={(event) => setFormData({ ...formData, libelle: event.target.value })} placeholder="Administrateur RH" /></form></Modal>;
 }
 
 function RoleMenusTree({ selectedRole, menusTree = [], selectedMenuIds = [], handleToggleMenu, handleSaveMenus }) {

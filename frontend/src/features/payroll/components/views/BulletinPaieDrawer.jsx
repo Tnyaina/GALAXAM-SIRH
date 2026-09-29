@@ -435,7 +435,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                 {explication.impactNetConge >= 0 ? `+${formatAr(explication.impactNetConge)}` : `-${formatAr(Math.abs(explication.impactNetConge))}`}
                                             </span>
                                         </div>
-                                        <div className="text-[11px] text-[var(--color-fg-muted)] pl-2 border-l-2 border-blue-400 dark:border-blue-600 space-y-0.5">
+                                        <div className="text-[11px] text-[var(--color-fg-muted)] pl-2 border-l-2 border-[var(--color-info-400)] dark:border-[var(--color-info-600)] space-y-0.5">
                                             <div>
                                                 Déduction base (1/30ème) : <span className="font-medium text-[var(--color-fg)]">-{formatAr(explication.deductionCongeTrentieme)}</span> ({explication.nbJoursConge} j × {formatAr(explication.tauxJournalierTrentieme)}/j)
                                             </div>
@@ -460,7 +460,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                 -{formatAr(explication.montantRetenueAbsence)}
                                             </span>
                                         </div>
-                                        <div className="text-[11px] text-[var(--color-fg-muted)] pl-2 border-l-2 border-red-400 dark:border-red-600 space-y-0.5">
+                                        <div className="text-[11px] text-[var(--color-fg-muted)] pl-2 border-l-2 border-[var(--color-danger-400)] dark:border-[var(--color-danger-600)] space-y-0.5">
                                             <div>
                                                 Déficit net retenu : <span className="font-medium text-[var(--color-fg)]">{formatMinutes(explication.minutesAbsenceRetenues)}</span> ({explication.minutesAbsenceRetenues} min • {formatHours(explication.heuresAbsenceRetenues)} h)
                                             </div>
@@ -468,7 +468,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                 Diviseur légal : <span className="font-medium text-[var(--color-fg)]">{explication.diviseurMensuelHeures} h</span> • Taux horaire : <span className="font-medium text-[var(--color-fg)]">{formatAr(explication.tauxHoraire)}/h</span>
                                             </div>
                                             {explication.minutesRetard > 0 && (
-                                                <div className="text-[10px] text-amber-700 dark:text-amber-400">
+                                                <div className="text-[10px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]">
                                                     Dont retards bruts enregistrés : {formatMinutes(explication.minutesRetard)} ({explication.minutesRetard} min) — <em>non déduits en doublon</em>
                                                 </div>
                                             )}
@@ -533,7 +533,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 space-y-2.5">
                             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
                                 <span className="font-bold text-[var(--color-fg)] text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-                                    <DollarSign size={14} className="text-blue-500" />
+                                    <DollarSign size={14} className="text-[var(--color-info-500)]" />
                                     VARIABLES DU MOIS (AJUSTEMENTS MANUELS)
                                 </span>
                                 <button
@@ -718,7 +718,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                             )}
 
                             {/* Encadré NET À PAYER (Wireframe 2) */}
-                            <div className="mt-3 pt-3 border-t-2 border-[var(--color-brand-800)] flex justify-between items-center bg-[var(--color-ink-950)] text-white p-3">
+                            <div className="mt-3 pt-3 border-t-2 border-[var(--color-brand-800)] flex justify-between items-center bg-[var(--color-ink-950)] text-[var(--color-on-color)] p-3">
                                 <div>
                                     <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-ink-200)] block">
                                         NET À PAYER
@@ -727,7 +727,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                         Arrondi bancaire légal
                                     </span>
                                 </div>
-                                <span className="text-xl font-mono font-black text-white">
+                                <span className="text-xl font-mono font-black text-[var(--color-on-color)]">
                                     {formatAr(bulletin.netAPayer)}
                                 </span>
                             </div>

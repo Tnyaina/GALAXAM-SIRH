@@ -183,7 +183,7 @@ export default function SoldesGantt({
                 onClick={() => setViewMode('MOIS')}
                 className={`px-2.5 py-1 font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                   viewMode === 'MOIS'
-                    ? 'bg-brand-600 text-white shadow-xs'
+                    ? 'bg-brand-600 text-[var(--color-on-color)] shadow-xs'
                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                 }`}
               >
@@ -195,7 +195,7 @@ export default function SoldesGantt({
                 onClick={() => setViewMode('SEMAINE')}
                 className={`px-2.5 py-1 font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                   viewMode === 'SEMAINE'
-                    ? 'bg-brand-600 text-white shadow-xs'
+                    ? 'bg-brand-600 text-[var(--color-on-color)] shadow-xs'
                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                 }`}
               >
@@ -595,7 +595,7 @@ export default function SoldesGantt({
                               title={cellTitle}
                             >
                               {!hasLeave && !isCellInDrag && (
-                                <span className="hidden group-hover/cell:flex items-center justify-center gap-1 text-[10px] text-brand-700 font-semibold bg-white dark:bg-black/60 py-0.5 border border-brand-300 shadow-2xs">
+                                <span className="hidden group-hover/cell:flex items-center justify-center gap-1 text-[10px] text-brand-700 font-semibold bg-[var(--color-surface)] dark:bg-[var(--color-overlay)]/60 py-0.5 border border-brand-300 shadow-2xs">
                                   <Plus className="w-3 h-3 text-brand-600" /> Poser
                                 </span>
                               )}
@@ -627,8 +627,8 @@ export default function SoldesGantt({
                             }}
                             className={`absolute flex items-center overflow-hidden rounded-none border shadow-xs transition-transform hover:scale-[1.01] hover:brightness-105 z-20 px-2 select-none pointer-events-auto cursor-pointer ${
                               isEnAttente
-                                ? 'bg-[var(--color-warning-500)] border-[var(--color-warning-600)] text-white font-semibold'
-                                : 'bg-[var(--color-brand-600)] border-[var(--color-brand-700)] text-white font-semibold'
+                                ? 'bg-[var(--color-warning-500)] border-[var(--color-warning-600)] text-[var(--color-on-color)] font-semibold'
+                                : 'bg-[var(--color-brand-600)] border-[var(--color-brand-700)] text-[var(--color-on-color)] font-semibold'
                             }`}
                             style={{
                               left: `${item.leftPercent}%`,

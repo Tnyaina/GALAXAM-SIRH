@@ -167,7 +167,7 @@ export default function IconPicker({
                                     className={`
                                         px-2 py-1 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border transition-colors cursor-pointer rounded-none
                                         ${isSelected
-                                            ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)]'
+                                            ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] border-[var(--color-brand-500)]'
                                             : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]'
                                         }
                                     `}
@@ -200,7 +200,7 @@ export default function IconPicker({
                                             className={`
                                                 relative w-9 h-9 flex items-center justify-center border transition-all cursor-pointer rounded-none
                                                 ${isCurrent
-                                                    ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)] shadow-sm'
+                                                    ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] border-[var(--color-brand-500)] shadow-sm'
                                                     : 'bg-[var(--color-surface)] text-[var(--color-fg)] border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:text-[var(--color-brand-500)]'
                                                 }
                                             `}
@@ -208,7 +208,7 @@ export default function IconPicker({
                                         >
                                             {createElement(IcoComponent, { size: 17 })}
                                             {isCurrent && (
-                                                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-white text-[var(--color-brand-500)] rounded-full flex items-center justify-center border border-[var(--color-brand-500)]">
+                                                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[var(--color-surface)] text-[var(--color-brand-500)] rounded-full flex items-center justify-center border border-[var(--color-brand-500)]">
                                                     <Check size={9} strokeWidth={3} />
                                                 </div>
                                             )}

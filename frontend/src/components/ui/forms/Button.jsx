@@ -1,6 +1,6 @@
 const variants = {
   primary:
-    'bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-hover)] text-white border border-[var(--color-brand-500)] hover:border-[var(--color-brand-hover)]',
+    'bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-hover)] text-[var(--color-on-color)] border border-[var(--color-brand-500)] hover:border-[var(--color-brand-hover)]',
   secondary:
     'bg-[var(--color-fg)] hover:bg-[var(--color-fg-muted)] text-[var(--color-bg)] border border-[var(--color-fg)]',
   outline:
@@ -8,9 +8,9 @@ const variants = {
   ghost:
     'hover:bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border border-transparent',
   danger:
-    'bg-[var(--color-danger-500)] hover:bg-[var(--color-danger-600)] text-white border border-[var(--color-danger-500)]',
+    'bg-[var(--color-danger-500)] hover:bg-[var(--color-danger-600)] text-[var(--color-on-color)] border border-[var(--color-danger-500)]',
   success:
-    'bg-[var(--color-success-500)] hover:bg-[var(--color-success-600)] text-white border border-[var(--color-success-500)]',
+    'bg-[var(--color-success-500)] hover:bg-[var(--color-success-600)] text-[var(--color-on-color)] border border-[var(--color-success-500)]',
 };
 
 const sizes = {

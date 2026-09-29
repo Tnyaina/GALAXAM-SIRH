@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
-import { Search, ChevronDown, X, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useRef, useId } from 'react';
+import { Search, ChevronDown, X } from 'lucide-react';
+import FieldError from './FieldError';
 
 export default function SearchSelect({
   label,
@@ -16,6 +17,8 @@ export default function SearchSelect({
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const fieldId = `search-select-${useId()}`;
+  const feedbackId = `${fieldId}-feedback`;
 
   // Données dérivées : sélection et options visibles.
   const selectedOption = options.find((opt) => String(opt.value) === String(value));
@@ -64,14 +67,18 @@ export default function SearchSelect({
   return (
     <div className={`space-y-1.5 relative ${className}`} ref={dropdownRef}>
       {label && (
-        <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+        <label htmlFor={fieldId} className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
           {label} {required && <span className="text-danger-500 ml-0.5">*</span>}
         </label>
       )}
 
       <div className="relative">
         <button
+          id={fieldId}
           type="button"
+          aria-invalid={!!error}
+          aria-required={required}
+          aria-describedby={error ? feedbackId : undefined}
           disabled={disabled}
           onClick={() => !disabled && setIsOpen((v) => !v)}
           className={`w-full px-3 py-1.5 bg-[var(--color-bg-subtle)] border text-left text-xs sm:text-sm flex items-center justify-between outline-none cursor-pointer ${
@@ -163,11 +170,7 @@ export default function SearchSelect({
         )}
       </div>
 
-      {error && (
-        <p className="text-xs text-danger-500 flex items-center gap-1">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {error}
-        </p>
-      )}
+      {error && <FieldError id={feedbackId}>{error}</FieldError>}
     </div>
   );
 }

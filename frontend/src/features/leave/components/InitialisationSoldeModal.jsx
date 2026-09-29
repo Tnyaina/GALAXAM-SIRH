@@ -5,7 +5,7 @@ import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Modal from '@/components/ui/overlays/Modal';
-import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import Badge from '@/components/ui/data-display/Badge';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { formatMoneyAr } from '@/utils/moneyUtils';
@@ -103,7 +103,7 @@ export default function InitialisationSoldeModal({
     setModeReprise('AGGREGATED_OPENING');
     setShowHelpGuide(false);
     setError(null);
-  }, [isOpen, soldeData, employe, salaireBase]);
+  }, [isOpen, soldeData, employe, salaireBase, situationData?.tauxApplicable?.montant]);
 
   // Validation et soumission
   const handleSubmit = async (e) => {
@@ -189,7 +189,7 @@ export default function InitialisationSoldeModal({
       size="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4 font-sans text-sm">
-        {error && <Alert type="error" message={error} />}
+        {error && <FormError message={error} />}
 
         {/* Fiche d'identification du collaborateur */}
         <div className="p-3.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-3 text-xs">

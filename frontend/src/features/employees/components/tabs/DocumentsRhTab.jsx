@@ -24,8 +24,8 @@ export default function DocumentsRhTab({
     onDownloadDoc,
     onDeleteDoc,
 }) {
-    const obligatoiresManquants = documentsData.obligatoiresManquants || [];
-    const documents = documentsData.documents || [];
+    const obligatoiresManquants = useMemo(() => documentsData.obligatoiresManquants || [], [documentsData.obligatoiresManquants]);
+    const documents = useMemo(() => documentsData.documents || [], [documentsData.documents]);
 
     // Recherche et filtrage
     const [searchQuery, setSearchQuery] = useState('');
@@ -136,7 +136,7 @@ export default function DocumentsRhTab({
                                 onClick={() => setSelectedCategory('ALL')}
                                 className={`px-2 py-0.5 text-xs font-semibold rounded-none transition-colors border ${
                                     selectedCategory === 'ALL'
-                                        ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)]'
+                                        ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] border-[var(--color-brand-500)]'
                                         : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:text-[var(--color-fg)]'
                                 }`}
                             >
@@ -148,7 +148,7 @@ export default function DocumentsRhTab({
                                     onClick={() => setSelectedCategory('OBLIGATOIRES')}
                                     className={`px-2 py-0.5 text-xs font-semibold rounded-none transition-colors border ${
                                         selectedCategory === 'OBLIGATOIRES'
-                                            ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)]'
+                                            ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] border-[var(--color-brand-500)]'
                                             : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:text-[var(--color-fg)]'
                                     }`}
                                 >
@@ -161,7 +161,7 @@ export default function DocumentsRhTab({
                                     onClick={() => setSelectedCategory('CONTRATS')}
                                     className={`px-2 py-0.5 text-xs font-semibold rounded-none transition-colors border ${
                                         selectedCategory === 'CONTRATS'
-                                            ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)]'
+                                            ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] border-[var(--color-brand-500)]'
                                             : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:text-[var(--color-fg)]'
                                     }`}
                                 >
@@ -175,7 +175,7 @@ export default function DocumentsRhTab({
                 <CardBody className="p-0">
                     {loadingDocs ? (
                         <div className="p-5">
-                            <SkeletonTable rows={4} columns={5} />
+                            <SkeletonTable rows={4} columns={5} bordered={false} />
                         </div>
                     ) : documents.length === 0 ? (
                         <div className="p-5">

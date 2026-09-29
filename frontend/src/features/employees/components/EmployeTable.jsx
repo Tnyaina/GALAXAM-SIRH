@@ -155,7 +155,7 @@ export default function EmployeTable({
                                             alt={fullName}
                                             className="w-9 h-9 rounded-none object-cover border border-[var(--color-border-subtle)]"
                                             fallback={(
-                                                <div className="w-9 h-9 bg-[var(--color-brand-500)] text-white flex items-center justify-center font-bold text-xs shrink-0 rounded-none shadow-xs">
+                                                <div className="w-9 h-9 bg-[var(--color-brand-500)] text-[var(--color-on-color)] flex items-center justify-center font-bold text-xs shrink-0 rounded-none shadow-xs">
                                                     {initial}
                                                 </div>
                                             )}

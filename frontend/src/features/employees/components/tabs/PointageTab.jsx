@@ -364,7 +364,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 type="button"
                                 onClick={() => setPeriodView(key)}
                                 className={`px-3 py-1 text-xs font-bold uppercase transition-colors cursor-pointer ${periodView === key
-                                    ? 'bg-[var(--color-brand-500)] text-white shadow-xs'
+                                    ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] shadow-xs'
                                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                                     }`}
                             >
@@ -783,7 +783,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                             </Td>
                                                             <Td className="font-mono text-xs text-center py-2.5 px-2">
                                                                 {ptg.minutesRetard > 0 ? (
-                                                                    <span className="font-semibold text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] bg-[var(--color-danger-50)] dark:bg-[var(--color-danger-950)]/40 px-1.5 py-0.5 rounded border border-[var(--color-danger-200)] dark:border-[var(--color-danger-800)]/50" title={`Retard cumulé sur la journée : ${ptg.minutesRetard} min`}>
+                                                                    <span className="font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] bg-[var(--color-warning-50)] dark:bg-[var(--color-warning-950)]/40 px-1.5 py-0.5 rounded-none border border-[var(--color-warning-200)] dark:border-[var(--color-warning-800)]/50" title={`Retard cumulé sur la journée : ${ptg.minutesRetard} min`}>
                                                                         {ptg.minutesRetard} min
                                                                     </span>
                                                                 ) : (
@@ -936,7 +936,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase">Jours</Th>
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase" title="Heures à réaliser sur la semaine (abaissé pour congés et fériés)">Objectif semaine</Th>
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase" title="Total des heures effectivement travaillées">Heures faites</Th>
-                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]" title="Cumul des retards constatés sur la semaine (matin et après-midi)">Retards</Th>
+                                        <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]" title="Cumul des retards constatés sur la semaine (matin et après-midi)">Retards</Th>
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase text-[var(--color-info-700)] dark:text-[var(--color-info-200)]" title="Heures réalisées au-delà de la durée normale d'une journée">Heures en plus</Th>
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase text-[var(--color-success-600)] dark:text-[var(--color-success-400)]" title="Surplus d'un jour ayant comblé le manque d'un autre jour de la même semaine">Compensé</Th>
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase" title="Conséquence nette sur le bulletin de paie">Impact Paie</Th>
@@ -973,7 +973,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                         <div>{formatHeuresMinutes(b.totalHeuresTravaillees)}</div>
                                                         <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">({formatDecimalHours(b.totalHeuresTravaillees)})</div>
                                                     </Td>
-                                                    <Td className={`attendance-duration text-xs text-center py-2 px-3 ${b.heuresRetard > 0 ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] font-bold' : 'text-[var(--color-fg-muted)] opacity-50'}`}>
+                                                    <Td className={`attendance-duration text-xs text-center py-2 px-3 ${b.heuresRetard > 0 ? 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-bold' : 'text-[var(--color-fg-muted)] opacity-50'}`}>
                                                         {b.heuresRetard > 0 ? (
                                                             <div>
                                                                 <div>{formatHeuresMinutes(b.heuresRetard)}</div>
@@ -1071,7 +1071,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         </div>
                                         <div className="flex justify-between items-center text-xs" title="Total des retards constatés sur la période (matin et après-midi)">
                                             <span className="text-[var(--color-fg-muted)]">Retards constatés</span>
-                                            <span className={`font-mono ${(kpis.retardCumule && kpis.retardCumule !== '00h00') ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] font-bold' : 'text-[var(--color-fg)]'}`}>
+                                            <span className={`font-mono ${(kpis.retardCumule && kpis.retardCumule !== '00h00') ? 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-bold' : 'text-[var(--color-fg)]'}`}>
                                                 {kpis.retardCumule || recap.retards || '00h00'}
                                             </span>
                                         </div>

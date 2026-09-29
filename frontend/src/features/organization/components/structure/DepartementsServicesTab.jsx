@@ -3,6 +3,7 @@ import { Building } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiClient';
 import organisationService from '@/features/organization/api/organisationService';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
@@ -32,7 +33,7 @@ function DepartementFormModal({ isOpen, onClose, onSubmit, editingDept, formData
             }
         >
             <form id="dept-form" onSubmit={onSubmit} className="space-y-4">
-                {actionError && <Alert type="error" message={actionError} />}
+                {actionError && <FormError message={actionError} />}
                 <Input
                     label="Code Département"
                     required

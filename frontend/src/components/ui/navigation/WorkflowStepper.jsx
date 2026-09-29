@@ -48,7 +48,7 @@ export default function WorkflowStepper({ steps = [], currentStep, onStepClick, 
                                             : 'cursor-default'
                                     }
                                     ${isActive
-                                        ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)] shadow-sm'
+                                        ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] border-[var(--color-brand-500)] shadow-sm'
                                         : isDone
                                             ? 'bg-[var(--color-success-500)]/10 text-[var(--color-success-600)] dark:text-[var(--color-success-400)] border-[var(--color-success-500)]/40'
                                             : isLocked
@@ -67,7 +67,7 @@ export default function WorkflowStepper({ steps = [], currentStep, onStepClick, 
                                 ) : (
                                     <span className={`flex items-center justify-center w-4 h-4 text-[9px] font-black border rounded-full shrink-0 ${
                                         isActive
-                                            ? 'bg-white/20 border-white/40 text-white'
+                                            ? 'bg-[var(--color-surface)]/20 border-[var(--color-on-color)]/40 text-[var(--color-on-color)]'
                                             : isDone
                                                 ? 'bg-[var(--color-success-500)]/20 border-[var(--color-success-500)]/40 text-[var(--color-success-600)]'
                                                 : 'bg-[var(--color-bg-subtle)] border-[var(--color-border)] text-[var(--color-fg-muted)]'
@@ -83,7 +83,7 @@ export default function WorkflowStepper({ steps = [], currentStep, onStepClick, 
                                 {step.sublabel && isActive && (
                                     <span className={`text-[9px] font-bold px-1.5 py-0.5 border ${
                                         isActive
-                                            ? 'bg-white/15 border-white/30 text-white'
+                                            ? 'bg-[var(--color-surface)]/15 border-[var(--color-on-color)]/30 text-[var(--color-on-color)]'
                                             : 'bg-[var(--color-bg-subtle)] border-[var(--color-border)] text-[var(--color-fg-muted)]'
                                     }`}>
                                         {step.sublabel}
@@ -114,8 +114,8 @@ export default function WorkflowStepper({ steps = [], currentStep, onStepClick, 
                             : isValidee
                                 ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] border-[var(--color-brand-500)]/30'
                                 : isTransmis
-                                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30'
-                                    : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+                                    ? 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] border-[var(--color-warning-500)]/30'
+                                    : 'bg-[var(--color-success-500)]/10 text-[var(--color-success-700)] dark:text-[var(--color-success-400)] border-[var(--color-success-500)]/30'
                     }`}>
                         {activePeriode.statutLibelle || activePeriode.statutCode || 'En cours'}
                     </span>

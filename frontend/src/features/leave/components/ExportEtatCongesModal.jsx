@@ -5,7 +5,7 @@ import { getErrorMessage } from '@/api/apiClient';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
-import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import Loading from '@/components/ui/feedback/Loading';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { formatMoneyAr } from '@/utils/moneyUtils';
@@ -125,7 +125,7 @@ export default function ExportEtatCongesModal({
           </div>
         </div>
 
-        {error && <Alert type="error" message={error} />}
+        {error && <FormError message={error} />}
 
         {loading ? (
           <div className="py-8 flex flex-col items-center justify-center gap-2">

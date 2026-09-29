@@ -1,3 +1,4 @@
+import FormError from '@/components/ui/feedback/FormError';
 import { useState, useEffect, useCallback } from 'react';
 import { getErrorMessage } from '@/api/apiClient';
 import { 
@@ -14,7 +15,6 @@ import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Loading from '@/components/ui/feedback/Loading';
-import Alert from '@/components/ui/feedback/Alert';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { attendanceService } from '@/features/attendance/api/attendanceApi';
 import { fmtDate } from '@/utils/dateUtils';
@@ -138,8 +138,8 @@ export default function DafAjustementPointageModal({
     useEffect(() => {
         if (!isOpen || !selectedJour) return undefined;
         const date = selectedJour.dateComplete || selectedJour.datePointage || selectedJour.date;
-        const site = selectedJour.idSite || employe?.idSite;
-        if (!date || !site) {
+        const site = Number(selectedJour.idSite || employe?.idSite || 0);
+        if (!date || site <= 0) {
             setAllowancesError('Site ou date indisponible pour charger les indemnités.');
             return undefined;
         }
@@ -237,7 +237,7 @@ export default function DafAjustementPointageModal({
             className="max-w-6xl w-full"
         >
             <div className="space-y-4 text-xs font-sans">
-                {error && <Alert type="error" message={error} />}
+                {error && <FormError message={error} />}
 
                 {loading ? (
                     <div className="py-12 flex justify-center">
@@ -276,8 +276,8 @@ export default function DafAjustementPointageModal({
                             {/* Option Journée continue */}
                             <div className="sm:col-span-2 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/25 rounded-none p-2.5 flex items-center justify-between">
                                 <div className="flex flex-col">
-                                    <span className="text-xs font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                                        <FastForward size={13} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                                    <span className="text-xs font-semibold text-[var(--color-warning-900)] dark:text-[var(--color-warning-200)] flex items-center gap-1.5">
+                                        <FastForward size={13} className="shrink-0 text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]" />
                                         Journée continue (Sans pause déjeuner)
                                     </span>
                                     <span className="text-[11px] text-[var(--color-fg-muted)]">
@@ -378,7 +378,7 @@ export default function DafAjustementPointageModal({
 
                             <div className="sm:col-span-2 flex items-center gap-4 pt-1 flex-wrap text-[11px] font-semibold">
                                 {allowancesLoading && <span>Chargement des indemnités…</span>}
-                                {allowancesError && <span className="text-red-700">{allowancesError}</span>}
+                                {allowancesError && <span className="text-[var(--color-danger-700)]">{allowancesError}</span>}
                                 {!allowancesLoading && !allowancesError && availableAllowances.length === 0 && (
                                     <span>Aucune indemnité journalière configurée pour ce site.</span>
                                 )}
@@ -530,13 +530,13 @@ export default function DafAjustementPointageModal({
                                                 <Tr
                                                     key={ptg.idPointage || ptg.dateComplete || ptg.date}
                                                     className={`border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/50 transition-colors ${
-                                                        hasAnomalie ? 'bg-amber-500/[0.04]' : ''
+                                                        hasAnomalie ? 'bg-[var(--color-warning-500)]/[0.04]' : ''
                                                     }`}
                                                 >
                                                     <Td className="py-2 px-3 font-medium">
                                                         <span>{dateFormatted}</span>
                                                         {hasAnomalie && (
-                                                            <span className="block text-[9.5px] font-bold text-amber-700 dark:text-amber-400">
+                                                            <span className="block text-[9.5px] font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]">
                                                                 Anomalie détectée
                                                             </span>
                                                         )}

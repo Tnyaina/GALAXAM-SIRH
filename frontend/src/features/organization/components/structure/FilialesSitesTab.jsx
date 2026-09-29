@@ -7,8 +7,10 @@ import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Card from '@/components/ui/data-display/Card';
 import Tabs from '@/components/ui/navigation/Tabs';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
 import { useToast } from '@/components/ui/feedback/Toast';
@@ -37,7 +39,7 @@ function FilialeFormModal({ isOpen, onClose, onSubmit, selectedFiliale, formData
             }
         >
             <form id="filiale-form" onSubmit={onSubmit} className="space-y-4">
-                {actionError && <Alert type="error" message={actionError} />}
+                {actionError && <FormError message={actionError} />}
 
                 {selectedFiliale && (
                     <div className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-between text-xs">
@@ -538,7 +540,7 @@ export default function FilialesSitesTab() {
 
             {error && <Alert type="error" message={error} />}
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-3.5 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
+            <Card className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center p-3.5" shadow="sm">
                 <div className="flex items-center gap-3 flex-1 flex-wrap">
                     <div className="flex-1 min-w-[200px] max-w-sm">
                         <Input
@@ -579,7 +581,7 @@ export default function FilialesSitesTab() {
                         <span>Afficher inactifs</span>
                     </label>
                 </div>
-            </div>
+            </Card>
 
             {activeSubTab === 'filiales' && (
                 <FilialesList

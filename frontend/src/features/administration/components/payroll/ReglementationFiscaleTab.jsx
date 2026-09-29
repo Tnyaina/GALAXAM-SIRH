@@ -92,11 +92,11 @@ const EMPTY_FORM = {
 };
 
 const MAJORATION_CONFIG = [
-    { type: 'HS_30', title: 'HS Tranche 1', subtitle: 'Première tranche configurée', icon: Clock, color: 'text-[var(--color-warning-500)]', badgeBg: 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)]' },
-    { type: 'HS_50', title: 'HS Tranche 2', subtitle: 'Seconde tranche configurée', icon: Zap, color: 'text-[var(--color-orange-500)]', badgeBg: 'bg-[var(--color-orange-500)]/10 text-[var(--color-orange-600)]' },
-    { type: 'NUIT', title: 'Heures de Nuit', subtitle: 'Plage configurée en base', icon: Moon, color: 'text-[var(--color-purple-500)]', badgeBg: 'bg-[var(--color-purple-500)]/10 text-[var(--color-purple-600)]' },
-    { type: 'DIMANCHE', title: 'Dimanche', subtitle: 'Majoration configurée', icon: Sun, color: 'text-[var(--color-brand-500)]', badgeBg: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)]' },
-    { type: 'FERIE', title: 'Jour Férié', subtitle: 'Majoration configurée', icon: Calendar, color: 'text-[var(--color-danger-500)]', badgeBg: 'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-600)]' },
+    { type: 'HS_30', title: 'HS Tranche 1', subtitle: 'Première tranche configurée', icon: Clock, color: 'text-[var(--color-brand-600)]', badgeBg: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)]' },
+    { type: 'HS_50', title: 'HS Tranche 2', subtitle: 'Seconde tranche configurée', icon: Zap, color: 'text-[var(--color-brand-600)]', badgeBg: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)]' },
+    { type: 'NUIT', title: 'Heures de Nuit', subtitle: 'Plage configurée en base', icon: Moon, color: 'text-[var(--color-brand-600)]', badgeBg: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)]' },
+    { type: 'DIMANCHE', title: 'Dimanche', subtitle: 'Majoration configurée', icon: Sun, color: 'text-[var(--color-brand-600)]', badgeBg: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)]' },
+    { type: 'FERIE', title: 'Jour Férié', subtitle: 'Majoration configurée', icon: Calendar, color: 'text-[var(--color-brand-600)]', badgeBg: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)]' },
 ];
 
 function MajorationsFormSection({ majorations = [], onChange, isReadOnly }) {
@@ -623,7 +623,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                             checked={!!formData.exonerationHsIrsaActive}
                                             onChange={e => upd('exonerationHsIrsaActive', e.target.checked)}
                                         />
-                                        <div className="w-9 h-5 bg-[var(--color-border-strong)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-brand-500)]"></div>
+                                        <div className="w-9 h-5 bg-[var(--color-border-strong)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-[var(--color-on-color)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--color-surface)] after:border-[var(--color-border)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-brand-500)]"></div>
                                     </label>
                                 </div>
                                 {!formData.exonerationHsIrsaActive ? (
@@ -1301,7 +1301,7 @@ export default function ReglementationFiscaleTab() {
 
             {/* ---- Modal de confirmation d'annulation ---- */}
             {confirmAnnulation && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-overlay)]/60 backdrop-blur-[2px] p-4">
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xl p-6 max-w-md w-full mx-4">
                         <div className="flex items-start gap-3 mb-4">
                             <div className="p-2 bg-[var(--color-danger-500)]/10 shrink-0">

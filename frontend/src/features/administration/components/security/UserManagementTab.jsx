@@ -9,6 +9,7 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useToast } from '@/components/ui/feedback/Toast';
@@ -356,7 +357,7 @@ export default function UserManagementTab() {
                 }
             >
                 <form id="user-form" onSubmit={handleSaveUser} className="space-y-4">
-                    {modalError && <Alert type="error" message={modalError} />}
+                    {modalError && <FormError message={modalError} />}
                     <Input
                         label="Identifiant / Login"
                         required
@@ -430,7 +431,7 @@ export default function UserManagementTab() {
                 }
             >
                 <form id="deactivate-form" onSubmit={handleDeactivate} className="space-y-4">
-                    {modalError && <Alert type="error" message={modalError} />}
+                    {modalError && <FormError message={modalError} />}
                     <p className="text-sm text-[var(--color-fg-muted)]">
                         Vous vous apprêtez à désactiver le compte de <strong className="text-[var(--color-fg)]">{selectedUser?.identifiant}</strong>. 
                         L'utilisateur ne pourra plus s'authentifier sur le SIRH.

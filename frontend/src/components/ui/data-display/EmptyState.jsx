@@ -13,6 +13,7 @@ export default function EmptyState({
     onAction,
     actionIcon,
     compact = false,
+    bordered = true,
     className = '',
 }) {
     if (compact) {
@@ -48,7 +49,7 @@ export default function EmptyState({
         <div
             className={`
         flex flex-col items-center justify-center p-5 sm:p-6 text-center bg-[var(--color-surface)]
-        border border-[var(--color-border-subtle)] rounded-none space-y-2.5 ${className}
+        ${bordered ? 'border border-[var(--color-border-subtle)]' : 'border border-transparent'} rounded-none space-y-2.5 ${className}
       `}
         >
             <div className="w-10 h-10 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-center text-[var(--color-fg-muted)] rounded-none shrink-0 shadow-xs">

@@ -166,7 +166,7 @@ export default function ConflitsPostePreview({
                     if (!pos.visible) return null;
                     return (
                       <div
-                        className="absolute h-6 bg-[var(--color-brand-600)] text-white text-[10px] font-bold px-1.5 flex items-center truncate shadow-2xs z-10 border border-[var(--color-brand-700)]"
+                        className="absolute h-6 bg-[var(--color-brand-600)] text-[var(--color-on-color)] text-[10px] font-bold px-1.5 flex items-center truncate shadow-2xs z-10 border border-[var(--color-brand-700)]"
                         style={{ left: `${pos.left}%`, width: `${Math.max(pos.width, 3)}%` }}
                         title={`Période demandée : ${formatDateFr(dateDebut)} au ${formatDateFr(dateFin)}`}
                       >
@@ -213,7 +213,7 @@ export default function ConflitsPostePreview({
                         if (!pos.visible) return null;
                         return (
                           <div
-                            className="absolute h-6 bg-[var(--color-warning-500)] text-white text-[10px] font-semibold px-1.5 flex items-center truncate shadow-2xs z-10 border border-[var(--color-warning-600)]"
+                            className="absolute h-6 bg-[var(--color-warning-500)] text-[var(--color-on-color)] text-[10px] font-semibold px-1.5 flex items-center truncate shadow-2xs z-10 border border-[var(--color-warning-600)]"
                             style={{ left: `${pos.left}%`, width: `${Math.max(pos.width, 3)}%` }}
                             title={`${col.prenom} ${col.nom} : ${col.typeConge || 'Congé'} du ${formatDateFr(col.dateDebut)} au ${formatDateFr(col.dateFin)}`}
                           >

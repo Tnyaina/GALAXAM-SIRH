@@ -5,6 +5,7 @@ import employeService from '@/features/employees/api/employeService';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
 import StatCard from '@/components/ui/data-display/StatCard';
+import Card from '@/components/ui/data-display/Card';
 import { Select } from '@/components/ui/forms/Input';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
@@ -383,7 +384,7 @@ export default function EmployeList() {
             />
 
             {/* Tableau des employés */}
-            <div className="flex flex-col border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-2xs">
+            <Card className="flex flex-col overflow-hidden p-0" shadow="sm">
                 <EmployeTable
                     employes={paginatedEmployes}
                     loading={loading}
@@ -410,7 +411,7 @@ export default function EmployeList() {
                         className="border-t border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-none"
                     />
                 )}
-            </div>
+            </Card>
 
             {/* Modale d'édition / création d'employé */}
             {isFormOpen && (

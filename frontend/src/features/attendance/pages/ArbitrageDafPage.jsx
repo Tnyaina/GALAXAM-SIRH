@@ -241,30 +241,52 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 days.push(`${yyyy}-${mm}-${dd}`);
                 curr.setDate(curr.getDate() + 1);
             }
-            const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
+
+            const selectedSiteId = Number(selectedSite);
+            let siteList = [];
+            if (selectedSiteId > 0) {
+                siteList = [{ idSite: selectedSiteId }];
+            } else if (sites && sites.length > 0) {
+                siteList = sites.filter(s => s.estActif !== false && s.actif !== false);
+                if (siteList.length === 0) {
+                    siteList = sites;
+                }
+            }
+
+            if (siteList.length === 0) {
+                setGanttData({});
+                setLoadingGantt(false);
+                return;
+            }
+
             const results = await Promise.all(
-                days.map(date =>
-                    attendanceService.getGrilleSaisie({ idSite: siteParam, date })
-                        .then(res => {
-                            const rows = res?.grilleData || res?.employes || (Array.isArray(res) ? res : []);
-                            const definitions = res?.siteIndemnites || [];
-                            return {
-                                date,
-                                rows: rows.map((row) => ({
-                                    ...row,
-                                    indemnites: Object.fromEntries(definitions.map((definition) => {
-                                        const selection = row.dynamicIndemnites?.[String(definition.idIndemnite)];
-                                        return [definition.code, {
-                                            code: definition.code,
-                                            accordee: Boolean(selection?.accordee),
-                                            montant: selection?.montantApplique ?? 0,
-                                        }];
-                                    })),
-                                })),
-                            };
-                        })
-                        .catch(() => ({ date, rows: [] }))
-                )
+                days.map(async (date) => {
+                    const siteResults = await Promise.all(
+                        siteList.map(s =>
+                            attendanceService.getGrilleSaisie({ idSite: s.idSite, date })
+                                .then(res => {
+                                    const rows = res?.grilleData || res?.employes || (Array.isArray(res) ? res : []);
+                                    const definitions = res?.siteIndemnites || [];
+                                    return rows.map((row) => ({
+                                        ...row,
+                                        indemnites: Object.fromEntries(definitions.map((definition) => {
+                                            const selection = row.dynamicIndemnites?.[String(definition.idIndemnite)];
+                                            return [definition.code, {
+                                                code: definition.code,
+                                                accordee: Boolean(selection?.accordee),
+                                                montant: selection?.montantApplique ?? 0,
+                                            }];
+                                        })),
+                                    }));
+                                })
+                                .catch(() => [])
+                        )
+                    );
+                    return {
+                        date,
+                        rows: siteResults.flat()
+                    };
+                })
             );
             const dataMap = {};
             results.forEach(({ date, rows }) => { dataMap[date] = Array.isArray(rows) ? rows : []; });
@@ -275,7 +297,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         } finally {
             setLoadingGantt(false);
         }
-    }, [selectedSite]);
+    }, [selectedSite, sites]);
 
     const handleSetViewMode = useCallback((mode) => {
         setViewMode(mode);
@@ -522,19 +544,19 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                     </div>
                 </div>
 
-                {loadError && <div role="alert" className="border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800 flex items-center justify-between gap-3">
+                {loadError && <div role="alert" className="border border-[var(--color-danger-300)] bg-[var(--color-danger-50)] p-3 text-sm text-[var(--color-danger-800)] flex items-center justify-between gap-3">
                     <span>{loadError} Les données précédentes ont été masquées.</span>
                     <Button type="button" variant="outline" size="sm" onClick={loadData}>Réessayer</Button>
                 </div>}
                 {!loadError && isPendingDaf && preflight && !preflight.pret && (
-                    <div role="alert" className="border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 space-y-2">
+                    <div role="status" aria-live="polite" className="border border-[var(--color-warning-300)] bg-[var(--color-warning-50)] p-4 text-sm text-[var(--color-warning-900)] space-y-2">
                         <strong>Validation en attente de correction</strong>
                         {preflight.nombreEmployes === 0 && <p>Aucun collaborateur dans la synthèse de période.</p>}
                         {preflight.journeesManquantes?.length > 0 && <>
                             <p>{preflight.journeesManquantes.length} journée(s) ouvrable(s) sans pointage ni statut explicite. Saisissez une présence, une absence ou un congé avant le gel.</p>
                             <div className="flex flex-wrap gap-2">{preflight.journeesManquantes.slice(0, 8).map((jour) => (
                                 <button key={`${jour.idEmploye}-${jour.date}`} type="button"
-                                    className="border border-amber-400 bg-white px-2 py-1 hover:bg-amber-100"
+                                    className="border border-[var(--color-warning-400)] bg-[var(--color-surface)] px-2 py-1 hover:bg-[var(--color-warning-100)]"
                                     onClick={() => navigate(`/pointages?tab=saisie&periode=${selectedPeriode}`)}>
                                     {jour.matricule} · {jour.date} · ouvrir la saisie
                                 </button>
@@ -544,7 +566,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         {preflight.blocages?.length > 0 && <>
                             <p>{preflight.blocages.length} collaborateur(s) ont des HS sans semaine de rattachement. Corrigez leur journée avant de sceller le pointage.</p>
                             <div className="flex flex-wrap gap-2">{preflight.blocages.map((blocker) => (
-                                <button key={blocker.idEmploye} type="button" className="border border-amber-400 bg-white px-2 py-1 hover:bg-amber-100"
+                                <button key={blocker.idEmploye} type="button" className="border border-[var(--color-warning-400)] bg-[var(--color-surface)] px-2 py-1 hover:bg-[var(--color-warning-100)]"
                                     onClick={() => { setSearchTerm(blocker.matricule || `${blocker.nom} ${blocker.prenom}`); setCurrentPage(1); }}>
                                     {blocker.matricule} · {blocker.nom} {blocker.prenom} · {(blocker.minutesHsSansSemaine / 60).toFixed(2)} h à rattacher
                                 </button>
@@ -553,7 +575,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                     </div>
                 )}
                 {!loadError && isDaf && isPendingDaf && preflight?.pret && !canApprove && approvalBlockMessage && (
-                    <div role="alert" className="border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                    <div role="status" aria-live="polite" className="border border-[var(--color-warning-300)] bg-[var(--color-warning-50)] p-3 text-sm text-[var(--color-warning-900)]">
                         Validation en attente : {approvalBlockMessage}
                     </div>
                 )}
@@ -562,10 +584,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                     {[
                         { label: 'Salariés', value: kpis?.totalSalaries ?? '—', icon: Users, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
-                        { label: 'Heures totales', value: kpis ? `${formatHeuresDecimal(kpis.totalHeures)} (${formatHeuresMinutes(kpis.totalHeures)})` : '—', icon: Clock, color: 'text-[var(--color-info-600)] dark:text-[var(--color-info-400)]' },
-                        { label: 'HS30 + HS50', value: kpis ? `${formatHeuresDecimal(kpis.totalHs30 + kpis.totalHs50)} (${formatHeuresMinutes(kpis.totalHs30 + kpis.totalHs50)})` : '—', icon: TrendingUp, color: 'text-[var(--color-brand-500)] dark:text-[var(--color-brand-300)]' },
+                        { label: 'Heures totales', value: kpis ? `${formatHeuresDecimal(kpis.totalHeures)} (${formatHeuresMinutes(kpis.totalHeures)})` : '—', icon: Clock, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
+                        { label: 'HS30 + HS50', value: kpis ? `${formatHeuresDecimal(kpis.totalHs30 + kpis.totalHs50)} (${formatHeuresMinutes(kpis.totalHs30 + kpis.totalHs50)})` : '—', icon: TrendingUp, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
                         { label: 'Retards cumulés', value: kpis ? `${formatHeuresDecimal(kpis.totalRetardMins / 60)} (${formatHeuresMinutes(kpis.totalRetardMins / 60)})` : '—', icon: AlertTriangle, color: 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' },
-                        { label: 'Indemnités totales', value: kpis ? formatMonnaie(kpis.totalIndemnites) : '—', icon: Banknote, color: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' },
+                        { label: 'Indemnités totales', value: kpis ? formatMonnaie(kpis.totalIndemnites) : '—', icon: Banknote, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
                     ].map(kpi => (
                         <div key={kpi.label} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex items-center gap-3">
                             <kpi.icon size={20} className={`${kpi.color} shrink-0`} />
@@ -601,7 +623,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                             type="button"
                                             onClick={() => { setAlertFilter(opt.v); setCurrentPage(1); }}
                                             className={`flex items-center gap-1 px-2.5 py-1 text-[10.5px] font-bold border transition-all cursor-pointer ${alertFilter === opt.v
-                                                    ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)] shadow-xs'
+                                                    ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] border-[var(--color-brand-500)] shadow-xs'
                                                     : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:border-[var(--color-border)] hover:text-[var(--color-fg)]'
                                                 }`}
                                         >
@@ -639,7 +661,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 <button
                                     type="button"
                                     onClick={() => handleSetViewMode('synthese')}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold transition-all cursor-pointer ${viewMode === 'synthese' ? 'bg-[var(--color-brand-500)] text-white font-bold' : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold transition-all cursor-pointer ${viewMode === 'synthese' ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] font-bold' : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
                                         }`}
                                     title="Vue synthèse mensuelle"
                                 >
@@ -649,7 +671,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 <button
                                     type="button"
                                     onClick={() => handleSetViewMode('gantt')}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold transition-all cursor-pointer ${viewMode === 'gantt' ? 'bg-[var(--color-brand-500)] text-white font-bold' : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold transition-all cursor-pointer ${viewMode === 'gantt' ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] font-bold' : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
                                         }`}
                                     title="Vue détaillée par semaine"
                                 >
@@ -703,7 +725,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                     </div>
                                 </div>
 
-                                <Table size="sm" divided bordered={false}>
+                                <Table density="compact" divided bordered={false}>
                                     <Thead>
                                         <Tr>
                                             <Th className="w-[190px] max-w-[210px]">Collaborateur</Th>
@@ -930,7 +952,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     <Td className="text-center">
                                                         {(row.nbJoursAbsence || 0) > 0 ? (
                                                             <span
-                                                                className="inline-block font-mono text-xs text-rose-700 dark:text-rose-400 font-bold bg-rose-500/10 px-1.5 py-0.5 border border-rose-500/20 cursor-help"
+                                                                className="inline-block font-mono text-xs text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] font-bold bg-[var(--color-danger-500)]/10 px-1.5 py-0.5 border border-[var(--color-danger-500)]/20 cursor-help"
                                                                 title={`Absence non justifiée : ${row.nbJoursAbsence} jour(s)`}
                                                             >
                                                                 {row.nbJoursAbsence}j

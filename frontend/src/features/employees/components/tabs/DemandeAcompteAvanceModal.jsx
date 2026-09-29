@@ -5,6 +5,7 @@ import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import paieService from '@/features/payroll/api/paieService';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import { getErrorMessage } from '@/api/apiClient';
@@ -18,16 +19,18 @@ export default function DemandeAcompteAvanceModal({ idEmploye, onClose, onCreate
     const [loadingTypes, setLoadingTypes] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
+    const [typesError, setTypesError] = useState(null);
 
     useEffect(() => {
         let active = true;
+        setTypesError(null);
         paieService.listerTypesMouvements(selectedPeriodeId).then(result => {
             if (!active) return;
             const options = (Array.isArray(result) ? result : []).filter(item => ['ACOMPTE', 'AVANCE'].includes(item.categorie));
             setTypes(options);
             setTypeCode(current => options.some(item => item.code === current) ? current : '');
             setLoadingTypes(false);
-        }).catch(err => { if (active) { setError(getErrorMessage(err, 'Types de demande indisponibles.')); setLoadingTypes(false); } });
+        }).catch(err => { if (active) { setTypesError(getErrorMessage(err, 'Types de demande indisponibles.')); setLoadingTypes(false); } });
         return () => { active = false; };
     }, [selectedPeriodeId]);
 
@@ -58,7 +61,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, onClose, onCreate
     return <Modal isOpen onClose={onClose} title="Demander un acompte ou une avance" size="lg">
         <form onSubmit={submit} className="space-y-4">
             <p className="text-xs text-[var(--color-fg-muted)]">La demande sera enregistrée en attente d’approbation dans la campagne de paie sélectionnée.</p>
-            {error && <Alert type="error" message={error} />}
+            {error && <FormError message={error} />}
             {periodError && <Alert type="error" message={periodError} />}
             <SearchSelect label="Période de paie" required value={selectedPeriodeId || ''}
                 onChange={value => value && selectPeriode(Number(value))} options={periodOptions}
@@ -69,6 +72,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, onClose, onCreate
             <Select label="Nature de la demande" value={typeCode} onChange={setTypeCode}
                 options={types.map(item => ({ value: item.code, label: item.libelle }))}
                 placeholder={loadingTypes ? 'Chargement des types…' : 'Choisir un type de demande…'} />
+            {typesError && <Alert type="error" message={typesError} />}
             {selectedType?.description && <p className="text-xs text-[var(--color-fg-muted)]">{selectedType.description}</p>}
             <Input label="Montant (Ar)" type="number" min="0.01" step="0.01" required placeholder="Ex. 50000" value={montant} onChange={event => setMontant(event.target.value)} />
             <Input label="Motif" required placeholder="Ex. Dépense imprévue à couvrir" value={motif} onChange={event => setMotif(event.target.value)} />

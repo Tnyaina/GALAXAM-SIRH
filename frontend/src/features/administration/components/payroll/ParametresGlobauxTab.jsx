@@ -17,6 +17,7 @@ import { fmtDateInput } from '@/utils/dateUtils';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
+import FormError from '@/components/ui/feedback/FormError';
 import Modal from '@/components/ui/overlays/Modal';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { getErrorMessage } from '@/api/apiClient';
@@ -680,7 +681,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                 onClick={() => setViewMode('CARDS')}
                                 className={`p-2 transition-colors cursor-pointer rounded-none ${
                                     viewMode === 'CARDS'
-                                        ? 'bg-[var(--color-brand-500)] text-white'
+                                        ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)]'
                                         : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
                                 }`}
                                 title="Affichage en cartes interactives"
@@ -693,7 +694,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                 onClick={() => setViewMode('TABLE')}
                                 className={`p-2 transition-colors cursor-pointer rounded-none ${
                                     viewMode === 'TABLE'
-                                        ? 'bg-[var(--color-brand-500)] text-white'
+                                        ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)]'
                                         : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
                                 }`}
                                 title="Affichage en tableau synthétique"
@@ -839,7 +840,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                                 >
                                                                     <span
                                                                         className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-none shadow-xs transform transition duration-150 ease-in-out mt-[2px] ml-[2px] ${
-                                                                            param.estActif ? 'translate-x-4 bg-white' : 'translate-x-0 bg-[var(--color-fg-muted)]'
+                                                                            param.estActif ? 'translate-x-4 bg-[var(--color-surface)]' : 'translate-x-0 bg-[var(--color-fg-muted)]'
                                                                         }`}
                                                                     />
                                                                 </button>
@@ -1003,7 +1004,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                         >
                                                             <span
                                                                 className={`pointer-events-none inline-block h-3 w-3 rounded-none shadow-xs transform transition duration-150 ease-in-out mt-[1px] ml-[1px] ${
-                                                                    p.estActif ? 'translate-x-3 bg-white' : 'translate-x-0 bg-[var(--color-fg-muted)]'
+                                                                    p.estActif ? 'translate-x-3 bg-[var(--color-surface)]' : 'translate-x-0 bg-[var(--color-fg-muted)]'
                                                                 }`}
                                                             />
                                                         </button>
@@ -1101,7 +1102,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                         }
                     >
                         <form id="param-global-form" onSubmit={handleSave} className="space-y-4">
-                            {modalError && <Alert type="error" message={modalError} />}
+                            {modalError && <FormError message={modalError} />}
 
                             {/* Fiche de synthèse métier & avertissement temporel */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1201,7 +1202,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                         >
                                             <span
                                                 className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-none shadow-xs transform transition duration-150 ease-in-out mt-[2px] ml-[2px] ${
-                                                    formData.estActif ? 'translate-x-4 bg-white' : 'translate-x-0 bg-[var(--color-fg-muted)]'
+                                                    formData.estActif ? 'translate-x-4 bg-[var(--color-surface)]' : 'translate-x-0 bg-[var(--color-fg-muted)]'
                                                 }`}
                                             />
                                         </button>

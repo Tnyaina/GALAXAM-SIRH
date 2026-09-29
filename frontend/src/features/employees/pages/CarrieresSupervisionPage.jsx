@@ -354,7 +354,7 @@ export default function CarrieresSupervisionPage() {
                     />
 
                     {/* Chargement Skeleton */}
-                    {loading && <SkeletonTable rows={8} />}
+                    {loading && <SkeletonTable rows={8} columns={6} />}
 
                     {/* État vide */}
                     {!loading && !error && contrats.length === 0 && (
