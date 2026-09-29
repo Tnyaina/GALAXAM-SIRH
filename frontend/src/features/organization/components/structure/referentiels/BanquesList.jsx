@@ -25,7 +25,7 @@ export default function BanquesList({
                 </Button>
             </div>
 
-            <Table>
+            <Table bordered={false}>
                 <Thead>
                     <Th>Code Banque</Th>
                     <Th>Nom de la Banque</Th>

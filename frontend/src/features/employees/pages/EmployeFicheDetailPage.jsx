@@ -392,8 +392,8 @@ export default function EmployeFicheDetailPage() {
             </div>
 
             {/* Conteneur Principal : Barre d'onglets et corps de dossier pleine largeur */}
-            <div className="flex-1 min-h-0 w-full bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xs flex flex-col overflow-hidden">
-                <div className="shrink-0 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+            <div className="flex-1 min-h-0 w-full flex flex-col overflow-hidden">
+                <div className="shrink-0 bg-[var(--color-surface)]">
                     <Tabs
                         tabs={mainTabs}
                         activeTab={activeTab}

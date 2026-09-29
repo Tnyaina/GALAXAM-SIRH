@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Building } from 'lucide-react';
+import { getErrorMessage } from '@/api/apiClient';
 import organisationService from '@/features/organization/api/organisationService';
 import Alert from '@/components/ui/feedback/Alert';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
@@ -189,7 +190,7 @@ export default function DepartementsServicesTab() {
             setShowDeptModal(false);
             loadDepartements();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde.");
+            setActionError(getErrorMessage(err, "Erreur de sauvegarde."));
         } finally {
             setSubmitting(false);
         }
@@ -289,7 +290,7 @@ export default function DepartementsServicesTab() {
                 loadServicesForDepartement(selectedDepartement.idDepartement);
             }
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde.");
+            setActionError(getErrorMessage(err, "Erreur de sauvegarde."));
         } finally {
             setSubmitting(false);
         }

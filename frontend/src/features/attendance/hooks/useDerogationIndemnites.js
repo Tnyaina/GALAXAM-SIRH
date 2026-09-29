@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { getErrorMessage } from '@/api/apiClient';
 import pointageParametreService from '@/features/administration/api/pointageParametreService';
 import paieConfigService from '@/features/administration/api/paieConfigService';
 import { useToast } from '@/components/ui/feedback/Toast';
@@ -127,7 +128,7 @@ export function useDerogationIndemnites() {
             closeModal();
             await loadData();
         } catch (err) {
-            toast({ type: 'error', message: err?.response?.data || "Erreur lors de l'enregistrement de la dérogation." });
+            toast({ type: 'error', message: getErrorMessage(err, "Erreur lors de l'enregistrement de la dérogation.") });
         } finally {
             setSubmitting(false);
         }

@@ -414,7 +414,7 @@ export default function CalculStepPage() {
                                     </span>
                                 </div>
                                 <div className="overflow-x-auto">
-                                    <Table className="w-full text-xs">
+                                    <Table className="w-full text-xs" bordered={false}>
                                         <Thead>
                                             <Tr>
                                                 <Th>Salarié</Th>

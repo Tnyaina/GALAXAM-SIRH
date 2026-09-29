@@ -43,7 +43,7 @@ export default function ServicesList({
                         </div>
                     ) : (
                         <div className="flex-1 overflow-x-auto">
-                            <Table>
+                            <Table bordered={false}>
                                 <Thead>
                                     <Th>Code Service</Th>
                                     <Th>Nom du Service</Th>

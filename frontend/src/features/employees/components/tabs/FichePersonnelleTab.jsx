@@ -46,7 +46,7 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
                 <CardBody className="p-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         {/* Volet Gauche : État Civil & Filiation */}
-                        <div className="bg-[var(--color-bg-subtle)]/50 border border-[var(--color-border-subtle)] p-4 sm:p-5 space-y-2">
+                        <div className="bg-[var(--color-bg-subtle)]/50 p-4 sm:p-5 space-y-2">
                             <h4 className="font-bold text-[var(--color-fg)] uppercase tracking-wider text-xs pb-2 border-b border-[var(--color-border-subtle)] flex items-center gap-1.5">
                                 <Heart size={13} className="text-[var(--color-brand-500)]" />
                                 État Civil &amp; Filiation
@@ -64,7 +64,7 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
                         </div>
 
                         {/* Volet Droit : Pièces Officielles & Sécurité Sociale */}
-                        <div className="bg-[var(--color-bg-subtle)]/50 border border-[var(--color-border-subtle)] p-4 sm:p-5 space-y-2">
+                        <div className="bg-[var(--color-bg-subtle)]/50 p-4 sm:p-5 space-y-2">
                             <h4 className="font-bold text-[var(--color-fg)] uppercase tracking-wider text-xs pb-2 border-b border-[var(--color-border-subtle)] flex items-center gap-1.5">
                                 <Shield size={13} className="text-[var(--color-brand-500)]" />
                                 Identité Légale &amp; CNaPS
@@ -119,7 +119,7 @@ export default function FichePersonnelleTab({ emp, comptes = [] }) {
                             Comptes Bancaires pour Virement ({comptes.length})
                         </h4>
                         {comptes.length > 0 ? (
-                            <Table>
+                            <Table bordered={false}>
                                 <Thead>
                                     <Tr>
                                         <Th>Banque &amp; Agence</Th>

@@ -598,7 +598,7 @@ export default function PeriodePaiePage() {
                     <SkeletonTable rows={5} cols={6} />
                 ) : (
                     <div className={`transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-                        <Table>
+                        <Table bordered={false}>
                             <Thead>
                                 <Tr>
                                     <Th>Code Période</Th>

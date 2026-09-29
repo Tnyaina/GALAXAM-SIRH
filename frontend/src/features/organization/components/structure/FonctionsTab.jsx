@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Eye, Briefcase, Power } from 'lucide-react';
+import { getErrorMessage } from '@/api/apiClient';
 import organisationService from '@/features/organization/api/organisationService';
 import Button from '@/components/ui/forms/Button';
 import Input, { Checkbox } from '@/components/ui/forms/Input';
@@ -130,7 +131,7 @@ export default function FonctionsTab() {
             setShowModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde de la fonction.");
+            setActionError(getErrorMessage(err, "Erreur de sauvegarde de la fonction."));
         } finally {
             setSubmitting(false);
         }

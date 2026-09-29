@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, Plus, Building2, MapPin, Eye, Hash, Phone, Mail, FileText } from 'lucide-react';
+import { getErrorMessage } from '@/api/apiClient';
 import organisationService from '@/features/organization/api/organisationService';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
@@ -277,7 +278,7 @@ export default function FilialesSitesTab() {
             setShowFilialeModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde.");
+            setActionError(getErrorMessage(err, "Erreur de sauvegarde."));
         } finally {
             setSubmitting(false);
         }
@@ -307,7 +308,7 @@ export default function FilialesSitesTab() {
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                     loadData();
                 } catch (err) {
-                    setError(err.response?.data || "Erreur lors du changement de statut.");
+                    setError(getErrorMessage(err, "Erreur lors du changement de statut."));
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                 }
             }
@@ -397,7 +398,7 @@ export default function FilialesSitesTab() {
             setShowSiteModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data?.message || err.response?.data || "Erreur de sauvegarde du site.");
+            setActionError(getErrorMessage(err, "Erreur de sauvegarde du site."));
         } finally {
             setSubmitting(false);
         }
@@ -434,7 +435,7 @@ export default function FilialesSitesTab() {
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                     loadData();
                 } catch (err) {
-                    setError(err.response?.data?.message || err.response?.data || "Erreur lors du changement d'état du plancher.");
+                    setError(getErrorMessage(err, "Erreur lors du changement d'état du plancher."));
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                 }
             }
@@ -465,7 +466,7 @@ export default function FilialesSitesTab() {
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                     loadData();
                 } catch (err) {
-                    setError(err.response?.data || "Erreur lors du changement de statut.");
+                    setError(getErrorMessage(err, "Erreur lors du changement de statut."));
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                 }
             }
@@ -504,7 +505,7 @@ export default function FilialesSitesTab() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--color-border-subtle)] pb-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <Tabs
                     tabs={subTabs}
                     activeTab={activeSubTab}

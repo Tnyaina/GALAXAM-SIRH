@@ -1,4 +1,5 @@
-import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react';
+import { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
+import { getErrorMessage } from '@/api/apiClient';
 import { Briefcase, RefreshCw, Download, FileText, TrendingUp } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import contratService from '@/features/employees/api/contratService';
@@ -215,7 +216,7 @@ export default function CarrieresSupervisionPage() {
             link.remove();
             URL.revokeObjectURL(url);
         } catch (exportError) {
-            setError(exportError.response?.data?.message || 'Export des contrats impossible.');
+            setError(getErrorMessage(exportError, 'Export des contrats impossible.'));
         }
     };
 

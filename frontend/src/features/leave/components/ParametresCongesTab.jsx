@@ -190,7 +190,7 @@ export default function ParametresCongesTab() {
                         />
                     </div>
                 ) : (
-                <Table>
+                <Table bordered={false}>
                   <Thead>
                     <Tr>
                       <Th>Code</Th>
@@ -311,7 +311,7 @@ export default function ParametresCongesTab() {
                         />
                     </div>
                 ) : (
-                <Table>
+                <Table bordered={false}>
                   <Thead>
                     <Tr>
                       <Th>Motif (Code du Travail)</Th>

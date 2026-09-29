@@ -35,12 +35,12 @@ import java.util.Set;
 public class PointageService {
 
     record DailyAllowanceTariff(int id, String code, String label, boolean fractionable,
-            String periodicity, BigDecimal siteAmount, String exceptionParameterCode) {}
+            String periodicity, BigDecimal siteAmount) {}
 
     DailyAllowanceTariff loadDailyAllowanceTariff(
             Connection connection, int siteId, int allowanceId, Date businessDate) throws SQLException {
         String sql = "SELECT i.id_indemnite, i.code, i.libelle, i.fractionnable, "
-                + "c.periodicite, c.montant_reference, c.code_parametre_exception "
+                + "c.periodicite, c.montant_reference "
                 + "FROM site_indemnite_config c JOIN ref_indemnite i ON i.id_indemnite = c.id_indemnite "
                 + "WHERE c.id_site = ? AND c.id_indemnite = ? AND c.est_actif = TRUE AND i.est_actif = TRUE "
                 + "AND c.date_debut <= ? AND (c.date_fin IS NULL OR c.date_fin >= ?)";
@@ -58,8 +58,7 @@ public class PointageService {
                 DailyAllowanceTariff tariff = new DailyAllowanceTariff(
                         result.getInt("id_indemnite"), result.getString("code"), result.getString("libelle"),
                         result.getBoolean("fractionnable"), result.getString("periodicite"),
-                        zeroIfNull(result.getBigDecimal("montant_reference")),
-                        result.getString("code_parametre_exception"));
+                        zeroIfNull(result.getBigDecimal("montant_reference")));
                 if (result.next()) {
                     throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
                             "Plusieurs tarifs applicables pour l'indemnité " + tariff.code() + " au " + businessDate + ".");
@@ -72,11 +71,6 @@ public class PointageService {
     BigDecimal dailyAllowanceUnitAmount(DailyAllowanceTariff tariff, Date businessDate,
             int workingDays, Connection connection) {
         BigDecimal reference = tariff.siteAmount();
-        if (reference.signum() == 0 && tariff.exceptionParameterCode() != null
-                && !"REPAS".equalsIgnoreCase(tariff.code())) {
-            reference = requireMonetaryStateParameter(
-                    ParametreGlobal.loadEtatMapAtDate(businessDate, connection), tariff.exceptionParameterCode());
-        }
         if (reference.signum() < 0) {
             throw new SirhBusinessException(SirhErrorCode.PAYROLL_ALLOWANCE_CONFIGURATION_MISSING,
                     "Montant négatif pour l'indemnité " + tariff.code() + ".");
@@ -574,7 +568,7 @@ public class PointageService {
             List<Map<String, Object>> siteIndemnites = new ArrayList<>();
             Set<Integer> seenSiteAllowances = new HashSet<>();
             String sqlSiteInd = "SELECT c.id_indemnite, i.code, i.libelle, COALESCE(i.fractionnable, FALSE) AS fractionnable, "
-                    + "c.periodicite, c.montant_reference, c.code_parametre_exception "
+                    + "c.periodicite, c.montant_reference "
                     + "FROM site_indemnite_config c JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite "
                     + "WHERE c.id_site = ? AND c.est_actif = TRUE AND i.est_actif = TRUE "
                     + "AND c.date_debut <= ? AND (c.date_fin IS NULL OR c.date_fin >= ?) "
@@ -599,9 +593,8 @@ public class PointageService {
                         BigDecimal montantRef = zeroIfNull(rsI.getBigDecimal("montant_reference"));
 
                         boolean isProratise = "MENSUEL".equalsIgnoreCase(period) || "MENSUEL_PRORATISE".equalsIgnoreCase(period);
-                        String codeParametreException = rsI.getString("code_parametre_exception");
                         DailyAllowanceTariff tariff = new DailyAllowanceTariff(
-                                idInd, codeInd, libInd, fractionnable, period, montantRef, codeParametreException);
+                                idInd, codeInd, libInd, fractionnable, period, montantRef);
                         BigDecimal montantJour = dailyAllowanceUnitAmount(tariff, date, nbOuvrablesPeriode, c);
                         BigDecimal montantTrajet = fractionnable ? calendrierEngine.calculerMontantTrajet(montantJour) : montantJour;
 
@@ -629,7 +622,6 @@ public class PointageService {
                         ind.put("montantReference", montantRef);
                         ind.put("montantJour", montantJour);
                         ind.put("montantGlobal", montantGlobal);
-                        ind.put("codeParametreException", codeParametreException);
                         // Conservé dans le contrat de grille pour les clients existants.
                         ind.put("useGlobalIfZero", useGlobalIfZero);
                         ind.put("cocheParDefaut", !isSiteZero);

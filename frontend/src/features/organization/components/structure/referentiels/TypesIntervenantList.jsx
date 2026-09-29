@@ -22,7 +22,7 @@ export default function TypesIntervenantList({
                 </div>
             </div>
 
-            <Table>
+            <Table bordered={false}>
                 <Thead>
                     <Th>Code</Th>
                     <Th>Libellé</Th>

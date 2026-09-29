@@ -42,7 +42,7 @@ export default function JoursFeriesList({
                     />
                 </div>
             ) : (
-                <Table>
+                <Table bordered={false}>
                     <Thead>
                         <Th>Date</Th>
                         <Th>Libellé de la Fête / Commémoration</Th>

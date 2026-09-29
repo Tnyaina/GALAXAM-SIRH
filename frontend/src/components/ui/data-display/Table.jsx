@@ -7,11 +7,11 @@ import { ChevronUp, ChevronDown } from 'lucide-react';
    - maxHeight   : active un scroll vertical + en-tête collant (ex: '480px')
    - toolbar     : contenu affiché au-dessus du <table> (ex: <TableSelectionBar />)
    ============================================================================ */
-export function Table({ children, className = '', maxHeight, toolbar, divided = false, style, ...props }) {
+export function Table({ children, className = '', maxHeight, toolbar, divided = false, bordered = true, style, ...props }) {
     // Rendu de la primitive de table partagée.
   return (
     <div
-      className={`relative border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-sm rounded-none ${maxHeight ? 'overflow-auto' : 'overflow-x-auto'
+      className={`relative ${bordered ? 'border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-sm' : ''} rounded-none ${maxHeight ? 'overflow-auto' : 'overflow-x-auto'
         } ${divided ? '[&_th:not(:last-child)]:border-r [&_th:not(:last-child)]:border-[var(--color-border-subtle)] [&_td:not(:last-child)]:border-r [&_td:not(:last-child)]:border-[var(--color-border-subtle)]' : ''} ${className}`}
       style={{ ...(maxHeight ? { maxHeight } : null), ...style }}
       {...props}

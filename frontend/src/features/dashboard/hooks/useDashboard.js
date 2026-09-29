@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import dashboardService from '@/features/dashboard/api/dashboardService';
 import { useAuth } from '@/context/AuthContext';
+import { getErrorMessage } from '@/api/apiClient';
 
 /**
  * useDashboard — Hook custom pour les données du dashboard.
@@ -24,7 +25,7 @@ export function useDashboard() {
         } catch (err) {
             if (err.name === 'CanceledError' || err.__CANCEL__) return;
             console.error('[Dashboard] Erreur chargement:', err);
-            setError(err.response?.data || err.message || 'Erreur lors du chargement du dashboard.');
+            setError(getErrorMessage(err, 'Erreur lors du chargement du dashboard.'));
         } finally {
             setLoading(false);
         }

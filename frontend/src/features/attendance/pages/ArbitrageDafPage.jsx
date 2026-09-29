@@ -703,7 +703,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                     </div>
                                 </div>
 
-                                <Table size="sm" divided>
+                                <Table size="sm" divided bordered={false}>
                                     <Thead>
                                         <Tr>
                                             <Th className="w-[190px] max-w-[210px]">Collaborateur</Th>

@@ -260,7 +260,7 @@ export default function MouvementsSoldeTable({
             />
           </div>
         ) : (
-          <Table>
+          <Table bordered={false}>
             <Thead>
               <Tr>
                 <Th>Date</Th>

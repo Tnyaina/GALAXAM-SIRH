@@ -103,7 +103,7 @@ export default function PointageGridTable({
 
     // Rendu
     return (
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden flex flex-col">
+        <div className="overflow-hidden flex flex-col">
             {/* Barre combinée : Filtres de statut à gauche + Info & Légende à droite */}
             <div className="flex flex-wrap items-center justify-between px-3 py-1.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-xs text-[var(--color-fg-muted)] gap-2">
                 {/* 1. Filtres d'état (Pills au-dessus de la table) */}
@@ -148,7 +148,7 @@ export default function PointageGridTable({
             </div>
 
             <div className="overflow-x-auto">
-                <Table className="w-full text-left border-collapse text-[13px]">
+                <Table className="w-full text-left border-collapse text-[13px]" bordered={false}>
                     <Thead className="sticky top-0 z-10">
                         {/* Ligne 1 d'en-tête (Titres de Blocs) */}
                         <Tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">

@@ -640,7 +640,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                         </div>
 
                         {/* 4. SYNTHÈSE LÉGALE, SOCIALE & FISCALE (Wireframe 2) */}
-                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 space-y-2 bg-[var(--color-bg-subtle)]/40">
+                        <div className="p-3.5 space-y-2 bg-[var(--color-bg-subtle)]/40">
                             <div className="flex justify-between items-center font-bold text-xs py-1 border-b border-[var(--color-border-subtle)]">
                                 <span className="uppercase tracking-wide text-[var(--color-fg)]">TOTAL BRUT</span>
                                 <span className="font-mono text-sm text-[var(--color-fg)]">{formatAr(bulletin.totalGainsBruts)}</span>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getErrorMessage } from '@/api/apiClient';
 import { Briefcase, ShieldAlert, Save, X, FileSignature, Eye, EyeOff, UserPlus, RotateCcw, Handshake } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { Textarea } from '@/components/ui/forms/Input';
@@ -213,7 +214,7 @@ export default function EmbaucheModal({
             onClose();
         } catch (err) {
             console.error("Erreur enregistrement embauche:", err);
-            setErrorMsg(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || err.message || "Erreur lors de l'enregistrement de l'embauche.");
+            setErrorMsg(getErrorMessage(err, "Erreur lors de l'enregistrement de l'embauche."));
         } finally {
             setSubmitting(false);
         }

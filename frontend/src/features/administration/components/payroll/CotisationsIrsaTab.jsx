@@ -15,6 +15,7 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import useConfirm from '@/hooks/useConfirm';
 import { useToast } from '@/components/ui/feedback/Toast';
+import { getErrorMessage } from '@/api/apiClient';
 
 
 function SiteCotisationFormModal({ isOpen, onClose, onSubmit, formData, setFormData, sites = [], cotisations = [], actionError, submitting = false }) {
@@ -23,14 +24,139 @@ function SiteCotisationFormModal({ isOpen, onClose, onSubmit, formData, setFormD
 
 function CotisationFormModal({ isOpen, onClose, onSubmit, editingCotisation, formData, setFormData, actionError, submitting = false }) {
     const [localError, setLocalError] = useState(null);
-    const submit = (event) => { event.preventDefault(); setLocalError(null); const salarial = parseFloat(formData.tauxSalarial); const patronal = parseFloat(formData.tauxPatronal); if (isNaN(salarial) || salarial < 0 || salarial > 100) return setLocalError('Le taux salarial doit être compris entre 0% et 100%.'); if (isNaN(patronal) || patronal < 0 || patronal > 100) return setLocalError('Le taux patronal doit être compris entre 0% et 100%.'); if (formData.dateFin && formData.dateDebut && formData.dateFin < formData.dateDebut) return setLocalError('La date de fin ne peut pas être antérieure à la date de début.'); onSubmit(event); };
+    const submit = (event) => {
+        event.preventDefault();
+        setLocalError(null);
+        const salarial = parseFloat(formData.tauxSalarial);
+        const patronal = parseFloat(formData.tauxPatronal);
+        if (isNaN(salarial) || salarial < 0 || salarial > 100) return setLocalError('Le taux salarial doit être compris entre 0% et 100%.');
+        if (isNaN(patronal) || patronal < 0 || patronal > 100) return setLocalError('Le taux patronal doit être compris entre 0% et 100%.');
+        if (formData.dateFin && formData.dateDebut && formData.dateFin < formData.dateDebut) return setLocalError('La date de fin ne peut pas être antérieure à la date de début.');
+        onSubmit(event);
+    };
     const portee = formData.portee || 'SITE';
     const categorie = formData.categorie || 'SANTE';
-    return <FormModal isOpen={isOpen} onClose={onClose} onSubmit={submit} title={editingCotisation ? 'Modifier la Cotisation Sociale' : 'Nouvelle Cotisation Sociale'} icon={<ShieldCheck size={18} />} size="lg" isEdit={!!editingCotisation} loading={submitting} error={localError || actionError}><div className="grid grid-cols-2 gap-4"><Input label="Code Cotisation" required disabled={!!editingCotisation} value={formData.code} onChange={(event) => setFormData({ ...formData, code: event.target.value.toUpperCase() })} placeholder="Ex: CNAPS, OSTIE, AMIT" /><Select label="Catégorie / Nature" required value={categorie} onChange={(event) => { const cat = event.target.value; const autoPortee = (cat === 'PREVOYANCE' || cat === 'FORMATION') ? 'ENTREPRISE' : formData.portee; setFormData({ ...formData, categorie: cat, portee: autoPortee }); }}><option value="SANTE">Santé au Travail (OSTIE, OMSI, AMIT, FUNHECE)</option><option value="PREVOYANCE">Prévoyance / Retraite (CNaPS)</option><option value="FORMATION">Formation Professionnelle (FMFP)</option></Select></div><Input label="Libellé Complet" required value={formData.libelle} onChange={(event) => setFormData({ ...formData, libelle: event.target.value })} placeholder="Ex: Caisse Nationale de Prévoyance Sociale" /><div><label className="block text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)] mb-1">Périmètre d'application <span className="text-[var(--color-danger-500)]">*</span></label><div className="flex gap-2">{[['SITE', MapPin, 'Par site (Affectation locale)'], ['ENTREPRISE', Building2, 'Entreprise entière']].map(([value, Icon, label]) => <button key={value} type="button" onClick={() => setFormData({ ...formData, portee: value })} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border text-xs font-semibold transition-all ${portee === value ? 'bg-[var(--color-success-500)]/10 border-[var(--color-success-500)]/40 text-[var(--color-success-600)]' : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'}`}><Icon size={13} />{label}</button>)}</div><p className="text-[11px] text-[var(--color-fg-muted)] mt-1">{portee === 'ENTREPRISE' ? 'Appliquée à tous les salariés sans distinction de site géographique.' : 'Nécessite une association dans l’onglet Cotisations par Site.'}</p></div><div className="grid grid-cols-2 gap-4"><Input label="Part Salariale (%)" type="number" min="0" max="100" step="0.01" required value={formData.tauxSalarial} onChange={(event) => setFormData({ ...formData, tauxSalarial: parseFloat(event.target.value) || 0 })} /><Input label="Part Patronale (%)" type="number" min="0" max="100" step="0.01" required value={formData.tauxPatronal} onChange={(event) => setFormData({ ...formData, tauxPatronal: parseFloat(event.target.value) || 0 })} /></div><div className="grid grid-cols-2 gap-4"><Input label="Date Début (Prise d'effet)" type="date" required value={fmtDateInput(formData.dateDebut)} onChange={(event) => setFormData({ ...formData, dateDebut: event.target.value })} /><Input label="Date Fin (Optionnel)" type="date" min={fmtDateInput(formData.dateDebut)} value={fmtDateInput(formData.dateFin)} onChange={(event) => setFormData({ ...formData, dateFin: event.target.value })} /></div></FormModal>;
+
+    return (
+        <FormModal
+            isOpen={isOpen}
+            onClose={onClose}
+            onSubmit={submit}
+            title={editingCotisation ? 'Modifier la Cotisation Sociale' : 'Nouvelle Cotisation Sociale'}
+            icon={<ShieldCheck size={18} />}
+            size="xl"
+            isEdit={!!editingCotisation}
+            loading={submitting}
+            error={localError || actionError}
+        >
+            <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input
+                        label="Code Cotisation"
+                        required
+                        disabled={!!editingCotisation}
+                        value={formData.code}
+                        onChange={(event) => setFormData({ ...formData, code: event.target.value.toUpperCase() })}
+                        placeholder="Ex: CNAPS, OSTIE, AMIT"
+                    />
+                    <Select
+                        label="Catégorie / Nature"
+                        required
+                        value={categorie}
+                        onChange={(event) => {
+                            const cat = event.target.value;
+                            const autoPortee = (cat === 'PREVOYANCE' || cat === 'FORMATION') ? 'ENTREPRISE' : formData.portee;
+                            setFormData({ ...formData, categorie: cat, portee: autoPortee });
+                        }}
+                    >
+                        <option value="SANTE">Santé au Travail</option>
+                        <option value="PREVOYANCE">Prévoyance / Retraite (CNaPS)</option>
+                        <option value="FORMATION">Formation Professionnelle (FMFP)</option>
+                    </Select>
+                </div>
+
+                <Input
+                    label="Libellé Complet"
+                    required
+                    value={formData.libelle}
+                    onChange={(event) => setFormData({ ...formData, libelle: event.target.value })}
+                    placeholder="Ex: Caisse Nationale de Prévoyance Sociale"
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)] mb-1">
+                            Périmètre d'application <span className="text-[var(--color-danger-500)]">*</span>
+                        </label>
+                        <div className="flex gap-2">
+                            {[['SITE', MapPin, 'Par site'], ['ENTREPRISE', Building2, 'Entreprise entière']].map(([value, Icon, label]) => (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, portee: value })}
+                                    className={`flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 border text-xs font-semibold transition-all cursor-pointer ${
+                                        portee === value
+                                            ? 'bg-[var(--color-success-500)]/10 border-[var(--color-success-500)]/40 text-[var(--color-success-600)]'
+                                            : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
+                                    }`}
+                                >
+                                    <Icon size={13} />
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-[10px] text-[var(--color-fg-muted)] mt-1 truncate">
+                            {portee === 'ENTREPRISE' ? 'Applicable à tous les salariés.' : 'Affectation par site requise.'}
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                        <Input
+                            label="Part Salariale (%)"
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            required
+                            value={formData.tauxSalarial}
+                            onChange={(event) => setFormData({ ...formData, tauxSalarial: parseFloat(event.target.value) || 0 })}
+                        />
+                        <Input
+                            label="Part Patronale (%)"
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            required
+                            value={formData.tauxPatronal}
+                            onChange={(event) => setFormData({ ...formData, tauxPatronal: parseFloat(event.target.value) || 0 })}
+                        />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input
+                        label="Date Début (Prise d'effet)"
+                        type="date"
+                        required
+                        value={fmtDateInput(formData.dateDebut)}
+                        onChange={(event) => setFormData({ ...formData, dateDebut: event.target.value })}
+                    />
+                    <Input
+                        label="Date Fin (Optionnel)"
+                        type="date"
+                        min={fmtDateInput(formData.dateDebut)}
+                        value={fmtDateInput(formData.dateFin)}
+                        onChange={(event) => setFormData({ ...formData, dateFin: event.target.value })}
+                    />
+                </div>
+            </div>
+        </FormModal>
+    );
 }
 
 function SiteCotisationsList({ siteCotisations = [], onOpenCreate, onToggleStatus }) {
-    return <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden space-y-4"><div className="p-4 flex justify-between items-center border-b border-[var(--color-border-subtle)]"><div><h3 className="font-bold text-[var(--color-fg)] text-base flex items-center gap-2"><MapPin size={18} className="text-[var(--color-brand-500)]" />Cotisations rattachées aux sites ({siteCotisations.length})</h3><p className="text-xs text-[var(--color-fg-muted)]">Organismes sanitaires et prévoyances affectés par site géographique.</p></div><Button onClick={onOpenCreate} variant="primary" size="sm" iconLeft={<Plus size={16} />}>Associer un site</Button></div>{siteCotisations.length === 0 ? <div className="p-8"><EmptyState icon={MapPin} title="Aucune association" description="Aucune association site–cotisation n'a été enregistrée." actionLabel="Associer un site" onAction={onOpenCreate} /></div> : <Table><Thead><Th>Nom du site</Th><Th>Cotisation rattachée</Th><Th>Statut</Th><Th className="text-right">Actions</Th></Thead><Tbody>{siteCotisations.map((item) => <Tr key={item.idSiteCotisation}><Td className="font-bold text-[var(--color-fg)]">{item.siteLibelle} {item.siteCode ? `(${item.siteCode})` : ''}</Td><Td isData className="font-semibold text-[var(--color-brand-500)]">{item.cotisationCode} - {item.cotisationLibelle}</Td><Td><Badge variant={item.estActif ? 'success' : 'default'} size="sm" dot>{item.estActif ? 'Actif' : 'Désactivé'}</Badge></Td><Td className="text-right"><button onClick={() => onToggleStatus(item)} className={`p-1.5 rounded-none cursor-pointer ${item.estActif ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'}`} title={item.estActif ? "Désactiver l'association" : "Réactiver l'association"}>{item.estActif ? <Power size={16} /> : <Check size={16} />}</button></Td></Tr>)}</Tbody></Table>}</div>;
+    return <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden space-y-4"><div className="p-4 flex justify-between items-center border-b border-[var(--color-border-subtle)]"><div><h3 className="font-bold text-[var(--color-fg)] text-base flex items-center gap-2"><MapPin size={18} className="text-[var(--color-brand-500)]" />Cotisations rattachées aux sites ({siteCotisations.length})</h3><p className="text-xs text-[var(--color-fg-muted)]">Organismes sanitaires et prévoyances affectés par site géographique.</p></div><Button onClick={onOpenCreate} variant="primary" size="sm" iconLeft={<Plus size={16} />}>Associer un site</Button></div>{siteCotisations.length === 0 ? <div className="p-8"><EmptyState icon={MapPin} title="Aucune association" description="Aucune association site–cotisation n'a été enregistrée." actionLabel="Associer un site" onAction={onOpenCreate} /></div> : <Table bordered={false}><Thead><Th>Nom du site</Th><Th>Cotisation rattachée</Th><Th>Statut</Th><Th className="text-right">Actions</Th></Thead><Tbody>{siteCotisations.map((item) => <Tr key={item.idSiteCotisation}><Td className="font-bold text-[var(--color-fg)]">{item.siteLibelle} {item.siteCode ? `(${item.siteCode})` : ''}</Td><Td isData className="font-semibold text-[var(--color-brand-500)]">{item.cotisationCode} - {item.cotisationLibelle}</Td><Td><Badge variant={item.estActif ? 'success' : 'default'} size="sm" dot>{item.estActif ? 'Actif' : 'Désactivé'}</Badge></Td><Td className="text-right"><button onClick={() => onToggleStatus(item)} className={`p-1.5 rounded-none cursor-pointer ${item.estActif ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'}`} title={item.estActif ? "Désactiver l'association" : "Réactiver l'association"}>{item.estActif ? <Power size={16} /> : <Check size={16} />}</button></Td></Tr>)}</Tbody></Table>}</div>;
 }
 
 function CotisationsList({ cotisations = [], onOpenCreate, onOpenEdit, onToggleStatus }) {
@@ -40,7 +166,7 @@ function CotisationsList({ cotisations = [], onOpenCreate, onOpenEdit, onToggleS
         return <Badge variant="success" size="sm">Santé</Badge>;
     };
 
-    return <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden space-y-4"><div className="p-4 flex justify-between items-center border-b border-[var(--color-border-subtle)]"><div><h3 className="font-bold text-[var(--color-fg)] text-base flex items-center gap-2"><ShieldCheck size={18} className="text-[var(--color-brand-500)]" />Règles et cotisations sociales ({cotisations.length})</h3><p className="text-xs text-[var(--color-fg-muted)]">Taux salariaux et patronaux applicables.</p></div><Button onClick={onOpenCreate} variant="primary" size="sm" iconLeft={<Plus size={16} />}>Nouvelle cotisation</Button></div>{cotisations.length === 0 ? <div className="p-8"><EmptyState icon={ShieldCheck} title="Aucune cotisation configurée" description="Ajoutez les règles et cotisations sociales pour la paie." actionLabel="Nouvelle cotisation" onAction={onOpenCreate} /></div> : <Table><Thead><Th>Code</Th><Th>Libellé</Th><Th>Catégorie</Th><Th>Périmètre</Th><Th className="text-right">Salarial</Th><Th className="text-right">Patronal</Th><Th>Période</Th><Th>Statut</Th><Th className="text-right">Actions</Th></Thead><Tbody>{cotisations.map((item) => { const active = item.estActif !== false; return <Tr key={item.idTypeCotisation}><Td isData className="font-bold text-[var(--color-brand-500)]">{item.code}</Td><Td className="font-semibold text-[var(--color-fg)]">{item.libelle}</Td><Td>{categorieBadge(item.categorie)}</Td><Td><Badge variant={item.portee === 'ENTREPRISE' ? 'primary' : 'success'} size="sm">{item.portee === 'ENTREPRISE' ? 'Entreprise' : 'Par site'}</Badge></Td><Td isData className="text-right">{item.tauxSalarial}%</Td><Td isData className="text-right">{item.tauxPatronal}%</Td><Td isData muted className="text-xs">Du {fmtDate(item.dateDebut)} {item.dateFin ? `au ${fmtDate(item.dateFin)}` : '(actif)'}</Td><Td><Badge variant={active ? 'success' : 'default'} size="sm" dot>{active ? 'Actif' : 'Désactivé'}</Badge></Td><Td className="text-right"><button onClick={() => onOpenEdit(item)} className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer" title="Modifier"><Edit2 size={16} /></button><button onClick={() => onToggleStatus(item)} className={`p-1.5 rounded-none cursor-pointer ${active ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'}`} title={active ? 'Désactiver' : 'Réactiver'}>{active ? <Power size={16} /> : <Check size={16} />}</button></Td></Tr>; })}</Tbody></Table>}</div>;
+    return <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden space-y-4"><div className="p-4 flex justify-between items-center border-b border-[var(--color-border-subtle)]"><div><h3 className="font-bold text-[var(--color-fg)] text-base flex items-center gap-2"><ShieldCheck size={18} className="text-[var(--color-brand-500)]" />Règles et cotisations sociales ({cotisations.length})</h3><p className="text-xs text-[var(--color-fg-muted)]">Taux salariaux et patronaux applicables.</p></div><Button onClick={onOpenCreate} variant="primary" size="sm" iconLeft={<Plus size={16} />}>Nouvelle cotisation</Button></div>{cotisations.length === 0 ? <div className="p-8"><EmptyState icon={ShieldCheck} title="Aucune cotisation configurée" description="Ajoutez les règles et cotisations sociales pour la paie." actionLabel="Nouvelle cotisation" onAction={onOpenCreate} /></div> : <Table bordered={false}><Thead><Th>Code</Th><Th>Libellé</Th><Th>Catégorie</Th><Th>Périmètre</Th><Th className="text-right">Salarial</Th><Th className="text-right">Patronal</Th><Th>Période</Th><Th>Statut</Th><Th className="text-right">Actions</Th></Thead><Tbody>{cotisations.map((item) => { const active = item.estActif !== false; return <Tr key={item.idTypeCotisation}><Td isData className="font-bold text-[var(--color-brand-500)]">{item.code}</Td><Td className="font-semibold text-[var(--color-fg)]">{item.libelle}</Td><Td>{categorieBadge(item.categorie)}</Td><Td><Badge variant={item.portee === 'ENTREPRISE' ? 'primary' : 'success'} size="sm">{item.portee === 'ENTREPRISE' ? 'Entreprise' : 'Par site'}</Badge></Td><Td isData className="text-right">{item.tauxSalarial}%</Td><Td isData className="text-right">{item.tauxPatronal}%</Td><Td isData muted className="text-xs">Du {fmtDate(item.dateDebut)} {item.dateFin ? `au ${fmtDate(item.dateFin)}` : '(actif)'}</Td><Td><Badge variant={active ? 'success' : 'default'} size="sm" dot>{active ? 'Actif' : 'Désactivé'}</Badge></Td><Td className="text-right"><button onClick={() => onOpenEdit(item)} className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer" title="Modifier"><Edit2 size={16} /></button><button onClick={() => onToggleStatus(item)} className={`p-1.5 rounded-none cursor-pointer ${active ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'}`} title={active ? 'Désactiver' : 'Réactiver'}>{active ? <Power size={16} /> : <Check size={16} />}</button></Td></Tr>; })}</Tbody></Table>}</div>;
 }
 
 export default function CotisationsIrsaTab() {
@@ -151,7 +277,7 @@ export default function CotisationsIrsaTab() {
             setShowCotisationModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde.");
+            setActionError(getErrorMessage(err, "Erreur de sauvegarde."));
         } finally {
             setSubmitting(false);
         }
@@ -178,7 +304,7 @@ export default function CotisationsIrsaTab() {
             setShowSiteCotisationModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de rattachement.");
+            setActionError(getErrorMessage(err, "Erreur de rattachement."));
         } finally {
             setSubmitting(false);
         }
@@ -269,7 +395,7 @@ export default function CotisationsIrsaTab() {
             {error && <Alert type="error" message={error} />}
 
             {/* Onglets internes + Filtre d'affichage */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 gap-3 shadow-sm">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <Tabs
                     tabs={[
                         { id: 'cotisations', label: 'Cotisations Sociales Référentielles', icon: <ShieldCheck size={16} />, count: cotisations.length },

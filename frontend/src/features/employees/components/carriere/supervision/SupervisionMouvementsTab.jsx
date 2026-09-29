@@ -118,7 +118,7 @@ function SupervisionMouvementsTab() {
             description="Modifiez les filtres pour consulter d'autres mouvements."
             action={hasActiveFilters && <Button variant="outline" size="sm" onClick={resetFilters}>Réinitialiser</Button>} />}
         {!loading && !error && workflows.length > 0 && <div className="overflow-x-auto border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
-            <Table>
+            <Table bordered={false}>
                 <Thead><Tr>
                     <Th>Date d'effet</Th><Th>Collaborateur</Th><Th>Mouvement</Th><Th>Poste / site</Th><Th>État</Th><Th align="right">Détail</Th>
                 </Tr></Thead>

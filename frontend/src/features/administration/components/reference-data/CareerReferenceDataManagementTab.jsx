@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Edit2, Award, CreditCard, ArrowUpRight } from 'lucide-react';
+import { getErrorMessage } from '@/api/apiClient';
 import contratService from '@/features/employees/api/contratService';
 import Input, { Textarea, Checkbox } from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
@@ -88,7 +89,7 @@ export default function CareerReferenceDataManagementTab() {
             loadData();
         } catch (err) {
             console.error('Erreur enregistrement catégorie:', err);
-            setModalError(err.response?.data || "Erreur lors de l'enregistrement.");
+            setModalError(getErrorMessage(err, "Erreur lors de l'enregistrement."));
         } finally {
             setSubmitting(false);
         }

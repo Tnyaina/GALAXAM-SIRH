@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Edit2, Eye, Plus, Shield, ShieldCheck, ListTodo } from 'lucide-react';
+import { getErrorMessage } from '@/api/apiClient';
 import referentielService from '@/features/administration/api/referentielService';
 import Tabs from '@/components/ui/navigation/Tabs';
 import { SkeletonCard, SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -163,7 +164,7 @@ export default function RolesAndPermissionsTab() {
             setShowRoleModal(false);
             loadMasterData();
         } catch (err) {
-            setRoleModalError(err.response?.data || "Erreur lors de l'enregistrement.");
+            setRoleModalError(getErrorMessage(err, "Erreur lors de l'enregistrement."));
         } finally {
             setSubmittingRole(false);
         }

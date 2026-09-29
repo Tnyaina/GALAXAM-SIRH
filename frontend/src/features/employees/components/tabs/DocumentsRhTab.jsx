@@ -201,7 +201,7 @@ export default function DocumentsRhTab({
                             />
                         </div>
                     ) : (
-                        <Table>
+                        <Table bordered={false}>
                             <Thead>
                                 <Tr>
                                     <Th>Document &amp; Intitulé</Th>

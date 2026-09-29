@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Trash2 } from 'lucide-react';
+import { getErrorMessage } from '@/api/apiClient';
 import referentielService from '@/features/administration/api/referentielService';
 import { getMenuIcon } from '@/utils/iconRegistry';
 import IconPicker from '@/components/ui/forms/IconPicker';
@@ -151,7 +152,7 @@ export default function MenuManagementTab() {
             loadData();
             refreshMenu?.();
         } catch (err) {
-            setModalError(err.response?.data || "Une erreur est survenue lors de l'enregistrement.");
+            setModalError(getErrorMessage(err, "Une erreur est survenue lors de l'enregistrement."));
         } finally {
             setSubmitting(false);
         }
@@ -167,7 +168,7 @@ export default function MenuManagementTab() {
             loadData();
             refreshMenu?.();
         } catch (err) {
-            setError(err.response?.data || "Erreur lors de la suppression du menu.");
+            setError(getErrorMessage(err, "Erreur lors de la suppression du menu."));
             setConfirmDelete(prev => ({ ...prev, loading: false, isOpen: false }));
         }
     };

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, UserPlus, Edit2, ShieldAlert, Eye, UserCheck, Power } from 'lucide-react';
+import { getErrorMessage } from '@/api/apiClient';
 import referentielService from '@/features/administration/api/referentielService';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -164,7 +165,7 @@ export default function UserManagementTab() {
             setShowUserModal(false);
             loadData();
         } catch (err) {
-            setModalError(err.response?.data || "Une erreur est survenue lors de l'enregistrement.");
+            setModalError(getErrorMessage(err, "Une erreur est survenue lors de l'enregistrement."));
         } finally {
             setSubmitting(false);
         }
@@ -187,7 +188,7 @@ export default function UserManagementTab() {
             setShowDeactivateModal(false);
             loadData();
         } catch (err) {
-            setModalError(err.response?.data || "Une erreur est survenue lors de la désactivation.");
+            setModalError(getErrorMessage(err, "Une erreur est survenue lors de la désactivation."));
         } finally {
             setSubmitting(false);
         }
@@ -209,7 +210,7 @@ export default function UserManagementTab() {
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                     loadData();
                 } catch (err) {
-                    setError(err.response?.data || "Impossible de réactiver l'utilisateur.");
+                    setError(getErrorMessage(err, "Impossible de réactiver l'utilisateur."));
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                 }
             }

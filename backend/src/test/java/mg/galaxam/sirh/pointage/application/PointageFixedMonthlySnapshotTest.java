@@ -59,16 +59,14 @@ class PointageFixedMonthlySnapshotTest {
                 }
                 try (PreparedStatement ps = c.prepareStatement(
                         "INSERT INTO site_indemnite_config (id_site, id_indemnite, periodicite, "
-                                + "montant_reference, code_parametre_exception, date_debut, est_actif) "
-                                + "VALUES (?, ?, 'MENSUEL_PRORATISE', ?, ?, '2026-01-01', TRUE)")) {
+                                + "montant_reference, date_debut, est_actif) "
+                                + "VALUES (?, ?, 'MENSUEL_PRORATISE', ?, '2026-01-01', TRUE)")) {
                     ps.setInt(1, 1);
                     ps.setInt(2, allowance);
-                    ps.setBigDecimal(3, BigDecimal.ZERO);
-                    ps.setString(4, parameterCode);
+                    ps.setBigDecimal(3, new BigDecimal("30000"));
                     ps.executeUpdate();
                     ps.setInt(1, secondSite);
                     ps.setBigDecimal(3, new BigDecimal("60000"));
-                    ps.setString(4, null);
                     ps.executeUpdate();
                 }
                 Date date = Date.valueOf("2026-09-15");
@@ -81,19 +79,10 @@ class PointageFixedMonthlySnapshotTest {
                 assertEquals(0, new BigDecimal("3000").compareTo(
                         pointage.dailyAllowanceUnitAmount(newSite, date, 20, c)));
 
-                try (PreparedStatement ps = c.prepareStatement(
-                        "UPDATE parametre_global SET est_actif = FALSE WHERE code_parametre = ?")) {
-                    ps.setString(1, parameterCode);
-                    ps.executeUpdate();
-                }
+                PointageService.DailyAllowanceTariff zeroTariff = new PointageService.DailyAllowanceTariff(
+                        allowance, "TEST", "Test", true, "MENSUEL_PRORATISE", BigDecimal.ZERO);
                 assertEquals(0, BigDecimal.ZERO.compareTo(
-                        pointage.dailyAllowanceUnitAmount(oldSite, date, 20, c)));
-                assertEquals(0, new BigDecimal("3000").compareTo(
-                        pointage.dailyAllowanceUnitAmount(newSite, date, 20, c)));
-                assertThrows(SirhBusinessException.class,
-                        () -> pointage.dailyAllowanceUnitAmount(new PointageService.DailyAllowanceTariff(
-                                allowance, "TEST", "Test", true, "MENSUEL_PRORATISE", BigDecimal.ZERO,
-                                "PARAMETRE_ABSENT"), date, 20, c));
+                        pointage.dailyAllowanceUnitAmount(zeroTariff, date, 20, c)));
             } finally {
                 c.rollback();
             }

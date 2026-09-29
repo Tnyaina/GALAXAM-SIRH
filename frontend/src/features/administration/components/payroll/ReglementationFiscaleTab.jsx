@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getErrorMessage } from '@/api/apiClient';
 import {
     Scale, TrendingUp, CheckCircle2, Clock, Edit2, Eye, X,
     Banknote, Percent, Timer, Palmtree, Info, FileText, AlertTriangle,
@@ -219,7 +220,7 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
             </div>
 
             <div className="overflow-x-auto">
-                <Table>
+                <Table bordered={false}>
                     <Thead>
                         <Th className="w-24">Tranche</Th>
                         <Th className="text-right">Seuil Min (Ar)</Th>
@@ -895,8 +896,7 @@ export default function ReglementationFiscaleTab() {
             setConfirmAnnulation(null);
             load();
         } catch (err) {
-            const msg = err.response?.data || 'Erreur lors de l\'annulation.';
-            toast({ title: 'Annulation impossible', message: typeof msg === 'string' ? msg : JSON.stringify(msg), type: 'error' });
+            toast({ title: 'Annulation impossible', message: getErrorMessage(err, 'Erreur lors de l\'annulation.'), type: 'error' });
         } finally {
             setAnnulationLoading(false);
         }
@@ -1095,7 +1095,7 @@ export default function ReglementationFiscaleTab() {
                                     <div className="px-3 py-2 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
                                         Barème Progressif IRSA en vigueur ({activeTranches.length} tranches)
                                     </div>
-                                    <Table>
+                                    <Table bordered={false}>
                                         <Thead>
                                             <Th className="w-28">Tranche</Th>
                                             <Th className="text-right">Seuil Minimum (Ar)</Th>
@@ -1133,7 +1133,7 @@ export default function ReglementationFiscaleTab() {
                                         <span>Taux de Majoration des Heures Spéciales en vigueur</span>
                                         <span className="text-[10px] font-normal lowercase text-[var(--color-fg-muted)]">Code du Travail Malgache (Art. 83-84)</span>
                                     </div>
-                                    <Table>
+                                    <Table bordered={false}>
                                         <Thead>
                                             <Th className="w-32">Type</Th>
                                             <Th>Description / Motif Légal</Th>
@@ -1162,7 +1162,7 @@ export default function ReglementationFiscaleTab() {
                         <div>
                             <SectionTitle icon={Palmtree} label="Congés Payés" color="var(--color-brand-500)" />
                             <div className="grid grid-cols-2 gap-2">
-                                <KpiField label="Acquisition mensuelle" value={`${fmtNb(activeConfig.acquisitionCongeMensuelJours, 2)} j/mois`} sub="= 30 j/an ()" />
+                                <KpiField label="Acquisition mensuelle" value={`${fmtNb(activeConfig.acquisitionCongeMensuelJours, 2)} j/mois`} sub="= 30 j/an" />
                                 <KpiField label="Valorisation d'1 jour de congé" value={`Salaire brut ÷ ${activeConfig.diviseurValorisationCongeJours}`} sub="Décompte calendaire standard" />
                             </div>
                         </div>
@@ -1301,7 +1301,7 @@ export default function ReglementationFiscaleTab() {
 
             {/* ---- Modal de confirmation d'annulation ---- */}
             {confirmAnnulation && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4">
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xl p-6 max-w-md w-full mx-4">
                         <div className="flex items-start gap-3 mb-4">
                             <div className="p-2 bg-[var(--color-danger-500)]/10 shrink-0">

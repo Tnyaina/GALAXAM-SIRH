@@ -317,7 +317,7 @@ export default function ControleStepPage() {
                 ) : (
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none overflow-hidden">
                         <div className="overflow-x-auto">
-                            <Table className="w-full text-xs">
+                            <Table className="w-full text-xs" bordered={false}>
                                 <Thead>
                                     <Tr>
                                         <Th>Salarié</Th>

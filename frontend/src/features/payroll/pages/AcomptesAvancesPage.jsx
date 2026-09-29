@@ -141,7 +141,7 @@ export default function AcomptesAvancesPage() {
             </div>
             {loading ? <p className="text-xs text-[var(--color-fg-muted)] py-6">Chargement des dossiers…</p>
                 : visible.length === 0 ? <EmptyState title="Aucun dossier" description={search || filter !== 'TOUS' ? 'Modifiez la recherche ou le filtre.' : 'Aucune demande enregistrée.'} />
-                : <div className="overflow-x-auto"><Table className="w-full text-xs"><Thead><Tr><Th>Salarié</Th><Th>Nature</Th><Th>Demandé</Th><Th>Versé le</Th><Th className="text-right">Imputé</Th><Th className="text-right">Reste</Th><Th>État</Th><Th className="text-right">Détail</Th></Tr></Thead><Tbody>
+                : <div className="overflow-x-auto"><Table className="w-full text-xs" bordered={false}><Thead><Tr><Th>Salarié</Th><Th>Nature</Th><Th>Demandé</Th><Th>Versé le</Th><Th className="text-right">Imputé</Th><Th className="text-right">Reste</Th><Th>État</Th><Th className="text-right">Détail</Th></Tr></Thead><Tbody>
                     {visible.map(item => <Tr key={item.idAvance}>
                         <Td><span className="font-semibold">{item.nomComplet}</span><span className="block text-[var(--color-fg-muted)]">{item.matricule}</span></Td>
                         <Td>{item.typeLibelle}</Td><Td className="font-mono">{formatMoneyAr(item.montantInitial)}</Td>

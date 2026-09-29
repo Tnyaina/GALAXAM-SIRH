@@ -288,7 +288,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
         <div className="space-y-4 print:m-0 print:p-0">
             <p className="text-xs text-[var(--color-fg-muted)]">Consultez la période, vérifiez les journées, puis contrôlez le bilan et les régularisations.</p>
             {/* 1. Barre d'outils supérieure : Sélecteur de Période, Bascule Période/Mois/Semaine/Jour et Actions */}
-            <Card padding bordered className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+            <Card padding={false} bordered={false} shadow="none" className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-2 print:hidden">
                 <div className="flex flex-wrap items-center gap-3">
 
                     {/* Navigation temporelle selon le mode */}
@@ -658,7 +658,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                         </div>
 
                         <div className="overflow-x-auto">
-                            <Table>
+                            <Table bordered={false}>
                                 <Thead>
                                     <Th className="text-xs font-bold uppercase py-3 px-3">Date</Th>
                                     <Th className="text-xs font-bold uppercase py-3 px-3">Jour</Th>
@@ -930,7 +930,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             </div>
 
                             <div className="overflow-x-auto">
-                                <Table>
+                                <Table bordered={false}>
                                     <Thead>
                                         <Th className="text-xs py-2.5 px-3 font-bold uppercase">Semaine</Th>
                                         <Th className="text-xs py-2.5 px-3 text-center font-bold uppercase">Jours</Th>

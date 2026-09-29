@@ -192,7 +192,6 @@ public class IndemniteController {
                 sic.setIdIndemnite(request.getIdIndemnite());
                 sic.setPeriodicite(request.getPeriodicite());
                 sic.setMontantReference(request.getMontantReference());
-                sic.setCodeParametreException(request.getCodeParametreException());
                 sic.setDateDebut(request.getDateDebut());
                 sic.setDateFin(request.getDateFin());
 
@@ -227,7 +226,6 @@ public class IndemniteController {
                 existing.setIdIndemnite(request.getIdIndemnite());
                 existing.setPeriodicite(request.getPeriodicite());
                 existing.setMontantReference(request.getMontantReference());
-                existing.setCodeParametreException(request.getCodeParametreException());
                 existing.setDateDebut(request.getDateDebut());
                 existing.setDateFin(request.getDateFin());
 

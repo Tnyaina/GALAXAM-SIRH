@@ -64,7 +64,7 @@ export default function ValidationTable({
           })}
         </div>
         <div className="hidden md:block overflow-x-auto">
-          <Table>
+          <Table bordered={false}>
             <Thead>
               <Tr>
                 <Th>Collaborateur</Th>

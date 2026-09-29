@@ -51,7 +51,8 @@ export default function PeriodeChomeeFormModal({
                 <Alert type="info" message="Si la date de fin n'est pas encore connue, laissez le champ vide. La période sera considérée comme 'En cours'." />
 
                 <Input
-                    label="Événement (Ex: Cyclone XYZ)"
+                    label="Événement"
+                    placeholder="Ex : Cyclone XYZ, Inondation, Alerte météorologique..."
                     value={formData.libelle}
                     onChange={(e) => handleChange('libelle', e.target.value)}
                     required

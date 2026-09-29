@@ -704,7 +704,7 @@ Le tableau suivant formalise la portée de chaque type de configuration au sein 
 | **Horaires de travail (Matin/AM)** | - | **X** (`ref_site`) | - | - | - |
 | **Plancher d'arrivée (*Earliest Start*)** | - | **X** (`ref_site`) | - | - | - |
 | **Indemnité de transport (forfait)** | - | **X** (`site_indemnite_config`) | Exception (`employe_indemnite_derogation`) | - | - |
-| **Indemnité de repas (taux midi/soir)**| `parametre_global` | Exception site (`code_parametre_exception`)| Exception individuelle | - | - |
+| **Indemnité de repas (taux midi/soir)**| `parametre_global` | Montant site direct (`site_indemnite_config`)| Exception individuelle | - | - |
 | **Éligibilité aux Heures Supplémentaires**| - | - | - | **X** (`ref_cat_pro`) | Code du travail |
 | **Seuil d'heures de nuit (22h - 05h)** | **X** (`parametre_global`)| - | - | - | Code du travail (Art. 83) |
 | **Plafonds & Renouvellements CDD** | **X** (`parametre_global`)| - | - | - | Code du travail (Art. 19) |
@@ -736,7 +736,7 @@ graph TD
 ### 22.2. Configuration par Site (`site_indemnite_config`)
 Définit la dotation budgétaire de chaque site géographique :
 - **Site TNR (Siège)** : Déplacement = `31 200.00 Ar / Mois` ; Repas = `2 000.00 Ar / Jour`.
-- **Site TMM (Agence)** : Déplacement = `53 200.00 Ar / Mois` (compensation de l'éloignement portuaire) ; Repas = `0.00 Ar` avec `code_parametre_exception = 'MONTANT_REPAS_MIDI'`.
+- **Site TMM (Agence)** : Déplacement = `53 200.00 Ar / Mois` (compensation de l'éloignement portuaire) ; Repas = `0.00 Ar` (cantine sur site sans versement numéraire).
 
 ### 22.3. Dérogations Individuelles (`employe_indemnite_derogation`)
 Permet à la DAF de surcharger la règle de site pour un collaborateur précis :

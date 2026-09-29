@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { getErrorMessage } from '@/api/apiClient';
 import { 
     Save, 
     Edit3,
@@ -217,7 +218,7 @@ export default function DafAjustementPointageModal({
             console.error('Erreur ajustement pointage DAF:', err);
             toast({
                 title: 'Erreur',
-                message: err.response?.data?.message || err.userMessage || 'Erreur lors de la rectification.',
+                message: getErrorMessage(err, 'Erreur lors de la rectification.'),
                 type: 'error'
             });
         } finally {

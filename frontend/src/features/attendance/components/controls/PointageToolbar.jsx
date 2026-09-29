@@ -28,7 +28,7 @@ export default function PointageToolbar({
         }));
 
     return (
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
+        <div>
             <div className="px-3 py-2 flex items-center justify-between gap-3 flex-wrap">
 
                 {/* Bloc 1 : Sélection Site, Date & Recherche */}

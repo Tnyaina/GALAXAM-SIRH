@@ -39,7 +39,7 @@ export default function ReferentielsRhAdminPanel() {
                 ]}
             />
 
-            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden flex flex-col">
+            <div className="space-y-4">
                 <Tabs 
                     tabs={mainTabs} 
                     activeTab={activeTab} 
@@ -47,13 +47,11 @@ export default function ReferentielsRhAdminPanel() {
                     variant="underline" 
                 />
 
-                <div className="p-4 sm:p-4.5">
-                    <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
-                        {activeTab === 'carriere' && <CareerReferenceDataManagementTab />}
-                        {activeTab === 'docTypes' && <DocumentTypeManagementTab />}
-                        {activeTab === 'rh' && <ReferentielsRhTab />}
-                    </Suspense>
-                </div>
+                <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
+                    {activeTab === 'carriere' && <CareerReferenceDataManagementTab />}
+                    {activeTab === 'docTypes' && <DocumentTypeManagementTab />}
+                    {activeTab === 'rh' && <ReferentielsRhTab />}
+                </Suspense>
             </div>
         </div>
     );

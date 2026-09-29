@@ -39,8 +39,8 @@ export default function OrganisationAdminPanel() {
                 ]}
             />
 
-            {/* Sélecteur d'onglets principal avec Tabs Design System et persistance URL */}
-            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden flex flex-col">
+            {/* Les onglets structurent la page ; les panneaux métier portent leurs propres cadres. */}
+            <div className="space-y-4">
                 <Tabs 
                     tabs={mainTabs} 
                     activeTab={activeTab} 
@@ -48,14 +48,11 @@ export default function OrganisationAdminPanel() {
                     variant="underline" 
                 />
 
-                {/* Contenu de l'onglet actif */}
-                <div className="p-4 sm:p-4.5">
-                    <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
-                        {activeTab === 'filiales' && <FilialesSitesTab />}
-                        {activeTab === 'departements' && <DepartementsServicesTab />}
-                        {activeTab === 'fonctions' && <FonctionsTab />}
-                    </Suspense>
-                </div>
+                <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
+                    {activeTab === 'filiales' && <FilialesSitesTab />}
+                    {activeTab === 'departements' && <DepartementsServicesTab />}
+                    {activeTab === 'fonctions' && <FonctionsTab />}
+                </Suspense>
             </div>
         </div>
     );

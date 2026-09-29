@@ -39,7 +39,7 @@ export default function SiteFeriesList({
                     />
                 </div>
             ) : (
-                <Table>
+                <Table bordered={false}>
                     <Thead>
                         <Th>Site d'Exploitation</Th>
                         <Th>Date Férié</Th>

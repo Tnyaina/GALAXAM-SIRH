@@ -40,7 +40,7 @@ const NotifRow = memo(function NotifRow({ notif, onClick }) {
             type="button"
             role="menuitem"
             onClick={() => onClick(notif)}
-            className={`w-full text-left px-4 py-3.5 border-b border-[var(--color-border-subtle)] last:border-b-0
+            className={`w-full text-left px-4 py-3 border-b border-[var(--color-border-subtle)] last:border-b-0
                         hover:bg-[var(--color-surface-hover)] group transition-colors rounded-none cursor-pointer
                         ${nonLue ? 'bg-[var(--color-brand-500)]/[0.03] border-l-2 border-l-[var(--color-brand-500)]' : 'border-l-2 border-l-transparent'}`}
         >
@@ -54,18 +54,18 @@ const NotifRow = memo(function NotifRow({ notif, onClick }) {
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <div className="flex items-start gap-2 mb-1">
                         {cfg.label && (
                             <Badge variant={cfg.variant} size="sm">
                                 {cfg.label}
                             </Badge>
                         )}
-                        <p className="text-[13px] font-bold leading-tight text-[var(--color-fg)] whitespace-normal text-left">
+                        <p className="min-w-0 text-[13px] font-semibold leading-snug text-[var(--color-fg)] line-clamp-2 text-left">
                             {notif.titre}
                         </p>
                     </div>
                     
-                    <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed whitespace-normal text-left">
+                    <p className="text-xs text-[var(--color-fg-muted)] leading-normal line-clamp-2 text-left">
                         {notif.message}
                     </p>
                     
@@ -74,7 +74,7 @@ const NotifRow = memo(function NotifRow({ notif, onClick }) {
                     </p>
                 </div>
 
-                <div className="flex items-center self-center shrink-0 pl-1 text-[var(--color-fg-subtle)] group-hover:text-[var(--color-brand-500)] group-hover:translate-x-0.5 transition-all">
+                <div className="flex items-center self-center shrink-0 text-[var(--color-fg-subtle)] group-hover:text-[var(--color-brand-500)] group-hover:translate-x-0.5 transition-all">
                     <ChevronRight size={15} />
                 </div>
             </div>
@@ -186,42 +186,39 @@ export default function NotificationBell() {
                     ref={panelRef}
                     role="menu"
                     aria-orientation="vertical"
-                    className="absolute right-0 top-full mt-2 w-[380px] max-h-[520px] flex flex-col z-50
+                    className="fixed right-3 top-12 mt-2 w-[calc(100vw-1.5rem)] max-h-[min(70vh,560px)] sm:absolute sm:right-0 sm:top-full sm:w-[420px] sm:max-w-[calc(100vw-3rem)] flex flex-col z-50
                                bg-[var(--color-surface)] border border-[var(--color-border)]
                                shadow-xl rounded-none overflow-hidden"
                 >
-                    {/* Header blanc unifié */}
-                    <div className="px-4 py-3 border-b border-[var(--color-border-subtle)] flex items-center justify-between shrink-0 bg-[var(--color-surface)]">
-                        <div className="flex items-center gap-2">
-                            <span className="text-[13px] font-bold text-[var(--color-fg)] tracking-tight uppercase">
-                                Alertes & Notifications
+                    <div className="px-4 py-3 border-b border-[var(--color-border-subtle)] shrink-0 bg-[var(--color-surface)]">
+                        <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm font-bold text-[var(--color-fg)]">
+                                Alertes et notifications
                             </span>
-                            {totalNonLues > 0 && (
-                                <Badge variant="warning" size="sm">
-                                    {totalNonLues} non lue{totalNonLues > 1 ? 's' : ''}
-                                </Badge>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                            {totalNonLues > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={marquerToutesLues}
-                                    className="flex items-center gap-1 text-[11px] text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] font-medium px-2 py-1.5 min-h-[36px] rounded-none hover:bg-[var(--color-bg-subtle)]  cursor-pointer"
-                                    title="Tout marquer comme lu"
-                                >
-                                    <CheckCheck size={14} strokeWidth={2} />
-                                    Tout lire
-                                </button>
-                            )}
                             <button
                                 type="button"
                                 onClick={() => setOpen(false)}
-                                className="min-w-[36px] min-h-[36px] flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)]  cursor-pointer"
+                                className="w-8 h-8 shrink-0 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] rounded-none hover:bg-[var(--color-bg-subtle)] cursor-pointer"
                                 aria-label="Fermer le panneau"
                             >
                                 <X size={16} strokeWidth={2} />
                             </button>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 mt-1">
+                            <span className="text-xs text-[var(--color-fg-muted)]">
+                                {totalNonLues > 0 ? `${totalNonLues} non lue${totalNonLues > 1 ? 's' : ''}` : 'Tout est lu'}
+                            </span>
+                            {totalNonLues > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={marquerToutesLues}
+                                    className="flex items-center gap-1.5 text-xs text-[var(--color-brand-600)] hover:text-[var(--color-brand-700)] font-medium py-1 rounded-none cursor-pointer"
+                                    title="Tout marquer comme lu"
+                                >
+                                    <CheckCheck size={14} strokeWidth={2} />
+                                    Tout marquer comme lu
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -256,7 +253,7 @@ export default function NotificationBell() {
                                 onClick={() => { navigate('/dashboard'); setOpen(false); }}
                                 className="flex items-center gap-1 text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] font-semibold  rounded-none cursor-pointer"
                             >
-                                Voir toutes les alertes sur le dashboard
+                                Voir toutes les alertes
                                 <ChevronRight size={12} strokeWidth={2.5} />
                             </button>
                         </div>

@@ -112,14 +112,12 @@ export default function GestionCongesPage() {
       )}
 
       {/* Barre d'onglets sobre de premier niveau */}
-      <div className="border-b border-[var(--color-border-subtle)]">
-        <Tabs
-          tabs={tabsList}
-          activeTab={activeTab}
-          onChange={handleTabChange}
-          variant="underline"
-        />
-      </div>
+      <Tabs
+        tabs={tabsList}
+        activeTab={activeTab}
+        onChange={handleTabChange}
+        variant="underline"
+      />
 
       <Modal isOpen={showGrandRecap} onClose={() => setShowGrandRecap(false)} title="Grand récapitulatif des congés">
         <div className="space-y-4 p-4">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { getErrorMessage } from '@/api/apiClient';
 import {
     UserMinus, ShieldAlert, X, FileSignature, Eye, EyeOff, Calendar, AlertOctagon,
     Clock, Calculator, ArrowRight, CheckCircle2, HelpCircle, CalendarDays
@@ -436,7 +437,7 @@ export default function RuptureContratModal({
             setSavedDraftResult(res);
             if (onSuccess) onSuccess('Brouillon de rupture de contrat enregistré avec succès !', res);
         } catch (err) {
-            setErrorMsg(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || err.message || 'Erreur lors de la sauvegarde de la rupture.');
+            setErrorMsg(getErrorMessage(err, 'Erreur lors de la sauvegarde de la rupture.'));
         } finally {
             setSubmitting(false);
         }

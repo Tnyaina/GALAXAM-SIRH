@@ -117,7 +117,7 @@ export default function ParametresModulesPanel() {
             </div>
 
             {/* Niveau 2 : Sélecteur d'onglets principal avec persistance URL */}
-            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden flex flex-col">
+            <div className="space-y-4">
                 <Tabs 
                     tabs={currentTabs} 
                     activeTab={activeTab === 'majorations_params' ? 'majorations' : activeTab} 
@@ -126,8 +126,7 @@ export default function ParametresModulesPanel() {
                 />
 
                 {/* Contenu de l'onglet actif avec le SkeletonTable standardisé */}
-                <div className="p-4 sm:p-4.5">
-                    <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
+                <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
                         {activeModule === 'general' && (
                             <>
                                 {activeTab === 'parametres_globaux_systeme' && <ParametresGlobauxTab fixedCategory="RH_GENERAL" />}
@@ -160,8 +159,7 @@ export default function ParametresModulesPanel() {
                                 )}
                             </>
                         )}
-                    </Suspense>
-                </div>
+                </Suspense>
             </div>
         </div>
     );

@@ -99,7 +99,6 @@ CREATE TABLE site_indemnite_config (
     id_indemnite INT NOT NULL REFERENCES ref_indemnite(id_indemnite),
     periodicite VARCHAR(20) NOT NULL DEFAULT 'JOURNALIER',
     montant_reference NUMERIC(12,2) NOT NULL,
-    code_parametre_exception VARCHAR(100),
     date_debut DATE NOT NULL,
     date_fin DATE,
     est_actif BOOLEAN DEFAULT TRUE
@@ -369,6 +368,4 @@ INSERT INTO site_indemnite_config (id_site_indemnite, id_site, id_indemnite, per
 (2, 2, 1, 'MENSUEL', 53200.00, '2026-01-01'),
 (3, 1, 2, 'JOURNALIER', 2000.00, '2026-01-01'),
 (4, 2, 2, 'JOURNALIER', 0.00, '2026-01-01');
-UPDATE site_indemnite_config SET code_parametre_exception = 'MONTANT_REPAS_MIDI'
-WHERE id_site_indemnite = 4;
 SELECT setval('site_indemnite_config_id_site_indemnite_seq', (SELECT GREATEST(MAX(id_site_indemnite), 4) FROM site_indemnite_config));

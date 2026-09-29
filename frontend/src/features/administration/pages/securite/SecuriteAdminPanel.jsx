@@ -39,8 +39,8 @@ export default function SecuriteAdminPanel() {
                 ]}
             />
 
-            {/* Sélecteur d'onglets principal avec Tabs Design System et persistance URL */}
-            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm overflow-hidden flex flex-col">
+            {/* Les panneaux métier portent leur propre cadre ; la navigation reste intégrée à la page. */}
+            <div className="space-y-4">
                 <Tabs 
                     tabs={mainTabs} 
                     activeTab={activeTab} 
@@ -48,14 +48,11 @@ export default function SecuriteAdminPanel() {
                     variant="underline" 
                 />
 
-                {/* Contenu de l'onglet actif avec Suspense & SkeletonTable standardisé */}
-                <div className="p-4 sm:p-4.5">
-                    <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
-                        {activeTab === 'users' && <UserManagementTab />}
-                        {activeTab === 'roles' && <RolesAndPermissionsTab />}
-                        {activeTab === 'menus' && <MenuManagementTab />}
-                    </Suspense>
-                </div>
+                <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
+                    {activeTab === 'users' && <UserManagementTab />}
+                    {activeTab === 'roles' && <RolesAndPermissionsTab />}
+                    {activeTab === 'menus' && <MenuManagementTab />}
+                </Suspense>
             </div>
         </div>
     );

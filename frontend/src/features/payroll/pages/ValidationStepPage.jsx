@@ -202,42 +202,42 @@ export default function ValidationStepPage() {
                     </h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                        <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                        <div className="flex items-center gap-2.5 p-2.5 bg-[var(--color-bg-subtle)]">
                             {condReadiness ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
                             <span className={condReadiness ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
                                 Validation autorisée par les contrôles du serveur
                             </span>
                         </div>
 
-                        <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                        <div className="flex items-center gap-2.5 p-2.5 bg-[var(--color-bg-subtle)]">
                             {condPopulation ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
                             <span className={condPopulation ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
                                 {financials?.includedCount ?? '—'} salarié(s) inclus · {financials?.blockedCount ?? '—'} bloqué(s)
                             </span>
                         </div>
 
-                        <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                        <div className="flex items-center gap-2.5 p-2.5 bg-[var(--color-bg-subtle)]">
                             {condCalculActuel ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-warning-600)]" />}
                             <span className={condCalculActuel ? 'text-[var(--color-fg)]' : 'text-[var(--color-warning-600)] font-semibold'}>
                                 Calcul actuel à jour (non obsolète)
                             </span>
                         </div>
 
-                        <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                        <div className="flex items-center gap-2.5 p-2.5 bg-[var(--color-bg-subtle)]">
                             {condBulletins ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
                             <span className={condBulletins ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
                                 {financials?.bulletins ?? 0} / {financials?.includedCount ?? '—'} bulletin(s) calculé(s)
                             </span>
                         </div>
 
-                        <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                        <div className="flex items-center gap-2.5 p-2.5 bg-[var(--color-bg-subtle)]">
                             {condZeroBlocker ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
                             <span className={condZeroBlocker ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
                                 Aucun salarié bloqué dans la population
                             </span>
                         </div>
 
-                        <div className="flex items-center gap-2.5 p-2 rounded bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                        <div className="flex items-center gap-2.5 p-2.5 bg-[var(--color-bg-subtle)]">
                             {condControles ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
                             <span className="text-[var(--color-fg)]">
                                 Décision de validation disponible côté serveur
@@ -253,7 +253,7 @@ export default function ValidationStepPage() {
                     </h3>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none">
+                        <div className="p-3 bg-[var(--color-bg-subtle)]">
                             <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
                                 Masse Salariale Brute
                             </span>
@@ -262,7 +262,7 @@ export default function ValidationStepPage() {
                             </span>
                         </div>
 
-                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none">
+                        <div className="p-3 bg-[var(--color-bg-subtle)]">
                             <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
                                 Cotisations Salariales
                             </span>
@@ -271,7 +271,7 @@ export default function ValidationStepPage() {
                             </span>
                         </div>
 
-                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none">
+                        <div className="p-3 bg-[var(--color-bg-subtle)]">
                             <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
                                 Retenue IRSA / ISI
                             </span>
@@ -289,7 +289,7 @@ export default function ValidationStepPage() {
                             </span>
                         </div>
 
-                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none">
+                        <div className="p-3 bg-[var(--color-bg-subtle)]">
                             <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
                                 Charges Patronales
                             </span>
@@ -298,7 +298,7 @@ export default function ValidationStepPage() {
                             </span>
                         </div>
 
-                        <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none">
+                        <div className="p-3 bg-[var(--color-bg-subtle)]">
                             <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
                                 Coût Employeur Global
                             </span>

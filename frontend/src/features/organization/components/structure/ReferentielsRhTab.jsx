@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FileText, UserCheck, Landmark } from 'lucide-react';
+import { getErrorMessage } from '@/api/apiClient';
 import organisationService from '@/features/organization/api/organisationService';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
@@ -212,7 +213,7 @@ export default function ReferentielsRhTab() {
             setShowContratModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde.");
+            setActionError(getErrorMessage(err, "Erreur de sauvegarde."));
         } finally {
             setSubmitting(false);
         }
@@ -250,7 +251,7 @@ export default function ReferentielsRhTab() {
             setShowIntervenantModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde.");
+            setActionError(getErrorMessage(err, "Erreur de sauvegarde."));
         } finally {
             setSubmitting(false);
         }
@@ -291,7 +292,7 @@ export default function ReferentielsRhTab() {
             setShowBanqueModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde.");
+            setActionError(getErrorMessage(err, "Erreur de sauvegarde."));
         } finally {
             setSubmitting(false);
         }
@@ -322,7 +323,7 @@ export default function ReferentielsRhTab() {
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                     loadData();
                 } catch (err) {
-                    setActionError(err.response?.data || "Erreur lors du changement de statut.");
+                    setActionError(getErrorMessage(err, "Erreur lors du changement de statut."));
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                 }
             }
@@ -353,7 +354,7 @@ export default function ReferentielsRhTab() {
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                     loadData();
                 } catch (err) {
-                    setActionError(err.response?.data || "Erreur lors du changement de statut.");
+                    setActionError(getErrorMessage(err, "Erreur lors du changement de statut."));
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                 }
             }
@@ -384,7 +385,7 @@ export default function ReferentielsRhTab() {
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                     loadData();
                 } catch (err) {
-                    setActionError(err.response?.data || "Erreur lors du changement de statut.");
+                    setActionError(getErrorMessage(err, "Erreur lors du changement de statut."));
                     setConfirmState(prev => ({ ...prev, isOpen: false, loading: false }));
                 }
             }
@@ -401,7 +402,7 @@ export default function ReferentielsRhTab() {
 
     return (
         <div className="space-y-6">
-            <div className="border-b border-[var(--color-border-subtle)] pb-4">
+            <div>
                 <Tabs
                     tabs={[
                         { id: 'contrats', label: `Types de Contrat (${typesContrat.length})`, icon: <FileText size={16} /> },

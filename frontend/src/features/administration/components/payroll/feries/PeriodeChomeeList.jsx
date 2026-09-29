@@ -41,7 +41,7 @@ export default function PeriodeChomeeList({ periodes, sites, onOpenCreate, onOpe
             </div>
             
             <div className="overflow-x-auto">
-                <Table>
+                <Table bordered={false}>
                     <Thead>
                         <Tr>
                             <Th>Événement</Th>

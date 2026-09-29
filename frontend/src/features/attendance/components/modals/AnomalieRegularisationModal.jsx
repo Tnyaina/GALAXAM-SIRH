@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getErrorMessage } from '@/api/apiClient';
 import { 
     Clock, 
     Palmtree, 
@@ -170,7 +171,7 @@ export default function AnomalieRegularisationModal({
                 });
                 if (!cancelled) setDayPreview(preview);
             } catch (previewError) {
-                if (!cancelled) setDayPreview({ hasValidationError: true, validationMessages: [previewError?.response?.data?.message || 'Prévisualisation indisponible.'] });
+                if (!cancelled) setDayPreview({ hasValidationError: true, validationMessages: [getErrorMessage(previewError, 'Prévisualisation indisponible.')] });
             } finally {
                 if (!cancelled) setPreviewPending(false);
             }

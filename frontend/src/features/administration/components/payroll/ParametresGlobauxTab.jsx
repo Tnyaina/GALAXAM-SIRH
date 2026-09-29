@@ -458,9 +458,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
             );
         } catch (err) {
             console.error('Erreur bascule statut paramètre:', err);
-            const data = err.response?.data;
-            const msg = (typeof data === 'string' ? data : (data?.message || data?.error)) || err.message || "Impossible de modifier l'état du paramètre.";
-            toast.error(msg);
+            toast.error(getErrorMessage(err, "Impossible de modifier l'état du paramètre."));
         } finally {
             setTogglingId(null);
         }
@@ -918,7 +916,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
             {/* VUE TABLEAU DÉTAILLÉ */}
             {viewMode === 'TABLE' && (
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-xs overflow-hidden">
-                    <Table>
+                    <Table bordered={false}>
                         <Thead>
                             <Th>Paramètre Métier</Th>
                             <Th>Domaine</Th>

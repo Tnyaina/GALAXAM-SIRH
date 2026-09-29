@@ -136,7 +136,7 @@ export default function TransitionComparatifCard({
             <CardBody className="space-y-4 px-4 py-1">
                 {/* 1. Carte Focus Rémunération avec calcul de Delta (conditionnée à PAIE_READ) */}
                 <HasPermission authority="PAIE_READ">
-                    <div className="p-3.5 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] rounded-none space-y-2">
+                    <div className="p-3.5 bg-[var(--color-bg-subtle)] space-y-2">
                         <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
                             <span>Évolution de Rémunération</span>
                             {hasSalaryData && (
@@ -156,7 +156,7 @@ export default function TransitionComparatifCard({
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-3 pt-1 text-center">
                             {/* Salaire Actuel */}
-                            <div className="p-2 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none">
+                            <div className="p-2 bg-[var(--color-bg-subtle)]">
                                 <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-semibold block">Actuel</span>
                                 <span className="text-sm font-bold font-data text-[var(--color-fg-muted)]">
                                     {salAvant !== null ? `${fmtMoney(salAvant)} Ar` : '—'}
@@ -169,12 +169,12 @@ export default function TransitionComparatifCard({
                             </div>
 
                             {/* Nouveau Salaire Cible */}
-                            <div className={`p-2 border rounded-none ${
+                            <div className={`p-2 ${
                                 isAugmentation
-                                    ? 'bg-[var(--color-success-500)]/10 border-[var(--color-success-500)]/30'
+                                    ? 'bg-[var(--color-success-500)]/10'
                                     : isDiminution
-                                        ? 'bg-[var(--color-danger-500)]/10 border-[var(--color-danger-500)]/30'
-                                        : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)]'
+                                        ? 'bg-[var(--color-danger-500)]/10'
+                                        : 'bg-[var(--color-bg-subtle)]'
                             }`}>
                                 <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-semibold block">Nouveau</span>
                                 <span className="text-base font-extrabold font-data text-[var(--color-fg)]">
@@ -191,7 +191,7 @@ export default function TransitionComparatifCard({
                         Tableau Différentiel des Affectations
                     </h4>
 
-                    <Table>
+                    <Table bordered={false}>
                         <Thead>
                             <Tr>
                                 <Th>Dimension</Th>

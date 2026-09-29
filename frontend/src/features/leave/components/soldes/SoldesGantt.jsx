@@ -165,7 +165,7 @@ export default function SoldesGantt({
 
   // Rendu
   return (
-    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-5 sm:p-6 space-y-4 select-none">
+    <div className="space-y-4 select-none">
       {/* ── En-tête & Barre d'outils du Planning ── */}
       <div className="flex flex-col gap-4 pb-4 border-b border-[var(--color-border-subtle)]">
         <div className="flex items-center justify-between flex-wrap gap-3">

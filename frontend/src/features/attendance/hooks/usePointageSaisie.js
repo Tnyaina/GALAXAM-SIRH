@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getErrorMessage } from '@/api/apiClient';
 import { attendanceService } from '@/features/attendance/api/attendanceApi';
 import { isRowDataModified } from '@/features/attendance/utils/pointageCalculations';
 import { getTodayDateString } from '@/utils/dateUtils';
@@ -117,7 +118,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                     }));
                 } catch (previewError) {
                     setGrilleData((current) => current.map((item) => item.idEmploye === id && item._previewPending
-                        ? { ...item, _previewPending: false, _previewError: previewError?.response?.data?.message || previewError?.response?.data || 'Prévisualisation indisponible.' }
+                        ? { ...item, _previewPending: false, _previewError: getErrorMessage(previewError, 'Prévisualisation indisponible.') }
                         : item));
                 } finally {
                     previewTimers.current.delete(id);

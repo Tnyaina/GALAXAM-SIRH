@@ -306,7 +306,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
                 />
               </div>
             ) : (
-              <Table>
+              <Table bordered={false}>
                 <Thead>
                   <Tr>
                     <Th>Type d'Absence</Th>

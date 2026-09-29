@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getErrorMessage } from '@/api/apiClient';
 import {
     FileText, Building, Landmark, CheckCircle, Edit2, XCircle,
     AlertTriangle, ShieldAlert, Clock, History, X
@@ -149,7 +150,7 @@ export default function WorkflowDraftSummaryModal({
             }
         } catch (err) {
             console.error('Erreur annulation planification workflow:', err);
-            setErrorMsg(err.response?.data?.message || err.message || 'Erreur lors de l\'annulation.');
+            setErrorMsg(getErrorMessage(err, 'Erreur lors de l\'annulation.'));
         } finally {
             setSubmitting(false);
         }

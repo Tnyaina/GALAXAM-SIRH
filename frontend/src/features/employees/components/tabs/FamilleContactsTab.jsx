@@ -1,4 +1,4 @@
-import { Heart, Baby, ShieldAlert, Phone, MapPin, Calendar, Briefcase, User } from 'lucide-react';
+import { Heart, Baby, ShieldAlert, Phone, User } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -86,7 +86,7 @@ export default function FamilleContactsTab({ conjoint, enfants = [], contactsUrg
                         </div>
 
                         {enfants.length > 0 ? (
-                            <Table>
+                            <Table bordered={false}>
                                 <Thead>
                                     <Tr>
                                         <Th>Enfant</Th>

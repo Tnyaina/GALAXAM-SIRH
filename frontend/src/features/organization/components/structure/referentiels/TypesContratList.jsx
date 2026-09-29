@@ -20,7 +20,7 @@ export default function TypesContratList({
                 </div>
             </div>
 
-            <Table>
+            <Table bordered={false}>
                 <Thead>
                     <Th>Code</Th>
                     <Th>Libellé</Th>

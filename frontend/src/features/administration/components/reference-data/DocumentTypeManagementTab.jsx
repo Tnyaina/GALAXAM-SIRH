@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, FileText, Power } from 'lucide-react';
+import { getErrorMessage } from '@/api/apiClient';
 import documentRhService from '@/features/employees/api/documentRhService';
 import Input, { Textarea, Select, Checkbox } from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
@@ -106,7 +107,7 @@ export default function DocumentTypeManagementTab() {
             loadData();
         } catch (err) {
             console.error('Erreur enregistrement type document:', err);
-            setModalError(err.response?.data || "Erreur lors de l'enregistrement.");
+            setModalError(getErrorMessage(err, "Erreur lors de l'enregistrement."));
         } finally {
             setSubmitting(false);
         }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Edit2, Gift, MapPin, ShieldAlert, Power, Check } from 'lucide-react';
+import { getErrorMessage } from '@/api/apiClient';
 import DerogationIndemnitesTab from '@/features/administration/components/attendance/DerogationIndemnitesTab';
 import paieConfigService from '@/features/administration/api/paieConfigService';
 import organisationService from '@/features/organization/api/organisationService';
@@ -58,7 +59,7 @@ export default function IndemnitesSitesTab() {
     const [showSiteIndemniteModal, setShowSiteIndemniteModal] = useState(false);
     const [editingSiteIndemnite, setEditingSiteIndemnite] = useState(null);
     const [siteIndemniteFormData, setSiteIndemniteFormData] = useState({
-        idSite: '', idIndemnite: '', periodicite: 'JOURNALIER', montantReference: '', codeParametreException: '', dateDebut: todayStr, dateFin: ''
+        idSite: '', idIndemnite: '', periodicite: 'JOURNALIER', montantReference: '', dateDebut: todayStr, dateFin: ''
     });
 
     const loadData = async () => {
@@ -103,7 +104,7 @@ export default function IndemnitesSitesTab() {
             setShowIndemniteModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde.");
+            setActionError(getErrorMessage(err, "Erreur de sauvegarde."));
         } finally {
             setSubmitting(false);
         }
@@ -140,7 +141,7 @@ export default function IndemnitesSitesTab() {
                 } catch (err) {
                     toast({
                         title: 'Erreur',
-                        message: err.response?.data?.message || err.response?.data || "Erreur lors du changement de statut.",
+                        message: getErrorMessage(err, "Erreur lors du changement de statut."),
                         type: 'error'
                     });
                 }
@@ -175,7 +176,7 @@ export default function IndemnitesSitesTab() {
             setShowSiteIndemniteModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde.");
+            setActionError(getErrorMessage(err, "Erreur de sauvegarde."));
         } finally {
             setSubmitting(false);
         }
@@ -212,7 +213,7 @@ export default function IndemnitesSitesTab() {
                 } catch (err) {
                     toast({
                         title: 'Erreur',
-                        message: err.response?.data?.message || err.response?.data || "Erreur lors du changement de statut.",
+                        message: getErrorMessage(err, "Erreur lors du changement de statut."),
                         type: 'error'
                     });
                 }
@@ -238,7 +239,7 @@ export default function IndemnitesSitesTab() {
             {error && <Alert type="error" message={error} />}
 
             {/* Onglets de navigation internes */}
-            <div className="bg-[var(--color-surface)] p-3 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
+            <div>
                 <Tabs
                     tabs={[
                         { id: 'indemnites', label: 'Types d\'Indemnités', icon: <Gift size={16} />, count: indemnites.length },
@@ -274,7 +275,7 @@ export default function IndemnitesSitesTab() {
                         </Button>
                     </div>
 
-                    <Table>
+                    <Table bordered={false}>
                         <Thead>
                             <Th>Code</Th>
                             <Th>Libellé</Th>
@@ -395,7 +396,6 @@ export default function IndemnitesSitesTab() {
                                     idIndemnite: '',
                                     periodicite: periodiciteOptions[0]?.value || 'JOURNALIER',
                                     montantReference: '',
-                                    codeParametreException: '',
                                     dateDebut: todayStr,
                                     dateFin: ''
                                 });
@@ -410,7 +410,7 @@ export default function IndemnitesSitesTab() {
                         </Button>
                     </div>
 
-                    <Table>
+                    <Table bordered={false}>
                         <Thead>
                             <Th>Site d'Exploitation</Th>
                             <Th>Indemnité</Th>
@@ -435,7 +435,6 @@ export default function IndemnitesSitesTab() {
                                                     idIndemnite: '',
                                                     periodicite: periodiciteOptions[0]?.value || 'JOURNALIER',
                                                     montantReference: '',
-                                                    codeParametreException: '',
                                                     dateDebut: todayStr,
                                                     dateFin: ''
                                                 });
@@ -486,7 +485,6 @@ export default function IndemnitesSitesTab() {
                                                                 idIndemnite: si.idIndemnite,
                                                                 periodicite: si.periodicite,
                                                                 montantReference: si.montantReference,
-                                                                codeParametreException: si.codeParametreException || '',
                                                                 dateDebut: fmtDateInput(si.dateDebut) || todayStr,
                                                                 dateFin: fmtDateInput(si.dateFin) || ''
                                                             });
@@ -657,12 +655,6 @@ export default function IndemnitesSitesTab() {
                             onChange={(e) => setSiteIndemniteFormData({ ...siteIndemniteFormData, montantReference: e.target.value })}
                         />
                     </div>
-                    <Input
-                        label="Code du paramètre pour octroi exceptionnel (si tarif site = 0)"
-                        placeholder="Ex : MONTANT_REPAS_MIDI"
-                        value={siteIndemniteFormData.codeParametreException || ''}
-                        onChange={(e) => setSiteIndemniteFormData({ ...siteIndemniteFormData, codeParametreException: e.target.value })}
-                    />
                     <div className="grid grid-cols-2 gap-3">
                         <Input
                             label="Date d'Effet / Début"

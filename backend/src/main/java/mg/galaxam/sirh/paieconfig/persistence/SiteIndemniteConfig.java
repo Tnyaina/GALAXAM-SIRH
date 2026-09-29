@@ -16,7 +16,6 @@ public class SiteIndemniteConfig extends ClassMere {
     private Integer idIndemnite;
     private String periodicite = "JOURNALIER";
     private BigDecimal montantReference;
-    private String codeParametreException;
     private Date dateDebut;
     private Date dateFin;
     private boolean estActif = true;
@@ -42,17 +41,16 @@ public class SiteIndemniteConfig extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        String sql = "INSERT INTO site_indemnite_config (id_site, id_indemnite, periodicite, montant_reference, code_parametre_exception, date_debut, date_fin, est_actif) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_site_indemnite";
+        String sql = "INSERT INTO site_indemnite_config (id_site, id_indemnite, periodicite, montant_reference, date_debut, date_fin, est_actif) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id_site_indemnite";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idSite);
             ps.setInt(2, idIndemnite);
             ps.setString(3, periodicite);
             ps.setBigDecimal(4, montantReference);
-            ps.setString(5, codeParametreException);
-            ps.setDate(6, dateDebut);
-            ps.setDate(7, dateFin);
-            ps.setBoolean(8, estActif);
+            ps.setDate(5, dateDebut);
+            ps.setDate(6, dateFin);
+            ps.setBoolean(7, estActif);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -66,17 +64,16 @@ public class SiteIndemniteConfig extends ClassMere {
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
         String sql = "UPDATE site_indemnite_config SET id_site = ?, id_indemnite = ?, periodicite = ?, " +
-                     "montant_reference = ?, code_parametre_exception = ?, date_debut = ?, date_fin = ?, est_actif = ? WHERE id_site_indemnite = ?";
+                     "montant_reference = ?, date_debut = ?, date_fin = ?, est_actif = ? WHERE id_site_indemnite = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idSite);
             ps.setInt(2, idIndemnite);
             ps.setString(3, periodicite);
             ps.setBigDecimal(4, montantReference);
-            ps.setString(5, codeParametreException);
-            ps.setDate(6, dateDebut);
-            ps.setDate(7, dateFin);
-            ps.setBoolean(8, estActif);
-            ps.setInt(9, idSiteIndemnite);
+            ps.setDate(5, dateDebut);
+            ps.setDate(6, dateFin);
+            ps.setBoolean(7, estActif);
+            ps.setInt(8, idSiteIndemnite);
             ps.executeUpdate();
         }
         return this;
@@ -98,7 +95,7 @@ public class SiteIndemniteConfig extends ClassMere {
     }
 
     public ClassMere rechercherParId(Integer id, Connection c) throws Exception {
-        String sql = "SELECT sic.id_site_indemnite, sic.id_site, sic.id_indemnite, sic.periodicite, sic.montant_reference, sic.code_parametre_exception, " +
+        String sql = "SELECT sic.id_site_indemnite, sic.id_site, sic.id_indemnite, sic.periodicite, sic.montant_reference, " +
                      "sic.date_debut, sic.date_fin, sic.est_actif, s.libelle as site_libelle, i.code as indemnite_code, i.libelle as indemnite_libelle " +
                      "FROM site_indemnite_config sic " +
                      "JOIN ref_site s ON sic.id_site = s.id_site " +
@@ -114,7 +111,6 @@ public class SiteIndemniteConfig extends ClassMere {
                     item.idIndemnite = rs.getInt("id_indemnite");
                     item.periodicite = rs.getString("periodicite");
                     item.montantReference = rs.getBigDecimal("montant_reference");
-                    item.codeParametreException = rs.getString("code_parametre_exception");
                     item.dateDebut = rs.getDate("date_debut");
                     item.dateFin = rs.getDate("date_fin");
                     item.estActif = rs.getBoolean("est_actif");
@@ -129,7 +125,7 @@ public class SiteIndemniteConfig extends ClassMere {
     }
 
     public static List<SiteIndemniteConfig> listAll(Connection c) throws Exception {
-        String sql = "SELECT sic.id_site_indemnite, sic.id_site, sic.id_indemnite, sic.periodicite, sic.montant_reference, sic.code_parametre_exception, " +
+        String sql = "SELECT sic.id_site_indemnite, sic.id_site, sic.id_indemnite, sic.periodicite, sic.montant_reference, " +
                      "sic.date_debut, sic.date_fin, sic.est_actif, s.libelle as site_libelle, i.code as indemnite_code, i.libelle as indemnite_libelle " +
                      "FROM site_indemnite_config sic " +
                      "JOIN ref_site s ON sic.id_site = s.id_site " +
@@ -145,7 +141,6 @@ public class SiteIndemniteConfig extends ClassMere {
                 item.idIndemnite = rs.getInt("id_indemnite");
                 item.periodicite = rs.getString("periodicite");
                 item.montantReference = rs.getBigDecimal("montant_reference");
-                item.codeParametreException = rs.getString("code_parametre_exception");
                 item.dateDebut = rs.getDate("date_debut");
                 item.dateFin = rs.getDate("date_fin");
                 item.estActif = rs.getBoolean("est_actif");
@@ -188,11 +183,6 @@ public class SiteIndemniteConfig extends ClassMere {
     public void setPeriodicite(String periodicite) { this.periodicite = periodicite; }
     public BigDecimal getMontantReference() { return montantReference; }
     public void setMontantReference(BigDecimal montantReference) { this.montantReference = montantReference; }
-    public String getCodeParametreException() { return codeParametreException; }
-    public void setCodeParametreException(String codeParametreException) {
-        this.codeParametreException = codeParametreException == null || codeParametreException.isBlank()
-                ? null : codeParametreException.trim();
-    }
     public Date getDateDebut() { return dateDebut; }
     public void setDateDebut(Date dateDebut) { this.dateDebut = dateDebut; }
     public Date getDateFin() { return dateFin; }

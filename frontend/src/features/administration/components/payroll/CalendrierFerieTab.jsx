@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {   Calendar, MapPin, Search, Filter } from 'lucide-react';
+import { getErrorMessage } from '@/api/apiClient';
 import paieConfigService from '@/features/administration/api/paieConfigService';
 import organisationService from '@/features/organization/api/organisationService';
 import { fmtDateInput } from '@/utils/dateUtils';
@@ -172,7 +173,7 @@ export default function CalendrierFerieTab() {
                 } catch (err) {
                     toast({
                         title: 'Erreur',
-                        message: err.response?.data?.message || err.response?.data || "Erreur lors du changement de statut.",
+                        message: getErrorMessage(err, "Erreur lors du changement de statut."),
                         type: 'error'
                     });
                 }
@@ -200,7 +201,7 @@ export default function CalendrierFerieTab() {
             setShowFerieModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur de sauvegarde.");
+            setActionError(getErrorMessage(err, "Erreur de sauvegarde."));
         } finally {
             setSubmitting(false);
         }
@@ -232,7 +233,7 @@ export default function CalendrierFerieTab() {
             setShowSiteFerieModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur d'affectation.");
+            setActionError(getErrorMessage(err, "Erreur d'affectation."));
         } finally {
             setSubmitting(false);
         }
@@ -294,7 +295,7 @@ export default function CalendrierFerieTab() {
             setShowPeriodeModal(false);
             loadData();
         } catch (err) {
-            setActionError(err.response?.data || "Erreur lors de la sauvegarde de la période.");
+            setActionError(getErrorMessage(err, "Erreur lors de la sauvegarde de la période."));
         } finally {
             setSubmitting(false);
         }
@@ -346,7 +347,7 @@ export default function CalendrierFerieTab() {
             {error && <Alert type="error" message={error} />}
 
             {/* Onglets internes + Filtres */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-surface)] rounded-none p-2 gap-3 shadow-sm">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-[var(--color-surface)] rounded-none p-2 gap-3">
                 <Tabs
                     tabs={[
                         { id: 'feries', label: 'Jours Fériés Nationaux', icon: <Calendar size={16} />, count: filteredFeries.length },
