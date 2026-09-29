@@ -49,13 +49,17 @@ public class PayrollLegalContextResolver {
         input.setPlafondMensuelHsExonerees(estActif && config.getPlafondMensuelHsExonerees() != null ? config.getPlafondMensuelHsExonerees() : BigDecimal.ZERO);
         input.setIdConfigLegale(configId);
 
+        // Règle de paie confirmée par la DAF : toutes les majorations simultanées
+        // s'ajoutent au taux horaire de base (jamais en cascade multiplicative).
+        input.setSpecialPremiumCollisionPolicy(SpecialPremiumCollisionPolicy.CUMUL_ADDITIF);
+
         if (input.isSoumisIsi5()) {
             input.setTauxIsi(TaxConfigurationResolver.resolveIsiRate(targetDate, connection));
         }
         resolveOvertimeRates(input, configId, targetDate, connection);
         input.setTranchesIrsa(IrsaBracketResolver.resolve(configId, targetDate, connection));
         resolveCompanySocialContributions(input, targetDate, connection);
-        resolveHealthContribution(input, connection);
+        resolveHealthContribution(input, targetDate, connection);
         resolveDynamicParameters(input, targetDate, connection);
     }
 
@@ -149,16 +153,23 @@ public class PayrollLegalContextResolver {
         return defaultId;
     }
 
-    private void resolveHealthContribution(PayrollCalculationInput input, Connection connection) throws Exception {
+    void resolveHealthContribution(PayrollCalculationInput input, LocalDate targetDate,
+            Connection connection) throws Exception {
         String sql = "SELECT tc.code, tc.taux_salarial, tc.taux_patronal, sc.est_plafonne_sante " +
                 "FROM site_cotisation sc " +
                 "JOIN ref_site s ON sc.id_site = s.id_site " +
                 "JOIN ref_type_cotisation tc ON sc.id_type_cotisation = tc.id_type_cotisation " +
-                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) AND (tc.categorie = 'SANTE' OR tc.code IN ('OSTIE', 'OMSI')) AND sc.est_actif = true " +
+                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) " +
+                "AND (tc.categorie = 'SANTE' OR tc.code IN ('OSTIE', 'OMSI')) " +
+                "AND sc.est_actif = true AND tc.date_debut <= ? " +
+                "AND (tc.date_fin IS NULL OR tc.date_fin >= ?) " +
                 "ORDER BY tc.code, sc.id_site_cotisation LIMIT 2";
         boolean found = false;
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             bindSite(input, ps);
+            Date effectiveDate = Date.valueOf(targetDate);
+            ps.setDate(3, effectiveDate);
+            ps.setDate(4, effectiveDate);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     input.setCodeSanteOrgane(rs.getString("code"));

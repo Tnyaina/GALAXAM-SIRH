@@ -22,9 +22,8 @@ import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
  *    - Salarié mensuel normal : les heures REGULAR ont leur base comprise dans SALAIRE_BASE.
  *      payrollAdditionalAmount = 0 (ou uniquement l'incrément de sujétion).
  *    - Heures supplémentaires : la base horaire (1.00) n'est comptabilisée qu'une seule fois.
- * 3. Articulation stricte des sujétions spéciales (Nuit, Dimanche, Férié) selon l'Art. 3 du Décret 72-226 :
- *    - Les sujétions ne s'additionnent pas aveuglément entre elles.
- *    - Toute coïncidence de >= 2 sujétions requiert une politique explicite (défaut : UNRESOLVED -> blocage).
+ * 3. Les collisions de sujétions (Nuit, Dimanche, Férié) suivent la politique explicitement
+ *    transmise par le contexte de paie ; le résolveur de production applique le cumul additif validé DAF.
  * 4. Résolution historique par date réelle de bucket :
  *    - Un bucket ne traversant jamais minuit, il est valorisé au barème légal en vigueur à sa date civile exacte.
  * 5. Arrondis : exclusivement via MoneyRoundingPolicy.

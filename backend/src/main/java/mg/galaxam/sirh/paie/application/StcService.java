@@ -428,22 +428,13 @@ public class StcService {
         String codeSante = "OSTIE";
         BigDecimal tauxSanteSal = null;
         BigDecimal tauxSantePat = null;
-        String sqlCotisSante = "SELECT tc.code, tc.taux_salarial, tc.taux_patronal " +
-                "FROM site_cotisation sc " +
-                "JOIN ref_site s ON sc.id_site = s.id_site " +
-                "JOIN ref_type_cotisation tc ON sc.id_type_cotisation = tc.id_type_cotisation " +
-                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) AND (tc.categorie = 'SANTE' OR (tc.code != 'CNAPS' AND tc.code != 'FMFP')) AND sc.est_actif = true LIMIT 1";
-        try (PreparedStatement psCs = c.prepareStatement(sqlCotisSante)) {
-            psCs.setString(1, prep.getCodeSite() != null ? prep.getCodeSite() : "");
-            psCs.setString(2, "%" + (prep.getSite() != null ? prep.getSite().toUpperCase() : "") + "%");
-            try (ResultSet rsCs = psCs.executeQuery()) {
-                if (rsCs.next()) {
-                    codeSante = rsCs.getString("code");
-                    tauxSanteSal = rsCs.getBigDecimal("taux_salarial").movePointLeft(2);
-                    tauxSantePat = rsCs.getBigDecimal("taux_patronal").movePointLeft(2);
-                }
-            }
-        } catch (Exception ignored) {}
+        HealthContributionRate healthRate = resolveHealthContributionRate(
+                prep.getCodeSite(), prep.getSite(), req.getDateDepart().toLocalDate(), c);
+        if (healthRate != null) {
+            codeSante = healthRate.code();
+            tauxSanteSal = healthRate.employeeRatePercent().movePointLeft(2);
+            tauxSantePat = healthRate.employerRatePercent().movePointLeft(2);
+        }
 
         if (tauxSanteSal == null || tauxSantePat == null) {
             throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: santé");
@@ -1023,6 +1014,38 @@ public class StcService {
         if (dateDepart == null) throw new IllegalArgumentException("La date métier d'ancienneté est obligatoire.");
         LocalDate refDate = dateDepart.toLocalDate();
         return this.ancienneteEngine.calculerAncienneteEmploye(idEmploye, refDate, c);
+    }
+
+    record HealthContributionRate(String code, BigDecimal employeeRatePercent, BigDecimal employerRatePercent) {}
+
+    HealthContributionRate resolveHealthContributionRate(String codeSite, String siteName,
+            LocalDate effectiveDate, Connection connection) throws Exception {
+        if (effectiveDate == null) throw new IllegalArgumentException("La date métier Santé du STC est obligatoire.");
+        String sql = "SELECT tc.code, tc.taux_salarial, tc.taux_patronal " +
+                "FROM site_cotisation sc " +
+                "JOIN ref_site s ON sc.id_site = s.id_site " +
+                "JOIN ref_type_cotisation tc ON sc.id_type_cotisation = tc.id_type_cotisation " +
+                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) " +
+                "AND (tc.categorie = 'SANTE' OR tc.code IN ('OSTIE', 'OMSI')) " +
+                "AND sc.est_actif = true AND tc.date_debut <= ? " +
+                "AND (tc.date_fin IS NULL OR tc.date_fin >= ?) " +
+                "ORDER BY tc.code, sc.id_site_cotisation LIMIT 2";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, codeSite != null ? codeSite : "");
+            statement.setString(2, "%" + (siteName != null ? siteName.toUpperCase() : "") + "%");
+            Date effective = Date.valueOf(effectiveDate);
+            statement.setDate(3, effective);
+            statement.setDate(4, effective);
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) return null;
+                HealthContributionRate rate = new HealthContributionRate(result.getString("code"),
+                        result.getBigDecimal("taux_salarial"), result.getBigDecimal("taux_patronal"));
+                if (result.next()) {
+                    throw new IllegalStateException("SOCIAL_CONFIGURATION_AMBIGUOUS: santé à la date=" + effectiveDate);
+                }
+                return rate;
+            }
+        }
     }
 
     private String convertirEnLettres(BigDecimal montant) {

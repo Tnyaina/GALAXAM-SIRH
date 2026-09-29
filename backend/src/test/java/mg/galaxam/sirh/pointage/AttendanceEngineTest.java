@@ -46,6 +46,78 @@ class AttendanceEngineTest {
     }
 
     @Test
+    void premierPalierHsEstProratePourUnTronconLundiMardi() {
+        long configuredBand = 8 * 60;
+        long expected = 2 * STANDARD_DAY_MINUTES;
+        long band = AttendanceEngine.prorateFirstOvertimeBand(configuredBand, expected,
+                5 * STANDARD_DAY_MINUTES);
+        var result = calculator.calculateWeek(new AttendanceEngine.WeekContext(
+                        LocalDate.of(2026, 9, 7), expected, band, true, STANDARD_DAY_MINUTES),
+                days(600, 600));
+
+        assertEquals(192, band); // 8 h × 16/40
+        assertEquals(240, result.grossOvertimeMinutes());
+        assertEquals(192, result.overtime30Minutes());
+        assertEquals(48, result.overtime50Minutes());
+    }
+
+    @Test
+    void premierPalierHsEstProratePourUnTronconDeTroisJours() {
+        assertEquals(288, AttendanceEngine.prorateFirstOvertimeBand(8 * 60,
+                3 * STANDARD_DAY_MINUTES, 5 * STANDARD_DAY_MINUTES)); // 8 h × 24/40
+    }
+
+    @Test
+    void premierPalierHsEstProrateQuandUnJourDuTronconEstFerie() {
+        long expected = STANDARD_DAY_MINUTES;
+        long band = AttendanceEngine.prorateFirstOvertimeBand(8 * 60, expected, 5 * STANDARD_DAY_MINUTES);
+        var result = calculator.calculateWeek(new AttendanceEngine.WeekContext(
+                        LocalDate.of(2026, 9, 7), expected, band, true, STANDARD_DAY_MINUTES),
+                List.of(day(600, AttendanceEngine.Result.Status.PRESENT, false, false),
+                        day(0, AttendanceEngine.Result.Status.PUBLIC_HOLIDAY_OFF, false, true)));
+        assertEquals(96, band);
+        assertEquals(120, result.grossOvertimeMinutes());
+        assertEquals(96, result.overtime30Minutes());
+        assertEquals(24, result.overtime50Minutes());
+    }
+
+    @Test
+    void premierPalierHsEstProrateQuandUnJourDuTronconEstConge() {
+        long expected = STANDARD_DAY_MINUTES;
+        long band = AttendanceEngine.prorateFirstOvertimeBand(8 * 60, expected, 5 * STANDARD_DAY_MINUTES);
+        var result = calculator.calculateWeek(new AttendanceEngine.WeekContext(
+                        LocalDate.of(2026, 9, 7), expected, band, true, STANDARD_DAY_MINUTES),
+                List.of(day(600, AttendanceEngine.Result.Status.PRESENT, false, false),
+                        day(0, AttendanceEngine.Result.Status.LEAVE, false, false)));
+        assertEquals(96, band);
+        assertEquals(96, result.overtime30Minutes());
+        assertEquals(24, result.overtime50Minutes());
+    }
+
+    @Test
+    void absenceNeReduitPasLObjectifNiLePremierPalierEtCompenseLeSurplus() {
+        long expected = 2 * STANDARD_DAY_MINUTES;
+        long band = AttendanceEngine.prorateFirstOvertimeBand(8 * 60, expected, 5 * STANDARD_DAY_MINUTES);
+        var result = calculator.calculateWeek(new AttendanceEngine.WeekContext(
+                        LocalDate.of(2026, 9, 7), expected, band, true, STANDARD_DAY_MINUTES),
+                List.of(day(600, AttendanceEngine.Result.Status.PRESENT, false, false),
+                        day(0, AttendanceEngine.Result.Status.ABSENT, false, false)));
+        assertEquals(360, result.absenceMinutes());
+        assertEquals(120, result.compensatedMinutes());
+        assertEquals(0, result.grossOvertimeMinutes());
+    }
+
+    @Test
+    void deplacementConserveLeProrataEtLaReductionConfigures() {
+        assertEquals(0, new BigDecimal("25000.00").compareTo(calculator.calculateTravelAmount(
+                BigDecimal.ONE, new BigDecimal("25000"), false, new BigDecimal("5000"))));
+        assertEquals(0, new BigDecimal("10000.00").compareTo(calculator.calculateTravelAmount(
+                new BigDecimal("0.5"), new BigDecimal("25000"), true, new BigDecimal("5000"))));
+        assertEquals(0, BigDecimal.ZERO.compareTo(calculator.calculateTravelAmount(
+                BigDecimal.ONE, new BigDecimal("25000"), true, new BigDecimal("30000"))));
+    }
+
+    @Test
     void congeCompletAbaisseLobjectifSansCreerDeficit() {
         var result = calculate(4 * STANDARD_DAY_MINUTES,
                 List.of(day(480, AttendanceEngine.Result.Status.PRESENT, false, false),

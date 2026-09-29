@@ -76,10 +76,10 @@
 
 ## D. Heures Supplémentaires & Cumuls de Majorations
 
-### Question D1 : Seuil de Déclenchement des Heures Supplémentaires : Hebdomadaire vs Période -> reponse : HS hebdomadaire toujours, pas forcement 40h car un tracons semaine peut comporter des ferier , couper en cours de route etc. par exemple 24-26 -> lun - mer, la semaine se termine mercredi pour la periode donc objectif 24h par exemple
+### Question D1 : Seuil de Déclenchement des Heures Supplémentaires : Hebdomadaire vs Période -> réponse DAF : HS hebdomadaires ; objectif adapté aux jours ouvrables du tronçon. Ex. lundi-mercredi = 24 h.
 
 - **Pourquoi nous devons la poser :** Le Code du Travail Malagasy définit la durée légale à 40 heures par semaine. Mais Galaxam utilise des périodes de paie décalées (du 26 au 25 du mois suivant). Les semaines coupées à cheval sur deux périodes doivent être traitées sans biaiser les seuils de 40 heures.
-- **Comportement actuel du SIRH :** Calcul granulaire par semaine civile du lundi au dimanche, avec proratisation des semaines à cheval.
+- **Comportement actuel du SIRH :** Calcul par tronçon de semaine civile. L'objectif et le premier palier sont proratisés selon la durée normale attendue du tronçon (période, dates d'emploi, congé et férié chômé) ; une absence ne réduit pas l'objectif.
 - **Comportement Excel / historique :** Somme brute mensuelle des heures dépassant l'obligation de la période.
 - **Exemple chiffré :** Un collaborateur travaille 48 h pendant la semaine à cheval (3 jours sur le mois M, 3 jours sur le mois M+1).
   - *Approche Période isolée :* Les 8 HS risquent d'être réparties arbitrairement ou perdues.
@@ -88,10 +88,10 @@
 - **Option B :** Déclenchement au dépassement du forfait mensuel d'heures théoriques.
 - **Impact de la décision :** Architecture de l'agrégation dans `PointageMonthlySnapshot` et `OvertimePayCalculator`.
 
-### Question D2 : Traitement d'une Heure Supplémentaire Réalisée un Dimanche (Cumul Additif vs Multiplicatif) -> option A additif
+### Question D2 : Traitement d'une Heure Supplémentaire Réalisée un Dimanche (Cumul Additif vs Multiplicatif) -> réponse DAF : option A, cumul additif
 
 - **Pourquoi nous devons la poser :** Lorsqu'un salarié effectue une heure supplémentaire un dimanche, bénéficie-t-il d'un cumul additif des majorations ou multiplicatif ?
-- **Comportement actuel du SIRH :** Discordance dans le code (40% seul en mode buckets vs 140% en fallback).
+- **Comportement actuel du SIRH :** Le contexte légal de production transmet `CUMUL_ADDITIF`. Les taux des buckets restent résolus depuis les barèmes datés en base.
 - **Comportement Excel / historique :** Traité de façon additive : Majoration HS (ex: 30% ou 50%) + Majoration Dimanche (40%).
 - **Exemple chiffré :** $TH = 10.000\text{ Ar}$. 1 heure supplémentaire au-delà de 40 h réalisée un dimanche (tranche 30%).
   - *Cumul Additif :* Majoration $= 30\% + 40\% = 70\%$. Heure payée à $170\%$ du taux $= 17.000\text{ Ar}$.
@@ -146,10 +146,10 @@
 
 ## H. Indemnité de Déplacement (TNR vs TMM)
 
-### Question H1 : Règle de Déduction des Forfaits Déplacement (50.000 Ar TNR / 25.000 Ar TMM) -> autimp c somme prime + deplacement, on choisit de laisser les colonne unique sans les combiner pour plus de details. deplacement est proratise, on a pas besoin de changer les regle indemnite etabli
+### Question H1 : Règle de Déduction des Forfaits Déplacement (TNR / TMM) -> réponse DAF : indemnité séparée des primes, proratisée ; conserver les règles établies.
 
 - **Pourquoi nous devons la poser :** Dans le fichier Excel historique de paie, la ligne `AUTIMP` contient les indemnités de déplacement. Si un salarié a des absences non justifiées ou des congés sans solde, le forfait transport doit-il être réduit ?
-- **Comportement actuel du SIRH :** Aucun prorata automatique n'est appliqué sur le déplacement sauf saisie manuelle.
+- **Comportement actuel du SIRH :** Le taux journalier provient du montant configuré pour le site et est proratisé par les jours ouvrables de la période ; fractions et réduction configurée sont appliquées par jour. Le montant mensuel complet est préservé lorsque les conditions actuelles de présence intégrale sont remplies.
 - **Comportement Excel / historique :** Versement intégral du montant forfaitaire (50.000 Ar TNR / 25.000 Ar TMM) sauf instruction explicite de la direction.
 - **Option A (Recommandée) :** Forfait mensuel garanti non proratisé tant que le contrat est actif, sauf mois complet d'absence.
 - **Option B :** Proratisation stricte au prorata des jours de travail effectifs sur site (excluant télétravail et absences).
@@ -223,10 +223,10 @@
 
 ## M. Acomptes, Avances & Quotité Cessible
 
-### Question M1 : Plafonnement des Retenues au Titre de la Quotité Cessible Légale -> option A rajouter le parametres alors
+### Question M1 : Plafonnement des Retenues au Titre de la Quotité Cessible Légale -> réponse DAF : paramétrer la règle ; barèmes/catégories à confirmer par DAF/juridique
 
 - **Pourquoi nous devons la poser :** En droit du travail malagasy, la quotité saisissable/cessible limite les retenues sur salaire (hors impôts et cotisations) à un pourcentage maximum du salaire net (généralement 1/3 ou 1/5) pour garantir un reste à vivre minimal au collaborateur.
-- **Comportement actuel du SIRH :** Aucune limitation : si un acompte ou une retenue de prêt est supérieure au net disponible, le net à payer devient négatif ou le calcul échoue.
+- **Comportement actuel du SIRH :** L'acompte est retenu jusqu'au net disponible ; les avances spéciales employeur sont plafonnées à 10 % et les prêts internes à 1/3 par constantes Java. Ces ratios et leur assiette ne sont pas justifiés par un barème juridique daté et ne couvrent pas la distinction entre acompte, avance spéciale, cession et saisie.
 - **Comportement Excel / historique :** Gestion manuelle par la DAF qui reporte le reliquat au mois suivant.
 - **Exemple chiffré :** Salaire net avant retenues = 300.000 Ar. Échéance de prêt = 250.000 Ar.
   - *Sans quotité cessible :* Net à payer = 50.000 Ar (ou négatif si acompte supérieur).

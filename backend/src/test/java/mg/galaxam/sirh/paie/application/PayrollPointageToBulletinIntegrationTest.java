@@ -31,6 +31,7 @@ class PayrollPointageToBulletinIntegrationTest {
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void uneJourneeCompleteProduitUnBulletinAvecSaProvenancePointage(boolean complementDaf) throws Exception {
         try (Connection connection = dataSource.getConnection()) {
+            assertTestDatabase(connection);
             connection.setAutoCommit(false);
             try {
                 int employeeId;
@@ -244,6 +245,121 @@ class PayrollPointageToBulletinIntegrationTest {
                 }
             } finally {
                 connection.rollback();
+            }
+        }
+    }
+
+    @Test
+    void objectifHebdomadaireRespecteLesDatesDentreeEtDeSortieEnCoursDeSemaine() throws Exception {
+        try (Connection connection = dataSource.getConnection()) {
+            assertTestDatabase(connection);
+            connection.setAutoCommit(false);
+            try {
+                int entrant = insertEmployee(connection, "ENTREE");
+                int sortant = insertEmployee(connection, "SORTIE");
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "UPDATE employe SET est_actif = FALSE WHERE id_employe NOT IN (?, ?)")) {
+                    statement.setInt(1, entrant);
+                    statement.setInt(2, sortant);
+                    statement.executeUpdate();
+                }
+                LocalDate monday = LocalDate.of(2026, 9, 21);
+                int entrantContract = CongeTestFixtureHelper.createContratActif(connection, entrant, monday.plusDays(1));
+                int entrantAssignment = CongeTestFixtureHelper.createAffectation(connection, entrant, entrantContract,
+                        monday.plusDays(1), new BigDecimal("350000"));
+                int sortantContract = CongeTestFixtureHelper.createContratActif(connection, sortant, monday.minusDays(7));
+                int sortantAssignment = CongeTestFixtureHelper.createAffectation(connection, sortant, sortantContract,
+                        monday.minusDays(7), new BigDecimal("350000"));
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "UPDATE employe_affectation_carriere SET id_categorie_professionnelle = 2 "
+                                + "WHERE id_affectation IN (?, ?)")) {
+                    statement.setInt(1, entrantAssignment);
+                    statement.setInt(2, sortantAssignment);
+                    statement.executeUpdate();
+                }
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "UPDATE contrat_travail SET date_fin = ? WHERE id_contrat = ?")) {
+                    statement.setDate(1, Date.valueOf(monday.plusDays(2)));
+                    statement.setInt(2, sortantContract);
+                    statement.executeUpdate();
+                }
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "UPDATE employe_affectation_carriere SET date_fin = ? WHERE id_affectation = ?")) {
+                    statement.setDate(1, Date.valueOf(monday.plusDays(2)));
+                    statement.setInt(2, sortantAssignment);
+                    statement.executeUpdate();
+                }
+                int periodId = CongeTestFixtureHelper.createPeriodePaie(connection,
+                        "PW-" + Long.toUnsignedString(System.nanoTime(), 36).toUpperCase(),
+                        monday, monday.plusDays(4), "EN_COURS");
+                insertPresentPointages(connection, entrant, periodId, monday.plusDays(1), monday.plusDays(4), 10);
+                insertPresentPointages(connection, sortant, periodId, monday, monday.plusDays(2), 10);
+
+                var syntheses = pointageSyntheseService.getSynthesePeriode(periodId, null, connection);
+                var entrantSynthese = syntheses.stream().filter(value -> value.getIdEmploye() == entrant).findFirst().orElseThrow();
+                var sortantSynthese = syntheses.stream().filter(value -> value.getIdEmploye() == sortant).findFirst().orElseThrow();
+
+                assertEquals(32.0, entrantSynthese.getTronconsSemaine().get(0).getSeuilHeuresTroncon());
+                assertEquals(0.0, entrantSynthese.getTronconsSemaine().get(0).getHeuresDeficit());
+                assertEquals(24.0, sortantSynthese.getTronconsSemaine().get(0).getSeuilHeuresTroncon());
+                assertEquals(0.0, sortantSynthese.getTronconsSemaine().get(0).getHeuresDeficit());
+                assertEquals(6.4, entrantSynthese.getTronconsSemaine().get(0).getHeuresHs30(), 0.001);
+                assertEquals(1.6, entrantSynthese.getTronconsSemaine().get(0).getHeuresHs50(), 0.001);
+                assertEquals(4.8, sortantSynthese.getTronconsSemaine().get(0).getHeuresHs30(), 0.001);
+                assertEquals(1.2, sortantSynthese.getTronconsSemaine().get(0).getHeuresHs50(), 0.001);
+            } finally {
+                connection.rollback();
+            }
+        }
+    }
+
+    private int insertEmployee(Connection connection, String label) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "INSERT INTO employe (matricule, nom, prenom, sexe, date_naissance, lieu_naissance, "
+                        + "cin_numero, cin_date_delivrance, cin_lieu_delivrance, adresse, telephone) "
+                        + "VALUES (?, ?, 'Test', 'M', '1990-01-15', 'Antananarivo', ?, '2010-01-15', 'TNR', 'Rue Test', '0340000000') "
+                        + "RETURNING id_employe")) {
+            String suffix = Long.toUnsignedString(System.nanoTime(), 36).toUpperCase();
+            statement.setString(1, "PW-" + suffix);
+            statement.setString(2, "Partial " + label);
+            statement.setString(3, String.format("%012d", Math.abs(System.nanoTime() % 1_000_000_000_000L)));
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                return result.getInt(1);
+            }
+        }
+    }
+
+    private void insertPresentPointages(Connection connection, int employeeId, int periodId,
+            LocalDate start, LocalDate end) throws Exception {
+        insertPresentPointages(connection, employeeId, periodId, start, end, 8);
+    }
+
+    private void insertPresentPointages(Connection connection, int employeeId, int periodId,
+            LocalDate start, LocalDate end, int hours) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, "
+                        + "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, "
+                        + "heure_entree_matin_effective, total_heures, version) "
+                        + "VALUES (?, ?, 1, ?, (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT'), "
+                        + "'08:00', '12:00', '13:00', ?, '08:00', ?, 1)")) {
+            statement.setInt(1, employeeId);
+            statement.setInt(2, periodId);
+            for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
+                statement.setDate(3, Date.valueOf(day));
+                statement.setTime(4, java.sql.Time.valueOf(hours > 8 ? "19:00:00" : "17:00:00"));
+                statement.setInt(5, hours);
+                statement.executeUpdate();
+            }
+        }
+    }
+
+    private void assertTestDatabase(Connection connection) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT current_database()")) {
+            try (ResultSet result = statement.executeQuery()) {
+                assertTrue(result.next());
+                assertEquals("sirh_galaxam_test", result.getString(1),
+                        "Aucune écriture de test ne doit être faite hors sirh_galaxam_test");
             }
         }
     }

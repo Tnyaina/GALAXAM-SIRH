@@ -83,6 +83,22 @@ public class PointageSyntheseService {
         return value == null ? BigDecimal.ZERO : value;
     }
 
+    private static LocalDate laterDate(Date first, Date second) {
+        LocalDate a = first == null ? null : first.toLocalDate();
+        LocalDate b = second == null ? null : second.toLocalDate();
+        if (a == null) return b;
+        if (b == null) return a;
+        return a.isAfter(b) ? a : b;
+    }
+
+    private static LocalDate earlierNonNullDate(Date first, Date second) {
+        LocalDate a = first == null ? null : first.toLocalDate();
+        LocalDate b = second == null ? null : second.toLocalDate();
+        if (a == null) return b;
+        if (b == null) return a;
+        return a.isBefore(b) ? a : b;
+    }
+
     private static BigDecimal requireAllowanceParameter(
             Map<String, ParametreGlobal.ParametreEtat> params, String code,
             int siteId, LocalDate date, int employeeId) {
@@ -211,7 +227,7 @@ public class PointageSyntheseService {
             Connection c
     ) throws SQLException {
         return calculerSyntheseEmploye(idEmp, matricule, nom, prenom, photoUrl, idSite, siteCode, siteNom,
-                null, codeCat, isCadre, estAutonome, dateDebut, dateFin, idPeriode,
+                null, codeCat, isCadre, estAutonome, dateDebut, dateFin, null, null, idPeriode,
                 codePeriode, libellePeriode, statutPeriode, nbJoursOuvrablesPeriode, siteDeplacementRefMap, params, c);
     }
 
@@ -230,6 +246,37 @@ public class PointageSyntheseService {
             boolean estAutonome,
             LocalDate dateDebut,
             LocalDate dateFin,
+            Integer idPeriode,
+            String codePeriode,
+            String libellePeriode,
+            String statutPeriode,
+            int nbJoursOuvrablesPeriode,
+            Map<Integer, BigDecimal> siteDeplacementRefMap,
+            Map<String, String> params,
+            Connection c
+    ) throws SQLException {
+        return calculerSyntheseEmploye(idEmp, matricule, nom, prenom, photoUrl, idSite, siteCode, siteNom,
+                horaireContinu, codeCat, isCadre, estAutonome, dateDebut, dateFin, null, null, idPeriode,
+                codePeriode, libellePeriode, statutPeriode, nbJoursOuvrablesPeriode, siteDeplacementRefMap, params, c);
+    }
+
+    public PointageSyntheseMensuelleDTO calculerSyntheseEmploye(
+            int idEmp,
+            String matricule,
+            String nom,
+            String prenom,
+            String photoUrl,
+            int idSite,
+            String siteCode,
+            String siteNom,
+            Boolean horaireContinu,
+            String codeCat,
+            boolean isCadre,
+            boolean estAutonome,
+            LocalDate dateDebut,
+            LocalDate dateFin,
+            LocalDate dateDebutEmploi,
+            LocalDate dateFinEmploi,
             Integer idPeriode,
             String codePeriode,
             String libellePeriode,
@@ -506,11 +553,16 @@ public class PointageSyntheseService {
             }
             LocalDate debutTroncon = lundi.isBefore(dateDebut) ? dateDebut : lundi;
 
-            int joursOuvresTroncon = (calendrierEngine != null)
-                    ? calendrierEngine.compterJoursOuvrables(debutTroncon, finTroncon, idSite, c)
-                    : CalendrierOuvrableEngine.calculerJoursOuvrables(debutTroncon, finTroncon);
+            LocalDate debutActifTroncon = dateDebutEmploi != null && dateDebutEmploi.isAfter(debutTroncon)
+                    ? dateDebutEmploi : debutTroncon;
+            LocalDate finActifTroncon = dateFinEmploi != null && dateFinEmploi.isBefore(finTroncon)
+                    ? dateFinEmploi : finTroncon;
+            boolean emploiActifDansTroncon = !debutActifTroncon.isAfter(finActifTroncon);
+            int joursOuvresTroncon = !emploiActifDansTroncon ? 0 : (calendrierEngine != null
+                    ? calendrierEngine.compterJoursOuvrables(debutActifTroncon, finActifTroncon, idSite, c)
+                    : CalendrierOuvrableEngine.calculerJoursOuvrables(debutActifTroncon, finActifTroncon));
             int joursFerieTroncon = 0;
-            for (LocalDate cur = debutTroncon; !cur.isAfter(finTroncon); cur = cur.plusDays(1)) {
+            for (LocalDate cur = debutActifTroncon; emploiActifDansTroncon && !cur.isAfter(finActifTroncon); cur = cur.plusDays(1)) {
                 if (!CalendrierOuvrableEngine.isWeekend(cur) && feriesChomesTroncon.contains(cur)) {
                     joursFerieTroncon++;
                 }
@@ -520,6 +572,8 @@ public class PointageSyntheseService {
             // (évite le cumul : un jour férié chômé ne peut pas être décompté deux fois)
             double joursCongeTroncon = 0.0;
             for (AttendanceEngine.Result j : jours) {
+                if (!emploiActifDansTroncon || j.date().isBefore(debutActifTroncon)
+                        || j.date().isAfter(finActifTroncon)) continue;
                 if (!CalendrierOuvrableEngine.isWeekend(j.date()) && !feriesChomesTroncon.contains(j.date())) {
                     if (j.status() == AttendanceEngine.Result.Status.LEAVE) {
                         joursCongeTroncon += 1.0;
@@ -534,15 +588,20 @@ public class PointageSyntheseService {
             long expectedMinutes = seuilHeuresJour
                     .multiply(BigDecimal.valueOf(joursRequis)).multiply(BigDecimal.valueOf(60))
                     .setScale(0, RoundingMode.HALF_UP).longValueExact();
-            long firstBandMinutes = seuilHsTranche1.multiply(BigDecimal.valueOf(60))
+            long configuredFirstBandMinutes = seuilHsTranche1.multiply(BigDecimal.valueOf(60))
                     .setScale(0, RoundingMode.HALF_UP).longValueExact();
+            long nominalWeekMinutes = seuilHeuresJour.multiply(BigDecimal.valueOf(
+                    CalendrierOuvrableEngine.calculerJoursOuvrables(lundi, lundi.plusDays(6))))
+                    .multiply(BigDecimal.valueOf(60)).setScale(0, RoundingMode.HALF_UP).longValueExact();
+            long firstBandMinutes = AttendanceEngine.prorateFirstOvertimeBand(
+                    configuredFirstBandMinutes, expectedMinutes, nominalWeekMinutes);
             // Règle métier confirmée GALAXAM (Phase 1B) :
             // Les périodes de paie sont strictement étanches pour le calcul des HS et des absences.
             // Aucune compensation ordinaire (HS <-> déficit) ne traverse une frontière de période.
             // Chaque tronçon est calculé avec son propre seuil et sa propre compensation autonome.
             AttendanceEngine.WeekResult res = weeklyAttendanceCalculator.calculateWeek(
                     new AttendanceEngine.WeekContext(lundi, expectedMinutes, firstBandMinutes,
-                            resolveOvertimeEligibility(idEmp, debutTroncon, c),
+                            emploiActifDansTroncon && resolveOvertimeEligibility(idEmp, debutActifTroncon, c),
                             seuilHeuresJour.multiply(BigDecimal.valueOf(60)).longValueExact()), jours);
             weeklyResults.add(res);
 
@@ -801,6 +860,8 @@ public class PointageSyntheseService {
         // 2. Charger les employés éligibles avec l'affectation active durant cette période
         StringBuilder sqlEmp = new StringBuilder(
             "SELECT DISTINCT ON (e.id_employe) e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
+            "a.date_debut AS date_debut_affectation, a.date_fin AS date_fin_affectation, " +
+            "ct.date_debut AS date_debut_contrat, ct.date_fin AS date_fin_contrat, " +
             "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, COALESCE(s.horaire_continu, TRUE) AS horaire_continu, " +
             "COALESCE(f.dispense_pointage, FALSE) AS est_autonome, " +
             "COALESCE(cp.code, '') AS code_categorie, COALESCE(cp.est_cadre, FALSE) AS categorie_est_cadre " +
@@ -808,6 +869,7 @@ public class PointageSyntheseService {
             "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
             "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
             "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
+            "LEFT JOIN contrat_travail ct ON ct.id_contrat = a.id_contrat " +
             "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
             "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
             "LEFT JOIN ref_site s ON a.id_site = s.id_site " +
@@ -851,6 +913,8 @@ public class PointageSyntheseService {
                             estAutonome,
                             dateDebut,
                             dateFin,
+                            laterDate(rsE.getDate("date_debut_affectation"), rsE.getDate("date_debut_contrat")),
+                            earlierNonNullDate(rsE.getDate("date_fin_affectation"), rsE.getDate("date_fin_contrat")),
                             idPeriode,
                             codePeriode,
                             libellePeriode,
@@ -1060,6 +1124,8 @@ public class PointageSyntheseService {
         String cteSql = 
             "WITH employes_actifs AS ( " +
             "    SELECT DISTINCT ON (e.id_employe) e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
+            "           a.date_debut AS date_debut_affectation, a.date_fin AS date_fin_affectation, " +
+            "           ct.date_debut AS date_debut_contrat, ct.date_fin AS date_fin_contrat, " +
             "           s.id_site, s.code_site AS site_code, s.libelle AS site_nom, COALESCE(s.horaire_continu, TRUE) AS horaire_continu, " +
             "           COALESCE(f.dispense_pointage, FALSE) AS est_autonome, " +
             "           COALESCE(cp.code, '') AS code_categorie, COALESCE(cp.est_cadre, FALSE) AS categorie_est_cadre " +
@@ -1067,6 +1133,7 @@ public class PointageSyntheseService {
             "    JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
             "        AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
             "    JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
+            "    LEFT JOIN contrat_travail ct ON ct.id_contrat = a.id_contrat " +
             "    LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
             "    LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
             "    LEFT JOIN ref_site s ON a.id_site = s.id_site " +
@@ -1147,6 +1214,8 @@ public class PointageSyntheseService {
                                 estAutonome,
                                 dateDebut,
                                 dateFin,
+                                laterDate(rsE.getDate("date_debut_affectation"), rsE.getDate("date_debut_contrat")),
+                                earlierNonNullDate(rsE.getDate("date_fin_affectation"), rsE.getDate("date_fin_contrat")),
                                 idPeriode,
                                 codePeriode,
                                 libellePeriode,
@@ -1860,6 +1929,8 @@ public class PointageSyntheseService {
 
         StringBuilder sqlEmp = new StringBuilder(
             "SELECT DISTINCT ON (e.id_employe) e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
+            "a.date_debut AS date_debut_affectation, a.date_fin AS date_fin_affectation, " +
+            "ct.date_debut AS date_debut_contrat, ct.date_fin AS date_fin_contrat, " +
             "s.id_site, s.code_site AS site_code, s.libelle AS site_nom, COALESCE(s.horaire_continu, TRUE) AS horaire_continu, " +
             "COALESCE(f.dispense_pointage, FALSE) AS est_autonome, " +
             "COALESCE(cp.code, '') AS code_categorie, COALESCE(cp.est_cadre, FALSE) AS categorie_est_cadre " +
@@ -1867,6 +1938,7 @@ public class PointageSyntheseService {
             "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
             "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
             "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
+            "LEFT JOIN contrat_travail ct ON ct.id_contrat = a.id_contrat " +
             "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
             "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
             "LEFT JOIN ref_site s ON a.id_site = s.id_site " +
@@ -1909,6 +1981,8 @@ public class PointageSyntheseService {
                             estAutonome,
                             dateDebutTroncon,
                             dateFinTroncon,
+                            laterDate(rsE.getDate("date_debut_affectation"), rsE.getDate("date_debut_contrat")),
+                            earlierNonNullDate(rsE.getDate("date_fin_affectation"), rsE.getDate("date_fin_contrat")),
                             idPeriode,
                             null,
                             null,

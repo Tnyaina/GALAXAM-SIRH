@@ -1,6 +1,7 @@
 package mg.galaxam.sirh.pointage.domain.calculation;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -281,6 +282,24 @@ public class AttendanceEngine {
                 throw new IllegalArgumentException("Contexte hebdomadaire invalide.");
             }
         }
+    }
+
+    /**
+     * Ajuste le premier palier HS à la durée normale réellement attendue dans le tronçon.
+     * Le palier paramétré reste inchangé pour une semaine normale ; un tronçon écourté par
+     * les bornes de période, d'emploi, un jour férié chômé ou un congé en reçoit la part
+     * proportionnelle. Les absences n'abaissent pas l'objectif attendu.
+     */
+    public static long prorateFirstOvertimeBand(long configuredBandMinutes,
+            long expectedMinutes, long nominalWeekMinutes) {
+        if (configuredBandMinutes < 0 || expectedMinutes < 0 || nominalWeekMinutes < 0) {
+            throw new IllegalArgumentException("Seuil hebdomadaire HS invalide.");
+        }
+        if (nominalWeekMinutes == 0) return 0;
+        return BigDecimal.valueOf(configuredBandMinutes)
+                .multiply(BigDecimal.valueOf(Math.min(expectedMinutes, nominalWeekMinutes)))
+                .divide(BigDecimal.valueOf(nominalWeekMinutes), 0, RoundingMode.HALF_UP)
+                .longValueExact();
     }
 
     public record WeekResult(LocalDate weekStart, long expectedMinutes, long workedMinutes,
