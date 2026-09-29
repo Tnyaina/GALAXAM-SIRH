@@ -16,6 +16,20 @@ import org.junit.jupiter.api.Test;
 
 class PayrollLeaveAbsenceSeparationTest {
     @Test
+    void indemniteDeTroisJoursUtiliseLaSommeHistoriqueDesLots() {
+        PayrollCalculationInput input = new PayrollCalculationInput();
+        input.setSalaireBaseContractuel(new BigDecimal("300000"));
+        input.setNbJoursConges(new BigDecimal("3"));
+        input.setTauxJournalierConge(new BigDecimal("15000"));
+        input.setIndemniteCongeLots(new BigDecimal("29000"));
+        List<BulletinPaieLigne> lignes = new ArrayList<>();
+        new PayrollExecutionEngine().calculerConges(input, new BulletinPaie(), lignes);
+        var indemnite = lignes.stream().filter(l -> "INDEMNITE_CONGE_PAYE".equals(l.getCodeRubrique()))
+                .findFirst().orElseThrow();
+        assertEquals(0, indemnite.getMontantSalarial().compareTo(new BigDecimal("29000")));
+    }
+
+    @Test
     void congeHistoriqueEtAbsenceHoraireRestentSurTroisLignesDistinctes() {
         PayrollCalculationInput input = new PayrollCalculationInput();
         input.setSalaireBaseContractuel(new BigDecimal("350000"));

@@ -65,10 +65,11 @@ class CongeAnnuelExcelExportServiceTest {
         assertTrue(excelBytes.length > 5000, "Le fichier Excel généré doit être supérieur à 5 Ko");
 
         try (XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(excelBytes))) {
-            assertEquals(3, wb.getNumberOfSheets(), "Le classeur doit contenir 3 feuilles (État, Mouvements, README)");
+            assertEquals(4, wb.getNumberOfSheets(), "Le classeur doit contenir la ventilation des droits.");
             assertEquals("État congés salarié", wb.getSheetName(0));
             assertEquals("Mouvements", wb.getSheetName(1));
             assertEquals("README", wb.getSheetName(2));
+            assertEquals("Origine des droits", wb.getSheetName(3));
 
             var sheet1 = wb.getSheetAt(0);
             var rowMatricule = sheet1.getRow(2); // Row 3
@@ -104,18 +105,21 @@ class CongeAnnuelExcelExportServiceTest {
     void testSoldeEtTauxHistoriques() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             try (var ps = c.prepareStatement(
-                    "INSERT INTO mouvement_solde_conge (id_employe, type_mouvement, nb_jours, date_mouvement, commentaire) VALUES (?, ?, ?, ?, ?)")) {
+                    "INSERT INTO mouvement_solde_conge (id_employe, type_mouvement, nb_jours, date_mouvement, commentaire, valeur_source) VALUES (?, ?, ?, ?, ?, ?)")) {
                 ps.setInt(1, employeId);
                 ps.setString(5, "Test d'export");
                 ps.setString(2, "ACQUISITION");
+                ps.setBigDecimal(6, new BigDecimal("22500"));
                 ps.setBigDecimal(3, new BigDecimal("2.50"));
                 ps.setDate(4, Date.valueOf("2026-01-15"));
                 ps.executeUpdate();
                 ps.setString(2, "PRISE");
+                ps.setBigDecimal(6, null);
                 ps.setBigDecimal(3, new BigDecimal("-1.00"));
                 ps.setDate(4, Date.valueOf("2026-01-20"));
                 ps.executeUpdate();
                 ps.setString(2, "AJUSTEMENT");
+                ps.setBigDecimal(6, new BigDecimal("5000"));
                 ps.setBigDecimal(3, new BigDecimal("0.50"));
                 ps.setDate(4, Date.valueOf("2026-02-10"));
                 ps.executeUpdate();
@@ -139,7 +143,7 @@ class CongeAnnuelExcelExportServiceTest {
             assertEquals(1.5, sheet.getRow(7).getCell(14).getNumericCellValue());
             assertEquals(2, sheet.getRow(8).getCell(14).getNumericCellValue());
             assertEquals(10000, sheet.getRow(8).getCell(5).getNumericCellValue());
-            assertEquals(20000, sheet.getRow(8).getCell(15).getNumericCellValue());
+            assertEquals(18500, sheet.getRow(8).getCell(15).getNumericCellValue());
             assertEquals(org.apache.poi.ss.usermodel.CellType.BLANK, sheet.getRow(7).getCell(6).getCellType());
         }
     }

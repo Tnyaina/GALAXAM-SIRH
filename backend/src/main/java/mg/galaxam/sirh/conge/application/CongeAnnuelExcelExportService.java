@@ -35,6 +35,7 @@ public class CongeAnnuelExcelExportService {
 
     @Autowired
     private DataSource dataSource;
+    private final CongeLotValorisationService lots = new CongeLotValorisationService();
 
     public byte[] genererEtatCongesIndividuel(int idEmploye, Integer idPeriodeReference) throws Exception {
         try (Connection c = dataSource.getConnection()) {
@@ -69,7 +70,7 @@ public class CongeAnnuelExcelExportService {
                 // 6. Remplir la Feuille 1 : État congés salarié
                 Sheet sheet1 = workbook.getSheetAt(0);
                 remplirEnTeteFeuille1(sheet1, emp, ref);
-                remplirTableau12Mois(sheet1, moisData, ref);
+                remplirTableau12Mois(sheet1, moisData, ref, idEmploye, c);
                 sheet1.setColumnWidth(0, 25 * 256);
                 sheet1.getRow(21).getCell(0).setCellValue("Données enregistrées dans le SIRH au "
                         + (ref.dateFin.isAfter(LocalDate.now()) ? LocalDate.now() : ref.dateFin).format(DATE_FMT)
@@ -78,6 +79,29 @@ public class CongeAnnuelExcelExportService {
                 // 7. Remplir la Feuille 2 : Mouvements
                 Sheet sheet2 = workbook.getSheetAt(1);
                 remplirFeuilleMouvements(sheet2, mouvements, ref, idEmploye, c);
+                Sheet detailLots = workbook.createSheet("Origine des droits");
+                var situationLots = lots.situation(idEmploye, ref.dateFin.isAfter(LocalDate.now())
+                        ? LocalDate.now() : ref.dateFin, c);
+                Row titresLots = detailLots.createRow(0);
+                String[] colonnesLots = {"Origine", "ID droit", "Date acquisition", "Jours restants",
+                        "Valeur restante", "ID prise", "Jours consommés", "Valeur consommée", "TCONGE historique"};
+                for (int i = 0; i < colonnesLots.length; i++) titresLots.createCell(i).setCellValue(colonnesLots[i]);
+                int rangLot = 1;
+                for (var lot : situationLots.lots()) {
+                    Row r = detailLots.createRow(rangLot++);
+                    r.createCell(0).setCellValue(lot.origine()); r.createCell(1).setCellValue(lot.idSource());
+                    r.createCell(2).setCellValue(lot.dateAcquisition().toString());
+                    r.createCell(3).setCellValue(lot.jours().doubleValue());
+                    r.createCell(4).setCellValue(lot.valeur().doubleValue());
+                }
+                for (var prise : situationLots.imputations()) {
+                    Row r = detailLots.createRow(rangLot++);
+                    r.createCell(0).setCellValue(prise.origine()); r.createCell(1).setCellValue(prise.idSource());
+                    if (prise.idDemande() != null) r.createCell(5).setCellValue(prise.idDemande());
+                    r.createCell(6).setCellValue(prise.jours().doubleValue());
+                    r.createCell(7).setCellValue(prise.valeur().doubleValue());
+                    r.createCell(8).setCellValue(prise.tauxHistorique().doubleValue());
+                }
                 Sheet notice = workbook.getSheetAt(2);
                 notice.getRow(7).getCell(1).setCellValue(
                         "Douze périodes du cycle individuel ; les dates des campagnes de paie sont utilisées lorsqu'elles sont disponibles.");
@@ -151,7 +175,8 @@ public class CongeAnnuelExcelExportService {
         setCellString(sheet, 4, 12, "TCONGE clôture : " + tClotureText);
     }
 
-    private void remplirTableau12Mois(Sheet sheet, List<MoisSyntheseData> moisData, PeriodeReferenceInfo ref) {
+    private void remplirTableau12Mois(Sheet sheet, List<MoisSyntheseData> moisData,
+            PeriodeReferenceInfo ref, int idEmploye, Connection c) throws SQLException {
         // Rows 8 à 19 (index 7 à 18) dans le canevas
         for (int i = 0; i < 12; i++) {
             int rowIndex = 7 + i;
@@ -213,10 +238,8 @@ public class CongeAnnuelExcelExportService {
             setNumericValue(row, 14, d.soldeDisponible);
 
             // Col P: Valeur du solde (Ar)
-            BigDecimal valSolde = d.soldeDisponible == null ? null
-                    : d.soldeDisponible.signum() == 0 ? BigDecimal.ZERO
-                    : d.tcongeApplicable == null ? null
-                    : d.soldeDisponible.multiply(d.tcongeApplicable).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal valSolde = d.dateSituation == null ? null
+                    : lots.situation(idEmploye, d.dateSituation, c).soldeValorisation();
             setNumericValue(row, 15, valSolde);
         }
         Row total = sheet.getRow(19);
@@ -231,10 +254,8 @@ public class CongeAnnuelExcelExportService {
         setNumericValue(total, 12, latestJournal != null ? latestJournal.cumulDroitsJours : null);
         setNumericValue(total, 13, latestJournal != null ? latestJournal.cumulValorisation : null);
         setNumericValue(total, 14, latest != null ? latest.soldeDisponible : ref.soldeOuverture);
-        BigDecimal soldeFinal = latest != null ? latest.soldeDisponible : ref.soldeOuverture;
-        BigDecimal tauxFinal = latest != null ? latest.tcongeApplicable : ref.tauxJournalier;
-        setNumericValue(total, 15, soldeFinal == null ? null : soldeFinal.signum() == 0 ? BigDecimal.ZERO
-                : tauxFinal == null ? null : soldeFinal.multiply(tauxFinal).setScale(2, RoundingMode.HALF_UP));
+        LocalDate dateFinale = ref.dateFin.isAfter(LocalDate.now()) ? LocalDate.now() : ref.dateFin;
+        setNumericValue(total, 15, lots.situation(idEmploye, dateFinale, c).soldeValorisation());
     }
 
     private void remplirFeuilleMouvements(Sheet sheet, List<MouvementSoldeConge> mouvements,
@@ -259,8 +280,7 @@ public class CongeAnnuelExcelExportService {
             setNumericValue(row, 5, debit);
             setNumericValue(row, 6, runningBalance);
             setNumericValue(row, 7, ref.tauxJournalier);
-            setNumericValue(row, 8, ref.tauxJournalier == null ? null
-                    : runningBalance.multiply(ref.tauxJournalier).setScale(2, RoundingMode.HALF_UP));
+            setNumericValue(row, 8, lots.situation(idEmploye, ref.dateDebut, c).soldeValorisation());
             setCellString(sheet, rowIndex, 9, "Système RH (Report)");
             rowIndex++;
         }
@@ -310,8 +330,7 @@ public class CongeAnnuelExcelExportService {
             setNumericValue(row, 6, runningBalance);
             BigDecimal tauxMouvement = chargerTauxApplicable(idEmploye, dMvt, c);
             setNumericValue(row, 7, tauxMouvement);
-            setNumericValue(row, 8, tauxMouvement == null ? null
-                    : runningBalance.multiply(tauxMouvement).setScale(2, RoundingMode.HALF_UP));
+            setNumericValue(row, 8, lots.situation(idEmploye, dMvt, c).soldeValorisation());
             setCellString(sheet, rowIndex, 9, m.getCreatedBy() != null ? "Manuel (Admin #" + m.getCreatedBy() + ")" : "Automatique Système");
             rowIndex++;
         }
@@ -497,6 +516,7 @@ public class CongeAnnuelExcelExportService {
                 continue;
             }
             LocalDate dateSituation = finM.isAfter(LocalDate.now()) ? LocalDate.now() : finM;
+            d.dateSituation = dateSituation;
 
             if (jEntry != null) {
                 d.salaireBase = (BigDecimal) jEntry.get("salaire_base");
@@ -644,6 +664,7 @@ public class CongeAnnuelExcelExportService {
     }
 
     public static class MoisSyntheseData {
+        LocalDate dateSituation;
         int numeroMoisRef;
         String labelMois;
         BigDecimal salaireBase;

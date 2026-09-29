@@ -1,6 +1,7 @@
 package mg.galaxam.sirh.conge;
 
 import mg.galaxam.sirh.conge.application.CongeTauxApplicableService;
+import mg.galaxam.sirh.conge.application.CongeService;
 import mg.galaxam.sirh.conge.testutils.CongeTestFixtureHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -28,6 +29,9 @@ class CongeTauxEvolutionSimulationTest {
 
     @Autowired
     private CongeTauxApplicableService congeTauxApplicableService;
+
+    @Autowired
+    private CongeService congeService;
 
     private int adminUserId;
     private int employeId;
@@ -73,6 +77,8 @@ class CongeTauxEvolutionSimulationTest {
 
             int idPeriodeRef = congeTauxApplicableService.enregistrerCutoverSnapshot(req, adminUserId, c);
             assertTrue(idPeriodeRef > 0, "La période de référence doit être créée");
+            assertEquals(0, BigDecimal.valueOf(congeService.getImputationSolde(employeId, c)
+                    .getStockHistoriqueInitial()).compareTo(soldeInitial));
 
             System.out.println("\n[ÉTAPE 1 - CUTOVER INITIAL au " + dateCutover + "]");
             System.out.println("  -> Solde initial : " + soldeInitial + " jours");

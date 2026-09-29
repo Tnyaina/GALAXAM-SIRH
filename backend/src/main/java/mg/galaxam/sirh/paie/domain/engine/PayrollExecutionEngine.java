@@ -294,9 +294,16 @@ public class PayrollExecutionEngine {
         BigDecimal tauxJournalierConge = input.getTauxJournalierConge() != null && input.getTauxJournalierConge().compareTo(BigDecimal.ZERO) > 0
                 ? input.getTauxJournalierConge()
                 : tauxJournalierTrentieme;
-        BigDecimal indemniteConges = MoneyRoundingPolicy.amount(nbJoursConges.multiply(tauxJournalierConge));
+        BigDecimal indemniteConges = input.getIndemniteCongeLots() != null
+                ? MoneyRoundingPolicy.amount(input.getIndemniteCongeLots())
+                : MoneyRoundingPolicy.amount(nbJoursConges.multiply(tauxJournalierConge));
 
-        String commInd = String.format("Indemnité congés : %s j × TCONGE %s Ar", nbJoursConges, MoneyRoundingPolicy.amount(tauxJournalierConge));
+        if (input.getIndemniteCongeLots() != null) {
+            tauxJournalierConge = indemniteConges.divide(nbJoursConges, 8, RoundingMode.HALF_UP);
+        }
+        String commInd = input.getIndemniteCongeLots() != null
+                ? String.format("Indemnité congés : %s j ventilés selon les TCONGE historiques des lots FIFO", nbJoursConges)
+                : String.format("Indemnité congés : %s j × TCONGE %s Ar", nbJoursConges, MoneyRoundingPolicy.amount(tauxJournalierConge));
         lignes.add(creerLigne(bp, "INDEMNITE_CONGE_PAYE", "Indemnité de Congés Payés (Maintien de salaire)", "GAIN", "SALAIRE_BASE",
                 tauxJournalierConge, null, nbJoursConges, indemniteConges, null, commInd, 26));
 

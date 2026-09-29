@@ -9,6 +9,9 @@ public final class CongeTestFixtureHelper {
     private CongeTestFixtureHelper() {}
 
     public static void cleanDatabase(Connection c) throws SQLException {
+        if (!"sirh_galaxam_test".equals(c.getCatalog())) {
+            throw new SQLException("Nettoyage des fixtures interdit hors de sirh_galaxam_test.");
+        }
         try (Statement st = c.createStatement()) {
             st.execute("DELETE FROM pointage_snapshot_jour");
             st.execute("DELETE FROM pointage_snapshot_indemnite");
@@ -22,9 +25,11 @@ public final class CongeTestFixtureHelper {
             st.execute("DELETE FROM conge_journal_droit");
             st.execute("DELETE FROM conge_periode_reference");
             st.execute("DELETE FROM conge_expiration_examen");
+            st.execute("DELETE FROM conge_cutover_correction");
             st.execute("DELETE FROM mouvement_solde_conge");
             st.execute("DELETE FROM demande_conge");
             st.execute("DELETE FROM periode_paie");
+            st.execute("DELETE FROM workflow_rh");
             st.execute("DELETE FROM employe_affectation_carriere");
             st.execute("DELETE FROM contrat_travail");
             st.execute("DELETE FROM notification_rh");

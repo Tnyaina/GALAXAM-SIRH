@@ -22,6 +22,7 @@ public class MouvementSoldeConge extends ClassMere {
     private Integer idDemandeConge;
     private Date dateMouvement;
     private String commentaire;
+    private BigDecimal valeurSource;
     private Integer createdBy;
     private Timestamp createdAt;
 
@@ -57,6 +58,10 @@ public class MouvementSoldeConge extends ClassMere {
         if (nbJours == null) {
             throw new IllegalArgumentException("Le nombre de jours du mouvement de solde est obligatoire.");
         }
+        if (valeurSource != null && (valeurSource.signum() < 0 ||
+                (nbJours.signum() <= 0 && !"PRISE".equals(typeMouvement)))) {
+            throw new IllegalArgumentException("La valorisation du crédit doit être positive et liée à des jours crédités.");
+        }
 
         // Pour un mouvement de type PRISE ou EXPIRATION, le signe doit être négatif (ou rendu négatif)
         if (("PRISE".equals(typeMouvement) || "EXPIRATION".equals(typeMouvement)) && nbJours.compareTo(BigDecimal.ZERO) > 0) {
@@ -70,9 +75,44 @@ public class MouvementSoldeConge extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
+        if (valeurSource == null && "PRISE".equals(typeMouvement) && idDemandeConge != null) {
+            Date datePrise = dateMouvement != null ? dateMouvement : Date.valueOf(java.time.LocalDate.now());
+            try (PreparedStatement demande = c.prepareStatement(
+                    "SELECT date_debut FROM demande_conge WHERE id_demande_conge = ?")) {
+                demande.setInt(1, idDemandeConge);
+                try (ResultSet rs = demande.executeQuery()) {
+                    if (rs.next() && rs.getDate(1) != null) datePrise = rs.getDate(1);
+                }
+            }
+            try (PreparedStatement taux = c.prepareStatement("SELECT taux_journalier FROM conge_taux_applicable "
+                    + "WHERE id_employe = ? AND date_effet <= ? AND (date_fin IS NULL OR date_fin > ?)")) {
+                taux.setInt(1, idEmploye); taux.setDate(2, datePrise); taux.setDate(3, datePrise);
+                try (ResultSet rs = taux.executeQuery()) {
+                    if (rs.next()) {
+                        valeurSource = rs.getBigDecimal(1); // TCONGE unitaire figé pour une éventuelle part anticipée.
+                        if (rs.next()) throw new IllegalStateException("CONGE_LOT_TCONGE_AMBIGUOUS: prise du " + datePrise);
+                    }
+                }
+            }
+        }
+        if (valeurSource == null && nbJours != null && nbJours.signum() > 0
+                && ("BONIFICATION".equals(typeMouvement) || "AJUSTEMENT".equals(typeMouvement))
+                && idDemandeConge == null) {
+            Date dateCredit = dateMouvement != null ? dateMouvement : Date.valueOf(java.time.LocalDate.now());
+            try (PreparedStatement taux = c.prepareStatement("SELECT taux_journalier FROM conge_taux_applicable "
+                    + "WHERE id_employe = ? AND date_effet <= ? AND (date_fin IS NULL OR date_fin > ?)")) {
+                taux.setInt(1, idEmploye); taux.setDate(2, dateCredit); taux.setDate(3, dateCredit);
+                try (ResultSet rs = taux.executeQuery()) {
+                    if (rs.next()) {
+                        valeurSource = nbJours.multiply(rs.getBigDecimal(1)).setScale(2, java.math.RoundingMode.HALF_UP);
+                        if (rs.next()) throw new IllegalStateException("CONGE_LOT_TCONGE_AMBIGUOUS: crédit du " + dateCredit);
+                    }
+                }
+            }
+        }
         String sql = "INSERT INTO mouvement_solde_conge (" +
-                "id_employe, type_mouvement, nb_jours, id_demande_conge, date_mouvement, commentaire, created_by" +
-                ") VALUES (?, ?, ?, ?, COALESCE(?, CURRENT_DATE), ?, ?)";
+                "id_employe, type_mouvement, nb_jours, id_demande_conge, date_mouvement, commentaire, created_by, valeur_source" +
+                ") VALUES (?, ?, ?, ?, COALESCE(?, CURRENT_DATE), ?, ?, ?)";
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             int i = 1;
             ps.setInt(i++, idEmploye);
@@ -82,6 +122,7 @@ public class MouvementSoldeConge extends ClassMere {
             ps.setDate(i++, dateMouvement);
             setNullableString(ps, i++, commentaire);
             setNullableInt(ps, i++, createdBy);
+            ps.setBigDecimal(i++, valeurSource);
             ps.executeUpdate();
 
             try (ResultSet rs = ps.getGeneratedKeys()) {
@@ -170,6 +211,7 @@ public class MouvementSoldeConge extends ClassMere {
         obj.setIdDemandeConge(getNullableIntFromRs(rs, "id_demande_conge"));
         obj.setDateMouvement(rs.getDate("date_mouvement"));
         obj.setCommentaire(rs.getString("commentaire"));
+        obj.setValeurSource(rs.getBigDecimal("valeur_source"));
         obj.setCreatedBy(getNullableIntFromRs(rs, "created_by"));
         obj.setCreatedAt(rs.getTimestamp("created_at"));
         return obj;
@@ -214,6 +256,8 @@ public class MouvementSoldeConge extends ClassMere {
 
     public String getCommentaire() { return commentaire; }
     public void setCommentaire(String commentaire) { this.commentaire = commentaire; }
+    public BigDecimal getValeurSource() { return valeurSource; }
+    public void setValeurSource(BigDecimal valeurSource) { this.valeurSource = valeurSource; }
 
     public Integer getCreatedBy() { return createdBy; }
     public void setCreatedBy(Integer createdBy) { this.createdBy = createdBy; }

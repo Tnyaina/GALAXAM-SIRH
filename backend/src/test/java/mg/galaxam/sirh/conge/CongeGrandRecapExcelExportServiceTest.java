@@ -10,6 +10,8 @@ import java.time.LocalDate;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.conge.application.CongeGrandRecapExcelExportService;
+import mg.galaxam.sirh.conge.application.CongeLotValorisationService;
+import mg.galaxam.sirh.conge.domain.CongeLotValorisationEngine;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 
@@ -20,6 +22,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class CongeGrandRecapExcelExportServiceTest {
+    private static CongeGrandRecapExcelExportService exporter(DataSource source, BigDecimal valeur)
+            throws Exception {
+        CongeLotValorisationService lots = mock(CongeLotValorisationService.class);
+        when(lots.situation(anyInt(), any(LocalDate.class), any(Connection.class)))
+                .thenReturn(new CongeLotValorisationEngine.Situation(BigDecimal.ONE,
+                        valeur, java.util.List.of(), java.util.List.of(), BigDecimal.ZERO));
+        return new CongeGrandRecapExcelExportService(source, lots);
+    }
     @Test
     void populationCanExceedTemplateCapacity() throws Exception {
         Connection connection = mock(Connection.class);
@@ -34,7 +44,7 @@ class CongeGrandRecapExcelExportServiceTest {
         when(result.getString("prenom")).thenReturn("Soa");
         when(result.getBigDecimal("solde")).thenReturn(BigDecimal.ONE);
         when(result.getBigDecimal("taux_journalier")).thenReturn(BigDecimal.ONE);
-        byte[] bytes = new CongeGrandRecapExcelExportService(mock(DataSource.class))
+        byte[] bytes = exporter(mock(DataSource.class), BigDecimal.ONE)
                 .generer(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 9, 1), connection);
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
             var sheet = workbook.getSheetAt(0);
@@ -51,7 +61,7 @@ class CongeGrandRecapExcelExportServiceTest {
         when(connection.prepareStatement(anyString())).thenReturn(statement);
         when(statement.executeQuery()).thenReturn(result);
         when(result.next()).thenReturn(false);
-        byte[] bytes = new CongeGrandRecapExcelExportService(mock(DataSource.class))
+        byte[] bytes = exporter(mock(DataSource.class), BigDecimal.ZERO)
                 .generer(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 9, 1), connection);
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
             var total = workbook.getSheetAt(0).getRow(4);
@@ -84,7 +94,7 @@ class CongeGrandRecapExcelExportServiceTest {
         when(result.getDate("periode_debut")).thenReturn(Date.valueOf("2026-01-01"));
         when(result.getDate("periode_fin")).thenReturn(Date.valueOf("2026-12-31"));
 
-        byte[] bytes = new CongeGrandRecapExcelExportService(dataSource)
+        byte[] bytes = exporter(dataSource, new BigDecimal("49500"))
                 .generer(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 9, 1), connection);
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
             var sheet = workbook.getSheetAt(0);
@@ -109,14 +119,14 @@ class CongeGrandRecapExcelExportServiceTest {
         when(result.getString("nom")).thenReturn("RAZAFY");
         when(result.getString("prenom")).thenReturn("Lala");
         when(result.getBigDecimal("solde")).thenReturn(new BigDecimal("3"));
-        byte[] bytes = new CongeGrandRecapExcelExportService(mock(DataSource.class))
+        byte[] bytes = exporter(mock(DataSource.class), BigDecimal.ZERO)
                 .generer(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 9, 1), connection);
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
             var sheet = workbook.getSheetAt(0);
             assertEquals(org.apache.poi.ss.usermodel.CellType.BLANK, sheet.getRow(4).getCell(13).getCellType());
-            assertEquals(org.apache.poi.ss.usermodel.CellType.BLANK, sheet.getRow(4).getCell(14).getCellType());
-            assertEquals(org.apache.poi.ss.usermodel.CellType.BLANK, sheet.getRow(5).getCell(14).getCellType());
-            assertTrue(sheet.getRow(1).getCell(0).getStringCellValue().contains("1 solde(s) non nuls sans TCONGE"));
+            assertEquals(0, sheet.getRow(4).getCell(14).getNumericCellValue());
+            assertEquals("SUM(O5:O5)", sheet.getRow(5).getCell(14).getCellFormula());
+            assertTrue(sheet.getRow(1).getCell(0).getStringCellValue().contains("lots historiques"));
         }
     }
 }

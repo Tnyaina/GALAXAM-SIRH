@@ -113,6 +113,7 @@ CREATE TABLE mouvement_solde_conge (
     id_demande_conge INT REFERENCES demande_conge(id_demande_conge) ON DELETE SET NULL,
     date_mouvement DATE NOT NULL DEFAULT CURRENT_DATE,
     commentaire TEXT,
+    valeur_source NUMERIC(14,2),
     created_by INT REFERENCES utilisateur(id_utilisateur),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -123,6 +124,26 @@ CREATE INDEX idx_mouvement_solde_date ON mouvement_solde_conge(date_mouvement);
 CREATE INDEX idx_mouvement_solde_conge_created_by ON mouvement_solde_conge(created_by);
 CREATE UNIQUE INDEX idx_uniq_mouvement_prise_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'PRISE' AND id_demande_conge IS NOT NULL;
 CREATE UNIQUE INDEX idx_uniq_mouvement_annulation_demande ON mouvement_solde_conge(id_demande_conge, type_mouvement) WHERE type_mouvement = 'ANNULATION' AND id_demande_conge IS NOT NULL;
+
+-- Corrections DAF du reliquat de reprise : l'ancien taux et les bulletins restent historiques.
+CREATE TABLE conge_cutover_correction (
+    id_correction SERIAL PRIMARY KEY,
+    id_employe INT NOT NULL REFERENCES employe(id_employe),
+    id_mouvement_reprise INT NOT NULL REFERENCES mouvement_solde_conge(id_mouvement),
+    id_mouvement_ajustement INT NOT NULL UNIQUE REFERENCES mouvement_solde_conge(id_mouvement),
+    ancien_reliquat_jours NUMERIC(8,2) NOT NULL,
+    nouveau_reliquat_jours NUMERIC(8,2) NOT NULL,
+    ancien_reliquat_valeur NUMERIC(14,2) NOT NULL,
+    nouveau_reliquat_valeur NUMERIC(14,2) NOT NULL,
+    ancien_taux NUMERIC(14,6) NOT NULL,
+    nouveau_taux NUMERIC(14,6) NOT NULL,
+    regularisation_a_examiner NUMERIC(14,2) NOT NULL DEFAULT 0,
+    motif TEXT NOT NULL CHECK (length(trim(motif)) > 0),
+    corrige_par INT NOT NULL REFERENCES utilisateur(id_utilisateur),
+    date_correction TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_cutover_correction_reliquat CHECK (nouveau_reliquat_jours >= 0 AND nouveau_reliquat_valeur >= 0)
+);
+CREATE INDEX idx_conge_cutover_correction_employe ON conge_cutover_correction(id_employe, date_correction);
 
 -- 4b. Décisions DAF relatives aux droits candidats à la prescription
 CREATE TABLE conge_expiration_examen (

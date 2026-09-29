@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { History, PlusCircle, Download, Search } from 'lucide-react';
 import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
@@ -25,8 +26,12 @@ const formatDateMouvement = (dateVal, fallbackTimestamp) => {
 };
 
 const getMouvementLabel = (type, commentaire) => {
-  if (type === 'AJUSTEMENT' && commentaire && commentaire.startsWith('[SOLDE_INITIAL]')) {
+  if (type === 'AJUSTEMENT' && commentaire &&
+    (commentaire.startsWith('[SOLDE_INITIAL]') || commentaire.startsWith('Reprise cutover - Solde initial'))) {
     return 'Solde initial (reprise historique)';
+  }
+  if (type === 'AJUSTEMENT' && commentaire?.startsWith('Correction DAF du reliquat de reprise')) {
+    return 'Correction du reliquat de reprise';
   }
   switch (type) {
     case 'ACQUISITION': return 'Acquisition mensuelle';
@@ -55,6 +60,7 @@ export default function MouvementsSoldeTable({
   mouvements,
   soldeActuel = null,
   canWrite = false,
+  canValidate = false,
   matricule = '',
   onAjustementSuccess
 }) {
@@ -70,11 +76,55 @@ export default function MouvementsSoldeTable({
   const [commentaire, setCommentaire] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showCorrection, setShowCorrection] = useState(false);
+  const [correction, setCorrection] = useState({ jours: '', valeur: '', motif: '' });
+  const [correctionResult, setCorrectionResult] = useState(null);
+  const [correctionError, setCorrectionError] = useState(null);
+  const [correctionLoading, setCorrectionLoading] = useState(false);
 
   // Données dérivées brutes
   const safeMouvements = useMemo(() => {
     return Array.isArray(mouvements) ? mouvements : (mouvements?.items || mouvements?.content || mouvements?.data || []);
   }, [mouvements]);
+  const hasCutover = safeMouvements.some(m => m.typeMouvement === 'AJUSTEMENT'
+    && (m.commentaire?.startsWith('[SOLDE_INITIAL]')
+      || m.commentaire?.startsWith('Reprise cutover - Solde initial')));
+
+  const ouvrirCorrection = async () => {
+    setShowCorrection(true);
+    setCorrectionResult(null);
+    setCorrectionError(null);
+    setCorrectionLoading(true);
+    try {
+      const situation = await congeService.getValorisationLots(idEmploye);
+      const reprise = situation?.lots?.find(lot => lot.origine === 'REPRISE_CUTOVER');
+      setCorrection({ jours: String(reprise?.jours ?? 0), valeur: String(reprise?.valeur ?? 0), motif: '' });
+    } catch (err) {
+      setCorrectionError(getErrorMessage(err, 'Impossible de charger le reliquat de reprise.'));
+    } finally {
+      setCorrectionLoading(false);
+    }
+  };
+
+  const soumettreCorrection = async (event) => {
+    event.preventDefault();
+    setCorrectionLoading(true);
+    setCorrectionError(null);
+    try {
+      const resultat = await congeService.corrigerReliquatCutover(idEmploye, {
+        nouveauReliquatJours: correction.jours,
+        nouveauReliquatValeur: correction.valeur,
+        motif: correction.motif.trim(),
+      });
+      setCorrectionResult(resultat);
+      onAjustementSuccess?.();
+      toast.success('Reliquat de reprise corrigé et historisé.');
+    } catch (err) {
+      setCorrectionError(getErrorMessage(err, 'Impossible de corriger le reliquat de reprise.'));
+    } finally {
+      setCorrectionLoading(false);
+    }
+  };
 
   // Filtrage combiné (type + recherche textuelle)
   const filteredMouvements = useMemo(() => {
@@ -82,11 +132,14 @@ export default function MouvementsSoldeTable({
       if (!mvt) return false;
       if (filterType !== 'ALL') {
         if (filterType === 'SOLDE_INITIAL') {
-          if (!(mvt.typeMouvement === 'AJUSTEMENT' && mvt.commentaire?.startsWith('[SOLDE_INITIAL]'))) {
+          if (!(mvt.typeMouvement === 'AJUSTEMENT' &&
+            (mvt.commentaire?.startsWith('[SOLDE_INITIAL]') || mvt.commentaire?.startsWith('Reprise cutover - Solde initial')))) {
             return false;
           }
         } else if (filterType === 'AJUSTEMENT') {
-          if (!(mvt.typeMouvement === 'AJUSTEMENT' && !mvt.commentaire?.startsWith('[SOLDE_INITIAL]'))) {
+          if (!(mvt.typeMouvement === 'AJUSTEMENT' &&
+            !mvt.commentaire?.startsWith('[SOLDE_INITIAL]') &&
+            !mvt.commentaire?.startsWith('Reprise cutover - Solde initial'))) {
             return false;
           }
         } else if (mvt.typeMouvement !== filterType) {
@@ -212,12 +265,17 @@ export default function MouvementsSoldeTable({
               Ajustement RH
             </Button>
           )}
+          {canValidate && hasCutover && (
+            <Button variant="outline" size="sm" onClick={ouvrirCorrection} className="text-xs">
+              Corriger la reprise
+            </Button>
+          )}
         </div>
       </div>
 
       {soldeActuel != null && (
         <p className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 text-xs text-[var(--color-fg-muted)]">
-          Solde actuel selon le backend : <strong className="text-[var(--color-fg)]">{Number(soldeActuel).toFixed(2)} j</strong>
+          Solde actuel : <strong className="text-[var(--color-fg)]">{Number(soldeActuel).toFixed(2)} j</strong>
         </p>
       )}
 
@@ -400,6 +458,47 @@ export default function MouvementsSoldeTable({
             />
           </div>
         </form>
+      </Modal>
+      <Modal
+        isOpen={showCorrection}
+        onClose={() => setShowCorrection(false)}
+        title="Corriger le reliquat de reprise"
+        size="md"
+      >
+        {correctionError && <Alert type="error" message={correctionError} />}
+        {correctionResult ? (
+          <div className="space-y-3 text-sm text-[var(--color-fg)]">
+            <p>Reliquat corrigé : {correctionResult.nouveauReliquatJours} j · {correctionResult.nouvelleValeur} Ar.</p>
+            <p>Écart antérieur à examiner : <strong>{correctionResult.regularisationAExaminer} Ar</strong>.</p>
+            <p className="text-[var(--color-fg-muted)]">Vérifiez les bulletins déjà payés, puis choisissez explicitement la campagne de paie qui recevra la régularisation. Ouvrez ses variables depuis la liste des campagnes ; le système vérifiera si elle accepte encore des variables.</p>
+            <Link to="/paie?tab=periodes" className="inline-block border border-[var(--color-border)] px-3 py-2 text-xs font-bold text-[var(--color-fg)]">
+              Choisir une campagne de paie
+            </Link>
+          </div>
+        ) : (
+          <form onSubmit={soumettreCorrection} className="space-y-4">
+            <p className="text-sm text-[var(--color-fg-muted)]">La correction porte sur le reliquat futur. Les prises et bulletins antérieurs restent historiques.</p>
+            <div>
+              <label className="block text-xs font-bold uppercase text-[var(--color-fg-muted)] mb-1">Jours restants après correction</label>
+              <Input type="number" min="0" step="0.01" required disabled={correctionLoading}
+                value={correction.jours} onChange={e => setCorrection(prev => ({ ...prev, jours: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-[var(--color-fg-muted)] mb-1">Valeur restante (Ar)</label>
+              <Input type="number" min="0" step="0.01" required disabled={correctionLoading}
+                value={correction.valeur} onChange={e => setCorrection(prev => ({ ...prev, valeur: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-[var(--color-fg-muted)] mb-1">Motif DAF</label>
+              <Textarea required rows={3} disabled={correctionLoading} value={correction.motif}
+                onChange={e => setCorrection(prev => ({ ...prev, motif: e.target.value }))} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowCorrection(false)}>Annuler</Button>
+              <Button type="submit" variant="primary" size="sm" loading={correctionLoading}>Enregistrer la correction</Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </Card>
   );

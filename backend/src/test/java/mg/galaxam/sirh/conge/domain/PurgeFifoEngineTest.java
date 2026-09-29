@@ -11,6 +11,13 @@ class PurgeFifoEngineTest {
     private final PurgeFifoEngine engine = new PurgeFifoEngine();
 
     @Test
+    void reconnaitLesDeuxFormatsDeRepriseCutover() {
+        assertEquals(true, PurgeFifoEngine.estStockInitial("[SOLDE_INITIAL] Reprise cutover"));
+        assertEquals(true, PurgeFifoEngine.estStockInitial("Reprise cutover - Solde initial au 2026-01-01"));
+        assertEquals(false, PurgeFifoEngine.estStockInitial("Correction DAF"));
+    }
+
+    @Test
     void imputeLeStockHistoriqueAvantLesDroitsDates() {
         var droits = List.of(
                 new PurgeFifoEngine.DroitDate(1, LocalDate.of(2022, 1, 1), 5),

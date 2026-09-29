@@ -1022,18 +1022,20 @@ public class CongeTauxApplicableService {
 
         // 4. Insérer le mouvement de solde initial
         String sqlMvt = "INSERT INTO mouvement_solde_conge (" +
-                "id_employe, type_mouvement, nb_jours, date_mouvement, commentaire, created_by" +
-                ") VALUES (?, 'AJUSTEMENT', ?, ?, ?, ?)";
+                "id_employe, type_mouvement, nb_jours, date_mouvement, commentaire, created_by, valeur_source" +
+                ") VALUES (?, 'AJUSTEMENT', ?, ?, ?, ?, ?)";
         try (PreparedStatement psMvt = c.prepareStatement(sqlMvt)) {
             psMvt.setInt(1, req.getIdEmploye());
             psMvt.setBigDecimal(2, req.getSoldeJours().setScale(2, RoundingMode.HALF_UP));
             psMvt.setDate(3, Date.valueOf(req.getDateCutover()));
-            psMvt.setString(4, "Reprise cutover - Solde initial au " + req.getDateCutover() + (req.getCommentaire() != null ? " : " + req.getCommentaire() : ""));
+            psMvt.setString(4, "[SOLDE_INITIAL] Reprise cutover - Solde initial au " + req.getDateCutover() + (req.getCommentaire() != null ? " : " + req.getCommentaire() : ""));
             if (idUtilisateur != null) {
                 psMvt.setInt(5, idUtilisateur);
             } else {
                 psMvt.setNull(5, Types.INTEGER);
             }
+            psMvt.setBigDecimal(6, req.getSoldeJours().multiply(req.getTauxJournalierApplicable())
+                    .setScale(2, RoundingMode.HALF_UP));
             psMvt.executeUpdate();
         }
 

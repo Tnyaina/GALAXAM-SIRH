@@ -17,6 +17,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class PurgeFifoEngine {
 
+    /** Reconnaît aussi les reprises enregistrées avant l'unification du marqueur. */
+    public static boolean estStockInitial(String commentaire) {
+        return commentaire != null && (commentaire.startsWith("[SOLDE_INITIAL]")
+                || commentaire.startsWith("Reprise cutover - Solde initial au "));
+    }
+
     public record MouvementLedger(int id, String type, double jours, LocalDate date,
             Integer idDemande, String commentaire) {}
     public record DroitDisponible(int idMouvement, LocalDate dateAcquisition, double joursRestants) {}
@@ -39,8 +45,7 @@ public class PurgeFifoEngine {
         for (MouvementLedger mouvement : ordonnes) {
             String type = mouvement.type() == null ? "" : mouvement.type().toUpperCase();
             double jours = mouvement.jours();
-            if ("AJUSTEMENT".equals(type) && mouvement.commentaire() != null
-                    && mouvement.commentaire().startsWith("[SOLDE_INITIAL]")) {
+            if ("AJUSTEMENT".equals(type) && estStockInitial(mouvement.commentaire())) {
                 historique += jours;
             } else if ("ACQUISITION".equals(type) || "BONIFICATION".equals(type)) {
                 double disponible = Math.max(0, jours);

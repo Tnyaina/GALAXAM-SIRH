@@ -397,6 +397,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
           mouvements={mouvements}
           soldeActuel={situationData?.soldeJours ?? soldeEmploye?.soldeActuel ?? soldeEmploye?.soldeDisponible}
           canWrite={canWrite}
+          canValidate={canValidateConges}
           matricule={employe?.matricule}
           onAjustementSuccess={reloadData}
         />

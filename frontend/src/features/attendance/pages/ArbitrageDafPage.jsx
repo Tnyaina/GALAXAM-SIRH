@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
+import { Card, CardBody, CardFooter, CardHeader, CardSubtitle, CardTitle } from '@/components/ui/data-display/Card';
 import Select from '@/components/ui/forms/Select';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Input, { Textarea } from '@/components/ui/forms/Input';
@@ -479,14 +481,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
                     <div className="flex items-center gap-2 shrink-0 ml-auto">
                         {isPeriodLocked ? (
-                            <>
-                                {hasPermission('PAIE_READ') && currentPeriodeObj?.statutCode === 'VALIDEE' && (
-                                    <Button type="button" variant="primary" size="sm"
-                                        onClick={() => navigate(`/paie/periodes/${selectedPeriode}/preparation`)}>
-                                        Continuer vers la paie
-                                    </Button>
-                                )}
-                                <Button
+                            <Button
                                     type="button"
                                     variant="outline"
                                     size="sm"
@@ -498,8 +493,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 >
                                     <span className="hidden md:inline">Rafraîchir l'affichage</span>
                                     <span className="md:hidden">Rafraîchir</span>
-                                </Button>
-                            </>
+                            </Button>
                         ) : (
                             <Button
                                 type="button"
@@ -514,32 +508,6 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 <span className="hidden md:inline">Actualiser les calculs</span>
                                 <span className="md:hidden">Actualiser</span>
                             </Button>
-                        )}
-                        {canSubmit && (
-                            <Button
-                                type="button"
-                                variant="primary"
-                                size="sm"
-                                disabled={transmitting}
-                                onClick={() => setShowTransmissionModal(true)}
-                                icon={<Send size={14} className={transmitting ? 'animate-spin' : ''} />}
-                                className="text-xs h-[32px] font-bold"
-                                title={transmissionBlockReason || 'Transmettre la synthèse consolidée pour arbitrage'}
-                            >
-                                Transmettre pour arbitrage
-                            </Button>
-                        )}
-                        {isDaf && isPendingDaf && (
-                            <>
-                                {canReject && <Button type="button" variant="danger" size="sm" onClick={() => setShowRejetModal(true)}
-                                    icon={<XCircle size={14} />} className="text-xs h-[32px] font-bold">
-                                    Renvoyer pour correction
-                                </Button>}
-                                <Button type="button" variant="primary" size="sm" disabled={!canApprove} onClick={() => setShowValiderModal(true)}
-                                    icon={<CheckCircle size={14} />} className="text-xs h-[32px] font-bold">
-                                    Valider l'arbitrage & Sceller les heures
-                                </Button>
-                            </>
                         )}
                     </div>
                 </div>
@@ -579,6 +547,83 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         Validation en attente : {approvalBlockMessage}
                     </div>
                 )}
+
+                <Card className="shadow-none">
+                    <CardHeader divided={false} className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div>
+                            <CardTitle size="base">Transmission et gel du pointage</CardTitle>
+                            <CardSubtitle>
+                                Vérifiez les données et les prérequis avant la décision de fin de période.
+                            </CardSubtitle>
+                        </div>
+                        {currentPeriodeObj && (
+                            <Badge variant={isPeriodLocked ? 'success' : isPendingDaf ? 'warning' : 'neutral'}>
+                                {currentPeriodeObj.statutLibelle || currentPeriodeObj.statutCode || 'État indisponible'}
+                            </Badge>
+                        )}
+                    </CardHeader>
+                    <CardBody className="pt-0">
+                        <p className="text-sm text-[var(--color-fg)]">
+                            {isPeriodLocked
+                                ? 'Le pointage est scellé. Les données figées alimentent le calcul de la paie.'
+                                : isPendingDaf
+                                    ? 'La période est transmise pour arbitrage. Après validation, le pointage sera gelé et les heures, absences et indemnités consolidées seront utilisées par la paie.'
+                                    : canSubmit
+                                        ? 'La transmission ouvre l’examen DAF. Le gel définitif intervient après la décision de validation.'
+                                        : 'La période ne peut pas encore être transmise. Consultez les prérequis et les motifs de blocage ci-dessus.'}
+                        </p>
+                        {isDaf && isPendingDaf && !canApprove && (
+                            <p className="mt-2 text-xs text-[var(--color-fg-muted)]">
+                                La validation reste désactivée tant que les contrôles backend ne l’autorisent pas.
+                            </p>
+                        )}
+                    </CardBody>
+                    {(canSubmit || (isDaf && isPendingDaf) || isPeriodLocked) && (
+                        <CardFooter className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <span className="text-xs text-[var(--color-fg-muted)]">
+                                {isPeriodLocked
+                                    ? 'Lecture seule après scellement.'
+                                    : isPendingDaf
+                                        ? 'Décision réservée à la DAF.'
+                                        : 'La transmission et le gel sont deux décisions distinctes.'}
+                            </span>
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                                {canSubmit && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={transmitting}
+                                        loading={transmitting}
+                                        onClick={() => setShowTransmissionModal(true)}
+                                        iconLeft={<Send size={14} />}
+                                        title={transmissionBlockReason || 'Transmettre la synthèse consolidée pour arbitrage'}
+                                    >
+                                        Transmettre pour arbitrage
+                                    </Button>
+                                )}
+                                {isDaf && isPendingDaf && canReject && (
+                                    <Button type="button" variant="danger" size="sm" onClick={() => setShowRejetModal(true)}
+                                        iconLeft={<XCircle size={14} />}>
+                                        Renvoyer pour correction
+                                    </Button>
+                                )}
+                                {isDaf && isPendingDaf && (
+                                    <Button type="button" variant="primary" size="sm" disabled={!canApprove}
+                                        onClick={() => setShowValiderModal(true)} iconLeft={<CheckCircle size={14} />}>
+                                        Valider et sceller le pointage
+                                    </Button>
+                                )}
+                                {isPeriodLocked && hasPermission('PAIE_READ') && currentPeriodeObj?.statutCode === 'VALIDEE' && (
+                                    <Button type="button" variant="primary" size="sm"
+                                        onClick={() => navigate(`/paie/periodes/${selectedPeriode}/preparation`)}>
+                                        Continuer vers la paie
+                                    </Button>
+                                )}
+                            </div>
+                        </CardFooter>
+                    )}
+                </Card>
 
                 {/* KPI Cards — 5 indicateurs clés */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">

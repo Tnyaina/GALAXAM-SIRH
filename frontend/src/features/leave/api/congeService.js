@@ -187,6 +187,16 @@ const congeService = {
     return response.data;
   },
 
+  getValorisationLots: async (idEmploye) => {
+    const response = await apiClient.get(`/conges/solde/valorisation-lots/${idEmploye}`);
+    return response.data;
+  },
+
+  corrigerReliquatCutover: async (idEmploye, payload) => {
+    const response = await apiClient.post(`/conges/solde/cutover/${idEmploye}/corriger`, payload);
+    return response.data;
+  },
+
   getExamenExpiration: async (idEmploye) => {
     const response = await apiClient.get(`/conges/expiration/employe/${idEmploye}`);
     return response.data;

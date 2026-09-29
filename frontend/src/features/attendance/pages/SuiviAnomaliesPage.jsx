@@ -10,10 +10,7 @@ import {
     Shield,
     Building2,
     Layers,
-    Users,
-    Banknote,
     ArrowRight,
-    ShieldCheck,
     ChevronDown,
     ChevronUp
 } from 'lucide-react';
@@ -28,6 +25,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import Badge from '@/components/ui/data-display/Badge';
+import StatCard from '@/components/ui/data-display/StatCard';
 import { fmtDate } from '@/utils/dateUtils';
 import organisationService from '@/features/organization/api/organisationService';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
@@ -65,7 +63,8 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     const [filterSemaine, setFilterSemaine] = useState('ALL'); // 'ALL', 'S1', 'S2', ...
     const [filterDate, setFilterDate] = useState('');
     const [filterStatutTraitement, setFilterStatutTraitement] = useState('ALL'); // 'ALL', 'TODO', 'DONE'
-    const [isSemainesCollapsed, setIsSemainesCollapsed] = useState(false);
+    const [isSemainesCollapsed, setIsSemainesCollapsed] = useState(true);
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(8);
 
@@ -80,7 +79,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     // Hook unifié des anomalies & semaines
     const {
         anomalies,
-        stats: _stats,
+        stats,
         semaines,
         kpis,
         periode: periodeData,
@@ -155,20 +154,21 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     const isLocked = actions.REGULARIZE_ANOMALY?.allowed !== true;
 
     // Anomalies bloquantes pour la transmission DAF
-    const nbBloquantes = useMemo(() => {
-        return (anomalies || []).filter(a => a.bloquantTransmission && a.statutAnomalie !== 'done').length;
-    }, [anomalies]);
+    const nbBloquantes = Number(stats?.bloquantes || 0);
 
     // Semaines restantes non saisies / non clôturées
     const nbSemainesRestantes = useMemo(() => {
         return (semaines || []).filter(s => s.statutSemaine !== 'CLOTUREE' && (s.progressPercent || 0) < 100).length;
     }, [semaines]);
 
-    const hasIncompleteWeeks = nbSemainesRestantes > 0;
     const canTransmitDaf = actions.SUBMIT?.allowed === true;
 
-    // Raison du blocage de transmission pour le tooltip ou le message d'aide
-    const transmissionBlockReason = (actions.SUBMIT?.reasonCodes || []).join(' · ');
+    // Traduction de présentation des codes de blocage fournis par le workflow backend.
+    const transmissionBlockReason = (actions.SUBMIT?.reasonCodes || []).map(code => ({
+        PERIOD_NOT_ENDED: 'La période n’est pas encore terminée.',
+        POINTAGE_EMPTY: 'Aucun pointage n’a été saisi pour cette période.',
+        BLOCKING_ANOMALIES: 'Des anomalies bloquantes doivent être régularisées.',
+    }[code] || code)).join(' · ');
 
     // Filtrage dynamique des anomalies
     const filteredAnomalies = useMemo(() => {
@@ -349,51 +349,48 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 </div>
             </div>
 
-            {/* ---------- KPI CARDS — 5 INDICATEURS CLÉS ---------- */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-                {[
-                    { label: 'Salariés suivis', value: kpis?.collaborateursSuivis || 0, icon: Users, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
-                    { label: 'Jours pointés', value: `${kpis?.joursSaisis || 0} / ${kpis?.joursTheoriques || 0} j`, icon: Calendar, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
-                    { label: 'Heures travaillées', value: `${Math.round(kpis?.heuresCumulees || 0)}h`, icon: Clock, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
-                    { label: 'Anomalies actives', value: `${kpis?.anomaliesActives || 0}`, badge: kpis?.anomaliesCritiques > 0 ? `${kpis.anomaliesCritiques} crit.` : null, icon: AlertTriangle, color: 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' },
-                    { label: 'Indemnités prév.', value: `${Math.round(kpis?.indemnitesPrevisionnelles || 0).toLocaleString('fr-FR')} Ar`, icon: Banknote, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
-                ].map(kpi => (
-                    <div key={kpi.label} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex items-center gap-3">
-                        <kpi.icon size={20} className={`${kpi.color} shrink-0`} />
-                        <div className="min-w-0">
-                            <div className="text-[11px] font-semibold text-[var(--color-fg-muted)] truncate">{kpi.label}</div>
-                            <div className="text-base sm:text-lg font-bold font-mono text-[var(--color-fg)] flex items-center gap-1.5">
-                                <span>{kpi.value}</span>
-                                {kpi.badge && (
-                                    <span className="text-[10px] font-sans px-1.5 py-0.2 bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)] font-bold border border-[var(--color-danger-500)]/30">
-                                        {kpi.badge}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                ))}
+            {/* Les repères prioritaires avant le détail et les filtres. */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <StatCard
+                    title="Anomalies actives"
+                    value={kpis?.anomaliesActives ?? 0}
+                    subtext="À examiner sur la période"
+                    icon={<AlertTriangle size={17} />}
+                    color={Number(kpis?.anomaliesActives || 0) > 0 ? 'warning' : 'neutral'}
+                />
+                <StatCard
+                    title="Pointages saisis"
+                    value={`${kpis?.joursSaisis ?? 0} / ${kpis?.joursTheoriques ?? 0}`}
+                    subtext="Jours saisis / jours attendus"
+                    icon={<Calendar size={17} />}
+                    color="brand"
+                />
+                <StatCard
+                    title="Bloquantes avant transmission"
+                    value={nbBloquantes}
+                    subtext="Valeur fournie par le contrôle des anomalies"
+                    icon={<Shield size={17} />}
+                    color={nbBloquantes > 0 ? 'danger' : 'success'}
+                />
             </div>
 
             {/* ---------- VUE HEBDOMADAIRE (S1 - S5) PLIABLE ---------- */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-hidden transition-all">
-                <div 
-                    onClick={() => setIsSemainesCollapsed(prev => !prev)}
-                    className="p-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between flex-wrap gap-2 cursor-pointer select-none hover:bg-[var(--color-surface-hover)] transition-colors"
-                >
-                    <div className="flex items-center gap-2">
-                        <Layers size={14} className="text-[var(--color-brand-500)]" />
-                        <div>
-                            <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
-                                Progression hebdomadaire (S1 — S5)
-                            </span>
-                            <span className="text-[11px] text-[var(--color-fg-muted)] ml-2.5 hidden sm:inline">
-                                {isSemainesCollapsed 
-                                    ? `— Cliquez pour afficher le détail (${semaines.length - nbSemainesRestantes}/${semaines.length} semaine(s) saisie(s))` 
-                                    : '— Avancement réel de la saisie par semaine'}
-                            </span>
-                        </div>
-                    </div>
+                <div className="p-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-between flex-wrap gap-2">
+                    <button
+                        type="button"
+                        aria-expanded={!isSemainesCollapsed}
+                        onClick={() => setIsSemainesCollapsed(previous => !previous)}
+                        className="flex min-w-0 items-center gap-2 text-left hover:text-[var(--color-brand-700)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)]"
+                    >
+                        <Layers size={14} className="text-[var(--color-brand-500)] shrink-0" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                            Progression hebdomadaire
+                        </span>
+                        <span className="text-[11px] text-[var(--color-fg-muted)] hidden sm:inline">
+                            {semaines.length - nbSemainesRestantes}/{semaines.length} semaine(s) complétée(s)
+                        </span>
+                    </button>
                     <div className="flex items-center gap-2">
                         {filterSemaine !== 'ALL' && (
                             <Button
@@ -407,6 +404,8 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         )}
                         <button
                             type="button"
+                            aria-expanded={!isSemainesCollapsed}
+                            onClick={() => setIsSemainesCollapsed(previous => !previous)}
                             className="flex items-center gap-1 text-xs font-semibold text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] px-2 py-1 bg-[var(--color-surface)] border border-[var(--color-border-subtle)]"
                         >
                             <span>{isSemainesCollapsed ? 'Déplier' : 'Plier'}</span>
@@ -424,8 +423,17 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                             return (
                                 <div
                                     key={sem.semaineCode}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-pressed={isSelected}
                                     onClick={() => setFilterSemaine(prev => prev === sem.semaineCode ? 'ALL' : sem.semaineCode)}
-                                    className={`p-3.5 transition-all cursor-pointer relative group ${
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter' || event.key === ' ') {
+                                            event.preventDefault();
+                                            setFilterSemaine(prev => prev === sem.semaineCode ? 'ALL' : sem.semaineCode);
+                                        }
+                                    }}
+                                    className={`p-3.5 transition-all cursor-pointer relative group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-focus-ring)] ${
                                         sem.isCurrent ? 'bg-brand-50/20 dark:bg-brand-950/10' : ''
                                     } ${isSelected ? 'bg-brand-50/50 dark:bg-brand-950/30 border-l-4 border-l-[var(--color-brand-500)]' : 'hover:bg-[var(--color-bg-subtle)]'}`}
                                 >
@@ -516,9 +524,8 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1.5fr)_repeat(4,minmax(0,1fr))] gap-2 items-end">
-                        {/* Recherche Employé */}
-                        <div className="w-full">
+                    <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(16rem,1fr)_13rem_auto] lg:items-center">
+                        <div className="min-w-0">
                             <Input
                                 icon={<Search size={13} className="text-[var(--color-fg-muted)]" />}
                                 placeholder="Rechercher nom, matricule…"
@@ -527,45 +534,11 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                     setSearchQuery(e.target.value);
                                     setCurrentPage(1);
                                 }}
-                                className="text-xs h-[28px]"
+                                className="text-xs"
                             />
                         </div>
-
-                        {/* Filtre Type */}
                         <Select
-                            value={filterType}
-                            onChange={(val) => {
-                                setFilterType(val);
-                                setCurrentPage(1);
-                            }}
-                            options={[
-                                { value: 'ALL', label: 'Tous les types' },
-                                { value: 'ABSENCE', label: 'Absence non justifiée' },
-                                { value: 'INCOMPLET', label: 'Pointage incomplet' },
-                                { value: 'RETARD', label: 'Retards' },
-                            ]}
-                            className="text-xs w-full h-[32px]"
-                        />
-
-                        {/* Filtre Sévérité */}
-                        <Select
-                            value={filterSeverite}
-                            onChange={(val) => {
-                                setFilterSeverite(val);
-                                setCurrentPage(1);
-                            }}
-                            options={[
-                                { value: 'ALL', label: 'Toutes sévérités' },
-                                { value: 'CRITIQUE', label: 'Critique (Bloquant)' },
-                                { value: 'HAUTE', label: 'Élevée' },
-                                { value: 'MOYENNE', label: 'Moyenne' },
-                                { value: 'FAIBLE', label: 'Faible' },
-                            ]}
-                            className="text-xs w-full h-[32px]"
-                        />
-
-                        {/* Filtre Statut de Traitement */}
-                        <Select
+                            aria-label="Filtrer les anomalies par traitement"
                             value={filterStatutTraitement}
                             onChange={(val) => {
                                 setFilterStatutTraitement(val);
@@ -576,89 +549,99 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 { value: 'TODO', label: 'À régulariser' },
                                 { value: 'DONE', label: 'Déjà régularisés' },
                             ]}
-                            className="text-xs w-full h-[32px]"
+                            className="text-xs w-full"
                         />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            aria-expanded={showAdvancedFilters}
+                            onClick={() => setShowAdvancedFilters(previous => !previous)}
+                            iconLeft={<Layers size={14} />}
+                        >
+                            Filtres complémentaires
+                            {(filterDate || filterSemaine !== 'ALL' || filterType !== 'ALL' || filterSeverite !== 'ALL') && ' · actifs'}
+                        </Button>
+                    </div>
 
-                        {/* Filtre Date précise */}
-                        <div className="relative flex items-center w-full">
-                            <Calendar size={13} className="absolute left-2.5 text-[var(--color-fg-muted)] pointer-events-none" />
-                            <input
-                                type="date"
-                                value={filterDate}
-                                min={periodeData?.dateDebut || undefined}
-                                max={periodeData?.dateFin || undefined}
-                                onChange={(e) => {
-                                    setFilterDate(e.target.value);
-                                    setCurrentPage(1);
-                                }}
-                                title="Filtrer par date précise"
-                                className="w-full text-xs pl-7 pr-2 py-1 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] outline-none focus:border-[var(--color-brand-500)] cursor-pointer h-[32px]"
+                    {showAdvancedFilters && (
+                        <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 border-t border-[var(--color-border-subtle)] pt-3">
+                            <Select
+                                aria-label="Filtrer par type d'anomalie"
+                                value={filterType}
+                                onChange={(val) => { setFilterType(val); setCurrentPage(1); }}
+                                options={[
+                                    { value: 'ALL', label: 'Tous les types' },
+                                    { value: 'ABSENCE', label: 'Absence non justifiée' },
+                                    { value: 'INCOMPLET', label: 'Pointage incomplet' },
+                                    { value: 'RETARD', label: 'Retards' },
+                                ]}
+                                className="text-xs w-full"
+                            />
+                            <Select
+                                aria-label="Filtrer par sévérité"
+                                value={filterSeverite}
+                                onChange={(val) => { setFilterSeverite(val); setCurrentPage(1); }}
+                                options={[
+                                    { value: 'ALL', label: 'Toutes les sévérités' },
+                                    { value: 'CRITIQUE', label: 'Critique · bloquante' },
+                                    { value: 'HAUTE', label: 'Élevée' },
+                                    { value: 'MOYENNE', label: 'Moyenne' },
+                                    { value: 'FAIBLE', label: 'Faible' },
+                                ]}
+                                className="text-xs w-full"
+                            />
+                            <div className="relative flex items-center w-full">
+                                <Calendar size={13} className="absolute left-2.5 text-[var(--color-fg-muted)] pointer-events-none" />
+                                <input
+                                    type="date"
+                                    value={filterDate}
+                                    min={periodeData?.dateDebut || undefined}
+                                    max={periodeData?.dateFin || undefined}
+                                    onChange={(e) => { setFilterDate(e.target.value); setCurrentPage(1); }}
+                                    aria-label="Filtrer par date précise"
+                                    className="w-full text-xs pl-7 pr-2 py-1 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-fg)] outline-none focus:border-[var(--color-brand-500)] cursor-pointer h-[32px]"
+                                />
+                            </div>
+                            <Select
+                                aria-label="Filtrer par semaine"
+                                value={filterSemaine}
+                                onChange={(val) => { setFilterSemaine(val); setCurrentPage(1); }}
+                                options={[
+                                    { value: 'ALL', label: 'Toutes les semaines' },
+                                    ...semaines.map(semaine => ({ value: semaine.semaineCode, label: semaine.titre || semaine.semaineCode }))
+                                ]}
+                                className="text-xs w-full"
                             />
                         </div>
-
-                        {/* Badge Reset filtre date si actif */}
-                        {filterDate && (
-                            <button
-                                type="button"
-                                onClick={() => setFilterDate('')}
-                                title="Effacer le filtre de date"
-                                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 bg-brand-50 dark:bg-brand-950/40 text-[var(--color-brand-500)] border border-[var(--color-brand-500)] cursor-pointer h-[28px]"
-                            >
-                                <span>{fmtDate(filterDate)}</span>
-                                <span className="text-xs">×</span>
-                            </button>
-                        )}
-
-                        {/* Reset filtre semaine si actif */}
-                        {filterSemaine !== 'ALL' && (
-                            <button
-                                type="button"
-                                onClick={() => setFilterSemaine('ALL')}
-                                title="Effacer le filtre de semaine"
-                                className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 bg-brand-50 dark:bg-brand-950/40 text-[var(--color-brand-500)] border border-[var(--color-brand-500)] cursor-pointer h-[28px]"
-                            >
-                                <span>{filterSemaine}</span>
-                                <span className="text-xs">×</span>
-                            </button>
-                        )}
-
-                        {/* Reset global si filtres combinés */}
                         {(filterDate || filterSemaine !== 'ALL' || filterType !== 'ALL' || filterSeverite !== 'ALL' || filterStatutTraitement !== 'ALL' || searchQuery) && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setFilterDate('');
-                                    setFilterSemaine('ALL');
-                                    setFilterType('ALL');
-                                    setFilterSeverite('ALL');
-                                    setFilterStatutTraitement('ALL');
-                                    setSearchQuery('');
-                                    setCurrentPage(1);
-                                }}
-                                title="Réinitialiser tous les filtres"
-                                className="text-[11px] text-[var(--color-fg-muted)] hover:text-danger-600 underline ml-1 cursor-pointer"
-                            >
-                                Réinitialiser
-                            </button>
+                            <div className="flex justify-end">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        setFilterDate('');
+                                        setFilterSemaine('ALL');
+                                        setFilterType('ALL');
+                                        setFilterSeverite('ALL');
+                                        setFilterStatutTraitement('ALL');
+                                        setSearchQuery('');
+                                        setCurrentPage(1);
+                                    }}
+                                >
+                                    Réinitialiser les filtres
+                                </Button>
+                            </div>
                         )}
-                    </div>
+                        </>
+                    )}
                 </div>
 
-                {/* Légende de sévérité */}
-                <div className="px-3 py-2 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex items-center gap-5 text-[11px] text-[var(--color-fg-muted)] flex-wrap">
-                    <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 bg-[var(--color-danger-500)]" />
-                        <strong className="text-[var(--color-fg)]">Critique :</strong> Bloque la transmission pour validation (oubli d'horaire ou absence sans statut)
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 bg-[var(--color-warning-500)]" />
-                        <strong className="text-[var(--color-fg)]">Élevée :</strong> Absence qualifiée à justifier
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 bg-[var(--color-info-500)]" />
-                        <strong className="text-[var(--color-fg)]">Moyenne :</strong> Retard ou écart mineur
-                    </span>
-                </div>
+                <p className="px-4 py-2 border-b border-[var(--color-border-subtle)] text-xs text-[var(--color-fg-muted)]">
+                    Les sévérités sont indiquées dans chaque ligne. Une anomalie bloquante empêche la transmission; les autres restent à examiner.
+                </p>
 
                 {/* Tableau des anomalies */}
                 <div className="overflow-x-auto border-b border-[var(--color-border-subtle)]">
@@ -797,103 +780,53 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                     onPageChange={(p) => setCurrentPage(p)}
                     onPageSizeChange={(sz) => { setPageSize(sz); setCurrentPage(1); }}
                 />
-            </div>
-
-            {/* ---------- BARRE D'ACTION BAS DE PAGE (DANS LE FLUX DE LA CARTE, AUCUN CHEVAUCHEMENT) ---------- */}
-            <div className="bg-[var(--color-surface)] text-[var(--color-fg)] shadow-sm border border-[var(--color-border-subtle)] border-t-2 border-t-[var(--color-brand-500)] p-3 sm:px-4">
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                    <div className="flex items-center gap-5 flex-wrap">
-                        {/* Statut des points bloquants ou prérequis */}
-                        {nbBloquantes > 0 ? (
-                            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                                <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-danger-500)] animate-pulse" />
-                                <span>{nbBloquantes} anomalie(s) bloquante(s) non régularisée(s) (pointages incomplets ou absences sans motif)</span>
+            {/* La décision de transmission reste au pied du tableau, dans sa même surface. */}
+                <div className="border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/50 p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-2 text-sm">
+                            {!canTransmitDaf ? (
+                                <AlertTriangle size={16} className={`mt-0.5 shrink-0 ${nbBloquantes > 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-warning-600)]'}`} />
+                            ) : (
+                                <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[var(--color-success-600)]" />
+                            )}
+                            <div>
+                                <p className="font-semibold text-[var(--color-fg)]">
+                                    {canTransmitDaf
+                                        ? 'La période peut être transmise pour contrôle.'
+                                        : transmissionBlockReason || 'Le workflow ne permet pas encore la transmission.'}
+                                </p>
+                                {nbBloquantes > 0 && !canTransmitDaf && (
+                                    <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+                                        {nbBloquantes} anomalie(s) bloquante(s) recensée(s) par le contrôle.
+                                    </p>
+                                )}
                             </div>
-                        ) : hasIncompleteWeeks ? (
-                            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]">
-                                <AlertTriangle size={15} className="text-[var(--color-warning-500)]" />
-                                <span>Saisie en cours : {nbSemainesRestantes} semaine(s) incomplète(s) avant clôture de période</span>
-                            </div>
-                        ) : !canTransmitDaf ? (
-                            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-sky-600)] dark:text-[var(--color-sky-400)]">
-                                <Clock size={15} className="text-[var(--color-sky-500)]" />
-                                <span>{transmissionBlockReason || 'Transmission indisponible pour cette période.'}</span>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
-                                <CheckCircle2 size={15} className="text-[var(--color-success-500)]" />
-                                <span>Période échue et conforme — Prête pour contrôle et validation</span>
-                            </div>
-                        )}
-
-                        {/* Semaines saisies */}
-                        <div className="text-xs text-[var(--color-fg-muted)] flex items-center gap-2 border-l border-[var(--color-border-subtle)] pl-4">
-                            <span>Progression :</span>
-                            <span className="font-mono font-bold text-[var(--color-fg)]">
-                                {semaines.length - nbSemainesRestantes} / {semaines.length} semaine(s)
-                            </span>
                         </div>
-                    </div>
 
-                    {/* Actions selon le profil connecté */}
-                    <div className="flex items-center gap-2.5">
-                        {isDaf ? (
-                            // Rôle Validateur / Administrateur : Navigation directe vers Contrôle & Validation
-                            <div className="flex items-center gap-2">
-                                {canTransmitDaf && (
-                                    <Button
-                                        variant="outline"
-                                        size="md"
-                                        onClick={() => setShowTransmissionConfirm(true)}
-                                        disabled={transmitting}
-                                        loading={transmitting}
-                                        icon={<Send size={14} />}
-                                        title="Transmettre officiellement la période pour validation"
-                                    >
-                                        Transmettre
-                                    </Button>
-                                )}
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                            {canTransmitDaf && (
                                 <Button
-                                    variant="primary"
-                                    size="md"
-                                    onClick={() => onTabChange ? onTabChange('arbitrage') : null}
-                                    icon={<ShieldCheck size={15} />}
-                                    className="font-bold text-xs"
-                                    title="Accéder directement à l'étape 3 : Contrôle & Validation"
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowTransmissionConfirm(true)}
+                                    disabled={transmitting}
+                                    loading={transmitting}
+                                    iconLeft={<Send size={14} />}
                                 >
-                                    <span>Accéder au Contrôle &amp; Validation</span>
-                                    <ArrowRight size={14} className="ml-1" />
+                                    Transmettre pour validation
                                 </Button>
-                            </div>
-                        ) : (
-                            // Profil Agent de site : Revue Synthèse ou Transmission directe
-                            <div className="flex items-center gap-2">
-                                {canTransmitDaf && (
-                                    <Button
-                                        variant="outline"
-                                        size="md"
-                                        onClick={() => setShowTransmissionConfirm(true)}
-                                        disabled={transmitting}
-                                        loading={transmitting}
-                                        icon={<Send size={14} />}
-                                        title={transmissionBlockReason || 'Transmettre la synthèse pour validation finale.'}
-                                    >
-                                        Transmettre
-                                    </Button>
-                                )}
-                                <Button
-                                    variant="primary"
-                                    size="md"
-                                    onClick={() => onTabChange ? onTabChange('arbitrage') : null}
-                                    icon={<ShieldCheck size={15} />}
-                                    className="font-bold text-xs"
-                                    title="Consulter la synthèse consolidée des heures et indemnités"
-                                >
-                                    <span>Consulter la Synthèse &amp; Contrôle</span>
-                                    <ArrowRight size={14} className="ml-1" />
-                                </Button>
-                            </div>
-                        )}
+                            )}
+                            <Button
+                                type="button"
+                                variant="primary"
+                                size="sm"
+                                onClick={() => onTabChange?.('arbitrage')}
+                                iconRight={<ArrowRight size={14} />}
+                            >
+                                {isDaf ? 'Ouvrir le contrôle DAF' : 'Consulter la synthèse'}
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </div>

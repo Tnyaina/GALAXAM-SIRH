@@ -227,7 +227,7 @@ public class CongeService {
         // Si un solde initial arrêté couvre déjà cette période, aucune acquisition fictive ou doublée ne doit être ajoutée.
         String sqlCheckCutover = "SELECT date_mouvement, commentaire FROM mouvement_solde_conge " +
                 "WHERE id_employe = ? AND type_mouvement = 'AJUSTEMENT' " +
-                "AND commentaire LIKE '%[SOLDE_INITIAL]%'";
+                "AND (commentaire LIKE '[SOLDE_INITIAL]%' OR commentaire LIKE 'Reprise cutover - Solde initial au %')";
         try (PreparedStatement psCut = c.prepareStatement(sqlCheckCutover)) {
             psCut.setInt(1, idEmploye);
             try (ResultSet rsCut = psCut.executeQuery()) {
@@ -1492,7 +1492,7 @@ public class CongeService {
                     LocalDate dateMvt = dateMvtSql != null ? dateMvtSql.toLocalDate() : LocalDate.now();
                     String commentaire = rs.getString("commentaire");
 
-                    if ("AJUSTEMENT".equals(typeMouvement) && commentaire != null && commentaire.startsWith("[SOLDE_INITIAL]")) {
+                    if ("AJUSTEMENT".equals(typeMouvement) && mg.galaxam.sirh.conge.domain.PurgeFifoEngine.estStockInitial(commentaire)) {
                         stockHistoriqueInitial += nbJours;
                     } else if ("ACQUISITION".equals(typeMouvement) || "BONIFICATION".equals(typeMouvement)) {
                         droitsDates.add(new mg.galaxam.sirh.conge.domain.PurgeFifoEngine.DroitDate(rs.getInt("id_mouvement"), dateMvt, nbJours));

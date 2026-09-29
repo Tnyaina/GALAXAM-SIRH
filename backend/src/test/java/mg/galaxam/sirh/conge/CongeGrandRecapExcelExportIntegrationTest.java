@@ -31,16 +31,19 @@ class CongeGrandRecapExcelExportIntegrationTest {
             CongeTestFixtureHelper.createAffectation(connection, employeeId, contractId,
                     LocalDate.of(2026, 1, 1), new BigDecimal("370000"));
             try (var statement = connection.prepareStatement(
-                    "INSERT INTO mouvement_solde_conge (id_employe, type_mouvement, nb_jours, date_mouvement) VALUES (?, ?, ?, ?)")) {
+                    "INSERT INTO mouvement_solde_conge (id_employe, type_mouvement, nb_jours, date_mouvement, valeur_source) VALUES (?, ?, ?, ?, ?)")) {
                 statement.setInt(1, employeeId);
                 statement.setString(2, "ACQUISITION");
                 statement.setBigDecimal(3, new BigDecimal("1.00"));
+                statement.setBigDecimal(5, new BigDecimal("9000"));
                 statement.setDate(4, Date.valueOf("2026-02-01"));
                 statement.executeUpdate();
                 statement.setBigDecimal(3, new BigDecimal("2.50"));
+                statement.setBigDecimal(5, new BigDecimal("22500"));
                 statement.setDate(4, Date.valueOf("2026-06-01"));
                 statement.executeUpdate();
                 statement.setString(2, "PRISE");
+                statement.setBigDecimal(5, null);
                 statement.setBigDecimal(3, new BigDecimal("-1.00"));
                 statement.setDate(4, Date.valueOf("2026-10-01"));
                 statement.executeUpdate();

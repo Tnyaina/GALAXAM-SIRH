@@ -3,7 +3,6 @@ package mg.galaxam.sirh.conge.application;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -27,9 +26,11 @@ public class CongeGrandRecapExcelExportService {
     private static final String TEMPLATE = "/templates/annuel/GRAND_RECAP_CONGES_VALORISES.xlsx";
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private final DataSource dataSource;
+    private final CongeLotValorisationService lots;
 
-    public CongeGrandRecapExcelExportService(DataSource dataSource) {
+    public CongeGrandRecapExcelExportService(DataSource dataSource, CongeLotValorisationService lots) {
         this.dataSource = dataSource;
+        this.lots = lots;
     }
 
     public byte[] generer(LocalDate dateDebut, LocalDate dateFin) throws Exception {
@@ -79,17 +80,11 @@ public class CongeGrandRecapExcelExportService {
                     else total.getCell(column).setCellFormula("SUM(" + (char) ('A' + column) + "5:"
                             + (char) ('A' + column) + (lastData + 1) + ")");
                 }
-                long sansTaux = lignes.stream().filter(l -> l.taux() == null && l.jours()[7].signum() != 0).count();
-                // Un total en Ariary partiel serait trompeur si un salarié n'a pas de taux historisé.
                 if (lignes.isEmpty()) total.getCell(14).setCellValue(0);
-                else if (sansTaux == 0) total.getCell(14).setCellFormula("SUM(O5:O" + (lastData + 1) + ")");
-                else total.getCell(14).setBlank();
+                else total.getCell(14).setCellFormula("SUM(O5:O" + (lastData + 1) + ")");
                 sheet.getRow(1).getCell(0).setCellValue("Période du " + dateDebut.format(DATE_FORMAT)
                         + " au " + dateFin.format(DATE_FORMAT) + "  |  Situation au " + dateFin.format(DATE_FORMAT)
-                        + "  |  " + sansTaux + " solde(s) non nuls sans TCONGE applicable");
-                if (sansTaux > 0) sheet.getRow(totalRow + 2).getCell(0).setCellValue(
-                        "Valorisation totale indisponible : " + sansTaux + " salarié(s) sans TCONGE applicable à la date de situation."
-                                + " Les soldes en jours restent consultables.");
+                        + "  |  Solde valorisé selon les lots historiques");
                 sheet.createFreezePane(5, 4);
                 sheet.setAutoFilter(org.apache.poi.ss.util.CellRangeAddress.valueOf("A4:Q" + Math.max(4, lastData + 1)));
                 sheet.setPrintGridlines(false);
@@ -98,6 +93,37 @@ public class CongeGrandRecapExcelExportService {
                         + dateDebut.format(DATE_FORMAT) + ", mouvements du " + dateDebut.format(DATE_FORMAT)
                         + " au " + dateFin.format(DATE_FORMAT) + ", situation arrêtée au "
                         + dateFin.format(DATE_FORMAT) + ".");
+                Sheet ventilation = workbook.createSheet("Droits et consommations");
+                Row enteteLots = ventilation.createRow(0);
+                String[] titres = {"Matricule", "Salarié", "Origine", "ID droit", "Date", "Jours restants",
+                        "Valeur restante (Ar)", "ID prise", "Jours consommés", "Valeur consommée (Ar)", "TCONGE historique (Ar/j)"};
+                for (int i = 0; i < titres.length; i++) enteteLots.createCell(i).setCellValue(titres[i]);
+                int ligneLot = 1;
+                for (Ligne ligne : lignes) {
+                    var situation = lots.situation(ligne.idEmploye(), dateFin, connection);
+                    for (var lot : situation.lots()) {
+                        Row row = ventilation.createRow(ligneLot++);
+                        row.createCell(0).setCellValue(ligne.matricule());
+                        row.createCell(1).setCellValue(ligne.nomComplet());
+                        row.createCell(2).setCellValue(lot.origine());
+                        row.createCell(3).setCellValue(lot.idSource());
+                        row.createCell(4).setCellValue(lot.dateAcquisition().toString());
+                        row.createCell(5).setCellValue(lot.jours().doubleValue());
+                        row.createCell(6).setCellValue(lot.valeur().doubleValue());
+                    }
+                    for (var prise : situation.imputations()) {
+                        Row row = ventilation.createRow(ligneLot++);
+                        row.createCell(0).setCellValue(ligne.matricule());
+                        row.createCell(1).setCellValue(ligne.nomComplet());
+                        row.createCell(2).setCellValue(prise.origine());
+                        row.createCell(3).setCellValue(prise.idSource());
+                        if (prise.idDemande() != null) row.createCell(7).setCellValue(prise.idDemande());
+                        row.createCell(8).setCellValue(prise.jours().doubleValue());
+                        row.createCell(9).setCellValue(prise.valeur().doubleValue());
+                        row.createCell(10).setCellValue(prise.tauxHistorique().doubleValue());
+                    }
+                }
+                for (int i = 0; i < titres.length; i++) ventilation.autoSizeColumn(i);
                 workbook.setForceFormulaRecalculation(true);
                 ByteArrayOutputStream output = new ByteArrayOutputStream();
                 workbook.write(output);
@@ -114,7 +140,7 @@ public class CongeGrandRecapExcelExportService {
 
     private List<Ligne> chargerLignes(LocalDate dateDebut, LocalDate dateFin, Connection connection) throws SQLException {
         String sql = """
-                SELECT e.matricule, e.nom, e.prenom,
+                SELECT e.id_employe, e.matricule, e.nom, e.prenom,
                        f.raison_sociale AS filiale, s.libelle AS site, fn.libelle AS poste,
                        COALESCE(m.ouverture, 0) AS ouverture,
                        COALESCE(m.acquis, 0) AS acquis,
@@ -187,13 +213,14 @@ public class CongeGrandRecapExcelExportService {
                     String periode = rs.getDate("periode_debut") == null ? "—"
                             : rs.getDate("periode_debut").toLocalDate().format(DATE_FORMAT) + " – "
                             + rs.getDate("periode_fin").toLocalDate().format(DATE_FORMAT);
-                    lignes.add(new Ligne(rs.getString("matricule"),
+                    int employe = rs.getInt("id_employe");
+                    BigDecimal valeurHistorique = lots.situation(employe, dateFin, connection).soldeValorisation();
+                    lignes.add(new Ligne(employe, rs.getString("matricule"),
                             (rs.getString("nom") + " " + rs.getString("prenom")).trim(),
                             textOrDash(rs.getString("filiale")), textOrDash(rs.getString("site")),
                             textOrDash(rs.getString("poste")),
                             new BigDecimal[]{ouverture, acquis, bonification, ajustement, pris, expiration, annulation, solde},
-                            taux, solde.signum() == 0 ? BigDecimal.ZERO
-                                    : taux == null ? null : solde.multiply(taux).setScale(2, RoundingMode.HALF_UP),
+                            taux, valeurHistorique,
                             periode, textOrDash(rs.getString("periode_statut"))));
                 }
             }
@@ -213,6 +240,6 @@ public class CongeGrandRecapExcelExportService {
         if (value == null) cell.setBlank(); else cell.setCellValue(value.doubleValue());
     }
 
-    private record Ligne(String matricule, String nomComplet, String filiale, String site, String poste,
+    private record Ligne(int idEmploye, String matricule, String nomComplet, String filiale, String site, String poste,
                          BigDecimal[] jours, BigDecimal taux, BigDecimal valeur, String periode, String statut) {}
 }

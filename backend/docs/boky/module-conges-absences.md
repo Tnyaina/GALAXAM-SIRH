@@ -339,15 +339,15 @@ L'approbation d'une demande de congé met à jour automatiquement la grille de p
 Lors du calcul du bulletin mensuel :
 1. **Retenue sur salaire de base pour congé pris** (au trentième légal) :
    $$\text{DEDUCTION\_CONGE\_BASE} = \text{Jours Congé Pris} \times \frac{\text{Salaire de Base Contractuel}}{30}$$
-2. **Indemnité de congé payé** (au taux `TCONGE` canonique résolu par `CongeTauxApplicableService`) :
-   $$\text{INDEMNITE\_CONGE\_PAYE} = \text{Jours Congé Pris} \times \mathbf{TCONGE}$$
+2. **Indemnité de congé payé** : chaque part de prise conserve le taux historique de son lot FIFO ; le bulletin additionne les valeurs imputées. Une part anticipée sans lot utilise le taux applicable à la prise, figé sur son mouvement.
+   $$\text{INDEMNITE\_CONGE\_PAYE} = \sum_{lot}\text{Jours Pris du lot} \times \mathbf{TCONGE}_{lot}$$
 3. **Écart possible entre les deux lignes** : le taux historique peut être supérieur ou inférieur au taux actuel $S_{base}/30$. Les deux lignes ne s'annulent donc pas nécessairement. Dans la recette TMM, 9 jours donnent 111 000 Ar de retenue et 86 967,81 Ar d'indemnité ; le détail de paie figure dans le [module Paie](./module-paie.md#8-étude-de-cas-tmm-et-tnr).
 
 ### 6.3 Pont Réel Congés $\rightarrow$ Solde de Tout Compte (STC)
 Lors du départ du collaborateur (démission, licenciement, terme du contrat) :
 - L'Article 90 alinéa 3 impose le versement d'une indemnité compensatrice pour les congés non pris.
-- Le service STC interroge `v_solde_conge_employe` et le taux `TCONGE` du jour de départ :
-  $$\text{Indemnité Compensatrice STC} = \text{Solde Restant} \times \mathbf{TCONGE}$$
+- Le service STC interroge le solde et la valeur encore disponible dans les lots à la date de départ :
+  $$\text{Indemnité Compensatrice STC} = \sum_{lot}\text{Valeur restante du lot}$$
 - En cas de solde négatif (anticipation non amortie), une déduction de même valeur est appliquée sur le net STC.
 
 ---
@@ -542,13 +542,13 @@ le `conge_taux_applicable` sont recherchés à la date de fin. Le sélecteur de
 l'interface propose par défaut le début de l'année jusqu'à aujourd'hui, mais
 les deux bornes peuvent être choisies par la DAF.
 
-Le solde en jours est la somme du journal. Sa valeur est `solde × TCONGE` côté
-backend, sans formule métier dans Excel. Si un taux manque, la valeur de cette
-ligne reste vide et le total en Ariary est supprimé ; le nombre de salariés
-non valorisés apparaît dans l'en-tête. Les seules formules du classeur sont les
-sommes de présentation des jours et, lorsque tous les taux sont disponibles,
-de la valorisation. L'état individuel existant reste accessible depuis la
-fiche du salarié pour expliquer les mois et les mouvements.
+Le solde en jours est la somme du grand-livre. Sa valeur est la somme des
+valeurs restantes des lots historiques, après imputation FIFO des prises.
+L'Excel ne recalcule pas le métier : il présente les totaux et une feuille
+« Droits et consommations » indiquant l'origine, les jours et les montants
+par lot. Une acquisition dont la valorisation historique est introuvable
+bloque l'export avec une erreur explicite ; le salaire actuel ne sert pas de
+substitut.
 
 ### Correspondance avec les exemples KAJY fournis par la DAF
 
@@ -571,15 +571,17 @@ congés–paie, puis migrée avec les données historiques.
 
 Le TCONGE « calculé » dans le journal de droits et le TCONGE « applicable »
 dans `conge_taux_applicable` ont des rôles distincts : le premier suit
-l'acquisition, le second valorise le solde à la date d'arrêté. Si le second
-manque pour un solde non nul, la valorisation reste vide plutôt que de prendre
-le salaire actuel divisé par 30. Le récapitulatif collectif porte sur une
+l'acquisition, le second sert aux nouveaux crédits qui n'ont pas de
+valorisation propre. Le montant acquis est figé dans le lot ; les prises
+consomment jours et valeur des lots les plus anciens. Seuls les jours
+anticipés sans lot utilisent le TCONGE applicable à leur prise, figé dans
+le mouvement. Le récapitulatif collectif porte sur une
 période commune choisie par la DAF ; chaque état individuel reste attaché à la
 période de référence propre au salarié.
 
 Le système produit un état individuel à partir du canevas interne (`templates/annuel/ETAT_CONGES_PAR_PERSONNE.xlsx`), lié à la période de référence du salarié (`conge_periode_reference`). Les fichiers historiques KAJY servent d'exemples de calcul, tandis que les montants exportés proviennent des calculs et écritures du SIRH.
 
-### 13.1 Structure du Classeur Réparti sur 3 Feuilles
+### 13.1 Structure du Classeur Réparti sur 4 Feuilles
 
 1. **Feuille 1 — « État congés salarié »** :
    - **Bloc d'En-tête** : Matricule, nom et prénom du collaborateur, filiale de rattachement, site géographique, fonction/poste à la date de situation, bornes de la période de référence, mode de reprise, solde d'ouverture issu du ledger, cumul valorisé d'ouverture des droits TCONGE (qui ne représente pas la valeur du solde) et taux applicable historisé.
@@ -590,6 +592,7 @@ Le système produit un état individuel à partir du canevas interne (`templates
    - Lignes 5+ : Audit trail chronologique détaillé, filtré **strictement sur la période de référence** sélectionnée (Date, Type de mouvement, Réf. Demande, Commentaire/Motif, Droits acquis / Crédit, Droits consommés / Débit, Solde progressif après mouvement, TCONGE applicable, Valeur indicative en Ariary et Opérateur ayant créé le mouvement).
 3. **Feuille 3 — « README »** :
    - Notice réglementaire conservée en l'état rappelant le cadre légal (2,5 jours/mois, diviseur 30, assiette de valorisation).
+4. **Feuille 4 — « Origine des droits »** : lots restants et imputations des prises, avec jours, valeurs et TCONGE historiques.
 
 ### 13.2 Architecture Applicative & API
 

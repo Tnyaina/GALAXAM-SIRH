@@ -39,6 +39,45 @@ public class CongeSoldeController {
     private mg.galaxam.sirh.conge.application.CongeTauxApplicableService congeTauxApplicableService;
 
     @Autowired
+    private mg.galaxam.sirh.conge.application.CongeLotValorisationService congeLotValorisationService;
+
+    @GetMapping("/solde/valorisation-lots/{idEmploye}")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getValorisationLots(@PathVariable Integer idEmploye,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(
+                    iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date) {
+        try (Connection c = dataSource.getConnection()) {
+            return ResponseEntity.ok(congeLotValorisationService.situation(idEmploye,
+                    date != null ? date : java.time.LocalDate.now(), c));
+        } catch (Exception e) {
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @PostMapping("/solde/cutover/{idEmploye}/corriger")
+    @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> corrigerReliquatCutover(@PathVariable Integer idEmploye,
+            @RequestBody Map<String, Object> req) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                var result = congeLotValorisationService.corrigerReliquatCutover(idEmploye,
+                        new BigDecimal(String.valueOf(req.get("nouveauReliquatJours"))),
+                        new BigDecimal(String.valueOf(req.get("nouveauReliquatValeur"))),
+                        req.get("motif") == null ? null : req.get("motif").toString(),
+                        getCurrentUserId(), c);
+                c.commit();
+                return ResponseEntity.ok(result);
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        } catch (Exception e) {
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @Autowired
     private mg.galaxam.sirh.conge.application.CongeExpirationExamenService congeExpirationExamenService;
 
     @GetMapping("/planning")
@@ -210,6 +249,9 @@ public class CongeSoldeController {
                 mvt.setTypeMouvement("AJUSTEMENT");
                 mvt.setNbJours(nbJours);
                 mvt.setCommentaire(commentaire);
+                if (nbJours.signum() > 0 && req.get("valorisationSpecifique") != null) {
+                    mvt.setValeurSource(new BigDecimal(req.get("valorisationSpecifique").toString()));
+                }
                 mvt.setCreatedBy(currentUserId);
                 mvt.save(c);
 

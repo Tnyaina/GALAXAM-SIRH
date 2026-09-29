@@ -78,6 +78,9 @@ public class PayrollService {
     @Autowired
     private mg.galaxam.sirh.conge.application.CongeTauxApplicableService congeTauxApplicableService;
 
+    @Autowired
+    private mg.galaxam.sirh.conge.application.CongeLotValorisationService congeLotValorisationService;
+
     // Cache local des id_rubrique par code (thread-safe)
     private final Map<String, Integer> cacheRubriques = new ConcurrentHashMap<>();
 
@@ -920,6 +923,11 @@ public class PayrollService {
         if (resTC != null && resTC.getTauxJournalier().compareTo(BigDecimal.ZERO) > 0) {
             in.setTauxJournalierConge(resTC.getTauxJournalier());
         }
+        if (in.getNbJoursConges() != null && in.getNbJoursConges().signum() > 0) {
+            in.setIndemniteCongeLots(congeLotValorisationService.valorisationPrisesSurPeriode(
+                    idEmploye, in.getDateDebutPeriode().toLocalDate(),
+                    in.getDateFinPeriode().toLocalDate(), c));
+        }
 
         // 6. Paramètres légaux et fiscaux (LF 2026 par défaut)
         payrollLegalContextResolver.resolve(in, c);
@@ -1347,6 +1355,17 @@ public class PayrollService {
                 psUp.setInt(13, refActive.getIdPeriodeReference());
                 psUp.setInt(14, numeroMoisRef);
                 psUp.executeUpdate();
+            }
+            try (PreparedStatement snapshot = c.prepareStatement(
+                    "UPDATE mouvement_solde_conge SET valeur_source = ? "
+                    + "WHERE id_employe = ? AND type_mouvement = 'ACQUISITION' "
+                    + "AND EXTRACT(YEAR FROM date_mouvement) = ? "
+                    + "AND EXTRACT(MONTH FROM date_mouvement) = ? AND valeur_source IS NULL")) {
+                snapshot.setBigDecimal(1, valMois);
+                snapshot.setInt(2, idEmp);
+                snapshot.setInt(3, annee);
+                snapshot.setInt(4, mois);
+                snapshot.executeUpdate();
             }
 
             // 4. Clôture de la référence à l'atteinte du terme de 12 mois

@@ -47,6 +47,8 @@ public class StcService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StcService.class);
 
     private final AncienneteEngine ancienneteEngine;
+    private final mg.galaxam.sirh.conge.application.CongeLotValorisationService lotsConges =
+            new mg.galaxam.sirh.conge.application.CongeLotValorisationService();
 
     public StcService(DataSource dataSource, Object ignoredLegacyCalculator, AncienneteEngine ancienneteEngine) {
         this.ancienneteEngine = ancienneteEngine != null ? ancienneteEngine : new AncienneteEngine();
@@ -215,7 +217,16 @@ public class StcService {
         BigDecimal tauxConge = getTauxJournalierApplicable(idEmploye, dDep, salaireBase, c);
         prep.setTauxJournalierConge(tauxConge);
 
-        BigDecimal iccpEstimee = MoneyRoundingPolicy.amount(soldeJours.multiply(tauxConge));
+        BigDecimal iccpEstimee;
+        if (soldeJours.signum() != 0) {
+            var situationLots = lotsConges.situation(idEmploye, dDep, c);
+            if (situationLots.soldeJours().compareTo(soldeJours) != 0) {
+                throw new IllegalStateException("CONGE_STC_DATE_SOLDE_MISMATCH: rapprocher le solde à la date du départ.");
+            }
+            iccpEstimee = situationLots.soldeValorisation();
+        } else {
+            iccpEstimee = MoneyRoundingPolicy.amount(soldeJours.multiply(tauxConge));
+        }
         prep.setIccpEstimee(iccpEstimee);
 
         // 6. Préavis suggéré et Indemnité de licenciement légale
@@ -298,7 +309,11 @@ public class StcService {
         // 2. ICCP (Indemnité Compensatrice de Congés Payés) ou Retenue pour congés par anticipation
         BigDecimal soldeConges = req.getSoldeConges() != null ? req.getSoldeConges() : prep.getSoldeCongesRestant();
         BigDecimal tauxConge = prep.getTauxJournalierConge();
-        BigDecimal iccp = MoneyRoundingPolicy.amount(soldeConges.multiply(tauxConge));
+        boolean soldeIdentique = req.getSoldeConges() == null
+                || req.getSoldeConges().compareTo(prep.getSoldeCongesRestant()) == 0;
+        BigDecimal iccp = soldeConges.signum() != 0 && soldeIdentique
+                ? lotsConges.situation(req.getIdEmploye(), req.getDateDepart().toLocalDate(), c).soldeValorisation()
+                : MoneyRoundingPolicy.amount(soldeConges.multiply(tauxConge));
         res.setSoldeCongesRestant(soldeConges);
         res.setTauxJournalierConge(tauxConge);
         res.setIndemniteCongesPayes(iccp);
@@ -307,7 +322,8 @@ public class StcService {
         BigDecimal retenueCongeAnticipe = BigDecimal.ZERO;
         if (iccp.compareTo(BigDecimal.ZERO) > 0) {
             gainConge = iccp;
-            res.ajouterLigne("INDEMNITE_COMPENSATRICE_CONGE", "Indemnité Compensatrice de Congés Payés (" + soldeConges + "j x " + tauxConge + " Ar)",
+            res.ajouterLigne("INDEMNITE_COMPENSATRICE_CONGE", "Indemnité Compensatrice de Congés Payés (" + soldeConges
+                    + (soldeIdentique ? "j, valeurs historiques des lots)" : "j × " + tauxConge + " Ar, solde ajusté)") ,
                     "GAIN", tauxConge, null, iccp);
         } else if (iccp.compareTo(BigDecimal.ZERO) < 0) {
             retenueCongeAnticipe = iccp.abs();

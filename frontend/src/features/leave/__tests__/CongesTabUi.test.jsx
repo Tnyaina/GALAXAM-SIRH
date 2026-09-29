@@ -19,6 +19,8 @@ vi.mock('../api/congeService', () => ({
     getAllReferentiels: vi.fn(),
     annulerDemande: vi.fn(),
     getExamenExpiration: vi.fn(),
+    getValorisationLots: vi.fn(),
+    corrigerReliquatCutover: vi.fn(),
   }
 }));
 
@@ -32,6 +34,9 @@ describe('CongesTab & SoldeCongeWidget - UI / UX enhancements', () => {
     vi.clearAllMocks();
     congeService.getExamenExpiration.mockResolvedValue({ idEmploye: 1, delaiPrescriptionMois: 36,
       dateReference: '2026-09-28', joursAExaminer: 0, droitsCandidats: [] });
+    congeService.getValorisationLots.mockResolvedValue({ lots: [
+      { origine: 'REPRISE_CUTOVER', jours: 10, valeur: 90000 }
+    ] });
   });
 
   it('met le solde et le taux en premier et replie les autres compteurs', async () => {
@@ -202,13 +207,14 @@ describe('CongesTab & SoldeCongeWidget - UI / UX enhancements', () => {
     // Les soldes de chaque mouvement sont ceux fournis par le backend.
     await act(async () => {
       root.render(
-        <MouvementsSoldeTable
+        <MemoryRouter><MouvementsSoldeTable
           idEmploye={1}
           mouvements={fakeMouvements}
           soldeActuel={10.5}
           canWrite={true}
+          canValidate={true}
           matricule="EMP-001"
-        />
+        /></MemoryRouter>
       );
     });
 
@@ -216,13 +222,19 @@ describe('CongesTab & SoldeCongeWidget - UI / UX enhancements', () => {
     expect(container.textContent).toContain('Registre des Mouvements & Crédits de Solde (3)');
     expect(container.textContent).toContain('Export CSV');
     expect(container.textContent).toContain('Ajustement RH');
+    expect(container.textContent).toContain('Corriger la reprise');
 
-    expect(container.textContent).toContain('Solde actuel selon le backend :');
+    expect(container.textContent).toContain('Solde actuel :');
 
     // Colonne Solde Cumulé
     expect(container.textContent).toContain('Solde Cumulé');
     expect(container.textContent).toContain('+10.50 j'); // après mvt 3
     expect(container.textContent).toContain('+12.50 j'); // après mvt 2
     expect(container.textContent).toContain('+10.00 j'); // après mvt 1
+    await act(async () => {
+      [...container.querySelectorAll('button')].find(b => b.textContent.includes('Corriger la reprise')).click();
+    });
+    expect(congeService.getValorisationLots).toHaveBeenCalledWith(1);
+    expect(document.body.textContent).toContain('Jours restants après correction');
   });
 });

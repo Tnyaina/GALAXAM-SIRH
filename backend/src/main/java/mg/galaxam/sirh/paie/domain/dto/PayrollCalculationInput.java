@@ -224,6 +224,7 @@ public class PayrollCalculationInput {
     private boolean simulation = true;
     private BigDecimal nbHeuresAbsence = BigDecimal.ZERO;
     private BigDecimal tauxJournalierConge; // TCONGE dynamique (valorisation grand-livre congés)
+    private BigDecimal indemniteCongeLots; // Somme des jours pris × taux historique de chaque lot FIFO
     private String modeCalculAbsence = "HEURES_REELLES"; // "HEURES_REELLES" (défaut opposable) ou "TRENTIEME"
     private boolean estPlafonneSante = true; // Plafonnement OSTIE / OMSI à 8x SME
     private boolean indemniteRepasImposable = false;
@@ -336,6 +337,8 @@ public class PayrollCalculationInput {
 
     public BigDecimal getTauxJournalierConge() { return tauxJournalierConge; }
     public void setTauxJournalierConge(BigDecimal tauxJournalierConge) { this.tauxJournalierConge = tauxJournalierConge; }
+    public BigDecimal getIndemniteCongeLots() { return indemniteCongeLots; }
+    public void setIndemniteCongeLots(BigDecimal indemniteCongeLots) { this.indemniteCongeLots = indemniteCongeLots; }
 
     // Getters & Setters
     public Integer getIdEmploye() { return idEmploye; }
