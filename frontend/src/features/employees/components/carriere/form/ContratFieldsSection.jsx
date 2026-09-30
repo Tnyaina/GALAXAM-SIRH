@@ -8,6 +8,7 @@ export default function ContratFieldsSection({
     typesIntervenant = [],
     lockTypeContrat = false,
     lockTypeIntervenant = false,
+    signatureOptional = false,
 }) {
     const selectedType = typesContrat.find(
         (tc) => String(tc.idTypeContrat) === String(formData.idTypeContrat)
@@ -83,6 +84,9 @@ export default function ContratFieldsSection({
                     hint="Laisser vide pour génération automatique"
                 />
 
+            </div>
+            <h4 className="text-sm font-medium text-[var(--color-fg)]">Dates du contrat</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
                     label="Date de début"
                     type="date"
@@ -99,18 +103,19 @@ export default function ContratFieldsSection({
                     min={formData.dateDebut || undefined}
                     value={exigeDateFin ? formData.dateFin : ''}
                     onChange={(e) => setField('dateFin', e.target.value)}
-                    hint={exigeDateFin ? "Obligatoire pour ce contrat" : undefined}
+                    hint={exigeDateFin ? "Obligatoire pour ce type de contrat" : "Sans date de fin pour ce type de contrat"}
                 />
 
                 <Input
                     label="Date de signature"
                     type="date"
-                    required
+                    required={!signatureOptional}
                     value={formData.dateSignature}
                     onChange={(e) => setField('dateSignature', e.target.value)}
+                    hint={signatureOptional ? "À renseigner lorsque le contrat est signé" : undefined}
                 />
 
-                <div className="flex items-end pb-2">
+                <div className="flex items-center">
                     <Checkbox
                         label="Comptabilisé dans l'effectif légal"
                         checked={formData.comptabiliseEffectif}

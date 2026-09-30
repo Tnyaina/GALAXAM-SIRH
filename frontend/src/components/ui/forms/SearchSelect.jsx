@@ -65,10 +65,11 @@ export default function SearchSelect({
 
   // Rendu
   return (
-    <div className={`space-y-1.5 relative ${className}`} ref={dropdownRef}>
+    <div className={`flex flex-col gap-1 relative ${className}`} ref={dropdownRef}>
       {label && (
-        <label htmlFor={fieldId} className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
-          {label} {required && <span className="text-danger-500 ml-0.5">*</span>}
+        <label htmlFor={fieldId} className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)]">
+          {label}
+          {required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
         </label>
       )}
 
@@ -81,10 +82,10 @@ export default function SearchSelect({
           aria-describedby={error ? feedbackId : undefined}
           disabled={disabled}
           onClick={() => !disabled && setIsOpen((v) => !v)}
-          className={`w-full px-3 py-1.5 bg-[var(--color-bg-subtle)] border text-left text-xs sm:text-sm flex items-center justify-between outline-none cursor-pointer ${
+          className={`w-full px-3 py-1.5 bg-[var(--color-surface)] border text-left text-xs sm:text-sm flex items-center justify-between outline-none cursor-pointer ${
             error
               ? 'border-danger-500'
-              : 'border-[var(--color-border-subtle)] hover:border-[var(--color-fg-muted)] focus:border-[var(--color-brand-500)]'
+              : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)] focus:border-[var(--color-brand-500)]'
           } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
         >
           {selectedOption ? (
@@ -97,7 +98,7 @@ export default function SearchSelect({
               )}
             </span>
           ) : (
-            <span className="text-[var(--color-fg-subtle)]">{placeholder}</span>
+            <span className="text-[var(--color-fg-muted)]">{placeholder}</span>
           )}
 
           <div className="flex items-center gap-1 shrink-0 ml-2">

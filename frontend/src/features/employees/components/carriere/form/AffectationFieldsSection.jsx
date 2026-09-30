@@ -52,6 +52,7 @@ export default function AffectationFieldsSection({
                     value={formData.idService}
                     onChange={(e) => setField('idService', e.target.value)}
                     disabled={!formData.idDepartement}
+                    hint={!formData.idDepartement ? "Choisissez d'abord un département" : undefined}
                 >
                     <option value="">
                         {formData.idDepartement
