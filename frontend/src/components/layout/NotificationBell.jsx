@@ -54,13 +54,13 @@ const NotifRow = memo(function NotifRow({ notif, onClick }) {
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-start gap-2 mb-1">
+                    <div className="flex flex-col items-start gap-1.5 mb-1.5">
                         {cfg.label && (
                             <Badge variant={cfg.variant} size="sm">
                                 {cfg.label}
                             </Badge>
                         )}
-                        <p className="min-w-0 text-[13px] font-semibold leading-snug text-[var(--color-fg)] line-clamp-2 text-left">
+                        <p className="w-full min-w-0 text-[13px] font-semibold leading-snug text-[var(--color-fg)] line-clamp-2 text-left">
                             {notif.titre}
                         </p>
                     </div>
@@ -186,7 +186,7 @@ export default function NotificationBell() {
                     ref={panelRef}
                     role="menu"
                     aria-orientation="vertical"
-                    className="fixed right-3 top-12 mt-2 w-[calc(100vw-1.5rem)] max-h-[min(70vh,560px)] sm:absolute sm:right-0 sm:top-full sm:w-[420px] sm:max-w-[calc(100vw-3rem)] flex flex-col z-50
+                    className="fixed right-3 top-12 mt-2 w-[calc(100vw-1.5rem)] max-h-[min(70vh,560px)] sm:absolute sm:right-0 sm:top-full sm:w-[min(30rem,calc(100vw-3rem))] sm:max-w-[calc(100vw-3rem)] flex flex-col z-50
                                bg-[var(--color-surface)] border border-[var(--color-border)]
                                shadow-xl rounded-none overflow-hidden"
                 >

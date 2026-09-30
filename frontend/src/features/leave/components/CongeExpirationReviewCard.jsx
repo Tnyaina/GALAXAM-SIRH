@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, CalendarClock, Check, RotateCcw } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Check, RotateCcw, ShieldCheck } from 'lucide-react';
 import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Alert from '@/components/ui/feedback/Alert';
@@ -11,7 +11,7 @@ import Loading from '@/components/ui/feedback/Loading';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 const formatDate = (value) => {
-  if (!value) return '—';
+  if (!value) return '-';
   const [year, month, day] = String(value).slice(0, 10).split('-').map(Number);
   if (!year || !month || !day) return value;
   return new Date(year, month - 1, day).toLocaleDateString('fr-FR');
@@ -89,16 +89,27 @@ export default function CongeExpirationReviewCard({ idEmploye, canValidate = fal
   if (!data || (aucunDroitAExaminer && !canValidate)) return null;
 
   return (
-    <section className="border border-[var(--color-warning-500)]/40 bg-[var(--color-surface)]" aria-label="Droits de congé à examiner">
-      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
+    <section
+      className={`border bg-[var(--color-surface)] ${
+        aucunDroitAExaminer
+          ? 'border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/40'
+          : 'border-[var(--color-warning-500)]/40'
+      }`}
+      aria-label="Droits de congé à examiner"
+    >
+      <div className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ${aucunDroitAExaminer ? 'p-3 sm:p-3.5' : 'p-4'}`}>
         <div className="flex min-w-0 gap-3">
-          <AlertTriangle size={19} className="mt-0.5 shrink-0 text-[var(--color-warning-500)]" />
-          <div className="min-w-0 space-y-2">
+          {aucunDroitAExaminer ? (
+            <ShieldCheck size={19} className="mt-0.5 shrink-0 text-[var(--color-success-600)] dark:text-[var(--color-success-400)]" />
+          ) : (
+            <AlertTriangle size={19} className="mt-0.5 shrink-0 text-[var(--color-warning-500)]" />
+          )}
+          <div className="min-w-0 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-bold text-[var(--color-fg)]">
                 {jours > 0 ? 'Droits à examiner' : aucunDroitAExaminer ? 'Examen des droits de congé' : 'Historique d’examen des droits'}
               </h3>
-              <Badge variant={reporte ? 'warning' : expire || aucunDroitAExaminer ? 'success' : 'danger'}>
+              <Badge variant={reporte ? 'warning' : expire || aucunDroitAExaminer ? 'success' : 'danger'} size="xs">
                 {reporte ? 'Examen reporté' : expire ? 'Expiration confirmée' : aucunDroitAExaminer ? 'Aucun droit à examiner' : 'Échéance atteinte'}
               </Badge>
             </div>

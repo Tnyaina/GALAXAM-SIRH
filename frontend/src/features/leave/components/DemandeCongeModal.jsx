@@ -77,19 +77,19 @@ export default function DemandeCongeModal({
       onClose={onClose}
       title={initialDemande?.idDemandeConge
         ? (initialDemande.codeStatutDemande === 'VALIDE'
-          ? `Modifier les dates du congé validé #${initialDemande.idDemandeConge}`
+          ? `Modifier les dates du congé #${initialDemande.idDemandeConge}`
           : `Modifier la demande #${initialDemande.idDemandeConge}`)
         : "Nouvelle demande de congé ou d'absence"}
       icon={<Calendar className="w-5 h-5 text-[var(--color-brand-500)]" />}
       size="full"
-      className="max-w-[1380px] w-[95vw]"
+      className="max-w-5xl w-full"
       footer={
         <div className="flex items-center justify-between w-full">
           <span className="text-xs text-[var(--color-fg-subtle)]">
             <span className="text-[var(--color-danger-500)]">*</span> Champs obligatoires
           </span>
           <div className="flex items-center gap-3">
-            <Button type="button" variant="ghost" size="sm" onClick={onClose} className="rounded-none">
+            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
               Annuler
             </Button>
             <Button
@@ -98,9 +98,9 @@ export default function DemandeCongeModal({
               size="sm"
               loading={loading}
               onClick={(e) => handleSubmit(e, toast)}
-              className="rounded-none font-bold"
+              className="font-semibold"
             >
-              {loading ? 'Enregistrement…' : initialDemande?.idDemandeConge ? 'Enregistrer les modifications' : 'Soumettre la demande'}
+              {loading ? 'Enregistrement...' : initialDemande?.idDemandeConge ? 'Enregistrer les modifications' : 'Soumettre la demande'}
             </Button>
           </div>
         </div>
@@ -114,16 +114,16 @@ export default function DemandeCongeModal({
           </div>
         )}
 
-        {/* Layout 2 Colonnes : Formulaire ciblé (5 cols) et Grand Aperçu Gantt (7 cols) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Layout 2 Colonnes équilibré : Formulaire (7 cols) et Continuité de service (5 cols) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* Colonne Gauche (Formulaire de saisie) */}
-          <div className="lg:col-span-5 space-y-4">
+          <div className="lg:col-span-7 space-y-4">
             {/* Section 0 : Employé concerné */}
             {!idEmployeProp && (
               initialDemande ? (
                 <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] text-[var(--color-fg-subtle)] block uppercase font-bold tracking-wider">Employé concerné</span>
+                    <span className="text-[11px] text-[var(--color-fg-muted)] block font-medium">Employé concerné</span>
                     <span className="font-semibold text-sm text-[var(--color-fg)]">
                       {initialDemande.prenom} {initialDemande.nom} {initialDemande.matricule ? `(${initialDemande.matricule})` : ''}
                     </span>
@@ -256,25 +256,87 @@ export default function DemandeCongeModal({
               </div>
             </div>
 
-            {/* Section 4 : options RH propres à ce formulaire. */}
+            {/* Section 4 : options avancées */}
             <div className="border border-[var(--color-border-subtle)] mt-4">
-              <button type="button" onClick={() => setShowOptionsAvancees((value) => !value)} aria-expanded={showOptionsAvancees} className="w-full flex items-center justify-between px-4 py-3 text-left">
-                <span className="text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)] flex items-center gap-1.5"><ShieldAlert className="w-4 h-4 text-[var(--color-warning-500)]" />Options avancées</span>
-                <ChevronDown className={`w-4 h-4 text-[var(--color-fg-muted)] transition-transform ${showOptionsAvancees ? 'rotate-180' : ''}`} />
+              <button
+                type="button"
+                onClick={() => setShowOptionsAvancees((value) => !value)}
+                aria-expanded={showOptionsAvancees}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 text-left hover:bg-[var(--color-bg-subtle)] transition-colors"
+              >
+                <span className="text-xs font-semibold text-[var(--color-fg-muted)] flex items-center gap-1.5">
+                  <ShieldAlert className="w-3.5 h-3.5 text-[var(--color-warning-500)]" />
+                  Options avancées
+                </span>
+                <ChevronDown className={`w-3.5 h-3.5 text-[var(--color-fg-muted)] transition-transform ${showOptionsAvancees ? 'rotate-180' : ''}`} />
               </button>
               {showOptionsAvancees && (
-                <div className="px-4 pb-4 pt-1 border-t border-[var(--color-border-subtle)] space-y-3">
-                  {setEstRemunere && <label className="flex items-start gap-3 cursor-pointer p-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]"><input type="checkbox" checked={estRemunere ?? true} onChange={(event) => setEstRemunere(event.target.checked)} className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0" /><span className="text-sm font-medium text-[var(--color-fg)]">Congé rémunéré (indemnisé sur les droits acquis)<span className="block text-xs text-[var(--color-fg-muted)] mt-0.5 font-normal">Coché : l'absence donne droit à l'indemnité légale de congés payés. Décoché : congé sans solde.</span></span></label>}
-                  <label className="flex items-start gap-3 cursor-pointer"><input type="checkbox" checked={derogationSoldeNegatif} onChange={(event) => setDerogationSoldeNegatif(event.target.checked)} className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0" /><span className="text-sm text-[var(--color-fg)]">Autoriser le dépassement de solde (prise par anticipation)<span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">Autorise la demande même si le solde actuel est insuffisant ou si l'ancienneté est &lt; 1 an.</span></span></label>
-                  <label className="flex items-start gap-3 cursor-pointer"><input type="checkbox" checked={derogationDelaiPreavis} onChange={(event) => setDerogationDelaiPreavis(event.target.checked)} className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0" /><span className="text-sm text-[var(--color-fg)]">Dérogation de préavis<span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">Autorise le dépôt ou la validation si le délai de préavis habituel n'est pas respecté.</span></span></label>
-                  <label className="flex items-start gap-3 cursor-pointer"><input type="checkbox" checked={derogationContinuiteService} onChange={(event) => setDerogationContinuiteService(event.target.checked)} className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0" /><span className="text-sm text-[var(--color-fg)]">Continuité d'activité : autoriser les absences simultanées<span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">Autorise le congé même si d'autres collaborateurs occupant le même poste sont déjà absents.</span></span></label>
+                <div className="px-3.5 pb-3 pt-1 border-t border-[var(--color-border-subtle)] space-y-2.5 bg-[var(--color-surface)]">
+                  {setEstRemunere && (
+                    <label className="flex items-start gap-2.5 cursor-pointer p-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                      <input
+                        type="checkbox"
+                        checked={estRemunere ?? true}
+                        onChange={(event) => setEstRemunere(event.target.checked)}
+                        className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
+                      />
+                      <span className="text-xs font-medium text-[var(--color-fg)]">
+                        Congé rémunéré
+                        <span className="block text-[11px] text-[var(--color-fg-muted)] mt-0.5 font-normal">
+                          Coché : indemnité de congés payés. Décoché : congé sans solde.
+                        </span>
+                      </span>
+                    </label>
+                  )}
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={derogationSoldeNegatif}
+                      onChange={(event) => setDerogationSoldeNegatif(event.target.checked)}
+                      className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
+                    />
+                    <span className="text-xs text-[var(--color-fg)]">
+                      Autoriser le dépassement de solde (anticipation)
+                      <span className="block text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                        Valide la demande même si le solde disponible actuel est insuffisant.
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={derogationDelaiPreavis}
+                      onChange={(event) => setDerogationDelaiPreavis(event.target.checked)}
+                      className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
+                    />
+                    <span className="text-xs text-[var(--color-fg)]">
+                      Dérogation de préavis
+                      <span className="block text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                        Autorise la demande hors du délai légal ou conventionnel de préavis.
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={derogationContinuiteService}
+                      onChange={(event) => setDerogationContinuiteService(event.target.checked)}
+                      className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
+                    />
+                    <span className="text-xs text-[var(--color-fg)]">
+                      Dérogation de continuité d'activité
+                      <span className="block text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                        Autorise le congé malgré l'absence simultanée de collègues au même poste.
+                      </span>
+                    </span>
+                  </label>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Colonne Droite (Grand Aperçu Gantt & Continuité de Service) */}
-          <div className="lg:col-span-7 sticky top-2">
+          {/* Colonne Droite (Continuité de Service & Aperçu Planning) */}
+          <div className="lg:col-span-5 sticky top-2">
             <ConflitsPostePreview
               conflitReport={conflitReport}
               checkingConflits={checkingConflits}

@@ -77,34 +77,31 @@ export default function ConflitsPostePreview({
   };
 
   return (
-    <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-4 flex flex-col h-full space-y-4">
+    <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3.5 flex flex-col space-y-3">
       {/* En-tête du panneau */}
-      <div className="border-b border-[var(--color-border-subtle)] pb-2.5">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
-          <Users className="w-4 h-4 text-brand-600" />
-          Aperçu Gantt & Continuité de Service
+      <div className="border-b border-[var(--color-border-subtle)] pb-2 flex items-center justify-between">
+        <h4 className="text-xs font-semibold text-[var(--color-fg)] flex items-center gap-1.5">
+          <Users className="w-3.5 h-3.5 text-brand-600" />
+          Continuité de service
         </h4>
-        <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-          Superposition en temps réel avec le planning des collaborateurs du même poste
-        </p>
+        <span className="text-[11px] text-[var(--color-fg-muted)]">Planning poste</span>
       </div>
 
       {/* Chargement */}
       {checkingConflits && (
-        <div className="flex items-center gap-2 p-3 bg-brand-500/10 border border-brand-500/20 text-brand-700 dark:text-brand-300 text-xs animate-pulse">
+        <div className="flex items-center gap-2 p-2.5 bg-brand-500/10 border border-brand-500/20 text-brand-700 dark:text-brand-300 text-xs">
           <Clock className="w-3.5 h-3.5 animate-spin" />
-          <span>Analyse du planning d'équipe et des quorums…</span>
+          <span>Vérification du planning d'équipe...</span>
         </div>
       )}
 
       {/* Si aucune date */}
       {!hasDates && !checkingConflits && (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-[var(--color-fg-subtle)] space-y-2">
-          <Calendar className="w-8 h-8 opacity-40" />
-          <p className="text-xs font-semibold">Sélectionnez les dates pour afficher le comparatif d'équipe</p>
-          <span className="text-[11px] opacity-75">
-            Le planning du demandeur et des collègues du même poste s'affichera sous forme de frise chronologique.
-          </span>
+        <div className="flex flex-col items-center justify-center text-center p-6 text-[var(--color-fg-subtle)] space-y-1 bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
+          <Calendar className="w-5 h-5 opacity-40 mb-1" />
+          <p className="text-xs font-medium text-[var(--color-fg-muted)]">
+            Indiquez les dates pour afficher le comparatif d'équipe
+          </p>
         </div>
       )}
 
@@ -256,66 +253,66 @@ export default function ConflitsPostePreview({
           {conflitReport?.conflitPoste ? (
             <div className="p-3 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 text-[var(--color-fg)] space-y-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 font-bold text-xs text-[var(--color-warning-600)]">
+                <div className="flex items-center gap-1.5 font-semibold text-xs text-[var(--color-warning-600)]">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>Collision de poste détectée</span>
+                  <span>Absence simultanée au même poste</span>
                 </div>
                 {conflitReport.nomFonction && (
-                  <Badge variant="warning" size="xs" className="font-bold uppercase tracking-wider">
+                  <Badge variant="warning" size="xs">
                     {conflitReport.nomFonction}
                   </Badge>
                 )}
               </div>
 
-              <p className="text-[11px] leading-relaxed text-[var(--color-fg-muted)]">
-                {conflitReport.colleguesAbsents?.length || 1} collaborateur(s) du même poste sont simultanément absents.
+              <p className="text-[11px] leading-normal text-[var(--color-fg-muted)]">
+                {conflitReport.colleguesAbsents?.length || 1} collègue(s) également planifié(s) absent(s) sur cette période.
               </p>
 
-              <label className="flex items-start gap-2.5 pt-1 mt-1 border-t border-[var(--color-warning-500)]/30 cursor-pointer">
+              <label className="flex items-start gap-2 pt-1 border-t border-[var(--color-warning-500)]/30 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={derogationContinuiteService}
                   onChange={(e) => setDerogationContinuiteService(e.target.checked)}
                   className="w-4 h-4 mt-0.5 accent-[var(--color-brand-600)] cursor-pointer shrink-0"
                 />
-                <span className="text-[11.5px] font-bold text-[var(--color-fg)]">
-                  Accorder une dérogation exceptionnelle de continuité de service
+                <span className="text-xs font-medium text-[var(--color-fg)]">
+                  Dérogation de continuité de service
                   <span className="block text-[10.5px] font-normal text-[var(--color-fg-muted)]">
-                    Confirme que l'impact d'absence simultanée a été instruit et validé.
+                    Confirme la validation de l'absence simultanée.
                   </span>
                 </span>
               </label>
             </div>
           ) : (
-            <div className="p-3 bg-[var(--color-success-500)]/10 border border-[var(--color-success-500)]/30 text-[var(--color-fg)] space-y-1">
-              <div className="flex items-center gap-2 font-bold text-xs text-[var(--color-success-600)]">
+            <div className="p-2.5 bg-[var(--color-success-500)]/10 border border-[var(--color-success-500)]/30 text-[var(--color-fg)] space-y-0.5">
+              <div className="flex items-center gap-1.5 font-semibold text-xs text-[var(--color-success-600)]">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>Continuité de service assurée</span>
               </div>
               <p className="text-[11px] text-[var(--color-fg-muted)]">
-                Aucun autre collaborateur au poste {conflitReport?.nomFonction ? `« ${conflitReport.nomFonction} »` : 'associé'} n'est absent sur ces dates.
+                Aucun autre collaborateur au même poste n'est absent sur ces dates.
               </p>
             </div>
           )}
 
-          {/* Décompte légal détaillé */}
+          {/* Décompte légal */}
           <div className="grid grid-cols-3 gap-2 mt-auto">
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2 text-center">
-              <span className="block text-[10px] uppercase font-bold text-[var(--color-fg-muted)]">Ouvrés</span>
-              <span className="text-sm font-bold text-[var(--color-fg)] font-mono">
-                {conflitReport?.nbJoursOuvres ?? 0}j
+              <span className="block text-[10px] font-medium text-[var(--color-fg-muted)]">Ouvrés</span>
+              <span className="text-xs font-bold text-[var(--color-fg)] font-mono">
+                {conflitReport?.nbJoursOuvres ?? 0} j
               </span>
             </div>
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2 text-center">
-              <span className="block text-[10px] uppercase font-bold text-[var(--color-fg-muted)]">Week-ends</span>
-              <span className="text-sm font-bold text-[var(--color-fg-muted)] font-mono">
-                {conflitReport?.nbJoursWeekEnd ?? 0}j
+              <span className="block text-[10px] font-medium text-[var(--color-fg-muted)]">Week-ends</span>
+              <span className="text-xs font-bold text-[var(--color-fg-muted)] font-mono">
+                {conflitReport?.nbJoursWeekEnd ?? 0} j
               </span>
             </div>
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2 text-center">
-              <span className="block text-[10px] uppercase font-bold text-[var(--color-fg-muted)]">Fériés</span>
-              <span className="text-sm font-bold text-warning-600 font-mono">
-                {conflitReport?.nbJoursFeries ?? 0}j
+              <span className="block text-[10px] font-medium text-[var(--color-fg-muted)]">Fériés</span>
+              <span className="text-xs font-bold text-warning-600 font-mono">
+                {conflitReport?.nbJoursFeries ?? 0} j
               </span>
             </div>
           </div>

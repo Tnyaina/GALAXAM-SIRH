@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Plus, CalendarDays, ExternalLink, SlidersHorizontal, Eye, Search, Download, MoreHorizontal } from 'lucide-react';
 import congeService from '@/features/leave/api/congeService';
@@ -27,7 +27,7 @@ const ExportEtatCongesModal = lazy(() => import('@/features/leave/components/Exp
 const CongeExpirationReviewCard = lazy(() => import('@/features/leave/components/CongeExpirationReviewCard'));
 
 const formatDateOnly = (dateString) => {
-  if (!dateString) return '—';
+  if (!dateString) return '-';
   return new Date(dateString).toLocaleDateString('fr-FR');
 };
 
@@ -68,6 +68,24 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
   // Confirm Dialog for Annulation
   const [selectedDemande, setSelectedDemande] = useState(null);
   const [confirmAnnulerState, setConfirmAnnulerState] = useState({ isOpen: false, idDemande: null });
+
+  // Menu déroulant "Autres actions"
+  const [menuActionsOpen, setMenuActionsOpen] = useState(false);
+  const menuActionsRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuActionsRef.current && !menuActionsRef.current.contains(e.target)) {
+        setMenuActionsOpen(false);
+      }
+    };
+    if (menuActionsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [menuActionsOpen]);
 
   const loadData = async () => {
     try {
@@ -192,7 +210,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
         <div>
           <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
             <CalendarDays size={15} className="text-[var(--color-brand-500)]" />
-            Situation Individuelle des Congés &amp; Absences
+            Situation des congés et absences
           </h3>
           <p className="text-xs text-[var(--color-fg-subtle)] mt-0.5">
             Solde, demandes et historique du collaborateur
@@ -200,16 +218,57 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <details className="relative group">
-            <summary className="list-none cursor-pointer inline-flex items-center gap-2 min-h-[30px] px-3 border border-[var(--color-border)] text-xs font-semibold uppercase text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]">
-              <MoreHorizontal size={16} /> Autres actions
-            </summary>
-            <div className="absolute right-0 top-full mt-1 z-20 min-w-52 p-1 border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg flex flex-col items-stretch gap-1">
-              <Button variant="ghost" size="sm" onClick={() => setShowExportModal(true)} iconLeft={<Download size={14} />} className="justify-start">Bilan annuel Excel</Button>
-              {canWrite && <Button variant="ghost" size="sm" onClick={() => setShowInitModal(true)} iconLeft={<SlidersHorizontal size={14} />} className="justify-start">Initialiser le solde</Button>}
-              <Button variant="ghost" size="sm" onClick={() => navigate('/conges')} iconLeft={<ExternalLink size={14} />} className="justify-start">Module Congés</Button>
+          <div className="relative" ref={menuActionsRef}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMenuActionsOpen((v) => !v)}
+              iconLeft={<MoreHorizontal size={15} />}
+              aria-expanded={menuActionsOpen}
+            >
+              Autres actions
+            </Button>
+            <div className={`absolute right-0 top-full mt-1 z-30 min-w-48 p-1 border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg flex flex-col items-stretch gap-0.5 ${menuActionsOpen ? '' : 'hidden'}`}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setMenuActionsOpen(false);
+                  setShowExportModal(true);
+                }}
+                iconLeft={<Download size={14} />}
+                className="justify-start text-xs"
+              >
+                Bilan annuel Excel
+              </Button>
+              {canWrite && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setMenuActionsOpen(false);
+                    setShowInitModal(true);
+                  }}
+                  iconLeft={<SlidersHorizontal size={14} />}
+                  className="justify-start text-xs"
+                >
+                  Initialiser le solde
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setMenuActionsOpen(false);
+                  navigate('/conges');
+                }}
+                iconLeft={<ExternalLink size={14} />}
+                className="justify-start text-xs"
+              >
+                Module Congés
+              </Button>
             </div>
-          </details>
+          </div>
           {canWrite && (
             <Button variant="primary" size="sm" onClick={() => { setSelectedDemande(null); setShowDemandeModal(true); }} iconLeft={<Plus size={15} />}>
               Poser un congé
@@ -254,7 +313,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--color-border-subtle)]">
             <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
               <Calendar size={14} className="text-[var(--color-brand-500)]" />
-              Historique des Demandes de Congé
+              Historique des demandes de congé
             </h4>
             <div className="flex items-center gap-3">
               <span className="text-xs text-[var(--color-fg-subtle)] font-mono">

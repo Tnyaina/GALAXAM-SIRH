@@ -19,7 +19,7 @@ import { formatMoneyAr } from '@/utils/moneyUtils';
 
 const formatDateMouvement = (dateVal, fallbackTimestamp) => {
   const target = dateVal || fallbackTimestamp;
-  if (!target) return '—';
+  if (!target) return '-';
   const date = new Date(target);
   if (isNaN(date.getTime())) return String(target);
   return date.toLocaleDateString('fr-FR', {
@@ -357,11 +357,11 @@ export default function MouvementsSoldeTable({
                           {m.soldeApres >= 0 ? `+${Number(m.soldeApres).toFixed(2)}` : Number(m.soldeApres).toFixed(2)} j
                         </span>
                       ) : (
-                        <span className="text-[var(--color-fg-subtle)] font-normal">—</span>
+                        <span className="text-[var(--color-fg-subtle)] font-normal">-</span>
                       )}
                     </Td>
                     <Td className="text-xs text-[var(--color-fg)]">
-                      {m.commentaire || '—'}
+                      {m.commentaire || '-'}
                     </Td>
                     <Td className="font-mono text-xs text-[var(--color-fg-subtle)]">
                       {m.createdBy ? `Admin (${m.createdBy})` : 'Système Auto'}
@@ -396,7 +396,7 @@ export default function MouvementsSoldeTable({
           setShowModalAjustement(false);
           setError(null);
         }}
-        title="Ajustement Manuel du Solde"
+        title="Ajustement du solde"
         icon={<PlusCircle className="w-5 h-5 text-[var(--color-brand-500)]" />}
         size="md"
         footer={
@@ -404,7 +404,7 @@ export default function MouvementsSoldeTable({
             <Button
               type="button"
               variant="outline"
-              size="xs"
+              size="sm"
               onClick={() => {
                 setShowModalAjustement(false);
                 setError(null);
@@ -416,10 +416,10 @@ export default function MouvementsSoldeTable({
               type="submit"
               form="form-ajustement-solde"
               variant="primary"
-              size="xs"
+              size="sm"
               loading={loading}
             >
-              Valider l'Ajustement
+              Valider l'ajustement
             </Button>
           </div>
         }
@@ -430,31 +430,28 @@ export default function MouvementsSoldeTable({
           )}
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-1">
-              Nombre de jours à ajouter / déduire
+            <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
+              Nombre de jours (positif ou négatif) *
             </label>
             <Input
               type="number"
               step="0.5"
               value={nbJours}
               onChange={(e) => setNbJours(e.target.value)}
-              placeholder="Ex : +1.5 ou -2"
+              placeholder="Ex. +1.5 ou -2"
               required
               className="font-mono text-sm"
             />
-            <p className="text-[11px] text-[var(--color-fg-subtle)] mt-1">
-              Nombre positif pour créditer des jours, négatif pour déduire.
-            </p>
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-1">
-              Motif / Justification réglementaire
+            <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
+              Motif réglementaire *
             </label>
             <Textarea
               value={commentaire}
               onChange={(e) => setCommentaire(e.target.value)}
-              placeholder="Justification RH obligatoire (ex: régularisation fin de contrat, rachat...)"
+              placeholder="Régularisation, fin de contrat, rachat..."
               rows={3}
               required
             />

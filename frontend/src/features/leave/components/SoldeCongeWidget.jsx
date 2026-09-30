@@ -34,7 +34,7 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, cons
       <div className="grid gap-3 lg:grid-cols-[minmax(15rem,1fr)_minmax(0,2fr)]">
         <StatCard
           title="Solde disponible"
-          value={soldeNumber == null ? '—' : `${soldeNumber > 0 ? '+' : ''}${formatJours(soldeNumber)} j`}
+          value={soldeNumber == null ? '-' : `${soldeNumber > 0 ? '+' : ''}${formatJours(soldeNumber)} j`}
           icon={<Calendar size={20} />}
           color={soldeNumber != null && soldeNumber < 0 ? 'danger' : 'brand'}
           subtext={soldeSubtext}
@@ -72,21 +72,21 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, cons
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <StatCard
               title="Droits acquis"
-              value={acquis == null ? '—' : `${formatJours(acquis)} j`}
+              value={acquis == null ? '-' : `${formatJours(acquis)} j`}
               icon={<Clock size={18} />}
               color="neutral"
               subtext={bonification != null && Number(bonification) > 0 ? `Bonification : ${formatJours(bonification)} j` : 'Droits cumulés'}
             />
             <StatCard
               title="Congés pris"
-              value={pris == null ? '—' : `${formatJours(pris)} j`}
+              value={pris == null ? '-' : `${formatJours(pris)} j`}
               icon={<ArrowDownCircle size={18} />}
               color="neutral"
               subtext={expire != null && Number(expire) > 0 ? `Droits expirés : ${formatJours(expire)} j` : 'Absences validées'}
             />
             <StatCard
               title="Événements familiaux"
-              value={pool ? `${formatJours(pool.joursConsommes)} / ${formatJours(pool.plafond)} j` : '—'}
+              value={pool ? `${formatJours(pool.joursConsommes)} / ${formatJours(pool.plafond)} j` : '-'}
               icon={<ShieldAlert size={18} />}
               color="neutral"
               subtext={pool ? `${formatJours(pool.joursEnAttente)} j réservés · ${formatJours(pool.joursEngages)} j engagés` : 'Quota non initialisé'}
@@ -95,7 +95,7 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, cons
           {(sourceTaux || cycle) && (
             <div className="grid sm:grid-cols-2 gap-2 text-xs text-[var(--color-fg-muted)]">
               {sourceTaux && <p>Source du taux : <strong className="text-[var(--color-fg)]">{sourceTaux}</strong></p>}
-              {cycle && <p>Cycle : <strong className="text-[var(--color-fg)]">{cycle.statut || '—'}</strong>
+              {cycle && <p>Cycle : <strong className="text-[var(--color-fg)]">{cycle.statut || '-'}</strong>
                 {cycle.modeReprise ? ` · Reprise ${cycle.openingComplete ? 'complète' : 'partielle'}` : ''}</p>}
               {cycle?.cumulDroitsTotal != null && <p>Droits du cycle : <strong className="text-[var(--color-fg)]">{formatJours(cycle.cumulDroitsTotal)} j</strong></p>}
               {cycle?.tauxProjection != null && <p>Taux projeté : <strong className="text-[var(--color-fg)]">{formatMoneyAr(cycle.tauxProjection)} / jour</strong></p>}

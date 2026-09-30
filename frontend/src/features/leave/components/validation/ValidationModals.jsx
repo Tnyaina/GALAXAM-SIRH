@@ -247,7 +247,7 @@ export default function ValidationModals({
                 <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                   <span className="text-[10px] text-[var(--color-fg-muted)] block">Solde Avant</span>
                   <span className="font-mono font-bold text-xs text-[var(--color-fg)]">
-                    {soldeAvant != null ? `${Number(soldeAvant).toFixed(2)} j` : '—'}
+                    {soldeAvant != null ? `${Number(soldeAvant).toFixed(2)} j` : '-'}
                   </span>
                 </div>
                 <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
@@ -259,7 +259,7 @@ export default function ValidationModals({
                 <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                   <span className="text-[10px] text-[var(--color-fg-muted)] block">Jours Débités</span>
                   <span className="font-mono font-bold text-xs text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                    {joursDebites != null ? `-${Number(joursDebites).toFixed(2)} j` : '—'}
+                    {joursDebites != null ? `-${Number(joursDebites).toFixed(2)} j` : '-'}
                   </span>
                 </div>
                 <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
@@ -325,7 +325,7 @@ export default function ValidationModals({
               <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                 <span className="text-[10px] text-[var(--color-fg-muted)] block">Solde Avant</span>
                 <span className="font-mono font-bold text-xs text-[var(--color-fg)]">
-                  {soldeAvant != null ? `${Number(soldeAvant).toFixed(2)} j` : '—'}
+                  {soldeAvant != null ? `${Number(soldeAvant).toFixed(2)} j` : '-'}
                 </span>
               </div>
               <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
@@ -337,7 +337,7 @@ export default function ValidationModals({
               <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
                 <span className="text-[10px] text-[var(--color-fg-muted)] block">Débités</span>
                 <span className="font-mono font-bold text-xs text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                  {joursDebites != null ? `-${Number(joursDebites).toFixed(2)} j` : '—'}
+                  {joursDebites != null ? `-${Number(joursDebites).toFixed(2)} j` : '-'}
                 </span>
               </div>
               <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">

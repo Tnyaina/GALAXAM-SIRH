@@ -151,7 +151,7 @@ export default function DemandeDetailsModal({
               Date de demande
             </span>
             <p className="font-mono text-xs text-[var(--color-fg-muted)] mt-1">
-              {demande.dateDemande ? fmtDate(demande.dateDemande) : '—'}
+              {demande.dateDemande ? fmtDate(demande.dateDemande) : '-'}
             </p>
           </div>
 
@@ -207,7 +207,7 @@ export default function DemandeDetailsModal({
         <div className="flex items-center justify-between pt-2 border-t border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-muted)]">
           <span>Justificatif légal :</span>
           <span className="font-semibold text-[var(--color-fg)]">
-            {demande.justificatifFourni ? '✓ Fourni' : '— Non exigé ou en attente'}
+            {demande.justificatifFourni ? '✓ Fourni' : 'Non exigé ou en attente'}
           </span>
         </div>
       </div>
