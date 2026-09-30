@@ -118,7 +118,18 @@ export default function PayrollCampaignShell({
                                 placeholder="Rechercher une période…"
                                 value={activePeriod?.id || ''}
                                 onChange={(newId) => {
-                                    if (newId) navigate(`/paie/periodes/${newId}/${activeStep ? activeStep.toLowerCase() : 'preparation'}`);
+                                    if (newId) {
+                                        const stepSegment = {
+                                            CALCULATION: 'calcul',
+                                            OUTPUTS: 'sorties',
+                                            CONTROL: 'controle',
+                                            PREPARATION: 'preparation',
+                                            POPULATION: 'population',
+                                            VARIABLES: 'variables',
+                                            VALIDATION: 'validation',
+                                        }[activeStep] || (activeStep ? activeStep.toLowerCase() : 'preparation');
+                                        navigate(`/paie/periodes/${newId}/${stepSegment}`);
+                                    }
                                 }}
                                 className="w-56"
                                 options={periodes.map(p => {

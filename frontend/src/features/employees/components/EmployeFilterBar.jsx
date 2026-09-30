@@ -79,25 +79,13 @@ export default function EmployeFilterBar({
             }))
     ], [filteredServices]);
 
-    const sortOptions = useMemo(() => [
-        { value: 'HIERARCHICAL', label: 'Tri : Département → Service → Nom' },
-        { value: 'SITE_SERVICE', label: 'Tri : Site → Service → Nom' },
-        { value: 'NOM_ASC', label: 'Tri : Nom (A → Z)' },
-        { value: 'NOM_DESC', label: 'Tri : Nom (Z → A)' },
-        { value: 'MATRICULE_ASC', label: 'Tri : Matricule (0 → 9)' },
-        { value: 'MATRICULE_DESC', label: 'Tri : Matricule (9 → 0)' },
-        { value: 'ANCIENNETE_DESC', label: 'Tri : Ancienneté (Anciens)' },
-        { value: 'ANCIENNETE_ASC', label: 'Tri : Ancienneté (Récents)' },
-        { value: 'COLUMN', label: 'Tri : colonne sélectionnée', estActif: false },
-    ], []);
-
     // Rendu
     return (
         <div className="p-3 sm:p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-3 font-sans shadow-2xs">
-            {/* Grille principale : 6 colonnes symétriques sur desktop */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5 items-center">
-                {/* 1. Recherche globale avec bouton clear */}
-                <div className="relative">
+            {/* Ligne principale : Recherche à gauche, espace libre, filtres alignés à droite */}
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+                {/* 1. Recherche globale avec bouton clear (à gauche) */}
+                <div className="relative w-full lg:w-72 xl:w-80 shrink-0">
                     <Input
                         type="text"
                         value={searchQuery}
@@ -119,48 +107,51 @@ export default function EmployeFilterBar({
                     )}
                 </div>
 
-                {/* 2. Filtre Statut */}
-                <Select
-                    value={statusFilter}
-                    onChange={(val) => onStatusFilterChange(val)}
-                    options={statusOptions}
-                    className="py-1.5 text-xs"
-                />
+                {/* 2. Filtres déplacés vers la droite avec espacement */}
+                <div className="flex flex-1 flex-wrap items-center justify-start lg:justify-end gap-2.5">
+                    {/* Filtre Statut */}
+                    <div className="w-full sm:w-auto min-w-[130px]">
+                        <Select
+                            value={statusFilter}
+                            onChange={(val) => onStatusFilterChange(val)}
+                            options={statusOptions}
+                            className="py-1.5 text-xs w-full"
+                        />
+                    </div>
 
-                {/* 3. Filtre Site */}
-                <Select
-                    value={siteFilter}
-                    onChange={(val) => onSiteFilterChange(val)}
-                    options={siteOptions}
-                    className="py-1.5 text-xs"
-                />
+                    {/* Filtre Site */}
+                    <div className="w-full sm:w-auto min-w-[150px]">
+                        <Select
+                            value={siteFilter}
+                            onChange={(val) => onSiteFilterChange(val)}
+                            options={siteOptions}
+                            className="py-1.5 text-xs w-full"
+                        />
+                    </div>
 
-                {/* 4. Filtre Département */}
-                <Select
-                    value={departementFilter}
-                    onChange={(val) => {
-                        onDepartementFilterChange(val);
-                        onServiceFilterChange('');
-                    }}
-                    options={deptOptions}
-                    className="py-1.5 text-xs"
-                />
+                    {/* Filtre Département */}
+                    <div className="w-full sm:w-auto min-w-[160px]">
+                        <Select
+                            value={departementFilter}
+                            onChange={(val) => {
+                                onDepartementFilterChange(val);
+                                onServiceFilterChange('');
+                            }}
+                            options={deptOptions}
+                            className="py-1.5 text-xs w-full"
+                        />
+                    </div>
 
-                {/* 5. Filtre Service */}
-                <Select
-                    value={serviceFilter}
-                    onChange={(val) => onServiceFilterChange(val)}
-                    options={serviceOptions}
-                    className="py-1.5 text-xs"
-                />
-
-                {/* 6. Ordre de Tri */}
-                <Select
-                    value={sortPreset}
-                    onChange={(val) => onSortPresetChange(val)}
-                    options={sortOptions}
-                    className="py-1.5 text-xs"
-                />
+                    {/* Filtre Service */}
+                    <div className="w-full sm:w-auto min-w-[150px]">
+                        <Select
+                            value={serviceFilter}
+                            onChange={(val) => onServiceFilterChange(val)}
+                            options={serviceOptions}
+                            className="py-1.5 text-xs w-full"
+                        />
+                    </div>
+                </div>
             </div>
 
             {/* Barre de synthèse & Badges de filtres actifs amovibles */}

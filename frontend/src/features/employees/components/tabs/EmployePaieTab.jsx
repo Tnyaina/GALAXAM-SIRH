@@ -238,7 +238,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                     <EmptyState title="Aucun mouvement de paie" description="Aucun acompte, avance, prime ou note de frais n'a ete enregistre pour ce salarie." />
                 ) : (
                     <div className="space-y-2">
-                        <p className="text-[11px] text-[var(--color-fg-muted)] italic">Lecture seule — saisie via la campagne de paie</p>
+                        <p className="text-[11px] text-[var(--color-fg-muted)] ">Lecture seule — saisie via la campagne de paie</p>
                         <div className="overflow-x-auto -mx-4">
                             <Table className="w-full text-xs">
                                 <Thead>

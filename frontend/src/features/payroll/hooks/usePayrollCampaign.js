@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
+import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 
 /**
@@ -47,14 +48,29 @@ export function usePayrollCampaign(requestedPeriodId = null) {
 
             if (abortRef.current !== token) return; // réponse obsolète
 
-            setPeriodes(Array.isArray(allPeriodes) ? allPeriodes : []);
-            setContext(ctx || null);
-
             // Résoudre l'ID sélectionné depuis le contexte si pas fourni en URL
             const resolvedId = periodeId
                 || ctx?.selectedPeriod?.id
                 || ctx?.currentPeriod?.id
                 || null;
+
+            let populationCount = ctx?.populationCount ?? null;
+            if (resolvedId && populationCount == null) {
+                try {
+                    const cockpit = await paieService.getCockpitPeriode(resolvedId, { light: true });
+                    populationCount = cockpit?.populationPage?.totalElements
+                        ?? cockpit?.readiness?.effectifAttendu
+                        ?? cockpit?.validationSummary?.population
+                        ?? (Array.isArray(cockpit?.population) ? cockpit.population.length : null);
+                } catch {
+                    // Non bloquant : l'affichage fallback sera appliqué
+                }
+            }
+
+            const enrichedCtx = ctx ? { ...ctx, populationCount } : null;
+
+            setPeriodes(Array.isArray(allPeriodes) ? allPeriodes : []);
+            setContext(enrichedCtx);
             setSelectedPeriodeId(resolvedId);
         } catch (err) {
             if (abortRef.current !== token) return;

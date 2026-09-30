@@ -58,7 +58,18 @@ export default function GestionPaiePage() {
     const currentStepCode = context?.currentStep;
     const currentStepObj = campaignSteps.find(s => s.code === currentStepCode);
     const recalcRequired = context?.recalculationRequired === true;
-    const blockers = context?.issues || [];
+    // Les issues comme 'PAYROLL_NOT_CALCULATED' concernent la validation finale des bulletins.
+    // À l'étape Préparation / Population / Variables, ce n'est pas un blocage actif de la campagne
+    // mais le déroulement normal du workflow (la paie n'a tout simplement pas encore été calculée).
+    const activeBlockers = useMemo(() => {
+        const issues = context?.issues || [];
+        return issues.filter(issue => {
+            if (['PAYROLL_NOT_CALCULATED', 'PAYROLL_ALREADY_VALIDATED'].includes(issue?.code)) {
+                return currentStepCode === 'VALIDATION';
+            }
+            return true;
+        });
+    }, [context?.issues, currentStepCode]);
 
     // Effets
     useEffect(() => {
@@ -67,8 +78,10 @@ export default function GestionPaiePage() {
         } else if (rawTab === 'bulletins') {
             const suffix = requestedPeriodId ? `/paie/periodes/${requestedPeriodId}/controle` : '/paie';
             navigate(suffix, { replace: true });
+        } else if (rawTab === 'variables' && activePeriod?.id) {
+            navigate(`/paie/periodes/${activePeriod.id}/variables`, { replace: true });
         }
-    }, [rawTab, navigate, requestedPeriodId]);
+    }, [rawTab, navigate, requestedPeriodId, activePeriod?.id]);
 
     // Chargements
     const loadPeriodKpis = useCallback(async (periodId) => {
@@ -79,12 +92,17 @@ export default function GestionPaiePage() {
         setKpiLoading(true);
         try {
             const cockpitData = await paieService.getCockpitPeriode(periodId, { size: 1 });
-            if (cockpitData?.kpis) {
+            if (cockpitData) {
+                const popCount = cockpitData.populationPage?.totalElements
+                    ?? cockpitData.readiness?.effectifAttendu
+                    ?? cockpitData.validationSummary?.population
+                    ?? (Array.isArray(cockpitData.population) ? cockpitData.population.length : null);
                 setPeriodKpis({
-                    totalBulletins: cockpitData.kpis.totalBulletins ?? 0,
-                    totalBrut: cockpitData.kpis.totalBrut ?? cockpitData.kpis.masseSalarialeBrute ?? 0,
-                    totalNet: cockpitData.kpis.totalNetAPayer ?? cockpitData.kpis.masseNetAPayer ?? 0,
-                    totalAlertes: cockpitData.readiness?.nbAnomalies ?? cockpitData.kpis.nbAlertes ?? 0,
+                    totalBulletins: cockpitData.kpis?.totalBulletins ?? cockpitData.bulletinsPage?.totalElements ?? 0,
+                    totalBrut: cockpitData.kpis?.totalBrut ?? cockpitData.kpis?.masseSalarialeBrute ?? 0,
+                    totalNet: cockpitData.kpis?.totalNetAPayer ?? cockpitData.kpis?.masseNetAPayer ?? 0,
+                    totalAlertes: cockpitData.readiness?.nbAnomalies ?? cockpitData.kpis?.nbAlertes ?? 0,
+                    populationCount: popCount,
                 });
             } else {
                 setPeriodKpis(null);
@@ -172,16 +190,28 @@ export default function GestionPaiePage() {
     if (rawTab === 'variables') {
         const addVariableCapability = context?.availableActions?.ADD_VARIABLE;
         return (
-            <Suspense fallback={<SkeletonTable rows={6} cols={6} />}>
-                <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
-                    <VariablesPaieTab
-                        idPeriodeActive={activePeriod?.id}
-                        canMutate={addVariableCapability?.allowed === true}
-                        mutationDisabledReason={(addVariableCapability?.reasonCodes || []).join(', ') || 'La période est en lecture seule.'}
-                        onVariableChanged={() => activePeriod?.id && loadPeriodKpis(activePeriod.id)}
-                    />
-                </div>
-            </Suspense>
+            <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-12 px-2 sm:px-4">
+                <SEO
+                    title="Variables de Paie | GALAXAM SIRH"
+                    description="Gestion des primes, acomptes et retenues par salarié."
+                />
+                <PageHeader
+                    title="Variables de paie"
+                    subtitle="Consultez et préparez les primes et retenues par salarié avant le calcul de la campagne."
+                    icon={SlidersHorizontal}
+                    breadcrumbs={[{ label: 'Paie', href: '/paie' }, { label: 'Variables de paie' }]}
+                />
+                <Suspense fallback={<SkeletonTable rows={6} cols={6} />}>
+                    <div className="p-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
+                        <VariablesPaieTab
+                            idPeriodeActive={activePeriod?.id}
+                            canMutate={addVariableCapability?.allowed === true}
+                            mutationDisabledReason={(addVariableCapability?.reasonCodes || []).join(', ') || 'La période est en lecture seule.'}
+                            onVariableChanged={() => activePeriod?.id && loadPeriodKpis(activePeriod.id)}
+                        />
+                    </div>
+                </Suspense>
+            </div>
         );
     }
 
@@ -240,8 +270,14 @@ export default function GestionPaiePage() {
                             {recalcRequired && (
                                 <PayrollIssueBadge severity="WARNING" label="Calcul obsolète" />
                             )}
-                            {blockers.length > 0 && (
-                                <PayrollIssueBadge severity="BLOCKER" count={blockers.length} label="bloquant(s)" />
+                            {activeBlockers.length > 0 && (
+                                <PayrollIssueBadge
+                                    severity="BLOCKER"
+                                    count={activeBlockers.length}
+                                    label="bloquant(s)"
+                                    className="cursor-help"
+                                    title={activeBlockers.map(b => b.message).join('\n')}
+                                />
                             )}
                         </div>
 
@@ -250,7 +286,7 @@ export default function GestionPaiePage() {
                                 <span>
                                     Du <strong className="text-[var(--color-fg)]">{fmtDate(activePeriod.startDate)}</strong> au <strong className="text-[var(--color-fg)]">{fmtDate(activePeriod.endDate)}</strong>
                                 </span>
-                                <span>· Population : <strong className="text-[var(--color-fg)] font-mono">{activePeriod.employeeCount ?? context?.populationCount ?? '–'}</strong> salariés</span>
+                                <span>· Population : <strong className="text-[var(--color-fg)] font-mono">{periodKpis?.populationCount ?? context?.populationCount ?? activePeriod.employeeCount ?? '–'}</strong> salariés</span>
                                 {context?.snapshotPointageVersion && (
                                     <span>· Snapshot Pointage : <code className="font-mono text-[var(--color-brand-600)]">v{context.snapshotPointageVersion}</code></span>
                                 )}
@@ -391,10 +427,18 @@ export default function GestionPaiePage() {
                             <p className="text-xs text-[var(--color-fg-muted)]">acomptes et déductions</p>
                         </div>
                     </div>
-                    {(blockers.length > 0 || recalcRequired) && (
-                        <div className="px-4 py-3 bg-[var(--color-warning-500)]/10 text-xs text-[var(--color-fg)]">
-                            {recalcRequired ? 'Le calcul doit être relancé après les dernières modifications. ' : ''}
-                            {blockers.length > 0 ? `${blockers.length} point(s) bloquant(s) doivent être résolus avant validation.` : ''}
+                    {(activeBlockers.length > 0 || recalcRequired) && (
+                        <div className="px-4 py-3 bg-[var(--color-warning-500)]/10 text-xs text-[var(--color-fg)] space-y-1">
+                            {recalcRequired && (
+                                <p className="font-semibold text-[var(--color-warning-800)] dark:text-[var(--color-warning-300)]">
+                                    Le calcul doit être relancé après les dernières modifications.
+                                </p>
+                            )}
+                            {activeBlockers.map((blocker, idx) => (
+                                <p key={blocker.code || idx}>
+                                    • <strong className="text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]">{blocker.message}</strong>
+                                </p>
+                            ))}
                         </div>
                     )}
                 </section>

@@ -17,13 +17,16 @@ import { fmtMoney } from '@/utils/moneyUtils';
 import { getWorkflowLibellesUI, calculerDateFinEssaiContextuelle } from '@/features/employees/utils/carriereWorkflowUtils';
 
 function InfoRow({ label, value, highlight = false, badge = null }) {
+    const rawText = typeof value === 'string' ? value.trim() : value;
+    const hasValue = rawText !== null && rawText !== undefined && rawText !== '' && rawText !== '-' && rawText !== '—';
+
     return (
         <div className="py-1.5 flex justify-between items-center text-xs border-b border-[var(--color-border-subtle)] last:border-0">
-            <span className="text-[var(--color-fg-subtle)] font-medium">{label}</span>
+            <span className="text-[var(--color-fg-muted)] font-medium">{label}</span>
             <div className="flex items-center gap-2">
                 {badge && <span className="flex-shrink-0">{badge}</span>}
-                <span className={`font-semibold ${highlight ? 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] font-mono text-sm' : 'text-[var(--color-fg)]'}`}>
-                    {value || '-'}
+                <span className={`font-semibold ${highlight ? 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] font-mono text-sm' : hasValue ? 'text-[var(--color-fg)]' : 'text-[var(--color-fg-subtle)] font-normal'}`}>
+                    {hasValue ? value : 'Non renseigné'}
                 </span>
             </div>
         </div>
@@ -252,10 +255,10 @@ export default function WorkflowDraftSummaryModal({
                             <CheckCircle size={18} className="text-[var(--color-success-600)] flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
                                 <p className="font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
-                                    {isEmbauche ? 'Embauche Initiale Validée et Appliquée' : isConfirmationEssai ? 'Confirmation d\'Essai Validée avec Succès' : isRenouvellementEssai ? 'Renouvellement d\'Essai Validé et Appliqué' : 'Événement RH Validé et Actif'}
+                                    {isEmbauche ? 'Embauche initiale validée' : isConfirmationEssai ? 'Confirmation d\'essai validée' : isRenouvellementEssai ? 'Renouvellement d\'essai validé' : 'Événement RH validé et actif'}
                                 </p>
                                 <p className="text-[var(--color-fg-muted)]">
-                                    {isEmbauche ? 'Ce contrat d\'embauche a été validé. Le contrat et l\'affectation sont actifs.' : isConfirmationEssai ? 'La période d\'essai de cet employé a été confirmée et validée.' : isRenouvellementEssai ? 'Le renouvellement de l\'essai a été validé et la date de fin a été mise à jour en BDD.' : 'Ce mouvement RH est actuellement en vigueur dans le dossier de l\'employé.'}
+                                    {isEmbauche ? 'Contrat et affectation validés et actifs.' : isConfirmationEssai ? 'Période d\'essai levée.' : isRenouvellementEssai ? 'Échéance d\'essai mise à jour.' : 'Mouvement RH en vigueur.'}
                                 </p>
                             </div>
                         </div>
@@ -264,10 +267,10 @@ export default function WorkflowDraftSummaryModal({
                             <History size={18} className="text-[var(--color-fg-muted)] flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
                                 <p className="font-bold text-[var(--color-fg)]">
-                                    Mouvement RH Historisé (Passé)
+                                    Mouvement RH historisé
                                 </p>
                                 <p className="text-[var(--color-fg-muted)]">
-                                    Ce mouvement RH a été appliqué avec succès le {fmtDate(currentWf.dateEffet)}. Il est archivé dans l'historique suite à la prise d'effet d'un mouvement ultérieur.
+                                    Appliqué le {fmtDate(currentWf.dateEffet)}. Clôturé suite à une évolution ultérieure.
                                 </p>
                             </div>
                         </div>
@@ -276,7 +279,7 @@ export default function WorkflowDraftSummaryModal({
                             <XCircle size={18} className="text-[var(--color-danger-600)] flex-shrink-0 mt-0.5" />
                             <div className="text-xs space-y-1">
                                 <p className="font-bold text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)]">
-                                    Mouvement RH Annulé / Rejeté
+                                    Mouvement RH annulé
                                 </p>
                                 <p className="text-[var(--color-fg-muted)]">
                                     {currentWf.commentaire || currentWf.motif ? (
@@ -284,7 +287,7 @@ export default function WorkflowDraftSummaryModal({
                                             <span className="font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">Motif :</span> {currentWf.commentaire || currentWf.motif}
                                         </>
                                     ) : (
-                                        "Ce mouvement RH a été annulé et n'a produit aucun effet contractuel."
+                                        "Ce mouvement RH a été annulé sans effet contractuel."
                                     )}
                                 </p>
                                 {currentWf.updatedAt && (
@@ -301,27 +304,29 @@ export default function WorkflowDraftSummaryModal({
                         <div className="bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 p-4 rounded-none space-y-2">
                             <div className="flex justify-between items-center text-xs font-bold text-[var(--color-warning-800)] dark:text-[var(--color-warning-300)]">
                                 <span className="flex items-center gap-1.5">
-                                    <Clock size={16} /> Synthèse Période d'Essai — {currentWf.libelleTypeEvenement || 'Mouvement'}
+                                    <Clock size={16} /> Synthèse Période d'Essai
                                 </span>
                                 <Badge variant={isConfirmationEssai ? 'success' : isRenouvellementEssai ? 'warning' : 'primary'} size="sm">
-                                    {isConfirmationEssai ? 'ESSAI CONFIRMÉ' : isRenouvellementEssai ? 'ESSAI RENOUVELÉ' : 'PÉRIODE D\'ESSAI INITIALE'}
+                                    {isConfirmationEssai ? 'ESSAI CONFIRMÉ' : isRenouvellementEssai ? 'ESSAI RENOUVELÉ' : 'PÉRIODE D\'ESSAI'}
                                 </Badge>
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs pt-1 border-t border-[var(--color-warning-500)]/20">
                                 <div>
                                     <span className="text-[var(--color-fg-subtle)] text-[10px] block font-semibold uppercase">Durée d'Essai :</span>
-                                    <span className="font-bold text-[var(--color-fg)]">{currentWf.dureeEssaiMois || '-'} Mois</span>
+                                    <span className="font-bold text-[var(--color-fg)]">
+                                        {currentWf.dureeEssaiMois ? `${currentWf.dureeEssaiMois} mois` : 'Non renseignée'}
+                                    </span>
                                 </div>
                                 <div>
                                     <span className="text-[var(--color-fg-subtle)] text-[10px] block font-semibold uppercase">
-                                        {isEmbauche ? 'Fin d\'Essai Initiale :' : isRenouvellementEssai ? 'Nouvelle Fin d\'Essai :' : 'Date Fin d\'Essai :'}
+                                        {isEmbauche ? 'Fin d\'essai initiale :' : isRenouvellementEssai ? 'Nouvelle fin d\'essai :' : 'Échéance :'}
                                     </span>
                                     <span className="font-bold text-[var(--color-fg)]">
                                         {fmtDate(getDateFinEssaiContextuelle())}
                                     </span>
                                 </div>
                                 <div>
-                                    <span className="text-[var(--color-fg-subtle)] text-[10px] block font-semibold uppercase">Date de Prise d'Effet :</span>
+                                    <span className="text-[var(--color-fg-subtle)] text-[10px] block font-semibold uppercase">Prise d'Effet :</span>
                                     <span className="font-bold text-[var(--color-fg)]">{fmtDate(currentWf.dateEffet)}</span>
                                 </div>
                             </div>

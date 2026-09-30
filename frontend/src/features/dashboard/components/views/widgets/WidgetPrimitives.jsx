@@ -25,7 +25,7 @@ export function ExpandableList({ items = [], renderItem, initialCount = 5, maxHe
 
     return (
         <div className="space-y-1">
-            <div className={`${expanded ? `${maxHeight} overflow-y-auto pr-1` : ''} divide-y divide-[var(--color-border-subtle)]`}>
+            <div className={`${expanded ? `${maxHeight} overflow-y-auto overscroll-contain pr-1.5` : ''} divide-y divide-[var(--color-border-subtle)]`}>
                 {visible.map(renderItem)}
             </div>
             {hidden > 0 && !expanded && (

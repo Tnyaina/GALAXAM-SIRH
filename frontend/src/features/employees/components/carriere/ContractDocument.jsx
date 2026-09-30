@@ -44,12 +44,14 @@ export function ClauseDiff({ label, before, after, unit = '' }) {
             <span className="flex-1 border-b border-dotted border-[var(--color-border-subtle)] translate-y-[-3px]" />
             {changed ? (
                 <span className="whitespace-nowrap text-right tabular-nums">
-                    <span className="line-through text-[var(--color-fg-subtle)] mr-2 text-xs">{before || '—'}{unit}</span>
+                    <span className="line-through text-[var(--color-fg-subtle)] mr-2 text-xs font-normal">
+                        {before || 'Non renseigné'}{unit}
+                    </span>
                     <span className="font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] bg-[var(--color-brand-500)]/15 px-1.5 py-0.5 rounded-none">{after}{unit}</span>
                 </span>
             ) : (
-                <span className={`whitespace-nowrap text-right tabular-nums ${after ? 'font-semibold text-[var(--color-fg)]' : 'text-[var(--color-fg-subtle)]'}`}>
-                    {after || before || '……………'}{unit}
+                <span className={`whitespace-nowrap text-right tabular-nums ${after ? 'font-semibold text-[var(--color-fg)]' : 'text-[var(--color-fg-subtle)] font-normal'}`}>
+                    {after || before || 'Non renseigné'}{unit}
                 </span>
             )}
         </div>

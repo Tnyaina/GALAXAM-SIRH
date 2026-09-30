@@ -17,74 +17,74 @@ export default function ContratFieldsSection({
     return (
         <div className="space-y-4 font-sans">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] pb-1 border-b border-[var(--color-border-subtle)]">
-                1. Contrat de Travail
+                1. Contrat de travail
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Select
-                    label="Filiale d'Appartenance"
+                    label="Filiale employeuse"
                     required
                     value={formData.idFiliale}
                     onChange={(e) => setField('idFiliale', e.target.value)}
                 >
-                    <option value="">-- Sélectionner une filiale --</option>
+                    <option value="">Sélectionner une filiale</option>
                     {filiales.map((f, idx) => {
                         const idFil = f.idFiliale ?? idx;
                         return (
                             <option key={idFil} value={idFil}>
-                                {f.codeFiliale} — {f.raisonSociale}
+                                {f.codeFiliale} · {f.raisonSociale}
                             </option>
                         );
                     })}
                 </Select>
 
                 <Select
-                    label={lockTypeContrat ? "Type de Contrat (Imposé)" : "Type de Contrat"}
+                    label={lockTypeContrat ? "Type de contrat (imposé)" : "Type de contrat"}
                     required
                     disabled={lockTypeContrat}
                     value={formData.idTypeContrat}
                     onChange={(e) => setField('idTypeContrat', e.target.value)}
-                    hint={lockTypeContrat ? "Verrouillé automatiquement selon l'événement choisi" : undefined}
+                    hint={lockTypeContrat ? "Défini selon l'événement choisi" : undefined}
                 >
-                    <option value="">-- Sélectionner un type --</option>
+                    <option value="">Sélectionner un type</option>
                     {typesContrat.map((tc, idx) => {
                         const idTc = tc.idTypeContrat ?? idx;
                         return (
                             <option key={idTc} value={idTc}>
-                                {tc.code} — {tc.libelle}
+                                {tc.code} · {tc.libelle}
                             </option>
                         );
                     })}
                 </Select>
 
                 <Select
-                    label={lockTypeIntervenant ? "Type d'Intervenant (Imposé)" : "Type d'Intervenant"}
+                    label={lockTypeIntervenant ? "Type d'intervenant (imposé)" : "Type d'intervenant"}
                     required
                     disabled={lockTypeIntervenant}
                     value={formData.idTypeIntervenant}
                     onChange={(e) => setField('idTypeIntervenant', e.target.value)}
-                    hint={lockTypeIntervenant ? "Verrouillé automatiquement selon l'événement choisi" : undefined}
+                    hint={lockTypeIntervenant ? "Défini selon l'événement choisi" : undefined}
                 >
-                    <option value="">-- Sélectionner --</option>
+                    <option value="">Sélectionner un intervenant</option>
                     {typesIntervenant.map((ti, idx) => {
                         const idTi = ti.idTypeIntervenant ?? idx;
                         return (
                             <option key={idTi} value={idTi}>
-                                {ti.code} — {ti.libelle}
+                                {ti.code} · {ti.libelle}
                             </option>
                         );
                     })}
                 </Select>
 
                 <Input
-                    label="N° de Contrat"
+                    label="Numéro de contrat"
                     value={formData.numeroContrat}
                     onChange={(e) => setField('numeroContrat', e.target.value)}
-                    placeholder="Auto si vide (ex: CT-2026-001)"
-                    hint="Laissez vide pour auto-génération"
+                    placeholder="Généré automatiquement si vide"
+                    hint="Laisser vide pour génération automatique"
                 />
 
                 <Input
-                    label="Date de Début d'effet"
+                    label="Date de début"
                     type="date"
                     required
                     value={formData.dateDebut}
@@ -92,18 +92,18 @@ export default function ContratFieldsSection({
                 />
 
                 <Input
-                    label="Date de Fin"
+                    label="Date de fin"
                     type="date"
                     required={exigeDateFin}
                     disabled={!exigeDateFin}
                     min={formData.dateDebut || undefined}
                     value={exigeDateFin ? formData.dateFin : ''}
                     onChange={(e) => setField('dateFin', e.target.value)}
-                    hint={exigeDateFin ? "Obligatoire pour ce type de contrat" : "Non applicable pour un contrat à durée indéterminée"}
+                    hint={exigeDateFin ? "Obligatoire pour ce contrat" : undefined}
                 />
 
                 <Input
-                    label="Date de Signature"
+                    label="Date de signature"
                     type="date"
                     required
                     value={formData.dateSignature}

@@ -16,7 +16,6 @@ export default function HistoriqueWorkflowsTable({ workflowsList = [], onSelectW
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] flex items-center gap-2">
                     <Clock size={14} /> Historique des Événements &amp; Workflows RH ({workflowsList.length})
                 </h3>
-                <span className="text-[11px] text-[var(--color-fg-subtle)]">Cliquez sur une ligne pour afficher la fiche récapitulative</span>
             </div>
 
             {workflowsList.length === 0 ? (
@@ -69,14 +68,16 @@ export default function HistoriqueWorkflowsTable({ workflowsList = [], onSelectW
                                                 </Badge>
                                             )}
                                             <span className="font-mono font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">
-                                                {wf.numeroContratCible || wf.numeroContratSource || '-'}
+                                                {wf.numeroContratCible || wf.numeroContratSource || 'Nouveau'}
                                             </span>
                                         </div>
                                     </Td>
                                     <Td>
-                                        <div className="font-medium text-[var(--color-fg)]">{wf.libelleFonction || '-'}</div>
+                                        <div className="font-medium text-[var(--color-fg)]">
+                                            {wf.libelleFonction || <span className="text-[var(--color-fg-subtle)] font-normal">Non renseigné</span>}
+                                        </div>
                                         <div className="text-[11px] text-[var(--color-fg-subtle)]">
-                                            {wf.libelleSite || '-'}{wf.libelleDepartement ? ` · ${wf.libelleDepartement}` : ''}
+                                            {wf.libelleSite || 'Non renseigné'}{wf.libelleDepartement ? ` · ${wf.libelleDepartement}` : ''}
                                         </div>
                                     </Td>
                                     <Td className="font-mono text-[var(--color-fg-muted)]">

@@ -4,6 +4,12 @@ import apiClient from '@/api/apiClient';
  * Service API pour le module Paie & Rémunération GALAXAM SIRH
  */
 export const paieService = {
+    // --- Périodes ---
+    getAllPeriodes: async () => {
+        const response = await apiClient.get('/periodes');
+        return response.data;
+    },
+
     // --- Cockpit & Calculs ---
     getCockpitPeriode: async (idPeriode, params = {}) => {
         const response = await apiClient.get(`paie/periode/${idPeriode}/cockpit`, { params });
@@ -87,6 +93,10 @@ export const paieService = {
         });
         return response.data;
     },
+
+    getCatalogueVariables: async () => (await apiClient.get('referentiel/types-mouvement-paie/catalogue')).data,
+    creerTypeVariable: async (payload) => (await apiClient.post('referentiel/types-mouvement-paie', payload)).data,
+    modifierTypeVariable: async (id, payload) => (await apiClient.put(`referentiel/types-mouvement-paie/${id}`, payload)).data,
 
     creerAjustement: async (payload) => {
         const response = await apiClient.post('paie/ajustements', payload);

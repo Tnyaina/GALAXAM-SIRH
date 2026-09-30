@@ -238,21 +238,21 @@ export default function EmbaucheModal({
     const optionsNature = [
         {
             code: 'EMBAUCHE_INITIALE',
-            title: 'Nouvelle Embauche',
+            title: 'Nouvelle embauche',
             icon: UserPlus,
-            desc: 'Nouveau cycle indépendant. L\'ancienneté et les compteurs de congés repartent de zéro.',
+            desc: 'Nouveau cycle contractuel (compteurs et ancienneté réinitialisés).',
         },
         {
             code: 'REPRISE_ANCIENNETE',
             title: 'Réintégration / Reprise d\'ancienneté',
             icon: RotateCcw,
-            desc: `Raccroche ce contrat au contrat précédent (N° ${dernierContrat?.numeroContrat || 'Historique'}) pour maintenir les droits acquis.`,
+            desc: `Continuité avec le contrat précédent (N° ${dernierContrat?.numeroContrat || 'Historique'}) et maintien des droits acquis.`,
         },
         {
             code: 'REPRISE_CONSULTANT',
             title: 'Consultant / Prestation',
             icon: Handshake,
-            desc: `Maintien de l'ancienneté (N° ${dernierContrat?.numeroContrat || 'Historique'}) avec application du régime fiscal consultant / prestataire.`,
+            desc: `Continuité d'ancienneté (N° ${dernierContrat?.numeroContrat || 'Historique'}) sous statut de prestation.`,
         },
     ];
 
@@ -261,26 +261,26 @@ export default function EmbaucheModal({
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
             className={`fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-overlay)]/60 backdrop-blur-[2px] p-2 sm:p-4 overflow-y-auto ${mounted ? 'opacity-100' : 'opacity-0'}`}
         >
-            <div className="bg-[var(--color-surface)] dark:bg-ink-900 rounded-none border border-ink-150 dark:border-ink-700 shadow-2xl w-full max-w-[1440px] max-h-[95vh] flex flex-col overflow-hidden">
+            <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-2xl w-full max-w-[1440px] max-h-[95vh] flex flex-col overflow-hidden">
                 {/* Header */}
-                <div className="px-7 py-4 border-b border-ink-150 dark:border-ink-700 flex items-center justify-between bg-ink-50/50 dark:bg-ink-950/40">
+                <div className="px-7 py-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between bg-[var(--color-bg-subtle)]">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-brand-500 text-[var(--color-on-color)] rounded-none flex items-center justify-center shadow-md">
+                        <div className="w-10 h-10 bg-[var(--color-brand-500)] text-[var(--color-on-color)] rounded-none flex items-center justify-center shadow-md">
                             <Briefcase size={20} />
                         </div>
                         <div>
-                            <h2 className="font-bold text-lg text-ink-900 dark:text-[var(--color-on-color)] flex items-center gap-2">
+                            <h2 className="font-bold text-lg text-[var(--color-fg)] flex items-center gap-2">
                                 {isEditMode
-                                    ? 'Corriger le Brouillon de Contrat'
+                                    ? 'Modifier le brouillon de contrat'
                                     : hasHistory
-                                        ? 'Contractualisation (Réembauche / Réintégration)'
-                                        : 'Nouvelle Embauche Initiale'}
+                                        ? 'Contractualisation (réembauche / réintégration)'
+                                        : 'Nouvelle embauche'}
                                 <span className="text-xs px-2 py-0.5 bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] border border-[var(--color-warning-500)]/20 font-mono rounded-none">
-                                    BROUILLON
+                                    Brouillon
                                 </span>
                             </h2>
-                            <p className="text-xs text-ink-400">
-                                Saisie du contrat et affectation pour <strong className="text-ink-800 dark:text-[var(--color-on-color)]">{nomEmploye}</strong>
+                            <p className="text-xs text-[var(--color-fg-muted)]">
+                                Contrat et affectation pour <strong className="text-[var(--color-fg)]">{nomEmploye}</strong>
                             </p>
                         </div>
                     </div>
@@ -288,19 +288,19 @@ export default function EmbaucheModal({
                         <button
                             type="button"
                             onClick={() => setShowPreviewMobile(!showPreviewMobile)}
-                            className="lg:hidden p-2 text-xs font-semibold bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200 rounded-none flex items-center gap-1"
+                            className="lg:hidden p-2 text-xs font-semibold bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border border-[var(--color-border-subtle)] rounded-none flex items-center gap-1"
                         >
                             {showPreviewMobile ? <EyeOff size={14} /> : <Eye size={14} />}
-                            {showPreviewMobile ? 'Masquer Aperçu' : 'Aperçu'}
+                            {showPreviewMobile ? 'Masquer l\'aperçu' : 'Aperçu'}
                         </button>
-                        <button onClick={onClose} className="p-1.5 text-ink-400 hover:text-ink-800 dark:hover:text-[var(--color-on-color)] hover:bg-ink-100 dark:hover:bg-ink-800 rounded-none  cursor-pointer">
+                        <button onClick={onClose} className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer">
                             <X size={20} />
                         </button>
                     </div>
                 </div>
 
                 {/* Body split 2 colonnes 50/50 : Formulaire (6/12) - Aperçu Contrat (6/12) */}
-                <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-ink-150 dark:divide-ink-700">
+                <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-[var(--color-border-subtle)]">
                     {/* Colonne 1 : Formulaire de Saisie (6/12) */}
                     <div className={`p-4 sm:p-5 space-y-4 lg:col-span-6 ${showPreviewMobile ? 'hidden lg:block' : 'block'}`}>
                         {loadingRef ? (
@@ -311,12 +311,12 @@ export default function EmbaucheModal({
 
                                 {/* Nature de la contractualisation si collaborateur inactif avec historique */}
                                 {hasHistory && !isEditMode && (
-                                    <section className="space-y-3 pb-5 border-b border-ink-150 dark:border-ink-700">
+                                    <section className="space-y-3 pb-5 border-b border-[var(--color-border-subtle)]">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-                                                Nature de la Contractualisation
+                                            <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">
+                                                Nature de la contractualisation
                                             </span>
-                                            <span className="text-[11px] text-ink-400">
+                                            <span className="text-[11px] text-[var(--color-fg-muted)]">
                                                 Dernier contrat : {dernierContrat?.numeroContrat || 'Clôturé'}
                                             </span>
                                         </div>
@@ -330,20 +330,20 @@ export default function EmbaucheModal({
                                                         tabIndex={0}
                                                         onClick={() => setField('codeTypeEvenement', opt.code)}
                                                         onKeyDown={(e) => {
-                                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                             if (e.key === 'Enter' || e.key === ' ') {
                                                                 e.preventDefault();
                                                                 setField('codeTypeEvenement', opt.code);
                                                             }
                                                         }}
                                                         className={`p-3 border rounded-none cursor-pointer transition-all ${
                                                             isSel
-                                                                ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500/30'
-                                                                : 'border-ink-200 dark:border-ink-800 hover:border-brand-300 bg-[var(--color-surface)] dark:bg-ink-950/40'
+                                                                ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10 ring-1 ring-[var(--color-brand-500)]/30'
+                                                                : 'border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)]/50 bg-[var(--color-surface)]'
                                                         }`}
                                                     >
                                                         <div className="flex items-center justify-between">
-                                                            <span className="text-xs font-bold text-ink-900 dark:text-[var(--color-on-color)] flex items-center gap-2">
-                                                                {opt.icon && <opt.icon size={15} className={isSel ? 'text-brand-500' : 'text-ink-400'} />}
+                                                            <span className="text-xs font-bold text-[var(--color-fg)] flex items-center gap-2">
+                                                                {opt.icon && <opt.icon size={15} className={isSel ? 'text-[var(--color-brand-500)]' : 'text-[var(--color-fg-muted)]'} />}
                                                                 {opt.title}
                                                             </span>
                                                             <input
@@ -351,10 +351,10 @@ export default function EmbaucheModal({
                                                                 name="codeTypeEvenement"
                                                                 checked={isSel}
                                                                 onChange={() => setField('codeTypeEvenement', opt.code)}
-                                                                className="text-brand-500 focus:ring-brand-500"
+                                                                className="text-[var(--color-brand-500)] focus:ring-[var(--color-brand-500)]"
                                                             />
                                                         </div>
-                                                        <p className="text-[11px] text-ink-400 mt-1 leading-normal pl-6">
+                                                        <p className="text-[11px] text-[var(--color-fg-muted)] mt-1 leading-normal pl-6">
                                                             {opt.desc}
                                                         </p>
                                                     </div>
@@ -407,11 +407,11 @@ export default function EmbaucheModal({
                     </div>
 
                     {/* Colonne 2 : Aperçu en Temps Réel (6/12) */}
-                    <div className={`p-7 bg-ink-50/50 dark:bg-ink-950/30 lg:col-span-6 overflow-y-auto space-y-4 ${showPreviewMobile ? 'block' : 'hidden lg:block'}`}>
-                        <div className="flex items-center justify-between pb-2 border-b border-ink-200 dark:border-ink-700">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400 flex items-center gap-2">
-                                <FileSignature size={14} className="text-brand-500" />
-                                Aperçu de la Convention / Contrat
+                    <div className={`p-7 bg-[var(--color-bg-subtle)] lg:col-span-6 overflow-y-auto space-y-4 ${showPreviewMobile ? 'block' : 'hidden lg:block'}`}>
+                        <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-2">
+                                <FileSignature size={14} className="text-[var(--color-brand-500)]" />
+                                Aperçu du contrat
                             </h3>
                         </div>
 
@@ -433,9 +433,9 @@ export default function EmbaucheModal({
                 </div>
 
                 {/* Footer Boutons */}
-                <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex justify-between items-center">
-                    <p className="text-xs text-ink-400 hidden sm:block">
-                        Le contrat et l'affectation restent au statut <strong className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]">BROUILLON</strong> tant qu'ils ne sont pas validés.
+                <div className="px-6 py-4 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex justify-between items-center">
+                    <p className="text-xs text-[var(--color-fg-muted)] hidden sm:block">
+                        Statut initial : Brouillon (validation requise).
                     </p>
                     <div className="flex gap-3 ml-auto">
                         <Button type="button" onClick={onClose} variant="ghost" size="sm">
@@ -449,7 +449,7 @@ export default function EmbaucheModal({
                             loading={submitting}
                             iconLeft={<Save size={16} />}
                         >
-                            {isEditMode ? 'Enregistrer les modifications' : 'Créer le Brouillon d\'Embauche'}
+                            {isEditMode ? 'Enregistrer les modifications' : 'Créer le brouillon d\'embauche'}
                         </Button>
                     </div>
                 </div>

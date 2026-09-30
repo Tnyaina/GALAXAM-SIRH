@@ -113,7 +113,7 @@ export default function PopulationStepPage() {
                 destination: `/paie/periodes/${numericPeriodId}/preparation`,
             }}
             nextStep={{
-                label: 'Variables exceptionnelles',
+                label: 'Variables par salarié',
                 destination: `/paie/periodes/${numericPeriodId}/variables`,
                 disabled: blockedCount > 0,
                 disabledReason: blockedCount > 0 ? `${blockedCount} salarié(s) bloqué(s) doivent être résolus.` : undefined,
@@ -198,7 +198,7 @@ export default function PopulationStepPage() {
                                     const label = DECISION_LABELS[dec] || dec;
 
                                     return (
-                                        <Tr key={p.idEmploye || idx}>
+                                        <Tr key={p.idEmploye || p.employeeId || idx}>
                                             <Td className="font-semibold text-[var(--color-fg)]">
                                                 {p.employeeName || p.nomPrenom || '–'}
                                             </Td>

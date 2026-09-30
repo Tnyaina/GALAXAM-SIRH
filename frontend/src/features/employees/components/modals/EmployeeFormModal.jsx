@@ -9,7 +9,6 @@ import Modal from '@/components/ui/overlays/Modal';
 import Input, { AutocompleteInput } from '@/components/ui/forms/Input';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import { Card } from '@/components/ui/data-display/Card';
-import Badge from '@/components/ui/data-display/Badge';
 import { SkeletonForm } from '@/components/ui/feedback/Skeleton';
 import { AGENCES_BANCAIRES, VILLES_MADAGASCAR, NATIONALITES_STANDARDS } from '@/constants/madagascarGeo';
 
@@ -19,12 +18,13 @@ const CoordonneesPhotoStep = lazy(() => import('@/features/employees/components/
 const FamilleFormStep = lazy(() => import('@/features/employees/components/form/FamilleFormStep'));
 const UrgenceFormStep = lazy(() => import('@/features/employees/components/form/UrgenceFormStep'));
 
-import { formaterDateEmploye, validerEtapeEmploye, validerToutesEtapesEmploye } from '@/features/employees/utils/employeFormValidation';
+import {validerEtapeEmploye, validerToutesEtapesEmploye } from '@/features/employees/utils/employeFormValidation';
+import { fmtDate } from '@/utils/dateUtils';
 
 const STEPS = [
     { id: 'civilite', label: 'Identité', icon: User, required: true },
     { id: 'cin', label: 'CIN & Permis', icon: CreditCard, required: true },
-    { id: 'coordonnees', label: 'Coordonnées & Photo', icon: Phone, required: true },
+    { id: 'coordonnees', label: 'Coordonnées', icon: Phone, required: true },
     { id: 'famille', label: 'Famille', icon: Users, required: false },
     { id: 'urgence', label: 'Urgence', icon: ShieldAlert, required: false },
     { id: 'banque', label: 'CNaPS & Banque', icon: Building, required: false }
@@ -46,11 +46,15 @@ const EMPTY_FORM = {
 };
 
 // Formatage de date délégué à l'utilitaire pur (défini au niveau module pour la stabilité des hooks)
-const fmtDate = formaterDateEmploye;
+const resolveStepIndex = (step) => {
+    if (typeof step === 'number') return Math.max(0, Math.min(step, STEPS.length - 1));
+    const idx = STEPS.findIndex(s => s.id === step);
+    return idx >= 0 ? idx : 0;
+};
 
-export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData, isSubmitting }) {
+export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData, isSubmitting, initialStep = 0 }) {
     // État local : progression, données du formulaire, photo et génération du matricule.
-    const [activeStep, setActiveStep] = useState(0);
+    const [activeStep, setActiveStep] = useState(() => resolveStepIndex(initialStep));
     const [banques, setBanques] = useState([]);
     const [errorMsg, setErrorMsg] = useState('');
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -155,10 +159,10 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
             setIsCustomNat(false);
             setCustomNationalite('');
         }
-        setActiveStep(0);
+        setActiveStep(resolveStepIndex(initialStep));
         setErrorMsg('');
         setMatriculeError('');
-    }, [employeData, isOpen]);
+    }, [employeData, isOpen, initialStep]);
 
     const set = useCallback((field, val) => {
         setFormData(prev => ({ ...prev, [field]: val }));
@@ -486,11 +490,6 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                                     {isCompleted ? <Check size={12} strokeWidth={3} /> : idx + 1}
                                 </span>
                                 <span>{step.label}</span>
-                                {!step.required && (
-                                    <span className="text-[9px] font-normal text-[var(--color-fg-subtle)] px-1 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
-                                        Opt.
-                                    </span>
-                                )}
                             </button>
                         );
                     })}
@@ -525,7 +524,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                         {STEPS[activeStep].id === 'cin' && (
                             <div className="space-y-4">
                                 <Card padding className="space-y-4">
-                                    <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]"><h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5"><CreditCard size={14} className="text-brand-500" />Carte d'Identité Nationale (CIN)</h3><Badge variant="primary" size="xs">Obligatoire</Badge></div>
+                                    <div className="pb-2 border-b border-[var(--color-border-subtle)]"><h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5"><CreditCard size={14} className="text-brand-500" />Carte d'Identité Nationale (CIN)</h3></div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <Input label="N° CIN" required value={formData.cinNumero} onChange={(event) => set('cinNumero', event.target.value)} placeholder="Ex: 101 234 567 890" />
                                         <Input label="Date de Délivrance" required type="date" value={formData.cinDateDelivrance} onChange={(event) => set('cinDateDelivrance', event.target.value)} />
@@ -535,7 +534,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                                     </div>
                                 </Card>
                                 <Card padding className="space-y-4">
-                                    <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]"><h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5"><Award size={14} className="text-brand-500" />Permis de Conduire</h3><Badge variant="default" size="xs">Optionnel</Badge></div>
+                                    <div className="pb-2 border-b border-[var(--color-border-subtle)]"><h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5"><Award size={14} className="text-brand-500" />Permis de Conduire</h3></div>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <Input label="N° Permis" value={formData.permisConduireNumero} onChange={(event) => set('permisConduireNumero', event.target.value)} placeholder="N° de permis" />
                                         <Input label="Date Délivrance" type="date" value={formData.permisConduireDateDelivrance} onChange={(event) => set('permisConduireDateDelivrance', event.target.value)} />
@@ -581,8 +580,8 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                         {/* Step 6: CNaPS & Banque */}
                         {STEPS[activeStep].id === 'banque' && (
                             <div className="space-y-4">
-                                <Card padding className="space-y-4"><div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]"><h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5"><Shield size={14} className="text-brand-500" />Sécurité Sociale (CNaPS)</h3><Badge variant="default" size="xs">Optionnel</Badge></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><Input label="N° Affiliation CNaPS" value={formData.numAffiliationCnaps} onChange={(event) => set('numAffiliationCnaps', event.target.value)} placeholder="N° CNaPS" /><Input label="Date Déclaration" type="date" value={formData.dateDeclaration} onChange={(event) => set('dateDeclaration', event.target.value)} /></div></Card>
-                                <Card padding className="space-y-4"><div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]"><h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5"><Landmark size={14} className="text-brand-500" />Compte Bancaire Principal</h3><Badge variant="default" size="xs">Optionnel</Badge></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><SearchSelect label="Banque" value={formData.compteBanquePrincipal.idBanque} onChange={(value) => setNested('compteBanquePrincipal', 'idBanque', value)} options={banques.filter((bank) => bank.estActif !== false && bank.actif !== false || String(bank.idBanque) === String(formData.compteBanquePrincipal.idBanque)).map((bank) => ({ value: bank.idBanque, label: bank.nomBanque, sublabel: bank.codeBanque }))} placeholder="Rechercher une banque…" /><AutocompleteInput label="Agence" value={formData.compteBanquePrincipal.agence} onChange={(event) => setNested('compteBanquePrincipal', 'agence', event.target.value)} placeholder="Ex: Ankorondrano" options={AGENCES_BANCAIRES} listId="agences-bancaires-list" /><Input label="N° Compte / RIB" value={formData.compteBanquePrincipal.numCompteRib} onChange={(event) => setNested('compteBanquePrincipal', 'numCompteRib', event.target.value)} placeholder="00000-00000-00000000000-00" /><Input label="Titulaire du Compte" value={formData.compteBanquePrincipal.titulaireCompte} onChange={(event) => setNested('compteBanquePrincipal', 'titulaireCompte', event.target.value)} placeholder="Nom du titulaire" /></div></Card>
+                                <Card padding className="space-y-4"><div className="pb-2 border-b border-[var(--color-border-subtle)]"><h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5"><Shield size={14} className="text-brand-500" />Sécurité Sociale (CNaPS)</h3></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><Input label="N° Affiliation CNaPS" value={formData.numAffiliationCnaps} onChange={(event) => set('numAffiliationCnaps', event.target.value)} placeholder="N° CNaPS" /><Input label="Date Déclaration" type="date" value={formData.dateDeclaration} onChange={(event) => set('dateDeclaration', event.target.value)} /></div></Card>
+                                <Card padding className="space-y-4"><div className="pb-2 border-b border-[var(--color-border-subtle)]"><h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5"><Landmark size={14} className="text-brand-500" />Compte Bancaire Principal</h3></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><SearchSelect label="Banque" value={formData.compteBanquePrincipal.idBanque} onChange={(value) => setNested('compteBanquePrincipal', 'idBanque', value)} options={banques.filter((bank) => bank.estActif !== false && bank.actif !== false || String(bank.idBanque) === String(formData.compteBanquePrincipal.idBanque)).map((bank) => ({ value: bank.idBanque, label: bank.nomBanque, sublabel: bank.codeBanque }))} placeholder="Rechercher une banque…" /><AutocompleteInput label="Agence" value={formData.compteBanquePrincipal.agence} onChange={(event) => setNested('compteBanquePrincipal', 'agence', event.target.value)} placeholder="Ex: Ankorondrano" options={AGENCES_BANCAIRES} listId="agences-bancaires-list" /><Input label="N° Compte / RIB" value={formData.compteBanquePrincipal.numCompteRib} onChange={(event) => setNested('compteBanquePrincipal', 'numCompteRib', event.target.value)} placeholder="00000-00000-00000000000-00" /><Input label="Titulaire du Compte" value={formData.compteBanquePrincipal.titulaireCompte} onChange={(event) => setNested('compteBanquePrincipal', 'titulaireCompte', event.target.value)} placeholder="Nom du titulaire" /></div></Card>
                             </div>
                         )}
                     </Suspense>

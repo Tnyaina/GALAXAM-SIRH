@@ -3,19 +3,15 @@ import {
     FileText,
     Printer,
     RefreshCw,
-    PlusCircle,
     AlertCircle,
     CheckCircle2,
     Clock,
     DollarSign,
-    ChevronUp,
     Info,
     ExternalLink
 } from 'lucide-react';
 import SlideOver from '@/components/ui/overlays/SlideOver';
 import Button from '@/components/ui/forms/Button';
-import Input from '@/components/ui/forms/Input';
-import Select from '@/components/ui/forms/Select';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
@@ -23,7 +19,7 @@ import { formatMoneyAr } from '@/utils/moneyUtils';
 import BulletinPaiePrintView from './BulletinPaiePrintView';
 
 /**
- * Tiroir Latéral — Consultation et Édition Contextuelle du Bulletin (GALAXAM SIRH)
+ * Tiroir Latéral — Consultation du bulletin calculé (GALAXAM SIRH)
  * Conforme au Wireframe Écran 2 du Rapport d'Audit.
  */
 export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onRecalculateSuccess }) {
@@ -32,20 +28,10 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     const [data, setData] = useState(null);
     const [error, setError] = useState(null);
     const [showPrintModal, setShowPrintModal] = useState(false);
-    const [showAddVariable, setShowAddVariable] = useState(false);
     const [showDetailRubriques, setShowDetailRubriques] = useState(false);
     const [showTaxDetails, setShowTaxDetails] = useState(false);
 
-    // Formulaire d'ajout d'ajustement contextuel
-    const [typeMouvements, setTypeMouvements] = useState([]);
-    const [submittingAjustement, setSubmittingAjustement] = useState(false);
     const [recalculating, setRecalculating] = useState(false);
-    const [ajustementForm, setAjustementForm] = useState({
-        typeMouvement: '',
-        montant: '',
-        sens: 'GAIN',
-        motif: ''
-    });
     const [feedbackMsg, setFeedbackMsg] = useState(null);
 
     const chargerBulletin = useCallback(async () => {
@@ -62,15 +48,6 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         }
     }, [idBulletin]);
 
-    const chargerTypesMouvements = useCallback(async () => {
-        try {
-            const types = await paieService.listerTypesMouvements();
-            setTypeMouvements(Array.isArray(types) ? types : (types?.content || types?.items || []));
-        } catch (err) {
-            console.warn('Types mouvements non disponibles :', err?.message);
-        }
-    }, []);
-
     // Effets : chargent le bulletin à l'ouverture et nettoient les états de vue.
     useEffect(() => {
         if (isOpen && idBulletin) {
@@ -79,77 +56,10 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
             setData(null);
             setError(null);
             setFeedbackMsg(null);
-            setShowAddVariable(false);
             setShowDetailRubriques(false);
             setShowTaxDetails(false);
         }
     }, [isOpen, idBulletin, chargerBulletin]);
-
-    useEffect(() => {
-        if (isOpen && showAddVariable && typeMouvements.length === 0) {
-            chargerTypesMouvements();
-        }
-    }, [isOpen, showAddVariable, typeMouvements.length, chargerTypesMouvements]);
-
-    const handleAjustementChange = (field, value) => {
-        setAjustementForm(prev => {
-            const next = { ...prev, [field]: value };
-            if (field === 'typeMouvement') {
-                const found = typeMouvements.find(t => t.code === value);
-                if (found && found.sens) {
-                    next.sens = found.sens;
-                }
-            }
-            return next;
-        });
-    };
-
-    const handleCreerAjustement = async (e) => {
-        e.preventDefault();
-        if (!ajustementForm.typeMouvement) {
-            setFeedbackMsg({ type: 'error', text: 'Sélectionnez un type de variable configuré.' });
-            return;
-        }
-        if (!ajustementForm.montant || Number(ajustementForm.montant) <= 0) {
-            setFeedbackMsg({ type: 'error', text: 'Veuillez saisir un montant supérieur à 0.' });
-            return;
-        }
-
-        setSubmittingAjustement(true);
-        setFeedbackMsg(null);
-        try {
-            await paieService.creerAjustement({
-                idEmploye: data.bulletin.idEmploye,
-                idPeriodePaie: data.bulletin.idPeriodePaie,
-                typeMouvement: ajustementForm.typeMouvement,
-                sens: ajustementForm.sens,
-                montant: Number(ajustementForm.montant),
-                motif: ajustementForm.motif || 'Saisie rapide bulletin',
-                statut: 'APPROUVE'
-            });
-
-            setFeedbackMsg({
-                type: 'success',
-                text: 'Variable enregistrée avec succès. Recalculez le bulletin pour mettre à jour le net à payer.'
-            });
-            setShowAddVariable(false);
-            setAjustementForm({
-                typeMouvement: '',
-                montant: '',
-                sens: 'GAIN',
-                motif: ''
-            });
-            // Recalcul automatique direct
-            await handleRecalculerEmploye();
-        } catch (err) {
-            setFeedbackMsg({
-                type: 'error',
-                text: getErrorMessage(err, 'Erreur lors de la création de la variable.')
-            });
-        } finally {
-            setSubmittingAjustement(false);
-        }
-    };
 
     const handleRecalculerEmploye = async () => {
         if (!data?.bulletin) return;
@@ -255,7 +165,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                     variant="primary"
                                     size="sm"
                                     onClick={handleRecalculerEmploye}
-                                    disabled={recalculating || bulletin.statut === 'CLOTURE'}
+                                    disabled={recalculating || ['VALIDE', 'CLOTURE'].includes(bulletin.statut)}
                                     className="flex items-center gap-1.5"
                                 >
                                     <RefreshCw size={14} className={recalculating ? 'animate-spin' : ''} />
@@ -529,81 +439,15 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                             </div>
                         </div>
 
-                        {/* 3. VARIABLES DU MOIS (AJUSTEMENTS DAF) (Wireframe 2) */}
+                        {/* 3. VARIABLES DU MOIS — lecture du résultat calculé */}
                         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 space-y-2.5">
                             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
                                 <span className="font-bold text-[var(--color-fg)] text-[11px] uppercase tracking-wider flex items-center gap-1.5">
                                     <DollarSign size={14} className="text-[var(--color-info-500)]" />
-                                    VARIABLES DU MOIS (AJUSTEMENTS MANUELS)
+                                    VARIABLES DU MOIS
                                 </span>
-                                <button
-                                    onClick={() => setShowAddVariable(!showAddVariable)}
-                                    className="text-[11px] font-bold text-[var(--color-brand-500)] hover:underline flex items-center gap-1 cursor-pointer"
-                                >
-                                    {showAddVariable ? <ChevronUp size={13} /> : <PlusCircle size={13} />}
-                                    {showAddVariable ? 'Fermer saisie' : '+ Ajouter un élément'}
-                                </button>
+                                <span className="text-[10px] text-[var(--color-fg-muted)]">Saisie avant calcul</span>
                             </div>
-
-                            {/* Formulaire dépliable d'ajout contextuel */}
-                            {showAddVariable && (
-                                <form onSubmit={handleCreerAjustement} className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] space-y-2.5 my-2">
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <Select
-                                            label="Type d'élément"
-                                            value={ajustementForm.typeMouvement}
-                                            onChange={(val) => handleAjustementChange('typeMouvement', val)}
-                                            options={[
-                                                { value: '', label: 'Sélectionner un type configuré' },
-                                                ...(Array.isArray(typeMouvements) ? typeMouvements : []).map(t => ({
-                                                    value: t.code,
-                                                    label: `${t.libelle} — ${t.categorie || t.sens}`
-                                                }))
-                                            ]}
-                                            required
-                                        />
-
-                                        <Input
-                                            label="Montant (Ar)"
-                                            type="number"
-                                            step="1000"
-                                            min="1000"
-                                            required
-                                            placeholder="Ex: 50000"
-                                            value={ajustementForm.montant}
-                                            onChange={(e) => handleAjustementChange('montant', e.target.value)}
-                                            className="font-mono"
-                                        />
-                                    </div>
-
-                                    <Input
-                                        label="Motif / Justification"
-                                        type="text"
-                                        placeholder="Ex: Prime spéciale projet"
-                                        value={ajustementForm.motif}
-                                        onChange={(e) => handleAjustementChange('motif', e.target.value)}
-                                    />
-
-                                    <div className="flex justify-end gap-2 pt-1">
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            size="sm"
-                                            onClick={() => setShowAddVariable(false)}
-                                        >
-                                            Annuler
-                                        </Button>
-                                        <Button
-                                            type="submit"
-                                            variant="primary"
-                                            size="sm"
-                                            disabled={submittingAjustement}
-                                        >
-                                            {submittingAjustement ? 'Enregistrement...' : 'Enregistrer & Recalculer'}
-                                        </Button>
-                                    </div>
-                                </form>
-                            )}
 
                             {/* Liste des variables ventilées */}
                             <div className="space-y-1.5">

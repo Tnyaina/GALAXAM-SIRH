@@ -56,57 +56,57 @@ export default function TransitionComparatifCard({
         ...(exigeNouveauContrat || avantTypeContrat !== apresTypeContrat ? [{
             id: 'contrat',
             label: 'Type de contrat',
-            avant: avantTypeContrat || '—',
-            apres: apresTypeContrat || '—',
+            avant: avantTypeContrat || null,
+            apres: apresTypeContrat || null,
             modifie: Boolean(apresTypeContrat && avantTypeContrat !== apresTypeContrat),
         }] : []),
         {
             id: 'site',
             label: "Site d'affectation",
-            avant: avantSite || '—',
-            apres: apresSite || '—',
+            avant: avantSite || null,
+            apres: apresSite || null,
             modifie: Boolean(apresSite && avantSite !== apresSite),
         },
         {
             id: 'departement',
             label: 'Département',
-            avant: avantDepartement || '—',
-            apres: apresDepartement || '—',
+            avant: avantDepartement || null,
+            apres: apresDepartement || null,
             modifie: Boolean(apresDepartement && avantDepartement !== apresDepartement),
         },
         {
             id: 'service',
             label: 'Service',
-            avant: avantService || '—',
-            apres: apresService || '—',
+            avant: avantService || null,
+            apres: apresService || null,
             modifie: Boolean(apresService && avantService !== apresService),
         },
         {
             id: 'fonction',
             label: 'Poste / Fonction',
-            avant: avantFonction || '—',
-            apres: apresFonction || '—',
+            avant: avantFonction || null,
+            apres: apresFonction || null,
             modifie: Boolean(apresFonction && avantFonction !== apresFonction),
         },
         {
             id: 'categorie',
             label: 'Catégorie professionnelle',
-            avant: avantCategorie || '—',
-            apres: apresCategorie || '—',
+            avant: avantCategorie || null,
+            apres: apresCategorie || null,
             modifie: Boolean(apresCategorie && avantCategorie !== apresCategorie),
         },
         {
             id: 'responsable',
             label: 'Supérieur hiérarchique (N+1)',
-            avant: avantResponsable || '—',
-            apres: apresResponsable || '—',
+            avant: avantResponsable || null,
+            apres: apresResponsable || null,
             modifie: Boolean(apresResponsable && avantResponsable !== apresResponsable),
         },
         {
             id: 'modePaie',
             label: 'Mode de calcul paie',
-            avant: avantModePaie || '—',
-            apres: apresModePaie || '—',
+            avant: avantModePaie || null,
+            apres: apresModePaie || null,
             modifie: Boolean(apresModePaie && avantModePaie !== apresModePaie),
         },
     ];
@@ -121,11 +121,11 @@ export default function TransitionComparatifCard({
                     <CardTitle size="sm" className="flex items-center gap-2">
                         <span>{typeEvenementActuel?.libelle || 'Mouvement RH'}</span>
                         <Badge variant="primary" size="xs">
-                            Prise d'effet : {formData?.dateEffet ? fmtDate(formData.dateEffet) : '—'}
+                            Prise d'effet : {formData?.dateEffet ? fmtDate(formData.dateEffet) : 'Non définie'}
                         </Badge>
                     </CardTitle>
                     <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                        Collaborateur : <strong className="text-[var(--color-fg)]">{nomEmploye || '—'}</strong>
+                        Collaborateur : <strong className="text-[var(--color-fg)]">{nomEmploye || 'Non renseigné'}</strong>
                     </p>
                 </div>
                 <Badge variant={nbModifications > 0 ? 'info' : 'default'} size="sm" className="font-semibold">
@@ -159,7 +159,7 @@ export default function TransitionComparatifCard({
                             <div className="p-2 bg-[var(--color-bg-subtle)]">
                                 <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-semibold block">Actuel</span>
                                 <span className="text-sm font-bold font-data text-[var(--color-fg-muted)]">
-                                    {salAvant !== null ? `${fmtMoney(salAvant)} Ar` : '—'}
+                                    {salAvant !== null ? `${fmtMoney(salAvant)} Ar` : <span className="text-[var(--color-fg-subtle)] font-normal text-xs">Non renseigné</span>}
                                 </span>
                             </div>
 
@@ -178,7 +178,7 @@ export default function TransitionComparatifCard({
                             }`}>
                                 <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-semibold block">Nouveau</span>
                                 <span className="text-base font-extrabold font-data text-[var(--color-fg)]">
-                                    {salApres !== null ? `${fmtMoney(salApres)} Ar` : '—'}
+                                    {salApres !== null ? `${fmtMoney(salApres)} Ar` : <span className="text-[var(--color-fg-subtle)] font-normal text-xs">Non renseigné</span>}
                                 </span>
                             </div>
                         </div>
@@ -211,17 +211,17 @@ export default function TransitionComparatifCard({
                                         {c.label}
                                     </Td>
                                     <Td className={`text-xs ${c.modifie ? 'line-through text-[var(--color-fg-muted)] opacity-70' : 'text-[var(--color-fg)]'}`}>
-                                        {c.avant}
+                                        {c.avant || <span className="text-[var(--color-fg-subtle)] font-normal">Non renseigné</span>}
                                     </Td>
                                     <Td align="center">
                                         {c.modifie ? (
                                             <ArrowRight size={14} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] inline-block" />
                                         ) : (
-                                            <span className="text-[var(--color-border-subtle)]">—</span>
+                                            <span className="text-[var(--color-fg-subtle)] text-xs font-normal">·</span>
                                         )}
                                     </Td>
                                     <Td className={`text-xs ${c.modifie ? 'font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' : 'text-[var(--color-fg)]'}`}>
-                                        {c.apres}
+                                        {c.apres || <span className="text-[var(--color-fg-subtle)] font-normal">Non renseigné</span>}
                                     </Td>
                                     <Td align="right">
                                         {c.modifie ? (

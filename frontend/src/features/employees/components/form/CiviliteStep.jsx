@@ -20,28 +20,33 @@ export default function CiviliteStep({
 }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex gap-2 items-end">
-                <Input 
-                    label="Matricule" 
-                    required 
-                    value={formData.matricule} 
-                    onChange={e => set('matricule', e.target.value)} 
-                    onBlur={onBlurMatricule}
-                    error={!!matriculeError}
-                    placeholder="Ex: 0001" 
-                    hint={matriculeError || "Saisie libre ou générée"}
-                    containerClassName="flex-1"
-                />
-                <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={onGenerateMatricule}
-                    loading={generatingMatricule}
-                    className="mb-[22px] px-3 shrink-0"
-                    title="Générer automatiquement"
-                >
-                    <Wand2 size={16} />
-                </Button>
+            <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                    Matricule <span className="text-[var(--color-danger-500)] ml-1">*</span>
+                </label>
+                <div className="flex gap-2">
+                    <Input 
+                        value={formData.matricule} 
+                        onChange={e => set('matricule', e.target.value)} 
+                        onBlur={onBlurMatricule}
+                        error={Boolean(matriculeError)}
+                        placeholder="Ex: 0001" 
+                        containerClassName="flex-1"
+                    />
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={onGenerateMatricule}
+                        loading={generatingMatricule}
+                        className="px-3 shrink-0 self-stretch flex items-center justify-center border-[var(--color-border)] hover:bg-[var(--color-bg-subtle)]"
+                        title="Générer automatiquement"
+                    >
+                        <Wand2 size={15} />
+                    </Button>
+                </div>
+                {matriculeError && (
+                    <p className="text-[11px] text-[var(--color-danger-500)] mt-0.5">{matriculeError}</p>
+                )}
             </div>
             <Select label="Sexe" required value={formData.sexe} onChange={e => set('sexe', e.target.value)}>
                 {GENRES_SEXE.map(g => (
@@ -57,7 +62,7 @@ export default function CiviliteStep({
                 max={fmtDateInput(new Date(new Date().setFullYear(new Date().getFullYear() - REGLES_FISCALES_IRSA.AGE_MIN_LEGAL_EMPLOYE)))}
                 value={formData.dateNaissance} 
                 onChange={e => set('dateNaissance', e.target.value)} 
-                hint={`Âge légal minimum : ${REGLES_FISCALES_IRSA.AGE_MIN_LEGAL_EMPLOYE} ans`}
+                hint={`Âge minimum légal : ${REGLES_FISCALES_IRSA.AGE_MIN_LEGAL_EMPLOYE} ans`}
             />
             
             <AutocompleteInput 
@@ -85,8 +90,8 @@ export default function CiviliteStep({
                     <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
             </Select>
-            <Input label="Nom & Prénom du Père" value={formData.pereNomPrenom} onChange={e => set('pereNomPrenom', e.target.value)} placeholder="Nom du père" />
-            <Input label="Nom & Prénom de la Mère" value={formData.mereNomPrenom} onChange={e => set('mereNomPrenom', e.target.value)} placeholder="Nom de la mère" />
+            <Input label="Père" value={formData.pereNomPrenom} onChange={e => set('pereNomPrenom', e.target.value)} placeholder="Nom et prénom du père" />
+            <Input label="Mère" value={formData.mereNomPrenom} onChange={e => set('mereNomPrenom', e.target.value)} placeholder="Nom et prénom de la mère" />
         </div>
     );
 }

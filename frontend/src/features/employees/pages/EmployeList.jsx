@@ -301,6 +301,8 @@ export default function EmployeList() {
     const displayTotal = statsCounts.total ?? totalElements;
     const totalActifs = statsCounts.actifs;
     const totalInactifs = statsCounts.inactifs;
+    const pctActifs = displayTotal > 0 ? Math.round((totalActifs / displayTotal) * 100) : 0;
+    const pctInactifs = displayTotal > 0 ? Math.round((totalInactifs / displayTotal) * 100) : 0;
 
     const hasActiveFilters = Boolean(
         searchQuery.trim() ||
@@ -314,7 +316,10 @@ export default function EmployeList() {
         <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
             <PageHeader
                 title="Fiches Employés"
-                subtitle="Répertoire du personnel — gestion des fiches individuelles, carrières et documents"
+                subtitle={displayTotal > 0 
+                    ? `${displayTotal} collaborateur${displayTotal > 1 ? 's' : ''} répertorié${displayTotal > 1 ? 's' : ''}${sites.length > 0 ? ` · ${sites.length} site${sites.length > 1 ? 's' : ''}` : ''}`
+                    : "Répertoire et gestion des fiches du personnel"
+                }
                 icon={Users}
                 breadcrumbs={[
                     { label: 'Tableau de bord', href: '/dashboard' },
@@ -354,12 +359,36 @@ export default function EmployeList() {
 
             {/* Indicateurs et filtres de statut de cette liste. */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                <StatCard title="Total Collaborateurs" value={displayTotal} subtext="Effectif global de l'entreprise" icon={<Users size={18} />} color="brand" active={statusFilter === 'ALL'} onClick={() => setStatusFilter('ALL')} />
-                <StatCard title="Collaborateurs actifs" value={totalActifs} subtext="En poste actuellement" icon={<UserCheck size={18} />} color="success" active={statusFilter === 'ACTIVE'} onClick={() => setStatusFilter('ACTIVE')} />
-                <StatCard title="Collaborateurs inactifs" value={totalInactifs} subtext="Fiches actuellement désactivées" icon={<UserX size={18} />} color="danger" active={statusFilter === 'INACTIVE'} onClick={() => setStatusFilter('INACTIVE')} />
+                <StatCard 
+                    title="Total Collaborateurs" 
+                    value={displayTotal} 
+                    subtext={displayTotal > 0 ? `${totalActifs} actif${totalActifs > 1 ? 's' : ''} · ${totalInactifs} inactif${totalInactifs > 1 ? 's' : ''}` : 'Aucun collaborateur'} 
+                    icon={<Users size={18} />} 
+                    color="brand" 
+                    active={statusFilter === 'ALL'} 
+                    onClick={() => setStatusFilter('ALL')} 
+                />
+                <StatCard 
+                    title="Collaborateurs actifs" 
+                    value={totalActifs} 
+                    subtext={displayTotal > 0 ? `${pctActifs} % de l'effectif` : '0 %'} 
+                    icon={<UserCheck size={18} />} 
+                    color="success" 
+                    active={statusFilter === 'ACTIVE'} 
+                    onClick={() => setStatusFilter('ACTIVE')} 
+                />
+                <StatCard 
+                    title="Collaborateurs inactifs" 
+                    value={totalInactifs} 
+                    subtext={displayTotal > 0 ? `${pctInactifs} % de l'effectif` : '0 %'} 
+                    icon={<UserX size={18} />} 
+                    color="danger" 
+                    active={statusFilter === 'INACTIVE'} 
+                    onClick={() => setStatusFilter('INACTIVE')} 
+                />
             </div>
 
-            {/* Barre d'outils : recherche + filtres de structure + multi-tri */}
+            {/* Barre d'outils : recherche (à gauche) + filtres (à droite) */}
             <EmployeFilterBar
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
@@ -374,11 +403,6 @@ export default function EmployeList() {
                 sites={sites}
                 departements={departements}
                 services={services}
-                sortPreset={columnSortConfig.key ? 'COLUMN' : sortPreset}
-                onSortPresetChange={(preset) => {
-                    setSortPreset(preset);
-                    setColumnSortConfig({ key: '', direction: 'asc' });
-                }}
                 onResetFilters={handleResetFilters}
                 totalFound={totalElements}
             />

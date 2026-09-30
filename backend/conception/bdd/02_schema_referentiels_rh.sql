@@ -243,7 +243,7 @@ CREATE INDEX idx_config_legale_actif ON paie_config_legale(date_debut, date_fin)
 
 -- Filiales
 INSERT INTO ref_filiale (id_filiale, code_filiale, raison_sociale, nif, stat, adresse_siege, rcs, telephone, email) VALUES
-(1, 'GLX', 'Galaxam Logistics', '3000019434', '52296112001000056', '3e étage, Tour Forello, Tanjombato', NULL, '+261 32 12 131 01', 'daf@galaxam.com');
+(1, 'GLX', 'Galaxam Logistics', '3 000 019 43 4', '52 296 11 2001 0 00056', '3e étage, Tour Forello, Tanjombato', '2001B66', '+261 32 12 131 01', 'daf@galaxam.com');
 SELECT setval('ref_filiale_id_filiale_seq', (SELECT GREATEST(MAX(id_filiale), 1) FROM ref_filiale));
 
 -- Banques

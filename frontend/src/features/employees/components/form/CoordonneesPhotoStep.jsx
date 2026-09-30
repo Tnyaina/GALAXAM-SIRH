@@ -17,12 +17,11 @@ export default function CoordonneesPhotoStep({
         <div className="space-y-4">
             {/* Zone Téléversement Photo */}
             <Card padding className="bg-[var(--color-bg-subtle)]/60">
-                <div className="flex items-center justify-between pb-2 mb-3 border-b border-[var(--color-border-subtle)]">
+                <div className="pb-2 mb-3 border-b border-[var(--color-border-subtle)]">
                     <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
                         <Camera size={14} className="text-[var(--color-brand-500)]" />
                         Photo de profil
                     </label>
-                    <Badge variant="default" size="xs">Optionnel</Badge>
                 </div>
                 <div className="flex items-center gap-6">
                     <div className="w-20 h-20 bg-[var(--color-surface)] border-2 border-dashed border-[var(--color-border)] flex flex-col items-center justify-center relative overflow-hidden flex-shrink-0">
@@ -69,22 +68,21 @@ export default function CoordonneesPhotoStep({
                                 </Button>
                             )}
                         </div>
-                        <p className="text-[11px] text-[var(--color-fg-muted)]">Formats acceptés : PNG, JPG, WEBP. Taille max : 5 Mo.</p>
+                        <p className="text-[11px] text-[var(--color-fg-muted)]">Formats acceptés : PNG, JPG, WEBP (max. 5 Mo).</p>
                     </div>
                 </div>
             </Card>
 
             <Card padding className="space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]">
+                <div className="pb-2 border-b border-[var(--color-border-subtle)]">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
                         <Phone size={14} className="text-brand-500" />
                         Coordonnées & Résidence
                     </h3>
-                    <Badge variant="primary" size="xs">Obligatoire</Badge>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                        <Textarea label="Adresse Domicile" required rows={2} value={formData.adresse} onChange={e => set('adresse', e.target.value)} placeholder="Adresse complète" />
+                        <Textarea label="Adresse" required rows={2} value={formData.adresse} onChange={e => set('adresse', e.target.value)} placeholder="Adresse complète de résidence" />
                     </div>
                     <AutocompleteInput 
                         label="Ville" 
@@ -95,7 +93,7 @@ export default function CoordonneesPhotoStep({
                         listId="coord-villes-list"
                     />
                     <Input label="Téléphone" required value={formData.telephone} onChange={e => set('telephone', e.target.value)} placeholder="Ex: 034 12 345 67" />
-                    <Input label="Email Professionnel / Personnel" type="email" value={formData.email} onChange={e => set('email', e.target.value)} placeholder="email@domaine.mg" />
+                    <Input label="Email" type="email" value={formData.email} onChange={e => set('email', e.target.value)} placeholder="email@domaine.mg" />
                 </div>
             </Card>
         </div>

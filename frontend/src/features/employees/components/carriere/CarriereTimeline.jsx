@@ -81,7 +81,7 @@ export default function CarriereTimeline({
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
                         <Clock size={14} className="text-[var(--color-brand-500)]" />
-                        Historique de Carrière & Contrats
+                        Historique de carrière et contrats
                     </h3>
 
                     <div className="inline-flex border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-0.5">
@@ -97,7 +97,7 @@ export default function CarriereTimeline({
                             `}
                         >
                             <GitCommit size={13} />
-                            <span>Parcours Chronologique</span>
+                            <span>Parcours chronologique</span>
                         </button>
 
                         <button
@@ -112,7 +112,7 @@ export default function CarriereTimeline({
                             `}
                         >
                             <Table size={13} />
-                            <span>Tableaux Détaillés</span>
+                            <span>Tableaux détaillés</span>
                         </button>
                     </div>
                 </div>

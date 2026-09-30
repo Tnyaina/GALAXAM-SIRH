@@ -1,74 +1,12 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, X, FileSignature, Eye, EyeOff } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import FormError from '@/components/ui/feedback/FormError';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea, Select } from '@/components/ui/forms/Input';
+import Modal from '@/components/ui/overlays/Modal';
 import contratService from '@/features/employees/api/contratService';
-import {
-    DocumentFrame, DocumentHeader, Clause, DocumentFooter
-} from '@/features/employees/components/carriere/ContractDocument';
 import { fmtDateFr, fmtDateInput } from '@/utils/dateUtils';
 
-// ── COMPOSANT APERÇU AVENANT (Déclaré hors du render) ──────────────────────
-function AvenantPreview({
-    className = '',
-    nomEmploye,
-    dureeProlongationMois,
-    dateFinInitiale,
-    dateEffet,
-    nouvelleDateFin,
-    motif,
-}) {
-    return (
-        <DocumentFrame watermark="Avenant" className={className}>
-            <DocumentHeader
-                eyebrow="Renouvellement d'Essai"
-                title="Avenant au Contrat de Travail"
-            />
-
-            <div className="pt-3 text-[13px] leading-relaxed space-y-3">
-                <p>
-                    La période d'essai de <strong>{nomEmploye || '……………'}</strong> est renouvelée et prolongée d'une durée unique.
-                </p>
-
-                <div className="space-y-1 pt-1">
-                    <Clause
-                        label="Prolongation accordée"
-                        value={dureeProlongationMois ? `+ ${dureeProlongationMois} mois` : ''}
-                    />
-                    <Clause
-                        label="Fin d'essai initiale"
-                        value={fmtDateFr(dateFinInitiale)}
-                    />
-                    <Clause
-                        label="Date de prise d'effet"
-                        value={fmtDateFr(dateEffet)}
-                    />
-                    <Clause
-                        label="Nouvelle fin d'essai"
-                        value={fmtDateFr(nouvelleDateFin)}
-                        className="text-brand-500 font-bold"
-                    />
-                </div>
-
-                {motif && (
-                    <div className="pt-2 border-t border-ink-150 dark:border-ink-800">
-                        <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-brand-500">
-                            Motif du renouvellement
-                        </p>
-                        <p className="text-ink-600 dark:text-ink-300 text-[12px] mt-0.5">
-                            {motif}
-                        </p>
-                    </div>
-                )}
-            </div>
-
-            <DocumentFooter status="Brouillon (en attente de validation)" />
-        </DocumentFrame>
-    );
-}
-
-// ── COMPOSANT PRINCIPAL MODAL ────────────────────────────────────────────────
 export default function RenouvellementEssaiModal({
     isOpen,
     onClose,
@@ -80,12 +18,9 @@ export default function RenouvellementEssaiModal({
     initialData = null,
     onSuccess,
 }) {
-    // Données dérivées des droits et du mode d'édition.
     const isEditMode = !!initialData;
-    const _wfId = initialData?.idWorkflow || initialData?.workflow?.idWorkflow;
     const isActionAllowed = isEditMode || etatEssai?.canRenew !== false;
 
-    // État local : formulaire de renouvellement, aperçu et soumission.
     const [dureeProlongationMois, setDureeProlongationMois] = useState('2');
     const [dateFinInitiale, setDateFinInitiale] = useState('');
     const [dateEffet, setDateEffet] = useState('');
@@ -94,10 +29,7 @@ export default function RenouvellementEssaiModal({
     const [commentaire, setCommentaire] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
     const [submitting, setSubmitting] = useState(false);
-    const [showPreviewMobile, setShowPreviewMobile] = useState(false);
-    const [mounted, setMounted] = useState(false);
 
-    // Effets : initialise les dates, recalcule l'échéance et gère l'ouverture.
     useEffect(() => {
         if (isOpen) {
             const dateFinEssaiContrat = contratActif?.dateFinEssai
@@ -120,12 +52,8 @@ export default function RenouvellementEssaiModal({
                 setMotif('Prolongation de la période d\'évaluation du collaborateur');
                 setCommentaire('');
             }
-
-            const t = setTimeout(() => setMounted(true), 10);
-            return () => clearTimeout(t);
+            setErrorMsg('');
         }
-        setMounted(false);
-        setShowPreviewMobile(false);
     }, [isOpen, initialData, contratActif]);
 
     useEffect(() => {
@@ -140,15 +68,6 @@ export default function RenouvellementEssaiModal({
             }
         }
     }, [dateFinInitiale, dureeProlongationMois, initialData]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
 
     if (!isOpen) return null;
 
@@ -170,7 +89,7 @@ export default function RenouvellementEssaiModal({
                 idTypeContrat: contratActif?.idTypeContrat || initialData?.idTypeContrat || null,
                 idTypeIntervenant: contratActif?.idTypeIntervenant || initialData?.idTypeIntervenant || null,
                 dureeEssaiMois: dureeProlongationMois ? Number(dureeProlongationMois) : null,
-                dateFinEssai: nouvelleDateFin ? nouvelleDateFin : null, // Securite chaine vide -> null
+                dateFinEssai: nouvelleDateFin ? nouvelleDateFin : null,
                 idSite: affectationActive?.idSite || initialData?.idSite || null,
                 idDepartement: affectationActive?.idDepartement || initialData?.idDepartement || null,
                 idService: affectationActive?.idService || initialData?.idService || null,
@@ -179,7 +98,7 @@ export default function RenouvellementEssaiModal({
                 idCategorieProfessionnelle: affectationActive?.idCategorieProfessionnelle || initialData?.idCategorieProfessionnelle || null,
                 idModeCalculPaie: affectationActive?.idModeCalculPaie || initialData?.idModeCalculPaie || null,
                 salaireBase: affectationActive?.salaireBase || initialData?.salaireBase || null,
-                dateEffet: dateEffet ? dateEffet : null, // Securite chaine vide -> null
+                dateEffet: dateEffet ? dateEffet : null,
                 motif: motif ? motif.trim() : null,
                 commentaire: commentaire ? commentaire.trim() : null,
             };
@@ -198,160 +117,114 @@ export default function RenouvellementEssaiModal({
         }
     };
 
-    const previewProps = {
-        nomEmploye,
-        dureeProlongationMois,
-        dateFinInitiale,
-        dateEffet,
-        nouvelleDateFin,
-        motif,
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-5 bg-[var(--color-overlay)]/60 backdrop-blur-[3px]">
-            {/* Overlay cliquable */}
-            <div className="absolute inset-0" onClick={onClose} />
-
-            {/* Modal Centré Split-Screen 50 / 50 */}
-            <div
-                className={`
-                    relative bg-[var(--color-surface)] dark:bg-ink-900 border border-ink-150 dark:border-ink-700 rounded-none shadow-2xl
-                    w-full max-w-[94vw] h-[90vh] overflow-hidden flex flex-col
-                    transform   
-                    ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
-                `}
-            >
-                {/* Header (fixe) */}
-                <div className="px-6 py-4 border-b border-ink-150 dark:border-ink-700 bg-warning-500/10 flex-shrink-0">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-warning-600 dark:text-warning-400 font-bold text-lg">
-                            <RefreshCw size={20} />
-                            <span>Renouvellement de la Période d'Essai</span>
-                            {nomEmploye && (
-                                <span className="text-xs font-normal text-ink-400"> — {nomEmploye}</span>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setShowPreviewMobile(v => !v)}
-                                className="lg:hidden flex items-center gap-1.5 text-xs font-semibold text-warning-600 border border-warning-500/30 rounded-none px-2.5 py-1.5"
-                            >
-                                {showPreviewMobile ? <EyeOff size={14} /> : <Eye size={14} />}
-                                {showPreviewMobile ? 'Masquer l\'aperçu' : 'Voir l\'avenant'}
-                            </button>
-                            <button onClick={onClose} className="text-ink-400 hover:text-ink-900 dark:hover:text-[var(--color-on-color)] p-1 rounded-none">
-                                <X size={20} />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Corps : Split Screen 50 / 50 */}
-                <div className="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
-
-                    {/* COLONNE GAUCHE (50%) : Formulaire */}
-                    <form onSubmit={handleSubmit} className="w-full lg:w-1/2 min-w-0 overflow-y-auto p-4 sm:p-5 space-y-4 border-b lg:border-b-0 lg:border-r border-ink-150 dark:border-ink-700">
-                        {errorMsg && <FormError message={errorMsg} />}
-
-                        {/* Aperçu mobile repliable */}
-                        {showPreviewMobile && (
-                            <AvenantPreview {...previewProps} className="lg:hidden mb-6" />
-                        )}
-
-                        <p className="text-xs text-ink-600 dark:text-ink-300">
-                            Renouvellement (prolongation unique) de la période d'essai de <span className="font-bold text-ink-900 dark:text-[var(--color-on-color)]">{nomEmploye}</span>.
-                        </p>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <Select
-                                id="dureeProlongationMois"
-                                name="dureeProlongationMois"
-                                label="Prolongation *"
-                                value={dureeProlongationMois}
-                                onChange={e => setDureeProlongationMois(e.target.value)}
-                            >
-                                <option value="1">+ 1 Mois</option>
-                                <option value="2">+ 2 Mois</option>
-                                <option value="3">+ 3 Mois</option>
-                            </Select>
-
-                            <Input
-                                type="date"
-                                id="dateEffet"
-                                name="dateEffet"
-                                label="Prise d'Effet *"
-                                value={dateEffet}
-                                onChange={e => setDateEffet(e.target.value)}
-                                required
-                            />
-
-                            <Input
-                                type="date"
-                                id="nouvelleDateFin"
-                                name="nouvelleDateFin"
-                                label="Nouvelle Fin d'Essai *"
-                                value={nouvelleDateFin}
-                                onChange={e => setNouvelleDateFin(e.target.value)}
-                                required
-                            />
-                        </div>
-
-                        <Input
-                            type="text"
-                            id="motifRenouvellement"
-                            name="motif"
-                            label="Motif du Renouvellement *"
-                            value={motif}
-                            onChange={e => setMotif(e.target.value)}
-                            required
-                        />
-
-                        <Textarea
-                            id="commentaireRenouvellement"
-                            name="commentaire"
-                            label="Commentaire / Justification RH"
-                            value={commentaire}
-                            onChange={e => setCommentaire(e.target.value)}
-                            rows={3}
-                            placeholder="Précisions sur les compétences à valider durant la prolongation..."
-                        />
-                    </form>
-
-                    {/* COLONNE DROITE (50%) : Aperçu Avenant */}
-                    <div className="hidden lg:block w-1/2 flex-shrink-0 bg-ink-50/60 dark:bg-ink-950/40 overflow-y-auto p-4 sm:p-5 flex flex-col items-center">
-                        <div className="w-full max-w-[560px]">
-                            <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-wider text-ink-400">
-                                <FileSignature size={14} /> Aperçu de l'avenant en temps réel
-                            </div>
-                            <AvenantPreview {...previewProps} />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Footer Actions (fixe) */}
-                <div className="px-6 py-4 bg-ink-50 dark:bg-ink-950 border-t border-ink-150 dark:border-ink-700 flex-shrink-0 flex items-center justify-between gap-3">
-                    <p className="text-[11px] text-ink-400">
-                        Cette décision sera enregistrée en <span className="font-bold text-warning-600">BROUILLON</span> pour validation.
-                    </p>
-                    <div className="flex justify-end gap-3">
-                        <Button type="button" onClick={onClose} variant="outline" size="md">
-                            Annuler
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handleSubmit}
-                            variant="success"
-                            size="md"
-                            loading={submitting}
-                            disabled={!isActionAllowed || submitting}
-                            iconLeft={<RefreshCw size={16} />}
-                        >
-                            Valider le Renouvellement
-                        </Button>
-                    </div>
-                </div>
+    const modalFooter = (
+        <div className="flex items-center justify-between w-full gap-3 flex-wrap">
+            <p className="text-xs text-[var(--color-fg-muted)]">
+                Statut initial : <span className="font-semibold text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]">Brouillon</span> (validation requise).
+            </p>
+            <div className="flex items-center gap-2">
+                <Button type="button" onClick={onClose} variant="ghost" size="sm">
+                    Annuler
+                </Button>
+                <Button
+                    type="submit"
+                    form="renouvellement-essai-form"
+                    variant="primary"
+                    size="sm"
+                    loading={submitting}
+                    disabled={!isActionAllowed || submitting}
+                    iconLeft={<RefreshCw size={14} />}
+                >
+                    Renouveler l'essai
+                </Button>
             </div>
         </div>
+    );
+
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={nomEmploye ? `Renouvellement d'essai · ${nomEmploye}` : "Renouvellement de la période d'essai"}
+            icon={<RefreshCw size={18} />}
+            size="lg"
+            footer={modalFooter}
+        >
+            <form id="renouvellement-essai-form" onSubmit={handleSubmit} className="space-y-4">
+                {errorMsg && <FormError message={errorMsg} />}
+
+                {/* Synthèse contractuelle compacte */}
+                <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-xs space-y-1.5">
+                    <div className="flex justify-between items-baseline">
+                        <span className="text-[var(--color-fg-muted)]">Poste actuel :</span>
+                        <span className="font-semibold text-[var(--color-fg)]">
+                            {affectationActive?.libelleFonction || 'Non renseigné'}
+                        </span>
+                    </div>
+                    {dateFinInitiale && (
+                        <div className="flex justify-between items-baseline">
+                            <span className="text-[var(--color-fg-muted)]">Fin d'essai initiale :</span>
+                            <span className="font-semibold text-[var(--color-fg)]">
+                                {fmtDateFr(dateFinInitiale)}
+                            </span>
+                        </div>
+                    )}
+                    {nouvelleDateFin && (
+                        <div className="flex justify-between items-baseline pt-1 border-t border-[var(--color-border-subtle)]">
+                            <span className="text-[var(--color-fg-muted)]">Nouvelle échéance prévue :</span>
+                            <span className="font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">
+                                {fmtDateFr(nouvelleDateFin)}
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Select
+                        label="Prolongation accordée"
+                        value={dureeProlongationMois}
+                        onChange={e => setDureeProlongationMois(e.target.value)}
+                        required
+                    >
+                        <option value="1">+ 1 mois</option>
+                        <option value="2">+ 2 mois</option>
+                        <option value="3">+ 3 mois</option>
+                    </Select>
+
+                    <Input
+                        type="date"
+                        label="Date de prise d'effet"
+                        value={dateEffet}
+                        onChange={e => setDateEffet(e.target.value)}
+                        required
+                    />
+                </div>
+
+                <Input
+                    type="date"
+                    label="Nouvelle fin d'essai"
+                    value={nouvelleDateFin}
+                    onChange={e => setNouvelleDateFin(e.target.value)}
+                    required
+                    hint="Calculée automatiquement selon la prolongation"
+                />
+
+                <Input
+                    label="Motif du renouvellement"
+                    value={motif}
+                    onChange={e => setMotif(e.target.value)}
+                    required
+                    placeholder="Justification RH du renouvellement..."
+                />
+
+                <Textarea
+                    label="Observations complémentaires (optionnel)"
+                    value={commentaire}
+                    onChange={e => setCommentaire(e.target.value)}
+                    rows={2}
+                    placeholder="Précisions administratives..."
+                />
+            </form>
+        </Modal>
     );
 }

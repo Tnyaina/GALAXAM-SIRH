@@ -27,8 +27,8 @@ export default function VariablesStepPage() {
     // Rendu
     return (
         <PayrollCampaignShell
-            title="Étape 3 — Variables exceptionnelles"
-            subtitle="Primes exceptionnelles, acomptes et retenues manuelles autorisées par le catalogue backend."
+            title="Étape 3 — Variables par salarié"
+            subtitle="Consultez le bulletin provisoire du salarié, puis préparez ses primes et retenues avant le calcul de la campagne."
             activeStep="VARIABLES"
             context={context}
             periodes={periodes}

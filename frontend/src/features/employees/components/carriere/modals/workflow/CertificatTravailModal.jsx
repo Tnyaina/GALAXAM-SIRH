@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import { Printer, X, Download } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Award, Download } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Loading from '@/components/ui/feedback/Loading';
+import Modal from '@/components/ui/overlays/Modal';
 import documentService from '@/api/documentService';
 import { fmtDateFr } from '@/utils/dateUtils';
 
@@ -16,18 +16,13 @@ export default function CertificatTravailModal({
     signataire,
     dateDebutInitiale = null,
 }) {
-    // État local : animation, options du document et chargement.
-    const [mounted, setMounted] = useState(false);
-    const [typeAnciennete, setTypeAnciennete] = useState('globale'); // 'contrat' | 'globale'
+    const [typeAnciennete, setTypeAnciennete] = useState('globale');
     const [loadingData, setLoadingData] = useState(true);
     const [downloadingDocx, setDownloadingDocx] = useState(false);
     const [docData, setDocData] = useState(null);
-    const printRef = useRef(null);
 
-    // Données dérivées et référence DOM du document.
     const idContrat = contrat?.idContrat;
 
-    // Chargement et actions utilisateur
     const chargerDonnees = useCallback(async () => {
         if (!idContrat) return;
         setLoadingData(true);
@@ -41,24 +36,11 @@ export default function CertificatTravailModal({
         }
     }, [idContrat, typeAnciennete]);
 
-    // Effets : chargent à l'ouverture et ferment avec Échap.
     useEffect(() => {
         if (isOpen) {
             chargerDonnees();
-            const t = setTimeout(() => setMounted(true), 10);
-            return () => clearTimeout(t);
         }
-        setMounted(false);
     }, [isOpen, chargerDonnees]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
 
     const handleDownloadDocx = async () => {
         if (!idContrat || downloadingDocx) return;
@@ -73,14 +55,8 @@ export default function CertificatTravailModal({
         }
     };
 
-    const handlePrint = () => {
-        window.print();
-    };
-
-    // Rendu : garde de fermeture.
     if (!isOpen) return null;
 
-    // Données d'en-tête officiel
     const ent = {
         nom: docData?.entreprise?.nom || filiale?.libelle || filiale?.raisonSociale || contrat?.libelleFiliale || 'GALAXAM LOGISTICS',
         adresse: docData?.entreprise?.adresse || filiale?.adresse || null,
@@ -120,9 +96,40 @@ export default function CertificatTravailModal({
     const catPro = docData?.derniereCategorie || affectation?.libelleCategorieProfessionnelle || '';
     const departement = docData?.dernierDepartement || affectation?.libelleDepartement || '';
 
-    return createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-6 bg-[var(--color-overlay)]/60 backdrop-blur-[2px] print:p-0 print:bg-[var(--color-surface)] print:static print:block">
-            {/* Règles CSS dédiées à l'impression A4 évitant le cadrage déformé et masquant le reste de la page */}
+    const modalFooter = (
+        <div className="flex items-center justify-between w-full flex-wrap gap-3">
+            <span className="text-xs text-[var(--color-fg-muted)]">
+                Référence : {refDoc}
+            </span>
+            <div className="flex items-center gap-2">
+                <Button
+                    type="button"
+                    onClick={handleDownloadDocx}
+                    variant="primary"
+                    size="sm"
+                    loading={downloadingDocx}
+                    iconLeft={<Download size={15} />}
+                    title="Télécharger le fichier Word (.docx)"
+                >
+                    Télécharger Word (.docx)
+                </Button>
+                <Button variant="ghost" size="sm" onClick={onClose}>
+                    Fermer
+                </Button>
+            </div>
+        </div>
+    );
+
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={`Certificat de travail · ${emp.nomComplet}`}
+            icon={<Award size={18} />}
+            size="3xl"
+            footer={modalFooter}
+        >
+            {/* Règles CSS dédiées à l'impression A4 */}
             <style>{`
                 @media print {
                     @page {
@@ -158,64 +165,16 @@ export default function CertificatTravailModal({
                 }
             `}</style>
 
-            <div className="absolute inset-0 print:hidden" onClick={onClose} />
-
-            {/* Modale Container */}
-            <div
-                className={`
-                    relative bg-[var(--color-surface)] border border-[var(--color-border)] rounded shadow-2xl
-                    w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col
-                    transform print:shadow-none print:border-none print:w-full print:max-w-none print:h-auto print:max-h-none print:overflow-visible print:transform-none print:p-0
-                    ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
-                `}
-            >
-                {/* Barre d'actions (masquée à l'impression) */}
-                <div className="px-6 py-3.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex-shrink-0 flex items-center justify-between print:hidden">
-                    <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm text-[var(--color-fg)]">Certificat de Travail</span>
-                        <span className="text-xs text-[var(--color-fg-muted)]">({refDoc})</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            type="button"
-                            onClick={handleDownloadDocx}
-                            variant="outline"
-                            size="sm"
-                            loading={downloadingDocx}
-                            iconLeft={<Download size={15} />}
-                            title="Télécharger le fichier Word (.docx) conforme au modèle officiel"
-                        >
-                            Télécharger Word (.docx)
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handlePrint}
-                            variant="primary"
-                            size="sm"
-                            iconLeft={<Printer size={15} />}
-                            title="Imprimer ou enregistrer en PDF (dans la fenêtre, décocher « En-têtes et pieds de page » pour masquer l'URL)"
-                        >
-                            Imprimer / PDF
-                        </Button>
-                        <button
-                            onClick={onClose}
-                            className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)] p-1 ml-2 rounded hover:bg-[var(--color-border-subtle)] transition-colors"
-                            aria-label="Fermer"
-                        >
-                            <X size={18} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Options (masquée à l'impression) */}
-                <div className="px-6 py-2.5 bg-[var(--color-bg-subtle)]/70 border-b border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-4 flex-shrink-0 print:hidden text-xs text-[var(--color-fg)]">
+            <div className="space-y-4">
+                {/* Options de période */}
+                <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--color-fg)] print:hidden">
                     <div className="flex items-center gap-2">
                         <span className="font-medium text-[var(--color-fg-muted)]">Période prise en compte :</span>
-                        <div className="inline-flex bg-[var(--color-border-subtle)] p-0.5 rounded">
+                        <div className="inline-flex bg-[var(--color-border-subtle)] p-0.5 rounded-none">
                             <button
                                 type="button"
                                 onClick={() => setTypeAnciennete('globale')}
-                                className={`px-2.5 py-0.5 rounded text-xs transition-colors ${
+                                className={`px-2.5 py-1 text-xs transition-colors cursor-pointer ${
                                     typeAnciennete === 'globale'
                                         ? 'bg-[var(--color-surface)] text-[var(--color-fg)] font-semibold shadow-xs'
                                         : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
@@ -226,7 +185,7 @@ export default function CertificatTravailModal({
                             <button
                                 type="button"
                                 onClick={() => setTypeAnciennete('contrat')}
-                                className={`px-2.5 py-0.5 rounded text-xs transition-colors ${
+                                className={`px-2.5 py-1 text-xs transition-colors cursor-pointer ${
                                     typeAnciennete === 'contrat'
                                         ? 'bg-[var(--color-surface)] text-[var(--color-fg)] font-semibold shadow-xs'
                                         : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
@@ -244,17 +203,17 @@ export default function CertificatTravailModal({
                     )}
                 </div>
 
-                {/* Feuille de document officielle — Rendu 1:1 modèle Word (Police Calibri, sobre, sans déco superflue) */}
-                <div className="flex-1 overflow-y-auto p-6 lg:p-10 bg-[var(--color-border-subtle)]/60 print:bg-[var(--color-surface)] print:p-0 print:overflow-visible print:block">
-                    {loadingData ? (
-                        <div className="py-20 flex justify-center print:hidden">
-                            <Loading size="lg" label="Chargement du certificat de travail..." />
-                        </div>
-                    ) : (
+                {/* Feuille de document officielle */}
+                {loadingData ? (
+                    <div className="py-16 flex justify-center print:hidden">
+                        <Loading size="md" label="Chargement du certificat de travail..." />
+                    </div>
+                ) : (
+                    <div className="p-4 sm:p-6 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] print:bg-[var(--color-surface)] print:p-0 print:border-none">
                         <div
                             ref={printRef}
                             id="certificat-print-sheet"
-                            className="w-full max-w-[720px] mx-auto bg-[var(--color-surface)] p-10 md:p-14 shadow-md text-[var(--color-fg)] leading-relaxed print:shadow-none print:p-0"
+                            className="w-full max-w-[680px] mx-auto bg-[var(--color-surface)] p-8 sm:p-12 shadow-sm text-[var(--color-fg)] leading-relaxed print:shadow-none print:p-0 border border-[var(--color-border-subtle)] print:border-none"
                             style={{ fontFamily: "Calibri, 'Segoe UI', Arial, sans-serif" }}
                         >
                             {/* EN-TÊTE DE SOCIÉTÉ OFFICIEL */}
@@ -285,10 +244,10 @@ export default function CertificatTravailModal({
 
                             {/* RÉFÉRENCE ET DATE */}
                             <div className="text-right text-xs text-[var(--color-fg)] mb-6">
-                                Référence : {refDoc} — {sig.ville}, le {sig.dateEmissionTexte}
+                                Référence : {refDoc} · {sig.ville ? `${sig.ville}, le ` : 'Le '}{sig.dateEmissionTexte}
                             </div>
 
-                            {/* TEXTE DU CERTIFICAT CONFORME AU MODÈLE DOCX */}
+                            {/* TEXTE DU CERTIFICAT */}
                             <div className="space-y-4 text-xs md:text-sm text-justify leading-relaxed text-[var(--color-fg)]">
                                 <p>
                                     Je soussigné(e), <strong>{sig.nom}</strong>, agissant en qualité de <strong>{sig.fonction}</strong> de la société <strong>{ent.nom}</strong>
@@ -317,13 +276,13 @@ export default function CertificatTravailModal({
                                             <div className="space-y-1 pl-4">
                                                 {postesOccupes.map((p, idx) => (
                                                     <div key={idx}>
-                                                        — Du {p.dateDebutTexte} au {p.dateFinTexte} — <strong>{p.libelleFonction}</strong>{p.categorieProfessionnelle ? ` (${p.categorieProfessionnelle})` : ''}{p.departement ? `. Département ${p.departement}` : ''}
+                                                        · Du {p.dateDebutTexte} au {p.dateFinTexte} : <strong>{p.libelleFonction}</strong>{p.categorieProfessionnelle ? ` (${p.categorieProfessionnelle})` : ''}{p.departement ? `. Département ${p.departement}` : ''}
                                                     </div>
                                                 ))}
                                             </div>
                                         ) : (
                                             <div className="pl-4">
-                                                — Du {dateEntreeTexte} au {dateSortieTexte} — <strong>{libFonction}</strong>{catPro ? ` (${catPro})` : ''}{departement ? `. Département ${departement}` : ''}
+                                                · Du {dateEntreeTexte} au {dateSortieTexte} : <strong>{libFonction}</strong>{catPro ? ` (${catPro})` : ''}{departement ? `. Département ${departement}` : ''}
                                             </div>
                                         )}
                                     </div>
@@ -344,10 +303,10 @@ export default function CertificatTravailModal({
                                 </p>
                             </div>
 
-                            {/* SIGNATURE & CACHET (ALIGNÉ À DROITE, CONFORME MODÈLE) */}
+                            {/* SIGNATURE & CACHET */}
                             <div className="mt-12 text-right text-xs leading-relaxed text-[var(--color-fg)]">
                                 <p>{sig.ville ? `${sig.ville}, le ` : 'Le '}{sig.dateEmissionTexte}</p>
-                                <p className="italic mt-1">Fait pour servir et valoir ce que de droit.</p>
+                                <p className="mt-1">Fait pour servir et valoir ce que de droit.</p>
                                 <div className="pt-6">
                                     <p className="font-bold">{sig.nom}</p>
                                     <p>{sig.fonction}</p>
@@ -355,10 +314,9 @@ export default function CertificatTravailModal({
                                 </div>
                             </div>
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
-        </div>,
-        document.body
+        </Modal>
     );
 }

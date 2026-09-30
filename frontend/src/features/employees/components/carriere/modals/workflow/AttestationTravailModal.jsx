@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import { Printer, X, Download } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { FileCheck, Download } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Loading from '@/components/ui/feedback/Loading';
+import Modal from '@/components/ui/overlays/Modal';
 import documentService from '@/api/documentService';
 import { fmtDateFr } from '@/utils/dateUtils';
 
@@ -16,19 +16,14 @@ export default function AttestationTravailModal({
     signataire,
     dateDebutInitiale = null,
 }) {
-    // État local : animation, options de document et chargement.
-    const [mounted, setMounted] = useState(false);
-    const [typeAnciennete, setTypeAnciennete] = useState('globale'); // 'contrat' | 'globale'
+    const [typeAnciennete, setTypeAnciennete] = useState('globale');
     const [inclureSalaire, setInclureSalaire] = useState(false);
     const [loadingData, setLoadingData] = useState(true);
     const [downloadingDocx, setDownloadingDocx] = useState(false);
     const [docData, setDocData] = useState(null);
-    const printRef = useRef(null);
 
-    // Données dérivées et référence DOM du document.
     const idEmp = employe?.idEmploye || contrat?.idEmploye;
 
-    // Chargement et actions utilisateur
     const chargerDonnees = useCallback(async () => {
         if (!idEmp) return;
         setLoadingData(true);
@@ -42,24 +37,11 @@ export default function AttestationTravailModal({
         }
     }, [idEmp, typeAnciennete, inclureSalaire]);
 
-    // Effets : chargent à l'ouverture et ferment avec Échap.
     useEffect(() => {
         if (isOpen) {
             chargerDonnees();
-            const t = setTimeout(() => setMounted(true), 10);
-            return () => clearTimeout(t);
         }
-        setMounted(false);
     }, [isOpen, chargerDonnees]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
 
     const handleDownloadDocx = async () => {
         if (!idEmp || downloadingDocx) return;
@@ -74,13 +56,8 @@ export default function AttestationTravailModal({
         }
     };
 
-    const handlePrint = () => {
-        window.print();
-    };
-
     if (!isOpen) return null;
 
-    // Données réelles selon modèle d'en-tête officiel
     const ent = {
         nom: docData?.entreprise?.nom || filiale?.libelle || filiale?.raisonSociale || contrat?.libelleFiliale || 'GALAXAM LOGISTICS',
         adresse: docData?.entreprise?.adresse || filiale?.adresse || null,
@@ -121,8 +98,39 @@ export default function AttestationTravailModal({
     const typeContratLib = docData?.typeContrat || 'durée indéterminée';
     const ancienneteCalculee = docData?.ancienneteTexte || '';
 
-    return createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 lg:p-6 bg-[var(--color-overlay)]/60 backdrop-blur-[2px] print:p-0 print:bg-[var(--color-surface)] print:static print:block">
+    const modalFooter = (
+        <div className="flex items-center justify-between w-full flex-wrap gap-3">
+            <span className="text-xs text-[var(--color-fg-muted)]">
+                Référence : {refDoc}
+            </span>
+            <div className="flex items-center gap-2">
+                <Button
+                    type="button"
+                    onClick={handleDownloadDocx}
+                    variant="primary"
+                    size="sm"
+                    loading={downloadingDocx}
+                    iconLeft={<Download size={15} />}
+                    title="Télécharger le fichier Word (.docx)"
+                >
+                    Télécharger Word (.docx)
+                </Button>
+                <Button variant="ghost" size="sm" onClick={onClose}>
+                    Fermer
+                </Button>
+            </div>
+        </div>
+    );
+
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={`Attestation de travail · ${emp.nomComplet}`}
+            icon={<FileCheck size={18} />}
+            size="3xl"
+            footer={modalFooter}
+        >
             {/* Règles CSS dédiées à l'impression A4 évitant le cadrage déformé et masquant le reste de la page */}
             <style>{`
                 @media print {
@@ -159,65 +167,17 @@ export default function AttestationTravailModal({
                 }
             `}</style>
 
-            <div className="absolute inset-0 print:hidden" onClick={onClose} />
-
-            {/* Modale Container */}
-            <div
-                className={`
-                    relative bg-[var(--color-surface)] border border-[var(--color-border)] rounded shadow-2xl
-                    w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col
-                    transform print:shadow-none print:border-none print:w-full print:max-w-none print:h-auto print:max-h-none print:overflow-visible print:transform-none print:p-0
-                    ${mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
-                `}
-            >
-                {/* Barre d'actions (masquée à l'impression) */}
-                <div className="px-6 py-3.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex-shrink-0 flex items-center justify-between print:hidden">
-                    <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm text-[var(--color-fg)]">Attestation de Travail</span>
-                        <span className="text-xs text-[var(--color-fg-muted)]">({refDoc})</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            type="button"
-                            onClick={handleDownloadDocx}
-                            variant="outline"
-                            size="sm"
-                            loading={downloadingDocx}
-                            iconLeft={<Download size={15} />}
-                            title="Télécharger le fichier Word (.docx) conforme au modèle officiel"
-                        >
-                            Télécharger Word (.docx)
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handlePrint}
-                            variant="primary"
-                            size="sm"
-                            iconLeft={<Printer size={15} />}
-                            title="Imprimer ou enregistrer en PDF (dans la fenêtre, décocher « En-têtes et pieds de page » pour masquer l'URL)"
-                        >
-                            Imprimer / PDF
-                        </Button>
-                        <button
-                            onClick={onClose}
-                            className="text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)] p-1 ml-2 rounded hover:bg-[var(--color-border-subtle)] transition-colors"
-                            aria-label="Fermer"
-                        >
-                            <X size={18} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Options d'attestation (masquée à l'impression) */}
-                <div className="px-6 py-2.5 bg-[var(--color-bg-subtle)]/70 border-b border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-4 flex-shrink-0 print:hidden text-xs text-[var(--color-fg)]">
+            <div className="space-y-4">
+                {/* Options d'attestation */}
+                <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--color-fg)] print:hidden">
                     <div className="flex flex-wrap items-center gap-4">
                         <div className="flex items-center gap-2">
                             <span className="font-medium text-[var(--color-fg-muted)]">Base d'ancienneté :</span>
-                            <div className="inline-flex bg-[var(--color-border-subtle)] p-0.5 rounded">
+                            <div className="inline-flex bg-[var(--color-border-subtle)] p-0.5 rounded-none">
                                 <button
                                     type="button"
                                     onClick={() => setTypeAnciennete('globale')}
-                                    className={`px-2.5 py-0.5 rounded text-xs transition-colors ${
+                                    className={`px-2.5 py-1 text-xs transition-colors cursor-pointer ${
                                         typeAnciennete === 'globale'
                                             ? 'bg-[var(--color-surface)] text-[var(--color-fg)] font-semibold shadow-xs'
                                             : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
@@ -228,7 +188,7 @@ export default function AttestationTravailModal({
                                 <button
                                     type="button"
                                     onClick={() => setTypeAnciennete('contrat')}
-                                    className={`px-2.5 py-0.5 rounded text-xs transition-colors ${
+                                    className={`px-2.5 py-1 text-xs transition-colors cursor-pointer ${
                                         typeAnciennete === 'contrat'
                                             ? 'bg-[var(--color-surface)] text-[var(--color-fg)] font-semibold shadow-xs'
                                             : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
@@ -244,7 +204,7 @@ export default function AttestationTravailModal({
                                 type="checkbox"
                                 checked={inclureSalaire}
                                 onChange={(e) => setInclureSalaire(e.target.checked)}
-                                className="w-3.5 h-3.5 text-[var(--color-info-600)] rounded border-[var(--color-border)] focus:ring-[var(--color-info-500)] cursor-pointer"
+                                className="w-3.5 h-3.5 text-[var(--color-brand-600)] rounded-none border-[var(--color-border-subtle)] focus:ring-[var(--color-brand-500)] cursor-pointer"
                             />
                             <span>Mentionner le salaire de base</span>
                         </label>
@@ -257,17 +217,17 @@ export default function AttestationTravailModal({
                     )}
                 </div>
 
-                {/* Feuille de document officielle — Rendu 1:1 modèle Word (Police Calibri, pas de déco superflue) */}
-                <div className="flex-1 overflow-y-auto p-6 lg:p-10 bg-[var(--color-border-subtle)]/60 print:bg-[var(--color-surface)] print:p-0 print:overflow-visible print:block">
-                    {loadingData ? (
-                        <div className="py-20 flex justify-center print:hidden">
-                            <Loading size="lg" label="Chargement du document officiel..." />
-                        </div>
-                    ) : (
+                {/* Feuille de document officielle */}
+                {loadingData ? (
+                    <div className="py-16 flex justify-center print:hidden">
+                        <Loading size="md" label="Chargement de l'attestation de travail..." />
+                    </div>
+                ) : (
+                    <div className="p-4 sm:p-6 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] print:bg-[var(--color-surface)] print:p-0 print:border-none">
                         <div
                             ref={printRef}
                             id="attestation-print-sheet"
-                            className="w-full max-w-[720px] mx-auto bg-[var(--color-surface)] p-10 md:p-14 shadow-md text-[var(--color-fg)] leading-relaxed print:shadow-none print:p-0"
+                            className="w-full max-w-[680px] mx-auto bg-[var(--color-surface)] p-8 sm:p-12 shadow-sm text-[var(--color-fg)] leading-relaxed print:shadow-none print:p-0 border border-[var(--color-border-subtle)] print:border-none"
                             style={{ fontFamily: "Calibri, 'Segoe UI', Arial, sans-serif" }}
                         >
                             {/* EN-TÊTE ENTREPRISE OFFICIEL */}
@@ -298,10 +258,10 @@ export default function AttestationTravailModal({
 
                             {/* RÉFÉRENCE ET DATE */}
                             <div className="text-right text-xs text-[var(--color-fg)] mb-6">
-                                Référence : {refDoc} — {sig.ville}, le {sig.dateEmissionTexte}
+                                Référence : {refDoc} · {sig.ville ? `${sig.ville}, le ` : 'Le '}{sig.dateEmissionTexte}
                             </div>
 
-                            {/* TEXTE OFFICIEL STRICT (CONFORME AU MODÈLE DOCX) */}
+                            {/* TEXTE OFFICIEL STRICT */}
                             <div className="space-y-4 text-xs md:text-sm text-justify leading-relaxed text-[var(--color-fg)]">
                                 <p>
                                     Je soussigné(e), <strong>{sig.nom}</strong>, agissant en qualité de <strong>{sig.fonction}</strong> de la société <strong>{ent.nom}</strong>
@@ -346,10 +306,10 @@ export default function AttestationTravailModal({
                                 </p>
                             </div>
 
-                            {/* SIGNATURE & CACHET (ALIGNE À DROITE, CONFORME MODÈLE) */}
+                            {/* SIGNATURE & CACHET */}
                             <div className="mt-12 text-right text-xs leading-relaxed text-[var(--color-fg)]">
                                 <p>{sig.ville ? `${sig.ville}, le ` : 'Le '}{sig.dateEmissionTexte}</p>
-                                <p className="italic mt-1">Fait pour servir et valoir ce que de droit.</p>
+                                <p className="mt-1">Fait pour servir et valoir ce que de droit.</p>
                                 <div className="pt-6">
                                     <p className="font-bold">{sig.nom}</p>
                                     <p>{sig.fonction}</p>
@@ -357,10 +317,9 @@ export default function AttestationTravailModal({
                                 </div>
                             </div>
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
-        </div>,
-        document.body
+        </Modal>
     );
 }

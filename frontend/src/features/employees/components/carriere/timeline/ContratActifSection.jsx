@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useId } from 'react';
-import { Briefcase, Clock, FileCheck, RefreshCw, UserMinus, Plus, Building, Landmark, CheckCircle, Info, ChevronDown, MoreHorizontal, FileText } from 'lucide-react';
+import { Briefcase, Clock, FileCheck, RefreshCw, UserMinus, Plus, Building, Landmark, CheckCircle, ChevronDown, MoreHorizontal, FileText } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
+import Alert from '@/components/ui/feedback/Alert';
 import { Card } from '@/components/ui/data-display/Card';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import HasPermission from '@/features/auth/components/HasPermission';
@@ -14,12 +15,19 @@ import { isDateInFuture, isDateInPast } from '@/utils/dateUtils';
  * La hiérarchie est assurée par l'espacement (space-y-2.5) et la typographie,
  * non par des lignes horizontales répétées.
  */
-const InfoRow = ({ label, children }) => (
-    <div className="flex justify-between items-baseline gap-2 min-w-0">
-        <span className="text-xs text-[var(--color-fg-muted)] shrink-0">{label}</span>
-        <span className="font-bold text-xs text-[var(--color-fg)] text-right truncate">{children}</span>
-    </div>
-);
+const InfoRow = ({ label, children }) => {
+    const rawText = typeof children === 'string' ? children.trim() : children;
+    const hasValue = rawText !== null && rawText !== undefined && rawText !== '' && rawText !== '—';
+
+    return (
+        <div className="flex justify-between items-baseline gap-2 min-w-0 py-0.5">
+            <span className="text-xs text-[var(--color-fg-muted)] shrink-0">{label}</span>
+            <span className={`text-xs text-right truncate ${hasValue ? 'font-bold text-[var(--color-fg)]' : 'text-[var(--color-fg-subtle)] font-normal'}`}>
+                {hasValue ? children : 'Non renseigné'}
+            </span>
+        </div>
+    );
+};
 
 // Menus en superposition : la carte garde sa hauteur à l’ouverture.
 function ContractActionMenu({ label, icon, children }) {
@@ -100,11 +108,11 @@ export default function ContratActifSection({
         return (
             <EmptyState
                 icon={Briefcase}
-                title={hasHistory ? 'Collaborateur Inactif (Aucun Contrat en cours)' : 'Aucun Contrat Actif'}
+                title={hasHistory ? 'Collaborateur inactif' : 'Aucun contrat actif'}
                 description={hasHistory
-                    ? "Cet employé dispose d'un historique de contrats passés. Vous pouvez initier une nouvelle réembauche, une réintégration avec reprise d'ancienneté ou un contrat de consultant."
-                    : "Cet employé ne dispose pas encore de contrat de travail enregistré. Vous pouvez initier son embauche initiale."}
-                actionLabel={canWrite ? (hasHistory ? 'Contractualiser (Réembauche / Réintégration)' : "Initier l'Embauche (Créer Contrat)") : undefined}
+                    ? "Historique de contrats clos. Vous pouvez réintégrer ou réembaucher ce collaborateur."
+                    : "Aucun contrat de travail actif pour ce collaborateur."}
+                actionLabel={canWrite ? (hasHistory ? 'Contractualiser (Réembauche)' : "Initier l'embauche") : undefined}
                 onAction={canWrite ? onOpenCreateEmbauche : undefined}
                 actionIcon={<Plus size={16} />}
             />
@@ -147,12 +155,10 @@ export default function ContratActifSection({
 
             {/* Alerte informative si contrat futur planifié */}
             {isContratFutur && (
-                <div className="bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/25 p-3 rounded-none text-xs flex items-center gap-2.5 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]">
-                    <Info size={16} className="shrink-0 text-[var(--color-brand-500)]" />
-                    <span>
-                        Contrat à terme différé : ce contrat a été validé et prendra automatiquement effet le <strong>{fmtDate(contratActif.dateDebut)}</strong>.
-                    </span>
-                </div>
+                <Alert
+                    type="info"
+                    message={`Contrat à terme différé : prise d'effet automatique le ${fmtDate(contratActif.dateDebut)}.`}
+                />
             )}
 
             <details open className="space-y-3 border-t border-[var(--color-border-subtle)] pt-3">
@@ -165,11 +171,11 @@ export default function ContratActifSection({
                         <Building size={13} className="text-[var(--color-brand-500)]" /> Termes Contractuels
                     </h4>
                     <div className="space-y-2">
-                        <InfoRow label="Type de contrat">{contratActif?.libelleTypeContrat || workflowCplActif?.libelleTypeContrat || '—'}</InfoRow>
-                        <InfoRow label="Filiale employeuse">{contratActif?.libelleFiliale || workflowCplActif?.libelleFiliale || '—'}</InfoRow>
+                        <InfoRow label="Type de contrat">{contratActif?.libelleTypeContrat || workflowCplActif?.libelleTypeContrat}</InfoRow>
+                        <InfoRow label="Filiale employeuse">{contratActif?.libelleFiliale || workflowCplActif?.libelleFiliale}</InfoRow>
                         <InfoRow label="Date de début">{fmtDate(contratActif.dateDebut)}</InfoRow>
-                        <InfoRow label="Date de fin">{contratActif.dateFin ? fmtDate(contratActif.dateFin) : '—'}</InfoRow>
-                        <InfoRow label="Date de signature">{contratActif.dateSignature ? fmtDate(contratActif.dateSignature) : '—'}</InfoRow>
+                        <InfoRow label="Date de fin">{contratActif.dateFin ? fmtDate(contratActif.dateFin) : null}</InfoRow>
+                        <InfoRow label="Date de signature">{contratActif.dateSignature ? fmtDate(contratActif.dateSignature) : null}</InfoRow>
                         <InfoRow label="Effectif légal">{contratActif.comptabiliseEffectif ? 'Oui (Salarié)' : 'Non (Hors effectif)'}</InfoRow>
                     </div>
 
@@ -183,15 +189,15 @@ export default function ContratActifSection({
                                 <span className="flex items-center gap-1.5 font-bold">
                                     <Clock size={13} /> {
                                         etatEssai.isEssaiEchu
-                                            ? "Période d'Essai Échue :"
-                                            : (etatEssai.isDernierJour ? "Dernier Jour d'Essai :" : "Période d'Essai :")
+                                            ? "Période d'essai échue :"
+                                            : (etatEssai.isDernierJour ? "Dernier jour d'essai :" : "Période d'essai :")
                                     }
                                 </span>
                                 <span className="font-bold">
-                                    {etatEssai.dureeEssaiMois} Mois
+                                    {etatEssai.dureeEssaiMois} mois
                                     {etatEssai.isEssaiEchu
-                                        ? ` (Finie le ${fmtDate(etatEssai.dateFinEssaiStr)})`
-                                        : (etatEssai.isDernierJour ? ' (Échéance ce soir à 23h59)' : ` (Fin le ${fmtDate(etatEssai.dateFinEssaiStr)})`)
+                                        ? ` (terminée le ${fmtDate(etatEssai.dateFinEssaiStr)})`
+                                        : (etatEssai.isDernierJour ? ' (échéance aujourd’hui)' : ` (fin le ${fmtDate(etatEssai.dateFinEssaiStr)})`)
                                     }
                                 </span>
                             </div>
@@ -204,7 +210,7 @@ export default function ContratActifSection({
                                             size="xs"
                                             iconLeft={<CheckCircle size={13} />}
                                         >
-                                            Confirmer l'Essai
+                                            Confirmer l'essai
                                         </Button>
                                     )}
                                     {etatEssai?.canRenew === true ? (
@@ -214,7 +220,7 @@ export default function ContratActifSection({
                                             size="xs"
                                             iconLeft={<RefreshCw size={13} />}
                                         >
-                                            Renouveller l'Essai
+                                            Renouveler l'essai
                                         </Button>
                                     ) : null}
                                 </div>
@@ -229,11 +235,11 @@ export default function ContratActifSection({
                         <Landmark size={13} className="text-[var(--color-brand-500)]" /> Affectation Courante
                     </h4>
                     <div className="space-y-2">
-                        <InfoRow label="Site">{affectationActive?.libelleSite || workflowCplActif?.libelleSite || '—'}</InfoRow>
-                        <InfoRow label="Département">{affectationActive?.libelleDepartement || workflowCplActif?.libelleDepartement || '—'}</InfoRow>
-                        <InfoRow label="Fonction / Poste">{affectationActive?.libelleFonction || workflowCplActif?.libelleFonction || '—'}</InfoRow>
-                        <InfoRow label="Catégorie pro">{affectationActive?.libelleCategoriePro || affectationActive?.libelleCategorieProfessionnelle || workflowCplActif?.libelleCategoriePro || '—'}</InfoRow>
-                        <InfoRow label="Supérieur N+1">{affectationActive?.nomPrenomResponsable || affectationActive?.nomResponsableHierarchique || workflowCplActif?.nomPrenomResponsable || '—'}</InfoRow>
+                        <InfoRow label="Site">{affectationActive?.libelleSite || workflowCplActif?.libelleSite}</InfoRow>
+                        <InfoRow label="Département">{affectationActive?.libelleDepartement || workflowCplActif?.libelleDepartement}</InfoRow>
+                        <InfoRow label="Fonction / Poste">{affectationActive?.libelleFonction || workflowCplActif?.libelleFonction}</InfoRow>
+                        <InfoRow label="Catégorie pro">{affectationActive?.libelleCategoriePro || affectationActive?.libelleCategorieProfessionnelle || workflowCplActif?.libelleCategoriePro}</InfoRow>
+                        <InfoRow label="Supérieur N+1">{affectationActive?.nomPrenomResponsable || affectationActive?.nomResponsableHierarchique || workflowCplActif?.nomPrenomResponsable}</InfoRow>
                     </div>
                     {/* Salaire mis en avant — donnée prioritaire (protégé par PAIE_READ) */}
                     <HasPermission authority="PAIE_READ">

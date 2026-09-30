@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Banknote, RefreshCw } from 'lucide-react';
+import { Banknote, RefreshCw, Plus, SlidersHorizontal, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import SEO from '@/components/system/SEO';
 import PageHeader from '@/components/ui/navigation/PageHeader';
@@ -12,12 +12,26 @@ import Alert from '@/components/ui/feedback/Alert';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Modal from '@/components/ui/overlays/Modal';
 import SlideOver from '@/components/ui/overlays/SlideOver';
+import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { useAuth } from '@/context/AuthContext';
 import paieService from '@/features/payroll/api/paieService';
+import { periodePaieService } from '@/features/attendance/api/attendanceApi';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { fmtDate, getTodayDateString } from '@/utils/dateUtils';
 import { getErrorMessage } from '@/api/apiClient';
+
+const DEFAULT_MODES = [
+    { code: 'VIREMENT', libelle: 'Virement bancaire' },
+    { code: 'ESPECES', libelle: 'Espèces / Caisse' },
+    { code: 'CHEQUE', libelle: 'Chèque bancaire' },
+    { code: 'MOBILE_MONEY', libelle: 'Mobile Money' },
+];
+
+const DEFAULT_TYPES_ACOMPTES = [
+    { code: 'ACOMPTE_15', libelle: 'Acompte sur salaire' },
+    { code: 'AVANCE_SPECIALE', libelle: 'Avance exceptionnelle sur salaire' },
+];
 
 const ETATS = {
     A_APPROUVER: { label: 'À approuver', variant: 'warning' },
@@ -35,7 +49,9 @@ export default function AcomptesAvancesPage() {
     const canWrite = hasPermission('PAIE_WRITE') || hasPermission('ROLE_ADMIN');
     const [dossiers, setDossiers] = useState([]);
     const [synthese, setSynthese] = useState(null);
-    const [modes, setModes] = useState([]);
+    const [modes, setModes] = useState(DEFAULT_MODES);
+    const [periodes, setPeriodes] = useState([]);
+    const [typesAcomptes, setTypesAcomptes] = useState(DEFAULT_TYPES_ACOMPTES);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [feedback, setFeedback] = useState(null);
@@ -51,24 +67,81 @@ export default function AcomptesAvancesPage() {
     const [modeReglement, setModeReglement] = useState('');
     const [referenceVersement, setReferenceVersement] = useState('');
     const [submitting, setSubmitting] = useState(false);
+
+    // Modal de saisie de nouvelle demande
+    const [isDemandeModalOpen, setIsDemandeModalOpen] = useState(false);
+    const [demandeSubmitting, setDemandeSubmitting] = useState(false);
+    const [demandeError, setDemandeError] = useState(null);
+    const [demandeForm, setDemandeForm] = useState({
+        idEmploye: '',
+        idPeriodePaie: '',
+        typeMouvement: 'ACOMPTE_15',
+        montant: '',
+        motif: '',
+        dateDemande: getTodayDateString(),
+        modeReglement: 'VIREMENT',
+    });
+
     const selected = dossiers.find(item => item.idAvance === selectedId) || null;
 
     const charger = useCallback(async () => {
         setLoading(true); setError(null);
         try {
-            const [liste, resume, modesResult] = await Promise.all([
-                paieService.listerAjustements(null, null, 'ACOMPTE_AVANCE'),
-                paieService.syntheseAcomptesAvances(),
-                paieService.listerModesReglement(),
+            const [liste, resume, modesResult, periodesResult, typesResult] = await Promise.all([
+                paieService.listerAjustements(null, null, 'ACOMPTE_AVANCE').catch(() => []),
+                paieService.syntheseAcomptesAvances().catch(() => null),
+                paieService.listerModesReglement().catch(() => DEFAULT_MODES),
+                periodePaieService.getAllPeriodes().catch(() => []),
+                paieService.listerTypesMouvements().catch(() => DEFAULT_TYPES_ACOMPTES),
             ]);
             setDossiers(Array.isArray(liste) ? liste : []);
             setSynthese(resume);
-            setModes(Array.isArray(modesResult) ? modesResult : []);
+            const modesList = Array.isArray(modesResult) && modesResult.length > 0 ? modesResult : DEFAULT_MODES;
+            setModes(modesList);
+            const rawPeriodes = Array.isArray(periodesResult) ? periodesResult : (periodesResult?.content || []);
+            const allPeriodes = rawPeriodes.map(p => {
+                const id = p.idPeriodePaie ?? p.id_periode_paie ?? p.id;
+                const code = p.code ?? p.codePeriode ?? '';
+                const libelle = p.libelle ?? '';
+                const statut = p.statutLibelle ?? p.statutCode ?? p.statut ?? '';
+                const displayLabel = `${code}${libelle ? ` — ${libelle}` : ''}${statut ? ` (${statut})` : ''}`.trim() || `Période #${id}`;
+                return {
+                    ...p,
+                    id,
+                    idPeriodePaie: id,
+                    code,
+                    codePeriode: code,
+                    libelle,
+                    statut,
+                    statutCode: p.statutCode ?? statut,
+                    label: displayLabel,
+                };
+            });
+            setPeriodes(allPeriodes);
+
+            const filteredTypes = (Array.isArray(typesResult) ? typesResult : [])
+                .filter(t => ['ACOMPTE', 'AVANCE'].includes(t.categorie) || t.sens === 'RETENUE');
+            const typesList = filteredTypes.length > 0 ? filteredTypes : DEFAULT_TYPES_ACOMPTES;
+            setTypesAcomptes(typesList);
+
+            // Initialiser la période et le type par défaut pour la modale
+            const active = allPeriodes.find(p => ['PREPARATION', 'EN_COURS', 'OUVERTE'].includes(p.statutCode || p.statut)) || allPeriodes[0];
+            setDemandeForm(prev => ({
+                ...prev,
+                idPeriodePaie: active?.id ? String(active.id) : (allPeriodes[0]?.id ? String(allPeriodes[0].id) : ''),
+                typeMouvement: typesList[0]?.code || 'ACOMPTE_15',
+                modeReglement: modesList[0]?.code || 'VIREMENT',
+            }));
         } catch (err) {
             setError(getErrorMessage(err, 'Impossible de charger les acomptes et avances.'));
         } finally { setLoading(false); }
     }, []);
+
     useEffect(() => { charger(); }, [charger]);
+
+    const activePeriod = useMemo(() => {
+        return periodes.find(p => ['PREPARATION', 'EN_COURS', 'OUVERTE'].includes(p.statutCode || p.statut)) || periodes[0] || null;
+    }, [periodes]);
     useEffect(() => {
         if (!selectedId) return;
         let active = true;
@@ -114,7 +187,55 @@ export default function AcomptesAvancesPage() {
         finally { setSubmitting(false); }
     };
 
-    return <div className="space-y-4 max-w-7xl mx-auto pb-8 px-2 sm:px-4">
+    const soumettreDemande = async event => {
+        event.preventDefault();
+        setDemandeError(null);
+        if (!demandeForm.idEmploye) {
+            setDemandeError('Veuillez sélectionner un salarié.');
+            return;
+        }
+        const montantNum = parseFloat(demandeForm.montant);
+        if (isNaN(montantNum) || montantNum <= 0) {
+            setDemandeError('Veuillez renseigner un montant valide supérieur à 0 (jusqu’à 2 décimales autorisées).');
+            return;
+        }
+        if (!demandeForm.motif || demandeForm.motif.trim().length < 5) {
+            setDemandeError('Le motif doit contenir au moins 5 caractères.');
+            return;
+        }
+
+        setDemandeSubmitting(true);
+        try {
+            await paieService.creerAjustement({
+                idEmploye: Number(demandeForm.idEmploye),
+                idPeriodePaie: demandeForm.idPeriodePaie ? Number(demandeForm.idPeriodePaie) : (activePeriod?.id || null),
+                typeMouvement: demandeForm.typeMouvement,
+                sens: 'RETENUE',
+                montant: Number(montantNum.toFixed(2)),
+                motif: demandeForm.motif.trim(),
+                dateDemande: demandeForm.dateDemande || getTodayDateString(),
+                modeReglement: demandeForm.modeReglement || 'VIREMENT',
+            });
+            setIsDemandeModalOpen(false);
+            setFeedback({
+                type: 'success',
+                message: 'Demande enregistrée avec succès. Elle est désormais en attente d’approbation.',
+            });
+            setDemandeForm(prev => ({
+                ...prev,
+                idEmploye: '',
+                montant: '',
+                motif: '',
+            }));
+            await charger();
+        } catch (err) {
+            setDemandeError(getErrorMessage(err, 'Impossible d’enregistrer la demande.'));
+        } finally {
+            setDemandeSubmitting(false);
+        }
+    };
+
+    return <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-12 px-2 sm:px-4">
         <SEO title="Acomptes et avances | GALAXAM SIRH" description="Décisions, versements et remboursements des salariés." />
         <PageHeader title="Acomptes et avances" subtitle="Demande → approbation → versement confirmé → retenues sur bulletin → solde"
             icon={Banknote} breadcrumbs={[{ label: 'Paie', href: '/paie' }, { label: 'Acomptes et avances' }]} />
@@ -122,8 +243,30 @@ export default function AcomptesAvancesPage() {
         {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
         {synthese?.aVerifier > 0 && <Alert type="warning" message={`${synthese.aVerifier} dossier(s) historique(s) ont des retenues sans confirmation de versement fiable. Vérifiez les pièces avant toute nouvelle action.`} />}
         <div className="flex flex-wrap justify-between items-center gap-2">
-            <p className="text-xs text-[var(--color-fg-muted)]">La fiche salarié ou l’étape Variables de paie permet d’enregistrer une demande. Seul un versement confirmé peut être retenu sur le bulletin.</p>
-            <div className="flex gap-2"><Link to="/paie?tab=variables" className="inline-flex items-center border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs font-semibold text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]">Saisir une demande</Link><Button variant="outline" size="sm" onClick={charger} iconLeft={<RefreshCw size={14} />}>Actualiser</Button></div>
+            <p className="text-xs text-[var(--color-fg-muted)]">La fiche salarié ou cette interface permet d’enregistrer une demande. Seul un versement confirmé peut être retenu sur le bulletin.</p>
+            <div className="flex flex-wrap gap-2 items-center">
+                <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => { setDemandeError(null); setIsDemandeModalOpen(true); }}
+                    iconLeft={<Plus size={14} />}
+                >
+                    Saisir une demande
+                </Button>
+                {activePeriod?.id && (
+                    <Link
+                        to={`/paie/periodes/${activePeriod.id}/variables`}
+                        className="inline-flex items-center gap-1.5 border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs font-semibold text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+                        title="Voir l'étape Variables de la campagne de paie"
+                    >
+                        <SlidersHorizontal size={13} />
+                        Variables campagne ({activePeriod.code || activePeriod.codePeriode || activePeriod.libelle || ''})
+                    </Link>
+                )}
+                <Button variant="outline" size="sm" onClick={charger} iconLeft={<RefreshCw size={14} />}>
+                    Actualiser
+                </Button>
+            </div>
         </div>
         {synthese && <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
             <StatCard title="À approuver" value={synthese.aApprouver} color="warning" />
@@ -178,6 +321,117 @@ export default function AcomptesAvancesPage() {
                 <Link to={`/employes/${selected.idEmploye}/paie`} className="text-xs text-[var(--color-brand-600)] underline">Voir la fiche paie du salarié</Link>
             </div>}
         </SlideOver>
+        {isDemandeModalOpen && <Modal isOpen title="Saisir une demande d'acompte ou d'avance" onClose={() => setIsDemandeModalOpen(false)} size="lg">
+            <form className="space-y-4 text-xs" onSubmit={soumettreDemande}>
+                {demandeError && (
+                    <div role="alert" className="flex items-start gap-2 border border-[var(--color-danger-500)]/35 bg-[var(--color-danger-500)]/10 p-3 text-[var(--color-danger-700)]">
+                        <AlertCircle size={15} className="mt-0.5 shrink-0" />
+                        <span>{demandeError}</span>
+                    </div>
+                )}
+                <div>
+                    <EmployeSearchSelect
+                        required
+                        label="Collaborateur bénéficiaire"
+                        value={demandeForm.idEmploye}
+                        onChange={(empId) => {
+                            setDemandeError(null);
+                            setDemandeForm(prev => ({ ...prev, idEmploye: empId }));
+                        }}
+                        placeholder="Rechercher par nom, prénom ou matricule…"
+                    />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Select
+                        label="Nature de la demande"
+                        required
+                        value={demandeForm.typeMouvement}
+                        onChange={(val) => setDemandeForm(prev => ({ ...prev, typeMouvement: val }))}
+                        options={typesAcomptes.length > 0 ? typesAcomptes.map(t => ({
+                            value: t.code,
+                            label: t.libelle
+                        })) : DEFAULT_TYPES_ACOMPTES.map(t => ({
+                            value: t.code,
+                            label: t.libelle
+                        }))}
+                    />
+                    <div>
+                        <Select
+                            label="Période de rattachement"
+                            required
+                            value={demandeForm.idPeriodePaie}
+                            onChange={(val) => setDemandeForm(prev => ({ ...prev, idPeriodePaie: val }))}
+                            options={periodes.map(p => ({
+                                value: String(p.id ?? p.idPeriodePaie),
+                                label: p.label || `${p.code || p.codePeriode || 'Période'} (${p.statutLibelle || p.statutCode || p.statut || ''})`
+                            }))}
+                            placeholder={periodes.length === 0 ? "Chargement des périodes…" : "Choisir une période…"}
+                        />
+                        <p className="mt-1 text-[11px] text-[var(--color-fg-muted)]">Période de paie sur laquelle le dossier est ouvert.</p>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <Input
+                            label="Montant demandé en Ariary"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            required
+                            placeholder="Ex. 50000.00"
+                            value={demandeForm.montant}
+                            onChange={(e) => setDemandeForm(prev => ({ ...prev, montant: e.target.value }))}
+                        />
+                        <p className="mt-1 text-[11px] text-[var(--color-fg-muted)]">Montant en Ariary (jusqu'à 2 décimales, ex: 2000.50).</p>
+                    </div>
+                    <div>
+                        <Input
+                            label="Date de la demande"
+                            type="date"
+                            required
+                            value={demandeForm.dateDemande}
+                            onChange={(e) => setDemandeForm(prev => ({ ...prev, dateDemande: e.target.value }))}
+                        />
+                        <p className="mt-1 text-[11px] text-[var(--color-fg-muted)]">Date de dépôt de la demande par le collaborateur.</p>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <Select
+                            label="Mode de versement prévisionnel"
+                            required
+                            value={demandeForm.modeReglement}
+                            onChange={(val) => setDemandeForm(prev => ({ ...prev, modeReglement: val }))}
+                            options={(modes.length > 0 ? modes : DEFAULT_MODES).map(m => ({
+                                value: m.code,
+                                label: m.libelle
+                            }))}
+                        />
+                        <p className="mt-1 text-[11px] text-[var(--color-fg-muted)]">Moyen de règlement (virement, espèces en caisse, chèque...).</p>
+                    </div>
+                    <div>
+                        <Input
+                            label="Motif / Justification"
+                            type="text"
+                            required
+                            minLength={5}
+                            placeholder="Ex. Avance sur salaire exceptionnelle"
+                            value={demandeForm.motif}
+                            onChange={(e) => setDemandeForm(prev => ({ ...prev, motif: e.target.value }))}
+                        />
+                        <p className="mt-1 text-[11px] text-[var(--color-fg-muted)]">Justification obligatoire (au moins 5 caractères).</p>
+                    </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border-subtle)]">
+                    <Button type="button" variant="outline" size="sm" onClick={() => setIsDemandeModalOpen(false)}>
+                        Annuler
+                    </Button>
+                    <Button type="submit" variant="primary" size="sm" disabled={demandeSubmitting}>
+                        {demandeSubmitting ? 'Enregistrement…' : 'Enregistrer la demande'}
+                    </Button>
+                </div>
+            </form>
+        </Modal>}
         {decision && <Modal isOpen title={decision.command === 'APPROVE' ? 'Approuver la demande' : 'Rejeter la demande'} onClose={() => setDecision(null)}>
             <form className="space-y-3" onSubmit={executeDecision}>
                 <p className="text-xs">{decision.typeLibelle} de {formatMoneyAr(decision.montantInitial)} pour {decision.nomComplet}.</p>

@@ -116,17 +116,59 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                         <p className="text-xs text-[var(--color-fg-muted)]">Ces durées seront figées lors de la validation du pointage. Les congés restent traités sur leurs propres lignes.</p>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {[
-                            ['Absence horaire à retenir', recap.absenceFinale, 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'],
-                            ['HS finales à 30 %', recap.hs30Finales, 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'],
-                            ['HS finales à 50 %', recap.hs50Finales, 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'],
-                        ].map(([label, value, tone]) => (
-                            <div key={label} className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3">
-                                <span className="text-xs text-[var(--color-fg-muted)]">{label}</span>
-                                <strong className={`block mt-1 font-mono text-xl ${tone}`}>{value || '—'}</strong>
-                                {decimalFromHhMm(value) && <span className="block font-mono text-xs text-[var(--color-fg-muted)]">({decimalFromHhMm(value)})</span>}
-                            </div>
-                        ))}
+                        {(() => {
+                            const isAbsence = recap.absenceFinale && recap.absenceFinale !== '00h00' && recap.absenceFinale !== '—';
+                            const isHs30 = recap.hs30Finales && recap.hs30Finales !== '00h00' && recap.hs30Finales !== '—';
+                            const isHs50 = recap.hs50Finales && recap.hs50Finales !== '00h00' && recap.hs50Finales !== '—';
+                            return [
+                                {
+                                    label: 'Absence horaire à retenir',
+                                    value: recap.absenceFinale,
+                                    badge: isAbsence ? 'Retenue' : null,
+                                    highlight: isAbsence,
+                                    tone: isAbsence ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg-muted)]',
+                                    cardBorder: isAbsence ? 'border-2 border-[var(--color-danger-500)]/40 bg-[var(--color-danger-500)]/5' : 'border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]'
+                                },
+                                {
+                                    label: 'HS 30 % finales',
+                                    value: recap.hs30Finales,
+                                    badge: isHs30 ? '+30%' : null,
+                                    highlight: isHs30,
+                                    tone: isHs30 ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]',
+                                    cardBorder: isHs30 ? 'border-2 border-[var(--color-success-500)]/40 bg-[var(--color-success-500)]/5' : 'border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]'
+                                },
+                                {
+                                    label: 'HS 50 % finales',
+                                    value: recap.hs50Finales,
+                                    badge: isHs50 ? '+50%' : null,
+                                    highlight: isHs50,
+                                    tone: isHs50 ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]',
+                                    cardBorder: isHs50 ? 'border-2 border-[var(--color-success-500)]/40 bg-[var(--color-success-500)]/5' : 'border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]'
+                                },
+                            ].map((item) => (
+                                <div key={item.label} className={`p-3 relative transition-all rounded ${item.cardBorder}`}>
+                                    <div className="flex items-center justify-between gap-1">
+                                        <span className="text-xs font-medium text-[var(--color-fg-muted)]">
+                                            {item.label} : <strong className={`font-mono text-base ${item.tone}`}>{item.value || '—'}</strong>
+                                        </span>
+                                        {item.badge && (
+                                            <span className={`text-[10px] px-1.5 py-0.5 font-bold uppercase rounded ${
+                                                item.highlight && item.badge === 'Retenue'
+                                                    ? 'bg-[var(--color-danger-500)]/15 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]'
+                                                    : 'bg-[var(--color-success-500)]/15 text-[var(--color-success-700)] dark:text-[var(--color-success-300)]'
+                                            }`}>
+                                                {item.badge}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {decimalFromHhMm(item.value) && (
+                                        <span className="block font-mono text-xs text-[var(--color-fg-muted)] mt-1">
+                                            Équivalent : ({decimalFromHhMm(item.value)})
+                                        </span>
+                                    )}
+                                </div>
+                            ));
+                        })()}
                     </div>
                 </section>
                 <p className="rounded border border-[var(--color-border-subtle)] p-3 text-xs text-[var(--color-fg-muted)]">Les durées qualifiées de nuit, dimanche et jour férié sont déjà comprises dans le temps travaillé. Elles sont ventilées séparément en paie.</p>
@@ -134,16 +176,64 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                     <table className="w-full text-xs text-left border-collapse min-w-[900px]">
                         <thead><tr className="border-b border-[var(--color-border-subtle)]"><th className="py-2">Semaine</th><th>Objectif</th><th>Travaillé</th><th>Déficit</th><th>HS 30 %</th><th>HS 50 %</th><th>Nuit</th><th>Dimanche</th><th>Jour férié</th></tr></thead>
                         <tbody>{semaines.map((week, index) => (
-                            <tr key={`${week.debutSemaine}-${index}`} className="border-b border-[var(--color-border-subtle)]">
-                                <td className="py-2">{week.debutSemaine} → {week.finSemaine}</td>
-                                <td>{Number(week.seuilHeuresTroncon || 0).toFixed(2)} h</td>
-                                <td>{Number(week.totalHeuresTravaillees || 0).toFixed(2)} h</td>
-                                <td>{Number(week.heuresDeficit || 0).toFixed(2)} h</td>
-                                <td>{Number(week.heuresHs30 || 0).toFixed(2)} h</td>
-                                <td>{Number(week.heuresHs50 || 0).toFixed(2)} h</td>
+                            <tr key={`${week.debutSemaine}-${index}`} className="border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors">
+                                <td className="py-2 font-medium">{week.debutSemaine} → {week.finSemaine}</td>
+                                <td className="font-mono text-[var(--color-fg-muted)]">{Number(week.seuilHeuresTroncon || 0).toFixed(2)} h</td>
+                                <td className="font-mono">
+                                    {Number(week.totalHeuresTravaillees || 0) < Number(week.seuilHeuresTroncon || 0) ? (
+                                        <span className="font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]">
+                                            {Number(week.totalHeuresTravaillees || 0).toFixed(2)} h
+                                        </span>
+                                    ) : Number(week.totalHeuresTravaillees || 0) > Number(week.seuilHeuresTroncon || 0) ? (
+                                        <span className="font-semibold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
+                                            {Number(week.totalHeuresTravaillees || 0).toFixed(2)} h
+                                        </span>
+                                    ) : (
+                                        <span>{Number(week.totalHeuresTravaillees || 0).toFixed(2)} h</span>
+                                    )}
+                                </td>
+                                <td className="font-mono">
+                                    {Number(week.heuresDeficit || 0) > 0 ? (
+                                        <span className="font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                                            −{Number(week.heuresDeficit).toFixed(2)} h
+                                        </span>
+                                    ) : (
+                                        <span className="text-[var(--color-fg-muted)] opacity-35">0.00 h</span>
+                                    )}
+                                </td>
+                                <td className="font-mono">
+                                    {Number(week.heuresHs30 || 0) > 0 ? (
+                                        <span className="font-semibold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
+                                            +{Number(week.heuresHs30).toFixed(2)} h
+                                        </span>
+                                    ) : (
+                                        <span className="text-[var(--color-fg-muted)] opacity-35">0.00 h</span>
+                                    )}
+                                </td>
+                                <td className="font-mono">
+                                    {Number(week.heuresHs50 || 0) > 0 ? (
+                                        <span className="font-semibold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
+                                            +{Number(week.heuresHs50).toFixed(2)} h
+                                        </span>
+                                    ) : (
+                                        <span className="text-[var(--color-fg-muted)] opacity-35">0.00 h</span>
+                                    )}
+                                </td>
                                 {[week.heuresNuit, week.heuresDimanche, week.heuresFerie].map((hours, qualificationIndex) => {
                                     const value = Number(hours || 0);
-                                    return <td key={qualificationIndex} className="whitespace-nowrap">{formatHeuresMinutes(value)} <span className="text-[var(--color-fg-muted)]">({formatHeuresDecimal(value)})</span></td>;
+                                    return (
+                                        <td key={qualificationIndex} className="whitespace-nowrap font-mono">
+                                            {value > 0 ? (
+                                                <span className="font-semibold text-[var(--color-fg)]">
+                                                    {formatHeuresMinutes(value)} <span className="text-[var(--color-fg-muted)] font-normal">({formatHeuresDecimal(value)})</span>
+                                                </span>
+                                            ) : (
+                                                <span className="text-[var(--color-fg-muted)] opacity-35">
+                                                    {formatHeuresMinutes(value)} ({formatHeuresDecimal(value)})
+                                                </span>
+                                            )}
+                                        </td>
+                                    );
                                 })}
                             </tr>
                         ))}</tbody>
@@ -152,22 +242,90 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                 <section className="space-y-2">
                 <h3 className="font-semibold">Rapprochement du solde</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs items-stretch">
-                    {[
-                        ['Déficit cumulé', recap.deficitHebdo],
-                        ['HS cumulées (30 % + 50 %)', recap.hsTotalHebdo],
-                        ['Ajustements', recap.ajustements],
-                    ].map(([label, value]) => (
-                        <div key={label} className="border border-[var(--color-border-subtle)] p-3">
-                            {label}
-                            <strong className="block mt-1 text-base">{value || '—'}</strong>
-                            {decimalFromHhMm(value) && <span className="block mt-0.5 text-[11px] text-[var(--color-fg-muted)]">({decimalFromHhMm(value)})</span>}
-                        </div>
-                    ))}
-                    <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 sm:p-4">
-                        <span className="text-[var(--color-fg-muted)]">Solde final</span>
-                        <strong className="block mt-1 text-base leading-tight">{recap.soldeFinal || '—'}</strong>
-                        {decimalFromHhMm(recap.soldeFinal) && <span className="block mt-0.5 text-[11px] text-[var(--color-fg-muted)]">({decimalFromHhMm(recap.soldeFinal)})</span>}
-                    </div>
+                    {/* 1. Déficit cumulé */}
+                    {(() => {
+                        const rawDeficit = recap.deficitHebdo || '00h00';
+                        const hasDeficit = rawDeficit !== '00h00' && rawDeficit !== '—' && !rawDeficit.startsWith('00h00');
+                        const formattedDeficit = hasDeficit && !rawDeficit.startsWith('−') && !rawDeficit.startsWith('-')
+                            ? `−${rawDeficit}`
+                            : rawDeficit;
+                        return (
+                            <div className={`p-3 ${hasDeficit ? 'border-2 border-[var(--color-danger-500)]/30 bg-[var(--color-danger-500)]/5' : 'border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]'}`}>
+                                <span className="text-[var(--color-fg-muted)]">Déficit cumulé</span>
+                                <strong className={`block mt-1 text-base ${hasDeficit ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] font-bold' : ''}`}>
+                                    {formattedDeficit}
+                                </strong>
+                                {decimalFromHhMm(formattedDeficit) && (
+                                    <span className="block mt-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                                        ({decimalFromHhMm(formattedDeficit)})
+                                    </span>
+                                )}
+                            </div>
+                        );
+                    })()}
+
+                    {/* 2. HS cumulées */}
+                    {(() => {
+                        const rawHs = recap.hsTotalHebdo || '00h00';
+                        const hasHs = rawHs !== '00h00' && rawHs !== '—' && !rawHs.startsWith('00h00');
+                        const formattedHs = hasHs && !rawHs.startsWith('+') ? `+${rawHs}` : rawHs;
+                        return (
+                            <div className={`p-3 ${hasHs ? 'border-2 border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5' : 'border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]'}`}>
+                                <span className="text-[var(--color-fg-muted)]">HS cumulées (30 % + 50 %)</span>
+                                <strong className={`block mt-1 text-base ${hasHs ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-bold' : ''}`}>
+                                    {formattedHs}
+                                </strong>
+                                {decimalFromHhMm(formattedHs) && (
+                                    <span className="block mt-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                                        ({decimalFromHhMm(formattedHs)})
+                                    </span>
+                                )}
+                            </div>
+                        );
+                    })()}
+
+                    {/* 3. Ajustements */}
+                    {(() => {
+                        const rawAj = recap.ajustements || '00h00';
+                        const isNeg = rawAj.startsWith('−') || rawAj.startsWith('-');
+                        const isPos = rawAj.startsWith('+');
+                        const hasAj = rawAj !== '00h00' && rawAj !== '—';
+                        return (
+                            <div className={`p-3 ${hasAj ? (isNeg ? 'border-2 border-[var(--color-danger-500)]/30 bg-[var(--color-danger-500)]/5' : isPos ? 'border-2 border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5' : 'border border-[var(--color-border-subtle)]') : 'border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]'}`}>
+                                <span className="text-[var(--color-fg-muted)]">Ajustements</span>
+                                <strong className={`block mt-1 text-base ${isNeg ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] font-bold' : isPos ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-bold' : ''}`}>
+                                    {rawAj}
+                                </strong>
+                                {decimalFromHhMm(rawAj) && (
+                                    <span className="block mt-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                                        ({decimalFromHhMm(rawAj)})
+                                    </span>
+                                )}
+                            </div>
+                        );
+                    })()}
+
+                    {/* 4. Solde final */}
+                    {(() => {
+                        const solde = recap.soldeFinal || '00h00';
+                        const isNeg = solde.startsWith('−') || solde.startsWith('-');
+                        const isPos = solde.startsWith('+');
+                        return (
+                            <div className={`p-3 sm:p-4 rounded-none transition-all ${isNeg ? 'border-2 border-[var(--color-danger-500)]/50 bg-[var(--color-danger-500)]/10' : isPos ? 'border-2 border-[var(--color-success-500)]/50 bg-[var(--color-success-500)]/10' : 'border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]'}`}>
+                                <span className={`block text-[10px] font-bold uppercase tracking-wider ${isNeg ? 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]' : isPos ? 'text-[var(--color-success-700)] dark:text-[var(--color-success-300)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                    Solde final {isNeg ? '· Déficit' : isPos ? '· Excédent' : ''}
+                                </span>
+                                <strong className={`block mt-1 text-xl font-bold font-mono leading-tight ${isNeg ? 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]' : isPos ? 'text-[var(--color-success-700)] dark:text-[var(--color-success-300)]' : ''}`}>
+                                    {solde}
+                                </strong>
+                                {decimalFromHhMm(solde) && (
+                                    <span className="block mt-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                                        ({decimalFromHhMm(solde)})
+                                    </span>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </div>
                 <p className="text-xs text-[var(--color-fg-muted)]">Le calcul est fait en minutes ; les équivalents décimaux sont arrondis pour l’affichage.</p>
                 </section>

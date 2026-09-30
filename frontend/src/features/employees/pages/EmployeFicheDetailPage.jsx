@@ -117,6 +117,7 @@ export default function EmployeFicheDetailPage() {
 
     // Modale Édition Employé, Désactivation & Réactivation
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [formInitialStep, setFormInitialStep] = useState(0);
     const [isDesactivationModalOpen, setIsDesactivationModalOpen] = useState(false);
     const [isReactiverModalOpen, setIsReactiverModalOpen] = useState(false);
     const [motifDesactivation, setMotifDesactivation] = useState('Demission');
@@ -179,13 +180,38 @@ export default function EmployeFicheDetailPage() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
+    const handleCloseForm = useCallback(() => {
+        setIsFormOpen(false);
+        setFormInitialStep(0);
+    }, []);
+
+    const handleOpenEdit = useCallback(() => {
+        setFormInitialStep(0);
+        setIsFormOpen(true);
+    }, []);
+
+    const handleOpenAddCompte = useCallback(() => {
+        setFormInitialStep('banque');
+        setIsFormOpen(true);
+    }, []);
+
+    const handleOpenFamille = useCallback(() => {
+        setFormInitialStep('famille');
+        setIsFormOpen(true);
+    }, []);
+
+    const handleOpenUrgence = useCallback(() => {
+        setFormInitialStep('urgence');
+        setIsFormOpen(true);
+    }, []);
+
     const handleSaveForm = async (formData) => {
         if (submitting) return;
         setSubmitting(true);
         try {
             await employeService.updateEmploye(id, formData);
             toast({ title: 'Succès', message: 'Fiche employé modifiée avec succès.', type: 'success' });
-            setIsFormOpen(false);
+            handleCloseForm();
             loadEmployeDetail();
         } catch (err) {
             console.error('Erreur modification employé:', err);
@@ -353,7 +379,7 @@ export default function EmployeFicheDetailPage() {
                     emp={emp}
                     canWrite={canWrite}
                     canValidate={canValidate}
-                    onEdit={() => setIsFormOpen(true)}
+                    onEdit={handleOpenEdit}
                     onDesactiver={() => setIsDesactivationModalOpen(true)}
                     onReactiver={() => setIsReactiverModalOpen(true)}
                     onOpenSummary={() => setIsSummaryOpen(true)}
@@ -414,6 +440,9 @@ export default function EmployeFicheDetailPage() {
                                 conjoint={conjoint}
                                 enfants={enfants}
                                 contactsUrgence={contactsUrgence}
+                                canWrite={canWrite}
+                                onEdit={handleOpenEdit}
+                                onAddCompte={handleOpenAddCompte}
                             />
                         </Suspense>
                     )}
@@ -439,6 +468,9 @@ export default function EmployeFicheDetailPage() {
                                 conjoint={conjoint}
                                 enfants={enfants}
                                 contactsUrgence={contactsUrgence}
+                                canWrite={canWrite}
+                                onEditFamille={handleOpenFamille}
+                                onEditUrgence={handleOpenUrgence}
                             />
                         </Suspense>
                     )}
@@ -512,10 +544,11 @@ export default function EmployeFicheDetailPage() {
                 <Suspense fallback={null}>
                     <EmployeeFormModal
                         isOpen={isFormOpen}
-                        onClose={() => setIsFormOpen(false)}
+                        onClose={handleCloseForm}
                         onSave={handleSaveForm}
                         employeData={detailData}
                         isSubmitting={submitting}
+                        initialStep={formInitialStep}
                     />
                 </Suspense>
             )}

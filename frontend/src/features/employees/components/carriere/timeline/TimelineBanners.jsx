@@ -33,17 +33,17 @@ export default function TimelineBanners({
                             <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className="text-sm font-bold text-[var(--color-fg)]">
                                     {brouillonWf.isEmbauche || brouillonWf.codeTypeEvenement === 'EMBAUCHE_INITIALE'
-                                        ? 'Brouillon d\'Embauche en attente de Validation'
+                                        ? 'Brouillon d\'embauche en attente de validation'
                                         : brouillonWf.isConfirmationEssai || brouillonWf.codeTypeEvenement === 'CONFIRMATION_ESSAI'
-                                            ? 'Confirmation d\'Essai en attente de Validation'
+                                            ? 'Confirmation d\'essai en attente de validation'
                                             : brouillonWf.isRenouvellementEssai || brouillonWf.codeTypeEvenement === 'RENOUVELLEMENT_ESSAI'
-                                                ? 'Renouvellement d\'Essai en attente de Validation'
-                                                : `${brouillonWf.libelleTypeEvenement || 'Mouvement RH'} en attente de Validation`}
+                                                ? 'Renouvellement d\'essai en attente de validation'
+                                                : `${brouillonWf.libelleTypeEvenement || 'Mouvement RH'} en attente de validation`}
                                 </h4>
-                                <Badge variant="warning" size="sm">BROUILLON</Badge>
+                                <Badge variant="warning" size="sm">Brouillon</Badge>
                             </div>
                             <p className="text-xs text-[var(--color-fg-muted)]">
-                                Contrat N° <span className="font-mono font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">{brouillonWf.numeroContratCible || brouillonWf.numeroContratSource || 'En cours'}</span> ({brouillonWf.libelleTypeContrat || 'Contrat'}) — Poste : <span className="font-semibold text-[var(--color-fg)]">{brouillonWf.libelleFonction || '-'}</span> à <span className="font-semibold text-[var(--color-fg)]">{brouillonWf.libelleSite || '-'}</span>
+                                Contrat N° <span className="font-mono font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">{brouillonWf.numeroContratCible || brouillonWf.numeroContratSource || 'En cours'}</span> ({brouillonWf.libelleTypeContrat || 'Contrat'}) · Poste : <span className="font-semibold text-[var(--color-fg)]">{brouillonWf.libelleFonction || 'Non renseigné'}</span> à <span className="font-semibold text-[var(--color-fg)]">{brouillonWf.libelleSite || 'Non renseigné'}</span>
                             </p>
                         </div>
                     </div>
@@ -75,7 +75,7 @@ export default function TimelineBanners({
                             size="sm"
                             iconLeft={<Eye size={16} />}
                         >
-                            Relecture & Validation
+                            Relecture et validation
                         </Button>
                     </div>
                 </div>
@@ -92,19 +92,19 @@ export default function TimelineBanners({
                             <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className="text-sm font-bold text-[var(--color-fg)]">
                                     {workflowPlanifieFutur.codeTypeEvenement === 'CONFIRMATION_ESSAI'
-                                        ? `Confirmation d'Essai Planifiée (Prise d'effet le ${fmtDate(workflowPlanifieFutur.dateEffet)})`
+                                        ? `Confirmation d'essai planifiée (prise d'effet le ${fmtDate(workflowPlanifieFutur.dateEffet)})`
                                         : workflowPlanifieFutur.codeTypeEvenement === 'RENOUVELLEMENT_ESSAI'
-                                            ? `Renouvellement d'Essai Planifié (Prise d'effet le ${fmtDate(workflowPlanifieFutur.dateEffet)})`
-                                            : `${workflowPlanifieFutur.libelleTypeEvenement || 'Mouvement RH'} Planifié (Prise d'effet le ${fmtDate(workflowPlanifieFutur.dateEffet)})`}
+                                            ? `Renouvellement d'essai planifié (prise d'effet le ${fmtDate(workflowPlanifieFutur.dateEffet)})`
+                                            : `${workflowPlanifieFutur.libelleTypeEvenement || 'Mouvement RH'} planifié (prise d'effet le ${fmtDate(workflowPlanifieFutur.dateEffet)})`}
                                 </h4>
                                 <Badge variant="primary" size="sm">
-                                    PLANIFIÉ {delaiTexte ? `· ${delaiTexte}` : ''}
+                                    Planifié {delaiTexte ? `· ${delaiTexte}` : ''}
                                 </Badge>
                             </div>
                             <p className="text-xs text-[var(--color-fg-muted)]">
-                                {workflowPlanifieFutur.motif ? `Motif : ${workflowPlanifieFutur.motif} — ` : ''}
+                                {workflowPlanifieFutur.motif ? `Motif : ${workflowPlanifieFutur.motif} · ` : ''}
                                 {workflowPlanifieFutur.libelleFonction ? (
-                                    <>Poste cible : <span className="font-semibold text-[var(--color-fg)]">{workflowPlanifieFutur.libelleFonction}</span> à <span className="font-semibold text-[var(--color-fg)]">{workflowPlanifieFutur.libelleSite || '-'}</span></>
+                                    <>Poste cible : <span className="font-semibold text-[var(--color-fg)]">{workflowPlanifieFutur.libelleFonction}</span> à <span className="font-semibold text-[var(--color-fg)]">{workflowPlanifieFutur.libelleSite || 'Non renseigné'}</span></>
                                 ) : (
                                     <span>L'événement a été validé et prendra effet automatiquement le {fmtDate(workflowPlanifieFutur.dateEffet)} ({delaiTexte}).</span>
                                 )}
@@ -120,7 +120,7 @@ export default function TimelineBanners({
                                 size="sm"
                                 iconLeft={<XCircle size={15} />}
                             >
-                                Annuler la Planification
+                                Annuler la planification
                             </Button>
                         )}
                         <Button
@@ -129,7 +129,7 @@ export default function TimelineBanners({
                             size="sm"
                             iconLeft={<Eye size={16} />}
                         >
-                            Consulter l'Événement
+                            Consulter l'événement
                         </Button>
                     </div>
                 </div>

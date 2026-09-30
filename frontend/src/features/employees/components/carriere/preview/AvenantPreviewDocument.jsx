@@ -31,24 +31,24 @@ export default function AvenantPreviewDocument({
         <DocumentFrame className={className} watermark="Avenant">
             <DocumentHeader
                 eyebrow={typeEvenementActuel?.libelle || 'Mouvement RH'}
-                title="Avenant au Contrat de Travail"
+                title="Avenant au contrat de travail"
             />
 
             <div className="pt-4 text-[13px] leading-relaxed space-y-3 font-normal">
                 <p>
-                    Le présent avenant modifie les conditions applicables à <strong>{nomEmploye || '……………'}</strong>, à effet du{' '}
-                    <strong>{fmtDateFr(formData.dateEffet) || '……………'}</strong>.
+                    Le présent avenant modifie les conditions applicables à <strong>{nomEmploye || 'Non renseigné'}</strong>, à effet du{' '}
+                    <strong>{fmtDateFr(formData.dateEffet) || 'Non définie'}</strong>.
                 </p>
 
                 {exigeNouveauContrat && (
-                    <ArticleBlock n="1" title="Nouveau Contrat">
+                    <ArticleBlock n="1" title="Nouveau contrat">
                         <ClauseDiff label="Type de contrat" before={avantTypeContrat} after={apresTypeContrat} />
                         <Clause label="Prise d'effet" value={fmtDateFr(formData.dateDebut || formData.dateEffet)} />
                         {formData.dateFin && <Clause label="Terme prévu" value={fmtDateFr(formData.dateFin)} />}
                     </ArticleBlock>
                 )}
 
-                <ArticleBlock n={exigeNouveauContrat ? "2" : "1"} title="Affectation & Poste">
+                <ArticleBlock n={exigeNouveauContrat ? "2" : "1"} title="Affectation et poste">
                     <ClauseDiff label="Site d'affectation" before={avantSite} after={apresSite} />
                     <ClauseDiff label="Département" before={avantDepartement} after={apresDepartement} />
                     <ClauseDiff label="Service" before={avantService} after={apresService} />
@@ -57,7 +57,7 @@ export default function AvenantPreviewDocument({
                     <ClauseDiff label="Responsable hiérarchique" before={avantResponsable} after={apresResponsable} />
                 </ArticleBlock>
 
-                <ArticleBlock n={exigeNouveauContrat ? "3" : "2"} title="Rémunération & Mode de calcul">
+                <ArticleBlock n={exigeNouveauContrat ? "3" : "2"} title="Rémunération et mode de calcul">
                     <ClauseDiff label="Mode de calcul de paie" before={avantModePaie} after={apresModePaie} />
                     <HasPermission authority="PAIE_READ" fallback={<ClauseDiff label="Salaire de base brut" before="[Confidentiel]" after="[Confidentiel]" />}>
                         <ClauseDiff
@@ -69,7 +69,7 @@ export default function AvenantPreviewDocument({
                 </ArticleBlock>
 
                 {formData.motif && (
-                    <ArticleBlock n={exigeNouveauContrat ? "4" : "3"} title="Motif & Observations">
+                    <ArticleBlock n={exigeNouveauContrat ? "4" : "3"} title="Motif et observations">
                         <p className="text-[var(--color-fg-muted)]">{formData.motif}</p>
                     </ArticleBlock>
                 )}

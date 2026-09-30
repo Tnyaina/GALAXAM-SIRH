@@ -139,7 +139,7 @@ export default function HistoriqueContratsTable({
                                     <Td>
                                         <div className="space-y-0.5">
                                             <span className={`font-medium ${isAnnule ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-fg)]'}`}>
-                                                {ct.libelleTypeIntervenant || '-'}
+                                                {ct.libelleTypeIntervenant || <span className="text-[var(--color-fg-subtle)] font-normal text-xs">Non renseigné</span>}
                                             </span>
                                             {ct.libelleFiliale && (
                                                 <p className="text-[10px] text-[var(--color-fg-subtle)]">{ct.libelleFiliale}</p>
@@ -149,7 +149,7 @@ export default function HistoriqueContratsTable({
                                     <Td>
                                         <div className="space-y-0.5">
                                             <div className="font-mono text-xs text-[var(--color-fg)]">
-                                                {fmtDate(ct.dateDebut)} → {fmtDate(ct.dateFin)}
+                                                {fmtDate(ct.dateDebut)} → {ct.dateFin ? fmtDate(ct.dateFin) : (isContratEnCours ? 'En cours' : 'Indéterminée')}
                                             </div>
                                             {ct.ancienneteContratTexte && (
                                                 <p className="text-[11px] text-[var(--color-fg-muted)] font-sans">
@@ -159,10 +159,10 @@ export default function HistoriqueContratsTable({
                                         </div>
                                     </Td>
                                     <Td className="font-mono text-[var(--color-fg-muted)]">
-                                        {fmtDate(ct.dateSignature)}
+                                        {ct.dateSignature ? fmtDate(ct.dateSignature) : <span className="text-[var(--color-fg-subtle)] font-normal text-xs">Non renseignée</span>}
                                     </Td>
                                     <Td>
-                                        <span className={`text-xs font-semibold ${ct.comptabiliseEffectif ? 'text-success-600 dark:text-success-400' : 'text-[var(--color-fg-muted)]'}`}>
+                                        <span className={`text-xs font-semibold ${ct.comptabiliseEffectif ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]'}`}>
                                             {ct.comptabiliseEffectif ? 'Oui (Salarié)' : 'Non'}
                                         </span>
                                     </Td>

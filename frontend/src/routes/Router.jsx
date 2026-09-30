@@ -187,6 +187,8 @@ export default function Router() {
                         <Route path="/paie/periodes/:periodId"              element={<Navigate to="preparation" replace />} />
                         <Route path="/paie/periodes/:periodId/validation"   element={<ValidationStepPage />} />
                         <Route path="/paie/periodes/:periodId/sorties"      element={<SortiesStepPage />} />
+                        <Route path="/paie/periodes/:periodId/calculation"  element={<Navigate to="calcul" replace />} />
+                        <Route path="/paie/periodes/:periodId/outputs"      element={<Navigate to="sorties" replace />} />
 
                         {/* Redirections de compatibilité (anciennes URLs) */}
                         <Route path="/paie/periods/:periodId/:step/:employeeId" element={<LegacyPayrollRedirect />} />

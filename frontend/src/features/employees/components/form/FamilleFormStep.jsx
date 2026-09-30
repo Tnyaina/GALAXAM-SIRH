@@ -62,63 +62,61 @@ export default function FamilleFormStep({
     const evaluateIrsa = (enf) => evaluateIrsaEligibilityWithConfig(enf, fiscalConfig);
     const enfantsEligiblesCount = formData.enfants.filter(e => evaluateIrsa(e).eligible).length;
     const totalDeductionAr = enfantsEligiblesCount * fiscalConfig.deductionParCharge;
+
+    const sitFam = (formData.situationFamiliale || '').toUpperCase();
+    const hasConjoint = sitFam.includes('MARIE') || sitFam.includes('CONCUBIN');
+
     return (
         <div className="space-y-6">
-            {/* Conjoint */}
-            <Card padding className="bg-[var(--color-bg-subtle)]/60">
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                        <Users size={14} className="text-brand-500" />
-                        Conjoint (Si marié)
-                    </h3>
-                    <Badge variant="default" size="xs">
-                        Optionnel
-                    </Badge>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input label="Nom Conjoint" value={formData.conjoint.nom} onChange={e => setNested('conjoint', 'nom', e.target.value)} placeholder="Nom" />
-                    <Input label="Prénom Conjoint" value={formData.conjoint.prenom} onChange={e => setNested('conjoint', 'prenom', e.target.value)} placeholder="Prénom" />
-                    <Input label="Date Naissance" type="date" max={fmtDateInput(new Date(new Date().setFullYear(new Date().getFullYear() - 16)))} value={formData.conjoint.dateNaissance} onChange={e => setNested('conjoint', 'dateNaissance', e.target.value)} />
-                    <AutocompleteInput 
-                        label="Lieu de Naissance" 
-                        value={formData.conjoint.lieuNaissance || ''} 
-                        onChange={e => setNested('conjoint', 'lieuNaissance', e.target.value)} 
-                        placeholder="Ex: Antananarivo, Toamasina..." 
-                        options={villesStandards}
-                    />
-                    <Input label="Société / Employeur" value={formData.conjoint.societe} onChange={e => setNested('conjoint', 'societe', e.target.value)} placeholder="Société du conjoint" />
-                    <AutocompleteInput 
-                        label="Fonction / Profession" 
-                        value={formData.conjoint.fonction || ''} 
-                        onChange={e => setNested('conjoint', 'fonction', e.target.value)} 
-                        placeholder="Ex: Enseignant, Comptable..." 
-                        options={PROFESSIONS_CONJOINT_SUGGESTIONS}
-                    />
-                </div>
-            </Card>
+            {/* Conjoint affiché uniquement si marié ou en concubinage */}
+            {hasConjoint && (
+                <Card padding className="bg-[var(--color-bg-subtle)]/60">
+                    <div className="pb-2 mb-3 border-b border-[var(--color-border-subtle)]">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
+                            <Users size={14} className="text-brand-500" />
+                            Conjoint
+                        </h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input label="Nom" value={formData.conjoint.nom} onChange={e => setNested('conjoint', 'nom', e.target.value)} placeholder="Nom du conjoint" />
+                        <Input label="Prénom" value={formData.conjoint.prenom} onChange={e => setNested('conjoint', 'prenom', e.target.value)} placeholder="Prénom du conjoint" />
+                        <Input label="Date Naissance" type="date" max={fmtDateInput(new Date(new Date().setFullYear(new Date().getFullYear() - 16)))} value={formData.conjoint.dateNaissance} onChange={e => setNested('conjoint', 'dateNaissance', e.target.value)} />
+                        <AutocompleteInput 
+                            label="Lieu de Naissance" 
+                            value={formData.conjoint.lieuNaissance || ''} 
+                            onChange={e => setNested('conjoint', 'lieuNaissance', e.target.value)} 
+                            placeholder="Ex: Antananarivo, Toamasina..." 
+                            options={villesStandards}
+                        />
+                        <Input label="Société / Employeur" value={formData.conjoint.societe} onChange={e => setNested('conjoint', 'societe', e.target.value)} placeholder="Société du conjoint" />
+                        <AutocompleteInput 
+                            label="Fonction / Profession" 
+                            value={formData.conjoint.fonction || ''} 
+                            onChange={e => setNested('conjoint', 'fonction', e.target.value)} 
+                            placeholder="Ex: Enseignant, Comptable..." 
+                            options={PROFESSIONS_CONJOINT_SUGGESTIONS}
+                        />
+                    </div>
+                </Card>
+            )}
 
             {/* Enfants */}
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                    <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                <Baby size={14} className="text-[var(--color-brand-500)]" />
-                                Enfants ({formData.enfants.length})
-                            </h3>
-                            {enfantsEligiblesCount > 0 ? (
-                                <Badge variant="success" size="xs" dot>
-                                    {enfantsEligiblesCount} déductible{enfantsEligiblesCount > 1 ? 's' : ''} (-{totalDeductionAr.toLocaleString('fr-FR')} Ar/mois)
-                                </Badge>
-                            ) : (
-                                <Badge variant="brand" size="xs">
-                                    IRSA : -{fiscalConfig.deductionParCharge.toLocaleString('fr-FR')} Ar / enfant éligible
-                                </Badge>
-                            )}
-                        </div>
-                        <p className="text-[11px] text-[var(--color-fg-subtle)] mt-0.5">
-                            Déclaration des enfants à charge pour le calcul automatique des allègements fiscaux IRSA.
-                        </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
+                            <Baby size={14} className="text-[var(--color-brand-500)]" />
+                            Enfants ({formData.enfants.length})
+                        </h3>
+                        {enfantsEligiblesCount > 0 ? (
+                            <Badge variant="success" size="xs" dot>
+                                {enfantsEligiblesCount} déductible{enfantsEligiblesCount > 1 ? 's' : ''} (-{totalDeductionAr.toLocaleString('fr-FR')} Ar/mois)
+                            </Badge>
+                        ) : (
+                            <Badge variant="brand" size="xs">
+                                IRSA : -{fiscalConfig.deductionParCharge.toLocaleString('fr-FR')} Ar / enfant éligible
+                            </Badge>
+                        )}
                     </div>
                     {formData.enfants.length > 0 && (
                         <Button type="button" onClick={addEnfant} variant="outline" size="xs" iconLeft={<Plus size={14} />}>

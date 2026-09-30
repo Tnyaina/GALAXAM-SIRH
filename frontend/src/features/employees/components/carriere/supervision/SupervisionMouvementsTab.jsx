@@ -128,8 +128,8 @@ function SupervisionMouvementsTab() {
                         <span className="text-[11px] text-[var(--color-fg-muted)]">#{wf.matriculeEmploye}</span></Td>
                     <Td><span className="block font-semibold">{wf.libelleTypeEvenement || wf.codeTypeEvenement}</span>
                         {wf.motif && <span className="block max-w-48 truncate text-[11px] text-[var(--color-fg-muted)]" title={wf.motif}>{wf.motif}</span>}</Td>
-                    <Td><span className="block">{wf.libelleFonction || '—'}</span>
-                        <span className="text-[11px] text-[var(--color-fg-muted)]">{wf.libelleSite || '—'}</span></Td>
+                    <Td><span className={`block ${wf.libelleFonction ? '' : 'text-[var(--color-fg-subtle)] font-normal'}`}>{wf.libelleFonction || 'Non renseigné'}</span>
+                        <span className={`text-[11px] ${wf.libelleSite ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-fg-subtle)] font-normal'}`}>{wf.libelleSite || 'Non renseigné'}</span></Td>
                     <Td><StatusBadge status={wf.codeStatutWorkflow} label={wf.libelleStatutWorkflow} size="xs" />
                         {wf.isPlanifie && <span className="block mt-1 text-[11px] text-[var(--color-brand-600)]">Effet planifié</span>}</Td>
                     <Td align="right"><Button variant="outline" size="xs" iconLeft={<Eye size={12} />} onClick={() => setSelected(wf)}>Voir</Button></Td>
@@ -149,10 +149,10 @@ function SupervisionMouvementsTab() {
                 </div>
                 <dl className="grid grid-cols-[minmax(120px,1fr)_2fr] gap-x-3 gap-y-2 border-y border-[var(--color-border-subtle)] py-3">
                     <dt className="text-[var(--color-fg-muted)]">Date d'effet</dt><dd>{fmtDate(selected.dateEffet || selected.dateDemande)}</dd>
-                    <dt className="text-[var(--color-fg-muted)]">Contrat</dt><dd>{selected.numeroContratCible || selected.numeroContratSource || '—'}{selected.libelleTypeContrat ? ` · ${selected.libelleTypeContrat}` : ''}</dd>
-                    <dt className="text-[var(--color-fg-muted)]">Fonction</dt><dd>{selected.libelleFonction || '—'}</dd>
-                    <dt className="text-[var(--color-fg-muted)]">Site</dt><dd>{selected.libelleSite || '—'}</dd>
-                    <dt className="text-[var(--color-fg-muted)]">Département</dt><dd>{selected.libelleDepartement || '—'}</dd>
+                    <dt className="text-[var(--color-fg-muted)]">Contrat</dt><dd>{selected.numeroContratCible || selected.numeroContratSource || <span className="text-[var(--color-fg-subtle)] font-normal">Non renseigné</span>}{selected.libelleTypeContrat ? ` · ${selected.libelleTypeContrat}` : ''}</dd>
+                    <dt className="text-[var(--color-fg-muted)]">Fonction</dt><dd>{selected.libelleFonction || <span className="text-[var(--color-fg-subtle)] font-normal">Non renseigné</span>}</dd>
+                    <dt className="text-[var(--color-fg-muted)]">Site</dt><dd>{selected.libelleSite || <span className="text-[var(--color-fg-subtle)] font-normal">Non renseigné</span>}</dd>
+                    <dt className="text-[var(--color-fg-muted)]">Département</dt><dd>{selected.libelleDepartement || <span className="text-[var(--color-fg-subtle)] font-normal">Non renseigné</span>}</dd>
                     <HasPermission authority="PAIE_READ">{selected.salaireBase != null && <>
                         <dt className="text-[var(--color-fg-muted)]">Salaire de base</dt>
                         <dd>{fmtAriary(selected.salaireBase)} Ar</dd>

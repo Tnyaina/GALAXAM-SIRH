@@ -56,6 +56,8 @@ flowchart LR
     F --> G[Exports et paiement]
 ```
 
+À l'étape « Variables par salarié », l'utilisateur choisit d'abord le salarié. L'interface appelle ensuite la simulation individuelle pour afficher un **bulletin provisoire** (salaire de base, brut, net et principales lignes) avant la saisie. Cet aperçu reflète les données déjà enregistrées ; il ne comprend pas la nouvelle variable tant qu'elle n'est pas enregistrée. Le formulaire utilise le catalogue de types et conserve le montant, le motif, le sens et la vérification des doublons. L'étape « Calcul » produit ensuite le bulletin avec les variables approuvées. Le tiroir du bulletin calculé sert à consulter le résultat ; il ne propose plus de création directe de variable, car cette commande est interdite par le workflow dès qu'un bulletin est calculé.
+
 La simulation sert à expliquer un résultat sans consommer définitivement les mouvements. Le calcul réel prend les décisions approuvées ; une variable encore en attente bloque la campagne. Le recalcul d'un bulletin non validé restaure transactionnellement les imputations antérieures de primes, avances et prêts avant de les réappliquer. Un bulletin validé ou clôturé ne peut pas être recalculé directement. Le gel du pointage et la validation du bulletin sont donc deux frontières différentes : l'une stabilise les faits de temps, l'autre stabilise leur traduction financière.
 
 La page de validation ne présente plus la checklist de prévalidation comme des erreurs lorsque la campagne est déjà validée. Les exports appartiennent à l'étape « sorties ». La présence d'un bouton ou d'un fichier généré ne constitue pas une validation comptable ou réglementaire du contenu exporté.
@@ -123,6 +125,8 @@ Les cotisations sociales sont calculées sur leurs assiettes respectives et selo
 ## 6. Variables, avances et prêts
 
 Une variable manuelle possède un type, un montant signé par son sens métier, un motif, une période, un auteur et un statut. Le contrôle DAF décide si elle est approuvée ou rejetée. Le calcul réel refuse une variable encore en attente. Cette règle évite qu'une prime, un acompte ou une correction soient implicitement pris en compte par simple présence dans la base.
+
+Le parcours de saisie de la campagne suit la séquence salarié → simulation du bulletin provisoire → choix du type, montant et motif → enregistrement → calcul de la paie → contrôle du bulletin calculé. L'aperçu ne prédit pas l'effet net de la variable non enregistrée : les assiettes, cotisations, impôts et arrondis sont déterminés par le moteur lors de la prochaine simulation ou du calcul. L'interface ne doit donc jamais ajouter simplement le montant saisi au net affiché.
 
 Les avances et acomptes possèdent un montant initial, une imputation et un solde restant. Les prêts possèdent un capital et des échéances. La simulation et le recalcul des bulletins non validés reposent sur la restauration transactionnelle des imputations déjà faites, ce qui évite une double consommation. Le détail des mouvements apparaît dans le bulletin et dans les écrans de contrôle. Le solde de tout compte dispose d'un parcours séparé de préparation, calcul, validation et reçu ; il doit être recetté sur des sorties réelles avant mise en production.
 

@@ -18,6 +18,23 @@ import { getErrorMessage } from '@/api/apiClient';
 
 const BulletinPaieDrawer = lazy(() => import('@/features/payroll/components/views/BulletinPaieDrawer'));
 
+const summarizeBatch = (batch, isSimulation) => {
+    const outcomes = Array.isArray(batch.employeeOutcomes) ? batch.employeeOutcomes : [];
+    const successful = outcomes.filter(outcome => outcome.status === 'OK' && outcome.result?.bulletin);
+    return {
+        isSimulation,
+        outcomes,
+        blocked: outcomes.filter(outcome => outcome.status !== 'OK'),
+        bulletins: batch.nbBulletinsCalcules ?? successful.length,
+        brut: batch.totalMasseSalarialeBrute ?? 0,
+        cotisationsSalariales: successful.reduce((sum, outcome) => sum + Number(outcome.result.bulletin.totalCotisationsSalariales || 0), 0),
+        irsa: successful.reduce((sum, outcome) => sum + Number(outcome.result.bulletin.irsaNet || 0) + Number(outcome.result.bulletin.retenueIsi5 || 0), 0),
+        net: batch.totalNetAPayer ?? 0,
+        patronales: batch.totalChargesPatronales ?? 0,
+        coutGlobal: batch.totalCoutGlobal ?? 0,
+    };
+};
+
 /**
  * CalculStepPage — Étape 4 : Calcul de la paie (Maquette V1 Full V3).
  *
@@ -49,6 +66,8 @@ export default function CalculStepPage() {
     const actions = context?.availableActions || {};
     const canCalculate = actions?.CALCULATE?.allowed === true;
     const canSimulate = actions?.SIMULATE?.allowed === true;
+    const calculationReasons = actions?.CALCULATE?.reasonCodes || [];
+    const pendingVariables = calculationReasons.includes('PAYROLL_VARIABLES_PENDING_APPROVAL');
     const recalcRequired = context?.recalculationRequired === true;
     const recalcReason = context?.recalculationReason;
     const isStale = recalcRequired;
@@ -101,16 +120,7 @@ export default function CalculStepPage() {
         setFeedback(null);
         try {
             const res = await paieService.calculerPaiePeriode(numericPeriodId, true);
-            setResult({
-                isSimulation: true,
-                bulletins: res.nbBulletinsCalcules ?? res.bulletinsCount ?? res.totalBulletins ?? 0,
-                brut: res.totalMasseSalarialeBrute ?? res.totalBrut ?? res.masseSalarialeBrute ?? 0,
-                cotisationsSalariales: res.totalCotisationsSalariales ?? res.totalSalariales ?? 0,
-                irsa: res.totalIrsa ?? 0,
-                net: res.totalNetAPayer ?? res.totalNet ?? res.masseNetAPayer ?? 0,
-                patronales: res.totalChargesPatronales ?? res.totalCotisationsPatronales ?? 0,
-                coutGlobal: res.totalCoutGlobal ?? res.coutGlobalEmployeur ?? 0,
-            });
+            setResult(summarizeBatch(res, true));
             setShowResultsTable(true);
             setFeedback({
                 type: 'info',
@@ -130,17 +140,9 @@ export default function CalculStepPage() {
         setFeedback(null);
         try {
             const res = await paieService.calculerPaiePeriode(numericPeriodId, false);
-            setResult({
-                isSimulation: false,
-                bulletins: res.nbBulletinsCalcules ?? res.bulletinsCount ?? res.totalBulletins ?? 0,
-                brut: res.totalMasseSalarialeBrute ?? res.totalBrut ?? res.masseSalarialeBrute ?? 0,
-                cotisationsSalariales: res.totalCotisationsSalariales ?? res.totalSalariales ?? 0,
-                irsa: res.totalIrsa ?? 0,
-                net: res.totalNetAPayer ?? res.totalNet ?? res.masseNetAPayer ?? 0,
-                patronales: res.totalChargesPatronales ?? res.totalCotisationsPatronales ?? 0,
-                coutGlobal: res.totalCoutGlobal ?? res.coutGlobalEmployeur ?? 0,
-            });
-            setFeedback({ type: 'success', text: 'Calcul de paie réel effectué et persisté avec succès.' });
+            const summary = summarizeBatch(res, false);
+            setResult(summary);
+            setFeedback({ type: summary.blocked.length ? 'warning' : 'success', text: summary.blocked.length ? `${summary.blocked.length} salarié(s) non calculé(s). Vérifiez les résultats individuels avant de poursuivre.` : 'Calcul de paie réel effectué et persisté avec succès.' });
             await refresh();
             await loadExistingCalculation();
         } catch (err) {
@@ -154,7 +156,11 @@ export default function CalculStepPage() {
     const isSimulationActive = Boolean(result?.isSimulation && !hasPersistedBulletins);
     const hasBulletins = hasPersistedBulletins || isSimulationActive;
     const displayKpis = result || existingKpis;
-    const populationCount = context?.population?.eligibleCount ?? context?.periodContext?.nbSalariesTotal ?? existingBulletins.length;
+    const simulationOutcomes = isSimulationActive ? result.outcomes : [];
+    const displayBulletins = isSimulationActive
+        ? simulationOutcomes.filter(outcome => outcome.status === 'OK' && outcome.result?.bulletin).map(outcome => outcome.result.bulletin)
+        : existingBulletins;
+    const populationCount = context?.populationCount ?? context?.population?.eligibleCount ?? context?.periodContext?.nbSalariesTotal ?? (existingBulletins.length > 0 ? existingBulletins.length : null) ?? '–';
     const calculationVersion = context?.periodContext?.calculationSnapshotVersion || context?.snapshotVersion || (existingKpis ? 'v1' : null);
 
     // Salariés affectés par une obsolescence STALE (si fournis par le contexte)
@@ -205,6 +211,15 @@ export default function CalculStepPage() {
                         message={feedback.text}
                         onClose={() => setFeedback(null)}
                     />
+                )}
+
+                {pendingVariables && !hasPersistedBulletins && (
+                    <Alert type="warning" title="Calcul réel en attente" message="Une ou plusieurs variables de paie doivent être approuvées ou supprimées avant le calcul réel. Revenez à l’étape Variables par salarié pour les traiter." />
+                )}
+                {pendingVariables && !hasPersistedBulletins && (
+                    <Button variant="secondary" size="sm" onClick={() => navigate(`/paie/periodes/${numericPeriodId}/variables`)}>
+                        Traiter les variables en attente
+                    </Button>
                 )}
 
                 {/* 1. ÉTAT STALE (CALCUL OBSOLÈTE) */}
@@ -267,10 +282,12 @@ export default function CalculStepPage() {
                         </div>
                         <div className="max-w-md mx-auto space-y-1">
                             <h3 className="text-base font-bold text-[var(--color-fg)]">
-                                Campagne prête pour le calcul
+                                {canCalculate ? 'Campagne prête pour le calcul' : 'Calcul réel en attente'}
                             </h3>
                             <p className="text-xs text-[var(--color-fg-muted)]">
-                                Les contrôles de préparation sont validés et la population de {populationCount} salarié(s) est arrêtée.
+                                {canCalculate
+                                    ? `Les contrôles de préparation sont validés et la population de ${populationCount} salarié(s) est arrêtée.`
+                                    : `La population de ${populationCount} salarié(s) est arrêtée. Les prérequis du calcul réel restent à traiter.`}
                             </p>
                         </div>
 
@@ -280,8 +297,8 @@ export default function CalculStepPage() {
                                 <span className="font-semibold text-[var(--color-fg)]">{populationCount} salariés inclus</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <CheckCircle2 size={16} className="text-[var(--color-success-600)]" />
-                                <span className="font-semibold text-[var(--color-fg)]">0 bloquant de préparation</span>
+                                {canCalculate ? <CheckCircle2 size={16} className="text-[var(--color-success-600)]" /> : <AlertTriangle size={16} className="text-[var(--color-warning-600)]" />}
+                                <span className="font-semibold text-[var(--color-fg)]">{canCalculate ? 'Calcul réel autorisé' : 'Calcul réel bloqué'}</span>
                             </div>
                         </div>
 
@@ -292,6 +309,7 @@ export default function CalculStepPage() {
                                     size="md"
                                     onClick={handleSimuler}
                                     loading={simLoading}
+                                    disabled={!canSimulate}
                                     iconLeft={<Sparkles size={16} />}
                                 >
                                     Simuler en mémoire
@@ -322,13 +340,13 @@ export default function CalculStepPage() {
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <h3 className="text-sm font-bold text-[var(--color-fg)]">
-                                            Calcul {calculationVersion ? calculationVersion : 'effectué'}
+                                            {isSimulationActive ? 'Simulation effectuée' : `Calcul ${calculationVersion ? calculationVersion : 'effectué'}`}
                                         </h3>
                                         {result?.isSimulation && <Badge variant="warning" size="xs">Simulation en mémoire</Badge>}
-                                        {!isStale && <Badge variant="success" size="xs">À jour</Badge>}
+                                        {!isStale && !isSimulationActive && <Badge variant="success" size="xs">À jour</Badge>}
                                     </div>
                                     <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-                                        {displayKpis?.bulletins || existingBulletins.length} bulletin(s) généré(s) • 0 erreur bloquante
+                                        {displayKpis?.bulletins ?? existingBulletins.length} bulletin(s) calculé(s){result?.blocked?.length ? ` • ${result.blocked.length} salarié(s) non calculé(s)` : ''}
                                     </p>
                                 </div>
                             </div>
@@ -365,6 +383,10 @@ export default function CalculStepPage() {
                                 )}
                             </div>
                         </div>
+
+                        {result?.blocked?.length > 0 && (
+                            <Alert type="warning" title="Salariés non calculés" message={result.blocked.map(outcome => `Salarié ${outcome.employeeId} : ${outcome.message || 'calcul impossible'}`).join(' · ')} />
+                        )}
 
                         {/* 4 KPIs Clés consolidés */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -407,10 +429,10 @@ export default function CalculStepPage() {
                             <Card className="border border-[var(--color-border-subtle)] overflow-hidden">
                                 <div className="p-3 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex items-center justify-between">
                                     <span className="text-xs font-bold text-[var(--color-fg)]">
-                                        Décomposition individuelle ({existingBulletins.length} bulletins)
+                                        Décomposition individuelle ({displayBulletins.length} bulletins)
                                     </span>
                                     <span className="text-[11px] text-[var(--color-fg-muted)]">
-                                        Cliquez sur un collaborateur pour ouvrir son dossier
+                                        {isSimulationActive ? 'Résultats provisoires, non enregistrés' : 'Cliquez sur un collaborateur pour ouvrir son dossier'}
                                     </span>
                                 </div>
                                 <div className="overflow-x-auto">
@@ -427,8 +449,8 @@ export default function CalculStepPage() {
                                             </Tr>
                                         </Thead>
                                         <Tbody>
-                                            {existingBulletins.map((b) => (
-                                                <Tr key={b.idBulletin} className="hover:bg-[var(--color-bg-subtle)] transition-colors">
+                                            {displayBulletins.map((b) => (
+                                                <Tr key={b.idBulletin || b.idEmploye} className="hover:bg-[var(--color-bg-subtle)] transition-colors">
                                                     <Td className="font-medium text-[var(--color-fg)]">
                                                         <div>{b.nomPrenom || b.intitulePoste}</div>
                                                         <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">{b.matricule}</div>
@@ -445,12 +467,12 @@ export default function CalculStepPage() {
                                                         {formatMoneyAr(b.netAPayer)}
                                                     </Td>
                                                     <Td className="text-center">
-                                                        <Button
+                                                        {!isSimulationActive && <Button
                                                             variant="ghost"
                                                             size="xs"
                                                             onClick={() => setSelectedBulletinId(b.idBulletin)}
                                                             iconLeft={<Eye size={13} />}
-                                                        />
+                                                        />}
                                                     </Td>
                                                 </Tr>
                                             ))}

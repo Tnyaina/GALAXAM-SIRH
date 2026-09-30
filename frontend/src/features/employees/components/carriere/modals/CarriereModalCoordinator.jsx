@@ -193,7 +193,7 @@ export default function CarriereModalCoordinator({
                     moisPreavisInitial={selectedStcContrat?.moisPreavis ?? null}
                     indemnitePreavisInitiale={selectedStcContrat?.indemnitePreavis ?? null}
                     onStcValide={() => {
-                        handleSuccessAction('Solde de Tout Compte validé avec succès !');
+                        handleSuccessAction('Solde de tout compte validé avec succès !');
                     }}
                 />
             )}

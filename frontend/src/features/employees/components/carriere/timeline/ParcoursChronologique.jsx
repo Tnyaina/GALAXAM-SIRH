@@ -252,8 +252,8 @@ export default function ParcoursChronologique({
                         <span className="text-[10px] font-semibold text-[var(--color-fg-subtle)] uppercase tracking-wider block">
                             Arrivée dans l'entreprise
                         </span>
-                        <p className="font-bold text-[var(--color-fg)] mt-0.5 font-mono">
-                            {premierEvenement ? fmtDate(premierEvenement.dateEffet || premierEvenement.dateDemande) : '-'}
+                        <p className={`font-bold mt-0.5 font-mono ${premierEvenement ? 'text-[var(--color-fg)]' : 'text-[var(--color-fg-subtle)] font-normal'}`}>
+                            {premierEvenement ? fmtDate(premierEvenement.dateEffet || premierEvenement.dateDemande) : 'Non renseignée'}
                         </p>
                         <p className="text-[11px] text-[var(--color-fg-muted)] truncate">
                             {premierEvenement?.libelleTypeContrat || premierEvenement?.libelleFonction || 'Embauche initiale'}
@@ -264,11 +264,11 @@ export default function ParcoursChronologique({
                         <span className="text-[10px] font-semibold text-[var(--color-fg-subtle)] uppercase tracking-wider block">
                             Poste & Statut en vigueur
                         </span>
-                        <p className="font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] mt-0.5 truncate">
-                            {contratActif?.libelleFonction || dernierEvenement?.libelleFonction || '-'}
+                        <p className={`font-bold mt-0.5 truncate ${(contratActif?.libelleFonction || dernierEvenement?.libelleFonction) ? 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' : 'text-[var(--color-fg-subtle)] font-normal'}`}>
+                            {contratActif?.libelleFonction || dernierEvenement?.libelleFonction || 'Non renseigné'}
                         </p>
-                        <p className="text-[11px] text-[var(--color-fg-muted)] truncate">
-                            {contratActif?.libelleTypeContrat || dernierEvenement?.libelleTypeContrat || '-'}
+                        <p className={`text-[11px] truncate ${(contratActif?.libelleTypeContrat || dernierEvenement?.libelleTypeContrat) ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-fg-subtle)] font-normal'}`}>
+                            {contratActif?.libelleTypeContrat || dernierEvenement?.libelleTypeContrat || 'Non renseigné'}
                         </p>
                     </div>
 
@@ -276,11 +276,11 @@ export default function ParcoursChronologique({
                         <span className="text-[10px] font-semibold text-[var(--color-fg-subtle)] uppercase tracking-wider block">
                             Lieu d'affectation
                         </span>
-                        <p className="font-bold text-[var(--color-fg)] mt-0.5 truncate">
-                            {contratActif?.libelleSite || dernierEvenement?.libelleSite || '-'}
+                        <p className={`font-bold mt-0.5 truncate ${(contratActif?.libelleSite || dernierEvenement?.libelleSite) ? 'text-[var(--color-fg)]' : 'text-[var(--color-fg-subtle)] font-normal'}`}>
+                            {contratActif?.libelleSite || dernierEvenement?.libelleSite || 'Non renseigné'}
                         </p>
-                        <p className="text-[11px] text-[var(--color-fg-muted)] truncate">
-                            {contratActif?.libelleDepartement || dernierEvenement?.libelleDepartement || '-'}
+                        <p className={`text-[11px] truncate ${(contratActif?.libelleDepartement || dernierEvenement?.libelleDepartement) ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-fg-subtle)] font-normal'}`}>
+                            {contratActif?.libelleDepartement || dernierEvenement?.libelleDepartement || 'Non renseigné'}
                         </p>
                     </div>
                 </div>
@@ -340,7 +340,7 @@ export default function ParcoursChronologique({
                                     <div className="flex items-center gap-3 text-xs text-[var(--color-fg-muted)] flex-wrap">
                                         <span className="flex items-center gap-1 font-mono">
                                             <Calendar size={12} className="text-[var(--color-fg-subtle)]" />
-                                            {fmtDate(ct?.dateDebut || chapitre.dateDebut)} → {ct?.dateFin ? fmtDate(ct.dateFin) : (isContratActif ? 'En cours' : '-')}
+                                            {fmtDate(ct?.dateDebut || chapitre.dateDebut)} → {ct?.dateFin ? fmtDate(ct.dateFin) : (isContratActif ? 'En cours' : 'Non renseignée')}
                                         </span>
                                         {ct?.ancienneteContratTexte && (
                                             <span className="font-medium text-[var(--color-fg)]">
@@ -485,7 +485,7 @@ export default function ParcoursChronologique({
                                                                         <Building2 size={10} /> Implantation
                                                                     </span>
                                                                     <p className="text-[var(--color-fg-muted)]">
-                                                                        {wf.libelleSite || '-'}{wf.libelleDepartement ? ` · ${wf.libelleDepartement}` : ''}
+                                                                        {wf.libelleSite || 'Non renseigné'}{wf.libelleDepartement ? ` · ${wf.libelleDepartement}` : ''}
                                                                     </p>
                                                                 </div>
                                                             )}

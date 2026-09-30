@@ -26,12 +26,12 @@ export default function PeriodeEssaiFieldsSection({
                     </Select>
 
                     <Input
-                        label="Date de Fin Prévisionnelle d'Essai"
+                        label="Date de fin d'essai"
                         type="date"
                         min={formData.dateDebut || undefined}
                         value={formData.dateFinEssai}
                         onChange={(e) => setField('dateFinEssai', e.target.value)}
-                        hint="Calculée automatiquement selon la date de début"
+                        hint="Calculée selon la date de début"
                     />
                 </div>
             )}
