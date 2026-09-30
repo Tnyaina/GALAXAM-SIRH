@@ -177,9 +177,8 @@ export default function PreparationStepPage() {
                 disabledReason: nbBlockers > 0 ? 'Des prérequis bloquants empêchent la continuation.' : undefined,
             }}
         >
-            <div className="space-y-5">
-                {/* Barre de synthèse Readiness (V1 Full V3) */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 flex items-center justify-between gap-4 flex-wrap">
+            <div className="space-y-4 pb-4">
+                <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 flex items-center justify-between gap-4 flex-wrap" aria-label="État de préparation">
                     <div>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
                             État de préparation
@@ -202,12 +201,12 @@ export default function PreparationStepPage() {
                         </div>
                     </div>
 
-                    <div className="text-xs text-[var(--color-fg-muted)]">
+                    <p className="text-xs text-[var(--color-fg-muted)]">
                         {nbBlockers === 0
-                            ? '✓ Tous les prérequis indispensables sont satisfaits.'
-                            : 'Certains points bloquants doivent être arbitrés avant calcul.'}
-                    </div>
-                </div>
+                            ? 'Vous pouvez continuer vers la population éligible.'
+                            : 'Résolvez les points bloquants avant de continuer.'}
+                    </p>
+                </section>
 
                 {/* Erreur readiness API éventuelle */}
                 {readinessError && (
@@ -229,33 +228,32 @@ export default function PreparationStepPage() {
                     />
                 ))}
 
-                {/* Liste des 8 Contrôles de Readiness (V1 Full V3) */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] divide-y divide-[var(--color-border-subtle)]">
+                <section aria-labelledby="preparation-checks-title">
+                    <h3 id="preparation-checks-title" className="text-sm font-bold text-[var(--color-fg)] mb-2">Contrôles de préparation</h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                     {checklistItems.map(item => {
                         const isBlocker = item.status === 'BLOCKING';
                         const isWarning = item.status === 'WARNING';
                         const isPass = item.status === 'PASS';
 
                         return (
-                            <div key={item.id} className="p-4 flex items-start justify-between gap-4 flex-wrap sm:flex-nowrap">
-                                <div className="flex items-start gap-3">
+                            <article key={item.id} className={`bg-[var(--color-surface)] border p-3 flex items-start justify-between gap-3 ${isBlocker ? 'border-[var(--color-danger-300)]' : isWarning ? 'border-[var(--color-warning-300)]' : 'border-[var(--color-border-subtle)]'}`}>
+                                <div className="flex items-start gap-2.5 min-w-0">
                                     <div className="mt-0.5 shrink-0">
                                         {isPass && <ShieldCheck size={18} className="text-[var(--color-success-600)]" />}
                                         {isWarning && <AlertTriangle size={18} className="text-[var(--color-warning-600)]" />}
                                         {isBlocker && <XCircle size={18} className="text-[var(--color-danger-600)]" />}
                                     </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-x-2 gap-y-0.5 flex-wrap">
                                             <h4 className="text-xs font-bold text-[var(--color-fg)]">
                                                 {item.label}
                                             </h4>
-                                            <span className="text-[10px] text-[var(--color-fg-subtle)]">
-                                                (Source : {item.source})
-                                            </span>
                                         </div>
-                                        <p className="text-xs text-[var(--color-fg-muted)] mt-1">
+                                        <p className="text-xs text-[var(--color-fg-muted)] mt-1 leading-snug">
                                             {item.summary}
                                         </p>
+                                        <p className="text-[10px] text-[var(--color-fg-subtle)] mt-1">Source : {item.source}</p>
                                     </div>
                                 </div>
 
@@ -263,16 +261,17 @@ export default function PreparationStepPage() {
                                     <button
                                         type="button"
                                         onClick={item.action.onClick}
-                                        className="text-xs font-medium text-[var(--color-brand-600)] hover:underline flex items-center gap-1 shrink-0 cursor-pointer self-center"
+                                        className="text-xs font-medium text-[var(--color-brand-600)] hover:underline flex items-center gap-1 shrink-0 cursor-pointer self-start focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)]"
                                     >
                                         <span>{item.action.label}</span>
-                                        <ExternalLink size={12} />
+                                        <ExternalLink size={12} aria-hidden="true" />
                                     </button>
                                 )}
-                            </div>
+                            </article>
                         );
                     })}
-                </div>
+                    </div>
+                </section>
             </div>
         </PayrollCampaignShell>
     );

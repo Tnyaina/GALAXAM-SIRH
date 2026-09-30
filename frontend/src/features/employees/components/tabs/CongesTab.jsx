@@ -31,6 +31,24 @@ const formatDateOnly = (dateString) => {
   return new Date(dateString).toLocaleDateString('fr-FR');
 };
 
+const getTypeCongeBadgeConfig = (code, libelle) => {
+  const c = (code || '').toUpperCase();
+  const l = (libelle || '').toLowerCase();
+  if (c.includes('ANNUEL') || c.includes('CP') || l.includes('annuel') || l.includes('payé')) {
+    return { variant: 'brand' };
+  }
+  if (c.includes('MALADIE') || c.includes('MATERNITE') || l.includes('maladie') || l.includes('maternité')) {
+    return { variant: 'info' };
+  }
+  if (c.includes('FAMILIAL') || c.includes('EVENEMENT') || l.includes('mariage') || l.includes('naissance') || l.includes('décès')) {
+    return { variant: 'warning' };
+  }
+  if (c.includes('SANS_SOLDE') || l.includes('sans solde')) {
+    return { variant: 'outline' };
+  }
+  return { variant: 'default' };
+};
+
 export default function CongesTab({ idEmploye, employe, canWrite = false, canValidateConges = false }) {
   const navigate = useNavigate();
   const toast = useToast();
@@ -377,60 +395,101 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {demandesEmploye.map((d) => (
-                    <Tr key={d.idDemandeConge} className="hover:bg-[var(--color-bg-subtle)]/60 transition-colors">
-                      <Td>
-                        <Badge variant="default" size="xs" className="font-semibold">
-                          {d.libelleTypeConge || d.codeTypeConge}
-                        </Badge>
-                        {d.libelleMotifEvenement && (
-                          <div className="text-[11px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] font-medium mt-0.5 truncate max-w-xs">{d.libelleMotifEvenement}</div>
-                        )}
-                      </Td>
-                      <Td>
-                        <StatusBadge
-                          status={d.codeStatutDemande}
-                          label={d.libelleStatutDemande}
-                          size="xs"
-                        />
-                        {(d.isRefuse || d.codeStatutDemande === 'REFUSE') && d.motifRefus && (
-                          <div className="text-[10px] text-[var(--color-danger-500)] font-medium mt-1 max-w-xs leading-tight truncate" title={d.motifRefus}>
-                            Refus : {d.motifRefus}
+                  {demandesEmploye.map((d) => {
+                    const badgeConfig = getTypeCongeBadgeConfig(d.codeTypeConge, d.libelleTypeConge);
+                    const isRegul = d.commentaire && d.commentaire.includes('[REGULARISATION_POINTAGE]');
+                    const cleanCommentaire = d.commentaire ? d.commentaire.replace('[REGULARISATION_POINTAGE]', '').trim() : '';
+
+                    return (
+                      <Tr key={d.idDemandeConge} className="hover:bg-[var(--color-bg-subtle)]/60 transition-colors">
+                        <Td>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Badge variant={badgeConfig.variant} size="xs" className="font-semibold">
+                                {d.libelleTypeConge || d.codeTypeConge}
+                              </Badge>
+                              {isRegul && (
+                                <Badge variant="warning" size="xs" className="font-medium text-[10px]">
+                                  Régul. Pointage
+                                </Badge>
+                              )}
+                            </div>
+                            {d.libelleMotifEvenement && (
+                              <div className="text-[11px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] font-medium truncate max-w-xs">
+                                {d.libelleMotifEvenement}
+                              </div>
+                            )}
+                            {cleanCommentaire && (
+                              <div className="text-[11px] text-[var(--color-fg-muted)] truncate max-w-xs" title={cleanCommentaire}>
+                                {cleanCommentaire}
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </Td>
-                      <Td className="font-mono text-xs text-[var(--color-fg)]">
-                        {formatDateOnly(d.dateDebut)}
-                        {d.estDemiJournee ? (
-                          <Badge variant="info" size="xs" className="ml-1.5 font-normal">
-                            {d.momentDemiJournee === 'MATIN' ? 'Matinée' : d.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : '0.5 j'}
-                          </Badge>
-                        ) : (
-                          <>
-                            <span className="text-[var(--color-fg-subtle)] mx-1">→</span>
-                            {formatDateOnly(d.dateFin)}
-                          </>
-                        )}
-                      </Td>
-                      <Td className="text-center font-mono font-bold text-[var(--color-fg)] text-xs font-data">
-                        {d.nbJoursDecomptes} j
-                      </Td>
-                      <Td align="right">
-                        <div className="flex items-center justify-end">
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            onClick={() => { setDetailDemande(d); setShowDetailModal(true); }}
-                            iconLeft={<Eye size={13} />}
-                            className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
-                            title="Consulter le détail complet de la demande"
-                          >
-                            Détails
-                          </Button>
-                        </div>
-                      </Td>
-                    </Tr>
-                  ))}
+                        </Td>
+                        <Td>
+                          <div className="space-y-0.5">
+                            <StatusBadge
+                              status={d.codeStatutDemande}
+                              label={d.libelleStatutDemande}
+                              size="xs"
+                            />
+                            {d.valideParIdentifiant && (d.codeStatutDemande === 'VALIDE' || d.codeStatutDemande === 'APPROUVE') && (
+                              <div className="text-[10px] text-[var(--color-fg-subtle)]">
+                                par {d.valideParIdentifiant}
+                              </div>
+                            )}
+                            {(d.isRefuse || d.codeStatutDemande === 'REFUSE') && d.motifRefus && (
+                              <div className="text-[10px] text-[var(--color-danger-500)] font-medium max-w-xs leading-tight truncate" title={d.motifRefus}>
+                                Refus : {d.motifRefus}
+                              </div>
+                            )}
+                          </div>
+                        </Td>
+                        <Td className="text-xs">
+                          <div className="font-mono text-[var(--color-fg)] font-medium">
+                            {formatDateOnly(d.dateDebut)}
+                            {d.estDemiJournee ? (
+                              <Badge variant="info" size="xs" className="ml-1.5 font-normal">
+                                {d.momentDemiJournee === 'MATIN' ? 'Matinée' : d.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : '0.5 j'}
+                              </Badge>
+                            ) : (
+                              <>
+                                <span className="text-[var(--color-fg-subtle)] mx-1">→</span>
+                                {formatDateOnly(d.dateFin)}
+                              </>
+                            )}
+                          </div>
+                          {d.dateDemande && (
+                            <div className="text-[10px] text-[var(--color-fg-subtle)] mt-0.5">
+                              Demandé le {formatDateOnly(d.dateDemande)}
+                            </div>
+                          )}
+                        </Td>
+                        <Td className="text-center font-mono font-bold text-[var(--color-fg)] text-xs font-data">
+                          {d.nbJoursDecomptes} j
+                          {d.decompteSoldeAcquis === false && (
+                            <span className="block text-[9px] font-normal text-[var(--color-fg-muted)]">
+                              (non décompté)
+                            </span>
+                          )}
+                        </Td>
+                        <Td align="right">
+                          <div className="flex items-center justify-end">
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              onClick={() => { setDetailDemande(d); setShowDetailModal(true); }}
+                              iconLeft={<Eye size={13} />}
+                              className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+                              title="Consulter le détail complet de la demande"
+                            >
+                              Détails
+                            </Button>
+                          </div>
+                        </Td>
+                      </Tr>
+                    );
+                  })}
                 </Tbody>
               </Table>
             )}
@@ -459,6 +518,17 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
           canValidate={canValidateConges}
           matricule={employe?.matricule}
           onAjustementSuccess={reloadData}
+          onVoirDemande={async (idDemande) => {
+            try {
+              const res = await congeService.getDemandeParId(idDemande);
+              if (res) {
+                setDetailDemande(res);
+                setShowDetailModal(true);
+              }
+            } catch (err) {
+              toast.error(getErrorMessage(err, `Impossible de charger la demande #${idDemande}`));
+            }
+          }}
         />
       )}
 

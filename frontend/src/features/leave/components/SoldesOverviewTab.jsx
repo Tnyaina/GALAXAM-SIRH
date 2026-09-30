@@ -2,6 +2,7 @@ import { useState, lazy, Suspense } from 'react';
 import { CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Button from '@/components/ui/forms/Button';
+import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
@@ -66,6 +67,7 @@ export default function SoldesOverviewTab({ nbEnAttente, referentiels, onReload,
     handlePrevMonth,
     handleNextMonth,
     handleToday,
+    handleMonthChange,
 
     // Navigation Semaine
     weekDaysArray,
@@ -75,6 +77,7 @@ export default function SoldesOverviewTab({ nbEnAttente, referentiels, onReload,
     handlePrevWeek,
     handleNextWeek,
     handleTodayWeek,
+    handleWeekDateChange,
 
     // Gantt Data & State
     planningLoading,
@@ -278,6 +281,7 @@ export default function SoldesOverviewTab({ nbEnAttente, referentiels, onReload,
         handlePrevMonth={handlePrevMonth}
         handleNextMonth={handleNextMonth}
         handleToday={handleToday}
+        onMonthChange={handleMonthChange}
         weekDaysArray={weekDaysArray}
         weekStartStr={weekStartStr}
         weekEndStr={weekEndStr}
@@ -285,6 +289,7 @@ export default function SoldesOverviewTab({ nbEnAttente, referentiels, onReload,
         handlePrevWeek={handlePrevWeek}
         handleNextWeek={handleNextWeek}
         handleTodayWeek={handleTodayWeek}
+        onWeekDateChange={handleWeekDateChange}
         onReload={() => {
           loadPlanning();
           if (onReload) onReload();
@@ -295,11 +300,24 @@ export default function SoldesOverviewTab({ nbEnAttente, referentiels, onReload,
       />}
 
       {!planningError && <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
-        <Button type="button" variant="ghost" size="sm" className="w-full justify-between px-4 py-3" onClick={() => setShowRecap(value => !value)}
-          iconLeft={<CalendarDays size={15} />} iconRight={showRecap ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-          aria-expanded={showRecap}>
-          Absences des collaborateurs affichés ({totalTableItems})
-        </Button>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-border-subtle)] px-4 py-2.5">
+          <div className="flex min-w-0 items-center gap-2 text-[var(--color-fg)]">
+            <CalendarDays size={15} className="shrink-0 text-[var(--color-brand-600)]" />
+            <h3 className="text-xs font-bold">Absences sur la période affichée</h3>
+            <Badge variant="default" size="xs" className="font-data">{totalTableItems}</Badge>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="shrink-0"
+            onClick={() => setShowRecap(value => !value)}
+            iconRight={showRecap ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            aria-expanded={showRecap}
+          >
+            {showRecap ? 'Masquer la liste' : 'Afficher la liste'}
+          </Button>
+        </div>
         {showRecap && <SoldesTable
           ganttData={ganttData}
           paginatedTableData={paginatedTableData}

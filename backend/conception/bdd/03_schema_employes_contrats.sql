@@ -215,7 +215,7 @@ CREATE TABLE employe_affectation_carriere (
     id_responsable_hierarchique INTEGER REFERENCES employe(id_employe),
     id_categorie_professionnelle INTEGER NOT NULL REFERENCES ref_categorie_professionnelle(id_categorie_professionnelle),
     id_mode_calcul_paie INTEGER NOT NULL REFERENCES ref_mode_calcul_paie(id_mode_calcul_paie),
-    salaire_base NUMERIC(12,2) NOT NULL,
+    salaire_base NUMERIC(20,2) NOT NULL,
     date_debut DATE NOT NULL,
     date_fin DATE,
     description TEXT,

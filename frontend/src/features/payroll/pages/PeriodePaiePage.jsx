@@ -1,18 +1,13 @@
-import { Fragment, useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     CalendarRange,
     Plus,
-    RefreshCw,
     CheckCircle,
     Play,
     ArrowRight,
-    Clock,
-    CheckCheck,
     Archive,
-    ShieldCheck,
     Sparkles,
-    SlidersHorizontal,
     ChevronDown,
     ChevronUp
 } from 'lucide-react';
@@ -20,20 +15,18 @@ import { usePeriodePaie } from '@/features/attendance/hooks/usePeriodePaie';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
 import paieService from '@/features/payroll/api/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
-import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
 import Input from '@/components/ui/forms/Input';
 import DatePicker from '@/components/ui/forms/DatePicker';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
-import StatCard from '@/components/ui/data-display/StatCard';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import HasPermission from '@/features/auth/components/HasPermission';
 import SEO from '@/components/system/SEO';
 import PageHeader from '@/components/ui/navigation/PageHeader';
+import PayrollWorkflowStatusBadges from '@/features/payroll/components/workflow/PayrollWorkflowStatusBadges';
 
 const STATUT_CONFIG = {
     'BROUILLON': {
@@ -210,7 +203,6 @@ export default function PeriodePaiePage() {
         loading,
         error,
         setError,
-        loadPeriodes,
         createPeriode,
         executeCommand
     } = usePeriodePaie();
@@ -245,6 +237,7 @@ export default function PeriodePaiePage() {
     const nextSuggestion = useMemo(() => computeNextPeriodeSuggestion(periodes), [periodes]);
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isCustomCreate, setIsCustomCreate] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [newPeriode, setNewPeriode] = useState({
         code: '',
@@ -266,6 +259,7 @@ export default function PeriodePaiePage() {
                 dateDebut: initial.dateDebut,
                 dateFin: initial.dateFin
             });
+            setIsCustomCreate(Boolean(customForDate));
             setIsCreateModalOpen(true);
 
             // Nettoyer les paramètres d'URL pour ne pas ré-ouvrir au refresh/close
@@ -280,6 +274,7 @@ export default function PeriodePaiePage() {
 
     // Actions
     const handleOpenCreateWithSuggestion = () => {
+        setIsCustomCreate(false);
         setNewPeriode({
             code: nextSuggestion.code,
             libelle: nextSuggestion.libelle,
@@ -340,6 +335,7 @@ export default function PeriodePaiePage() {
     };
 
     const handleOpenCreateBlank = () => {
+        setIsCustomCreate(true);
         setNewPeriode({
             code: '',
             libelle: '',
@@ -385,15 +381,6 @@ export default function PeriodePaiePage() {
         variant: 'primary',
         confirmLabel: 'Confirmer'
     });
-
-    // Données dérivées
-    const stats = useMemo(() => {
-        const total = periodes.length;
-        const enCours = periodes.filter(p => p.statutCode === 'EN_COURS').length;
-        const aValider = periodes.filter(p => p.statutCode === 'A_VALIDER' || p.statutCode === 'TRANSMIS_DAF').length;
-        const verrouillees = periodes.filter(p => p.statutCode === 'VALIDEE' || p.statutCode === 'PAIE_VALIDEE' || p.statutCode === 'CLOTUREE').length;
-        return { total, enCours, aValider, verrouillees };
-    }, [periodes]);
 
     const activeCycle = useMemo(() => periodes.find((period) =>
         ['EN_COURS', 'A_VALIDER', 'TRANSMIS_DAF', 'VALIDEE', 'PAIE_VALIDEE'].includes(period.statutCode)
@@ -462,54 +449,28 @@ export default function PeriodePaiePage() {
             <SEO title="Périodes de Paie & Clôture" description="Gestion des périodes mensuelles de pointage et cycle de paie." />
 
             <PageHeader
-                title="Périodes de paie & clôture"
-                subtitle="Créez, activez, validez et clôturez les campagnes mensuelles de pointage et de paie."
+                title="Campagnes de paie"
+                subtitle="Créez la prochaine période, puis suivez son passage du pointage à la paie."
                 icon={CalendarRange}
                 breadcrumbs={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Paie & Rémunération', href: '/paie' }, { label: 'Périodes de paie' }]}
             />
 
-            {/* Barre d'action de création de période */}
-            <div className="flex items-center justify-between bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 shadow-xs">
-                <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                        Calendrier des Cycles de Paie
-                    </h3>
-                    <p className="text-[11.5px] text-[var(--color-fg-muted)] mt-0.5">
-                        Création, activation, validation et clôture immuable des périodes de pointage et de paie.
-                    </p>
-                </div>
-
-                <div className="relative flex items-center flex-wrap gap-2 shrink-0">
-                    <Button
-                        onClick={loadPeriodes}
-                        variant="outline"
-                        size="sm"
-                        icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
-                    >
-                        Actualiser
-                    </Button>
+            <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] border-l-4 border-l-[var(--color-brand-500)] p-4 sm:p-5 shadow-xs">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-600)]">Prochaine campagne suggérée</p>
+                        <h2 className="mt-1 text-lg font-bold text-[var(--color-fg)]">{nextSuggestion.libelle} <span className="font-mono text-sm font-medium text-[var(--color-fg-muted)]">· {nextSuggestion.code}</span></h2>
+                        <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Du {nextSuggestion.dateDebut} au {nextSuggestion.dateFin} · Cycle du 26 au 25</p>
+                        <p className="mt-2 text-xs text-[var(--color-fg-muted)]">Créée en brouillon ; la saisie du pointage s’ouvre ensuite.</p>
+                    </div>
                     <HasPermission authority={['PAIE_WRITE', 'PAIE_VALIDATE', 'POINTAGE_VALIDATE']}>
-                        <Button
-                            onClick={handleOpenCreateWithSuggestion}
-                            variant="primary"
-                            size="sm"
-                            icon={<Sparkles size={14} className="text-[var(--color-warning-300)]" />}
-                            title={`Créer automatiquement la suite logique : ${nextSuggestion.libelle} (${nextSuggestion.dateDebut} au ${nextSuggestion.dateFin})`}
-                        >
-                            Créer {nextSuggestion.libelle} (Suggéré)
-                        </Button>
-                        <Button
-                            onClick={handleOpenCreateBlank}
-                            variant="outline"
-                            size="sm"
-                            icon={<Plus size={14} />}
-                            title="Créer une période avec des dates personnalisées"
-                        >
-                            Personnalisée...
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button onClick={handleOpenCreateWithSuggestion} variant="primary" size="md" icon={<Plus size={16} />}>Créer la campagne</Button>
+                            <Button onClick={handleOpenCreateBlank} variant="outline" size="sm">Choisir d’autres dates</Button>
+                        </div>
                     </HasPermission>
                 </div>
-            </div>
+            </section>
 
             {activeCycle && (
                 <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-4 sm:p-5">
@@ -518,26 +479,20 @@ export default function PeriodePaiePage() {
                             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-600)]">Cycle actuellement piloté</p>
                             <h2 className="mt-1 text-lg font-bold text-[var(--color-fg)]">{activeCycle.libelle} <span className="font-mono text-sm font-medium text-[var(--color-fg-muted)]">· {activeCycle.dateDebut} → {activeCycle.dateFin}</span></h2>
                         </div>
-                        <Button
-                            size="sm"
-                            variant="primary"
-                            onClick={() => navigate(activeCycle.statutCode === 'VALIDEE'
-                                ? `/paie/periodes/${activeCycle.idPeriodePaie}/preparation`
-                                : activeCycle.statutCode === 'PAIE_VALIDEE'
-                                    ? `/paie/periodes/${activeCycle.idPeriodePaie}/sorties`
-                                    : '/pointages?tab=saisie')}
-                        >
-                            {activeCycle.statutCode === 'VALIDEE' ? 'Préparer la paie' : activeCycle.statutCode === 'PAIE_VALIDEE' ? 'Ouvrir les sorties' : 'Continuer le pointage'}
-                        </Button>
+                        {activeCycle.nextStep?.destination && (
+                            <Button size="sm" variant="primary" onClick={() => navigate(activeCycle.nextStep.destination)}>
+                                Continuer la campagne
+                            </Button>
+                        )}
                     </div>
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 border border-[var(--color-border-subtle)] divide-y sm:divide-y-0 sm:divide-x divide-[var(--color-border-subtle)]">
                         <div className="p-3">
                             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)]">1. Pointage</p>
-                            <p className="mt-1 text-sm font-semibold text-[var(--color-fg)]">{['EN_COURS', 'BROUILLON'].includes(activeCycle.statutCode) ? 'Saisie en cours' : ['A_VALIDER', 'TRANSMIS_DAF'].includes(activeCycle.statutCode) ? 'Contrôle requis' : 'Figé'}</p>
+                            <p className="mt-1 text-sm font-semibold text-[var(--color-fg)]">{activeCycle.workflowStatuses?.pointage?.label || '—'}</p>
                         </div>
                         <div className="p-3">
                             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)]">2. Paie</p>
-                            <p className="mt-1 text-sm font-semibold text-[var(--color-fg)]">{['EN_COURS', 'BROUILLON', 'A_VALIDER', 'TRANSMIS_DAF'].includes(activeCycle.statutCode) ? 'En attente du Pointage' : activeCycle.statutCode === 'VALIDEE' ? 'À préparer' : 'Validée'}</p>
+                            <p className="mt-1 text-sm font-semibold text-[var(--color-fg)]">{activeCycle.workflowStatuses?.paie?.label || '—'}</p>
                         </div>
                         <div className="p-3">
                             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-subtle)]">3. Variables</p>
@@ -547,207 +502,113 @@ export default function PeriodePaiePage() {
                 </section>
             )}
 
-            {/* Cartes KPI / Statistiques */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                <StatCard
-                    title="Total Périodes"
-                    value={stats.total}
-                    subtext="Exercices enregistrés"
-                    icon={<CalendarRange size={18} />}
-                    color="neutral"
-                />
-                <StatCard
-                    title="En cours (Active)"
-                    value={stats.enCours}
-                    subtext="Pointages ouverts aux agents"
-                    icon={<Clock size={18} />}
-                    color="info"
-                />
-                <StatCard
-                    title="À Valider (Fin de mois)"
-                    value={stats.aValider}
-                    subtext="En attente d'arbitrage"
-                    icon={<CheckCheck size={18} />}
-                    color="warning"
-                />
-                <StatCard
-                    title="Verrouillées / Clôturées"
-                    value={stats.verrouillees}
-                    subtext="Scellées et archivées"
-                    icon={<ShieldCheck size={18} />}
-                    color="success"
-                />
-            </div>
-
             {error && <Alert type="danger" message={error} onClose={() => setError(null)} />}
 
-            {/* Table des Périodes */}
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
-                <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
-                    <div>
-                        <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--color-fg)]">
-                            Registre des cycles : Pointage → Paie
-                        </h2>
-                        <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-                            Chaque ligne représente une campagne complète. Le Pointage est figé avant toute préparation de Paie.
-                        </p>
-                    </div>
-                </div>
+            {/* Campagnes et actions de suivi */}
+            <section className="space-y-3" aria-labelledby="campagnes-creees-title">
 
                 {loading && periodes.length === 0 ? (
-                    <SkeletonTable rows={5} cols={6} />
+                    <SkeletonTable rows={3} cols={3} />
+                ) : periodes.length === 0 ? (
+                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-8 text-center text-sm text-[var(--color-fg-muted)]">
+                        Aucune campagne créée pour le moment.
+                    </div>
                 ) : (
-                    <div className={`transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-                        <Table bordered={false}>
-                            <Thead>
-                                <Tr>
-                                    <Th>Code Période</Th>
-                                    <Th>Libellé</Th>
-                                    <Th>Date Début</Th>
-                                    <Th>Date Fin</Th>
-                                    <Th className="text-center">Jours Ouvrables</Th>
-                                    <Th>Avancement du cycle</Th>
-                                    <Th className="text-right">Actions sur le Cycle</Th>
-                                </Tr>
-                            </Thead>
-                            <Tbody>
-                                {periodes.map(p => {
-                                    const isLocked = p.statutCode === 'PAIE_VALIDEE' || p.statutCode === 'CLOTUREE';
-                                    const periodId = p.idPeriodePaie || p.id;
-                                    const variables = variablesByPeriod[periodId] || [];
-                                    const pointageStatus = p.statutCode === 'BROUILLON' ? 'À ouvrir'
-                                        : p.statutCode === 'EN_COURS' ? 'Saisie en cours'
-                                        : ['A_VALIDER', 'TRANSMIS_DAF'].includes(p.statutCode) ? 'À valider'
-                                        : 'Figé';
-                                    const paieStatus = ['BROUILLON', 'EN_COURS', 'A_VALIDER', 'TRANSMIS_DAF'].includes(p.statutCode)
-                                        ? 'En attente du Pointage'
-                                        : p.statutCode === 'VALIDEE' ? 'À préparer'
-                                        : p.statutCode === 'PAIE_VALIDEE' ? 'Validée'
-                                        : 'Clôturée';
-                                    return (
-                                        <Fragment key={periodId}>
-                                        <Tr key={periodId} className={isLocked ? 'bg-ink-50/30 dark:bg-[var(--color-bg-subtle)]' : ''}>
-                                            <Td className="font-mono font-bold text-brand-600 dark:text-brand-400">
-                                                {p.code}
-                                            </Td>
-                                            <Td className="font-semibold text-ink-900 dark:text-[var(--color-on-color)]">
-                                                {p.libelle}
-                                            </Td>
-                                            <Td className="text-xs font-mono">{p.dateDebut}</Td>
-                                            <Td className="text-xs font-mono">{p.dateFin}</Td>
-                                            <Td className="text-center">
-                                                <div className="inline-flex items-center gap-1.5">
-                                                    <span className="px-2 py-0.5 font-bold font-data text-xs bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20">
-                                                        {p.nbJoursOuvrables ?? '-'} j
-                                                    </span>
-                                                    {p.nbJoursFeries > 0 && (
-                                                        <span className="text-[10px] font-medium text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]" title={`${p.nbJoursFeries} jour(s) férié(s) chômé(s)`}>
-                                                            ({p.nbJoursFeries} f.)
-                                                        </span>
-                                                    )}
+                    <div className={`space-y-3 transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+                        {periodes.map(p => {
+                            const periodId = p.idPeriodePaie || p.id;
+                            const variables = variablesByPeriod[periodId] || [];
+                            const isExpanded = expandedPeriodId === periodId;
+                            const availableActions = Object.entries(WORKFLOW_ACTIONS).filter(([command]) => p.availableActions?.[command]?.allowed === true);
+                            const mainAction = availableActions.find(([command]) => command !== 'CLOSE');
+                            const secondaryActions = availableActions.filter(([command]) => command === 'CLOSE');
+
+                            return (
+                                <article key={periodId} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
+                                    <div className="p-4 sm:p-5">
+                                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                                            <div className="min-w-0">
+                                                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                                                    <h3 className="text-base font-bold text-[var(--color-fg)]">{p.libelle}</h3>
+                                                    <span className="font-mono text-xs text-[var(--color-brand-600)]">{p.code}</span>
                                                 </div>
-                                            </Td>
-                                            <Td>
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center gap-1.5 text-[10px]">
-                                                        <span className="text-[var(--color-fg-subtle)]">Pointage</span>
-                                                        <Badge variant={['À ouvrir', 'Saisie en cours'].includes(pointageStatus) ? 'info' : pointageStatus === 'À valider' ? 'warning' : 'success'} size="xs">{pointageStatus}</Badge>
-                                                    </div>
-                                                    <div className="flex items-center gap-1.5 text-[10px]">
-                                                        <span className="text-[var(--color-fg-subtle)]">Paie</span>
-                                                        <Badge variant={paieStatus === 'En attente du Pointage' ? 'secondary' : paieStatus === 'À préparer' ? 'warning' : 'success'} size="xs">{paieStatus}</Badge>
-                                                    </div>
-                                                </div>
-                                            </Td>
-                                            <Td className="text-right space-x-2">
-                                                <Button
-                                                    size="xs"
-                                                    variant="ghost"
-                                                    icon={expandedPeriodId === periodId ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                                                    onClick={() => setExpandedPeriodId(expandedPeriodId === periodId ? null : periodId)}
-                                                >
-                                                    Variables ({variables.length})
-                                                </Button>
-                                                {p.statutCode === 'VALIDEE' && (
-                                                    <Button size="xs" variant="outline" icon={<SlidersHorizontal size={13} />} onClick={() => navigate(`/paie/periodes/${periodId}/variables`)}>
-                                                        Préparer la paie
-                                                    </Button>
+                                                <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
+                                                    <span className="font-mono">{p.dateDebut} → {p.dateFin}</span>
+                                                    <span className="mx-2" aria-hidden="true">·</span>
+                                                    {p.nbJoursOuvrables ?? '—'} jours ouvrables
+                                                    {p.nbJoursFeries > 0 && <span> · {p.nbJoursFeries} jour(s) férié(s)</span>}
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                                                {p.nextStep?.destination && (
+                                                    <Button size="sm" variant="primary" onClick={() => navigate(p.nextStep.destination)}>Continuer</Button>
                                                 )}
-                                                {Object.entries(WORKFLOW_ACTIONS).map(([command, config]) => {
-                                                    if (p.availableActions?.[command]?.allowed !== true) return null;
+                                                {mainAction && (() => {
+                                                    const [command, config] = mainAction;
                                                     const ActionIcon = config.Icon;
-                                                    return (
-                                                    <Button
-                                                        key={command}
-                                                        size="xs"
-                                                        variant={config.variant}
-                                                        icon={<ActionIcon size={13} />}
-                                                        onClick={() => triggerWorkflowAction(p, command)}
-                                                    >
-                                                        {config.label}
-                                                    </Button>
-                                                    );
-                                                })}
-                                            </Td>
-                                        </Tr>
-                                        {expandedPeriodId === periodId && (
-                                            <Tr key={`${periodId}-variables`}>
-                                                <Td colSpan={7} className="bg-[var(--color-bg-subtle)] p-0">
-                                                    <div className="p-3 border-y border-[var(--color-border-subtle)]">
-                                                        <div className="flex items-center justify-between gap-3 mb-2">
-                                                            <div>
-                                                                <p className="text-xs font-semibold text-[var(--color-fg)]">Éléments variables de {p.libelle}</p>
-                                                                <p className="text-[11px] text-[var(--color-fg-muted)]">Primes, retenues, acomptes et autres mouvements rattachés à cette période.</p>
-                                                            </div>
-                                                            <Button size="xs" variant="outline" onClick={() => navigate(`/paie/periodes/${periodId}/variables`)}>Gérer les variables</Button>
-                                                        </div>
-                                                        {variables.length === 0 ? (
-                                                            <p className="text-xs text-[var(--color-fg-muted)] py-2">Aucun élément variable enregistré pour cette période.</p>
-                                                        ) : (
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-                                                                {variables.map((variable) => (
-                                                                    <div key={variable.idAvance || variable.idAjustement || variable.id} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2.5 text-xs">
-                                                                        <p className="font-semibold text-[var(--color-fg)] truncate">{variable.libelle || variable.typeMouvement || 'Variable de paie'}</p>
-                                                                        <div className="flex justify-between gap-2 mt-1 text-[var(--color-fg-muted)]">
-                                                                            <span>{variable.nomEmploye || variable.matricule || 'Population'}</span>
-                                                                            <strong className="font-mono text-[var(--color-fg)]">{formatMoneyAr(variable.montant ?? variable.montantDemande ?? 0)}</strong>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </Td>
-                                            </Tr>
-                                        )}
-                                        </Fragment>
-                                    );
-                                })}
-                                {periodes.length === 0 && !loading && (
-                                    <Tr>
-                                        <Td colSpan={7} className="text-center py-12 text-ink-400 dark:text-[var(--color-fg-muted)]">
-                                            <CalendarRange size={36} className="mx-auto mb-2 opacity-40" />
-                                            Aucune période de paie configurée pour le moment.
-                                        </Td>
-                                    </Tr>
-                                )}
-                            </Tbody>
-                        </Table>
+                                                    return <Button size="sm" variant="primary" icon={<ActionIcon size={14} />} onClick={() => triggerWorkflowAction(p, command)}>{config.label}</Button>;
+                                                })()}
+                                            </div>
+                                        </div>
+                                        <div className="mt-4 pt-3 border-t border-[var(--color-border-subtle)] flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+                                            <PayrollWorkflowStatusBadges statuses={p.workflowStatuses} size="xs" />
+                                            <button
+                                                type="button"
+                                                aria-expanded={isExpanded}
+                                                aria-controls={`campagne-details-${periodId}`}
+                                                onClick={() => setExpandedPeriodId(isExpanded ? null : periodId)}
+                                                className="ml-auto inline-flex items-center gap-1.5 font-semibold text-[var(--color-brand-600)] hover:text-[var(--color-brand-700)] focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] cursor-pointer"
+                                            >
+                                                Variables ({variables.length}) et détails {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {isExpanded && (
+                                        <div id={`campagne-details-${periodId}`} className="border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4 py-3 sm:px-5">
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <h4 className="text-xs font-bold text-[var(--color-fg)]">Éléments variables</h4>
+                                                <Button size="xs" variant="outline" onClick={() => navigate(`/paie/periodes/${periodId}/variables`)}>Gérer les variables</Button>
+                                            </div>
+                                            {variables.length === 0 ? (
+                                                <p className="mt-2 text-xs text-[var(--color-fg-muted)]">Aucun élément variable enregistré.</p>
+                                            ) : (
+                                                <ul className="mt-2 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                                                    {variables.map(variable => (
+                                                        <li key={variable.idAvance || variable.idAjustement || variable.id} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-3 py-2 text-xs flex items-center justify-between gap-3">
+                                                            <span className="min-w-0"><strong className="block truncate text-[var(--color-fg)]">{variable.libelle || variable.typeMouvement || 'Variable de paie'}</strong><span className="text-[var(--color-fg-muted)]">{variable.nomEmploye || variable.matricule || 'Population'}</span></span>
+                                                            <strong className="font-mono whitespace-nowrap text-[var(--color-fg)]">{formatMoneyAr(variable.montant ?? variable.montantDemande ?? 0)}</strong>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                            {secondaryActions.length > 0 && (
+                                                <div className="mt-3 pt-3 border-t border-[var(--color-border-subtle)] flex flex-wrap items-center gap-2">
+                                                    <span className="text-xs text-[var(--color-fg-muted)]">Gestion du cycle</span>
+                                                    {secondaryActions.map(([command, config]) => {
+                                                        const ActionIcon = config.Icon;
+                                                        return <Button key={command} size="xs" variant={config.variant} icon={<ActionIcon size={13} />} onClick={() => triggerWorkflowAction(p, command)}>{config.label}</Button>;
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </article>
+                            );
+                        })}
                     </div>
                 )}
-            </div>
+            </section>
 
             {/* Modale de Création de Période */}
             <Modal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
-                title="Créer une Nouvelle Période de Paie"
+                title="Créer une campagne de paie"
                 icon={<CalendarRange size={18} />}
                 size="lg"
             >
                 <form onSubmit={handleCreate} className="space-y-4">
-                    {/* Bannière de suggestion automatique */}
-                    {nextSuggestion && (
+                    {isCustomCreate && nextSuggestion && (
                         <div className="p-3 bg-[var(--color-warning-500)]/10 dark:bg-[var(--color-warning-950)]/25 border border-[var(--color-warning-500)]/30 flex items-center justify-between gap-3 text-xs">
                             <div className="flex items-center gap-2">
                                 <Sparkles size={16} className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] shrink-0" />
@@ -770,34 +631,17 @@ export default function PeriodePaiePage() {
                         </div>
                     )}
 
-                    <div className="bg-brand-50/50 dark:bg-brand-900/20 p-3 border border-brand-200 dark:border-brand-800/40 text-xs text-brand-800 dark:text-brand-300">
-                        La période sera initialement créée au statut <strong>Brouillon</strong>. Vous pourrez ensuite l'ouvrir à la saisie.
-                    </div>
-                    <Input
-                        label="Code Période (ex: 2026-09)"
-                        placeholder="AAAA-MM"
-                        value={newPeriode.code}
-                        onChange={e => setNewPeriode({ ...newPeriode, code: e.target.value })}
-                        required
-                    />
-                    <Input
-                        label="Libellé complet (ex: Septembre 2026)"
-                        placeholder="Nom de la période"
-                        value={newPeriode.libelle}
-                        onChange={e => setNewPeriode({ ...newPeriode, libelle: e.target.value })}
-                        required
-                    />
                     <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-[var(--color-fg)]">Plage de dates</span>
-                            <div className="flex items-center gap-1.5">
+                        <div className="space-y-2">
+                            <span className="text-xs font-semibold text-[var(--color-fg)]">Type de cycle</span>
+                            <div className="flex flex-wrap items-center gap-1.5">
                                 <button
                                     type="button"
                                     onClick={handleApplyCycle2625}
-                                    className="px-2 py-0.5 text-[10.5px] font-medium bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/30 hover:bg-brand-500/20 transition-colors cursor-pointer"
+                                    className="px-2 py-0.5 text-[10.5px] font-medium bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border border-[var(--color-border)] hover:border-[var(--color-brand-500)] transition-colors cursor-pointer"
                                     title="Appliquer le cycle standard de paie du 26 au 25"
                                 >
-                                    Cycle 26 au 25 (Standard)
+                                    Du 26 au 25
                                 </button>
                                 <button
                                     type="button"
@@ -805,11 +649,11 @@ export default function PeriodePaiePage() {
                                     className="px-2 py-0.5 text-[10.5px] font-medium bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)] hover:text-[var(--color-fg)] transition-colors cursor-pointer"
                                     title="Appliquer le mois civil du 1er au dernier jour"
                                 >
-                                    Mois civil (1 au 31)
+                                    Mois civil
                                 </button>
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                             <DatePicker
                                 label="Date de début"
                                 value={newPeriode.dateDebut}
@@ -823,6 +667,23 @@ export default function PeriodePaiePage() {
                                 required
                             />
                         </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-[var(--color-border-subtle)] pt-4">
+                        <Input
+                            label="Code de période"
+                            placeholder="AAAA-MM"
+                            value={newPeriode.code}
+                            onChange={e => setNewPeriode({ ...newPeriode, code: e.target.value })}
+                            required
+                        />
+                        <Input
+                            label="Libellé"
+                            placeholder="Septembre 2026"
+                            value={newPeriode.libelle}
+                            onChange={e => setNewPeriode({ ...newPeriode, libelle: e.target.value })}
+                            required
+                        />
                     </div>
 
                     {/* Bloc Synthèse Dynamique Calculée Côté Serveur (Backend-Driven) */}
@@ -854,12 +715,14 @@ export default function PeriodePaiePage() {
                         </div>
                     )}
 
+                    <p className="text-xs text-[var(--color-fg-muted)]">La campagne sera créée en <strong className="text-[var(--color-fg)]">brouillon</strong>. Vous pourrez ensuite ouvrir la saisie du pointage.</p>
+
                     <div className="pt-4 flex justify-end gap-3 border-t border-ink-150 dark:border-[var(--color-border)]">
                         <Button type="button" variant="ghost" size="sm" onClick={() => setIsCreateModalOpen(false)}>
                             Annuler
                         </Button>
                         <Button type="submit" variant="primary" size="sm" loading={submitting}>
-                            Créer la période
+                            Créer la campagne
                         </Button>
                     </div>
                 </form>

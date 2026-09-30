@@ -105,6 +105,8 @@ export const paieService = {
     syntheseAcomptesAvances: async () => (await apiClient.get('paie/ajustements/acomptes-avances/synthese')).data,
     listerImputationsAcompteAvance: async (id) => (await apiClient.get(`paie/ajustements/${id}/imputations`)).data,
     listerModesReglement: async () => (await apiClient.get('paie/ajustements/modes-reglement')).data,
+    listerTousModesPaiement: async () => (await apiClient.get('paie/ajustements/modes-paiement')).data,
+    modifierModePaiement: async (id, payload) => (await apiClient.put(`paie/ajustements/modes-paiement/${id}`, payload)).data,
     confirmerVersementAcompteAvance: async (id, payload) => (await apiClient.post(`paie/ajustements/${id}/versement`, payload)).data,
 
     /**

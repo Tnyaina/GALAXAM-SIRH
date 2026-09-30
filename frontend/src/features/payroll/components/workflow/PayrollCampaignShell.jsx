@@ -6,10 +6,8 @@ import Button from '@/components/ui/forms/Button';
 import PayrollPeriodStepper from '@/features/payroll/components/workflow/PayrollPeriodStepper';
 import PayrollIssuePanel from '@/features/payroll/components/feedback/PayrollIssuePanel';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
-import { getPaieStatusVariant } from '@/features/payroll/utils/payrollPresentation';
+import PayrollWorkflowStatusBadges from '@/features/payroll/components/workflow/PayrollWorkflowStatusBadges';
 import { fmtDate } from '@/utils/dateUtils';
-
-// PRESENTATION ONLY : la map statut → variant est centralisée dans paieUtils.js → PAIE_STATUS_PRESENTATION
 
 /**
  * PayrollCampaignShell — Shell visuel invariant pour les 7 étapes de campagne de paie.
@@ -81,16 +79,12 @@ export default function PayrollCampaignShell({
                     <div className="space-y-1">
                         <div className="flex items-center gap-2.5 flex-wrap">
                             <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">
-                                Campagne Active
+                                {context?.currentPeriod?.id === activePeriod?.id ? 'Période courante' : 'Période sélectionnée'}
                             </span>
                             <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-fg)] tracking-tight">
                                 {periodCode}
                             </h1>
-                            {activePeriod?.state && (
-                                <Badge variant={getPaieStatusVariant(activePeriod.state)} size="sm">
-                                    {activePeriod.state}
-                                </Badge>
-                            )}
+                            <PayrollWorkflowStatusBadges statuses={activePeriod?.workflowStatuses} />
                             {activeStepObj?.readOnly && (
                                 <Badge variant="secondary" size="sm">Lecture seule</Badge>
                             )}
@@ -198,22 +192,23 @@ export default function PayrollCampaignShell({
             )}
 
             {/* 5. Contenu Spécifique de l'étape */}
-            <main id="step-content" className="flex-1 flex flex-col min-h-0">
+            <main id="step-content" className="flex-none">
                 {children}
             </main>
 
-            {/* 6. Navigation propre à ce shell de campagne. */}
-            <div className="sticky bottom-0 z-20 mt-auto shrink-0 bg-[var(--color-bg)]/95 backdrop-blur-md border-t border-[var(--color-border-subtle)] px-4 py-3 shadow-lg -mx-3.5 sm:-mx-4.5 -mb-3.5 sm:-mb-4.5">
-                <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
-                    <div>
+            {/* 6. Navigation après le contenu de l'étape. */}
+            {(prevStep || primaryAction || nextStep || footerCenter) && (
+            <nav aria-label="Navigation de la campagne" className="mt-auto pt-5">
+                <div className="border-t border-[var(--color-border-subtle)] pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-2">
                         {prevStep && (
                             <Button variant="outline" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate(prevStep.destination)}>
-                                {prevStep.label ? `Précédent : ${prevStep.label}` : 'Précédent'}
+                                {prevStep.label ? `Retour : ${prevStep.label}` : 'Retour'}
                             </Button>
                         )}
                     </div>
                     {footerCenter && <div className="text-xs text-[var(--color-fg-muted)] text-center hidden md:block">{footerCenter}</div>}
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2.5">
                         {primaryAction && (
                             <Button variant={primaryAction.variant || 'primary'} size="sm" loading={primaryAction.loading} disabled={primaryAction.disabled} iconLeft={primaryAction.icon} onClick={primaryAction.onClick} title={primaryAction.disabledReason}>
                                 {primaryAction.label}
@@ -221,12 +216,13 @@ export default function PayrollCampaignShell({
                         )}
                         {nextStep && (
                             <Button variant={primaryAction ? 'secondary' : 'primary'} size="sm" iconRight={<ArrowRight size={14} />} disabled={nextStep.disabled} title={nextStep.disabledReason || nextStep.label} onClick={() => !nextStep.disabled && navigate(nextStep.destination)}>
-                                {nextStep.label ? `Continuer vers ${nextStep.label}` : 'Suivant'}
+                                {nextStep.label ? `Continuer : ${nextStep.label}` : 'Suivant'}
                             </Button>
                         )}
                     </div>
                 </div>
-            </div>
+            </nav>
+            )}
         </div>
     );
 }

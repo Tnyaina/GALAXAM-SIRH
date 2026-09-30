@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Search, CalendarDays, ChevronLeft, ChevronRight, RefreshCw,
@@ -46,6 +46,7 @@ export default function SoldesGantt({
   handlePrevMonth,
   handleNextMonth,
   handleToday,
+  onMonthChange,
   weekDaysArray = [],
   weekStartStr,
   weekEndStr,
@@ -53,6 +54,7 @@ export default function SoldesGantt({
   handlePrevWeek,
   handleNextWeek,
   handleTodayWeek,
+  onWeekDateChange,
   onReload,
   onCellClick,
   onLeaveClick,
@@ -61,6 +63,8 @@ export default function SoldesGantt({
   // Contexte
   const { hasPermission } = useAuth();
   const canViewEmploye = hasPermission('EMPLOYE_READ');
+  const monthInputRef = useRef(null);
+  const weekDateInputRef = useRef(null);
 
   // État de glisser-déposer (drag-to-select) pour choisir directement un intervalle
   // État local : interaction de glisser-déposer dans le planning.
@@ -167,73 +171,13 @@ export default function SoldesGantt({
   return (
     <div className="space-y-4 select-none">
       {/* ── En-tête & Barre d'outils du Planning ── */}
-      <div className="flex flex-col gap-4 pb-4 border-b border-[var(--color-border-subtle)]">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          {/* Titre et Toggles de Vues (Sans emoji) */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
-              <CalendarDays className="w-4 h-4 text-brand-600" />
+      <div className="flex flex-col gap-3 pb-3 border-b border-[var(--color-border-subtle)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+              <CalendarDays className="h-4 w-4 text-[var(--color-brand-600)]" />
               Calendrier des absences
             </h3>
-
-            {/* Toggle Vue : Mois vs Semaine */}
-            <div className="inline-flex items-center bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-0.5 text-xs">
-              <button
-                type="button"
-                onClick={() => setViewMode('MOIS')}
-                className={`px-2.5 py-1 font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  viewMode === 'MOIS'
-                    ? 'bg-brand-600 text-[var(--color-on-color)] shadow-xs'
-                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                }`}
-              >
-                <CalendarIcon className="w-3.5 h-3.5" />
-                <span>Vue Mois</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('SEMAINE')}
-                className={`px-2.5 py-1 font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  viewMode === 'SEMAINE'
-                    ? 'bg-brand-600 text-[var(--color-on-color)] shadow-xs'
-                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                }`}
-              >
-                <CalendarDays className="w-3.5 h-3.5" />
-                <span>Vue Semaine</span>
-              </button>
-            </div>
-
-            {/* Toggle Filtre : Tous vs Absents */}
-            <div className="inline-flex items-center bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-0.5 text-xs">
-              <button
-                type="button"
-                onClick={() => setFilterMode('TOUS')}
-                className={`px-2.5 py-1 font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  filterMode === 'TOUS'
-                    ? 'bg-[var(--color-surface)] text-[var(--color-fg)] border border-[var(--color-border-subtle)] shadow-xs'
-                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                }`}
-                title="Afficher tous les collaborateurs actifs même sans congé"
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>Tous les collaborateurs</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterMode('ABSENTS')}
-                className={`px-2.5 py-1 font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  filterMode === 'ABSENTS'
-                    ? 'bg-[var(--color-surface)] text-[var(--color-fg)] border border-[var(--color-border-subtle)] shadow-xs'
-                    : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                }`}
-                title="Afficher les collaborateurs ayant une absence validée ou une demande en attente sur la période"
-              >
-                <UserCheck className="w-3.5 h-3.5" />
-                <span>Avec absences</span>
-              </button>
-            </div>
-
             {totalGanttItems > 0 && (
               <Badge variant="default" size="xs" className="font-bold">
                 {totalGanttItems} collaborateur{totalGanttItems > 1 ? 's' : ''}
@@ -241,10 +185,29 @@ export default function SoldesGantt({
             )}
           </div>
 
-          {/* Outils : Recherche + Navigateur temporel */}
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {/* Barre de recherche */}
-            <div className="w-48 sm:w-60">
+          <div className="inline-flex items-center border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-0.5 text-xs" aria-label="Mode d’affichage du calendrier">
+            <button
+              type="button"
+              onClick={() => setViewMode('MOIS')}
+              aria-pressed={viewMode === 'MOIS'}
+              className={`flex items-center gap-1.5 px-2.5 py-1 font-semibold transition-colors ${viewMode === 'MOIS' ? 'bg-[var(--color-brand-600)] text-[var(--color-on-color)] shadow-xs' : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}
+            >
+              <CalendarIcon className="h-3.5 w-3.5" /> Vue mois
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('SEMAINE')}
+              aria-pressed={viewMode === 'SEMAINE'}
+              className={`flex items-center gap-1.5 px-2.5 py-1 font-semibold transition-colors ${viewMode === 'SEMAINE' ? 'bg-[var(--color-brand-600)] text-[var(--color-on-color)] shadow-xs' : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}
+            >
+              <CalendarDays className="h-3.5 w-3.5" /> Vue semaine
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="w-full sm:w-60">
               <Input
                 type="text"
                 value={ganttSearch}
@@ -252,16 +215,37 @@ export default function SoldesGantt({
                   setGanttSearch(e.target.value);
                   setGanttPage(1);
                 }}
-                placeholder="Filtrer par nom, poste, dept…"
+                placeholder="Rechercher un collaborateur"
                 icon={<Search size={14} />}
               />
             </div>
 
-            {planningLoading && (
-              <RefreshCw className="w-3.5 h-3.5 text-brand-600 animate-spin shrink-0" title="Chargement du planning…" />
-            )}
+            <div className="inline-flex items-center border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-0.5 text-xs" aria-label="Filtrer les collaborateurs">
+              <button
+                type="button"
+                onClick={() => setFilterMode('TOUS')}
+                aria-pressed={filterMode === 'TOUS'}
+                className={`flex items-center gap-1.5 px-2.5 py-1 font-semibold transition-colors ${filterMode === 'TOUS' ? 'border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] shadow-xs' : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}
+                title="Afficher tous les collaborateurs actifs, même sans absence"
+              >
+                <Users className="h-3.5 w-3.5" /> Tous
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode('ABSENTS')}
+                aria-pressed={filterMode === 'ABSENTS'}
+                className={`flex items-center gap-1.5 px-2.5 py-1 font-semibold transition-colors ${filterMode === 'ABSENTS' ? 'border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] shadow-xs' : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}
+                title="Afficher les collaborateurs ayant une absence sur la période"
+              >
+                <UserCheck className="h-3.5 w-3.5" /> Avec absences
+              </button>
+            </div>
+          </div>
 
-            {/* Navigateur Temporel (Mois ou Semaine) */}
+          <div className="flex flex-wrap items-center gap-2">
+            {planningLoading && (
+              <RefreshCw className="h-3.5 w-3.5 animate-spin text-[var(--color-brand-600)]" title="Chargement du planning…" />
+            )}
             {viewMode === 'MOIS' ? (
               <div className="inline-flex items-center border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] h-8 text-xs">
                 <button
@@ -273,6 +257,28 @@ export default function SoldesGantt({
                 >
                   <ChevronLeft size={16} />
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const input = monthInputRef.current;
+                    if (input?.showPicker) input.showPicker();
+                    else input?.click();
+                  }}
+                  className="flex h-full items-center justify-center border-x border-[var(--color-border-subtle)] px-2 text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-fg)]"
+                  title="Choisir un mois"
+                  aria-label="Choisir un mois"
+                >
+                  <CalendarIcon size={14} />
+                </button>
+                <input
+                  ref={monthInputRef}
+                  type="month"
+                  value={`${year}-${String(month).padStart(2, '0')}`}
+                  onChange={event => onMonthChange?.(event.target.value)}
+                  className="sr-only"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
                 <span className="px-3 font-bold text-[var(--color-fg)] min-w-[125px] text-center select-none">
                   {formattedMonthLabel}
                 </span>
@@ -297,6 +303,28 @@ export default function SoldesGantt({
                 >
                   <ChevronLeft size={16} />
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const input = weekDateInputRef.current;
+                    if (input?.showPicker) input.showPicker();
+                    else input?.click();
+                  }}
+                  className="flex h-full items-center justify-center border-x border-[var(--color-border-subtle)] px-2 text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-fg)]"
+                  title="Choisir une date pour accéder à sa semaine"
+                  aria-label="Choisir une date pour accéder à sa semaine"
+                >
+                  <CalendarIcon size={14} />
+                </button>
+                <input
+                  ref={weekDateInputRef}
+                  type="date"
+                  value={weekStartStr || ''}
+                  onChange={event => onWeekDateChange?.(event.target.value)}
+                  className="sr-only"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
                 <span className="px-3 font-bold text-[var(--color-fg)] min-w-[155px] text-center select-none font-mono text-[11px]">
                   {formattedWeekLabel}
                 </span>
@@ -312,7 +340,6 @@ export default function SoldesGantt({
               </div>
             )}
 
-            {/* Bouton Aujourd'hui */}
             {((viewMode === 'MOIS' && !isMoisActuel) || (viewMode === 'SEMAINE' && !isSemaineActuelle)) && (
               <Button
                 variant="outline"
@@ -337,39 +364,38 @@ export default function SoldesGantt({
           </div>
         </div>
 
-        {/* Légende fidèle à index.css & Indication de Drag */}
-        <div className="flex items-center justify-between flex-wrap gap-y-2 text-[11px] text-[var(--color-fg-muted)] pt-0.5 border-t border-[var(--color-border-subtle)]/50">
-          <div className="flex items-center flex-wrap gap-x-4 gap-y-1">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-[var(--color-border-subtle)] pt-2 text-[10px] text-[var(--color-fg-muted)]">
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-1">
             <span className="flex items-center gap-1.5 font-semibold text-[var(--color-fg)]">
-              <span className="inline-block w-2.5 h-2.5 bg-[var(--color-brand-600)] border border-[var(--color-brand-700)] shadow-2xs" />
+              <span className="inline-block h-2.5 w-2.5 border border-[var(--color-brand-700)] bg-[var(--color-brand-600)] shadow-2xs" />
               Congé validé
             </span>
             <span className="flex items-center gap-1.5 font-semibold text-[var(--color-fg)]">
-              <span className="inline-block w-2.5 h-2.5 bg-[var(--color-warning-500)] border border-[var(--color-warning-600)] shadow-2xs" />
+              <span className="inline-block h-2.5 w-2.5 border border-[var(--color-warning-600)] bg-[var(--color-warning-500)] shadow-2xs" />
               En attente
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block w-2.5 h-2.5 bg-[var(--color-danger-600)] shadow-2xs" />
+              <span className="inline-block h-2.5 w-2.5 bg-[var(--color-danger-600)] shadow-2xs" />
               Maladie
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block w-2.5 h-2.5 bg-[var(--color-orange-500)] shadow-2xs" />
+              <span className="inline-block h-2.5 w-2.5 bg-[var(--color-orange-500)] shadow-2xs" />
               Exceptionnel
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block w-2.5 h-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]" />
+              <span className="inline-block h-2.5 w-2.5 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]" />
               Week-end
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block w-2.5 h-2.5 bg-brand-500/20 border border-brand-500/40" />
+              <span className="inline-block h-2.5 w-2.5 border border-[var(--color-brand-500)]/40 bg-[var(--color-brand-500)]/20" />
               Aujourd'hui
             </span>
           </div>
 
-          {onCellClick && <div className="text-[11px] text-[var(--color-brand-700)] font-medium flex items-center gap-1 bg-[var(--color-brand-500)]/10 px-2 py-0.5 border border-[var(--color-brand-500)]/20">
-            <Plus className="w-3 h-3 text-brand-600" />
-            <span>Astuce : Glissez sur plusieurs cases ou cliquez pour poser un congé directement.</span>
-          </div>}
+          {onCellClick && <p className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-brand-700)]" title="Sélectionnez une ou plusieurs dates dans une ligne collaborateur pour créer une demande.">
+            <Plus className="h-3 w-3 text-[var(--color-brand-600)]" />
+            <span>Cliquer ou glisser pour sélectionner les dates</span>
+          </p>}
         </div>
       </div>
 
@@ -394,10 +420,10 @@ export default function SoldesGantt({
             />
           </div>
         ) : (
-          <div className={viewMode === 'MOIS' ? "min-w-[920px]" : "min-w-[850px]"}>
+          <div className={viewMode === 'MOIS' ? "min-w-[1040px]" : "min-w-[920px]"}>
             {/* Header de la grille */}
             <div className="flex bg-[var(--color-bg-subtle)] border-b border-[var(--color-border)] select-none">
-              <div className="w-60 shrink-0 p-2.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] border-r border-[var(--color-border)] flex items-center justify-between">
+              <div className="w-72 shrink-0 p-2.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] border-r border-[var(--color-border)] flex items-center justify-between">
                 <span>Collaborateur</span>
                 <span className="font-normal opacity-70">Poste & Dépt</span>
               </div>
@@ -472,7 +498,7 @@ export default function SoldesGantt({
                     style={{ minHeight: `${rowHeight}px` }}
                   >
                     {/* Colonne Collaborateur */}
-                    <div className="w-60 shrink-0 px-3 py-1.5 border-r border-[var(--color-border)] flex items-center justify-between gap-2">
+                    <div className="w-72 shrink-0 px-3 py-1.5 border-r border-[var(--color-border)] flex items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         {canViewEmploye ? (
                           <Link
@@ -656,7 +682,7 @@ export default function SoldesGantt({
       </div>
 
       {/* Pagination du Gantt */}
-      {totalGanttItems > 0 && (
+      {totalGanttItems > ganttPageSize && (
         <Pagination
           currentPage={ganttPage}
           totalItems={totalGanttItems}

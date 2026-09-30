@@ -112,7 +112,7 @@ export default function PayrollPeriodStepper({
             className="relative bg-[var(--color-surface)] border border-[var(--color-border-subtle)]"
         >
             <div className="absolute top-[50%] left-0 right-0 h-px bg-[var(--color-border-subtle)] translate-y-[-50%] z-0 hidden md:block" />
-            <ol className="relative z-10 flex items-stretch overflow-x-auto">
+            <ol className="relative z-10 flex items-stretch overflow-x-auto" aria-label="Étapes de la campagne">
                 {steps.map((step, index) => {
                     const conf = stateConfig[step.state] || stateConfig.BLOCKED;
                     const isActive = step.code === activeCode;
@@ -125,7 +125,7 @@ export default function PayrollPeriodStepper({
                         <li
                             key={step.code}
                             className={`
-                                flex-1 min-w-0 flex items-center group
+                                flex-1 min-w-[150px] flex items-center group
                                 ${isActive ? 'bg-[var(--color-brand-500)]/5' : ''}
                                 ${!isLast ? 'border-r border-[var(--color-border-subtle)]' : ''}
                             `}
@@ -137,7 +137,7 @@ export default function PayrollPeriodStepper({
                                 title={step.issues?.length > 0 ? step.issues[0] : step.label}
                                 aria-current={isActive ? 'step' : undefined}
                                 className={`
-                                    w-full flex items-center gap-2 px-3 py-2.5 transition-colors duration-150
+                                    w-full flex items-center gap-2 px-3 py-3 transition-colors duration-150
                                     ${accessible ? 'cursor-pointer hover:bg-[var(--color-bg-subtle)]' : 'cursor-not-allowed opacity-60'}
                                     ${isActive ? 'bg-[var(--color-brand-500)]/8' : ''}
                                     focus:outline-none focus:ring-1 focus:ring-inset focus:ring-[var(--color-brand-500)]/40

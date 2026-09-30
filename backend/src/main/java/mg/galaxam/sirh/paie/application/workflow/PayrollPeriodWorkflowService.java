@@ -23,6 +23,7 @@ import mg.galaxam.sirh.common.dto.RuleResult;
 import mg.galaxam.sirh.paie.api.dto.PayrollCampaignStep;
 import mg.galaxam.sirh.paie.api.dto.PayrollPeriodContextView;
 import mg.galaxam.sirh.paie.api.dto.PayrollPeriodSummary;
+import mg.galaxam.sirh.paie.api.dto.PayrollWorkflowStatuses;
 import mg.galaxam.sirh.paie.api.dto.PayrollOutputView;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
@@ -133,8 +134,8 @@ public class PayrollPeriodWorkflowService {
                     : null;
             return new PayrollPeriodContextView(
                     targetDate,
-                    toSummary(current),
-                    toSummary(selected),
+                    toSummary(current, connection),
+                    toSummary(selected, connection),
                     actions,
                     contextIssues(selected.id(), selected.state(), connection),
                     List.of(),
@@ -170,6 +171,12 @@ public class PayrollPeriodWorkflowService {
     public Map<String, ActionCapability> describeActions(
             int periodId, String state, PayrollPeriodUserContext user, Connection connection) throws SQLException {
         return availableActions(periodId, state, user, connection);
+    }
+
+    public PayrollPeriodContextView.NextStep describeNextStep(
+            int periodId, String state, Map<String, ActionCapability> actions, Connection connection) throws SQLException {
+        PeriodState period = load(periodId, connection, false);
+        return computeNextStep(periodId, state, actions, computeCurrentStep(period, connection));
     }
 
     private PeriodState loadForUpdate(int periodId, Connection connection) throws SQLException {
@@ -260,6 +267,10 @@ public class PayrollPeriodWorkflowService {
         if (actions.getOrDefault("APPROVE", ActionCapability.denied("NA")).allowed()) {
             return new PayrollPeriodContextView.NextStep("VALIDATION_POINTAGE", "/pointages?tab=validation");
         }
+        if ("PAIE_VALIDEE".equals(state) && "CALCULATION".equals(currentStep)
+                && actions.getOrDefault("CALCULATE", ActionCapability.denied("NA")).allowed()) {
+            return new PayrollPeriodContextView.NextStep("CALCULATION", "/paie/periodes/" + periodId + "/calcul");
+        }
         if ("VALIDEE".equals(state)) {
             // CLOSE porte sur la clôture administrative, pas sur la prochaine
             // étape consultable du cycle. Il peut être autorisé dès VALIDEE,
@@ -299,6 +310,9 @@ public class PayrollPeriodWorkflowService {
         if (total == 0) return "PREPARATION";
 
         if (computeRecalculationCount(period.id(), state, connection) > 0) return "CALCULATION";
+        if (!payrollPopulationHasBulletins(period.id(), java.util.Set.of("CALCULE", "VALIDE", "CLOTURE"), connection)) {
+            return "CALCULATION";
+        }
 
         int valide = count(connection,
                 "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut IN ('VALIDE','CLOTURE')", period.id());
@@ -332,6 +346,8 @@ public class PayrollPeriodWorkflowService {
                 + "AND statut_snapshot IN ('GELE','CONSOMME')", periodId) > 0;
 
         boolean hasBulletins = total > 0;
+        boolean populationComplete = hasBulletins && payrollPopulationHasBulletins(
+                periodId, java.util.Set.of("CALCULE", "VALIDE", "CLOTURE"), connection);
         boolean allValidated = hasBulletins && valide == total;
         boolean someCalcOrValid = calcule > 0 || valide > 0;
 
@@ -390,33 +406,38 @@ public class PayrollPeriodWorkflowService {
         if (!paieOk || !hasSnapshot) calcState = "BLOCKED";
         else if (cloturee) calcState = "LOCKED";
         else if (recalcNeeded && hasBulletins) calcState = "STALE";
+        else if (hasBulletins && !populationComplete) calcState = "WARNING";
         else if (hasBulletins) calcState = "COMPLETED";
         else calcState = "AVAILABLE";
         steps.add(new PayrollCampaignStep("CALCULATION", "Calcul", calcState, base + "/calcul",
                 !paieOk ? frozenIssue : !hasSnapshot ? List.of("Aucun snapshot de pointage figé.") : noIssues,
-                recalcNeeded && hasBulletins ? List.of("Recalcul recommandé.") : noIssues));
+                recalcNeeded && hasBulletins ? List.of("Recalcul recommandé.")
+                        : hasBulletins && !populationComplete ? List.of("Des salariés restent à calculer.") : noIssues));
 
         // 5. CONTROL — revue des bulletins et anomalies
         String ctrlState;
         if (!paieOk || !hasBulletins) ctrlState = "BLOCKED";
         else if (cloturee) ctrlState = "LOCKED";
         else if (recalcNeeded) ctrlState = "STALE";
+        else if (!populationComplete) ctrlState = "WARNING";
         else if (allValidated) ctrlState = "COMPLETED";
         else if (someCalcOrValid) ctrlState = "CURRENT";
         else ctrlState = "AVAILABLE";
         steps.add(new PayrollCampaignStep("CONTROL", "Contrôle", ctrlState, base + "/controle",
-                !hasBulletins ? List.of("Aucun bulletin calculé.") : noIssues, noIssues));
+                !hasBulletins ? List.of("Aucun bulletin calculé.") : noIssues,
+                hasBulletins && !populationComplete ? List.of("Bulletins incomplets ; validation bloquée.") : noIssues));
 
         // 6. VALIDATION — approbation des bulletins
         String validState;
-        if (!paieOk || !hasBulletins || recalcNeeded) validState = "BLOCKED";
+        if (!paieOk || !hasBulletins || recalcNeeded || !populationComplete) validState = "BLOCKED";
         else if (cloturee) validState = "LOCKED";
         else if (allValidated) validState = "CURRENT";
         else if (someCalcOrValid) validState = "AVAILABLE";
         else validState = "BLOCKED";
         steps.add(new PayrollCampaignStep("VALIDATION", "Validation", validState, base + "/validation",
                 !hasBulletins ? List.of("Aucun bulletin calculé.")
-                        : recalcNeeded ? List.of("Le calcul est obsolète. Recalculez avant validation.") : noIssues,
+                        : recalcNeeded ? List.of("Le calcul est obsolète. Recalculez avant validation.")
+                        : !populationComplete ? List.of("La population de paie n'est pas entièrement calculée.") : noIssues,
                 noIssues));
 
         // 7. OUTPUTS — bulletins de paie et exports réglementaires
@@ -950,10 +971,32 @@ public class PayrollPeriodWorkflowService {
         }
     }
 
-    private PayrollPeriodSummary toSummary(PeriodState period) {
+    public PayrollWorkflowStatuses describeWorkflowStatuses(int periodId, String state, Connection connection) throws SQLException {
+        String sql = "SELECT COUNT(*) AS total, "
+                + "COUNT(*) FILTER (WHERE statut = 'CALCULE') AS calculated, "
+                + "COUNT(*) FILTER (WHERE statut IN ('VALIDE', 'CLOTURE')) AS validated "
+                + "FROM bulletin_paie WHERE id_periode_paie = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, periodId);
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                int total = result.getInt("total");
+                boolean populationComplete = total > 0 && "VALIDEE".equals(state)
+                        && payrollPopulationHasBulletins(periodId,
+                                java.util.Set.of("CALCULE", "VALIDE", "CLOTURE"), connection);
+                return PayrollWorkflowStatusResolver.resolve(state,
+                        total, result.getInt("calculated"), result.getInt("validated"),
+                        computeRecalculationCount(periodId, state, connection) > 0,
+                        populationComplete);
+            }
+        }
+    }
+
+    private PayrollPeriodSummary toSummary(PeriodState period, Connection connection) throws SQLException {
         if (period == null) return null;
         return new PayrollPeriodSummary(period.id(), period.code(), period.label(), period.startDate(),
-                period.endDate(), period.state(), period.version());
+                period.endDate(), period.state(), period.version(),
+                describeWorkflowStatuses(period.id(), period.state(), connection));
     }
 
     private void requireAuthority(PayrollPeriodCommand command, PayrollPeriodUserContext user) {

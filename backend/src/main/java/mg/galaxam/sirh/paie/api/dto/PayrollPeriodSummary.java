@@ -9,5 +9,6 @@ public record PayrollPeriodSummary(
         LocalDate startDate,
         LocalDate endDate,
         String state,
-        int version) {
+        int version,
+        PayrollWorkflowStatuses workflowStatuses) {
 }

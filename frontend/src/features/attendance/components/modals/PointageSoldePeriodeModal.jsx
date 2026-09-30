@@ -4,10 +4,10 @@ import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import { pointageSyntheseService, attendanceService } from '@/features/attendance/api/attendanceApi';
 import { getErrorMessage } from '@/api/apiClient';
-import { formatHeuresMinutes, formatHeuresDecimal } from '@/features/attendance/utils/attendanceDisplayUtils';
+import { formatHeuresMinutes, formatHeuresDecimal, formatDate } from '@/features/attendance/utils/attendanceDisplayUtils';
 import { ChevronDown } from 'lucide-react';
 
-const decimalHours = (minutes) => `${(Number(minutes || 0) / 60).toFixed(2).replace('.', ',')} h`;
+const decimalHours = (minutes) => `${(Number(minutes || 0) / 60).toFixed(2)} h`;
 const decimalFromHhMm = (value) => {
     if (!value || typeof value !== 'string' || !value.includes('h') || value === '—') return null;
     const negative = value.startsWith('-') || value.startsWith('−');
@@ -15,6 +15,23 @@ const decimalFromHhMm = (value) => {
     const [hours, mins] = value.replace(/^[+−-]/, '').split('h');
     const decimal = (Number(hours || 0) + Number(mins || 0) / 60).toFixed(2);
     return `${negative ? '−' : positive ? '+' : ''}${decimal}h`;
+};
+const formatDateTime = (str) => {
+    if (!str) return '—';
+    try {
+        const clean = str.replace(' ', 'T');
+        const d = new Date(clean);
+        if (isNaN(d.getTime())) return str.split('.')[0];
+        return d.toLocaleDateString('fr-FR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch {
+        return str.split('.')[0];
+    }
 };
 const parseAdjustmentMinutes = (value, mode) => {
     const raw = String(value || '').trim();
@@ -171,13 +188,12 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                         })()}
                     </div>
                 </section>
-                <p className="rounded border border-[var(--color-border-subtle)] p-3 text-xs text-[var(--color-fg-muted)]">Les durées qualifiées de nuit, dimanche et jour férié sont déjà comprises dans le temps travaillé. Elles sont ventilées séparément en paie.</p>
                 <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left border-collapse min-w-[900px]">
                         <thead><tr className="border-b border-[var(--color-border-subtle)]"><th className="py-2">Semaine</th><th>Objectif</th><th>Travaillé</th><th>Déficit</th><th>HS 30 %</th><th>HS 50 %</th><th>Nuit</th><th>Dimanche</th><th>Jour férié</th></tr></thead>
                         <tbody>{semaines.map((week, index) => (
                             <tr key={`${week.debutSemaine}-${index}`} className="border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors">
-                                <td className="py-2 font-medium">{week.debutSemaine} → {week.finSemaine}</td>
+                                <td className="py-2 font-medium">{formatDate(week.debutSemaine)} → {formatDate(week.finSemaine)}</td>
                                 <td className="font-mono text-[var(--color-fg-muted)]">{Number(week.seuilHeuresTroncon || 0).toFixed(2)} h</td>
                                 <td className="font-mono">
                                     {Number(week.totalHeuresTravaillees || 0) < Number(week.seuilHeuresTroncon || 0) ? (
@@ -198,7 +214,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                             −{Number(week.heuresDeficit).toFixed(2)} h
                                         </span>
                                     ) : (
-                                        <span className="text-[var(--color-fg-muted)] opacity-35">0.00 h</span>
+                                        <span className="text-[var(--color-fg-muted)]">-</span>
                                     )}
                                 </td>
                                 <td className="font-mono">
@@ -207,7 +223,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                             +{Number(week.heuresHs30).toFixed(2)} h
                                         </span>
                                     ) : (
-                                        <span className="text-[var(--color-fg-muted)] opacity-35">0.00 h</span>
+                                        <span className="text-[var(--color-fg-muted)]">-</span>
                                     )}
                                 </td>
                                 <td className="font-mono">
@@ -216,7 +232,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                             +{Number(week.heuresHs50).toFixed(2)} h
                                         </span>
                                     ) : (
-                                        <span className="text-[var(--color-fg-muted)] opacity-35">0.00 h</span>
+                                        <span className="text-[var(--color-fg-muted)]">-</span>
                                     )}
                                 </td>
                                 {[week.heuresNuit, week.heuresDimanche, week.heuresFerie].map((hours, qualificationIndex) => {
@@ -228,9 +244,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                                     {formatHeuresMinutes(value)} <span className="text-[var(--color-fg-muted)] font-normal">({formatHeuresDecimal(value)})</span>
                                                 </span>
                                             ) : (
-                                                <span className="text-[var(--color-fg-muted)] opacity-35">
-                                                    {formatHeuresMinutes(value)} ({formatHeuresDecimal(value)})
-                                                </span>
+                                                <span className="text-[var(--color-fg-muted)]">-</span>
                                             )}
                                         </td>
                                     );
@@ -327,7 +341,6 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                         );
                     })()}
                 </div>
-                <p className="text-xs text-[var(--color-fg-muted)]">Le calcul est fait en minutes ; les équivalents décimaux sont arrondis pour l’affichage.</p>
                 </section>
                 <section className="space-y-3 border-t border-[var(--color-border-subtle)] pt-4">
                     <h3 className="font-semibold">Heures qualifiées incluses dans le temps travaillé</h3>
@@ -343,24 +356,42 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                             </div>
                         ))}
                     </div>
-                    <p className="text-xs text-[var(--color-fg-muted)]">Ces heures sont déjà comprises dans « Travaillé » et dans le solde final. Les qualifications peuvent se chevaucher (par exemple, une heure de nuit un dimanche) : elles décrivent les heures à ventiler en paie, elles ne s’ajoutent pas une seconde fois au solde.</p>
                 </section>
                 {recap.regleVentilation && <p className="text-xs text-[var(--color-fg-muted)]">{recap.regleVentilation}</p>}
                 {recap.alerteSolde && <p role="alert" className="text-[var(--color-danger-600)] text-xs">{recap.alerteSolde}</p>}
                 <section className="space-y-2">
                     <h3 className="font-semibold">Ajustements d’heures</h3>
-                    {loading ? <p>Chargement…</p> : ajustements === null ? <p className="text-[var(--color-warning-700)]">Liste indisponible. Rechargez pour modifier les ajustements.</p> : ajustements.length === 0 ? <p className="text-[var(--color-fg-muted)]">Aucun ajustement.</p> : ajustements.map((item) => (
-                        <div key={item.id} className="border-b py-2 text-xs">
-                            <div className="flex items-start justify-between gap-3">
-                                <div><strong>{item.minutesSignees > 0 ? '+' : ''}{decimalHours(item.minutesSignees)}</strong> · {item.motif}<div className="text-[var(--color-fg-muted)]">{item.statut} · {item.dateSaisie}</div></div>
-                                {canAdjust && item.statut === 'VALIDE' && <button type="button" disabled={saving} onClick={() => { setCancelingId(item.id); setMotifAnnulation(''); }} className="text-[var(--color-danger-600)] hover:underline">Annuler</button>}
+                    {loading ? <p>Chargement…</p> : ajustements === null ? <p className="text-[var(--color-warning-700)]">Liste indisponible. Rechargez pour modifier les ajustements.</p> : ajustements.length === 0 ? <p className="text-[var(--color-fg-muted)]">Aucun ajustement.</p> : ajustements.map((item) => {
+                        const statusLabel = item.statut === 'VALIDE' ? 'Validé' : item.statut === 'ANNULE' ? 'Annulé' : item.statut;
+                        return (
+                            <div key={item.id} className="border-b border-[var(--color-border-subtle)] py-2 text-xs">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <strong className={item.minutesSignees < 0 ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}>
+                                            {item.minutesSignees > 0 ? '+' : ''}{decimalHours(item.minutesSignees)}
+                                        </strong> · {item.motif}
+                                        <div className="text-[var(--color-fg-muted)] mt-0.5">
+                                            {statusLabel} · {formatDateTime(item.dateSaisie)}
+                                        </div>
+                                    </div>
+                                    {canAdjust && item.statut === 'VALIDE' && (
+                                        <button type="button" disabled={saving} onClick={() => { setCancelingId(item.id); setMotifAnnulation(''); }} className="text-[var(--color-danger-600)] hover:underline">
+                                            Annuler
+                                        </button>
+                                    )}
+                                </div>
+                                {cancelingId === item.id && (
+                                    <div className="w-full mt-2 space-y-2">
+                                        <input value={motifAnnulation} onChange={(e) => setMotifAnnulation(e.target.value)} placeholder="Motif d’annulation" aria-label="Motif d’annulation" className="w-full border p-2" />
+                                        <div className="flex gap-2">
+                                            <Button disabled={motifAnnulation.trim().length < 5 || saving} onClick={() => cancel(item)}>Confirmer l’annulation</Button>
+                                            <Button variant="secondary" onClick={() => setCancelingId(null)}>Retour</Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            {cancelingId === item.id && <div className="w-full mt-2 space-y-2">
-                                <input value={motifAnnulation} onChange={(e) => setMotifAnnulation(e.target.value)} placeholder="Motif d’annulation" aria-label="Motif d’annulation" className="w-full border p-2" />
-                                <div className="flex gap-2"><Button disabled={motifAnnulation.trim().length < 5 || saving} onClick={() => cancel(item)}>Confirmer l’annulation</Button><Button variant="secondary" onClick={() => setCancelingId(null)}>Retour</Button></div>
-                            </div>}
-                        </div>
-                    ))}
+                        );
+                    })}
                 </section>
                 {canAdjust && <section className="space-y-2 border-t pt-4">
                     <h3 className="font-semibold">Ajouter un ajustement</h3>

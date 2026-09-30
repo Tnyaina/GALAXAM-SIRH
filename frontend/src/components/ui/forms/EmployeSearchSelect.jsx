@@ -5,6 +5,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import FieldError from './FieldError';
 
 export default function EmployeSearchSelect({
+  id,
   label = 'Employé',
   required = false,
   value,
@@ -19,7 +20,8 @@ export default function EmployeSearchSelect({
   const [empSearchQuery, setEmpSearchQuery] = useState('');
   const [showEmpDropdown, setShowEmpDropdown] = useState(false);
   const [listEmployes, setListEmployes] = useState([]);
-  const fieldId = `employee-select-${useId()}`;
+  const reactId = useId();
+  const fieldId = id || `employee-select-${reactId}`;
   const feedbackId = `${fieldId}-feedback`;
   const [loadingList, setLoadingList] = useState(false);
   const dropdownRef = useRef(null);
@@ -161,9 +163,15 @@ export default function EmployeSearchSelect({
   return (
     <div className={`space-y-1.5 relative ${className}`} ref={dropdownRef}>
       {label && (
-        <label htmlFor={selectedEmployeObj ? undefined : fieldId} className="block text-sm font-semibold text-[var(--color-fg)]">
-          {label} {required && <span className="text-danger-500">*</span>}
-        </label>
+        selectedEmployeObj && selectedId ? (
+          <span className="block text-sm font-semibold text-[var(--color-fg)]">
+            {label} {required && <span className="text-danger-500">*</span>}
+          </span>
+        ) : (
+          <label htmlFor={fieldId} className="block text-sm font-semibold text-[var(--color-fg)]">
+            {label} {required && <span className="text-danger-500">*</span>}
+          </label>
+        )
       )}
 
       {selectedEmployeObj && selectedId ? (

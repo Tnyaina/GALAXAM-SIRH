@@ -351,7 +351,6 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                         isOpen={isDrawerOpen}
                         onClose={() => { setIsDrawerOpen(false); setSelectedBulletinId(null); }}
                         idBulletin={selectedBulletinId}
-                        onRecalculateSuccess={chargerDonnees}
                     />
                 )}
                 {isStcPrepOpen && (
@@ -371,6 +370,8 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                 {isDemandeOpen && (
                     <DemandeAcompteAvanceModal
                         idEmploye={idEmploye}
+                        employe={employe}
+                        synthese={synthese}
                         onClose={() => setIsDemandeOpen(false)}
                         onCreated={() => { setFeedbackMsg({ type: 'success', message: 'Demande enregistrée en attente d’approbation.' }); chargerDonnees(); }}
                     />

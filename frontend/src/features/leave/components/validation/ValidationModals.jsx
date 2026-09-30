@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Check, X, FileText, XSquare, Pencil, AlertTriangle, Calculator } from 'lucide-react';
+import { Check, X, FileText, XSquare, Pencil, AlertTriangle, Calculator, Minus, Equal } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import Button from '@/components/ui/forms/Button';
@@ -101,6 +101,11 @@ export default function ValidationModals({
   const soldeAvant = soldeEmploye?.soldeRestant ?? soldeEmploye?.soldeActuel ?? selectedDemande?.soldeRestant ?? selectedDemande?.soldeActuel ?? null;
   const joursDebites = simulation?.joursDebites ?? null;
   const soldeApres = simulation?.soldeApres ?? null;
+  const prefixeRegularisation = '[REGULARISATION_POINTAGE]';
+  const estRegularisationPointage = selectedDemande?.commentaire?.startsWith(prefixeRegularisation) || false;
+  const commentaireAffiche = selectedDemande?.commentaire
+    ?.replace(/^\[REGULARISATION_POINTAGE\]\s*/i, '')
+    .trim();
 
   // Rendu
   return (
@@ -109,13 +114,13 @@ export default function ValidationModals({
       <Modal
         isOpen={showDetailModal && !!selectedDemande}
         onClose={onCloseDetail}
-        title={`Détail de la demande #${selectedDemande?.idDemandeConge || ''}`}
+        title={`Demande de congé #${selectedDemande?.idDemandeConge || ''}`}
         icon={<FileText size={20} />}
         size="xl"
         footer={
           selectedDemande ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 w-full">
-              <div>
+            <div className="flex w-full flex-wrap items-center justify-end gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 {selectedDemande.availableActions?.CANCEL?.allowed === true && onOpenAnnuler && (
                   <Button
                     variant="danger"
@@ -190,13 +195,17 @@ export default function ValidationModals({
         {selectedDemande && (
           <div className="space-y-5">
             {/* Identité + statut */}
-            <div className="flex items-start justify-between pb-4 border-b border-[var(--color-border-subtle)]">
-              <div>
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3">
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Collaborateur</span>
                 <h3 className="text-base font-bold text-[var(--color-fg)]">
                   {`${selectedDemande.prenom || ''} ${selectedDemande.nom || ''}`.trim() || `Employé ${selectedDemande.idEmploye}`}
                 </h3>
-                {selectedDemande.matricule && <p className="text-xs text-[var(--color-fg-subtle)] font-data">{selectedDemande.matricule}</p>}
-                <p className="text-xs text-[var(--color-fg-muted)] mt-0.5 font-medium">{selectedDemande.libelleTypeConge || selectedDemande.codeTypeConge}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  {selectedDemande.matricule && <span className="text-xs text-[var(--color-fg-subtle)] font-data">Matricule {selectedDemande.matricule}</span>}
+                  <span className="text-xs font-medium text-[var(--color-fg-muted)]">{selectedDemande.libelleTypeConge || selectedDemande.codeTypeConge}</span>
+                  {estRegularisationPointage && <Badge variant="warning" size="xs">Régularisation de pointage</Badge>}
+                </div>
               </div>
               <StatusBadge
                 status={selectedDemande.codeStatutDemande}
@@ -210,7 +219,7 @@ export default function ValidationModals({
               {[
                 ['Date de début',      formatDate(selectedDemande.dateDebut)],
                 ['Date de fin',        formatDate(selectedDemande.dateFin)],
-                ['Décompte calendaire strict', selectedDemande.estDemiJournee ? `0,5 jour (${selectedDemande.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'})` : `${selectedDemande.nbJoursDecomptes} jours`],
+                ['Jours décomptés', selectedDemande.estDemiJournee ? `0,5 jour (${selectedDemande.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'})` : `${selectedDemande.nbJoursDecomptes} jours`],
                 ['Date de soumission', formatDate(selectedDemande.dateDemande)],
               ].map(([label, value]) => (
                 <div key={label}>
@@ -228,54 +237,45 @@ export default function ValidationModals({
             )}
 
             {/* Commentaire */}
-            {selectedDemande.commentaire && (
+            {commentaireAffiche && (
               <div className="space-y-1 pt-2 border-t border-[var(--color-border-subtle)]">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Commentaire de l'employé</span>
                 <p className="text-xs text-[var(--color-fg)] bg-[var(--color-bg-subtle)] p-3 rounded-none border border-[var(--color-border-subtle)]">
-                  "{selectedDemande.commentaire}"
+                  {commentaireAffiche}
                 </p>
               </div>
             )}
 
-            {/* Audit comptable du solde de congé */}
-            <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3 text-xs space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block flex items-center gap-1.5">
-                <Calculator size={13} className="text-brand-500" />
-                Contrôle comptable du Solde de Congés Payés
-              </span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-                <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
-                  <span className="text-[10px] text-[var(--color-fg-muted)] block">Solde Avant</span>
-                  <span className="font-mono font-bold text-xs text-[var(--color-fg)]">
-                    {soldeAvant != null ? `${Number(soldeAvant).toFixed(2)} j` : '-'}
-                  </span>
+            <section aria-label="Vérification du solde de congés payés" className="space-y-2 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 text-xs">
+              <h4 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+                <Calculator size={13} className="text-[var(--color-brand-500)]" /> Vérification du solde
+              </h4>
+              <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
+                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
+                  <span className="block text-[10px] text-[var(--color-fg-muted)]">Solde avant</span>
+                  <span className="font-mono text-xs font-bold text-[var(--color-fg)]">{soldeAvant != null ? `${Number(soldeAvant).toFixed(2)} j` : 'Non calculé'}</span>
                 </div>
-                <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
-                  <span className="text-[10px] text-[var(--color-fg-muted)] block">Jours Demandés</span>
-                  <span className="font-mono font-bold text-xs text-[var(--color-info-600)] dark:text-[var(--color-info-400)]">
-                    {Number(joursDemandes).toFixed(2)} j
-                  </span>
+                <Minus size={14} className="hidden text-[var(--color-fg-muted)] sm:block" aria-hidden="true" />
+                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
+                  <span className="block text-[10px] text-[var(--color-fg-muted)]">Jours débités</span>
+                  <span className="font-mono text-xs font-bold text-[var(--color-danger-600)]">{joursDebites != null ? `${Number(joursDebites).toFixed(2)} j` : 'Non calculé'}</span>
                 </div>
-                <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
-                  <span className="text-[10px] text-[var(--color-fg-muted)] block">Jours Débités</span>
-                  <span className="font-mono font-bold text-xs text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                    {joursDebites != null ? `-${Number(joursDebites).toFixed(2)} j` : '-'}
-                  </span>
-                </div>
-                <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
-                  <span className="text-[10px] text-[var(--color-fg-muted)] block">Solde Après</span>
-                  <span className={`font-mono font-bold text-xs ${soldeApres != null && soldeApres < 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
-                    {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : '-'}
+                <Equal size={14} className="hidden text-[var(--color-fg-muted)] sm:block" aria-hidden="true" />
+                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
+                  <span className="block text-[10px] text-[var(--color-fg-muted)]">Solde après</span>
+                  <span className={`font-mono text-xs font-bold ${soldeApres != null && soldeApres < 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
+                    {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : 'Non calculé'}
                   </span>
                 </div>
               </div>
-              <div className="text-[11px] text-[var(--color-fg-subtle)] pt-1 border-t border-[var(--color-border-subtle)] flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-[var(--color-border-subtle)] pt-2 text-[11px] text-[var(--color-fg-subtle)]">
+                <span>Jours demandés : <strong className="font-mono text-[var(--color-fg)]">{Number(joursDemandes).toFixed(2)} j</strong></span>
                 <span>Impact Paie : <strong>{estRemunere ? 'Congé Rémunéré (TCONGE valorisé)' : 'Sans Solde (Retenue absence)'}</strong></span>
                 {soldeEmploye?.tauxJournalierConge && (
                   <span>TCONGE : <strong className="font-mono">{Number(soldeEmploye.tauxJournalierConge).toLocaleString('fr-FR')} Ar/j</strong></span>
                 )}
               </div>
-            </div>
+            </section>
 
             {/* Justificatif */}
             <div className="flex items-center gap-2 pt-2 border-t border-[var(--color-border-subtle)]">

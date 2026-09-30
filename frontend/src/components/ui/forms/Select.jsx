@@ -1,4 +1,7 @@
+import { useId } from 'react';
+
 export default function Select({
+    id,
     label,
     options = [],
     value,
@@ -9,6 +12,8 @@ export default function Select({
     placeholder,
     ...props
 }) {
+    const reactId = useId();
+    const fieldId = id || `select-${reactId}`;
     const validOptions = (Array.isArray(options) ? options : []).filter(opt => {
         if (opt.estActif === false || opt.actif === false) {
             return String(opt.value) === String(value);
@@ -19,11 +24,13 @@ export default function Select({
     return (
         <div className={`flex flex-col ${label ? 'gap-1' : ''} ${containerClassName || 'w-full'}`}>
             {label && (
-                <label className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                <label htmlFor={fieldId} className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)]">
                     {label}
+                    {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
                 </label>
             )}
             <select
+                id={fieldId}
                 value={value ?? ''}
                 disabled={disabled || validOptions.length === 0}
                 onChange={(e) => onChange?.(e.target.value)}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Search, CheckCircle2, UserX, AlertTriangle } from 'lucide-react';
 import PayrollCampaignShell from '@/features/payroll/components/workflow/PayrollCampaignShell';
@@ -6,6 +6,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import Input from '@/components/ui/forms/Input';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Pagination from '@/components/ui/navigation/Pagination';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
 
@@ -54,14 +55,18 @@ export default function PopulationStepPage() {
 
     // État local
     const [population, setPopulation] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [refreshError, setRefreshError] = useState(false);
+    const requestIdRef = useRef(0);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterDecision, setFilterDecision] = useState('ALL');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
 
     // Données dérivées
     const blockedCount = population.filter(p => p.decision === 'BLOQUE' || p.decision === 'BLOCKED').length;
     const includedCount = population.filter(p => p.decision === 'INCLUS' || p.decision === 'INCLUDED').length;
-    const excludedCount = Math.max(0, population.length - includedCount - blockedCount);
+    const excludedCount = population.filter(p => p.decision === 'EXCLU' || p.decision === 'EXCLUDED').length;
 
     const filteredPopulation = useMemo(() => {
         return population.filter(membre => {
@@ -80,24 +85,47 @@ export default function PopulationStepPage() {
             const contrat = (membre.typeContrat || membre.contrat || '').toLowerCase();
             const site = (membre.nomSite || membre.site || '').toLowerCase();
             return empName.includes(q) || mat.includes(q) || contrat.includes(q) || site.includes(q);
+        }).sort((a, b) => {
+            const rank = { BLOQUE: 0, BLOCKED: 0, EXCLU: 1, EXCLUDED: 1, WARNED: 2, INCLUS: 3, INCLUDED: 3 };
+            return (rank[a.decision] ?? 3) - (rank[b.decision] ?? 3);
         });
     }, [population, filterDecision, searchQuery]);
+    const pagedPopulation = filteredPopulation.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     // Effets
-    const loadPopulation = useCallback(async () => {
+    const loadPopulation = useCallback(async ({ silent = false } = {}) => {
         if (!numericPeriodId) return;
-        setLoading(true);
+        const requestId = ++requestIdRef.current;
+        if (!silent) setLoading(true);
         try {
             const cockpit = await paieService.getCockpitPeriode(numericPeriodId, { light: true });
+            if (requestIdRef.current !== requestId) return;
             setPopulation(Array.isArray(cockpit?.population) ? cockpit.population : []);
+            setRefreshError(false);
         } catch {
-            setPopulation([]);
+            if (requestIdRef.current === requestId) setRefreshError(true);
         } finally {
-            setLoading(false);
+            if (requestIdRef.current === requestId) setLoading(false);
         }
     }, [numericPeriodId]);
 
-    useEffect(() => { loadPopulation(); }, [loadPopulation]);
+    useEffect(() => {
+        loadPopulation();
+        return () => { requestIdRef.current += 1; };
+    }, [loadPopulation]);
+
+    useEffect(() => {
+        const refreshIfVisible = () => {
+            if (document.visibilityState === 'visible') loadPopulation({ silent: true });
+        };
+        const onVisibilityChange = () => refreshIfVisible();
+        const timer = window.setInterval(refreshIfVisible, 60000);
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        return () => {
+            window.clearInterval(timer);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+        };
+    }, [loadPopulation]);
 
     // Rendu
     return (
@@ -115,84 +143,79 @@ export default function PopulationStepPage() {
             nextStep={{
                 label: 'Variables par salarié',
                 destination: `/paie/periodes/${numericPeriodId}/variables`,
-                disabled: blockedCount > 0,
-                disabledReason: blockedCount > 0 ? `${blockedCount} salarié(s) bloqué(s) doivent être résolus.` : undefined,
+                disabled: loading || (refreshError && population.length === 0) || blockedCount > 0,
+                disabledReason: blockedCount > 0 ? `${blockedCount} salarié(s) bloqué(s) doivent être résolus.` : loading ? 'Chargement de la population.' : refreshError ? 'Population indisponible.' : undefined,
             }}
         >
             <div className="space-y-4">
-                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4 py-3 text-xs text-[var(--color-fg-muted)]">
-                    <p className="font-semibold text-[var(--color-fg)]">Règles appliquées à la population</p>
-                    <p className="mt-1">
+                <details className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4 py-3 text-xs text-[var(--color-fg-muted)]">
+                    <summary className="font-semibold text-[var(--color-fg)] cursor-pointer">Règles d’inclusion de la population</summary>
+                    <p className="mt-2 leading-relaxed">
                         La période est évaluée du {context?.selectedPeriod?.startDate || 'début'} au {context?.selectedPeriod?.endDate || 'terme'}.
                         Un salarié actif est inclus si une seule affectation couvre cette période et si son contrat et son type d’intervenant sont résolus.
                         Sans affectation applicable, il est exclu. Plusieurs affectations, ou un contrat/type d’intervenant manquant, bloquent sa ligne.
                     </p>
-                </div>
+                </details>
+
+                {refreshError && (
+                    <p role="status" className="text-xs text-[var(--color-warning-700)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] px-3 py-2">
+                        {population.length > 0 ? 'Mise à jour indisponible. Les dernières données chargées restent affichées.' : 'Population indisponible pour le moment.'}
+                    </p>
+                )}
 
                 {/* Barre de synthèse Population (V1 Full V3) */}
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 text-xs flex-wrap">
-                        <span className="flex items-center gap-1.5 font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
+                    <div className="flex items-center gap-2 text-xs flex-wrap" aria-label="Filtrer par décision">
+                        <button type="button" onClick={() => { setFilterDecision('ALL'); setCurrentPage(1); }} aria-pressed={filterDecision === 'ALL'} className={`px-2 py-1 border cursor-pointer ${filterDecision === 'ALL' ? 'border-[var(--color-brand-500)] text-[var(--color-brand-700)] bg-[var(--color-brand-100)]' : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)]'}`}>Tous ({population.length})</button>
+                        <button type="button" onClick={() => { setFilterDecision('INCLUS'); setCurrentPage(1); }} aria-pressed={filterDecision === 'INCLUS'} className={`px-2 py-1 border cursor-pointer inline-flex items-center gap-1.5 ${filterDecision === 'INCLUS' ? 'border-[var(--color-success-500)] bg-[var(--color-success-50)]' : 'border-[var(--color-border-subtle)]'}`}>
                             <CheckCircle2 size={16} />
                             {includedCount} inclus
-                        </span>
-                        <span className="flex items-center gap-1.5 font-medium text-[var(--color-fg-muted)]">
+                        </button>
+                        <button type="button" onClick={() => { setFilterDecision('EXCLU'); setCurrentPage(1); }} aria-pressed={filterDecision === 'EXCLU'} className={`px-2 py-1 border cursor-pointer inline-flex items-center gap-1.5 ${filterDecision === 'EXCLU' ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-100)]' : 'border-[var(--color-border-subtle)]'}`}>
                             <UserX size={16} />
                             {excludedCount} exclu{excludedCount > 1 ? 's' : ''}
-                        </span>
-                        <span className={`flex items-center gap-1.5 font-bold ${blockedCount > 0 ? 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg-subtle)]'}`}>
+                        </button>
+                        <button type="button" onClick={() => { setFilterDecision('BLOQUE'); setCurrentPage(1); }} aria-pressed={filterDecision === 'BLOQUE'} className={`px-2 py-1 border cursor-pointer inline-flex items-center gap-1.5 ${filterDecision === 'BLOQUE' ? 'border-[var(--color-danger-500)] bg-[var(--color-danger-50)]' : 'border-[var(--color-border-subtle)]'}`}>
                             <AlertTriangle size={16} />
                             {blockedCount} bloqué{blockedCount > 1 ? 's' : ''}
-                        </span>
+                        </button>
                     </div>
 
                     {/* Filtres & Recherche */}
                     <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                        <div className="w-48">
+                        <div className="w-56 max-w-full">
                             <Input
+                                aria-label="Rechercher un salarié"
                                 placeholder="Rechercher salarié..."
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                                 iconLeft={<Search size={14} />}
                                 size="sm"
                             />
                         </div>
-                        <select
-                            value={filterDecision}
-                            onChange={(e) => setFilterDecision(e.target.value)}
-                            className="text-xs bg-[var(--color-bg)] border border-[var(--color-border-subtle)] px-2.5 py-1.5 text-[var(--color-fg)] focus:outline-none"
-                        >
-                            <option value="ALL">Tous ({population.length})</option>
-                            <option value="INCLUS">Inclus ({includedCount})</option>
-                            <option value="EXCLU">Exclus ({excludedCount})</option>
-                            {blockedCount > 0 && <option value="BLOQUE">Bloqués ({blockedCount})</option>}
-                        </select>
                     </div>
                 </div>
 
-                {/* Table compacte V1 Full V3 : Salarié, Matricule, Contrat, Site/filiale, Situation, Décision, Raison */}
+                {/* Liste de contrôle : les exclusions et blocages remontent en premier. */}
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-x-auto">
                     {loading ? (
                         <div className="p-4"><SkeletonTable rows={5} cols={7} /></div>
                     ) : filteredPopulation.length === 0 ? (
                         <div className="p-8 text-center text-xs text-[var(--color-fg-muted)]">
-                            Aucun salarié ne correspond aux critères de filtre.
+                            {population.length === 0 && !refreshError ? 'Aucun salarié dans cette campagne.' : 'Aucun salarié ne correspond aux filtres.'}
                         </div>
                     ) : (
-                        <Table density="compact" bordered={false}>
+                        <Table density="compact" bordered={false} aria-label="Population de la campagne">
                             <Thead>
                                 <Tr>
                                     <Th>Salarié</Th>
-                                    <Th>Matricule</Th>
-                                    <Th>Contrat</Th>
-                                    <Th>Site / Filiale</Th>
-                                    <Th>Situation</Th>
+                                    <Th>Contrat et affectation</Th>
                                     <Th>Décision</Th>
-                                    <Th>Raison / Détail</Th>
+                                    <Th>Motif</Th>
                                 </Tr>
                             </Thead>
                             <Tbody>
-                                {filteredPopulation.map((p, idx) => {
+                                {pagedPopulation.map((p, idx) => {
                                     const dec = p.decision || 'INCLUS';
                                     const variant = DECISION_VARIANTS[dec] || 'default';
                                     const label = DECISION_LABELS[dec] || dec;
@@ -200,30 +223,19 @@ export default function PopulationStepPage() {
                                     return (
                                         <Tr key={p.idEmploye || p.employeeId || idx}>
                                             <Td className="font-semibold text-[var(--color-fg)]">
-                                                {p.employeeName || p.nomPrenom || '–'}
-                                            </Td>
-                                            <Td className="font-mono text-xs text-[var(--color-fg-subtle)]">
-                                                {p.matricule || '–'}
+                                                <span className="block">{p.employeeName || p.nomPrenom || '–'}</span>
+                                                <span className="block font-mono font-normal text-[11px] text-[var(--color-fg-subtle)]">{p.matricule || '–'} · {p.statutEmploye || '–'}</span>
                                             </Td>
                                             <Td className="text-xs">
-                                                <Badge variant="secondary" size="sm">
-                                                    {p.typeContrat || '—'}
-                                                </Badge>
-                                                {p.contractNumber && <span className="block mt-0.5 text-[10px] text-[var(--color-fg-subtle)]">{p.contractNumber}</span>}
-                                                {p.regime && <span className="block mt-0.5 text-[10px] text-[var(--color-fg-subtle)]">{p.regime}</span>}
-                                            </Td>
-                                            <Td className="text-xs text-[var(--color-fg-muted)]">
-                                                {p.nomSite || '–'}
-                                            </Td>
-                                            <Td className="text-xs">
-                                                {p.statutEmploye || '–'}
+                                                <span className="block text-[var(--color-fg)]">{p.typeContrat || 'Contrat non renseigné'}</span>
+                                                <span className="block text-[11px] text-[var(--color-fg-muted)]">{p.contractNumber || '—'} · {p.nomSite || 'Site non renseigné'}</span>
                                             </Td>
                                             <Td>
                                                 <Badge variant={variant} size="sm">
                                                     {label}
                                                 </Badge>
                                             </Td>
-                                            <Td className="text-xs text-[var(--color-fg-muted)] max-w-xs truncate" title={getPopulationReasonLabel(p.reasonCode || p.reason || p.motif)}>
+                                            <Td className="text-xs text-[var(--color-fg-muted)] max-w-sm whitespace-normal">
                                                 {getPopulationReasonLabel(p.reasonCode || p.reason || p.motif)}
                                             </Td>
                                         </Tr>
@@ -231,6 +243,9 @@ export default function PopulationStepPage() {
                                 })}
                             </Tbody>
                         </Table>
+                    )}
+                    {!loading && population.length > 0 && (
+                        <Pagination currentPage={currentPage} totalItems={filteredPopulation.length} pageSize={pageSize} pageSizeOptions={[10, 25, 50]} onPageChange={setCurrentPage} onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }} />
                     )}
                 </div>
             </div>

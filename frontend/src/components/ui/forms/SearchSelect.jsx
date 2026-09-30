@@ -3,6 +3,7 @@ import { Search, ChevronDown, X } from 'lucide-react';
 import FieldError from './FieldError';
 
 export default function SearchSelect({
+  id,
   label,
   required = false,
   options = [],
@@ -17,7 +18,8 @@ export default function SearchSelect({
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
-  const fieldId = `search-select-${useId()}`;
+  const reactId = useId();
+  const fieldId = id || `search-select-${reactId}`;
   const feedbackId = `${fieldId}-feedback`;
 
   // Données dérivées : sélection et options visibles.

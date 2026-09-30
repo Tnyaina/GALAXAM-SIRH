@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState, useCallback, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
-    Banknote, CalendarRange, ArrowRight, FileText,
+    Banknote, CalendarRange, FileText,
     DollarSign, AlertTriangle, SlidersHorizontal,
     ChevronRight, TrendingUp, TrendingDown
 } from 'lucide-react';
 import SEO from '@/components/system/SEO';
-import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import StatCard from '@/components/ui/data-display/StatCard';
@@ -18,13 +17,11 @@ import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign'
 import paieService from '@/features/payroll/api/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { fmtDate } from '@/utils/dateUtils';
-import { getPaieStatusVariant } from '@/features/payroll/utils/payrollPresentation';
+import PayrollWorkflowStatusBadges from '@/features/payroll/components/workflow/PayrollWorkflowStatusBadges';
 
 const PeriodePaiePage = lazy(() => import('@/features/payroll/pages/PeriodePaiePage'));
 const ExportsPaieTab = lazy(() => import('@/features/payroll/components/tabs/ExportsPaieTab'));
 const VariablesPaieTab = lazy(() => import('@/features/payroll/components/tabs/VariablesPaieTab'));
-
-// PRESENTATION ONLY : statuts centralisés dans paieUtils.js → PAIE_STATUS_PRESENTATION
 
 /**
  * Centre de Paie (/paie) — Tableau de bord opérationnel de la paie (Maquette V1 Full V3).
@@ -144,12 +141,6 @@ export default function GestionPaiePage() {
         return () => { active = false; };
     }, [activePeriod?.id]);
 
-    const continueDestination = useMemo(() => {
-        if (currentStepObj?.destination) return currentStepObj.destination;
-        if (activePeriod?.id) return `/paie/periodes/${activePeriod.id}/preparation`;
-        return null;
-    }, [currentStepObj, activePeriod]);
-
     // formatDate centralisé dans dateUtils.js — fmtDate() retourne DD/MM/YYYY
     // formatAr alias de formatMoneyAr — centralisé dans moneyUtils.js
     const formatAr = (val) => (val !== undefined && val !== null ? formatMoneyAr(val) : '–');
@@ -161,14 +152,13 @@ export default function GestionPaiePage() {
         if (!nextStep?.destination) return null;
         const label = nextStep.code ? `Continuer : ${nextStep.code.replaceAll('_', ' ')}` : 'Continuer la campagne';
         return {
-            title: 'Prochaine étape de la campagne',
-            description: 'Destination déterminée par le workflow de paie.',
+            title: currentStepObj?.label || 'Prochaine étape',
             label,
-            icon: ArrowRight,
             onClick: () => navigate(nextStep.destination),
-            tone: 'brand',
         };
-    }, [context?.nextStep, navigate]);
+    }, [context?.nextStep, currentStepObj?.label, navigate]);
+
+    const hasCalculatedBulletins = (periodKpis?.totalBulletins ?? 0) > 0;
 
     // Rendu
     if (rawTab === 'periodes') {
@@ -251,22 +241,18 @@ export default function GestionPaiePage() {
                 )}
             />
 
-            {/* CARTE CAMPAGNE ACTIVE (V1 Full V3) */}
+            {/* Contexte de la période et progression de la campagne */}
             <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 sm:p-6 shadow-xs relative">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                     <div className="space-y-2">
                         <div className="flex items-center gap-3 flex-wrap">
                             <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-[var(--color-brand-500)]/15 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]">
-                                {isCurrentBusinessPeriod ? 'Campagne en cours' : activePeriod ? 'Période sélectionnée' : 'Campagne en cours'}
+                                {isCurrentBusinessPeriod ? 'Période courante' : 'Période sélectionnée'}
                             </span>
                             <h2 className="text-2xl sm:text-3xl font-bold text-[var(--color-fg)] tracking-tight">
                                 {activePeriod?.code || activePeriod?.label || 'Aucune campagne active'}
                             </h2>
-                            {activePeriod?.state && (
-                                <Badge variant={getPaieStatusVariant(activePeriod.state)} size="md">
-                                    {activePeriod.state}
-                                </Badge>
-                            )}
+                            <PayrollWorkflowStatusBadges statuses={activePeriod?.workflowStatuses} size="md" />
                             {recalcRequired && (
                                 <PayrollIssueBadge severity="WARNING" label="Calcul obsolète" />
                             )}
@@ -294,21 +280,6 @@ export default function GestionPaiePage() {
                         )}
                     </div>
 
-                    {/* Bouton Reprendre la campagne */}
-                    {continueDestination && (
-                        <div className="shrink-0">
-                            <Button
-                                variant="primary"
-                                size="lg"
-                                iconRight={<ArrowRight size={18} />}
-                                onClick={() => navigate(continueDestination)}
-                                id="btn-reprendre-campagne"
-                                className="font-semibold shadow-xs"
-                            >
-                                Reprendre la campagne
-                            </Button>
-                        </div>
-                    )}
                 </div>
 
                 {/* Stepper de campagne compact */}
@@ -319,7 +290,7 @@ export default function GestionPaiePage() {
                                 Progression du workflow
                             </span>
                             <span className="text-xs text-[var(--color-brand-600)] font-medium">
-                                Étape en cours : <strong>{currentStepObj?.label || 'Préparation'}</strong>
+                                Étape en cours : <strong>{currentStepObj?.label || '—'}</strong>
                             </span>
                         </div>
                         <PayrollPeriodStepper
@@ -332,25 +303,15 @@ export default function GestionPaiePage() {
                 )}
             </section>
 
-            {/* SECTION "À FAIRE MAINTENANT" (V1 Full V3) */}
+            {/* Action fournie par le workflow */}
             {nextLogicalAction && (
-                <section className="bg-[var(--color-bg-subtle)] border-l-4 border-[var(--color-brand-500)] border border-y-[var(--color-border-subtle)] border-r-[var(--color-border-subtle)] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <section className="bg-[var(--color-bg-subtle)] border-l-4 border-[var(--color-brand-500)] border border-y-[var(--color-border-subtle)] border-r-[var(--color-border-subtle)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-start gap-3.5">
-                        <div className="p-2 rounded-full bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[var(--color-brand-600)] shrink-0 mt-0.5">
-                            <nextLogicalAction.icon size={20} />
-                        </div>
                         <div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">
-                                    À faire maintenant
-                                </span>
-                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">Prochaine action</span>
                             <h3 className="text-sm font-bold text-[var(--color-fg)] mt-0.5">
                                 {nextLogicalAction.title}
                             </h3>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-1 max-w-2xl">
-                                {nextLogicalAction.description}
-                            </p>
                         </div>
                     </div>
 
@@ -372,28 +333,28 @@ export default function GestionPaiePage() {
                 <StatCard
                     title="Bulletins calculés"
                     value={kpiLoading ? '…' : (periodKpis?.totalBulletins ?? 0)}
-                    subtext={activePeriod ? `Période ${activePeriod.code || ''}` : ''}
+                    subtext={hasCalculatedBulletins ? `Période ${activePeriod?.code || ''}` : 'En attente du calcul'}
                     icon={<FileText size={18} />}
                     color="brand"
                 />
                 <StatCard
                     title="Masse Brute"
-                    value={kpiLoading ? '…' : formatAr(periodKpis?.totalBrut)}
-                    subtext="Salaires bruts imposables"
+                    value={kpiLoading ? '…' : hasCalculatedBulletins ? formatAr(periodKpis?.totalBrut) : '—'}
+                    subtext={hasCalculatedBulletins ? 'Salaires bruts imposables' : 'En attente du calcul'}
                     icon={<DollarSign size={18} />}
                     color="info"
                 />
                 <StatCard
                     title="Net à payer"
-                    value={kpiLoading ? '…' : formatAr(periodKpis?.totalNet)}
-                    subtext="Montant total des virements"
+                    value={kpiLoading ? '…' : hasCalculatedBulletins ? formatAr(periodKpis?.totalNet) : '—'}
+                    subtext={hasCalculatedBulletins ? 'Montant total des virements' : 'En attente du calcul'}
                     icon={<Banknote size={18} />}
                     color="success"
                 />
                 <StatCard
                     title="Alertes & Contrôles"
                     value={kpiLoading ? '…' : (periodKpis?.totalAlertes ?? 0)}
-                    subtext={(periodKpis?.totalAlertes ?? 0) > 0 ? 'Anomalies nécessitant examen' : 'Aucune anomalie'}
+                    subtext={(periodKpis?.totalAlertes ?? 0) > 0 ? 'Anomalies nécessitant examen' : 'Aucune anomalie signalée'}
                     icon={<AlertTriangle size={18} />}
                     color={(periodKpis?.totalAlertes ?? 0) > 0 ? 'warning' : 'neutral'}
                 />
@@ -444,17 +405,17 @@ export default function GestionPaiePage() {
                 </section>
             )}
 
-            {/* ESPACES FONCTIONNELS DE GESTION (V1 Full V3) */}
+            {/* Navigation secondaire */}
             <div className="space-y-3 pt-2">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                    Espaces de gestion
+                    Accès rapides
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Acomptes & Avances */}
-                    <div
+                    <button type="button"
                         onClick={() => navigate('/paie/acomptes-avances')}
-                        className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 cursor-pointer hover:border-[var(--color-brand-500)] hover:shadow-xs transition-all group"
+                        className="w-full text-left bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 cursor-pointer hover:border-[var(--color-brand-500)] hover:shadow-xs focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] transition-all group"
                     >
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5 text-[var(--color-fg)]">
@@ -468,12 +429,12 @@ export default function GestionPaiePage() {
                         <p className="text-xs text-[var(--color-fg-muted)] mt-2 leading-relaxed">
                             Gestion des demandes d’acomptes, avances sur salaire et suivi des imputations mensuelles.
                         </p>
-                    </div>
+                    </button>
 
                     {/* Historique des Périodes */}
-                    <div
+                    <button type="button"
                         onClick={() => navigate('/paie?tab=periodes')}
-                        className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 cursor-pointer hover:border-[var(--color-brand-500)] hover:shadow-xs transition-all group"
+                        className="w-full text-left bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 cursor-pointer hover:border-[var(--color-brand-500)] hover:shadow-xs focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] transition-all group"
                     >
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5 text-[var(--color-fg)]">
@@ -487,12 +448,12 @@ export default function GestionPaiePage() {
                         <p className="text-xs text-[var(--color-fg-muted)] mt-2 leading-relaxed">
                             Consultation des campagnes passées, archives en lecture seule, ouverture et clôture de périodes.
                         </p>
-                    </div>
+                    </button>
 
                     {/* Déclarations & Sorties */}
-                    <div
+                    <button type="button"
                         onClick={() => navigate('/paie/declarations')}
-                        className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 cursor-pointer hover:border-[var(--color-brand-500)] hover:shadow-xs transition-all group"
+                        className="w-full text-left bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 cursor-pointer hover:border-[var(--color-brand-500)] hover:shadow-xs focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] transition-all group"
                     >
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5 text-[var(--color-fg)]">
@@ -506,7 +467,7 @@ export default function GestionPaiePage() {
                         <p className="text-xs text-[var(--color-fg-muted)] mt-2 leading-relaxed">
                             Édition des bulletins PDF, Grand-Livre, déclarations mensuelles (IRSA) et trimestrielles (CNaPS, FMFP, Santé).
                         </p>
-                    </div>
+                    </button>
                 </div>
             </div>
         </div>

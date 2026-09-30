@@ -106,7 +106,7 @@ export default function SoldesTable({
       )}
 
       {/* Pagination */}
-      {totalTableItems > 0 && (
+      {totalTableItems > tablePageSize && (
         <Pagination
           currentPage={tablePage}
           totalItems={totalTableItems}

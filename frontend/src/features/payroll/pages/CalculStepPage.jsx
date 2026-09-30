@@ -1,13 +1,14 @@
-import { useState, useCallback, useEffect, lazy, Suspense } from 'react';
+import { useState, useCallback, useEffect, lazy, Suspense, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Calculator, Play, CheckCircle2, AlertTriangle, RefreshCw, Eye,
-    Users, ArrowRight, Sparkles, ChevronDown, ChevronUp
+    Users, ArrowRight, Sparkles, ChevronDown, ChevronUp, Search, XCircle, Filter
 } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import PayrollCampaignShell from '@/features/payroll/components/workflow/PayrollCampaignShell';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Badge from '@/components/ui/data-display/Badge';
 import { Card } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -26,12 +27,12 @@ const summarizeBatch = (batch, isSimulation) => {
         outcomes,
         blocked: outcomes.filter(outcome => outcome.status !== 'OK'),
         bulletins: batch.nbBulletinsCalcules ?? successful.length,
-        brut: batch.totalMasseSalarialeBrute ?? 0,
-        cotisationsSalariales: successful.reduce((sum, outcome) => sum + Number(outcome.result.bulletin.totalCotisationsSalariales || 0), 0),
-        irsa: successful.reduce((sum, outcome) => sum + Number(outcome.result.bulletin.irsaNet || 0) + Number(outcome.result.bulletin.retenueIsi5 || 0), 0),
-        net: batch.totalNetAPayer ?? 0,
-        patronales: batch.totalChargesPatronales ?? 0,
-        coutGlobal: batch.totalCoutGlobal ?? 0,
+        brut: batch.totalMasseSalarialeBrute,
+        cotisationsSalariales: batch.totalCotisationsSalariales,
+        irsa: batch.totalIrsa,
+        net: batch.totalNetAPayer,
+        patronales: batch.totalChargesPatronales,
+        coutGlobal: batch.totalCoutGlobal,
     };
 };
 
@@ -50,7 +51,7 @@ export default function CalculStepPage() {
     const { periodId } = useParams();
     const navigate = useNavigate();
     const numericPeriodId = Number(periodId) || null;
-    const { periodes, context, loading: ctxLoading, refresh } = usePayrollCampaign(numericPeriodId);
+    const { periodes, context, loading: ctxLoading, refreshSilent } = usePayrollCampaign(numericPeriodId);
 
     // État local
     const [calcLoading, setCalcLoading] = useState(false);
@@ -58,9 +59,21 @@ export default function CalculStepPage() {
     const [result, setResult] = useState(null);
     const [existingKpis, setExistingKpis] = useState(null);
     const [existingBulletins, setExistingBulletins] = useState([]);
-    const [showResultsTable, setShowResultsTable] = useState(false);
+    const [bulletinPage, setBulletinPage] = useState(1);
+    const [bulletinPageCount, setBulletinPageCount] = useState(1);
+    const [bulletinTotal, setBulletinTotal] = useState(0);
+    const [showResultsTable, setShowResultsTable] = useState(true);
     const [selectedBulletinId, setSelectedBulletinId] = useState(null);
     const [feedback, setFeedback] = useState(null);
+    const [cockpitError, setCockpitError] = useState(null);
+    const [cockpitLoaded, setCockpitLoaded] = useState(false);
+    const [isCalcConfirmOpen, setIsCalcConfirmOpen] = useState(false);
+    // Recherche & filtres
+    const [tableSearch, setTableSearch] = useState('');
+    const [blockedSearch, setBlockedSearch] = useState('');
+    const [blockedPage, setBlockedPage] = useState(1);
+    const BLOCKED_PAGE_SIZE = 5;
+    const TABLE_PAGE_SIZE = 20;
 
     // Données dérivées
     const actions = context?.availableActions || {};
@@ -83,8 +96,8 @@ export default function CalculStepPage() {
     const loadExistingCalculation = useCallback(async () => {
         if (!numericPeriodId) return;
         try {
-            const cockpit = await paieService.getCockpitPeriode(numericPeriodId, { size: 100 });
-            if (cockpit?.kpis && (cockpit.kpis.totalBulletins > 0 || cockpit.kpis.bulletinsCount > 0 || cockpit.kpis.totalNetAPayer > 0)) {
+            const cockpit = await paieService.getCockpitPeriode(numericPeriodId, { page: bulletinPage, size: 20 });
+            if (cockpit?.kpis && (cockpit.kpis.totalBulletins > 0 || cockpit.kpis.bulletinsCount > 0 || cockpit.kpis.effectifCalcule > 0)) {
                 setExistingKpis({
                     bulletins: cockpit.kpis.totalBulletins ?? cockpit.kpis.bulletinsCount ?? cockpit.kpis.effectifCalcule ?? 0,
                     brut: cockpit.kpis.totalBrut ?? cockpit.kpis.masseSalarialeBrute ?? 0,
@@ -92,7 +105,7 @@ export default function CalculStepPage() {
                     irsa: cockpit.kpis.totalIrsa ?? 0,
                     net: cockpit.kpis.totalNetAPayer ?? cockpit.kpis.masseNetAPayer ?? 0,
                     patronales: cockpit.kpis.totalCotisationsPatronales ?? 0,
-                    coutGlobal: cockpit.kpis.coutGlobalEmployeur ?? ((Number(cockpit.kpis.totalBrut) || 0) + (Number(cockpit.kpis.totalCotisationsPatronales) || 0)),
+                    coutGlobal: cockpit.kpis.coutGlobalEmployeur,
                 });
             } else {
                 setExistingKpis(null);
@@ -103,15 +116,29 @@ export default function CalculStepPage() {
             } else {
                 setExistingBulletins([]);
             }
-        } catch {
-            setExistingKpis(null);
-            setExistingBulletins([]);
+            setBulletinPageCount(cockpit?.bulletinsPage?.totalPages ?? 1);
+            setBulletinTotal(cockpit?.bulletinsPage?.totalElements ?? cockpit?.bulletins?.length ?? 0);
+            setCockpitError(null);
+        } catch (err) {
+            setCockpitError(getErrorMessage(err, 'Impossible de charger les résultats de calcul.'));
+        } finally {
+            setCockpitLoaded(true);
         }
-    }, [numericPeriodId]);
+    }, [numericPeriodId, bulletinPage]);
 
     useEffect(() => {
         loadExistingCalculation();
     }, [loadExistingCalculation]);
+
+    useEffect(() => {
+        const refreshIfVisible = () => {
+            if (document.visibilityState !== 'visible') return;
+            refreshSilent();
+            loadExistingCalculation();
+        };
+        document.addEventListener('visibilitychange', refreshIfVisible);
+        return () => document.removeEventListener('visibilitychange', refreshIfVisible);
+    }, [refreshSilent, loadExistingCalculation]);
 
     // Actions
     const handleSimuler = useCallback(async () => {
@@ -120,12 +147,9 @@ export default function CalculStepPage() {
         setFeedback(null);
         try {
             const res = await paieService.calculerPaiePeriode(numericPeriodId, true);
+            setBulletinPage(1);
             setResult(summarizeBatch(res, true));
             setShowResultsTable(true);
-            setFeedback({
-                type: 'info',
-                text: 'Simulation collective exécutée en mémoire. Aucun bulletin n’a été persisté.'
-            });
         } catch (err) {
             setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la simulation.') });
         } finally {
@@ -133,46 +157,43 @@ export default function CalculStepPage() {
         }
     }, [numericPeriodId]);
 
-    const handleCalculer = useCallback(async () => {
+    const executeCalculation = useCallback(async () => {
         if (!numericPeriodId) return;
-        if (!window.confirm('Confirmer le calcul réel de la paie pour l’ensemble des collaborateurs éligibles ?')) return;
         setCalcLoading(true);
         setFeedback(null);
         try {
             const res = await paieService.calculerPaiePeriode(numericPeriodId, false);
+            setBulletinPage(1);
             const summary = summarizeBatch(res, false);
             setResult(summary);
-            setFeedback({ type: summary.blocked.length ? 'warning' : 'success', text: summary.blocked.length ? `${summary.blocked.length} salarié(s) non calculé(s). Vérifiez les résultats individuels avant de poursuivre.` : 'Calcul de paie réel effectué et persisté avec succès.' });
-            await refresh();
+            setFeedback(null);
+            await refreshSilent();
             await loadExistingCalculation();
         } catch (err) {
             setFeedback({ type: 'error', text: getErrorMessage(err, "Erreur lors de l'exécution du calcul.") });
         } finally {
             setCalcLoading(false);
+            setIsCalcConfirmOpen(false);
         }
-    }, [numericPeriodId, refresh, loadExistingCalculation]);
+    }, [numericPeriodId, refreshSilent, loadExistingCalculation]);
 
     const hasPersistedBulletins = Boolean((existingKpis?.bulletins ?? 0) > 0 || (result && !result.isSimulation && (result?.bulletins ?? 0) > 0));
-    const isSimulationActive = Boolean(result?.isSimulation && !hasPersistedBulletins);
-    const hasBulletins = hasPersistedBulletins || isSimulationActive;
+    const isSimulationActive = result?.isSimulation === true;
+    const hasBulletins = hasPersistedBulletins || result !== null;
     const displayKpis = result || existingKpis;
     const simulationOutcomes = isSimulationActive ? result.outcomes : [];
+    const simulationBulletins = simulationOutcomes.filter(outcome => outcome.status === 'OK' && outcome.result?.bulletin).map(outcome => outcome.result.bulletin);
     const displayBulletins = isSimulationActive
-        ? simulationOutcomes.filter(outcome => outcome.status === 'OK' && outcome.result?.bulletin).map(outcome => outcome.result.bulletin)
+        ? simulationBulletins.slice((bulletinPage - 1) * 20, bulletinPage * 20)
         : existingBulletins;
-    const populationCount = context?.populationCount ?? context?.population?.eligibleCount ?? context?.periodContext?.nbSalariesTotal ?? (existingBulletins.length > 0 ? existingBulletins.length : null) ?? '–';
-    const calculationVersion = context?.periodContext?.calculationSnapshotVersion || context?.snapshotVersion || (existingKpis ? 'v1' : null);
+    const displayedPageCount = isSimulationActive ? Math.max(1, Math.ceil(simulationBulletins.length / 20)) : bulletinPageCount;
+    const populationCount = context?.populationCount ?? context?.population?.eligibleCount ?? context?.periodContext?.nbSalariesTotal;
+    const calculationVersion = context?.periodContext?.calculationSnapshotVersion ?? context?.snapshotVersion;
+    const controlStep = context?.campaignSteps?.find(step => step.code === 'CONTROL');
+    const canOpenControl = Boolean(controlStep?.destination && controlStep.state !== 'BLOCKED');
 
     // Salariés affectés par une obsolescence STALE (si fournis par le contexte)
     const affectedEmployees = context?.staleAffectedEmployees || context?.affectedEmployees || [];
-
-    const handlePrimaryClick = () => {
-        if (isStale || !hasPersistedBulletins) {
-            handleCalculer();
-        } else {
-            navigate(`/paie/periodes/${numericPeriodId}/controle`);
-        }
-    };
 
     return (
         <PayrollCampaignShell
@@ -180,23 +201,8 @@ export default function CalculStepPage() {
             periodes={periodes}
             activeStep="CALCULATION"
             loading={ctxLoading}
-            onRefresh={refresh}
             title="Calcul de la paie"
-            description="Exécution du moteur de paie backend, simulations collectives et détection d'obsolescence."
-            primaryAction={{
-                label: isStale ? 'Recalculer la paie' : (hasPersistedBulletins ? 'Continuer vers Contrôle' : 'Calculer la paie'),
-                onClick: handlePrimaryClick,
-                loading: calcLoading,
-                disabled: isReadOnly ? true : (!hasPersistedBulletins && !canCalculate),
-                icon: isStale ? <RefreshCw size={14} /> : (hasPersistedBulletins ? <ArrowRight size={14} /> : <Play size={14} />)
-            }}
-            secondaryAction={!isReadOnly && canSimulate ? {
-                label: 'Simuler en mémoire',
-                onClick: handleSimuler,
-                loading: simLoading,
-                disabled: calcLoading,
-                icon: <Sparkles size={14} />
-            } : null}
+            subtitle="Vérifiez les autorisations de la campagne, lancez une simulation ou calculez les bulletins."
         >
             <SEO
                 title="Calcul de la paie | GALAXAM SIRH"
@@ -213,13 +219,13 @@ export default function CalculStepPage() {
                     />
                 )}
 
+                {cockpitError && <Alert type="error" title="Résultats indisponibles" message={cockpitError} />}
+                {!cockpitLoaded && <Card className="border border-[var(--color-border)] p-5 text-sm text-[var(--color-fg-muted)]">Chargement des résultats de la campagne…</Card>}
                 {pendingVariables && !hasPersistedBulletins && (
-                    <Alert type="warning" title="Calcul réel en attente" message="Une ou plusieurs variables de paie doivent être approuvées ou supprimées avant le calcul réel. Revenez à l’étape Variables par salarié pour les traiter." />
-                )}
-                {pendingVariables && !hasPersistedBulletins && (
-                    <Button variant="secondary" size="sm" onClick={() => navigate(`/paie/periodes/${numericPeriodId}/variables`)}>
-                        Traiter les variables en attente
-                    </Button>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10 p-3">
+                        <p className="text-sm text-[var(--color-fg)]">Des variables attendent une décision avant le calcul réel.</p>
+                        <Button variant="secondary" size="sm" onClick={() => navigate(`/paie/periodes/${numericPeriodId}/variables`)}>Traiter les variables</Button>
+                    </div>
                 )}
 
                 {/* 1. ÉTAT STALE (CALCUL OBSOLÈTE) */}
@@ -230,14 +236,14 @@ export default function CalculStepPage() {
                             <div className="flex-1">
                                 <div className="flex items-center gap-2">
                                     <h3 className="text-sm font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] uppercase tracking-wide">
-                                        Calcul obsolète (STALE)
+                                        Calcul à relancer
                                     </h3>
-                                    <Badge variant="warning" size="xs">Validation verrouillée</Badge>
+                                    <Badge variant="warning" size="xs">Résultats obsolètes</Badge>
                                 </div>
                                 <p className="text-xs text-[var(--color-fg-muted)] mt-1">
                                     {recalcReason === 'CALCULATION_INPUTS_CHANGED'
                                         ? 'Des modifications ont été apportées aux variables ou aux snapshots de pointage depuis le dernier calcul. Un recalcul complet est requis avant validation.'
-                                        : (recalcReason || 'Les données sources de paie ont changé. Les bulletins actuels ne reflètent plus l’état réel.')}
+                                        : 'Les données sources ont changé depuis le dernier calcul. Un nouveau calcul est nécessaire avant validation.'}
                                 </p>
                             </div>
                         </div>
@@ -252,7 +258,7 @@ export default function CalculStepPage() {
                                         <div key={idx} className="flex items-center justify-between p-2 bg-[var(--color-bg-subtle)] rounded border border-[var(--color-border-subtle)]">
                                             <span className="font-medium text-[var(--color-fg)]">{emp.nomPrenom || emp.matricule}</span>
                                             <span className="text-[11px] text-[var(--color-fg-muted)] font-mono">
-                                                {emp.source || 'Pointage'} {emp.detail || 'snapshot màj'}
+                                                {[emp.source, emp.detail].filter(Boolean).join(' · ')}
                                             </span>
                                         </div>
                                     ))}
@@ -264,68 +270,43 @@ export default function CalculStepPage() {
                             <Button
                                 variant="primary"
                                 size="sm"
-                                onClick={handleCalculer}
+                                onClick={() => setIsCalcConfirmOpen(true)}
                                 loading={calcLoading}
+                                disabled={!canCalculate || !cockpitLoaded}
                                 iconLeft={<RefreshCw size={14} />}
                             >
-                                Recalculer les salariés affectés
+                                Recalculer la paie
                             </Button>
                         </div>
                     </div>
                 )}
 
                 {/* 2. AVANT CALCUL : CAMPAGNE PRÊTE */}
-                {!hasBulletins && !isStale && (
-                    <Card className="p-8 text-center space-y-4 border border-[var(--color-border)]">
-                        <div className="w-14 h-14 bg-[var(--color-brand-50)] dark:bg-[var(--color-brand-950)] text-[var(--color-brand-600)] rounded-full flex items-center justify-center mx-auto shadow-sm">
-                            <Calculator size={28} />
-                        </div>
-                        <div className="max-w-md mx-auto space-y-1">
-                            <h3 className="text-base font-bold text-[var(--color-fg)]">
-                                {canCalculate ? 'Campagne prête pour le calcul' : 'Calcul réel en attente'}
-                            </h3>
-                            <p className="text-xs text-[var(--color-fg-muted)]">
-                                {canCalculate
-                                    ? `Les contrôles de préparation sont validés et la population de ${populationCount} salarié(s) est arrêtée.`
-                                    : `La population de ${populationCount} salarié(s) est arrêtée. Les prérequis du calcul réel restent à traiter.`}
-                            </p>
-                        </div>
-
-                        <div className="flex items-center justify-center gap-6 py-2 text-xs">
-                            <div className="flex items-center gap-2">
-                                <Users size={16} className="text-[var(--color-brand-600)]" />
-                                <span className="font-semibold text-[var(--color-fg)]">{populationCount} salariés inclus</span>
+                {!hasBulletins && !isStale && cockpitLoaded && !cockpitError && (
+                    <Card className="border border-[var(--color-border)] p-5 space-y-5">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 bg-[var(--color-brand-50)] dark:bg-[var(--color-brand-950)] text-[var(--color-brand-600)] flex items-center justify-center shrink-0">
+                                    <Calculator size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-[var(--color-fg)]">{canCalculate ? 'Calcul autorisé' : 'Calcul en attente'}</h3>
+                                    <p className="text-sm text-[var(--color-fg-muted)] mt-1">
+                                        {canCalculate ? 'La campagne peut être calculée selon les contrôles du serveur.' : 'Consultez les prérequis de la campagne avant de lancer le calcul.'}
+                                    </p>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                {canCalculate ? <CheckCircle2 size={16} className="text-[var(--color-success-600)]" /> : <AlertTriangle size={16} className="text-[var(--color-warning-600)]" />}
-                                <span className="font-semibold text-[var(--color-fg)]">{canCalculate ? 'Calcul réel autorisé' : 'Calcul réel bloqué'}</span>
-                            </div>
+                            <Badge variant={canCalculate ? 'success' : 'warning'} size="sm">{canCalculate ? 'Prêt à calculer' : 'Prérequis à traiter'}</Badge>
                         </div>
-
-                        {!isReadOnly && (
-                            <div className="flex items-center justify-center gap-3 pt-2">
-                                <Button
-                                    variant="secondary"
-                                    size="md"
-                                    onClick={handleSimuler}
-                                    loading={simLoading}
-                                    disabled={!canSimulate}
-                                    iconLeft={<Sparkles size={16} />}
-                                >
-                                    Simuler en mémoire
-                                </Button>
-                                <Button
-                                    variant="primary"
-                                    size="md"
-                                    onClick={handleCalculer}
-                                    loading={calcLoading}
-                                    disabled={!canCalculate}
-                                    iconLeft={<Play size={16} />}
-                                >
-                                    Calculer la paie
-                                </Button>
-                            </div>
-                        )}
+                        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-[var(--color-border-subtle)] py-3 text-sm">
+                            {populationCount != null && <span className="flex items-center gap-2 text-[var(--color-fg)]"><Users size={16} />{populationCount} salariés dans la campagne</span>}
+                            <span className="text-[var(--color-fg-muted)]">Simulation : résultat provisoire sans enregistrement</span>
+                            <span className="text-[var(--color-fg-muted)]">Calcul réel : bulletins enregistrés</span>
+                        </div>
+                        {!isReadOnly && <div className="flex flex-wrap gap-2">
+                            <Button variant="primary" size="sm" onClick={() => setIsCalcConfirmOpen(true)} loading={calcLoading} disabled={!canCalculate || simLoading} iconLeft={<Play size={15} />}>Calculer la paie</Button>
+                            <Button variant="secondary" size="sm" onClick={handleSimuler} loading={simLoading} disabled={!canSimulate || calcLoading} iconLeft={<Sparkles size={15} />}>Simuler sans enregistrer</Button>
+                        </div>}
                     </Card>
                 )}
 
@@ -334,24 +315,26 @@ export default function CalculStepPage() {
                     <div className="space-y-4">
                         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 rounded-none flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-[var(--color-success-50)] dark:bg-[var(--color-success-950)] text-[var(--color-success-600)] rounded-full flex items-center justify-center shrink-0">
-                                    <CheckCircle2 size={20} />
+                                <div className={`w-10 h-10 flex items-center justify-center shrink-0 ${result?.blocked?.length ? 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)]' : 'bg-[var(--color-success-50)] dark:bg-[var(--color-success-950)] text-[var(--color-success-600)]'}`}>
+                                    {result?.blocked?.length ? <AlertTriangle size={20} /> : <CheckCircle2 size={20} />}
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <h3 className="text-sm font-bold text-[var(--color-fg)]">
-                                            {isSimulationActive ? 'Simulation effectuée' : `Calcul ${calculationVersion ? calculationVersion : 'effectué'}`}
+                                            {isSimulationActive
+                                                ? (result.blocked.length ? 'Simulation partielle' : 'Simulation terminée')
+                                                : (hasPersistedBulletins ? `Calcul ${calculationVersion ? calculationVersion : 'effectué'}` : 'Aucun bulletin calculé')}
                                         </h3>
-                                        {result?.isSimulation && <Badge variant="warning" size="xs">Simulation en mémoire</Badge>}
-                                        {!isStale && !isSimulationActive && <Badge variant="success" size="xs">À jour</Badge>}
+                                        {isSimulationActive && <Badge variant={result.blocked.length ? 'warning' : 'secondary'} size="xs">Non enregistré</Badge>}
+                                        {!isStale && !isSimulationActive && hasPersistedBulletins && <Badge variant="success" size="xs">Résultats enregistrés</Badge>}
                                     </div>
                                     <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-                                        {displayKpis?.bulletins ?? existingBulletins.length} bulletin(s) calculé(s){result?.blocked?.length ? ` • ${result.blocked.length} salarié(s) non calculé(s)` : ''}
+                                        {displayKpis?.bulletins ?? existingBulletins.length} calculé(s){result?.blocked?.length ? ` · ${result.blocked.length} non calculé(s)` : ''} · {isSimulationActive ? (hasPersistedBulletins ? 'Simulation non enregistrée, bulletins précédents inchangés' : 'Simulation non enregistrée') : (hasPersistedBulletins ? 'Bulletins enregistrés' : 'Aucun bulletin enregistré')}
                                     </p>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 <Button
                                     variant="secondary"
                                     size="sm"
@@ -360,33 +343,165 @@ export default function CalculStepPage() {
                                 >
                                     {showResultsTable ? 'Masquer la décomposition' : 'Voir les résultats détaillés'}
                                 </Button>
+                                {isSimulationActive && canSimulate && <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={handleSimuler}
+                                    loading={simLoading}
+                                    disabled={calcLoading}
+                                    iconLeft={<RefreshCw size={14} />}
+                                >
+                                    Relancer la simulation
+                                </Button>}
                                 {isSimulationActive ? (
                                     <Button
                                         variant="primary"
                                         size="sm"
-                                        onClick={handleCalculer}
+                                        onClick={() => setIsCalcConfirmOpen(true)}
                                         loading={calcLoading}
-                                        disabled={!canCalculate}
+                                        disabled={!canCalculate || simLoading}
                                         iconLeft={<Play size={14} />}
                                     >
                                         Calculer la paie
                                     </Button>
                                 ) : (
-                                    <Button
-                                        variant="primary"
-                                        size="sm"
-                                        onClick={() => navigate(`/paie/periodes/${numericPeriodId}/controle`)}
-                                        iconRight={<ArrowRight size={14} />}
-                                    >
-                                        Cockpit de contrôle
-                                    </Button>
+                                    <>
+                                        {/* Bouton Recalculer toujours accessible si la campagne n'est pas verrouillée.
+                                            Indispensable quand le calcul est incomplet (certains salariés en erreur)
+                                            mais que le backend ne signale pas isStale. */}
+                                        {!isReadOnly && canCalculate && (
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={() => setIsCalcConfirmOpen(true)}
+                                                loading={calcLoading}
+                                                disabled={simLoading}
+                                                iconLeft={<RefreshCw size={14} />}
+                                            >
+                                                Recalculer
+                                            </Button>
+                                        )}
+                                        {!isStale && canOpenControl && (
+                                            <Button
+                                                variant="primary"
+                                                size="sm"
+                                                onClick={() => navigate(controlStep.destination)}
+                                                iconRight={<ArrowRight size={14} />}
+                                            >
+                                                {result?.blocked?.length ? 'Voir les résultats enregistrés' : 'Passer au contrôle'}
+                                            </Button>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </div>
 
-                        {result?.blocked?.length > 0 && (
-                            <Alert type="warning" title="Salariés non calculés" message={result.blocked.map(outcome => `Salarié ${outcome.employeeId} : ${outcome.message || 'calcul impossible'}`).join(' · ')} />
-                        )}
+                        {result?.blocked?.length > 0 && (() => {
+                            const blockedFiltered = result.blocked.filter(o => {
+                                const q = blockedSearch.trim().toLowerCase();
+                                if (!q) return true;
+                                return (
+                                    (o.employeeName || '').toLowerCase().includes(q) ||
+                                    (o.matricule || '').toLowerCase().includes(q) ||
+                                    (o.reasonCode || '').toLowerCase().includes(q)
+                                );
+                            });
+                            const blockedPageCount = Math.max(1, Math.ceil(blockedFiltered.length / BLOCKED_PAGE_SIZE));
+                            const blockedPageSafe = Math.min(blockedPage, blockedPageCount);
+                            const blockedSlice = blockedFiltered.slice((blockedPageSafe - 1) * BLOCKED_PAGE_SIZE, blockedPageSafe * BLOCKED_PAGE_SIZE);
+                            return (
+                                <section className="border border-[var(--color-warning-500)]/50 bg-[var(--color-warning-500)]/10" aria-labelledby="blocked-payroll-title">
+                                    {/* En-tête + recherche */}
+                                    <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+                                        <div className="flex items-start gap-3">
+                                            <AlertTriangle size={18} className="shrink-0 mt-0.5 text-[var(--color-warning-600)]" />
+                                            <div>
+                                                <h4 id="blocked-payroll-title" className="text-sm font-bold text-[var(--color-fg)]">
+                                                    {result.blocked.length} salarié(s) non calculé(s)
+                                                    {blockedSearch && <span className="ml-2 text-xs font-normal text-[var(--color-warning-600)]">· {blockedFiltered.length} résultat(s)</span>}
+                                                </h4>
+                                                <p className="text-xs text-[var(--color-fg-muted)] mt-1">Consultez les dossiers concernés avant une nouvelle exécution.</p>
+                                            </div>
+                                        </div>
+                                        {/* Champ de recherche */}
+                                        <div className="relative">
+                                            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] pointer-events-none" />
+                                            <input
+                                                type="text"
+                                                placeholder="Nom, matricule, erreur…"
+                                                value={blockedSearch}
+                                                onChange={e => { setBlockedSearch(e.target.value); setBlockedPage(1); }}
+                                                className="pl-8 pr-8 py-1.5 text-xs border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-500)] w-52"
+                                            />
+                                            {blockedSearch && (
+                                                <button type="button" onClick={() => { setBlockedSearch(''); setBlockedPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] cursor-pointer">
+                                                    <XCircle size={13} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {/* Liste */}
+                                    <div className="divide-y divide-[var(--color-border-subtle)] border-t border-[var(--color-warning-500)]/30 bg-[var(--color-surface)]">
+                                        {blockedSlice.length === 0 ? (
+                                            <p className="px-4 py-6 text-sm text-center text-[var(--color-fg-muted)]">Aucun résultat pour « {blockedSearch} »</p>
+                                        ) : blockedSlice.map(outcome => (
+                                            <div key={outcome.employeeId} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+                                                <div className="min-w-0">
+                                                    <p className="font-semibold text-[var(--color-fg)]">
+                                                        {outcome.employeeName || `Salarié ${outcome.employeeId}`}
+                                                        {outcome.matricule && <span className="ml-2 font-normal font-mono text-[var(--color-fg-muted)] text-xs">{outcome.matricule}</span>}
+                                                    </p>
+                                                    <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                                                        {outcome.reasonCode === 'LEAVE_RATE_MISSING'
+                                                            ? 'Taux journalier de congé manquant à la date du calcul.'
+                                                            : 'Le calcul de ce salarié a été bloqué.'}
+                                                    </p>
+                                                    {(outcome.message || outcome.reasonCode) && (
+                                                        <details className="mt-1 text-xs text-[var(--color-fg-muted)]">
+                                                            <summary className="cursor-pointer">Détail technique</summary>
+                                                            <p className="mt-1 break-words font-mono">{outcome.message || outcome.reasonCode}</p>
+                                                        </details>
+                                                    )}
+                                                </div>
+                                                {outcome.employeeId && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="xs"
+                                                        onClick={() => navigate(outcome.reasonCode === 'LEAVE_RATE_MISSING'
+                                                            ? `/employes/${outcome.employeeId}/conges`
+                                                            : `/employes/${outcome.employeeId}`)}
+                                                    >
+                                                        {outcome.reasonCode === 'LEAVE_RATE_MISSING' ? 'Voir les congés' : 'Voir le dossier'}
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {/* Pagination salariés bloqués */}
+                                    {blockedPageCount > 1 && (
+                                        <div className="flex items-center justify-between gap-2 border-t border-[var(--color-warning-500)]/30 bg-[var(--color-surface)] px-4 py-2.5">
+                                            <span className="text-[11px] text-[var(--color-fg-muted)]">Page {blockedPageSafe} / {blockedPageCount} · {blockedFiltered.length} salarié(s)</span>
+                                            <div className="flex items-center gap-1">
+                                                <Button variant="outline" size="xs" disabled={blockedPageSafe <= 1} onClick={() => setBlockedPage(p => Math.max(1, p - 1))}>‹ Préc.</Button>
+                                                {Array.from({ length: blockedPageCount }, (_, i) => i + 1).map(p => (
+                                                    <button
+                                                        key={p}
+                                                        type="button"
+                                                        onClick={() => setBlockedPage(p)}
+                                                        className={`w-6 h-6 text-[11px] font-semibold border cursor-pointer transition-colors ${
+                                                            p === blockedPageSafe
+                                                                ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)]'
+                                                                : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border)] hover:bg-[var(--color-bg-subtle)]'
+                                                        }`}
+                                                    >{p}</button>
+                                                ))}
+                                                <Button variant="outline" size="xs" disabled={blockedPageSafe >= blockedPageCount} onClick={() => setBlockedPage(p => Math.min(blockedPageCount, p + 1))}>Suiv. ›</Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </section>
+                            );
+                        })()}
 
                         {/* 4 KPIs Clés consolidés */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -425,62 +540,142 @@ export default function CalculStepPage() {
                         </div>
 
                         {/* Décomposition technique masquée par défaut pour éviter l'encombrement cognitif */}
-                        {showResultsTable && (
-                            <Card className="border border-[var(--color-border-subtle)] overflow-hidden">
-                                <div className="p-3 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex items-center justify-between">
-                                    <span className="text-xs font-bold text-[var(--color-fg)]">
-                                        Décomposition individuelle ({displayBulletins.length} bulletins)
-                                    </span>
-                                    <span className="text-[11px] text-[var(--color-fg-muted)]">
-                                        {isSimulationActive ? 'Résultats provisoires, non enregistrés' : 'Cliquez sur un collaborateur pour ouvrir son dossier'}
-                                    </span>
-                                </div>
-                                <div className="overflow-x-auto">
-                                    <Table className="w-full text-xs" bordered={false}>
-                                        <Thead>
-                                            <Tr>
-                                                <Th>Salarié</Th>
-                                                <Th className="text-right">Salaire Base</Th>
-                                                <Th className="text-right">Brut</Th>
-                                                <Th className="text-right">Cotisations</Th>
-                                                <Th className="text-right">IRSA</Th>
-                                                <Th className="text-right">Net à Payer</Th>
-                                                <Th className="text-center w-12">Action</Th>
-                                            </Tr>
-                                        </Thead>
-                                        <Tbody>
-                                            {displayBulletins.map((b) => (
-                                                <Tr key={b.idBulletin || b.idEmploye} className="hover:bg-[var(--color-bg-subtle)] transition-colors">
-                                                    <Td className="font-medium text-[var(--color-fg)]">
-                                                        <div>{b.nomPrenom || b.intitulePoste}</div>
-                                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">{b.matricule}</div>
-                                                    </Td>
-                                                    <Td className="text-right font-mono">{formatMoneyAr(b.salaireBase)}</Td>
-                                                    <Td className="text-right font-mono font-medium">{formatMoneyAr(b.totalGainsBruts)}</Td>
-                                                    <Td className="text-right font-mono text-[var(--color-danger-600)]">
-                                                        {b.totalCotisationsSalariales ? `-${formatMoneyAr(b.totalCotisationsSalariales)}` : '—'}
-                                                    </Td>
-                                                    <Td className="text-right font-mono text-[var(--color-danger-600)]">
-                                                        {b.irsaNet ? `-${formatMoneyAr(b.irsaNet)}` : '—'}
-                                                    </Td>
-                                                    <Td className="text-right font-mono font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
-                                                        {formatMoneyAr(b.netAPayer)}
-                                                    </Td>
-                                                    <Td className="text-center">
-                                                        {!isSimulationActive && <Button
-                                                            variant="ghost"
-                                                            size="xs"
-                                                            onClick={() => setSelectedBulletinId(b.idBulletin)}
-                                                            iconLeft={<Eye size={13} />}
-                                                        />}
-                                                    </Td>
+                        {showResultsTable && (() => {
+                            // Filtrage côté client pour la simulation ; côté serveur pour les bulletins persistés.
+                            const allBulletinsForFilter = isSimulationActive ? simulationBulletins : existingBulletins;
+                            const tableFiltered = tableSearch.trim()
+                                ? allBulletinsForFilter.filter(b => {
+                                    const q = tableSearch.trim().toLowerCase();
+                                    return (
+                                        (b.nomPrenom || b.intitulePoste || '').toLowerCase().includes(q) ||
+                                        (b.matricule || '').toLowerCase().includes(q)
+                                    );
+                                })
+                                : allBulletinsForFilter;
+                            // Pour les bulletins persistés on garde la pagination serveur, pour la simulation on pagine côté client.
+                            const clientPageCount = Math.max(1, Math.ceil(tableFiltered.length / TABLE_PAGE_SIZE));
+                            const clientPage = Math.min(bulletinPage, clientPageCount);
+                            const clientSlice = isSimulationActive
+                                ? tableFiltered.slice((clientPage - 1) * TABLE_PAGE_SIZE, clientPage * TABLE_PAGE_SIZE)
+                                : (tableSearch.trim() ? tableFiltered : displayBulletins); // Si recherche active sur persistés : filtrage local
+                            const rowsToShow = isSimulationActive ? clientSlice : (tableSearch.trim() ? tableFiltered : displayBulletins);
+                            const shownPageCount = isSimulationActive ? clientPageCount : (tableSearch.trim() ? 1 : displayedPageCount);
+                            const totalLabel = tableSearch.trim() ? `${tableFiltered.length} / ${isSimulationActive ? simulationBulletins.length : bulletinTotal}` : (isSimulationActive ? simulationBulletins.length : bulletinTotal);
+                            return (
+                                <Card className="border border-[var(--color-border-subtle)] overflow-hidden">
+                                    {/* En-tête avec recherche et filtre */}
+                                    <div className="p-3 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex flex-wrap items-center gap-3">
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                            <span className="text-xs font-bold text-[var(--color-fg)] shrink-0">
+                                                Décomposition individuelle ({totalLabel} bulletins)
+                                            </span>
+                                            {!isSimulationActive && <span className="text-[11px] text-[var(--color-fg-muted)] hidden sm:inline">· Cliquez sur un collaborateur pour ouvrir son dossier</span>}
+                                        </div>
+                                        {/* Barre de recherche */}
+                                        <div className="relative shrink-0">
+                                            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] pointer-events-none" />
+                                            <input
+                                                id="table-search-bulletins"
+                                                type="text"
+                                                placeholder="Nom ou matricule…"
+                                                value={tableSearch}
+                                                onChange={e => { setTableSearch(e.target.value); setBulletinPage(1); }}
+                                                className="pl-8 pr-8 py-1.5 text-xs border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-500)] w-44"
+                                            />
+                                            {tableSearch && (
+                                                <button type="button" onClick={() => { setTableSearch(''); setBulletinPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] cursor-pointer">
+                                                    <XCircle size={13} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {/* Table */}
+                                    <div className="overflow-x-auto">
+                                        <Table className="w-full text-xs" bordered={false}>
+                                            <Thead>
+                                                <Tr>
+                                                    <Th>Salarié</Th>
+                                                    <Th className="text-right">Salaire Base</Th>
+                                                    <Th className="text-right">Brut</Th>
+                                                    <Th className="text-right">Cotisations</Th>
+                                                    <Th className="text-right">IRSA</Th>
+                                                    <Th className="text-right">Net à Payer</Th>
+                                                    {!isSimulationActive && <Th className="text-center w-12">Action</Th>}
                                                 </Tr>
-                                            ))}
-                                        </Tbody>
-                                    </Table>
-                                </div>
-                            </Card>
-                        )}
+                                            </Thead>
+                                            <Tbody>
+                                                {rowsToShow.map((b) => (
+                                                    <Tr key={b.idBulletin || b.idEmploye} className="hover:bg-[var(--color-bg-subtle)] transition-colors">
+                                                        <Td className="font-medium text-[var(--color-fg)]">
+                                                            <div>{b.nomPrenom || b.intitulePoste}</div>
+                                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">{b.matricule}</div>
+                                                        </Td>
+                                                        <Td className="text-right font-mono">{formatMoneyAr(b.salaireBase)}</Td>
+                                                        <Td className="text-right font-mono font-medium">{formatMoneyAr(b.totalGainsBruts)}</Td>
+                                                        <Td className="text-right font-mono text-[var(--color-danger-600)]">
+                                                            {b.totalCotisationsSalariales ? `-${formatMoneyAr(b.totalCotisationsSalariales)}` : '—'}
+                                                        </Td>
+                                                        <Td className="text-right font-mono text-[var(--color-danger-600)]">
+                                                            {b.irsaNet ? `-${formatMoneyAr(b.irsaNet)}` : '—'}
+                                                        </Td>
+                                                        <Td className="text-right font-mono font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
+                                                            {formatMoneyAr(b.netAPayer)}
+                                                        </Td>
+                                                        {!isSimulationActive && (
+                                                            <Td className="text-center">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="xs"
+                                                                    onClick={() => setSelectedBulletinId(b.idBulletin)}
+                                                                    iconLeft={<Eye size={13} />}
+                                                                    aria-label={`Voir le bulletin de ${b.nomPrenom || b.matricule}`}
+                                                                />
+                                                            </Td>
+                                                        )}
+                                                    </Tr>
+                                                ))}
+                                            </Tbody>
+                                        </Table>
+                                        {rowsToShow.length === 0 && (
+                                            <p className="p-6 text-sm text-center text-[var(--color-fg-muted)]">
+                                                {tableSearch ? `Aucun bulletin correspondant à « ${tableSearch} »` : 'Aucun bulletin calculé pour cette exécution.'}
+                                            </p>
+                                        )}
+                                    </div>
+                                    {/* Pagination numérotée */}
+                                    {shownPageCount > 1 && (
+                                        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border-subtle)] px-3 py-2.5">
+                                            <span className="text-[11px] text-[var(--color-fg-muted)]">
+                                                Page {bulletinPage} / {shownPageCount} · {totalLabel} résultat(s)
+                                            </span>
+                                            <div className="flex items-center gap-1">
+                                                <Button variant="outline" size="xs" disabled={bulletinPage <= 1} onClick={() => setBulletinPage(p => Math.max(1, p - 1))}>‹</Button>
+                                                {Array.from({ length: Math.min(shownPageCount, 7) }, (_, i) => {
+                                                    // Fenêtre glissante de 7 pages centrée sur la page courante
+                                                    const half = 3;
+                                                    let start = Math.max(1, bulletinPage - half);
+                                                    const end = Math.min(shownPageCount, start + 6);
+                                                    start = Math.max(1, end - 6);
+                                                    return start + i;
+                                                }).map(p => (
+                                                    <button
+                                                        key={p}
+                                                        type="button"
+                                                        onClick={() => setBulletinPage(p)}
+                                                        className={`w-7 h-7 text-[11px] font-semibold border cursor-pointer transition-colors ${
+                                                            p === bulletinPage
+                                                                ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)]'
+                                                                : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border)] hover:bg-[var(--color-bg-subtle)]'
+                                                        }`}
+                                                    >{p}</button>
+                                                ))}
+                                                <Button variant="outline" size="xs" disabled={bulletinPage >= shownPageCount} onClick={() => setBulletinPage(p => Math.min(shownPageCount, p + 1))}>›</Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </Card>
+                            );
+                        })()}
                     </div>
                 )}
             </div>
@@ -493,12 +688,31 @@ export default function CalculStepPage() {
                         onClose={() => setSelectedBulletinId(null)}
                         idBulletin={selectedBulletinId}
                         onRecalculateSuccess={async () => {
-                            await refresh();
+                            await refreshSilent();
                             await loadExistingCalculation();
                         }}
                     />
                 )}
             </Suspense>
+
+            <ConfirmDialog
+                isOpen={isCalcConfirmOpen}
+                onClose={() => setIsCalcConfirmOpen(false)}
+                onConfirm={executeCalculation}
+                title={isStale ? 'Recalculer la paie' : 'Calculer la paie'}
+                message="Le calcul réel enregistrera les bulletins produits pour cette campagne."
+                confirmLabel={isStale ? 'Recalculer la paie' : 'Lancer le calcul réel'}
+                variant={result?.isSimulation && result.blocked.length > 0 ? 'warning' : 'primary'}
+                loading={calcLoading}
+            >
+                <div className="space-y-2 text-xs">
+                    <p className="text-[var(--color-fg)]">Période <strong>{context?.selectedPeriod?.code || context?.currentPeriod?.code || periodId}</strong>{populationCount != null ? ` · ${populationCount} salariés dans la campagne` : ''}</p>
+                    {result?.isSimulation && <p className="text-[var(--color-fg-muted)]">Dernière simulation : {result.bulletins} calculé(s), {result.blocked.length} non calculé(s).</p>}
+                    {result?.isSimulation && result.blocked.length > 0 && <div className="border border-[var(--color-warning-500)]/50 bg-[var(--color-warning-500)]/10 p-3 text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]">
+                        Le calcul réel peut être partiel. Consultez les dossiers des salariés bloqués avant de poursuivre.
+                    </div>}
+                </div>
+            </ConfirmDialog>
         </PayrollCampaignShell>
     );
 }

@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import {useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     Clock,
@@ -89,16 +89,17 @@ export default function PointageTab({ idEmploye, employe = null }) {
         return Math.round((h + m / 60.0) * 100.0) / 100.0;
     };
 
-    const formatHhMmWithDecimal = (str) => {
-        if (!str || typeof str !== 'string' || !str.includes('h') || str === '—' || str === '-') return null;
-        const isNeg = str.startsWith('-') || str.startsWith('−');
-        const isPos = str.startsWith('+');
+    const formatHhMmWithDecimal = (str, forceSign = '') => {
+        if (!str || typeof str !== 'string' || !str.includes('h') || str === '—' || str === '-') return '0.00h';
+        const isNeg = str.startsWith('-') || str.startsWith('−') || forceSign === '-';
+        const isPos = str.startsWith('+') || forceSign === '+';
         const clean = str.replace(/^[+−-]/, '').trim();
         const parts = clean.split('h');
         const h = parseFloat(parts[0]) || 0;
         const m = parseFloat(parts[1]) || 0;
         const dec = (h + m / 60.0).toFixed(2);
-        return `${isNeg ? '−' : isPos ? '+' : ''}${dec}h`;
+        if (dec === '0.00') return '0.00h';
+        return `${isNeg ? '-' : isPos ? '+' : ''}${dec}h`;
     };
 
     const parseEcartToDecimal = (str) => {
@@ -549,7 +550,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         variant={hasHsNettes ? 'success' : 'neutral'}
                                         size="xs"
                                     >
-                                        {hasHsNettes ? 'Solde positif' : '0 HS'}
+                                        {hasHsNettes ? 'Solde positif' : '0h HS'}
                                     </Badge>
                                 </div>
                                 <div className="mt-2.5">
@@ -573,8 +574,8 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 </div>
                             </div>
                             <div className="mt-3 pt-2 border-t border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-subtle)] flex items-center justify-between">
-                                <span>HS 30% : {kpis.heuresHs30 || '0.0h'}</span>
-                                <span>HS 50% : {kpis.heuresHs50 || '0.0h'}</span>
+                                <span>HS 30% : {kpis.heuresHs30 ? kpis.heuresHs30.replace(',', '.') : '0.0h'}</span>
+                                <span>HS 50% : {kpis.heuresHs50 ? kpis.heuresHs50.replace(',', '.') : '0.0h'}</span>
                             </div>
                         </div>
 
@@ -590,7 +591,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         variant={hasRetardNet ? 'danger' : 'success'}
                                         size="xs"
                                     >
-                                        {hasRetardNet ? 'Déduction paie' : '0 retenue'}
+                                        {hasRetardNet ? 'Déduction paie' : '0h retenue'}
                                     </Badge>
                                 </div>
                                 <div className="mt-2.5">
@@ -602,8 +603,12 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             ({hasRetardNet ? `-${formatDecimalHours(parseHhMmToDecimal(recap.retardNet), false)}` : '0.00h'})
                                         </span>
                                     </div>
-                                    <p className="text-xs text-[var(--color-fg-muted)] mt-1 truncate" title={`Déficit d'heures sous le seuil hebdo : ${recap.retardNet || '00h00'} (après compensation intra-semaine)`}>
-                                        {recap.retardCompense && recap.retardCompense !== '00h00' ? (
+                                    <p className="text-xs text-[var(--color-fg-muted)] mt-1 truncate">
+                                        {recap.ajustements && recap.ajustements !== '00h00' && recap.ajustements !== '—' && recap.ajustements !== '-' ? (
+                                            <span>
+                                                Régularisation : <strong className="font-semibold">{recap.ajustements.replace('−', '-')}</strong>
+                                            </span>
+                                        ) : recap.retardCompense && recap.retardCompense !== '00h00' ? (
                                             <span className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
                                                 Heures compensées : <strong className="font-semibold">{recap.retardCompense}</strong>
                                             </span>
@@ -616,9 +621,9 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 </div>
                             </div>
                             <div className="mt-3 pt-2 border-t border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-subtle)] flex items-center justify-between">
-                                <span>Déficit net : {recap.retardNet || '00h00'}</span>
-                                <span className={recap.retardCompense && recap.retardCompense !== '00h00' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-medium' : ''}>
-                                    Compensé : {recap.retardCompense || '00h00'}
+                                <span>Déficit hebdo : {recap.deficitHebdo && recap.deficitHebdo !== '—' && recap.deficitHebdo !== '-' ? recap.deficitHebdo : '00h00'}</span>
+                                <span className={recap.ajustements && recap.ajustements !== '00h00' && recap.ajustements !== '—' && recap.ajustements !== '-' ? 'font-medium' : recap.retardCompense && recap.retardCompense !== '00h00' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-medium' : ''}>
+                                    {recap.ajustements && recap.ajustements !== '00h00' && recap.ajustements !== '—' && recap.ajustements !== '-' ? `Régul. : ${recap.ajustements.replace('−', '-')}` : `Compensé : ${recap.retardCompense || '00h00'}`}
                                 </span>
                             </div>
                         </div>
@@ -644,7 +649,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             {kpis.retardCumule || '00h00'}
                                         </span>
                                         <span className="text-xs font-mono text-[var(--color-fg-muted)]">
-                                            brut
+                                            de retard
                                         </span>
                                     </div>
                                     <div className="mt-1 flex items-center gap-1 text-xs">
@@ -663,8 +668,8 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 </div>
                             </div>
                             <div className="mt-3 pt-2 border-t border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-subtle)] flex items-center justify-between">
-                                <span>Ponctualité brute</span>
-                                <span>{isAssiduiteRuleDisabled ? 'Aucun seuil appliqué' : `Max toléré : ${seuilAssiduiteMinutes} min`}</span>
+                                <span>Retards constatés</span>
+                                <span>{isAssiduiteRuleDisabled ? 'Aucun seuil appliqué' : `Tolérance : ${seuilAssiduiteMinutes} min`}</span>
                             </div>
                         </div>
                     </div>
@@ -938,112 +943,178 @@ export default function PointageTab({ idEmploye, employe = null }) {
 
                     {ficheData?.soldePeriode && (
                         <Card padding bordered>
-                            <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                                 <div>
-                                    <h3 className="text-sm font-bold">Bilan final de la période</h3>
-                                    <p className="text-xs text-[var(--color-fg-muted)] mt-1">Résultat calculé par le serveur et ventilation à prendre en compte en paie.</p>
+                                    <h3 className="text-sm font-bold text-[var(--color-fg)]">Bilan final de la période</h3>
+                                    <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">Synthèse consolidée et incidence sur la paie.</p>
                                 </div>
-                                {ficheData.idPeriode && <Button variant="outline" size="sm" onClick={() => setShowBalance(true)}>{actions.ADJUST_BALANCE ? 'Ajuster le solde de période' : 'Voir les régularisations'}</Button>}
+                                {ficheData.idPeriode && (
+                                    <Button variant="outline" size="sm" onClick={() => setShowBalance(true)}>
+                                        {actions.ADJUST_BALANCE ? 'Ajuster le solde de période' : 'Voir les régularisations'}
+                                    </Button>
+                                )}
                             </div>
 
-                            <div className="grid gap-3 lg:grid-cols-[minmax(12rem,0.8fr)_2fr]">
-                                <div className="border-2 border-[var(--color-brand-500)]/40 bg-[var(--color-brand-500)]/5 p-5 sm:p-6">
-                                    <p className="text-xs font-semibold text-[var(--color-fg-muted)]">Solde final</p>
-                                    <p className={`mt-2 font-mono text-4xl sm:text-5xl leading-tight font-bold ${String(recap.soldeFinal || '').startsWith('-') || String(recap.soldeFinal || '').startsWith('−') ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
-                                        {recap.soldeFinal || '-'}
-                                    </p>
-                                    {formatHhMmWithDecimal(recap.soldeFinal) && <p className="mt-1 font-mono text-sm text-[var(--color-fg-muted)]">({formatHhMmWithDecimal(recap.soldeFinal)})</p>}
+                            {/* Rapprochement arithmétique direct du solde */}
+                            <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/50 p-3 mb-3">
+                                <div className="text-[11px] font-semibold text-[var(--color-fg-muted)] mb-2">
+                                    Rapprochement du solde
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1.2fr] items-center gap-2">
+                                    <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2.5 text-center">
+                                        <div className="text-[10px] text-[var(--color-fg-muted)] truncate">HS hebdomadaires</div>
+                                        <div className="font-mono text-sm font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)] mt-0.5">
+                                            {recap.hsTotalHebdo && recap.hsTotalHebdo !== '—' && recap.hsTotalHebdo !== '-' ? `+${recap.hsTotalHebdo}` : '00h00'}
+                                        </div>
+                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                            ({formatHhMmWithDecimal(recap.hsTotalHebdo, recap.hsTotalHebdo && recap.hsTotalHebdo !== '00h00' ? '+' : '')})
+                                        </div>
+                                    </div>
+                                    <div className="hidden sm:flex text-base font-bold text-[var(--color-fg-muted)]">−</div>
+                                    <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2.5 text-center">
+                                        <div className="text-[10px] text-[var(--color-fg-muted)] truncate">Déficits restants</div>
+                                        <div className={`font-mono text-sm font-bold mt-0.5 ${recap.deficitHebdo && recap.deficitHebdo !== '00h00' && recap.deficitHebdo !== '—' && recap.deficitHebdo !== '-' ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg)]'}`}>
+                                            {recap.deficitHebdo && recap.deficitHebdo !== '—' && recap.deficitHebdo !== '-' ? recap.deficitHebdo : '00h00'}
+                                        </div>
+                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                            ({formatHhMmWithDecimal(recap.deficitHebdo)})
+                                        </div>
+                                    </div>
+                                    <div className="hidden sm:flex text-base font-bold text-[var(--color-fg-muted)]">+</div>
+                                    <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2.5 text-center">
+                                        <div className="text-[10px] text-[var(--color-fg-muted)] truncate">Régularisation</div>
+                                        <div className={`font-mono text-sm font-bold mt-0.5 ${
+                                            recap.ajustements && (recap.ajustements.startsWith('-') || recap.ajustements.startsWith('−')) && recap.ajustements !== '-00h00' && recap.ajustements !== '−00h00'
+                                                ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'
+                                                : recap.ajustements && recap.ajustements.startsWith('+') && recap.ajustements !== '+00h00'
+                                                ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'
+                                                : 'text-[var(--color-fg)]'
+                                        }`}>
+                                            {recap.ajustements && recap.ajustements !== '—' && recap.ajustements !== '-' ? recap.ajustements.replace('−', '-') : '00h00'}
+                                        </div>
+                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                            ({formatHhMmWithDecimal(recap.ajustements)})
+                                        </div>
+                                    </div>
+                                    <div className="hidden sm:flex text-base font-bold text-[var(--color-fg-muted)]">=</div>
+                                    <div className="border-2 border-[var(--color-brand-500)]/40 bg-[var(--color-brand-500)]/5 p-2.5 text-center">
+                                        <div className="text-[10px] font-semibold text-[var(--color-fg-muted)] truncate">Solde final</div>
+                                        <div className={`font-mono text-base sm:text-lg font-bold mt-0.5 ${String(recap.soldeFinal || '').startsWith('-') || String(recap.soldeFinal || '').startsWith('−') ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
+                                            {recap.soldeFinal || '-'}
+                                        </div>
+                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                            ({formatHhMmWithDecimal(recap.soldeFinal)})
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Deux volets côte à côte : Incidence Paie & Heures Qualifiées */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                {/* Colonne 1 : Découpage pour la Paie */}
+                                <div className="border border-[var(--color-border-subtle)] p-3">
+                                    <h4 className="text-xs font-semibold text-[var(--color-fg-muted)] mb-2">Incidence sur la paie</h4>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/40 p-2 text-center">
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] truncate">Retenue absence</div>
+                                            <div className={`font-mono text-sm font-bold mt-1 ${recap.absenceFinale && recap.absenceFinale !== '00h00' && recap.absenceFinale !== '—' && recap.absenceFinale !== '-' ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg)]'}`}>
+                                                {recap.absenceFinale && recap.absenceFinale !== '—' && recap.absenceFinale !== '-' && recap.absenceFinale !== '00h00' ? `-${recap.absenceFinale}` : (recap.absenceFinale || '00h00')}
+                                            </div>
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                                ({formatHhMmWithDecimal(recap.absenceFinale, recap.absenceFinale && recap.absenceFinale !== '00h00' ? '-' : '')})
+                                            </div>
+                                        </div>
+                                        <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/40 p-2 text-center">
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] truncate">HS à 30 %</div>
+                                            <div className={`font-mono text-sm font-bold mt-1 ${recap.hs30Finales && recap.hs30Finales !== '00h00' && recap.hs30Finales !== '—' && recap.hs30Finales !== '-' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
+                                                {recap.hs30Finales && recap.hs30Finales !== '—' && recap.hs30Finales !== '-' && recap.hs30Finales !== '00h00' ? `+${recap.hs30Finales}` : (recap.hs30Finales || '00h00')}
+                                            </div>
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                                ({formatHhMmWithDecimal(recap.hs30Finales, recap.hs30Finales && recap.hs30Finales !== '00h00' ? '+' : '')})
+                                            </div>
+                                        </div>
+                                        <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/40 p-2 text-center">
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] truncate">HS à 50 %</div>
+                                            <div className={`font-mono text-sm font-bold mt-1 ${recap.hs50Finales && recap.hs50Finales !== '00h00' && recap.hs50Finales !== '—' && recap.hs50Finales !== '-' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
+                                                {recap.hs50Finales && recap.hs50Finales !== '—' && recap.hs50Finales !== '-' && recap.hs50Finales !== '00h00' ? `+${recap.hs50Finales}` : (recap.hs50Finales || '00h00')}
+                                            </div>
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                                ({formatHhMmWithDecimal(recap.hs50Finales, recap.hs50Finales && recap.hs50Finales !== '00h00' ? '+' : '')})
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <h4 className="mb-2 text-xs font-semibold text-[var(--color-fg-muted)]">Incidence finale sur la paie</h4>
-                                    <dl className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                {/* Colonne 2 : Heures Qualifiées */}
+                                <div className="border border-[var(--color-border-subtle)] p-3">
+                                    <h4 className="text-xs font-semibold text-[var(--color-fg-muted)] mb-2">Heures qualifiées sur la période</h4>
+                                    <div className="grid grid-cols-3 gap-2">
                                         {[
-                                            { label: 'Absence à retenir', value: recap.absenceFinale, tone: 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' },
-                                            { label: 'Heures supplémentaires à 30 %', value: recap.hs30Finales, tone: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' },
-                                            { label: 'Heures supplémentaires à 50 %', value: recap.hs50Finales, tone: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' },
-                                        ].map(({ label, value, tone }) => (
-                                            <div key={label} className="border border-[var(--color-border-subtle)] p-3">
-                                                <dt className="text-xs text-[var(--color-fg-muted)]">{label}</dt>
-                                                <dd className={`mt-1 font-mono text-lg font-bold ${tone}`}>{value || '-'}</dd>
-                                                {formatHhMmWithDecimal(value) && <dd className="font-mono text-[11px] text-[var(--color-fg-muted)]">({formatHhMmWithDecimal(value)})</dd>}
+                                            { label: 'Nuit', value: heuresQualifiees.nuit },
+                                            { label: 'Dimanche', value: heuresQualifiees.dimanche },
+                                            { label: 'Jour férié', value: heuresQualifiees.ferie },
+                                        ].map(({ label, value }) => (
+                                            <div key={label} className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/40 p-2 text-center">
+                                                <div className="text-[10px] text-[var(--color-fg-muted)]">{label}</div>
+                                                <div className="font-mono text-sm font-bold text-[var(--color-fg)] mt-1">
+                                                    {formatHeuresMinutes(value)}
+                                                </div>
+                                                <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                                    ({formatHeuresDecimal(value)})
+                                                </div>
                                             </div>
                                         ))}
-                                    </dl>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="mt-4">
-                                <h4 className="mb-2 text-xs font-semibold text-[var(--color-fg-muted)]">Heures qualifiées sur la période</h4>
-                                <dl className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                    {[
-                                        { label: 'Nuit', value: heuresQualifiees.nuit },
-                                        { label: 'Dimanche', value: heuresQualifiees.dimanche },
-                                        { label: 'Jour férié', value: heuresQualifiees.ferie },
-                                    ].map(({ label, value }) => (
-                                        <div key={label} className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3">
-                                            <dt className="text-xs text-[var(--color-fg-muted)]">{label}</dt>
-                                            <dd className="mt-1 font-mono text-lg font-bold text-[var(--color-fg)]">{formatHeuresMinutes(value)}</dd>
-                                            <dd className="font-mono text-[11px] text-[var(--color-fg-muted)]">({formatHeuresDecimal(value)})</dd>
-                                        </div>
-                                    ))}
-                                </dl>
-                                <p className="mt-2 text-xs text-[var(--color-fg-muted)]">Ces qualifications décrivent les heures travaillées. Elles peuvent se chevaucher et ne s&apos;ajoutent pas une seconde fois au solde final.</p>
-                            </div>
-
-                            <details className="mt-4 border-t border-[var(--color-border-subtle)] pt-3">
-                                <summary className="cursor-pointer text-xs font-semibold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">Voir le rapprochement du solde</summary>
-                                <div className="mt-3 space-y-3">
-                                    <p className="text-xs text-[var(--color-fg-muted)]">Les semaines sont d’abord compensées séparément. Le rapprochement de période reprend ensuite ces totaux :</p>
-                                    <dl className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] sm:items-stretch">
-                                        {[
-                                            { label: 'HS hebdomadaires après compensation (30 % + 50 %)', value: recap.hsTotalHebdo },
-                                            { label: 'Déficits restants', value: recap.deficitHebdo },
-                                            { label: 'Ajustements de période', value: recap.ajustements },
-                                            { label: 'Solde final', value: recap.soldeFinal },
-                                        ].map(({ label, value }, index) => (
-                                            <Fragment key={label}>
-                                                {index > 0 && <div className="hidden items-center justify-center text-lg font-bold text-[var(--color-fg-muted)] sm:flex" aria-hidden="true">{index === 1 ? '−' : index === 2 ? '+' : '='}</div>}
-                                                <div className={index === 3 ? 'border-2 border-[var(--color-brand-500)]/40 bg-[var(--color-brand-500)]/5 p-4' : 'border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3'}>
-                                                    <dt className="text-[11px] text-[var(--color-fg-muted)]">{label}</dt>
-                                                    <dd className={`mt-1 font-mono font-bold text-[var(--color-fg)] ${index === 3 ? 'text-xl sm:text-2xl' : 'text-sm'}`}>{value || '-'}</dd>
-                                                    {formatHhMmWithDecimal(value) && <dd className={`font-mono text-[var(--color-fg-muted)] ${index === 3 ? 'text-xs' : 'text-[11px]'}`}>({formatHhMmWithDecimal(value)})</dd>}
-                                                </div>
-                                            </Fragment>
-                                        ))}
-                                    </dl>
-                                    <p className="text-xs text-[var(--color-fg-muted)]">Les retards restent un indicateur de ponctualité et ne sont pas déduits une seconde fois.</p>
-                                    {recap.regleVentilation && <p className="text-xs">{recap.regleVentilation}</p>}
-                                </div>
-                            </details>
+                            {recap.regleVentilation && (
+                                <p className="text-[11px] text-[var(--color-fg-muted)] mt-2.5 font-mono">
+                                    {recap.regleVentilation}
+                                </p>
+                            )}
 
                             {recap.alerteSolde && <div className="mt-3"><Alert type="warning" message={recap.alerteSolde} /></div>}
                             {!ficheData.idPeriode && <p className="text-xs text-[var(--color-fg-muted)] mt-2">Sélectionnez une période de paie pour consulter ses régularisations.</p>}
                         </Card>
                     )}
 
-                    {/* 3.1 Volet Déroulant : Bilan par Tronçon Hebdomadaire (Compensation 40h - ) */}
+                    {/* 3.1 Volet Déroulant : Bilan par Tronçon Hebdomadaire (Compensation 40h) */}
                     {ficheData?.bilansHebdo?.length > 0 && (
                         <details className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 shadow-xs space-y-3">
-                            <summary className="cursor-pointer text-sm font-semibold">Détail du calcul par semaine</summary>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--color-border-subtle)] pb-2.5">
-                                <div className="flex items-center gap-2">
+                            <summary className="cursor-pointer text-xs sm:text-sm font-semibold flex flex-wrap items-center justify-between gap-2 select-none">
+                                <span className="flex items-center gap-2">
                                     <Scale size={16} className="text-[var(--color-brand-500)] shrink-0" />
-                                    <h4 className="text-xs font-semibold text-[var(--color-fg)]">
-                                        Calcul hebdomadaire et résultat
-                                    </h4>
-                                </div>
-                                <span className="text-[11px] text-[var(--color-fg-muted)] font-mono">
-                                    Base légale {dureeHebdoLegale}h/semaine · Compensation intra-semaine
+                                    <span className="text-[var(--color-fg)]">Détail du calcul par semaine</span>
                                 </span>
-                            </div>
-
-                            {/* Bannière explicative règle légale */}
-                            <div className="attendance-info p-2.5 text-xs flex items-center gap-2">
-                                <Scale size={15} className="shrink-0" />
-                                <div>
-                                    <strong>Lecture :</strong> objectif ajusté → heures réalisées → écart → résultat. Les heures au-delà de {dureeJourNormale || 'la durée prévue'}h par jour peuvent couvrir les journées courtes de la même semaine. Les retards servent au suivi de ponctualité et ne sont pas déduits une seconde fois.
+                                <div className="flex flex-wrap items-center gap-2.5 font-mono text-xs">
+                                    <span className="text-[var(--color-fg-muted)] font-sans">{ficheData.bilansHebdo.length} sem.</span>
+                                    <span className="text-[var(--color-border-subtle)]">·</span>
+                                    <span className="flex items-center gap-1.5">
+                                        <span className="text-[var(--color-fg-muted)] font-sans">HS hebdo :</span>
+                                        <span className="font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
+                                            {recap.hsTotalHebdo && recap.hsTotalHebdo !== '—' && recap.hsTotalHebdo !== '-' ? `+${recap.hsTotalHebdo}` : '00h00'}
+                                        </span>
+                                    </span>
+                                    <span className="text-[var(--color-border-subtle)]">·</span>
+                                    <span className="flex items-center gap-1.5">
+                                        <span className="text-[var(--color-fg-muted)] font-sans">Déficit hebdo :</span>
+                                        <span className={`font-bold ${recap.deficitHebdo && recap.deficitHebdo !== '00h00' && recap.deficitHebdo !== '—' && recap.deficitHebdo !== '-' ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                            {recap.deficitHebdo && recap.deficitHebdo !== '—' && recap.deficitHebdo !== '-' && recap.deficitHebdo !== '00h00' ? `-${recap.deficitHebdo}` : '00h00'}
+                                        </span>
+                                    </span>
                                 </div>
+                            </summary>
+
+                            {/* Bannière concise règle 40h */}
+                            <div className="attendance-info p-2.5 text-xs flex items-center justify-between gap-2">
+                                <span className="flex items-center gap-2">
+                                    <Scale size={14} className="shrink-0 text-[var(--color-brand-500)]" />
+                                    <span><strong>Compensation 40h/semaine :</strong> les surplus journaliers couvrent les journées courtes de la même semaine.</span>
+                                </span>
+                                <span className="text-[11px] text-[var(--color-fg-muted)] font-mono shrink-0 hidden sm:inline">
+                                    Base légale {dureeHebdoLegale}h/sem.
+                                </span>
                             </div>
 
                             <WeeklyPointageCalculationTable weeks={ficheData.bilansHebdo} pointages={pointages} />
@@ -1103,6 +1174,30 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         <div className="flex justify-between items-center">
                                             <span className="text-[var(--color-fg-muted)]">Temps total réalisé</span>
                                             <span className="font-mono font-bold text-[var(--color-fg)]">{recap.tempsRealise || '00h00'}</span>
+                                        </div>
+                                        {/* Déficit hebdomadaire si présent */}
+                                        {recap.deficitHebdo && recap.deficitHebdo !== '00h00' && recap.deficitHebdo !== '—' && recap.deficitHebdo !== '-' && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[var(--color-fg-muted)]">Déficit hebdomadaire</span>
+                                                <span className="font-mono font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                                                    -{recap.deficitHebdo}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {/* Régularisation */}
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[var(--color-fg-muted)]">Régularisation</span>
+                                            <span className={`font-mono font-bold ${
+                                                recap.ajustements && (recap.ajustements.startsWith('-') || recap.ajustements.startsWith('−')) && recap.ajustements !== '-00h00' && recap.ajustements !== '−00h00'
+                                                    ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'
+                                                    : recap.ajustements && recap.ajustements.startsWith('+') && recap.ajustements !== '+00h00'
+                                                    ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'
+                                                    : 'text-[var(--color-fg-muted)]'
+                                            }`}>
+                                                {recap.ajustements && recap.ajustements !== '—' && recap.ajustements !== '-'
+                                                    ? recap.ajustements.replace('−', '-')
+                                                    : '00h00'}
+                                            </span>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="text-[var(--color-fg-muted)]">Retenue salaire (Déficit net)</span>

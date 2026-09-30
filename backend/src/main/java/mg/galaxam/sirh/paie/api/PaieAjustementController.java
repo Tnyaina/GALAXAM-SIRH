@@ -213,6 +213,77 @@ public class PaieAjustementController {
         }
     }
 
+    @GetMapping("/modes-paiement")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> listerTousModesPaiement() throws Exception {
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT id_mode_paiement, code, libelle, exige_rib, inclus_fichier_virement, actif " +
+                     "FROM ref_mode_paiement ORDER BY id_mode_paiement");
+             ResultSet rs = ps.executeQuery()) {
+            List<Map<String, Object>> modes = new ArrayList<>();
+            while (rs.next()) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("idModePaiement", rs.getInt("id_mode_paiement"));
+                map.put("code", rs.getString("code"));
+                map.put("libelle", rs.getString("libelle"));
+                map.put("exigeRib", rs.getBoolean("exige_rib"));
+                map.put("inclusFichierVirement", rs.getBoolean("inclus_fichier_virement"));
+                map.put("actif", rs.getBoolean("actif"));
+                modes.add(map);
+            }
+            return ResponseEntity.ok(modes);
+        }
+    }
+
+    @PutMapping("/modes-paiement/{id}")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> modifierModePaiement(
+            @PathVariable("id") int id,
+            @RequestBody Map<String, Object> payload) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                String checkSql = "SELECT id_mode_paiement, code, libelle, exige_rib, inclus_fichier_virement, actif FROM ref_mode_paiement WHERE id_mode_paiement = ?";
+                Map<String, Object> old = new HashMap<>();
+                try (PreparedStatement psCheck = c.prepareStatement(checkSql)) {
+                    psCheck.setInt(1, id);
+                    try (ResultSet rs = psCheck.executeQuery()) {
+                        if (!rs.next()) {
+                            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Mode de paiement introuvable"));
+                        }
+                        old.put("libelle", rs.getString("libelle"));
+                        old.put("exigeRib", rs.getBoolean("exige_rib"));
+                        old.put("inclusFichierVirement", rs.getBoolean("inclus_fichier_virement"));
+                        old.put("actif", rs.getBoolean("actif"));
+                    }
+                }
+
+                String libelle = payload.containsKey("libelle") && payload.get("libelle") != null ? ((String) payload.get("libelle")).trim() : (String) old.get("libelle");
+                boolean exigeRib = payload.containsKey("exigeRib") ? Boolean.TRUE.equals(payload.get("exigeRib")) : (boolean) old.get("exigeRib");
+                boolean inclusVirement = payload.containsKey("inclusFichierVirement") ? Boolean.TRUE.equals(payload.get("inclusFichierVirement")) : (boolean) old.get("inclusFichierVirement");
+                boolean actif = payload.containsKey("actif") ? Boolean.TRUE.equals(payload.get("actif")) : (boolean) old.get("actif");
+
+                String updateSql = "UPDATE ref_mode_paiement SET libelle = ?, exige_rib = ?, inclus_fichier_virement = ?, actif = ? WHERE id_mode_paiement = ?";
+                try (PreparedStatement psUp = c.prepareStatement(updateSql)) {
+                    psUp.setString(1, libelle);
+                    psUp.setBoolean(2, exigeRib);
+                    psUp.setBoolean(3, inclusVirement);
+                    psUp.setBoolean(4, actif);
+                    psUp.setInt(5, id);
+                    psUp.executeUpdate();
+                }
+
+                AuditLog.audit(c, "MODIFICATION", "ref_mode_paiement", String.valueOf(id), old, payload);
+                c.commit();
+                return ResponseEntity.ok(Map.of("success", true, "message", "Mode de paiement mis à jour"));
+            } catch (Exception e) {
+                c.rollback();
+                throw e;
+            }
+        }
+    }
+
     @GetMapping("/acomptes-avances/synthese")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> syntheseAcomptesAvances() throws Exception {

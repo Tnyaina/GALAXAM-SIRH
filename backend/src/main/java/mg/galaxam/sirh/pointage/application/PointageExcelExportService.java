@@ -35,7 +35,7 @@ public class PointageExcelExportService {
             var f = data.fiche();
             merged(sheet, row++, 0, 9, "Période : " + PointageDocumentData.date(f.getDateDebut()) + " au " + PointageDocumentData.date(f.getDateFin()), section);
             merged(sheet, row++, 0, 9, "Salarié : " + PointageDocumentData.value(f.getNomComplet()) + "  ·  Matricule : " + PointageDocumentData.value(f.getMatricule()), text);
-            merged(sheet, row++, 0, 9, "Fonction : " + PointageDocumentData.value(f.getFonction()) + "  ·  Site : " + PointageDocumentData.value(f.getSiteNom()), text);
+            merged(sheet, row++, 0, 9, "Fonction : " + PointageDocumentData.value(f.getFonction()) + "  ·  Catégorie : " + PointageDocumentData.value(f.getCategorie()) + "  ·  Site : " + PointageDocumentData.value(f.getSiteNom()), text);
             merged(sheet, row++, 0, 9, data.versionSnapshot() == null ? "Données provisoires · Édité le " + data.edition() : "Période validée · Édité le " + data.edition(), note);
             row++;
             int journalTitle = row;
@@ -75,7 +75,10 @@ public class PointageExcelExportService {
                 cell(sheet, row, 1, week.getNbJoursTroncon() + " j", text);
                 double[] values = {week.getTotalHeuresTravaillees(), week.getSeuilHeuresTroncon(), week.getHeuresDeficit(),
                         week.getHeuresHs30(), week.getHeuresHs50(), week.getHeuresNuit(), week.getHeuresDimanche(), week.getHeuresFerie()};
-                for (int c = 0; c < values.length; c++) cell(sheet, row, c + 2, compactHours(values[c]), duration);
+                for (int c = 0; c < values.length; c++) {
+                    String formatted = (c >= 2 && Math.abs(values[c]) < 0.0001) ? "-" : compactHours(values[c]);
+                    cell(sheet, row, c + 2, formatted, duration);
+                }
                 sheet.getRow(row).setHeightInPoints(29);
                 row++;
             }
@@ -136,14 +139,18 @@ public class PointageExcelExportService {
     private static String compactHours(double hours) { return PointageDocumentData.dualHours(hours).replace(" (", "\n("); }
     private static int summary(Sheet sheet, int row, String label, BigDecimal value, CellStyle text) {
         merged(sheet, row, 0, 5, label, text);
-        cell(sheet, row, 7, PointageDocumentData.dualHours(value), text);
+        boolean isOvertimeOrQualified = label.contains("supplémentaires") || label.contains("nuit") || label.contains("dimanche") || label.contains("fériés");
+        String formatted = (isOvertimeOrQualified && (value == null || value.signum() == 0))
+                ? "-"
+                : PointageDocumentData.dualHours(value);
+        cell(sheet, row, 7, formatted, text);
         return row + 1;
     }
     private static Cell cell(Sheet sheet, int rowIndex, int column, Object value, CellStyle style) {
         Row row = sheet.getRow(rowIndex); if (row == null) row = sheet.createRow(rowIndex);
         Cell cell = row.getCell(column); if (cell == null) cell = row.createCell(column);
         cell.setCellStyle(style);
-        if (value == null || value.toString().isBlank()) cell.setCellValue("—");
+        if (value == null || value.toString().isBlank() || value.toString().equals("—")) cell.setCellValue("-");
         else if (value instanceof Number number) cell.setCellValue(number.doubleValue());
         else cell.setCellValue(value.toString());
         return cell;

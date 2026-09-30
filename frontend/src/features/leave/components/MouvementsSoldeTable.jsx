@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { History, PlusCircle, Download, Search } from 'lucide-react';
+import { History, PlusCircle, Download, Search, FileText, ArrowUpRight, ArrowDownRight, Calendar, User } from 'lucide-react';
 import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Badge from '@/components/ui/data-display/Badge';
@@ -27,22 +27,22 @@ const formatDateMouvement = (dateVal, fallbackTimestamp) => {
   });
 };
 
-const getMouvementLabel = (type, commentaire) => {
+const getMouvementBadgeConfig = (type, commentaire) => {
   if (type === 'AJUSTEMENT' && commentaire &&
     (commentaire.startsWith('[SOLDE_INITIAL]') || commentaire.startsWith('Reprise cutover - Solde initial'))) {
-    return 'Solde initial (reprise historique)';
+    return { variant: 'info', label: 'Solde initial (reprise)' };
   }
   if (type === 'AJUSTEMENT' && commentaire?.startsWith('Correction DAF du reliquat de reprise')) {
-    return 'Correction du reliquat de reprise';
+    return { variant: 'info', label: 'Correction reprise DAF' };
   }
   switch (type) {
-    case 'ACQUISITION': return 'Acquisition mensuelle';
-    case 'BONIFICATION': return 'Bonification ancienneté';
-    case 'PRISE': return 'Prise de congé';
-    case 'AJUSTEMENT': return 'Ajustement manuel RH';
-    case 'ANNULATION': return 'Annulation de demande';
-    case 'EXPIRATION': return 'Expiration confirmée après examen';
-    default: return type;
+    case 'ACQUISITION': return { variant: 'success', label: 'Acquisition mensuelle' };
+    case 'BONIFICATION': return { variant: 'purple', label: 'Bonification ancienneté' };
+    case 'PRISE': return { variant: 'warning', label: 'Prise de congé' };
+    case 'AJUSTEMENT': return { variant: 'neutral', label: 'Ajustement manuel RH' };
+    case 'ANNULATION': return { variant: 'neutral', label: 'Annulation' };
+    case 'EXPIRATION': return { variant: 'danger', label: 'Expiration' };
+    default: return { variant: 'default', label: type };
   }
 };
 
@@ -64,7 +64,8 @@ export default function MouvementsSoldeTable({
   canWrite = false,
   canValidate = false,
   matricule = '',
-  onAjustementSuccess
+  onAjustementSuccess,
+  onVoirDemande,
 }) {
   const toast = useToast();
 
@@ -229,6 +230,23 @@ export default function MouvementsSoldeTable({
     }
   };
 
+  const getMouvementLabel = (type, commentaire) => getMouvementBadgeConfig(type, commentaire).label;
+
+  const statsMouvements = useMemo(() => {
+    let totalAcquis = 0;
+    let totalConsomme = 0;
+    safeMouvements.forEach((m) => {
+      const n = Number(m.nbJours || 0);
+      if (n > 0) totalAcquis += n;
+      else if (n < 0) totalConsomme += Math.abs(n);
+    });
+    return {
+      totalAcquis,
+      totalConsomme,
+      nbMouvements: safeMouvements.length,
+    };
+  }, [safeMouvements]);
+
   // Rendu
   return (
     <Card padding bordered className="space-y-4 font-sans">
@@ -275,11 +293,50 @@ export default function MouvementsSoldeTable({
         </div>
       </div>
 
-      {soldeActuel != null && (
-        <p className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 text-xs text-[var(--color-fg-muted)]">
-          Solde actuel : <strong className="text-[var(--color-fg)]">{Number(soldeActuel).toFixed(2)} j</strong>
-        </p>
-      )}
+      {/* ── Synthèse des flux du solde (Cartouches) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="p-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">
+              Solde net actuel
+            </span>
+            <span className="font-mono text-base font-bold text-[var(--color-fg)] mt-0.5 block">
+              {soldeActuel != null ? `${Number(soldeActuel).toFixed(2)} j` : `${(statsMouvements.totalAcquis - statsMouvements.totalConsomme).toFixed(2)} j`}
+            </span>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] flex items-center justify-center shrink-0">
+            <Calendar size={16} />
+          </div>
+        </div>
+
+        <div className="p-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">
+              Cumul crédits & reprises
+            </span>
+            <span className="font-mono text-base font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)] mt-0.5 block">
+              +{statsMouvements.totalAcquis.toFixed(2)} j
+            </span>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-[var(--color-success-500)]/10 text-[var(--color-success-600)] dark:text-[var(--color-success-400)] flex items-center justify-center shrink-0">
+            <ArrowUpRight size={16} />
+          </div>
+        </div>
+
+        <div className="p-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">
+              Cumul débits & prises
+            </span>
+            <span className="font-mono text-base font-bold text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] mt-0.5 block">
+              -{statsMouvements.totalConsomme.toFixed(2)} j
+            </span>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] flex items-center justify-center shrink-0">
+            <ArrowDownRight size={16} />
+          </div>
+        </div>
+      </div>
 
       {/* ── Filtres et Recherche rapide ── */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -336,14 +393,18 @@ export default function MouvementsSoldeTable({
               {paginatedMouvements.map((m) => {
                 const val = Number(m.nbJours || 0);
                 const isPositive = val > 0;
+                const badgeCfg = getMouvementBadgeConfig(m.typeMouvement, m.commentaire);
+                const demandeMatch = m.commentaire ? m.commentaire.match(/Demande #(\d+)/i) : null;
+                const isRegularisation = m.commentaire?.includes('[REGULARISATION_POINTAGE]');
+
                 return (
                   <Tr key={m.idMouvement} className="hover:bg-[var(--color-surface-hover)] transition-colors">
                     <Td className="font-mono text-xs text-[var(--color-fg-muted)]">
                       {formatDateMouvement(m.dateMouvement, m.createdAt)}
                     </Td>
                     <Td>
-                      <Badge variant="default" size="xs" className="font-semibold">
-                        {getMouvementLabel(m.typeMouvement, m.commentaire)}
+                      <Badge variant={badgeCfg.variant} size="xs" className="font-semibold">
+                        {badgeCfg.label}
                       </Badge>
                     </Td>
                     <Td className="text-center font-mono font-bold text-xs font-data">
@@ -361,7 +422,25 @@ export default function MouvementsSoldeTable({
                       )}
                     </Td>
                     <Td className="text-xs text-[var(--color-fg)]">
-                      {m.commentaire || '-'}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {isRegularisation && (
+                          <Badge variant="purple" size="xs">
+                            Régul. Pointage
+                          </Badge>
+                        )}
+                        <span>{m.commentaire || '-'}</span>
+                        {demandeMatch && onVoirDemande && (
+                          <button
+                            type="button"
+                            onClick={() => onVoirDemande(demandeMatch[1])}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] bg-[var(--color-brand-500)]/10 hover:bg-[var(--color-brand-500)]/20 transition-colors"
+                            title={`Consulter le détail de la demande #${demandeMatch[1]}`}
+                          >
+                            <FileText size={10} />
+                            Voir demande #{demandeMatch[1]}
+                          </button>
+                        )}
+                      </div>
                     </Td>
                     <Td className="font-mono text-xs text-[var(--color-fg-subtle)]">
                       {m.createdBy ? `Admin (${m.createdBy})` : 'Système Auto'}

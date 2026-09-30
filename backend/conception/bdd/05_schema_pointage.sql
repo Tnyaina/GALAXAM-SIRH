@@ -98,7 +98,7 @@ CREATE TABLE site_indemnite_config (
     id_site INT NOT NULL REFERENCES ref_site(id_site),
     id_indemnite INT NOT NULL REFERENCES ref_indemnite(id_indemnite),
     periodicite VARCHAR(20) NOT NULL DEFAULT 'JOURNALIER',
-    montant_reference NUMERIC(12,2) NOT NULL,
+    montant_reference NUMERIC(20,2) NOT NULL,
     date_debut DATE NOT NULL,
     date_fin DATE,
     est_actif BOOLEAN DEFAULT TRUE
@@ -144,9 +144,9 @@ CREATE TABLE pointage_jour (
     minutes_depart_anticipe INTEGER DEFAULT 0,
     utilise_vehicule_fonction_jour BOOLEAN DEFAULT FALSE,
     horaire_continu_jour BOOLEAN,
-    montant_total_indemnites NUMERIC(12,2) DEFAULT 0,
+    montant_total_indemnites NUMERIC(20,2) DEFAULT 0,
     code_second_repas VARCHAR(20),
-    montant_second_repas NUMERIC(12,2) NOT NULL DEFAULT 0,
+    montant_second_repas NUMERIC(20,2) NOT NULL DEFAULT 0,
     motif_ajustement TEXT,
     saisi_par INTEGER REFERENCES utilisateur(id_utilisateur),
     ajuste_par_daf BOOLEAN DEFAULT FALSE,
@@ -177,7 +177,7 @@ CREATE TABLE pointage_indemnite_jour (
     id_indemnite INT NOT NULL REFERENCES ref_indemnite(id_indemnite),
     fraction VARCHAR(20) NOT NULL DEFAULT 'JOUR_ENTIER',
     quantite NUMERIC(4,2) NOT NULL DEFAULT 1.0,
-    montant_calcule NUMERIC(12,2) DEFAULT 0,
+    montant_calcule NUMERIC(20,2) DEFAULT 0,
     accorde BOOLEAN NOT NULL DEFAULT TRUE,
     motif_ajustement TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -240,9 +240,9 @@ CREATE TABLE pointage_cumul_periode (
     minutes_palier_hs30 INTEGER,
     total_minutes_retard INTEGER NOT NULL DEFAULT 0,
     nb_jours_deplacement DECIMAL(5,2) NOT NULL DEFAULT 0,
-    montant_deplacement DECIMAL(10,2) NOT NULL DEFAULT 0,
+    montant_deplacement DECIMAL(20,2) NOT NULL DEFAULT 0,
     nb_jours_repas INTEGER NOT NULL DEFAULT 0,
-    montant_repas DECIMAL(10,2) NOT NULL DEFAULT 0,
+    montant_repas DECIMAL(20,2) NOT NULL DEFAULT 0,
     gele_par INTEGER REFERENCES utilisateur(id_utilisateur),
     gele_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uk_cumul_employe_periode_version UNIQUE (id_employe, id_periode_paie, version_snapshot)
@@ -257,7 +257,7 @@ CREATE TABLE pointage_snapshot_indemnite (
     imposable_irsa BOOLEAN NOT NULL,
     soumis_cotisation BOOLEAN NOT NULL,
     code_rubrique_paie VARCHAR(50) NOT NULL,
-    montant NUMERIC(12,2) NOT NULL CHECK (montant >= 0),
+    montant NUMERIC(20,2) NOT NULL CHECK (montant >= 0),
     PRIMARY KEY (id_cumul, id_indemnite)
 );
 

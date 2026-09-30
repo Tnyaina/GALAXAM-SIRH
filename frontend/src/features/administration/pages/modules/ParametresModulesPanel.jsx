@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, FileText, Scale, Settings2 } from 'lucide-react';
+import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, FileText, Scale, Settings2, CreditCard } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Tabs from '@/components/ui/navigation/Tabs';
@@ -12,7 +12,8 @@ const CalendrierFerieTab = lazy(() => import('@/features/administration/componen
 const CotisationsIrsaTab = lazy(() => import('@/features/administration/components/payroll/CotisationsIrsaTab'));
 const IndemnitesSitesTab = lazy(() => import('@/features/administration/components/payroll/IndemnitesSitesTab'));
 const ReglementationFiscaleTab = lazy(() => import('@/features/administration/components/payroll/ReglementationFiscaleTab'));
-const VariableTypesConfig = lazy(() => import('@/features/payroll/components/tabs/VariableTypesConfig'));
+const VariableTypesConfig = lazy(() => import('@/features/payroll/components/tabs/VariableTypesConfig.jsx'));
+const ModesPaiementTab = lazy(() => import('@/features/administration/components/payroll/ModesPaiementTab'));
 
 const MODULES = [
     { id: 'general', label: 'Général & Système', icon: <Sliders size={18} /> },
@@ -52,6 +53,7 @@ export default function ParametresModulesPanel() {
     const paieTabs = [
         { id: 'reglementation_fiscale', label: 'Cadre Réglementaire & IRSA', icon: <Scale size={16} /> },
         { id: 'types_variables', label: 'Types de variables', icon: <Settings2 size={16} /> },
+        { id: 'modes_paiement', label: 'Modes de paiement', icon: <CreditCard size={16} /> },
         { id: 'cotisations_irsa', label: 'Cotisations Sociales & Sites', icon: <ShieldCheck size={16} /> },
         { id: 'indemnites_sites', label: 'Indemnités (Sites)', icon: <Gift size={16} /> },
         { id: 'calendrier', label: 'Calendrier & Fériés', icon: <Calendar size={16} /> },
@@ -140,6 +142,7 @@ export default function ParametresModulesPanel() {
                             <>
                                 {activeTab === 'reglementation_fiscale' && <ReglementationFiscaleTab />}
                                 {activeTab === 'types_variables' && <VariableTypesConfig />}
+                                {activeTab === 'modes_paiement' && <ModesPaiementTab />}
                                 {activeTab === 'calendrier' && <CalendrierFerieTab />}
                                 {activeTab === 'cotisations_irsa' && <CotisationsIrsaTab />}
                                 {activeTab === 'indemnites_sites' && <IndemnitesSitesTab />}

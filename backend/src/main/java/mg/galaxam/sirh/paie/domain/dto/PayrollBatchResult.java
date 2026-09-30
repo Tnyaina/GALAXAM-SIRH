@@ -13,6 +13,8 @@ public class PayrollBatchResult {
     private String codePeriode;
     private int nbBulletinsCalcules = 0;
     private BigDecimal totalMasseSalarialeBrute = BigDecimal.ZERO;
+    private BigDecimal totalCotisationsSalariales = BigDecimal.ZERO;
+    private BigDecimal totalIrsa = BigDecimal.ZERO;
     private BigDecimal totalNetAPayer = BigDecimal.ZERO;
     private BigDecimal totalChargesPatronales = BigDecimal.ZERO;
     private BigDecimal totalCoutGlobal = BigDecimal.ZERO;
@@ -20,7 +22,8 @@ public class PayrollBatchResult {
     private List<EmployeePayrollOutcome> employeeOutcomes = new ArrayList<>();
 
     public record EmployeePayrollOutcome(Integer employeeId, String status, String message,
-                                         BulletinPaieComplet result) {}
+                                         BulletinPaieComplet result, String employeeName,
+                                         String matricule, String reasonCode) {}
 
     public PayrollBatchResult() {}
 
@@ -38,6 +41,12 @@ public class PayrollBatchResult {
         if (bpc.getBulletin().getNetAPayer() != null) {
             this.totalNetAPayer = this.totalNetAPayer.add(bpc.getBulletin().getNetAPayer());
         }
+        if (bpc.getBulletin().getTotalCotisationsSalariales() != null) {
+            this.totalCotisationsSalariales = this.totalCotisationsSalariales.add(bpc.getBulletin().getTotalCotisationsSalariales());
+        }
+        if (bpc.getBulletin().getIrsaNet() != null) {
+            this.totalIrsa = this.totalIrsa.add(bpc.getBulletin().getIrsaNet());
+        }
         if (bpc.getBulletin().getTotalCotisationsPatronales() != null) {
             this.totalChargesPatronales = this.totalChargesPatronales.add(bpc.getBulletin().getTotalCotisationsPatronales());
         }
@@ -48,11 +57,14 @@ public class PayrollBatchResult {
             this.referencesBulletins.add(bpc.getBulletin().getReferenceBulletin());
         }
         this.employeeOutcomes.add(new EmployeePayrollOutcome(
-                bpc.getBulletin().getIdEmploye(), "OK", null, bpc));
+                bpc.getBulletin().getIdEmploye(), "OK", null, bpc,
+                bpc.getBulletin().getNomPrenom(), bpc.getBulletin().getMatricule(), null));
     }
 
-    public void ajouterBloque(Integer employeeId, String message) {
-        this.employeeOutcomes.add(new EmployeePayrollOutcome(employeeId, "BLOCKED", message, null));
+    public void ajouterBloque(Integer employeeId, String employeeName, String matricule,
+                             String reasonCode, String message) {
+        this.employeeOutcomes.add(new EmployeePayrollOutcome(
+                employeeId, "BLOCKED", message, null, employeeName, matricule, reasonCode));
     }
 
     // Getters & Setters
@@ -67,6 +79,12 @@ public class PayrollBatchResult {
 
     public BigDecimal getTotalMasseSalarialeBrute() { return totalMasseSalarialeBrute; }
     public void setTotalMasseSalarialeBrute(BigDecimal totalMasseSalarialeBrute) { this.totalMasseSalarialeBrute = totalMasseSalarialeBrute; }
+
+    public BigDecimal getTotalCotisationsSalariales() { return totalCotisationsSalariales; }
+    public void setTotalCotisationsSalariales(BigDecimal value) { this.totalCotisationsSalariales = value; }
+
+    public BigDecimal getTotalIrsa() { return totalIrsa; }
+    public void setTotalIrsa(BigDecimal value) { this.totalIrsa = value; }
 
     public BigDecimal getTotalNetAPayer() { return totalNetAPayer; }
     public void setTotalNetAPayer(BigDecimal totalNetAPayer) { this.totalNetAPayer = totalNetAPayer; }

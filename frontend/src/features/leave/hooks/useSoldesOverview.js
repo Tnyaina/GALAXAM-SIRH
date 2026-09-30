@@ -67,6 +67,10 @@ export function useSoldesOverview() {
     setCurrentMonth(getTodayDateString().slice(0, 7));
   };
 
+  const handleMonthChange = (monthStr) => {
+    if (/^\d{4}-\d{2}$/.test(monthStr)) setCurrentMonth(monthStr);
+  };
+
   const handlePrevWeek = () => {
     const nextMon = new Date(currentWeekMonday);
     nextMon.setDate(nextMon.getDate() - 7);
@@ -81,6 +85,12 @@ export function useSoldesOverview() {
 
   const handleTodayWeek = () => {
     setCurrentWeekMonday(getMonday(new Date()));
+  };
+
+  const handleWeekDateChange = (dateStr) => {
+    if (!dateStr) return;
+    const [selectedYear, selectedMonth, selectedDay] = dateStr.split('-').map(Number);
+    setCurrentWeekMonday(getMonday(new Date(selectedYear, selectedMonth - 1, selectedDay)));
   };
 
   // États pour recherche et pagination Gantt
@@ -331,6 +341,7 @@ export function useSoldesOverview() {
     handlePrevMonth,
     handleNextMonth,
     handleToday: handleTodayMonth,
+    handleMonthChange,
 
     // Navigation Semaine
     currentWeekMonday,
@@ -341,6 +352,7 @@ export function useSoldesOverview() {
     handlePrevWeek,
     handleNextWeek,
     handleTodayWeek,
+    handleWeekDateChange,
 
     // Gantt Data & State
     planningLoading,

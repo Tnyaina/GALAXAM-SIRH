@@ -14,7 +14,6 @@ import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign'
 import paieConfigService from '@/features/administration/api/paieConfigService';
 import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
-import { getPaieStatusVariant } from '@/features/payroll/utils/payrollPresentation';
 
 /**
  * DeclarationsSortiesPage — Espace Déclarations & Sorties (Maquette V1 Full V3).
@@ -67,7 +66,7 @@ export default function DeclarationsSortiesPage() {
      * Ces deux concepts sont distincts et ne doivent pas être confondus.
      * Un badge de statut n'implique pas qu'une action est disponible.
      */
-    const periodeState = activePeriod?.state || null;
+    const payrollStatus = activePeriod?.workflowStatuses?.paie;
     const generateOutputAction = context?.availableActions?.GENERATE_OUTPUT;
     const canGenerateOutput = generateOutputAction?.allowed === true;
     const generateOutputBlockReason = canGenerateOutput
@@ -303,8 +302,8 @@ export default function DeclarationsSortiesPage() {
                                 /* STATE métier (badge visuel) : period.state fourni par le backend. */
                                 /* Séparé de canGenerateOutput (CAPABILITY) qui pilote les boutons. */
                             }
-                            <Badge variant={getPaieStatusVariant(periodeState)} size="xs">
-                                {ctxLoading ? '…' : periodeState || 'Non démarrée'}
+                            <Badge variant={payrollStatus?.tone || 'neutral'} size="xs">
+                                {ctxLoading ? '…' : payrollStatus?.label || 'Statut indisponible'}
                             </Badge>
                         </div>
 

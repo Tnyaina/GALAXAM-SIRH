@@ -70,6 +70,7 @@ incompatible fait échouer l'index unique et demande un arbitrage explicite.
 | `26-09-28-sp39-second-repas-actif.sql` | Rétablit la désactivation des tranches de second repas après sp38 déjà appliqué | `01_schema_core_securite.sql` |
 | `26-09-28-sp40-second-repas-pointage.sql` | Trace le deuxième repas automatique dans le pointage, sans nouvelle indemnité | `05_schema_pointage.sql` |
 | `26-09-29-sp41-pointage-repos.sql` | Ajoute le statut journalier REPOS aux bases existantes | `05_schema_pointage.sql` |
+| `26-09-30-sp42-paie-precision-montants.sql` | Élargit les montants et taux horaires de paie pour les valeurs élevées en ariary | `06_schema_paie.sql` |
 
 ### Remarques Opérationnelles
 - Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 81 tables et 9 vues cohérentes.

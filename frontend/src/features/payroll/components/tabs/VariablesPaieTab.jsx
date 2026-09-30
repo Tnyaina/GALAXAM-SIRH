@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
     SlidersHorizontal, 
     Plus, 
@@ -7,24 +7,26 @@ import {
     TrendingDown, 
     Search,
     Eye,
-    RefreshCw,
     Info,
-    AlertCircle
+    AlertCircle,
+    CheckCircle2
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import Modal from '@/components/ui/overlays/Modal';
-import StatCard from '@/components/ui/data-display/StatCard';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Pagination from '@/components/ui/navigation/Pagination';
 import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import { formatMoneyAr } from '@/utils/moneyUtils';
+import { fmtDate } from '@/utils/dateUtils';
 import { useAuth } from '@/context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -35,25 +37,35 @@ const parseAriaryAmount = (value) => {
     return Number.isFinite(amount) && amount > 0 ? amount : null;
 };
 
-export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, mutationDisabledReason = '', onVariableChanged }) {
+export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, mutationDisabledReason = '', onVariableChanged, onPendingCountChange }) {
     const { hasPermission } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const canConfigure = hasPermission('ROLE_ADMIN');
     // État local : variables, filtres, formulaire et retours d'action.
     const [variables, setVariables] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [refreshError, setRefreshError] = useState(false);
+    const requestIdRef = useRef(0);
     const [typesMouvements, setTypesMouvements] = useState([]);
     const [eligibleEmployees, setEligibleEmployees] = useState([]);
     const [populationError, setPopulationError] = useState('');
     const [filterSens, setFilterSens] = useState('ALL');
     const [searchQuery, setSearchQuery] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
     const [feedbackMsg, setFeedbackMsg] = useState(null);
+
+    // Modales de confirmation (Approuver & Supprimer)
+    const [approvingVariable, setApprovingVariable] = useState(null);
+    const [deletingVariable, setDeletingVariable] = useState(null);
+    const [actionLoading, setActionLoading] = useState(false);
 
     // Modal Nouvelle Variable
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [formError, setFormError] = useState('');
+    const [formNotice, setFormNotice] = useState('');
     const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(false);
     const [bulletinPreview, setBulletinPreview] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
@@ -67,15 +79,17 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         motif: ''
     });
 
-    const chargerDonnees = useCallback(async () => {
-        setLoading(true);
-        setFeedbackMsg(null);
+    const chargerDonnees = useCallback(async ({ silent = false } = {}) => {
+        const requestId = ++requestIdRef.current;
+        if (!silent) setLoading(true);
         try {
             const [ajustementsRes, typesRes] = await Promise.all([
                 paieService.listerAjustements(idPeriodeActive || null),
                 paieService.listerTypesMouvements(idPeriodeActive)
             ]);
+            if (requestIdRef.current !== requestId) return;
             setVariables(Array.isArray(ajustementsRes) ? ajustementsRes : (ajustementsRes?.content || ajustementsRes?.items || []));
+            setRefreshError(false);
             const loadedTypes = Array.isArray(typesRes) ? typesRes : (typesRes?.content || typesRes?.items || []);
             setTypesMouvements(loadedTypes);
             if (loadedTypes.length > 0) {
@@ -90,19 +104,32 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 }));
             }
         } catch (err) {
-            setFeedbackMsg({
-                type: 'error',
-                text: getErrorMessage(err, 'Erreur lors du chargement des variables de paie.')
-            });
+            if (requestIdRef.current === requestId) {
+                setRefreshError(true);
+                if (!silent) setFeedbackMsg({ type: 'error', text: getErrorMessage(err, 'Erreur lors du chargement des variables de paie.') });
+            }
         } finally {
-            setLoading(false);
+            if (requestIdRef.current === requestId) setLoading(false);
         }
     }, [idPeriodeActive]);
 
     // Effet : recharge les variables quand la période active change.
     useEffect(() => {
         chargerDonnees();
+        return () => { requestIdRef.current += 1; };
     }, [chargerDonnees]);
+
+    useEffect(() => {
+        const refreshIfVisible = () => {
+            if (document.visibilityState === 'visible' && !isModalOpen) chargerDonnees({ silent: true });
+        };
+        const timer = window.setInterval(refreshIfVisible, 60000);
+        document.addEventListener('visibilitychange', refreshIfVisible);
+        return () => {
+            window.clearInterval(timer);
+            document.removeEventListener('visibilitychange', refreshIfVisible);
+        };
+    }, [chargerDonnees, isModalOpen]);
 
     useEffect(() => {
         setIsModalOpen(false);
@@ -156,6 +183,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
 
     const handleFormChange = (field, val) => {
         setFormError('');
+        setFormNotice('');
         if (field === 'idEmploye' || field === 'typeMouvement' || field === 'sens') {
             setDuplicateAcknowledged(false);
         }
@@ -175,8 +203,9 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         });
     };
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e, keepOpen = false) => {
         e.preventDefault();
+        if (submitting) return;
         if (!form.idEmploye) {
             setFormError('Veuillez sélectionner un salarié.');
             return;
@@ -214,16 +243,17 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 motif: form.motif || 'Variable de paie'
             });
 
-            setIsModalOpen(false);
-            setForm({
-                idEmploye: '',
-                typeMouvement: typesMouvements[0]?.code || '',
-                sens: typesMouvements[0]?.sens || '',
-                montant: '',
-                motif: ''
-            });
-            await chargerDonnees();
-            setFeedbackMsg({ type: 'success', text: 'Variable enregistrée. Approuvez-la avant le calcul réel de la paie.' });
+            if (keepOpen) {
+                setForm(previous => ({ ...previous, montant: '', motif: '' }));
+                setDuplicateAcknowledged(false);
+                setFormNotice('Variable enregistrée. Vous pouvez saisir la suivante pour ce salarié ou en choisir un autre.');
+                setPreviewRevision(revision => revision + 1);
+            } else {
+                setIsModalOpen(false);
+                setForm({ idEmploye: '', typeMouvement: typesMouvements[0]?.code || '', sens: typesMouvements[0]?.sens || '', montant: '', motif: '' });
+            }
+            await chargerDonnees({ silent: true });
+            if (!keepOpen) setFeedbackMsg({ type: 'success', text: 'Variable enregistrée. Approuvez-la avant le calcul réel de la paie.' });
             onVariableChanged?.();
         } catch (err) {
             setFormError(getErrorMessage(err, 'Erreur lors de la création de la variable.'));
@@ -232,33 +262,44 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         }
     };
 
-    const handleSupprimer = async (idAvance) => {
+    const handleConfirmSupprimer = async () => {
+        if (!deletingVariable) return;
+        const idAvance = deletingVariable.idAvance ?? deletingVariable.id_avance;
         if (!idAvance) return;
-        if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette variable de paie ?')) return;
 
+        setActionLoading(true);
         try {
             await paieService.supprimerAjustement(idAvance);
-            await chargerDonnees();
+            await chargerDonnees({ silent: true });
             setFeedbackMsg({ type: 'success', text: 'Variable supprimée avec succès.' });
             onVariableChanged?.();
+            setDeletingVariable(null);
         } catch (err) {
             setFeedbackMsg({
                 type: 'error',
                 text: getErrorMessage(err, 'Impossible de supprimer cette variable.')
             });
+        } finally {
+            setActionLoading(false);
         }
     };
 
-    const handleApprouver = async (variable) => {
-        const idAvance = variable.idAvance ?? variable.id_avance;
+    const handleConfirmApprouver = async () => {
+        if (!approvingVariable) return;
+        const idAvance = approvingVariable.idAvance ?? approvingVariable.id_avance;
         if (!idAvance) return;
+
+        setActionLoading(true);
         try {
-            await paieService.executerCommandeAjustement(idAvance, 'APPROVE', null, variable.version);
-            await chargerDonnees();
+            await paieService.executerCommandeAjustement(idAvance, 'APPROVE', null, approvingVariable.version);
+            await chargerDonnees({ silent: true });
             setFeedbackMsg({ type: 'success', text: 'Variable approuvée. Le calcul réel peut désormais la prendre en compte.' });
             onVariableChanged?.();
+            setApprovingVariable(null);
         } catch (err) {
             setFeedbackMsg({ type: 'error', text: getErrorMessage(err, 'Impossible d’approuver cette variable.') });
+        } finally {
+            setActionLoading(false);
         }
     };
 
@@ -288,15 +329,21 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             typeLibelle.toLowerCase().includes(q) ||
             motif.toLowerCase().includes(q);
         return matchSens && matchSearch;
-    });
+    }).sort((a, b) => Number(b.statut === 'EN_ATTENTE') - Number(a.statut === 'EN_ATTENTE'));
+    const pagedVariables = filteredVariables.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-    const totalGains = filteredVariables
+    const totalGains = listVariables
         .filter(v => v.sens === 'GAIN')
         .reduce((sum, v) => sum + (Number(v.montant) || 0), 0);
 
-    const totalRetenues = filteredVariables
+    const totalRetenues = listVariables
         .filter(v => v.sens === 'RETENUE')
         .reduce((sum, v) => sum + (Number(v.montant) || 0), 0);
+    const pendingCount = listVariables.filter(v => v.statut === 'EN_ATTENTE').length;
+
+    useEffect(() => {
+        if (!loading && !refreshError) onPendingCountChange?.(pendingCount);
+    }, [loading, refreshError, pendingCount, onPendingCountChange]);
 
     const statutLabels = {
         IMPUTE_PAIE: { label: 'Imputé en paie', variant: 'info' },
@@ -331,6 +378,9 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         Number(variable.idEmploye ?? variable.id_employe) === Number(form.idEmploye)
         && !['REJETE', 'ANNULE', 'CANCELLED'].includes(variable.statut)
     );
+    const previewEmployee = eligibleEmployees.find(emp => Number(emp.idEmploye ?? emp.id_employe) === Number(form.idEmploye));
+    const montantNum = parseAriaryAmount(form.montant);
+    const hasValidMontant = montantNum != null && montantNum > 0;
 
     // Rendu
     return (
@@ -343,39 +393,29 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 />
             )}
 
-            {/* Cartes récapitulatives via StatCard */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <StatCard
-                    title="Primes & Gains"
-                    value={`+${formatAr(totalGains)}`}
-                    subtext="Bonus et indemnités brutes"
-                    icon={<TrendingUp size={18} />}
-                    color="success"
-                />
-                <StatCard
-                    title="Acomptes & Retenues"
-                    value={`-${formatAr(totalRetenues)}`}
-                    subtext="Avances et retenues sur salaire"
-                    icon={<TrendingDown size={18} />}
-                    color="danger"
-                />
-                <StatCard
-                    title="Lignes Enregistrées"
-                    value={`${filteredVariables.length} variable(s)`}
-                    subtext="Éléments variables du mois"
-                    icon={<SlidersHorizontal size={18} />}
-                    color="brand"
-                />
+            <div className="grid grid-cols-2 lg:grid-cols-4 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] divide-x divide-[var(--color-border-subtle)]">
+                {[
+                    ['Variables', listVariables.length, 'text-[var(--color-fg)]'],
+                    ['À approuver', pendingCount, pendingCount > 0 ? 'text-[var(--color-warning-700)]' : 'text-[var(--color-fg)]'],
+                    ['Gains', `+${formatAr(totalGains)}`, 'text-[var(--color-success-700)]'],
+                    ['Retenues', `−${formatAr(totalRetenues)}`, 'text-[var(--color-danger-700)]'],
+                ].map(([label, value, tone]) => (
+                    <div key={label} className="p-3 min-w-0">
+                        <p className="text-[10px] uppercase tracking-wider font-bold text-[var(--color-fg-muted)]">{label}</p>
+                        <p className={`mt-1 text-lg font-bold font-mono truncate ${tone}`}>{value}</p>
+                    </div>
+                ))}
             </div>
 
-            <Alert
-                type="info"
-                message="Les repas et déplacements ordinaires proviennent du pointage. Saisissez ici les primes exceptionnelles et autres variables justifiées. Le régime fiscal et social vient de la rubrique configurée."
-            />
+            <details className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-3 py-2 text-xs text-[var(--color-fg-muted)]">
+                <summary className="font-semibold text-[var(--color-fg)] cursor-pointer">Quelles variables saisir ici ?</summary>
+                <p className="mt-2">Les repas et déplacements ordinaires proviennent du pointage. Saisissez ici les primes et retenues exceptionnelles justifiées. Le régime fiscal et social provient du type configuré.</p>
+            </details>
 
-            {listVariables.some(variable => variable.statut === 'EN_ATTENTE') && (
-                <Alert type="warning" message="Des variables attendent votre approbation. Le calcul réel de la paie reste bloqué jusqu’à leur approbation ou suppression." />
+            {pendingCount > 0 && (
+                <Alert type="warning" message={`${pendingCount} variable(s) en attente d’approbation. Le calcul réel reste bloqué jusqu’à leur approbation ou suppression.`} />
             )}
+            {refreshError && <p role="status" className="text-xs text-[var(--color-warning-700)]">Mise à jour indisponible ; les dernières données chargées restent affichées.</p>}
 
             {/* Barre de filtre et Action */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
@@ -385,7 +425,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                             type="search"
                             placeholder="Rechercher par collaborateur, matricule, motif…"
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                             iconLeft={<Search size={14} />}
                             aria-label="Rechercher une variable de paie"
                         />
@@ -393,7 +433,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                     <div className="w-56">
                         <Select
                             value={filterSens}
-                            onChange={(val) => setFilterSens(val)}
+                            onChange={(val) => { setFilterSens(val); setCurrentPage(1); }}
                             options={[
                                 { value: 'ALL', label: 'Tous les éléments (Gains & Retenues)' },
                                 { value: 'GAIN', label: '+ Primes & Gains' },
@@ -404,19 +444,19 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                     </div>
                 </div>
 
-                {canConfigure && <Button variant="secondary" size="sm" onClick={() => navigate('/admin/parametres?module=paie&tab=types_variables', { state: { from: location.pathname + location.search } })} iconLeft={<SlidersHorizontal size={14} />}>
-                    Configurer les types
+                {canConfigure && <Button variant="ghost" size="sm" onClick={() => navigate('/admin/parametres?module=paie&tab=types_variables', { state: { from: location.pathname + location.search } })} iconLeft={<SlidersHorizontal size={14} />}>
+                    Catalogue des types
                 </Button>}
                 <Button
                     variant="primary"
                     size="sm"
-                    onClick={() => { setFormError(''); setIsModalOpen(true); }}
+                    onClick={() => { setFormError(''); setFormNotice(''); setIsModalOpen(true); }}
                     iconLeft={<Plus size={14} />}
                     className="w-full sm:w-auto justify-center shrink-0"
                     disabled={!canMutate}
                     title={!canMutate ? mutationDisabledReason : undefined}
                 >
-                    Nouvelle Variable
+                    Ajouter une variable
                 </Button>
             </div>
 
@@ -429,29 +469,25 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                     title="Aucune variable de paie"
                     description="Il n’y a aucun élément variable (prime, acompte, retenue) enregistré pour cette période ou ces filtres."
                     actionLabel={canMutate ? 'Ajouter une variable' : undefined}
-                    onAction={canMutate ? () => { setFormError(''); setIsModalOpen(true); } : undefined}
+                    onAction={canMutate ? () => { setFormError(''); setFormNotice(''); setIsModalOpen(true); } : undefined}
                     actionIcon={canMutate ? <Plus size={14} /> : undefined}
                 />
             ) : (
-                <Table aria-label="Variables de paie">
+                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+                <Table aria-label="Variables de paie" density="compact">
                     <Thead>
                         <Tr>
-                            <Th>Date</Th>
-                            <Th>Matricule</Th>
-                            <Th>Collaborateur</Th>
-                            <Th>Type d'élément</Th>
-                            <Th>Sens</Th>
-                            <Th>Régime Fiscal / Social</Th>
+                            <Th>Salarié</Th>
+                            <Th>Variable</Th>
                             <Th className="text-right">Montant</Th>
-                            <Th>Motif</Th>
-                            <Th className="text-center">Statut</Th>
-                            <Th className="text-right">Action</Th>
+                            <Th>Justification</Th>
+                            <Th>Statut</Th>
+                            <Th className="text-right">Actions</Th>
                         </Tr>
                     </Thead>
                     <Tbody>
-                        {filteredVariables.map((v, index) => {
+                        {pagedVariables.map((v, index) => {
                             const idAvance = v.idAvance ?? v.id_avance;
-                            const dateDemande = v.dateDemande || v.date_demande;
                             const nomComplet = v.nomComplet || v.nom_complet;
                             const typeLibelle = v.typeLibelle || v.type_libelle || v.typeMouvement || v.type_mouvement;
                             const statInfo = statutLabels[v.statut] || { label: v.statut || 'Enregistré', variant: 'neutral' };
@@ -459,106 +495,113 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                             const taxable = v.imposable ?? configuredType?.imposable;
                             const social = v.cotisable ?? configuredType?.cotisable;
                             return (
-                                <Tr key={idAvance || index} className="hover:bg-[var(--color-bg-subtle)]/50 transition-colors">
-                                    <Td className="font-mono text-[11px] text-[var(--color-fg-muted)]">
-                                        {dateDemande || '—'}
-                                    </Td>
-                                    <Td className="font-mono font-bold text-[var(--color-fg)]">
-                                        {v.matricule || '—'}
-                                    </Td>
-                                    <Td className="font-semibold text-[var(--color-fg)] whitespace-nowrap">
-                                        {nomComplet || 'Collaborateur'}
+                                <Tr key={idAvance || index} className={v.statut === 'EN_ATTENTE' ? 'bg-[var(--color-warning-50)]/50' : ''}>
+                                    <Td className="font-semibold text-[var(--color-fg)]">
+                                        <span className="block">{nomComplet || 'Collaborateur'}</span>
+                                        <span className="block font-mono font-normal text-[11px] text-[var(--color-fg-muted)]">{v.matricule || '—'}</span>
                                     </Td>
                                     <Td>
                                         <span className="font-medium text-[var(--color-fg)] block">
                                             {typeLibelle || 'Variable'}
                                         </span>
-                                    </Td>
-                                    <Td>
-                                        <Badge
-                                            variant={v.sens === 'GAIN' ? 'success' : 'danger'}
-                                            size="xs"
-                                        >
-                                             {v.sens === 'GAIN' ? '+ Gain' : '- Retenue'}
-                                        </Badge>
-                                    </Td>
-                                    <Td>
-                                        <Badge
-                                            variant={v.sens === 'GAIN' ? (taxable ? 'primary' : 'purple') : 'neutral'}
-                                            size="xs"
-                                        >
-                                            {regimeLabel(v.sens, taxable, social)}
-                                        </Badge>
+                                        <span className="block text-[11px] text-[var(--color-fg-muted)]">{regimeLabel(v.sens, taxable, social)}</span>
                                     </Td>
                                     <Td className="text-right font-mono font-bold whitespace-nowrap">
                                         <span className={v.sens === 'GAIN' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'}>
                                             {v.sens === 'GAIN' ? '+' : '-'}{formatAr(v.montant)}
                                         </span>
                                     </Td>
-                                    <Td className="text-[var(--color-fg-muted)] max-w-xs truncate" title={v.motif}>
-                                        {v.motif || '—'}
+                                    <Td className="text-[var(--color-fg-muted)] max-w-xs whitespace-normal">
+                                        <span className="block">{v.motif || '—'}</span>
+                                        {(v.dateDemande || v.date_demande) && <span className="block text-[11px] text-[var(--color-fg-subtle)]">Saisie le {fmtDate(v.dateDemande || v.date_demande)}</span>}
                                     </Td>
-                                    <Td className="text-center">
+                                    <Td>
                                         <Badge variant={statInfo.variant} size="xs" dot>
                                             {statInfo.label}
                                         </Badge>
                                     </Td>
-                                    <Td className="text-right">
-                                        {canMutate && v.statut === 'EN_ATTENTE' && idAvance && (
-                                            <Button variant="secondary" size="xs" onClick={() => handleApprouver(v)}>
-                                                Approuver
-                                            </Button>
-                                        )}
-                                        {canMutate && v.statut !== 'IMPUTE_PAIE' && idAvance && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSupprimer(idAvance)}
-                                                className="p-1 hover:bg-[var(--color-danger-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-600)] rounded-none transition-colors"
-                                                title="Supprimer cette variable"
-                                                aria-label="Supprimer"
-                                            >
-                                                <Trash2 size={13} />
-                                            </button>
-                                        )}
+                                    <Td className="text-right whitespace-nowrap">
+                                        <div className="inline-flex items-center justify-end gap-1.5">
+                                            {canMutate && v.statut === 'EN_ATTENTE' && idAvance && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="xs"
+                                                    iconLeft={<CheckCircle2 size={13} className="text-[var(--color-brand-600)]" />}
+                                                    onClick={() => setApprovingVariable(v)}
+                                                    className="text-[var(--color-brand-600)] border-[var(--color-brand-300)] hover:bg-[var(--color-brand-50)] dark:border-[var(--color-brand-700)] dark:hover:bg-[var(--color-brand-900)]/30"
+                                                >
+                                                    Approuver
+                                                </Button>
+                                            )}
+                                            {canMutate && v.statut !== 'IMPUTE_PAIE' && idAvance && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="xs"
+                                                    iconLeft={<Trash2 size={13} />}
+                                                    onClick={() => setDeletingVariable(v)}
+                                                    className="text-[var(--color-danger-600)] hover:bg-[var(--color-danger-50)] dark:hover:bg-[var(--color-danger-950)]/40"
+                                                >
+                                                    Supprimer
+                                                </Button>
+                                            )}
+                                        </div>
                                     </Td>
                                 </Tr>
                             );
                         })}
                     </Tbody>
                 </Table>
+                <Pagination currentPage={currentPage} totalItems={filteredVariables.length} pageSize={pageSize} pageSizeOptions={[10, 25, 50]} onPageChange={setCurrentPage} onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }} />
+                </div>
             )}
 
             {/* Modale d'ajout de variable */}
             <Modal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                title="Préparer une variable pour un salarié"
-                size="full"
-                className="max-h-[94vh]"
+                title="Ajouter une variable de paie"
+                size="4xl"
+                className="max-h-[92vh]"
                 icon={<SlidersHorizontal size={18} />}
                 footer={
-                    <div className="flex items-center justify-end gap-2 w-full">
-                        <Button variant="secondary" size="sm" onClick={() => setIsModalOpen(false)}>
+                    <div className="flex items-center justify-between w-full">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setIsModalOpen(false)}
+                            disabled={submitting}
+                        >
                             Annuler
                         </Button>
-                        <Button 
-                            variant="primary" 
-                            size="sm" 
-                            onClick={handleSubmit}
-                            disabled={submitting || (possibleDuplicate && !duplicateAcknowledged)}
-                        >
-                            {submitting ? 'Enregistrement...' : 'Enregistrer pour le calcul'}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(event) => handleSubmit(event, true)}
+                                disabled={submitting || (possibleDuplicate && !duplicateAcknowledged)}
+                            >
+                                Enregistrer et ajouter une autre
+                            </Button>
+                            <Button 
+                                variant="primary" 
+                                size="sm" 
+                                onClick={handleSubmit}
+                                disabled={submitting || (possibleDuplicate && !duplicateAcknowledged)}
+                            >
+                                {submitting ? 'Enregistrement…' : 'Enregistrer pour approbation'}
+                            </Button>
+                        </div>
                     </div>
                 }
             >
                 <form onSubmit={handleSubmit} className="text-xs">
                     {formError && <div role="alert" className="mb-4 flex items-start gap-2 border border-[var(--color-danger-500)]/35 bg-[var(--color-danger-500)]/10 p-3 text-[var(--color-danger-700)]"><AlertCircle size={14} className="mt-0.5 shrink-0" />{formError}</div>}
-                    <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-5 items-start">
+                    {formNotice && <p role="status" className="mb-4 border border-[var(--color-success-300)] bg-[var(--color-success-50)] p-3 text-[var(--color-success-700)]">{formNotice}</p>}
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.25fr] gap-6 items-start">
                       <div className="space-y-4">
                         <div className="border-l-2 border-[var(--color-brand-500)] pl-3">
-                            <h4 className="text-sm font-bold text-[var(--color-fg)]">1. Choisir le salarié</h4>
-                            <p className="mt-0.5 text-[11px] text-[var(--color-fg-muted)]">Consultez son aperçu de paie avant d’ajouter une variable.</p>
+                            <h4 className="text-sm font-bold text-[var(--color-fg)]">1. Salarié concerné</h4>
+                            <p className="mt-0.5 text-[11px] text-[var(--color-fg-muted)]">Choisissez un salarié inclus dans cette campagne.</p>
                         </div>
                         <div>
                             <EmployeSearchSelect
@@ -572,8 +615,8 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         </div>
 
                         <div className="border-l-2 border-[var(--color-brand-500)] pl-3 pt-1">
-                            <h4 className="text-sm font-bold text-[var(--color-fg)]">2. Vérifier puis décrire la variable</h4>
-                            <p className="mt-0.5 text-[11px] text-[var(--color-fg-muted)]">Vérifiez l’aperçu à droite. Le sens et le traitement proviennent du catalogue de paie.</p>
+                            <h4 className="text-sm font-bold text-[var(--color-fg)]">2. Variable et justification</h4>
+                            <p className="mt-0.5 text-[11px] text-[var(--color-fg-muted)]">Le traitement fiscal et social provient du type choisi.</p>
                         </div>
                         <div className="grid grid-cols-2 gap-2" role="group" aria-label="Sens de la variable">
                             {[
@@ -637,119 +680,300 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         <div className="border border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10 p-3 space-y-2">
                             <p className="text-xs font-semibold text-[var(--color-fg)]">Variable similaire déjà enregistrée</p>
                             <p className="text-[11px] text-[var(--color-fg-muted)]">Même collaborateur et même type sur cette période. Vérifiez le montant et le motif avant de poursuivre.</p>
-                            <label className="flex items-start gap-2 text-[11px] text-[var(--color-fg)] cursor-pointer">
+                            <div className="flex items-start gap-2 pt-1">
                                 <input
+                                    id="confirm-duplicate-variable"
                                     type="checkbox"
                                     checked={duplicateAcknowledged}
                                     onChange={(event) => { setDuplicateAcknowledged(event.target.checked); setFormError(''); }}
-                                    className="mt-0.5 accent-[var(--color-brand-600)]"
+                                    className="mt-0.5 accent-[var(--color-brand-600)] cursor-pointer"
                                 />
-                                <span>Je confirme qu’il s’agit d’un élément distinct et non d’un doublon.</span>
-                            </label>
+                                <label htmlFor="confirm-duplicate-variable" className="text-[11px] text-[var(--color-fg)] cursor-pointer">
+                                    Je confirme qu’il s’agit d’un élément distinct et non d’un doublon.
+                                </label>
+                            </div>
                         </div>
                         )}
                       </div>
 
-                      <aside className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] min-h-[320px] p-4 space-y-4">
-                        <div className="flex items-start justify-between gap-3">
+                      <aside className="border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm p-4 space-y-3.5 border-t-2 border-t-[var(--color-brand-500)]">
+                        <div className="flex items-center justify-between pb-2.5 border-b border-[var(--color-border-subtle)]">
                             <div>
                                 <div className="flex items-center gap-2 text-sm font-bold text-[var(--color-fg)]">
-                                    <Eye size={15} className="text-[var(--color-brand-600)]" /> Aperçu du bulletin
+                                    <Eye size={16} className="text-[var(--color-brand-600)]" />
+                                    <span>Bulletin actuel</span>
+                                    {form.idEmploye && (
+                                        <Badge variant="brand" size="xs" dot>
+                                            Simulation
+                                        </Badge>
+                                    )}
                                 </div>
-                                <p className="mt-1 text-[11px] text-[var(--color-fg-muted)]">Simulation avant l’ajout de cette variable.</p>
+                                <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+                                    Aperçu provisoire avant l’imputation de cette variable.
+                                </p>
                             </div>
-                            {form.idEmploye && (
-                                <button type="button" onClick={() => setPreviewRevision(revision => revision + 1)} disabled={previewLoading} className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--color-brand-700)] hover:underline disabled:opacity-50">
-                                    <RefreshCw size={12} /> Actualiser
-                                </button>
+                            {previewEmployee && (
+                                <Badge variant="neutral" size="xs" className="font-mono font-semibold">
+                                    #{previewEmployee.matricule}
+                                </Badge>
                             )}
                         </div>
 
                         {!form.idEmploye ? (
-                            <div className="flex min-h-[210px] flex-col items-center justify-center text-center text-[var(--color-fg-muted)]">
-                                <SlidersHorizontal size={24} className="mb-2 opacity-50" />
-                                <p className="font-semibold">Sélectionnez un salarié</p>
-                                <p className="mt-1 max-w-[230px] text-[11px]">Son bulletin provisoire apparaîtra ici pour vous aider à décider.</p>
+                            <div className="flex min-h-[160px] flex-col items-center justify-center text-center text-[var(--color-fg-muted)] p-6 bg-[var(--color-bg-subtle)]/40 border border-dashed border-[var(--color-border-subtle)]">
+                                <SlidersHorizontal size={28} className="mb-2 opacity-40 text-[var(--color-brand-600)]" />
+                                <p className="font-semibold text-xs text-[var(--color-fg)]">Sélectionnez un salarié</p>
+                                <p className="mt-1 max-w-[260px] text-[11px]">Son bulletin provisoire apparaîtra ici avec tous les calculs intermédiaires pour vous guider.</p>
                             </div>
                         ) : previewLoading ? (
-                            <div className="flex min-h-[210px] items-center justify-center gap-2 text-[var(--color-fg-muted)]">
-                                <RefreshCw size={15} className="animate-spin" /> Calcul de l’aperçu…
+                            <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 text-xs text-[var(--color-fg-muted)] p-6">
+                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-brand-500)] border-t-transparent" />
+                                <span>Calcul de l’aperçu du bulletin…</span>
                             </div>
                         ) : previewError ? (
-                            <div className="flex gap-2 border border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/10 p-3 text-[11px] text-[var(--color-fg)]">
-                                <AlertCircle size={14} className="mt-0.5 shrink-0 text-[var(--color-warning-600)]" />
+                            <div className="flex gap-2.5 border border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/10 p-3.5 text-xs text-[var(--color-fg)]">
+                                <AlertCircle size={16} className="mt-0.5 shrink-0 text-[var(--color-warning-600)]" />
                                 <span>{previewError}</span>
                             </div>
                         ) : previewBulletin ? (
-                            <>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3">
-                                        <span className="block text-[10px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Salaire de base</span>
-                                        <strong className="mt-1 block font-mono text-sm text-[var(--color-fg)]">{formatAr(previewBase)}</strong>
+                            <div className="space-y-3.5">
+                                {/* KPIs Salaire de Base et Brut Provisoire */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/60 p-3">
+                                        <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Salaire de base</span>
+                                        <strong className="mt-1 block font-mono text-base font-bold text-[var(--color-fg)]">{formatAr(previewBase)}</strong>
                                     </div>
-                                    <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3">
-                                        <span className="block text-[10px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Brut provisoire</span>
-                                        <strong className="mt-1 block font-mono text-sm text-[var(--color-fg)]">{formatAr(previewGross)}</strong>
+                                    <div className="border border-[var(--color-brand-500)]/30 bg-[var(--color-brand-500)]/5 p-3">
+                                        <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]">Brut provisoire</span>
+                                        <strong className="mt-1 block font-mono text-base font-bold text-[var(--color-fg)]">{formatAr(previewGross)}</strong>
                                     </div>
                                 </div>
-                                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 space-y-2" aria-label="Étapes du calcul provisoire">
-                                    <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">Du brut au net</p>
-                                    {[
-                                        ['Brut calculé', previewGross],
-                                        ['Cotisations salariales', previewCotisations, true],
-                                        ['Net imposable', previewNetImposable],
-                                        ['Base retenue pour l’IRSA', previewBaseIrsa],
-                                        ['IRSA / ISI', Number(previewIrsa || 0) + Number(previewIsi || 0), true],
-                                        ['Gains ajoutés après impôt', previewIndemnitesNet],
-                                        ['Net avant retenues personnelles', previewNetAvantRetenues],
-                                        ['Acomptes et autres retenues', previewRetenues, true],
-                                        ['Net avant arrondi', previewAvantArrondi],
-                                    ].map(([label, amount, deduction]) => amount != null && (
-                                        <div key={label} className="flex items-baseline justify-between gap-3 text-[11px]">
-                                            <span className="text-[var(--color-fg-muted)]">{label}</span>
-                                            <strong className="shrink-0 font-mono text-[var(--color-fg)]">{deduction && Number(amount) > 0 ? '−' : ''}{formatAr(amount)}</strong>
+
+                                {/* Décomposition détaillée du brut au net */}
+                                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/30 p-3.5 space-y-2" aria-label="Étapes du calcul provisoire">
+                                    <div className="flex items-center justify-between pb-1.5 border-b border-[var(--color-border-subtle)]">
+                                        <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">Décomposition du brut au net</p>
+                                        <span className="text-[10px] text-[var(--color-fg-muted)] font-mono">Période active</span>
+                                    </div>
+                                    <div className="space-y-1">
+                                        {[
+                                            ['Brut calculé', previewGross, false, 'font-bold text-[var(--color-fg)]'],
+                                            ['Cotisations salariales', previewCotisations, true, 'text-[var(--color-danger-600)] font-semibold'],
+                                            ['Net imposable', previewNetImposable, false, 'text-[var(--color-fg)] font-medium'],
+                                            ['Base retenue pour l’IRSA', previewBaseIrsa, false, 'text-[var(--color-fg-muted)]'],
+                                            ['IRSA / ISI', Number(previewIrsa || 0) + Number(previewIsi || 0), true, 'text-[var(--color-danger-600)] font-semibold'],
+                                            ['Gains ajoutés après impôt', previewIndemnitesNet, false, 'text-[var(--color-success-700)] font-semibold'],
+                                            ['Net avant retenues personnelles', previewNetAvantRetenues, false, 'text-[var(--color-fg)] font-medium'],
+                                            ['Acomptes et autres retenues', previewRetenues, true, 'text-[var(--color-danger-600)] font-semibold'],
+                                            ['Net avant arrondi', previewAvantArrondi, false, 'text-[var(--color-fg-muted)]'],
+                                        ].map(([label, amount, deduction, valueClass]) => amount != null && (
+                                            <div key={label} className="flex items-baseline justify-between gap-3 text-xs py-1 border-b border-[var(--color-border-subtle)]/30 last:border-0">
+                                                <span className="text-[var(--color-fg-muted)] truncate">{label}</span>
+                                                <strong className={`shrink-0 font-mono ${valueClass || 'text-[var(--color-fg)]'}`}>
+                                                    {deduction && Number(amount) > 0 ? '−' : ''}{formatAr(amount)}
+                                                </strong>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Net Provisoire à payer - Grand encart de synthèse */}
+                                <div className="border-2 border-[var(--color-success-500)]/40 bg-[var(--color-success-500)]/10 p-3.5 flex items-center justify-between">
+                                    <div>
+                                        <span className="block text-xs font-bold uppercase tracking-wider text-[var(--color-success-800)] dark:text-[var(--color-success-200)]">
+                                            Net actuel à payer · après arrondi
+                                        </span>
+                                        <small className="text-[10px] text-[var(--color-fg-muted)]">Situation calculée avant ajout</small>
+                                    </div>
+                                    <strong className="font-mono text-2xl font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-300)]">
+                                        {formatAr(previewNet)}
+                                    </strong>
+                                </div>
+
+                                {/* Simulation d'impact dynamique de la variable saisie */}
+                                {hasValidMontant && (
+                                    <div className={`p-3 border text-xs flex items-center justify-between ${
+                                        form.sens === 'RETENUE'
+                                            ? 'border-[var(--color-danger-500)]/30 bg-[var(--color-danger-500)]/5 text-[var(--color-danger-800)] dark:text-[var(--color-danger-200)]'
+                                            : 'border-[var(--color-brand-500)]/30 bg-[var(--color-brand-500)]/5 text-[var(--color-brand-800)] dark:text-[var(--color-brand-200)]'
+                                    }`}>
+                                        <div className="flex items-center gap-2">
+                                            {form.sens === 'RETENUE' ? (
+                                                <TrendingDown size={17} className="text-[var(--color-danger-600)] shrink-0" />
+                                            ) : (
+                                                <TrendingUp size={17} className="text-[var(--color-success-600)] shrink-0" />
+                                            )}
+                                            <div>
+                                                <strong className="block text-xs font-bold uppercase tracking-wider">
+                                                    {form.sens === 'RETENUE' ? 'Impact retenue directe' : 'Impact gain estimé'}
+                                                </strong>
+                                                <span className="text-[11px] opacity-80">
+                                                    {form.sens === 'RETENUE'
+                                                        ? 'Déduction directe sur le net à payer'
+                                                        : (selectedType?.cotisable || selectedType?.imposable
+                                                            ? 'Gain brut (soumis aux règles fiscales & sociales)'
+                                                            : 'Indemnité nette ajoutée directement')}
+                                                </span>
+                                            </div>
                                         </div>
-                                    ))}
-                                </div>
-                                <div className="border border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5 p-3">
-                                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-[var(--color-fg-muted)]">Net provisoire à payer · après arrondi</span>
-                                    <strong className="mt-1 block font-mono text-xl text-[var(--color-success-700)]">{formatAr(previewNet)}</strong>
-                                </div>
+                                        <div className="text-right shrink-0">
+                                            <span className="block font-mono text-sm font-bold">
+                                                {form.sens === 'RETENUE' ? '−' : '+'}{formatAr(montantNum)}
+                                            </span>
+                                            {form.sens === 'RETENUE' && previewNet != null && (
+                                                <span className="text-[10px] opacity-90 block">
+                                                    Net projeté : <strong>{formatAr(Math.max(0, Number(previewNet) - montantNum))}</strong>
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Variables Déjà Enregistrées */}
                                 {employeeVariables.length > 0 && (
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">Variables déjà enregistrées ({employeeVariables.length})</p>
-                                        {employeeVariables.slice(0, 3).map((variable, index) => (
-                                            <div key={variable.idAvance ?? variable.id_avance ?? index} className="flex justify-between gap-3 border-b border-[var(--color-border-subtle)] py-1.5 text-[11px]">
-                                                <span className="truncate text-[var(--color-fg-muted)]">{variable.typeLibelle || variable.type_libelle || variable.typeMouvement || variable.type_mouvement}</span>
-                                                <strong className="shrink-0 font-mono text-[var(--color-fg)]">{variable.sens === 'RETENUE' ? '−' : '+'}{formatAr(variable.montant)}</strong>
-                                            </div>
-                                        ))}
-                                        {employeeVariables.length > 3 && <p className="text-[10px] text-[var(--color-fg-muted)]">Et {employeeVariables.length - 3} autre(s) variable(s).</p>}
+                                    <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 space-y-2">
+                                        <div className="flex items-center justify-between pb-1 border-b border-[var(--color-border-subtle)]">
+                                            <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+                                                Variables déjà enregistrées ({employeeVariables.length})
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            {employeeVariables.slice(0, 4).map((variable, index) => (
+                                                <div key={variable.idAvance ?? variable.id_avance ?? index} className="flex justify-between items-center gap-3 py-1 text-xs border-b border-[var(--color-border-subtle)]/30 last:border-0">
+                                                    <span className="truncate text-[var(--color-fg-muted)]">{variable.typeLibelle || variable.type_libelle || variable.typeMouvement || variable.type_mouvement}</span>
+                                                    <strong className={`shrink-0 font-mono text-xs ${variable.sens === 'RETENUE' ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)]'}`}>
+                                                        {variable.sens === 'RETENUE' ? '−' : '+'}{formatAr(variable.montant)}
+                                                    </strong>
+                                                </div>
+                                            ))}
+                                            {employeeVariables.length > 4 && <p className="text-[10px] text-[var(--color-fg-muted)]">Et {employeeVariables.length - 4} autre(s) variable(s).</p>}
+                                        </div>
                                     </div>
                                 )}
+
+                                {/* Principales Lignes Calculées */}
                                 {previewLines.length > 0 && (
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">Principales lignes calculées</p>
-                                        {previewLines.slice(0, 4).map((line, index) => (
-                                            <div key={`${line.codeRubrique || line.code_rubrique || 'ligne'}-${index}`} className="flex justify-between gap-3 border-b border-[var(--color-border-subtle)] py-1.5 text-[11px]">
-                                                <span className="truncate text-[var(--color-fg-muted)]">{line.libelleRubrique || line.libelle_rubrique || line.codeRubrique || line.code_rubrique || 'Élément de paie'}</span>
-                                                <strong className="shrink-0 font-mono text-[var(--color-fg)]">{formatAr(line.montantSalarial ?? line.montant_salarial)}</strong>
-                                            </div>
-                                        ))}
+                                    <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 space-y-2">
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] pb-1 border-b border-[var(--color-border-subtle)]">
+                                            Principales lignes calculées
+                                        </p>
+                                        <div className="space-y-1">
+                                            {previewLines.slice(0, 5).map((line, index) => (
+                                                <div key={`${line.codeRubrique || line.code_rubrique || 'ligne'}-${index}`} className="flex justify-between items-center gap-3 py-1 text-xs border-b border-[var(--color-border-subtle)]/30 last:border-0">
+                                                    <span className="truncate text-[var(--color-fg-muted)]">{line.libelleRubrique || line.libelle_rubrique || line.codeRubrique || line.code_rubrique || 'Élément de paie'}</span>
+                                                    <strong className="shrink-0 font-mono text-xs text-[var(--color-fg)]">{formatAr(line.montantSalarial ?? line.montant_salarial)}</strong>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
+
                                 <div className="flex gap-2 border-t border-[var(--color-border-subtle)] pt-3 text-[10px] leading-relaxed text-[var(--color-fg-muted)]">
                                     <Info size={13} className="mt-0.5 shrink-0" />
                                     <span>Cette simulation n’enregistre rien. Après l’ajout, l’étape Calcul recalculera le bulletin avec la variable et ses règles fiscales et sociales.</span>
                                 </div>
-                            </>
+                            </div>
                         ) : (
-                            <div className="flex min-h-[210px] items-center justify-center text-[11px] text-[var(--color-fg-muted)]">Aucun résultat d’aperçu.</div>
+                            <div className="flex min-h-[120px] items-center justify-center text-xs text-[var(--color-fg-muted)]">Aucun résultat d’aperçu.</div>
                         )}
                       </aside>
                     </div>
                 </form>
             </Modal>
+
+            {/* Modale de Confirmation - Approbation */}
+            <ConfirmDialog
+                isOpen={Boolean(approvingVariable)}
+                onClose={() => !actionLoading && setApprovingVariable(null)}
+                onConfirm={handleConfirmApprouver}
+                title="Approuver la variable de paie"
+                message="Cette variable sera validée et prise en compte dans le calcul réel des bulletins de cette période."
+                confirmLabel={actionLoading ? 'Approbation…' : 'Approuver la variable'}
+                cancelLabel="Annuler"
+                variant="primary"
+                loading={actionLoading}
+            >
+                {approvingVariable && (
+                    <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/60 p-3 space-y-2 text-xs">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[var(--color-fg-muted)]">Salarié</span>
+                            <span className="font-semibold text-[var(--color-fg)]">
+                                {approvingVariable.nomComplet || approvingVariable.nom_complet || 'Salarié'}
+                                {approvingVariable.matricule ? ` (${approvingVariable.matricule})` : ''}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-[var(--color-fg-muted)]">Type & Sens</span>
+                            <span className="font-medium text-[var(--color-fg)]">
+                                {approvingVariable.typeLibelle || approvingVariable.type_libelle || approvingVariable.typeMouvement}
+                                {' · '}
+                                <span className={approvingVariable.sens === 'GAIN' ? 'text-[var(--color-success-600)] font-semibold' : 'text-[var(--color-danger-600)] font-semibold'}>
+                                    {approvingVariable.sens === 'GAIN' ? 'Gain' : 'Retenue'}
+                                </span>
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-[var(--color-fg-muted)]">Montant</span>
+                            <span className={`font-mono font-bold text-sm ${approvingVariable.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
+                                {approvingVariable.sens === 'GAIN' ? '+' : '-'}{formatAr(approvingVariable.montant)}
+                            </span>
+                        </div>
+                        {approvingVariable.motif && (
+                            <div className="pt-1.5 border-t border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-muted)]">
+                                <span className="font-medium text-[var(--color-fg)]">Motif : </span>
+                                {approvingVariable.motif}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </ConfirmDialog>
+
+            {/* Modale de Confirmation - Suppression */}
+            <ConfirmDialog
+                isOpen={Boolean(deletingVariable)}
+                onClose={() => !actionLoading && setDeletingVariable(null)}
+                onConfirm={handleConfirmSupprimer}
+                title="Supprimer la variable de paie"
+                message="Êtes-vous sûr de vouloir supprimer définitivement cette variable de paie ? Cette action est irréversible."
+                confirmLabel={actionLoading ? 'Suppression…' : 'Supprimer définitivement'}
+                cancelLabel="Annuler"
+                variant="danger"
+                loading={actionLoading}
+            >
+                {deletingVariable && (
+                    <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/60 p-3 space-y-2 text-xs">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[var(--color-fg-muted)]">Salarié</span>
+                            <span className="font-semibold text-[var(--color-fg)]">
+                                {deletingVariable.nomComplet || deletingVariable.nom_complet || 'Salarié'}
+                                {deletingVariable.matricule ? ` (${deletingVariable.matricule})` : ''}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-[var(--color-fg-muted)]">Type & Sens</span>
+                            <span className="font-medium text-[var(--color-fg)]">
+                                {deletingVariable.typeLibelle || deletingVariable.type_libelle || deletingVariable.typeMouvement}
+                                {' · '}
+                                <span className={deletingVariable.sens === 'GAIN' ? 'text-[var(--color-success-600)] font-semibold' : 'text-[var(--color-danger-600)] font-semibold'}>
+                                    {deletingVariable.sens === 'GAIN' ? 'Gain' : 'Retenue'}
+                                </span>
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-[var(--color-fg-muted)]">Montant</span>
+                            <span className={`font-mono font-bold text-sm ${deletingVariable.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
+                                {deletingVariable.sens === 'GAIN' ? '+' : '-'}{formatAr(deletingVariable.montant)}
+                            </span>
+                        </div>
+                        {deletingVariable.motif && (
+                            <div className="pt-1.5 border-t border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg-muted)]">
+                                <span className="font-medium text-[var(--color-fg)]">Motif : </span>
+                                {deletingVariable.motif}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </ConfirmDialog>
         </div>
     );
 }

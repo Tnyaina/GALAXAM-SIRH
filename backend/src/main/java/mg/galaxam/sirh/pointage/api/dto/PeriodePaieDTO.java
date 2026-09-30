@@ -2,6 +2,8 @@ package mg.galaxam.sirh.pointage.api.dto;
 
 import java.util.Map;
 import mg.galaxam.sirh.common.dto.ActionCapability;
+import mg.galaxam.sirh.paie.api.dto.PayrollWorkflowStatuses;
+import mg.galaxam.sirh.paie.api.dto.PayrollPeriodContextView;
 
 public class PeriodePaieDTO {
     private Integer idPeriodePaie;
@@ -17,6 +19,8 @@ public class PeriodePaieDTO {
     private Integer nbJoursFeries;
     private Integer version;
     private Map<String, ActionCapability> availableActions = Map.of();
+    private PayrollWorkflowStatuses workflowStatuses;
+    private PayrollPeriodContextView.NextStep nextStep;
 
     public PeriodePaieDTO() {
     }
@@ -123,6 +127,22 @@ public class PeriodePaieDTO {
 
     public void setAvailableActions(Map<String, ActionCapability> availableActions) {
         this.availableActions = availableActions == null ? Map.of() : Map.copyOf(availableActions);
+    }
+
+    public PayrollWorkflowStatuses getWorkflowStatuses() {
+        return workflowStatuses;
+    }
+
+    public void setWorkflowStatuses(PayrollWorkflowStatuses workflowStatuses) {
+        this.workflowStatuses = workflowStatuses;
+    }
+
+    public PayrollPeriodContextView.NextStep getNextStep() {
+        return nextStep;
+    }
+
+    public void setNextStep(PayrollPeriodContextView.NextStep nextStep) {
+        this.nextStep = nextStep;
     }
 
     private String motifRejet;

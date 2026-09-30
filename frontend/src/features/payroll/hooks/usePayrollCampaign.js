@@ -31,14 +31,16 @@ export function usePayrollCampaign(requestedPeriodId = null) {
     const abortRef = useRef(null);
 
     // Chargement centralisé et protection contre les réponses obsolètes.
-    const loadData = useCallback(async (periodeId) => {
+    const loadData = useCallback(async (periodeId, { silent = false } = {}) => {
         // Annuler une éventuelle requête précédente en vol
         if (abortRef.current) abortRef.current = false;
         const token = {};
         abortRef.current = token;
 
-        setLoading(true);
-        setError(null);
+        if (!silent) {
+            setLoading(true);
+            setError(null);
+        }
 
         try {
             const [allPeriodes, ctx] = await Promise.all([
@@ -74,9 +76,9 @@ export function usePayrollCampaign(requestedPeriodId = null) {
             setSelectedPeriodeId(resolvedId);
         } catch (err) {
             if (abortRef.current !== token) return;
-            setError(getErrorMessage(err, 'Erreur de chargement.'));
+            if (!silent) setError(getErrorMessage(err, 'Erreur de chargement.'));
         } finally {
-            if (abortRef.current === token) setLoading(false);
+            if (abortRef.current === token && !silent) setLoading(false);
         }
     }, []);
 
@@ -103,7 +105,11 @@ export function usePayrollCampaign(requestedPeriodId = null) {
 
     /** Rechargement manuel (bouton Actualiser ou après une action) */
     const refresh = useCallback((overrideId = null) => {
-        loadData(overrideId || selectedPeriodeId || requestedPeriodId);
+        return loadData(overrideId || selectedPeriodeId || requestedPeriodId);
+    }, [selectedPeriodeId, requestedPeriodId, loadData]);
+
+    const refreshSilent = useCallback((overrideId = null) => {
+        return loadData(overrideId || selectedPeriodeId || requestedPeriodId, { silent: true });
     }, [selectedPeriodeId, requestedPeriodId, loadData]);
 
     return {
@@ -113,6 +119,7 @@ export function usePayrollCampaign(requestedPeriodId = null) {
         loading,
         error,
         refresh,
+        refreshSilent,
         selectPeriode,
     };
 }

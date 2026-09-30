@@ -70,6 +70,10 @@ public class PointagePeriodeController {
                 dto.setAvailableActions(payrollPeriodWorkflowService.describeActions(
                         dto.getIdPeriodePaie(), dto.getStatutCode(),
                         PayrollPeriodUserContext.from(authentication), c));
+                dto.setWorkflowStatuses(payrollPeriodWorkflowService.describeWorkflowStatuses(
+                        dto.getIdPeriodePaie(), dto.getStatutCode(), c));
+                dto.setNextStep(payrollPeriodWorkflowService.describeNextStep(
+                        dto.getIdPeriodePaie(), dto.getStatutCode(), dto.getAvailableActions(), c));
 
                 if (dDeb != null && dFin != null) {
                     dto.setNbJoursOuvrables(calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
@@ -114,6 +118,8 @@ public class PointagePeriodeController {
                     dto.setStatutLibelle(rs.getString("statut_libelle"));
                     dto.setMotifRejet(rs.getString("motif_rejet"));
                     dto.setVersion(rs.getInt("version"));
+                    dto.setWorkflowStatuses(payrollPeriodWorkflowService.describeWorkflowStatuses(
+                            dto.getIdPeriodePaie(), dto.getStatutCode(), c));
 
                     if (dDeb != null && dFin != null) {
                         dto.setNbJoursOuvrables(calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));

@@ -55,27 +55,27 @@ public record PointageDocumentData(FichePointageEmployeDTO fiche, String edition
                 .filter(a -> "VALIDE".equalsIgnoreCase(a.statut())).toList();
     }
     public static String signedDuration(Integer minutes) {
-        if (minutes == null) return "—";
+        if (minutes == null) return "-";
         int absolute = Math.abs(minutes);
         return (minutes >= 0 ? "+" : "−") + String.format(Locale.FRANCE, "%02dh%02d", absolute / 60, absolute % 60);
     }
     public static String dualHours(Number hours) {
-        if (hours == null) return "—";
+        if (hours == null) return "-";
         return dualHours(new BigDecimal(hours.toString()));
     }
     public static String dualHours(BigDecimal hours) {
-        if (hours == null) return "—";
+        if (hours == null) return "-";
         long minutes = hours.abs().multiply(BigDecimal.valueOf(60)).setScale(0, RoundingMode.HALF_UP).longValue();
         String sign = hours.signum() < 0 ? "−" : "";
         return sign + String.format(Locale.FRANCE, "%02dh%02d", minutes / 60, minutes % 60)
                 + " (" + sign + hours.abs().setScale(2, RoundingMode.HALF_UP).toPlainString() + "h)";
     }
     public static String signedDualHours(BigDecimal hours) {
-        if (hours == null) return "—";
+        if (hours == null) return "-";
         return (hours.signum() > 0 ? "+" : "") + dualHours(hours);
     }
     public static String signedDualMinutes(Integer minutes) {
-        return minutes == null ? "—" : signedDualHours(hours(minutes));
+        return minutes == null ? "-" : signedDualHours(hours(minutes));
     }
     public static String weekResult(PointageTronconSemaineDTO week) {
         double overtime = week.getHeuresHsNettes();
@@ -86,9 +86,9 @@ public record PointageDocumentData(FichePointageEmployeDTO fiche, String edition
         return "Aucun impact";
     }
     public static BigDecimal hours(Integer minutes) { return minutes == null ? null : BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 8, RoundingMode.HALF_UP); }
-    public static String number(BigDecimal value) { return value == null ? "—" : value.setScale(2, RoundingMode.HALF_UP).toPlainString().replace('.', ','); }
+    public static String number(BigDecimal value) { return value == null ? "-" : value.setScale(2, RoundingMode.HALF_UP).toPlainString().replace('.', ','); }
     public static String date(String value) {
-        if (value == null || value.isBlank()) return "—";
+        if (value == null || value.isBlank()) return "-";
         try { return LocalDate.parse(value.substring(0, 10)).format(DateTimeFormatter.ofPattern("dd/MM/yyyy")); }
         catch (RuntimeException ignored) { return value; }
     }
@@ -97,10 +97,10 @@ public record PointageDocumentData(FichePointageEmployeDTO fiche, String edition
         return value == null ? null : value.setScale(0, RoundingMode.HALF_UP);
     }
     public static String money(BigDecimal value) {
-        if (value == null) return "—";
+        if (value == null) return "-";
         return java.text.NumberFormat.getIntegerInstance(Locale.FRANCE).format(ariary(value)).replace('\u202f', ' ').replace('\u00a0', ' ') + " Ar";
     }
-    public static String value(String value) { return value == null || value.isBlank() ? "—" : value; }
+    public static String value(String value) { return value == null || value.isBlank() ? "-" : value; }
     public String note() {
         var summary = fiche.getSoldePeriode();
         String threshold = summary == null || summary.getMinutesPremierPalierHs() == null ? "non historisé"

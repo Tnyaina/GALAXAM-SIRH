@@ -24,6 +24,8 @@ export default function SlideOver({
     width = 'xl',
     children,
     footer,
+    /** Ref optionnel sur la zone scrollable du body — permet au parent de contrôler le scrollTop. */
+    bodyRef,
 }) {
     // Fermeture sur la touche Échap
     useEffect(() => {
@@ -82,7 +84,7 @@ export default function SlideOver({
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-5">{children}</div>
+                <div ref={bodyRef} className="flex-1 overflow-y-auto p-4 sm:p-5">{children}</div>
 
                 {/* Footer */}
                 {footer && (

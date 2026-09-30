@@ -332,9 +332,13 @@ public class PayrollService {
                                                  Integer idUtilisateur, Connection c) throws Exception {
         PayrollPopulationResolver.PayrollPopulation population = payrollPopulationResolver.resolve(idPeriodePaie, c);
         PayrollBatchResult batch = new PayrollBatchResult(idPeriodePaie, population.periodCode());
+        Map<Integer, PayrollPopulationMember> membersById = population.members().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        member -> member.employeeId(), member -> member, (first, ignored) -> first));
         population.members().stream()
                 .filter(member -> "BLOCKED".equals(member.decision()))
-                .forEach(member -> batch.ajouterBloque(member.employeeId(), member.reasonCode()));
+                .forEach(member -> batch.ajouterBloque(member.employeeId(), member.employeeName(),
+                        member.matricule(), member.reasonCode(), null));
         List<Integer> idsEmployes = population.includedEmployeeIds();
 
         for (Integer idEmp : idsEmployes) {
@@ -345,7 +349,16 @@ public class PayrollService {
                 if (employeeSavepoint != null) c.releaseSavepoint(employeeSavepoint);
             } catch (Exception employeeFailure) {
                 if (employeeSavepoint != null) c.rollback(employeeSavepoint);
-                batch.ajouterBloque(idEmp, employeeFailure.getMessage());
+                var member = membersById.get(idEmp);
+                String message = employeeFailure.getMessage();
+                String reasonCode = null;
+                if (message != null) {
+                    int separator = message.indexOf(':');
+                    String prefix = separator > 0 ? message.substring(0, separator) : message;
+                    if (prefix.matches("[A-Z][A-Z0-9_]+")) reasonCode = prefix;
+                }
+                batch.ajouterBloque(idEmp, member == null ? null : member.employeeName(),
+                        member == null ? null : member.matricule(), reasonCode, message);
             }
         }
 
