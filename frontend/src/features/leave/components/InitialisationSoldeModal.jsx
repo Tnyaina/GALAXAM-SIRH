@@ -4,6 +4,7 @@ import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import MoneyInput from '@/components/ui/forms/MoneyInput';
 import Modal from '@/components/ui/overlays/Modal';
 import FormError from '@/components/ui/feedback/FormError';
 import Badge from '@/components/ui/data-display/Badge';
@@ -370,12 +371,11 @@ export default function InitialisationSoldeModal({
               <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
                 Valeur journalière de congé (Ar / jour) <span className="text-[var(--color-danger-500)]">*</span>
               </label>
-              <Input
-                type="number"
-                step="0.01"
+              <MoneyInput
+                maxDecimals={2}
                 min="0.01"
                 value={tauxApplicable}
-                onChange={(e) => setTauxApplicable(e.target.value)}
+                onValueChange={setTauxApplicable}
                 placeholder="Ex: 11666.67"
                 required
               />
@@ -460,12 +460,11 @@ export default function InitialisationSoldeModal({
                   <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
                     Valorisation financière cumulée (Ariary) <span className="text-[var(--color-danger-500)]">*</span>
                   </label>
-                  <Input
-                    type="number"
-                    step="0.01"
+                  <MoneyInput
+                    maxDecimals={2}
                     min="0"
                     value={cumulValorisationOuverture}
-                    onChange={(e) => setCumulValorisationOuverture(e.target.value)}
+                    onValueChange={setCumulValorisationOuverture}
                     placeholder="Ex: 3150000.00"
                     required
                   />

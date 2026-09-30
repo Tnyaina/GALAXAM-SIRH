@@ -8,6 +8,7 @@ import {
 import paieConfigService from '@/features/administration/api/paieConfigService';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import MoneyInput from '@/components/ui/forms/MoneyInput';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
@@ -245,26 +246,24 @@ function TranchesIrsaFormSection({ tranches = [], onChange, isReadOnly }) {
                                 <Tr key={idx}>
                                     <Td isData className="font-bold text-[var(--color-brand-500)]">Tranche {t.numeroTranche}</Td>
                                     <Td>
-                                        <input
-                                            type="number"
+                                        <MoneyInput
+                                            maxDecimals={2}
                                             min="0"
-                                            step="0.01"
                                             required
                                             value={t.trancheMin}
                                             disabled={idx === 0}
-                                            onChange={e => handleFieldChange(idx, 'trancheMin', e.target.value)}
-                                            className="w-full text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] px-2 py-1 text-right font-mono focus:outline-none focus:border-[var(--color-brand-500)] disabled:opacity-60"
+                                            onValueChange={value => handleFieldChange(idx, 'trancheMin', value)}
+                                            className="text-right font-mono"
                                         />
                                     </Td>
                                     <Td>
-                                        <input
-                                            type="number"
+                                        <MoneyInput
+                                            maxDecimals={2}
                                             min={parseFloat(t.trancheMin) + 0.01 || 0}
-                                            step="0.01"
                                             placeholder={isLast ? "Sans plafond (∞)" : "Requis"}
                                             value={t.trancheMax}
-                                            onChange={e => handleFieldChange(idx, 'trancheMax', e.target.value)}
-                                            className="w-full text-xs border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg)] px-2 py-1 text-right font-mono focus:outline-none focus:border-[var(--color-brand-500)]"
+                                            onValueChange={value => handleFieldChange(idx, 'trancheMax', value)}
+                                            className="text-right font-mono"
                                         />
                                     </Td>
                                     <Td>
@@ -462,22 +461,20 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 badge="CNaPS / OSTIE / FMFP"
                             />
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <Input
+                                <MoneyInput
                                     label="SME National (Ariary)"
-                                    type="number"
                                     required={!isReadOnly}
                                     disabled={isReadOnly}
                                     value={formData.smeNational}
-                                    onChange={e => upd('smeNational', e.target.value)}
+                                    onValueChange={value => upd('smeNational', value)}
                                     hint="Secteur non agricole"
                                 />
-                                <Input
+                                <MoneyInput
                                     label="SME Agricole (Ariary)"
-                                    type="number"
                                     required={!isReadOnly}
                                     disabled={isReadOnly}
                                     value={formData.smeAgricole}
-                                    onChange={e => upd('smeAgricole', e.target.value)}
+                                    onValueChange={value => upd('smeAgricole', value)}
                                     hint="Secteur agricole"
                                 />
                                 <div className="sm:col-span-2">
@@ -502,7 +499,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 <span className="font-bold text-sm text-[var(--color-success-600)]">{plafondCalc}</span>
                             </div>
                             <p className="text-[11px]">
-                                Soit {formData.smeNational || 0} Ar × {formData.plafondCotisationNbSme || 0}. Base maximale retenue pour CNaPS (1%), Santé (1%) et FMFP.
+                                Soit {fmtAr(parseSafe(formData.smeNational))} × {formData.plafondCotisationNbSme || 0}. Base maximale retenue pour CNaPS (1%), Santé (1%) et FMFP.
                             </p>
                         </div>
                     </div>
@@ -517,32 +514,29 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 badge="Loi de Finances"
                             />
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <Input
+                                <MoneyInput
                                     label="Seuil d'exonération (Ar)"
-                                    type="number"
                                     required={!isReadOnly}
                                     disabled={isReadOnly}
                                     value={formData.seuilExonerationIrsa}
-                                    onChange={e => upd('seuilExonerationIrsa', e.target.value)}
+                                    onValueChange={value => upd('seuilExonerationIrsa', value)}
                                     hint="Revenu imposable ≤ ce montant exonéré"
                                 />
-                                <Input
+                                <MoneyInput
                                     label="Minimum de perception (Ar)"
-                                    type="number"
                                     required={!isReadOnly}
                                     disabled={isReadOnly}
                                     value={formData.minimumPerceptionIrsa}
-                                    onChange={e => upd('minimumPerceptionIrsa', e.target.value)}
+                                    onValueChange={value => upd('minimumPerceptionIrsa', value)}
                                     hint="Plancher légal d'impôt exigible (ex: 3 000 Ar)"
                                 />
                                 <div className="sm:col-span-2">
-                                    <Input
+                                    <MoneyInput
                                         label="Déduction / personne à charge (Ar)"
-                                        type="number"
                                         required={!isReadOnly}
                                         disabled={isReadOnly}
                                         value={formData.deductionChargeFamille}
-                                        onChange={e => upd('deductionChargeFamille', e.target.value)}
+                                        onValueChange={value => upd('deductionChargeFamille', value)}
                                         hint="Enfants légitimes et personnes à charge déclarées"
                                     />
                                 </div>

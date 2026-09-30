@@ -1,4 +1,5 @@
-import Input, { Select } from '@/components/ui/forms/Input';
+import { Select } from '@/components/ui/forms/Input';
+import MoneyInput from '@/components/ui/forms/MoneyInput';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 
@@ -125,14 +126,12 @@ export default function AffectationFieldsSection({
                     })}
                 </Select>
 
-                <Input
+                <MoneyInput
                     label="Salaire de base (Ar)"
-                    type="number"
                     min="0"
-                    step="1000"
                     required
                     value={formData.salaireBase}
-                    onChange={(e) => setField('salaireBase', e.target.value)}
+                    onValueChange={(value) => setField('salaireBase', value)}
                     placeholder="Ex: 1500000"
                 />
             </div>

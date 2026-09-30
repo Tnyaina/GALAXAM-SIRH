@@ -97,7 +97,7 @@ export default function TransitionComparatifCard({
         },
         {
             id: 'responsable',
-            label: 'Supérieur hiérarchique (N+1)',
+            label: 'Supérieur hiérarchique',
             avant: avantResponsable || null,
             apres: apresResponsable || null,
             modifie: Boolean(apresResponsable && avantResponsable !== apresResponsable),
@@ -242,8 +242,8 @@ export default function TransitionComparatifCard({
                         <div className="flex items-center gap-2">
                             <Clock size={16} className="text-[var(--color-warning-500)] shrink-0" />
                             <span>
-                                <strong>Période d'essai applicable :</strong> {formData.dureeEssaiMois || '3'} mois
-                                {formData.dateFinEssai && ` — Échéance fixée au ${fmtDate(formData.dateFinEssai)}`}
+                                <strong>Période d'essai :</strong> {formData.dureeEssaiMois || '3'} mois
+                                {formData.dateFinEssai && ` (Échéance : ${fmtDate(formData.dateFinEssai)})`}
                             </span>
                         </div>
                         <Badge variant="warning" size="xs">Essai Actif</Badge>

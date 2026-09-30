@@ -18,6 +18,7 @@ export default function CarriereModalCoordinator({
     idEmploye, employe, nomEmploye, matriculeEmploye,
     contratActif, affectationActive, workflowCplActif, contratsList, brouillonWf,
     etatEssai, canWrite = true, canValidate = false,
+    refreshData,
     
     // États et Hooks
     modalsState,
@@ -179,6 +180,7 @@ export default function CarriereModalCoordinator({
                     onEdit={canWrite && brouillonWf && Number(brouillonWf.idContratCible) === Number(selectedContratDoc?.idContrat) ? () => { setIsContratModalOpen(false); handleOpenEditModal(brouillonWf); } : undefined}
                     loadingAffectation={loadingContratAffectation}
                     filiale={selectedContratDoc?.filiale || contratActif?.filiale}
+                    onContractUpdated={refreshData}
                 />
             )}
 

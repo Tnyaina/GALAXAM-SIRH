@@ -251,6 +251,52 @@ public class ContratTravailController {
         }
     }
 
+    /**
+     * Renseigner ou corriger la date de signature sans modifier les autres
+     * données du contrat validé.
+     * PATCH /employes/{idEmploye}/contrats/{idContrat}/date-signature
+     */
+    @PatchMapping("/contrats/{idContrat}/date-signature")
+    @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> renseignerDateSignature(
+            @PathVariable Integer idEmploye,
+            @PathVariable Integer idContrat,
+            @RequestBody DateSignatureRequest req) {
+        return transactionRunner.required(c -> {
+            ContratTravail contrat = new ContratTravail().rechercherParId(idContrat, c);
+            if (contrat == null || !contrat.getIdEmploye().equals(idEmploye)) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "Contrat introuvable.");
+            }
+            if (req == null || req.getDateSignature() == null) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                        "La date de signature est obligatoire.");
+            }
+
+            String statutCode = resolveCodeStatutContrat(contrat.getIdStatutRh(), c);
+            if ("BROUILLON".equals(statutCode) || "ANNULE".equals(statutCode)) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.CONTRAT_TRANSITION_INTERDITE,
+                        "La date de signature ne peut être renseignée que sur un contrat validé.");
+            }
+
+            Date ancienneDate = contrat.getDateSignature();
+            contrat.setDateSignature(req.getDateSignature());
+            contrat.update(c);
+
+            Map<String, Object> avant = new HashMap<>();
+            avant.put("dateSignature", ancienneDate);
+            Map<String, Object> apres = new HashMap<>();
+            apres.put("dateSignature", req.getDateSignature());
+            AuditLog.audit(c, "RENSEIGNEMENT_DATE_SIGNATURE_CONTRAT", "contrat_travail",
+                    String.valueOf(idContrat), avant, apres);
+
+            return ResponseEntity.ok(enrichirContrat(contrat, c));
+        });
+    }
+
     // =========================================================================
     // MODIFICATION D'UN BROUILLON
     // =========================================================================
@@ -634,6 +680,19 @@ public class ContratTravailController {
 
         public void setCommentaireAffectation(String commentaireAffectation) {
             this.commentaireAffectation = commentaireAffectation;
+        }
+    }
+
+    /** DTO dédié à la mise à jour de la seule date de signature. */
+    public static class DateSignatureRequest {
+        private Date dateSignature;
+
+        public Date getDateSignature() {
+            return dateSignature;
+        }
+
+        public void setDateSignature(Date dateSignature) {
+            this.dateSignature = dateSignature;
         }
     }
 

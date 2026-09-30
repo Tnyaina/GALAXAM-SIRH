@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FileText } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
+import Input from '@/components/ui/forms/Input';
 import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
 import Modal from '@/components/ui/overlays/Modal';
@@ -9,10 +10,12 @@ import { DocumentFrame } from '@/features/employees/components/carriere/Contract
 import UploadDocumentModal from '@/features/employees/components/tabs/UploadDocumentModal';
 import documentService from '@/api/documentService';
 import documentRhService from '@/features/employees/api/documentRhService';
+import contratService from '@/features/employees/api/contratService';
 import { contractDocumentLabel } from '@/features/employees/utils/contractDocumentLabels';
 import { getErrorMessage } from '@/api/apiClient';
+import { fmtDateInput, fmtDateFr, getTodayDateString } from '@/utils/dateUtils';
 
-export default function ContratTravailModal({ isOpen, onClose, employe, contrat, onEdit, onDocumentUploaded }) {
+export default function ContratTravailModal({ isOpen, onClose, employe, contrat, onEdit, onDocumentUploaded, onContractUpdated }) {
     // État local
     const [data, setData] = useState(null);
     const [loadError, setLoadError] = useState('');
@@ -27,6 +30,9 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
     const [commentaire, setCommentaire] = useState('');
     const [uploadError, setUploadError] = useState('');
     const [uploading, setUploading] = useState(false);
+    const [editingSignatureDate, setEditingSignatureDate] = useState(false);
+    const [signatureDate, setSignatureDate] = useState('');
+    const [savingSignatureDate, setSavingSignatureDate] = useState(false);
 
     // Données dérivées
     const idContrat = contrat?.idContrat;
@@ -41,6 +47,8 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
         if (!isOpen || !idContrat) return;
         let cancelled = false;
         setData(null); setLoadError(''); setActionError(''); setDocuments([]); setPreview(false); setUploadOpen(false);
+        setEditingSignatureDate(false);
+        setSignatureDate(fmtDateInput(contrat?.dateSignature));
         documentService.getContratData(idContrat).then(result => {
             if (!cancelled) setData(result);
         }).catch(err => { if (!cancelled) setLoadError(getErrorMessage(err, "Impossible de préparer le contrat.")); });
@@ -48,7 +56,7 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
             if (!cancelled) setDocuments(result.documents || []);
         }).catch(err => { if (!cancelled) setLoadError(getErrorMessage(err, "Impossible de consulter les documents signés.")); });
         return () => { cancelled = true; };
-    }, [isOpen, idContrat, idEmploye]);
+    }, [isOpen, idContrat, idEmploye, contrat?.dateSignature]);
 
     // Actions
     const handleAction = async operation => {
@@ -74,6 +82,23 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
             window.dispatchEvent(new CustomEvent('documents-rh-updated', { detail: { idEmploye } }));
         } catch (err) { setUploadError(getErrorMessage(err, "Impossible de déposer le contrat signé.")); }
         finally { setUploading(false); }
+    };
+
+    const handleSaveSignatureDate = async event => {
+        event.preventDefault();
+        if (!signatureDate) return;
+        setSavingSignatureDate(true);
+        setActionError('');
+        try {
+            const updated = await contratService.renseignerDateSignature(idEmploye, idContrat, signatureDate);
+            setSignatureDate(fmtDateInput(updated?.dateSignature) || signatureDate);
+            setEditingSignatureDate(false);
+            await onContractUpdated?.();
+        } catch (err) {
+            setActionError(getErrorMessage(err, "Impossible d'enregistrer la date de signature."));
+        } finally {
+            setSavingSignatureDate(false);
+        }
     };
 
     if (!isOpen) return null;
@@ -124,7 +149,41 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
                                 <div><dt className="text-xs text-[var(--color-fg-muted)]">Poste · Site</dt><dd className="mt-0.5 font-medium">{value('POSTE_FONCTION')} · {value('POSTE_SITE')}</dd></div>
                                 <div><dt className="text-xs text-[var(--color-fg-muted)]">Rémunération</dt><dd className="mt-0.5 font-medium">{value('REMUNERATION_BASE')} · {value('REMUNERATION_MODE')}</dd></div>
                                 <div><dt className="text-xs text-[var(--color-fg-muted)]">Période d'effet</dt><dd className="mt-0.5 font-medium">{value('CONTRAT_DATE_DEBUT')}{value('CONTRAT_DATE_FIN') !== 'Non renseigné' ? ` → ${value('CONTRAT_DATE_FIN')}` : ' (Indéterminée)'}</dd></div>
+                                <div>
+                                    <dt className="text-xs text-[var(--color-fg-muted)]">Date de signature</dt>
+                                    <dd className="mt-0.5 font-medium">{signatureDate ? fmtDateFr(signatureDate) : 'Non renseignée'}</dd>
+                                </div>
                             </dl>
+                            {(data?.statut || contrat?.codeStatutContrat) !== 'BROUILLON' &&
+                                (data?.statut || contrat?.codeStatutContrat) !== 'ANNULE' && (
+                                <HasPermission authority="EMPLOYE_WRITE">
+                                    {editingSignatureDate ? (
+                                        <form className="flex flex-col gap-2 sm:flex-row sm:items-end" onSubmit={handleSaveSignatureDate}>
+                                            <Input
+                                                label="Date de signature"
+                                                type="date"
+                                                value={signatureDate}
+                                                onChange={event => setSignatureDate(event.target.value)}
+                                                required
+                                                max={getTodayDateString()}
+                                                hint="Renseignez la date figurant sur le contrat signé."
+                                            />
+                                            <div className="flex gap-2 pb-1">
+                                                <Button type="submit" size="sm" disabled={!signatureDate || savingSignatureDate}>
+                                                    {savingSignatureDate ? 'Enregistrement…' : 'Enregistrer'}
+                                                </Button>
+                                                <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingSignatureDate(false); setSignatureDate(fmtDateInput(contrat?.dateSignature)); }} disabled={savingSignatureDate}>
+                                                    Annuler
+                                                </Button>
+                                            </div>
+                                        </form>
+                                    ) : (
+                                        <Button variant="outline" size="sm" onClick={() => setEditingSignatureDate(true)}>
+                                            {signatureDate ? 'Modifier la date de signature' : 'Renseigner la date de signature'}
+                                        </Button>
+                                    )}
+                                </HasPermission>
+                            )}
                             {data.donneesManquantes?.length > 0 && (
                                 <Alert type="warning" message={`DOCX indisponible : données obligatoires manquantes (${data.donneesManquantes.map(contractDocumentLabel).join(', ')}).`} />
                             )}

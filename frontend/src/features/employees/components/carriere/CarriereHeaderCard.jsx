@@ -176,46 +176,59 @@ export default function CarriereHeaderCard({
             {contratActif?.dateFin && (contratActif?.isFinProche || contratActif?.isFinEchue || (contratActif?.joursRestantsFin !== null && contratActif?.joursRestantsFin <= 60)) && (
                 <Alert
                     variant={contratActif.isFinEchue || (contratActif.joursRestantsFin !== null && contratActif.joursRestantsFin <= 7) ? "danger" : "warning"}
-                    className="py-2 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                    title={contratActif.isFinEchue
+                        ? 'Contrat arrivé à échéance'
+                        : contratActif.joursRestantsFin === 0
+                            ? 'Contrat à échéance aujourd’hui'
+                            : 'Échéance du contrat proche'}
+                    className="items-start py-3 px-3 sm:items-center"
                 >
-                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                        <span className="font-bold text-[11px]">Échéance {contratActif.libelleTypeContrat || 'CDD'}</span>
-                        {contratActif.joursRestantsFin !== null && (
-                            <Badge variant={contratActif.isFinEchue || contratActif.joursRestantsFin <= 7 ? 'danger' : 'warning'} size="xs">
-                                {contratActif.isFinEchue
-                                    ? `Échu de ${Math.abs(contratActif.joursRestantsFin)}j`
-                                    : contratActif.joursRestantsFin === 0
-                                        ? `Expire aujourd'hui`
-                                        : `Dans ${contratActif.joursRestantsFin}j`}
-                            </Badge>
-                        )}
-                        <span className="text-[var(--color-fg-muted)] truncate hidden md:inline text-xs">
-                            · Échéance le <strong className="text-[var(--color-fg)]">{fmtDate(contratActif.dateFin)}</strong>
-                        </span>
-                    </div>
+                    <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-semibold text-xs text-[var(--color-fg)]">
+                                    {contratActif.libelleTypeContrat || 'Contrat à durée déterminée'}
+                                </span>
+                                {contratActif.joursRestantsFin !== null && (
+                                    <Badge variant={contratActif.isFinEchue || contratActif.joursRestantsFin <= 7 ? 'danger' : 'warning'} size="xs">
+                                        {contratActif.isFinEchue
+                                            ? `Échu de ${Math.abs(contratActif.joursRestantsFin)} jours`
+                                            : contratActif.joursRestantsFin === 0
+                                                ? 'Échéance aujourd’hui'
+                                                : `Dans ${contratActif.joursRestantsFin} jours`}
+                                    </Badge>
+                                )}
+                            </div>
+                            <p className="text-xs text-[var(--color-fg-muted)]">
+                                Fin prévue le <strong className="font-semibold text-[var(--color-fg)]">{fmtDate(contratActif.dateFin)}</strong>
+                            </p>
+                        </div>
 
-                    {canWrite && !workflowPlanifieFutur && !brouillonWf && (
-                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                        {canWrite && !workflowPlanifieFutur && !brouillonWf && (
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:shrink-0">
                             {onOpenTransition && (
                                 <Button
-                                    variant="outline"
-                                    size="xs"
+                                    variant="primary"
+                                    size="sm"
                                     onClick={onOpenTransition}
+                                    className="w-full sm:w-auto"
                                 >
-                                    Renouveler / Titulariser
+                                    Renouveler ou titulariser
                                 </Button>
                             )}
                             {onOpenRupture && (
                                 <Button
                                     variant="danger"
-                                    size="xs"
+                                    size="sm"
                                     onClick={onOpenRupture}
+                                    className="w-full sm:w-auto"
                                 >
-                                    Clôturer
+                                    Clôturer le contrat
                                 </Button>
                             )}
-                        </div>
-                    )}
+                            </div>
+                        )}
+                    </div>
                 </Alert>
             )}
         </div>

@@ -6,6 +6,7 @@ import { getErrorMessage } from '@/api/apiClient';
 import Badge from '@/components/ui/data-display/Badge';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea } from '@/components/ui/forms/Input';
+import MoneyInput from '@/components/ui/forms/MoneyInput';
 import Select from '@/components/ui/forms/Select';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -14,6 +15,7 @@ import Modal from '@/components/ui/overlays/Modal';
 import Alert from '@/components/ui/feedback/Alert';
 import Pagination from '@/components/ui/navigation/Pagination';
 import { useToast } from '@/components/ui/feedback/Toast';
+import { formatMoneyAr } from '@/utils/moneyUtils';
 
 const formatDateMouvement = (dateVal, fallbackTimestamp) => {
   const target = dateVal || fallbackTimestamp;
@@ -468,8 +470,8 @@ export default function MouvementsSoldeTable({
         {correctionError && <Alert type="error" message={correctionError} />}
         {correctionResult ? (
           <div className="space-y-3 text-sm text-[var(--color-fg)]">
-            <p>Reliquat corrigé : {correctionResult.nouveauReliquatJours} j · {correctionResult.nouvelleValeur} Ar.</p>
-            <p>Écart antérieur à examiner : <strong>{correctionResult.regularisationAExaminer} Ar</strong>.</p>
+            <p>Reliquat corrigé : {correctionResult.nouveauReliquatJours} j · {formatMoneyAr(correctionResult.nouvelleValeur)}.</p>
+            <p>Écart antérieur à examiner : <strong>{formatMoneyAr(correctionResult.regularisationAExaminer)}</strong>.</p>
             <p className="text-[var(--color-fg-muted)]">Vérifiez les bulletins déjà payés, puis choisissez explicitement la campagne de paie qui recevra la régularisation. Ouvrez ses variables depuis la liste des campagnes ; le système vérifiera si elle accepte encore des variables.</p>
             <Link to="/paie?tab=periodes" className="inline-block border border-[var(--color-border)] px-3 py-2 text-xs font-bold text-[var(--color-fg)]">
               Choisir une campagne de paie
@@ -485,8 +487,8 @@ export default function MouvementsSoldeTable({
             </div>
             <div>
               <label className="block text-xs font-bold uppercase text-[var(--color-fg-muted)] mb-1">Valeur restante (Ar)</label>
-              <Input type="number" min="0" step="0.01" required disabled={correctionLoading}
-                value={correction.valeur} onChange={e => setCorrection(prev => ({ ...prev, valeur: e.target.value }))} />
+              <MoneyInput min="0" maxDecimals={2} required disabled={correctionLoading}
+                value={correction.valeur} onValueChange={value => setCorrection(prev => ({ ...prev, valeur: value }))} />
             </div>
             <div>
               <label className="block text-xs font-bold uppercase text-[var(--color-fg-muted)] mb-1">Motif DAF</label>

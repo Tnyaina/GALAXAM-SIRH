@@ -239,7 +239,7 @@ export default function ContratActifSection({
                         <InfoRow label="Département">{affectationActive?.libelleDepartement || workflowCplActif?.libelleDepartement}</InfoRow>
                         <InfoRow label="Fonction / Poste">{affectationActive?.libelleFonction || workflowCplActif?.libelleFonction}</InfoRow>
                         <InfoRow label="Catégorie pro">{affectationActive?.libelleCategoriePro || affectationActive?.libelleCategorieProfessionnelle || workflowCplActif?.libelleCategoriePro}</InfoRow>
-                        <InfoRow label="Supérieur N+1">{affectationActive?.nomPrenomResponsable || affectationActive?.nomResponsableHierarchique || workflowCplActif?.nomPrenomResponsable}</InfoRow>
+                        <InfoRow label="Supérieur hiérarchique">{affectationActive?.nomPrenomResponsable || affectationActive?.nomResponsableHierarchique || workflowCplActif?.nomPrenomResponsable}</InfoRow>
                     </div>
                     {/* Salaire mis en avant — donnée prioritaire (protégé par PAIE_READ) */}
                     <HasPermission authority="PAIE_READ">

@@ -14,6 +14,7 @@ export default function Input({
   labelClassName = '',
   containerClassName = '',
   onWheel,
+  inputRef,
   id,
   'aria-describedby': describedBy,
   'aria-invalid': ariaInvalid,
@@ -52,6 +53,7 @@ export default function Input({
         )}
         <input
           id={fieldId}
+          ref={inputRef}
           aria-invalid={error ? true : ariaInvalid}
           aria-describedby={feedbackIds}
           onWheel={handleWheel}

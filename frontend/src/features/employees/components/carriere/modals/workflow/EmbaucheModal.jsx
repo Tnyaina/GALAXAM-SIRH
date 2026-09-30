@@ -9,6 +9,7 @@ import SlideOver from '@/components/ui/overlays/SlideOver';
 import contratService from '@/features/employees/api/contratService';
 import { useContractReferentiels } from '@/features/employees/hooks/useContractReferentiels';
 import { fmtDateInput, fmtDateFr } from '@/utils/dateUtils';
+import { formatMoneyAr } from '@/utils/moneyUtils';
 
 import ContratFieldsSection from '@/features/employees/components/carriere/form/ContratFieldsSection';
 import AffectationFieldsSection from '@/features/employees/components/carriere/form/AffectationFieldsSection';
@@ -412,7 +413,7 @@ export default function EmbaucheModal({
                             <div>
                                 <span className="text-[var(--color-fg-muted)] block">Rémunération de base :</span>
                                 <span className="font-medium text-[var(--color-fg)] font-mono">
-                                    {formData.salaireBase ? `${formData.salaireBase} Ar` : 'Non renseigné'}
+                                    {formData.salaireBase ? formatMoneyAr(formData.salaireBase) : 'Non renseigné'}
                                 </span>
                             </div>
                         </div>

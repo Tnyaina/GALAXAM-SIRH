@@ -10,6 +10,7 @@ import {
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import MoneyInput from '@/components/ui/forms/MoneyInput';
 import Select from '@/components/ui/forms/Select';
 import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
@@ -409,30 +410,27 @@ export default function StcPreparationModal({
                                     </h4>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <Input
-                                            type="number"
+                                        <MoneyInput
                                             label="Surcharge Indemnité Licenciement (Ar)"
                                             placeholder={`Suggéré: ${formatMoneyAr(prepData.indemniteLicenciementEstimee)}`}
                                             value={form.indemniteLicenciement}
-                                            onChange={(e) => handleFormChange('indemniteLicenciement', e.target.value)}
+                                            onValueChange={(value) => handleFormChange('indemniteLicenciement', value)}
                                         />
-                                        <Input
-                                            type="number"
+                                        <MoneyInput
                                             label="Surcharge Indemnité Préavis (Ar)"
                                             placeholder={`Suggéré: ${formatMoneyAr(prepData.indemnitePreavisEstimee)}`}
                                             value={form.indemnitePreavis}
-                                            onChange={(e) => handleFormChange('indemnitePreavis', e.target.value)}
+                                            onValueChange={(value) => handleFormChange('indemnitePreavis', value)}
                                         />
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div className="space-y-1">
-                                            <Input
-                                                type="number"
+                                            <MoneyInput
                                                 label="Autres Indemnités / Primes départ (Ar)"
                                                 placeholder="0 Ar"
                                                 value={form.autresIndemnites}
-                                                onChange={(e) => handleFormChange('autresIndemnites', e.target.value)}
+                                                onValueChange={(value) => handleFormChange('autresIndemnites', value)}
                                             />
                                             {Number(form.autresIndemnites) > 0 && (
                                                 <Input
@@ -445,12 +443,11 @@ export default function StcPreparationModal({
                                         </div>
 
                                         <div className="space-y-1">
-                                            <Input
-                                                type="number"
+                                            <MoneyInput
                                                 label="Autres Déductions / Retenues diverses (Ar)"
                                                 placeholder="0 Ar"
                                                 value={form.autresDeductions}
-                                                onChange={(e) => handleFormChange('autresDeductions', e.target.value)}
+                                                onValueChange={(value) => handleFormChange('autresDeductions', value)}
                                             />
                                             {Number(form.autresDeductions) > 0 && (
                                                 <Input

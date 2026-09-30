@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import MoneyInput from '@/components/ui/forms/MoneyInput';
 import Select from '@/components/ui/forms/Select';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Alert from '@/components/ui/feedback/Alert';
@@ -74,7 +75,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, onClose, onCreate
                 placeholder={loadingTypes ? 'Chargement des types…' : 'Choisir un type de demande…'} />
             {typesError && <Alert type="error" message={typesError} />}
             {selectedType?.description && <p className="text-xs text-[var(--color-fg-muted)]">{selectedType.description}</p>}
-            <Input label="Montant (Ar)" type="number" min="0.01" step="0.01" required placeholder="Ex. 50000" value={montant} onChange={event => setMontant(event.target.value)} />
+            <MoneyInput label="Montant (Ar)" min="0.01" required placeholder="Ex. 50000" value={montant} onValueChange={setMontant} />
             <Input label="Motif" required placeholder="Ex. Dépense imprévue à couvrir" value={motif} onChange={event => setMotif(event.target.value)} />
             {!loadingPeriod && selectedPeriodeId && !context?.availableActions?.ADD_VARIABLE?.allowed &&
                 <Alert type="warning" message="Les demandes ne sont pas ouvertes pour cette période. Sélectionnez une période autorisée." />}

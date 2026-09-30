@@ -43,7 +43,7 @@ export default function Alert({ type, variant, title, message, children, onClose
       {t.icon}
       <div className="flex-1 min-w-0">
         {title && <p className={`text-xs sm:text-[13px] font-bold ${t.title}`}>{title}</p>}
-        {content && <p className={`text-xs sm:text-[13px] mt-0.5 ${t.text}`}>{content}</p>}
+        {content && <div className={`text-xs sm:text-[13px] mt-0.5 ${t.text}`}>{content}</div>}
       </div>
       {onClose && (
         <button

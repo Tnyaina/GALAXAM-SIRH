@@ -211,6 +211,18 @@ const contratService = {
         return response.data;
     },
 
+    /**
+     * Renseigner ou corriger la date de signature d'un contrat déjà validé.
+     * PATCH /employes/{idEmploye}/contrats/{idContrat}/date-signature
+     */
+    renseignerDateSignature: async (idEmploye, idContrat, dateSignature) => {
+        const response = await apiClient.patch(
+            `/employes/${idEmploye}/contrats/${idContrat}/date-signature`,
+            { dateSignature }
+        );
+        return response.data;
+    },
+
     // =========================================================================
     // AFFECTATIONS
     // =========================================================================

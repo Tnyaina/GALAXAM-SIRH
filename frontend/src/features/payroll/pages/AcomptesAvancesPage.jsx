@@ -5,6 +5,7 @@ import SEO from '@/components/system/SEO';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import MoneyInput from '@/components/ui/forms/MoneyInput';
 import Select from '@/components/ui/forms/Select';
 import Badge from '@/components/ui/data-display/Badge';
 import StatCard from '@/components/ui/data-display/StatCard';
@@ -372,15 +373,13 @@ export default function AcomptesAvancesPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <Input
+                        <MoneyInput
                             label="Montant demandé en Ariary"
-                            type="number"
-                            step="0.01"
                             min="0.01"
                             required
                             placeholder="Ex. 50000.00"
                             value={demandeForm.montant}
-                            onChange={(e) => setDemandeForm(prev => ({ ...prev, montant: e.target.value }))}
+                            onValueChange={(value) => setDemandeForm(prev => ({ ...prev, montant: value }))}
                         />
                         <p className="mt-1 text-[11px] text-[var(--color-fg-muted)]">Montant en Ariary (jusqu'à 2 décimales, ex: 2000.50).</p>
                     </div>

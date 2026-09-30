@@ -56,7 +56,7 @@ describe('Onglet Paie employé', () => {
         const selects = [...document.body.querySelectorAll('select')];
         expect(selects.at(-1).textContent).not.toContain('Prime');
         await act(async () => { selects.at(-1).value = 'ACOMPTE_15'; selects.at(-1).dispatchEvent(new Event('change', { bubbles: true })); });
-        const amount = document.body.querySelector('input[type="number"]');
+        const amount = document.body.querySelector('input[placeholder="Ex. 50000"]');
         const motif = document.body.querySelector('input[placeholder="Ex. Dépense imprévue à couvrir"]');
         expect(amount.placeholder).toBe('Ex. 50000');
         const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;

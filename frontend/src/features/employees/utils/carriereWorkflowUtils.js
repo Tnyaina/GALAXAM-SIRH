@@ -81,34 +81,34 @@ export function getWorkflowLibellesUI(workflowCpl) {
     const isRupture = workflowCpl.isRupture ?? isRuptureEvent(workflowCpl);
     const code = workflowCpl.codeTypeEvenement;
 
-    let title = `Validation — Mouvement (${workflowCpl.libelleTypeEvenement || code || ''})`;
-    let description = 'Veuillez relire les termes de cette transition avant officialisation.';
+    let title = `Validation · Mouvement RH (${workflowCpl.libelleTypeEvenement || code || ''})`;
+    let description = 'Vérifiez les conditions contractuelles ci-dessous avant validation.';
     let actionBtnLabel = 'Valider le mouvement';
     let badgeEssai = 'ÉVÉNEMENT';
     let badgeVariant = 'primary';
 
     if (isEmbauche) {
-        title = 'Validation Finale — Nouveau Contrat d\'Embauche';
-        description = 'Veuillez relire l\'ensemble des conditions contractuelles et financières ci-dessous. En cliquant sur "Valider", le contrat passera au statut ACTIF.';
-        actionBtnLabel = 'Valider Définitivement (Activer)';
+        title = 'Validation · Nouveau contrat d\'embauche';
+        description = 'Vérifiez les conditions contractuelles et financières ci-dessous avant activation.';
+        actionBtnLabel = 'Valider l\'embauche';
         badgeEssai = 'PÉRIODE D\'ESSAI INITIALE';
         badgeVariant = 'primary';
     } else if (isConfirmation) {
-        title = 'Validation — Confirmation Définitive d\'Essai';
-        description = 'Veuillez relire la décision ci-dessous. En cliquant sur "Valider", l\'essai sera définitivement levé et l\'employé confirmé.';
-        actionBtnLabel = 'Valider la Confirmation d\'Essai';
+        title = 'Validation · Confirmation d\'essai';
+        description = 'Vérifiez la décision ci-dessous avant levée définitive de la période d\'essai.';
+        actionBtnLabel = 'Valider la confirmation';
         badgeEssai = 'ESSAI CONFIRMÉ';
         badgeVariant = 'success';
     } else if (isRenouvellement) {
-        title = 'Validation — Renouvellement de Période d\'Essai';
-        description = 'Veuillez relire la prolongation ci-dessous. En cliquant sur "Valider", la 2ème période d\'essai sera officialisée.';
-        actionBtnLabel = 'Valider le Renouvellement d\'Essai';
+        title = 'Validation · Renouvellement d\'essai';
+        description = 'Vérifiez la prolongation ci-dessous avant officialisation du renouvellement.';
+        actionBtnLabel = 'Valider le renouvellement';
         badgeEssai = 'ESSAI RENOUVELÉ';
         badgeVariant = 'warning';
     } else if (isRupture) {
-        title = `Validation — Rupture / Fin de Contrat (${workflowCpl.libelleTypeEvenement || code || ''})`;
-        description = 'Veuillez relire les conditions de rupture de contrat. En cliquant sur "Valider", le contrat sera rompu/clôturé et le statut de l\'employé sera mis à jour.';
-        actionBtnLabel = 'Valider la Rupture & Clôturer le Contrat';
+        title = `Validation · Fin de contrat (${workflowCpl.libelleTypeEvenement || code || ''})`;
+        description = 'Vérifiez les conditions de clôture du contrat ci-dessous.';
+        actionBtnLabel = 'Valider la fin de contrat';
         badgeEssai = 'FIN DE CONTRAT';
         badgeVariant = 'danger';
     }

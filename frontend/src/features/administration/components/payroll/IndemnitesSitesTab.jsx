@@ -8,6 +8,7 @@ import organisationService from '@/features/organization/api/organisationService
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Input, { Select, Checkbox } from '@/components/ui/forms/Input';
+import MoneyInput from '@/components/ui/forms/MoneyInput';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDateInput } from '@/utils/dateUtils';
 import { fmtMoney } from '@/utils/moneyUtils';
@@ -644,15 +645,13 @@ export default function IndemnitesSitesTab() {
                                 </option>
                             ))}
                         </Select>
-                        <Input
+                        <MoneyInput
                             label="Montant (Ar)"
-                            type="number"
                             min="0"
-                            step="100"
                             required
                             placeholder="Ex: 2500"
                             value={siteIndemniteFormData.montantReference}
-                            onChange={(e) => setSiteIndemniteFormData({ ...siteIndemniteFormData, montantReference: e.target.value })}
+                            onValueChange={(value) => setSiteIndemniteFormData({ ...siteIndemniteFormData, montantReference: value })}
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-3">

@@ -125,6 +125,7 @@ export default function CarriereTab({
                 canWrite={canWrite}
                 canValidate={canValidate}
                 modalsState={modalsState}
+                refreshData={refreshData}
             />
         </div>
     );
