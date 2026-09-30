@@ -283,6 +283,27 @@ public class ParametreGlobal extends ClassMere {
         } catch (Exception e) {
             throw new IllegalStateException("Impossible de charger l'état des paramètres au " + d + ".", e);
         }
+
+        // Fallback résilient : pour tout paramètre absent à la date demandée (ex: date antérieure à la première version),
+        // compléter avec la version baseline la plus ancienne connue.
+        String fallbackSql = "SELECT DISTINCT ON (code_parametre) code_parametre, valeur, " +
+                             "COALESCE(est_actif, TRUE) AS est_actif, COALESCE(est_desactivable, FALSE) AS est_desactivable " +
+                             "FROM parametre_global " +
+                             "ORDER BY code_parametre, date_debut ASC, id_parametre ASC";
+        try (PreparedStatement psFb = c.prepareStatement(fallbackSql);
+             ResultSet rsFb = psFb.executeQuery()) {
+            while (rsFb.next()) {
+                String code = rsFb.getString("code_parametre").toUpperCase();
+                map.putIfAbsent(code, new ParametreEtat(
+                    code,
+                    rsFb.getString("valeur"),
+                    rsFb.getBoolean("est_actif"),
+                    rsFb.getBoolean("est_desactivable")
+                ));
+            }
+        } catch (Exception ignored) {
+        }
+
         return map;
     }
 
@@ -321,6 +342,21 @@ public class ParametreGlobal extends ClassMere {
             if (e instanceof RuntimeException runtime) throw runtime;
             throw new IllegalStateException("Impossible de charger les paramètres au " + dateRef + ".", e);
         }
+
+        // Fallback résilient pour les paramètres actifs
+        String fallbackActiveSql = "SELECT DISTINCT ON (code_parametre) code_parametre, valeur " +
+                                   "FROM parametre_global " +
+                                   "WHERE COALESCE(est_actif, TRUE) = TRUE " +
+                                   "ORDER BY code_parametre, date_debut ASC, id_parametre ASC";
+        try (PreparedStatement psFb = c.prepareStatement(fallbackActiveSql);
+             ResultSet rsFb = psFb.executeQuery()) {
+            while (rsFb.next()) {
+                String code = rsFb.getString("code_parametre").toUpperCase();
+                map.putIfAbsent(code, rsFb.getString("valeur"));
+            }
+        } catch (Exception ignored) {
+        }
+
         return map;
     }
 

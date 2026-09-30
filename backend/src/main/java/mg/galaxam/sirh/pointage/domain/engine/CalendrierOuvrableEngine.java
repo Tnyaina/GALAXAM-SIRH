@@ -183,6 +183,7 @@ public class CalendrierOuvrableEngine {
 
     /**
      * Récupère l'ensemble des dates fériées ou exceptionnellement chômées pour un employé en fonction de son site actif.
+     * Ignore silencieusement les jours où l'employé n'est pas sous contrat / affecté.
      */
     public Set<LocalDate> getDatesFeriesEtChomeesEmploye(LocalDate debut, LocalDate fin, Integer idEmploye, Connection c) {
         if (debut == null || fin == null || fin.isBefore(debut) || idEmploye == null || c == null) {
@@ -191,7 +192,10 @@ public class CalendrierOuvrableEngine {
         Map<Integer, Set<LocalDate>> chomesParSite = new HashMap<>();
         Set<LocalDate> result = new HashSet<>();
         for (LocalDate date = debut; !date.isAfter(fin); date = date.plusDays(1)) {
-            Integer idSite = resolveSiteAt(idEmploye, date, c);
+            Integer idSite = resolveSiteAtOrNull(idEmploye, date, c);
+            if (idSite == null) {
+                continue;
+            }
             Set<LocalDate> chomes = chomesParSite.computeIfAbsent(
                     idSite, site -> getDatesFeriesEtChomees(debut, fin, site, c));
             if (chomes.contains(date)) result.add(date);
@@ -199,10 +203,13 @@ public class CalendrierOuvrableEngine {
         return result;
     }
 
-    /** Résout l'unique site applicable à une date métier, sans fallback « dernier id ». */
-    public Integer resolveSiteAt(Integer idEmploye, LocalDate targetDate, Connection c) {
+    /**
+     * Résout le site de l'employé à une date métier, ou retourne null si l'employé n'a pas d'affectation active à cette date.
+     * Lève une exception si l'affectation existe mais n'a pas de site (AFFECTATION_SITE_MISSING) ou en cas de conflit (AFFECTATION_OVERLAP).
+     */
+    public Integer resolveSiteAtOrNull(Integer idEmploye, LocalDate targetDate, Connection c) {
         if (idEmploye == null || targetDate == null || c == null) {
-            throw affectationInvalide(idEmploye, targetDate, "AFFECTATION_CONTEXT_REQUIRED");
+            return null;
         }
         String sql = "SELECT id_site FROM employe_affectation_carriere "
                 + "WHERE id_employe = ? AND date_debut <= ? "
@@ -213,7 +220,7 @@ public class CalendrierOuvrableEngine {
             ps.setDate(2, java.sql.Date.valueOf(targetDate));
             ps.setDate(3, java.sql.Date.valueOf(targetDate));
             try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) throw affectationInvalide(idEmploye, targetDate, "AFFECTATION_GAP");
+                if (!rs.next()) return null;
                 int idSite = rs.getInt("id_site");
                 if (rs.wasNull()) throw affectationInvalide(idEmploye, targetDate, "AFFECTATION_SITE_MISSING");
                 if (rs.next()) throw affectationInvalide(idEmploye, targetDate, "AFFECTATION_OVERLAP");
@@ -224,6 +231,18 @@ public class CalendrierOuvrableEngine {
         } catch (Exception e) {
             throw new IllegalStateException("Impossible de résoudre l'affectation datée.", e);
         }
+    }
+
+    /** Résout l'unique site applicable à une date métier, sans fallback « dernier id ». */
+    public Integer resolveSiteAt(Integer idEmploye, LocalDate targetDate, Connection c) {
+        if (idEmploye == null || targetDate == null || c == null) {
+            throw affectationInvalide(idEmploye, targetDate, "AFFECTATION_CONTEXT_REQUIRED");
+        }
+        Integer idSite = resolveSiteAtOrNull(idEmploye, targetDate, c);
+        if (idSite == null) {
+            throw affectationInvalide(idEmploye, targetDate, "AFFECTATION_GAP");
+        }
+        return idSite;
     }
 
     private static SirhBusinessException affectationInvalide(

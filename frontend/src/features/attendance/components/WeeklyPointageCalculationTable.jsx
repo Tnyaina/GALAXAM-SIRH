@@ -45,7 +45,7 @@ export default function WeeklyPointageCalculationTable({ weeks = [], pointages =
                                         <strong className="block text-[var(--color-fg)]">Semaine {week.numeroSemaine ?? week.numSemaine ?? index + 1}</strong>
                                         <span className="text-[var(--color-fg-muted)]">du {fmtDate(start)} au {fmtDate(end)}</span>
                                     </Td>
-                                    <Td className="py-4 text-center font-mono text-xs">{week.nbJoursTroncon ?? week.joursOuvrables ?? '—'} j</Td>
+                                    <Td className="py-4 text-center font-mono text-xs">{week.nbJoursTroncon ?? week.joursOuvrables ?? '-'} j</Td>
                                     <Td className="py-4 text-center font-mono text-xs">
                                         <strong className="block font-semibold">{formatHeuresMinutes(objective)}</strong>
                                         <span className="text-[10px] text-[var(--color-fg-muted)]">({formatHeuresDecimal(objective)})</span>

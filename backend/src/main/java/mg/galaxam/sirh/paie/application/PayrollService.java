@@ -42,6 +42,8 @@ import mg.galaxam.sirh.pointage.domain.calculation.DaySpecialType;
 import mg.galaxam.sirh.pointage.domain.calculation.NightWorkType;
 import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
 import mg.galaxam.sirh.paie.domain.engine.PayrollOvertimeSettlement;
+import mg.galaxam.sirh.common.exception.SirhBusinessException;
+import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import mg.galaxam.sirh.paie.domain.engine.TaxConfigurationResolver;
 import mg.galaxam.sirh.common.transaction.TransactionRunner;
@@ -380,6 +382,8 @@ public class PayrollService {
                 "LEFT JOIN ref_fonction f ON eac.id_fonction = f.id_fonction " +
                 "CROSS JOIN periode_paie p " +
                 "WHERE e.est_actif = true " +
+                "AND eac.date_debut <= p.date_fin AND (eac.date_fin IS NULL OR eac.date_fin >= p.date_debut) " +
+                "AND (ct.id_contrat IS NULL OR (ct.date_debut <= p.date_fin AND (ct.date_fin IS NULL OR ct.date_fin >= p.date_debut))) " +
                 "AND tri.code IN ('CONSULTANT', 'PRESTATAIRE', 'ISI_5') " +
                 "AND p.id_periode_paie = ?";
 
@@ -750,12 +754,23 @@ public class PayrollService {
                     // Résolution canonique du tronçon contractuel pour le prorata temporis /30
                     Date contratDebut = rs.getDate("contrat_date_debut");
                     Date contratFin = rs.getDate("contrat_date_fin");
+                    Date affDebut = rs.getDate("affectation_date_debut");
                     Date affFin = rs.getDate("affectation_date_fin");
 
                     LocalDate dDebPer = in.getDateDebutPeriode().toLocalDate();
                     LocalDate dFinPer = in.getDateFinPeriode().toLocalDate();
 
-                    LocalDate dDebContrat = contratDebut != null ? contratDebut.toLocalDate() : dDebPer;
+                    LocalDate dDebEffectif = contratDebut != null ? contratDebut.toLocalDate() : null;
+                    if (affDebut != null) {
+                        LocalDate dAffDeb = affDebut.toLocalDate();
+                        if (dDebEffectif == null || dAffDeb.isAfter(dDebEffectif)) {
+                            dDebEffectif = dAffDeb;
+                        }
+                    }
+                    if (dDebEffectif == null) {
+                        dDebEffectif = dDebPer;
+                    }
+
                     LocalDate dFinContratEffective = null;
                     if (contratFin != null) {
                         dFinContratEffective = contratFin.toLocalDate();
@@ -767,12 +782,12 @@ public class PayrollService {
                         }
                     }
 
-                    LocalDate effectiveStart = dDebContrat.isAfter(dDebPer) ? dDebContrat : dDebPer;
+                    LocalDate effectiveStart = dDebEffectif.isAfter(dDebPer) ? dDebEffectif : dDebPer;
                     LocalDate effectiveEnd = (dFinContratEffective != null && dFinContratEffective.isBefore(dFinPer))
                             ? dFinContratEffective
                             : dFinPer;
 
-                    boolean entreeEnCours = dDebContrat.isAfter(dDebPer);
+                    boolean entreeEnCours = dDebEffectif.isAfter(dDebPer);
                     boolean sortieEnCours = dFinContratEffective != null && dFinContratEffective.isBefore(dFinPer);
 
                     if (entreeEnCours || sortieEnCours) {
@@ -793,7 +808,8 @@ public class PayrollService {
                                 + idEmploye + " sur la période " + in.getDateDebutPeriode() + " au " + in.getDateFinPeriode() + ".");
                     }
                 } else {
-                    throw new IllegalArgumentException("Dossier employé ou affectation active introuvable pour l'id: " + idEmploye);
+                    throw new SirhBusinessException(SirhErrorCode.PAYROLL_EMPLOYEE_INACTIVE,
+                            "Dossier employé ou affectation active introuvable pour l'employé " + idEmploye + " sur la période de paie calculée.");
                 }
             }
         }

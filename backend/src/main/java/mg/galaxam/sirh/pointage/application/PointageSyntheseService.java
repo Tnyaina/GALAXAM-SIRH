@@ -2075,13 +2075,11 @@ public class PointageSyntheseService {
             statement.setDate(3, Date.valueOf(effectiveDate));
             try (ResultSet result = statement.executeQuery()) {
                 if (!result.next()) {
-                    throw new IllegalStateException("Aucune catégorie professionnelle applicable pour l'éligibilité HS de l'employé "
-                            + employeeId + " à la date " + effectiveDate + ".");
+                    return false;
                 }
                 boolean eligible = result.getBoolean(1);
                 if (result.wasNull()) {
-                    throw new IllegalStateException("Configuration d'éligibilité HS absente pour l'employé "
-                            + employeeId + " à la date " + effectiveDate + ".");
+                    return false;
                 }
                 return eligible;
             }

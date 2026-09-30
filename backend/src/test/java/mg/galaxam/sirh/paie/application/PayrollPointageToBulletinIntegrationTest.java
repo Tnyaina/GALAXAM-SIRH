@@ -313,6 +313,49 @@ class PayrollPointageToBulletinIntegrationTest {
         }
     }
 
+    @Test
+    void employeInactifSurPeriodeEstExcluOuRejeteEnPaie() throws Exception {
+        try (Connection connection = dataSource.getConnection()) {
+            assertTestDatabase(connection);
+            connection.setAutoCommit(false);
+            try {
+                int employeeId = insertEmployee(connection, "Inactif");
+                // Contrat terminé dans le passé (2020)
+                int contractId = CongeTestFixtureHelper.createContratActif(connection, employeeId, LocalDate.of(2020, 1, 1));
+                try (PreparedStatement ps = connection.prepareStatement(
+                        "UPDATE contrat_travail SET date_fin = '2020-03-01', id_statut_rh = (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'CLOTURE') WHERE id_contrat = ?")) {
+                    ps.setInt(1, contractId);
+                    ps.executeUpdate();
+                }
+                CongeTestFixtureHelper.createAffectation(connection, employeeId, contractId, LocalDate.of(2020, 1, 1), new BigDecimal("350000"));
+                try (PreparedStatement ps = connection.prepareStatement(
+                        "UPDATE employe_affectation_carriere SET date_fin = '2020-03-01' WHERE id_contrat = ?")) {
+                    ps.setInt(1, contractId);
+                    ps.executeUpdate();
+                }
+
+                int periodId = CongeTestFixtureHelper.createPeriodePaie(connection,
+                        "E2E-" + employeeId, LocalDate.of(2026, 9, 24), LocalDate.of(2026, 9, 25), "VALIDEE");
+
+                // 1. preparerInput doit lever SirhBusinessException avec PAYROLL_EMPLOYEE_INACTIVE
+                mg.galaxam.sirh.common.exception.SirhBusinessException ex = assertThrows(
+                        mg.galaxam.sirh.common.exception.SirhBusinessException.class,
+                        () -> payrollService.preparerInput(employeeId, periodId, true, connection));
+                assertEquals(mg.galaxam.sirh.common.exception.SirhErrorCode.PAYROLL_EMPLOYEE_INACTIVE, ex.getErrorCode());
+
+                // 2. PayrollPopulationResolver doit exclure l'employé
+                var resolver = new PayrollPopulationResolver();
+                var population = resolver.resolve(periodId, connection);
+                var memberOpt = population.members().stream().filter(m -> m.employeeId() == employeeId).findFirst();
+                assertTrue(memberOpt.isPresent());
+                assertEquals("EXCLUDED", memberOpt.get().decision());
+                assertEquals("NO_APPLICABLE_ASSIGNMENT", memberOpt.get().reasonCode());
+            } finally {
+                connection.rollback();
+            }
+        }
+    }
+
     private int insertEmployee(Connection connection, String label) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
                 "INSERT INTO employe (matricule, nom, prenom, sexe, date_naissance, lieu_naissance, "

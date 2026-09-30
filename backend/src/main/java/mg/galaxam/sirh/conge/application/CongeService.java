@@ -970,11 +970,33 @@ public class CongeService {
         res.put("nbJoursWeekEnd", nbWeekend);
 
         if (idEmploye == null || idEmploye <= 0) {
+            res.put("actifSurPeriode", true);
             res.put("collisionPersonnelle", false);
             res.put("collisionsPersonnelles", java.util.List.of());
             res.put("conflitPoste", false);
             res.put("colleguesAbsents", java.util.List.of());
             return res;
+        }
+
+        // 2.bis Contrôle de couverture par un contrat actif
+        boolean actifSurPeriode = true;
+        String sqlCheckActif = "SELECT ct.id_contrat FROM contrat_travail ct "
+                + "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh "
+                + "WHERE ct.id_employe = ? AND rsc.code = 'ACTIF' "
+                + "AND ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?)";
+        try (PreparedStatement psAct = c.prepareStatement(sqlCheckActif)) {
+            psAct.setInt(1, idEmploye);
+            psAct.setDate(2, dateDebut);
+            psAct.setDate(3, dateFin);
+            try (ResultSet rsAct = psAct.executeQuery()) {
+                if (!rsAct.next()) {
+                    actifSurPeriode = false;
+                }
+            }
+        }
+        res.put("actifSurPeriode", actifSurPeriode);
+        if (!actifSurPeriode) {
+            res.put("alerteInactivite", "L'employé ne dispose d'aucun contrat actif couvrant l'intégralité de la période demandée.");
         }
 
         // 3. Collisions personnelles (autres congés de l'employé)

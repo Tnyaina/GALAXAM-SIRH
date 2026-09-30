@@ -91,6 +91,10 @@ public enum SirhErrorCode {
             HttpStatus.CONFLICT,
             "Une configuration d'indemnité repas ou déplacement est absente pour le contexte demandé."),
 
+    PAYROLL_EMPLOYEE_INACTIVE(
+            HttpStatus.CONFLICT,
+            "L'employé est inactif ou ne dispose d'aucun contrat ou affectation active sur la période de paie calculée."),
+
     // =========================================================================
     // POINTAGE & PAIE
     // =========================================================================

@@ -29,6 +29,7 @@ public class CongeTauxApplicableService {
         private LocalDate dateCutover;
         private CongeModeReprise modeReprise = CongeModeReprise.AGGREGATED_OPENING;
         private BigDecimal soldeJours;
+        private BigDecimal valeurSoldeOuverture;
         private BigDecimal tauxJournalierApplicable;
         private LocalDate dateDebutReference;
         private BigDecimal cumulDroitsOuverture;
@@ -44,6 +45,8 @@ public class CongeTauxApplicableService {
         public void setModeReprise(CongeModeReprise modeReprise) { this.modeReprise = modeReprise; }
         public BigDecimal getSoldeJours() { return soldeJours; }
         public void setSoldeJours(BigDecimal soldeJours) { this.soldeJours = soldeJours; }
+        public BigDecimal getValeurSoldeOuverture() { return valeurSoldeOuverture; }
+        public void setValeurSoldeOuverture(BigDecimal valeurSoldeOuverture) { this.valeurSoldeOuverture = valeurSoldeOuverture; }
         public BigDecimal getTauxJournalierApplicable() { return tauxJournalierApplicable; }
         public void setTauxJournalierApplicable(BigDecimal tauxJournalierApplicable) { this.tauxJournalierApplicable = tauxJournalierApplicable; }
         public LocalDate getDateDebutReference() { return dateDebutReference; }
@@ -927,8 +930,17 @@ public class CongeTauxApplicableService {
         if (req.getDateCutover() == null) {
             throw new IllegalArgumentException("La date de cutover est obligatoire.");
         }
+        if (req.getDateCutover().getDayOfMonth() != 1) {
+            throw new IllegalArgumentException("La reprise doit commencer le premier jour d'un mois, après le dernier mois suivi par la DAF.");
+        }
         if (req.getSoldeJours() == null || req.getSoldeJours().compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Le solde de jours initial doit être positif ou nul.");
+        }
+        if (req.getValeurSoldeOuverture() != null
+                && (req.getValeurSoldeOuverture().signum() < 0
+                    || (req.getSoldeJours().signum() == 0 && req.getValeurSoldeOuverture().signum() != 0)
+                    || (req.getSoldeJours().signum() > 0 && req.getValeurSoldeOuverture().signum() == 0))) {
+            throw new IllegalArgumentException("La valeur du solde repris doit être cohérente avec les jours disponibles.");
         }
         if (req.getTauxJournalierApplicable() == null || req.getTauxJournalierApplicable().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Le taux TCONGE applicable initial doit être strictement positif.");
@@ -1034,8 +1046,10 @@ public class CongeTauxApplicableService {
             } else {
                 psMvt.setNull(5, Types.INTEGER);
             }
-            psMvt.setBigDecimal(6, req.getSoldeJours().multiply(req.getTauxJournalierApplicable())
-                    .setScale(2, RoundingMode.HALF_UP));
+            BigDecimal valeurReprise = req.getValeurSoldeOuverture() != null
+                    ? req.getValeurSoldeOuverture()
+                    : req.getSoldeJours().multiply(req.getTauxJournalierApplicable());
+            psMvt.setBigDecimal(6, valeurReprise.setScale(2, RoundingMode.HALF_UP));
             psMvt.executeUpdate();
         }
 

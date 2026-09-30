@@ -61,18 +61,19 @@ public class PayrollPopulationResolver {
     }
 
     private PayrollPopulationMember decide(List<Row> rows) {
-        Row row = rows.get(0);
-        long applicableAssignments = rows.stream().filter(candidate -> candidate.assignmentId() != null).count();
-        if (applicableAssignments == 0) {
-            return member(row, "EXCLUDED", "NO_APPLICABLE_ASSIGNMENT");
+        Row fallbackRow = rows.get(0);
+        List<Row> applicableRows = rows.stream().filter(candidate -> candidate.assignmentId() != null).toList();
+        if (applicableRows.isEmpty()) {
+            return member(fallbackRow, "EXCLUDED", "NO_APPLICABLE_ASSIGNMENT");
         }
-        if (applicableAssignments > 1) {
-            return member(row, "BLOCKED", "AMBIGUOUS_ASSIGNMENT");
+        if (applicableRows.size() > 1) {
+            return member(fallbackRow, "BLOCKED", "AMBIGUOUS_ASSIGNMENT");
         }
-        if (row.contractId() == null || row.regime() == null) {
-            return member(row, "BLOCKED", "NO_APPLICABLE_CONTRACT");
+        Row applicableRow = applicableRows.get(0);
+        if (applicableRow.contractId() == null || applicableRow.regime() == null) {
+            return member(applicableRow, "BLOCKED", "NO_APPLICABLE_CONTRACT");
         }
-        return member(row, "INCLUDED", null);
+        return member(applicableRow, "INCLUDED", null);
     }
 
     private PayrollPopulationMember member(Row row, String decision, String reasonCode) {

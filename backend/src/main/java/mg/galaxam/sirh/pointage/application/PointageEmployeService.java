@@ -207,6 +207,35 @@ public class PointageEmployeService {
             log.warn("[PointageEmployeService] Erreur récupération règles site pour employé {}: {}", idEmploye, e.getMessage());
         }
 
+        // Si l'employé n'a pas d'affectation active à la date de fin (ex: inactif sur la période), charger le site par défaut
+        if (hDebutMatin == null) {
+            String sqlDefSite = "SELECT libelle, horaire_continu, heure_debut_matin, heure_fin_matin, " +
+                    "heure_debut_apres_midi, heure_fin_apres_midi FROM ref_site WHERE est_actif = TRUE ORDER BY id_site ASC LIMIT 1";
+            try (Connection cDef = dataSource.getConnection();
+                 PreparedStatement psDef = cDef.prepareStatement(sqlDefSite);
+                 ResultSet rsDef = psDef.executeQuery()) {
+                if (rsDef.next()) {
+                    if ("Siège".equals(empSiteNom) && rsDef.getString("libelle") != null) {
+                        empSiteNom = rsDef.getString("libelle");
+                    }
+                    if (rsDef.getTime("heure_debut_matin") != null) hDebutMatin = rsDef.getTime("heure_debut_matin").toLocalTime();
+                    if (rsDef.getTime("heure_fin_matin") != null) hFinMatin = rsDef.getTime("heure_fin_matin").toLocalTime();
+                    if (rsDef.getTime("heure_debut_apres_midi") != null) hDebutAm = rsDef.getTime("heure_debut_apres_midi").toLocalTime();
+                    if (rsDef.getTime("heure_fin_apres_midi") != null) hFinAm = rsDef.getTime("heure_fin_apres_midi").toLocalTime();
+                    siteContinu = rsDef.getBoolean("horaire_continu");
+                }
+            } catch (Exception e) {
+                log.warn("[PointageEmployeService] Impossible de charger le site par défaut: {}", e.getMessage());
+            }
+        }
+        if (hDebutMatin == null || hFinAm == null || (!siteContinu && (hFinMatin == null || hDebutAm == null))) {
+            hDebutMatin = LocalTime.of(8, 0);
+            hFinMatin = LocalTime.of(12, 0);
+            hDebutAm = LocalTime.of(13, 0);
+            hFinAm = LocalTime.of(17, 0);
+            siteContinu = false;
+        }
+
         result.setMatricule(empMatricule);
         result.setNom(empNom);
         result.setPrenom(empPrenom);
@@ -221,16 +250,12 @@ public class PointageEmployeService {
             long pauseMins = Duration.between(hFinMatin, hDebutAm).toMinutes();
             regles.put("pause", String.format("%02dh%02d", pauseMins / 60, pauseMins % 60));
         }
-        long dureeJourMins;
-        if (hDebutMatin == null || hFinAm == null || (!siteContinu && (hFinMatin == null || hDebutAm == null))) {
-            throw new IllegalStateException("Horaires du site incomplets pour la fiche Pointage de l'employé " + idEmploye + ".");
-        }
-        dureeJourMins = hFinMatin != null && hDebutAm != null
+        long dureeJourMins = hFinMatin != null && hDebutAm != null
                 ? Duration.between(hDebutMatin, hFinMatin).toMinutes()
                     + Duration.between(hDebutAm, hFinAm).toMinutes()
                 : Duration.between(hDebutMatin, hFinAm).toMinutes();
         if (dureeJourMins <= 0) {
-            throw new IllegalStateException("Durée journalière du site invalide pour l'employé " + idEmploye + ".");
+            dureeJourMins = 480;
         }
         regles.put("horaireJournalier", String.format("%02dh%02d", dureeJourMins / 60, dureeJourMins % 60));
         if (hDebutMatin != null) regles.put("debutNormal", hDebutMatin.toString().substring(0, 5));
@@ -548,11 +573,12 @@ public class PointageEmployeService {
 
         for (LocalDate curr = startDate; !curr.isAfter(endDate); curr = curr.plusDays(1)) {
             boolean isWeekend = CalendrierOuvrableEngine.isWeekend(curr);
-            boolean isAvantEmbauche = (dateEmbauche != null && curr.isBefore(dateEmbauche));
-            boolean isApresDepart = (dateDepart != null && curr.isAfter(dateDepart));
+            boolean isHorsContrat = !siteByDate.containsKey(curr);
+            boolean isAvantEmbauche = (dateEmbauche != null && curr.isBefore(dateEmbauche)) || isHorsContrat;
+            boolean isApresDepart = (dateDepart != null && curr.isAfter(dateDepart)) || isHorsContrat;
             boolean isFerie = feriesChomes != null && feriesChomes.contains(curr);
 
-            if (!isWeekend && !isAvantEmbauche && !isApresDepart && !isFerie) {
+            if (!isWeekend && !isHorsContrat && !isFerie) {
                 totalJoursOuvrables++;
             }
 
@@ -788,7 +814,7 @@ public class PointageEmployeService {
                         LocalDate ldFin = dFin != null ? dFin.toLocalDate() : null;
 
                         boolean covers = (ldDeb == null || !ldDeb.isAfter(endDate)) && (ldFin == null || !ldFin.isBefore(startDate));
-                        if (synDto != null && !covers) {
+                        if (!covers) {
                             continue;
                         }
 
@@ -805,11 +831,14 @@ public class PointageEmployeService {
                                 rsCar.getInt("id_site"),
                                 rsCar.getString("site_code"),
                                 rsCar.getString("site_nom"),
+                                null,
                                 codeCat,
                                 isCadre,
                                 estAutonomeEmp,
                                 startDate,
                                 endDate,
+                                ldDeb,
+                                ldFin,
                                 resolvedIdPeriode,
                                 null,
                                 resolvedLibellePeriode,
@@ -820,9 +849,7 @@ public class PointageEmployeService {
                                 c
                         );
 
-                        if (covers) {
-                            break;
-                        }
+                        break;
                     }
                 }
             }
@@ -846,7 +873,7 @@ public class PointageEmployeService {
         }
         int nbCongesVal = synDto != null ? synDto.getNbJoursConge() : 0;
         int nbFerieChomeVal = synDto != null ? synDto.getNbJoursFerieChome() : 0;
-        if (totalObjectifHeures <= 0.0) {
+        if (totalObjectifHeures <= 0.0 && synDto != null) {
             int joursEffectifs = Math.max(0, totalJoursOuvrables - nbCongesVal);
             totalObjectifHeures = joursEffectifs * (dureeJourMins / 60.0);
         }
@@ -857,7 +884,9 @@ public class PointageEmployeService {
 
         int nbJoursAEffectuer = Math.max(0, totalJoursOuvrables - nbCongesVal);
         String joursPrevusStr;
-        if (nbCongesVal > 0) {
+        if (synDto == null) {
+            joursPrevusStr = "0 prévu (inactif sur la période)";
+        } else if (nbCongesVal > 0) {
             joursPrevusStr = String.format("%d prévus (+%d j congé)", nbJoursAEffectuer, nbCongesVal);
         } else {
             joursPrevusStr = String.format("%d prévus", totalJoursOuvrables);
@@ -910,6 +939,8 @@ public class PointageEmployeService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         Map<String, String> kpis = new LinkedHashMap<>();
+        kpis.put("statutEmployePeriode", synDto != null ? "ACTIF" : "INACTIF");
+        regles.put("statutEmployePeriode", synDto != null ? "ACTIF" : "INACTIF");
         kpis.put("joursTravailles", ((synDto != null && synDto.getNbJoursPresents() > 0) ? synDto.getNbJoursPresents() : totalJoursTravailles) + " j");
         kpis.put("joursPrevus", joursPrevusStr);
         kpis.put("heuresRealisees", String.format("%02dh%02d", (int) Math.floor(heuresRealisees), (int) Math.round((heuresRealisees - Math.floor(heuresRealisees)) * 60)));

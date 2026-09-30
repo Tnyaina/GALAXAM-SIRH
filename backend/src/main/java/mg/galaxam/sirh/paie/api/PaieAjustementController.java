@@ -376,6 +376,26 @@ public class PaieAjustementController {
                             PayrollPeriodUserContext.from(authentication));
                 }
 
+                if (req.getIdPeriodePaie() != null && req.getIdEmploye() != null) {
+                    String sqlCouv = "SELECT 1 FROM employe_affectation_carriere eac " +
+                            "JOIN contrat_travail ct ON ct.id_contrat = eac.id_contrat " +
+                            "JOIN periode_paie p ON p.id_periode_paie = ? " +
+                            "WHERE eac.id_employe = ? " +
+                            "AND eac.date_debut <= p.date_fin AND (eac.date_fin IS NULL OR eac.date_fin >= p.date_debut) " +
+                            "AND ct.date_debut <= p.date_fin AND (ct.date_fin IS NULL OR ct.date_fin >= p.date_debut) " +
+                            "LIMIT 1";
+                    try (PreparedStatement psCouv = c.prepareStatement(sqlCouv)) {
+                        psCouv.setInt(1, req.getIdPeriodePaie());
+                        psCouv.setInt(2, req.getIdEmploye());
+                        try (ResultSet rsCouv = psCouv.executeQuery()) {
+                            if (!rsCouv.next()) {
+                                throw new SirhBusinessException(SirhErrorCode.PAYROLL_EMPLOYEE_INACTIVE,
+                                        "L'employé ne dispose d'aucun contrat ou affectation active sur la période de paie sélectionnée.");
+                            }
+                        }
+                    }
+                }
+
                 String codeType = typeMvt.getCode();
                 String sens = typeMvt.getSens();
                 Integer idType = typeMvt.getIdTypeMouvement();

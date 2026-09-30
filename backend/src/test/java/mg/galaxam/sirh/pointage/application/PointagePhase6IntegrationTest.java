@@ -57,6 +57,9 @@ class PointagePhase6IntegrationTest {
     @Autowired
     private PayrollService payrollService;
 
+    @Autowired
+    private PointageEmployeService pointageEmployeService;
+
     private int employeId;
     private int adminUserId;
     private int activeSiteId;
@@ -596,6 +599,50 @@ class PointagePhase6IntegrationTest {
                     assertEquals(1, rs.getInt(1), "Il ne doit y avoir qu'un seul cumul actif au statut 'GELE'");
                 }
             }
+        }
+    }
+
+    @Test
+    @DisplayName("P7: Employé inactif sur la période - la fiche de pointage et la vérification congés n'explosent pas et reflètent l'inactivité")
+    void testEmployeInactifSurPeriodeNePlantePas() throws Exception {
+        int inactifEmpId;
+        try (Connection c = dataSource.getConnection()) {
+            String suffix = Long.toString(System.nanoTime(), 36).toUpperCase();
+            String matricule = "I_" + suffix.substring(0, Math.min(6, suffix.length()));
+            String cinUnique = String.format("%012d", Math.abs(System.nanoTime() % 1_000_000_000_000L));
+            try (PreparedStatement psEmp = c.prepareStatement(
+                    "INSERT INTO employe (matricule, nom, prenom, sexe, date_naissance, lieu_naissance, " +
+                    "cin_numero, cin_date_delivrance, cin_lieu_delivrance, adresse, telephone) " +
+                    "VALUES (?, 'INACTIF', 'Collab', 'M', '1990-01-15', 'Antananarivo', ?, '2010-01-15', 'TNR', 'Rue Test', '0340000000') " +
+                    "RETURNING id_employe")) {
+                psEmp.setString(1, matricule);
+                psEmp.setString(2, cinUnique);
+                try (ResultSet rsEmp = psEmp.executeQuery()) {
+                    rsEmp.next();
+                    inactifEmpId = rsEmp.getInt(1);
+                }
+            }
+
+            int inactifContratId = CongeTestFixtureHelper.createContratActif(c, inactifEmpId, LocalDate.of(2099, 1, 1));
+            CongeTestFixtureHelper.createAffectation(c, inactifEmpId, inactifContratId, LocalDate.of(2099, 1, 1), new BigDecimal("1000000"));
+
+            // 1. Vérification que getFichePointageEmploye ne plante pas et retourne le statut INACTIF
+            var fiche = pointageEmployeService.getFichePointageEmploye(inactifEmpId, null, null, testPeriodId);
+            assertNotNull(fiche, "La fiche de pointage doit être retournée même pour un employé non affecté sur la période");
+            assertEquals("INACTIF", fiche.getKpis().get("statutEmployePeriode"), "Le KPI doit indiquer que l'employé est inactif sur la période");
+            assertTrue(fiche.getKpis().get("joursPrevus").contains("inactif sur la période"), "L'affichage doit indiquer 0 prévu (inactif sur la période)");
+            assertEquals("00h00", fiche.getKpis().get("heuresObjectif"), "L'objectif d'heures doit être 00h00");
+
+            // 2. Vérification que verifierConflitsDemande ne plante pas et indique actifSurPeriode = false
+            var resultConge = congeService.verifierConflitsDemande(inactifEmpId, Date.valueOf("2026-08-01"), Date.valueOf("2026-08-05"), false, null, null, c);
+            assertNotNull(resultConge);
+            assertEquals(false, resultConge.get("actifSurPeriode"), "actifSurPeriode doit valoir false pour un employé sans contrat actif");
+            assertNotNull(resultConge.get("alerteInactivite"), "Une alerte d'inactivité claire doit être fournie");
+
+            // 3. Vérification que getFichePointageEmploye sur une date historique (2020) ne plante pas grâce à la baseline 2001
+            var ficheHistorique = pointageEmployeService.getFichePointageEmploye(inactifEmpId, "2020-01-15", "mois", null);
+            assertNotNull(ficheHistorique);
+            assertNotNull(ficheHistorique.getReglesAppliquees().get("seuilAssiduiteMinutes"));
         }
     }
 }

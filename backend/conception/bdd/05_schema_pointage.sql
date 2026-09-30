@@ -365,8 +365,8 @@ SELECT setval('ref_indemnite_id_indemnite_seq', (SELECT GREATEST(MAX(id_indemnit
 
 -- Configurations d'Indemnités par Site
 INSERT INTO site_indemnite_config (id_site_indemnite, id_site, id_indemnite, periodicite, montant_reference, date_debut) VALUES
-(1, 1, 1, 'MENSUEL', 31200.00, '2026-01-01'),
-(2, 2, 1, 'MENSUEL', 53200.00, '2026-01-01'),
-(3, 1, 2, 'JOURNALIER', 2000.00, '2026-01-01'),
-(4, 2, 2, 'JOURNALIER', 0.00, '2026-01-01');
+(1, 1, 1, 'MENSUEL', 31200.00, '2001-07-01'),
+(2, 2, 1, 'MENSUEL', 53200.00, '2001-07-01'),
+(3, 1, 2, 'JOURNALIER', 2000.00, '2001-07-01'),
+(4, 2, 2, 'JOURNALIER', 0.00, '2001-07-01');
 SELECT setval('site_indemnite_config_id_site_indemnite_seq', (SELECT GREATEST(MAX(id_site_indemnite), 4) FROM site_indemnite_config));
