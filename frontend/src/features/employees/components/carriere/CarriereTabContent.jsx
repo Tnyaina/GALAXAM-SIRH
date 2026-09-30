@@ -29,7 +29,7 @@ export default function CarriereTab({
     
     const {
         loading, errorMsg, brouillonWf, contratActif, affectationActive,
-        contratsList, workflowsList, etatEssai, refreshData,
+        contratsList, workflowsList, etatEssai, refreshData, updateContrat,
     } = useCarriere(idEmploye);
 
     const modalsState = useCarriereModals({
@@ -126,6 +126,10 @@ export default function CarriereTab({
                 canValidate={canValidate}
                 modalsState={modalsState}
                 refreshData={refreshData}
+                onContractUpdated={async contratMisAJour => {
+                    updateContrat(contratMisAJour);
+                    await refreshData({ silent: true });
+                }}
             />
         </div>
     );

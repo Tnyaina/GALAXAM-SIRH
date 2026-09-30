@@ -124,51 +124,64 @@ export default function CarriereHeaderCard({
                 </HasPermission>
             </Card>
 
-            {/* BANDEAU PERIODE D'ESSAI EN COURS (Composant Alert) */}
+            {/* Bandeau de période d'essai */}
             {(etatEssai?.aPeriodeEssai || etatEssai?.isEssaiActif) && (etatEssai?.dateFinEssai || etatEssai?.dateFinEssaiStr) && (
                 <Alert
                     variant={etatEssai.isEssaiEchu ? "danger" : "warning"}
-                    className="py-2 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                    title={etatEssai.isEssaiEchu
+                        ? "Période d'essai échue"
+                        : etatEssai.joursRestants === 0
+                            ? "Dernier jour de la période d'essai"
+                            : "Période d'essai en cours"}
+                    className="items-start px-3 py-3 sm:items-center"
                 >
-                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                        <span className="font-bold text-[11px]">Période d'essai</span>
-                        {Number.isFinite(etatEssai.joursRestants) && (
-                            <Badge variant={etatEssai.isEssaiEchu ? 'danger' : 'warning'} size="xs">
-                                {etatEssai.isEssaiEchu
-                                    ? `Dépassée de ${Math.abs(etatEssai.joursRestants)}j`
-                                    : etatEssai.joursRestants === 0
-                                        ? `Dernier jour`
-                                        : `Reste ${etatEssai.joursRestants}j`}
-                            </Badge>
-                        )}
-                        <span className="text-[var(--color-fg-muted)] truncate hidden md:inline text-xs">
-                            · Échéance le <strong className="text-[var(--color-fg)]">{fmtDate(etatEssai.dateFinEssai || etatEssai.dateFinEssaiStr)}</strong>
-                            {workflowPlanifieFutur && ` (${workflowPlanifieFutur.libelleTypeEvenement || workflowPlanifieFutur.codeTypeEvenement} planifié)`}
-                        </span>
-                    </div>
-
-                    {canWrite && !workflowPlanifieFutur && !brouillonWf && (
-                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
-                            {etatEssai?.canRenew === true && (
-                                <Button
-                                    variant="outline"
-                                    size="xs"
-                                    onClick={onOpenRenouvellement}
-                                >
-                                    Renouveler
-                                </Button>
-                            )}
-                            {etatEssai?.canConfirm === true && (
-                                <Button
-                                    variant="primary"
-                                    size="xs"
-                                    onClick={onOpenConfirmation}
-                                >
-                                    Confirmer l'essai
-                                </Button>
+                    <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-semibold text-[var(--color-fg)]">
+                                    Échéance le {fmtDate(etatEssai.dateFinEssai || etatEssai.dateFinEssaiStr)}
+                                </span>
+                                {Number.isFinite(etatEssai.joursRestants) && !etatEssai.isEssaiEchu && etatEssai.joursRestants > 0 && (
+                                    <Badge variant="warning" size="xs">
+                                        {etatEssai.joursRestants} jour{etatEssai.joursRestants === 1 ? '' : 's'} restant{etatEssai.joursRestants === 1 ? '' : 's'}
+                                    </Badge>
+                                )}
+                                {etatEssai.isEssaiEchu && (
+                                    <Badge variant="danger" size="xs">À régulariser</Badge>
+                                )}
+                            </div>
+                            {workflowPlanifieFutur && (
+                                <p className="text-xs text-[var(--color-fg-muted)]">
+                                    Mouvement planifié : <strong className="font-semibold text-[var(--color-fg)]">{workflowPlanifieFutur.libelleTypeEvenement || workflowPlanifieFutur.codeTypeEvenement}</strong>
+                                </p>
                             )}
                         </div>
-                    )}
+
+                        {canWrite && !workflowPlanifieFutur && !brouillonWf && (
+                            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                                {etatEssai?.canRenew === true && (
+                                    <Button
+                                        variant={etatEssai?.canConfirm === true ? 'outline' : 'primary'}
+                                        size="sm"
+                                        onClick={onOpenRenouvellement}
+                                        className="w-full sm:w-auto"
+                                    >
+                                        Renouveler l'essai
+                                    </Button>
+                                )}
+                                {etatEssai?.canConfirm === true && (
+                                    <Button
+                                        variant="primary"
+                                        size="sm"
+                                        onClick={onOpenConfirmation}
+                                        className="w-full sm:w-auto"
+                                    >
+                                        Confirmer l'essai
+                                    </Button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </Alert>
             )}
 

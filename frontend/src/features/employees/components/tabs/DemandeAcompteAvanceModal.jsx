@@ -40,7 +40,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, onClose, onCreate
         && Boolean(typeCode) && Number(montant) > 0 && Boolean(motif.trim());
     const periodOptions = periodes.map(period => {
         const id = period.idPeriodePaie || period.id_periode_paie || period.id;
-        return { value: String(id), label: [period.code, period.libelle].filter(Boolean).join(' — ') || String(id), sublabel: period.statutCode || period.statut || period.state || '' };
+        return { value: String(id), label: [period.code, period.libelle].filter(Boolean).join(' · ') || String(id), sublabel: period.statutCode || period.statut || period.state || '' };
     }).filter(period => period.value && period.value !== 'undefined');
     const selectedType = types.find(item => item.code === typeCode);
     const submit = async event => {

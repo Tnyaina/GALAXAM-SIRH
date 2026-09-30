@@ -33,6 +33,16 @@ export function useCarriere(idEmploye) {
         maxRenouvellements: 1,     // valeur de MAX_RENOUVELLEMENTS_ESSAI (configurable)
     });
 
+    const updateContrat = useCallback((contratMisAJour) => {
+        if (!contratMisAJour?.idContrat) return;
+        const mergeContrat = contrat => Number(contrat.idContrat) === Number(contratMisAJour.idContrat)
+            ? { ...contrat, ...contratMisAJour }
+            : contrat;
+
+        setContratsList(previous => previous.map(mergeContrat));
+        setContratActif(previous => previous ? mergeContrat(previous) : previous);
+    }, []);
+
     // Chargement centralisé du dossier carrière.
     const loadCarriereData = useCallback(async (opts = {}) => {
         if (!idEmploye) return;
@@ -86,7 +96,8 @@ export function useCarriere(idEmploye) {
         contratsList,
         workflowsList,
         etatEssai,
-        refreshData: loadCarriereData
+        refreshData: loadCarriereData,
+        updateContrat,
     };
 }
 export default useCarriere;

@@ -55,11 +55,11 @@ export default function TransitionModal({
     const stepMotif = exigeNouveauContrat ? 4 : 3;
 
     const slideOverFooter = (
-        <div className="flex items-center justify-between w-full flex-wrap gap-3">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-[var(--color-fg-muted)]">
-                Statut initial : <span className="font-semibold text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]">Brouillon</span> (validation requise).
+                Enregistrement en brouillon · validation requise
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
                 <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>
                     Annuler
                 </Button>
@@ -71,7 +71,7 @@ export default function TransitionModal({
                     loading={submitting}
                     iconLeft={<Save size={15} />}
                 >
-                    {isEditMode ? 'Enregistrer les modifications' : 'Créer le brouillon d\'évolution'}
+                    {isEditMode ? 'Enregistrer les modifications' : 'Créer le brouillon'}
                 </Button>
             </div>
         </div>
@@ -84,13 +84,13 @@ export default function TransitionModal({
             title={isEditMode ? 'Modifier le brouillon d\'évolution' : (typeEvObj?.libelle || 'Évolution de situation')}
             subtitle={`Mouvement RH pour ${nomEmploye}`}
             icon={<RefreshCw size={18} />}
-            width="2xl"
+            width="3xl"
             footer={slideOverFooter}
         >
             {loadingRef ? (
                 <Loading display="page" label="Chargement des référentiels..." />
             ) : (
-                <form id="transition-form" onSubmit={handleSubmit} className="space-y-6">
+                <form id="transition-form" onSubmit={handleSubmit} className="space-y-5">
                     {errorMsg && <FormError message={errorMsg} />}
 
                     {/* Section 1 : Type de transition */}
@@ -98,18 +98,24 @@ export default function TransitionModal({
                         relevantEvTypes={relevantEvTypes} 
                         formData={formData} 
                         setField={setField} 
+                        exigeNouveauContrat={exigeNouveauContrat}
                     />
+
+                    {typeEvObj && (
+                        <Alert
+                            type="info"
+                            title="Effet du mouvement"
+                            message={exigeNouveauContrat
+                                ? "À la validation, le contrat actuel sera clôturé et le nouveau contrat activé. L'ancienneté est conservée."
+                                : "Le contrat actuel est conservé. Le mouvement porte sur l'affectation ou la rémunération."}
+                        />
+                    )}
 
                     {/* Section 2 (si requise) : Nouveau Contrat */}
                     {exigeNouveauContrat && (
                         <section className="space-y-4 pb-5 border-b border-[var(--color-border-subtle)]">
                             <FormSectionHeader step={stepContrat} icon={FileSignature} title="Nouveau contrat" />
                             
-                            <Alert
-                                type="info"
-                                message="La validation clôturera le contrat actif et activera le nouveau contrat avec maintien de l'ancienneté."
-                            />
-
                             <ContratFieldsSection
                                 formData={formData}
                                 setField={setField}
@@ -118,6 +124,9 @@ export default function TransitionModal({
                                 typesIntervenant={typesIntervenant}
                                 lockTypeContrat={lockTypeContrat}
                                 lockTypeIntervenant={lockTypeIntervenant}
+                                signatureOptional
+                                dateDebutLabel="Début du nouveau contrat"
+                                dateDebutHint="Cette date détermine aussi la prise d'effet du mouvement."
                             />
 
                             {autorisePeriodeEssai ? (

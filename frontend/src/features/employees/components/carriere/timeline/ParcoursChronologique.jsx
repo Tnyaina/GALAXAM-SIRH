@@ -25,6 +25,7 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import HasPermission from '@/features/auth/components/HasPermission';
 import { useAuth } from '@/context/AuthContext';
 import { fmtDate } from '@/utils/dateUtils';
+import { getTransitionedContractIds } from '@/features/employees/utils/carriereWorkflowUtils';
 
 export default function ParcoursChronologique({
     workflowsList = [],
@@ -50,6 +51,7 @@ export default function ParcoursChronologique({
     const safeWorkflows = useMemo(() => {
         return Array.isArray(workflowsList) ? [...workflowsList] : [];
     }, [workflowsList]);
+    const transitionedContractIds = useMemo(() => getTransitionedContractIds(safeWorkflows), [safeWorkflows]);
 
     // Tous les workflows ordonnés du plus ancien au plus récent pour calculer les évolutions (diffs)
     const workflowsChronologiques = useMemo(() => {
@@ -294,8 +296,9 @@ export default function ParcoursChronologique({
                     const isPlanifie = chapitre.isPlanifie;
                     const isCloture = chapitre.isCloture;
                     const isAnnule = chapitre.isAnnule;
+                    const isTransitionne = transitionedContractIds.has(Number(ct?.idContrat));
 
-                    const canGenerateCertificat = ct && !isContratActif && !isPlanifie && !isAnnule && isCloture;
+                    const canGenerateCertificat = ct && !isTransitionne && !isContratActif && !isPlanifie && !isAnnule && isCloture;
                     const canGenerateAttestation = ct && isContratActif;
 
                     return (
@@ -332,7 +335,7 @@ export default function ParcoursChronologique({
                                         </span>
                                         <StatusBadge
                                             status={isPlanifie ? 'PLANIFIE' : isAnnule ? 'ANNULE' : isContratActif ? 'ACTIF' : (ct?.codeStatutContrat || 'CLOTURE')}
-                                            label={ct?.libelleStatutContrat}
+                                            label={isTransitionne ? 'Terminé · transition' : ct?.libelleStatutContrat}
                                             size="sm"
                                         />
                                     </div>
@@ -357,6 +360,11 @@ export default function ParcoursChronologique({
 
                                 {/* Actions liées au document légal du Contrat */}
                                 <div className="flex items-center gap-2">
+                                    {isTransitionne && (
+                                        <span className="text-[10.5px] text-[var(--color-fg-muted)] px-2 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                                            Contrat remplacé
+                                        </span>
+                                    )}
                                     {canGenerateAttestation && onOpenAttestation && (
                                         <Button
                                             onClick={() => onOpenAttestation(ct)}

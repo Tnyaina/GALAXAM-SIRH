@@ -1,12 +1,19 @@
-import { RefreshCw, ArrowRight, FileSignature, Building2, CheckCircle2, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { RefreshCw, ArrowRight, FileSignature, Building2, CheckCircle2, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
+import Button from '@/components/ui/forms/Button';
 import FormSectionHeader from './FormSectionHeader';
 
-export default function TransitionTypeSection({ relevantEvTypes = [], formData, setField }) {
+export default function TransitionTypeSection({ relevantEvTypes = [], formData, setField, exigeNouveauContrat = false }) {
+    const [showUnavailable, setShowUnavailable] = useState(false);
     const CONTRACTUAL_CODES = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT', 'REPRISE_ANCIENNETE'];
-    
-    const contractualEvents = relevantEvTypes.filter(t => CONTRACTUAL_CODES.includes(t.code));
-    const internalEvents = relevantEvTypes.filter(t => !CONTRACTUAL_CODES.includes(t.code));
+    const eligibleEvents = relevantEvTypes.filter(t => t.isEligible !== false);
+    const unavailableEvents = relevantEvTypes.filter(t => t.isEligible === false);
+    const keepSelectedUnavailableVisible = unavailableEvents.some(t => t.code === formData.codeTypeEvenement);
+    const displayUnavailable = showUnavailable || eligibleEvents.length === 0 || keepSelectedUnavailableVisible;
+    const visibleEvents = relevantEvTypes.filter(t => t.isEligible !== false || displayUnavailable);
+    const contractualEvents = visibleEvents.filter(t => CONTRACTUAL_CODES.includes(t.code));
+    const internalEvents = visibleEvents.filter(t => !CONTRACTUAL_CODES.includes(t.code));
 
     const descMap = {
         MUTATION: 'Garde le contrat actif, modifie le site/service',
@@ -29,7 +36,8 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
             return (
                 <div
                     key={t.code}
-                    className="p-3.5 border border-dashed border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] opacity-55 cursor-not-allowed flex flex-col justify-between select-none"
+                    aria-disabled="true"
+                    className="p-3.5 border border-dashed border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] cursor-not-allowed flex flex-col justify-between select-none"
                     title={t.disabledReason || 'Action non disponible pour la situation contractuelle actuelle'}
                 >
                     <div>
@@ -37,8 +45,8 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
                             <span className="truncate">{t.libelle}</span>
                             <Lock size={12} className="text-[var(--color-fg-subtle)] shrink-0" />
                         </p>
-                        <p className="text-[10px] mt-1 text-[var(--color-danger-500)] font-medium">
-                            {t.disabledReason || 'Non éligible'}
+                        <p className="text-[10px] mt-1 text-[var(--color-fg-muted)]">
+                            {t.disabledReason || 'Indisponible pour la situation actuelle'}
                         </p>
                     </div>
                 </div>
@@ -46,20 +54,13 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
         }
 
         return (
-            <div
+            <button
                 key={t.code}
-                role="button"
-                tabIndex={0}
-                aria-checked={isSelected}
+                type="button"
+                aria-pressed={isSelected}
                 onClick={() => setField('codeTypeEvenement', t.code)}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setField('codeTypeEvenement', t.code);
-                    }
-                }}
-                className={`
-                    p-3.5 border-2 rounded-none cursor-pointer flex flex-col justify-between focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-500)] transition-all
+                className={`w-full text-left
+                    p-3.5 border-2 rounded-none cursor-pointer flex flex-col justify-between focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)] transition-all
                     ${isSelected
                         ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/10 shadow-xs'
                         : 'border-[var(--color-border-subtle)] hover:border-[var(--color-brand-400)] bg-[var(--color-surface)]'}
@@ -78,13 +79,13 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
                         {displayDesc}
                     </p>
                 </div>
-            </div>
+            </button>
         );
     };
 
     return (
         <section className="space-y-4 pb-6 border-b border-[var(--color-border-subtle)]">
-            <FormSectionHeader step={1} icon={RefreshCw} title="Type de Mouvement RH & Dates" />
+            <FormSectionHeader step={1} icon={RefreshCw} title="Type de mouvement" />
 
             {/* Groupes d'événements */}
             <div className="space-y-4">
@@ -115,24 +116,44 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
                 )}
             </div>
 
-            {/* Grille dédiée pour la Date d'Effet & la Date de Signature */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 bg-[var(--color-bg-subtle)] p-3.5 border border-[var(--color-border-subtle)] rounded-none">
-                <Input
-                    label="Date de Prise d'Effet (Obligatoire)"
-                    type="date"
-                    required
-                    value={formData.dateEffet}
-                    onChange={(e) => setField('dateEffet', e.target.value)}
-                    hint="Date d'application effective de cette décision"
-                />
-                <Input
-                    label="Date de Signature de l'Avenant"
-                    type="date"
-                    value={formData.dateSignature}
-                    onChange={(e) => setField('dateSignature', e.target.value)}
-                    hint="Date d'émargement / signature du document"
-                />
-            </div>
+            {unavailableEvents.length > 0 && eligibleEvents.length > 0 && !keepSelectedUnavailableVisible && (
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    iconLeft={showUnavailable ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    onClick={() => setShowUnavailable(open => !open)}
+                    aria-expanded={showUnavailable}
+                    className="normal-case tracking-normal"
+                >
+                    {showUnavailable
+                        ? 'Masquer les mouvements indisponibles'
+                        : `Afficher les ${unavailableEvents.length} mouvements indisponibles`}
+                </Button>
+            )}
+
+            {!exigeNouveauContrat && (
+                <div className="space-y-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3.5">
+                    <h4 className="text-xs font-semibold text-[var(--color-fg)]">Dates du mouvement</h4>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Input
+                            label="Date de prise d'effet"
+                            type="date"
+                            required
+                            value={formData.dateEffet}
+                            onChange={(e) => setField('dateEffet', e.target.value)}
+                            hint="Date à laquelle le mouvement s'applique."
+                        />
+                        <Input
+                            label="Date de signature du document"
+                            type="date"
+                            value={formData.dateSignature}
+                            onChange={(e) => setField('dateSignature', e.target.value)}
+                            hint="Laissez vide si le document n'est pas encore signé."
+                        />
+                    </div>
+                </div>
+            )}
         </section>
     );
 }

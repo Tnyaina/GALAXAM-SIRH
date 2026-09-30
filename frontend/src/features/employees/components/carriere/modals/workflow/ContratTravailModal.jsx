@@ -93,7 +93,7 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
             const updated = await contratService.renseignerDateSignature(idEmploye, idContrat, signatureDate);
             setSignatureDate(fmtDateInput(updated?.dateSignature) || signatureDate);
             setEditingSignatureDate(false);
-            await onContractUpdated?.();
+            await onContractUpdated?.(updated);
         } catch (err) {
             setActionError(getErrorMessage(err, "Impossible d'enregistrer la date de signature."));
         } finally {
@@ -158,7 +158,7 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
                                 (data?.statut || contrat?.codeStatutContrat) !== 'ANNULE' && (
                                 <HasPermission authority="EMPLOYE_WRITE">
                                     {editingSignatureDate ? (
-                                        <form className="flex flex-col gap-2 sm:flex-row sm:items-end" onSubmit={handleSaveSignatureDate}>
+                                        <form className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start" onSubmit={handleSaveSignatureDate}>
                                             <Input
                                                 label="Date de signature"
                                                 type="date"
@@ -166,10 +166,12 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
                                                 onChange={event => setSignatureDate(event.target.value)}
                                                 required
                                                 max={getTodayDateString()}
-                                                hint="Renseignez la date figurant sur le contrat signé."
+                                                hint={signatureDate
+                                                    ? 'Date figurant sur le contrat signé.'
+                                                    : 'Choisissez une date pour pouvoir enregistrer.'}
                                             />
-                                            <div className="flex gap-2 pb-1">
-                                                <Button type="submit" size="sm" disabled={!signatureDate || savingSignatureDate}>
+                                            <div className="flex gap-2 sm:pt-5">
+                                                <Button type="submit" size="sm" disabled={savingSignatureDate}>
                                                     {savingSignatureDate ? 'Enregistrement…' : 'Enregistrer'}
                                                 </Button>
                                                 <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingSignatureDate(false); setSignatureDate(fmtDateInput(contrat?.dateSignature)); }} disabled={savingSignatureDate}>

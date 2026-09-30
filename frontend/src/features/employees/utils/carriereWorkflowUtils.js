@@ -69,6 +69,30 @@ export function isRuptureEvent(wfOrCode) {
     ].includes(upper) || upper.includes('RUPTURE') || upper.includes('CLOTURE') || upper.includes('FIN_CONTRAT');
 }
 
+export function getTransitionedContractIds(workflows = []) {
+    const eventsCreatingSuccessiveContract = new Set([
+        'TRANSFORMATION_CDI',
+        'RENOUVELLEMENT_CDD',
+        'EMBAUCHE_APRES_STAGE',
+        'REPRISE_CONSULTANT',
+        'EMBAUCHE_INITIALE',
+        'REPRISE_ANCIENNETE',
+    ]);
+    const appliedStatuses = new Set(['ACTIF', 'HISTORISE', 'CLOTURE']);
+
+    return new Set((Array.isArray(workflows) ? workflows : [])
+        .filter(workflow => {
+            const code = String(workflow?.codeTypeEvenement || '').toUpperCase();
+            const status = String(workflow?.codeStatutWorkflow || '').toUpperCase();
+            return eventsCreatingSuccessiveContract.has(code)
+                && appliedStatuses.has(status)
+                && workflow?.idContratSource != null
+                && workflow?.idContratCible != null
+                && Number(workflow.idContratSource) !== Number(workflow.idContratCible);
+        })
+        .map(workflow => Number(workflow.idContratSource)));
+}
+
 /**
  * RG : Générateur des libellés UI pour le récapitulatif & révision.
  */

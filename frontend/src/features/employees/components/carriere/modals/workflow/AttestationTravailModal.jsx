@@ -225,7 +225,7 @@ export default function AttestationTravailModal({
                 ) : (
                     <div className="p-4 sm:p-6 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] print:bg-[var(--color-surface)] print:p-0 print:border-none">
                         <div
-                            ref={printRef}
+                            
                             id="attestation-print-sheet"
                             className="w-full max-w-[680px] mx-auto bg-[var(--color-surface)] p-8 sm:p-12 shadow-sm text-[var(--color-fg)] leading-relaxed print:shadow-none print:p-0 border border-[var(--color-border-subtle)] print:border-none"
                             style={{ fontFamily: "Calibri, 'Segoe UI', Arial, sans-serif" }}

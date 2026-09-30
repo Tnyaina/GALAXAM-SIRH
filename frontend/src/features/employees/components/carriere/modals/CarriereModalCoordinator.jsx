@@ -19,6 +19,7 @@ export default function CarriereModalCoordinator({
     contratActif, affectationActive, workflowCplActif, contratsList, brouillonWf,
     etatEssai, canWrite = true, canValidate = false,
     refreshData,
+    onContractUpdated,
     
     // États et Hooks
     modalsState,
@@ -180,7 +181,7 @@ export default function CarriereModalCoordinator({
                     onEdit={canWrite && brouillonWf && Number(brouillonWf.idContratCible) === Number(selectedContratDoc?.idContrat) ? () => { setIsContratModalOpen(false); handleOpenEditModal(brouillonWf); } : undefined}
                     loadingAffectation={loadingContratAffectation}
                     filiale={selectedContratDoc?.filiale || contratActif?.filiale}
-                    onContractUpdated={refreshData}
+                    onContractUpdated={onContractUpdated || refreshData}
                 />
             )}
 
@@ -192,6 +193,7 @@ export default function CarriereModalCoordinator({
                     nomEmploye={nomEmploye}
                     dateDepartInitiale={selectedStcContrat?.dateDepart || selectedStcContrat?.dateFin || null}
                     motifInitial={selectedStcContrat?.motifRupture || (selectedStcContrat?.dateFin ? 'FIN_CONTRAT' : 'DEMISSION')}
+                    modePreavisInitial={selectedStcContrat?.modePreavis ?? null}
                     moisPreavisInitial={selectedStcContrat?.moisPreavis ?? null}
                     indemnitePreavisInitiale={selectedStcContrat?.indemnitePreavis ?? null}
                     onStcValide={() => {

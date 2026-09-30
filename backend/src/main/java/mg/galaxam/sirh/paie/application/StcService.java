@@ -10,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.Period;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -573,6 +574,12 @@ public class StcService {
     // =========================================================================
 
     public StcCalculResultDTO validerStc(StcCalculRequest req, Integer userId, Connection c) throws Exception {
+        if (req.getDateDepart() != null
+                && req.getDateDepart().toLocalDate().isAfter(LocalDate.now(ZoneId.of("Indian/Antananarivo")))) {
+            throw new IllegalArgumentException(
+                    "La validation officielle du STC est possible à partir de la date de départ effective. " +
+                    "La simulation reste disponible avant cette date.");
+        }
         req.setSimulation(false);
         StcCalculResultDTO simulation = simulerStc(req, c);
 

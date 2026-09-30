@@ -18,7 +18,7 @@ function SupervisionCompareModal({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={`Vérification des Doublons — ${employeeGroup.nomPrenom || ''}`}
+            title={`Vérification des Doublons · ${employeeGroup.nomPrenom || ''}`}
             size="lg"
         >
             <div className="space-y-4">

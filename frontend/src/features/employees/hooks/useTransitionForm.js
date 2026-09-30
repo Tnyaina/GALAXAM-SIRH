@@ -127,7 +127,9 @@ export function useTransitionForm({
             const a = initialData.affectationCible || initialData.affectationSource || initialData || affectationActive || {};
             const wf = initialData.workflow || initialData || {};
 
-            const isCddRenew = (wf.codeTypeEvenement || defaultTypeEv) === 'RENOUVELLEMENT_CDD';
+            const eventCode = wf.codeTypeEvenement || defaultTypeEv;
+            const isCddRenew = eventCode === 'RENOUVELLEMENT_CDD';
+            const isNewContractTransition = ['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT', 'REPRISE_ANCIENNETE'].includes(eventCode);
             const dureeEssai = isCddRenew ? null : (c.dureeEssaiMois ?? initialData.dureeEssaiMois);
 
             setFormData({
@@ -135,10 +137,12 @@ export function useTransitionForm({
                 idFiliale: c.idFiliale || filiales[0]?.idFiliale || '',
                 idTypeContrat: c.idTypeContrat || '',
                 idTypeIntervenant: c.idTypeIntervenant || '',
-                dateEffet: fmtDateInput(wf.dateEffet || wf.dateDebutAffectation) || today,
+                dateEffet: isNewContractTransition
+                    ? fmtDateInput(c.dateDebut) || fmtDateInput(wf.dateEffet || wf.dateDebutAffectation) || today
+                    : fmtDateInput(wf.dateEffet || wf.dateDebutAffectation) || today,
                 dateDebut: fmtDateInput(c.dateDebut) || today,
                 dateFin: fmtDateInput(c.dateFin) || '',
-                dateSignature: fmtDateInput(c.dateSignature) || today,
+                dateSignature: fmtDateInput(c.dateSignature) || '',
                 comptabiliseEffectif: c.comptabiliseEffectif ?? true,
                 numeroContrat: c.numeroContrat || '',
                 descriptionContrat: c.description || '',
@@ -184,7 +188,7 @@ export function useTransitionForm({
                 dateEffet: suggestedDateDebut,
                 dateDebut: suggestedDateDebut,
                 dateFin: '',
-                dateSignature: today,
+                dateSignature: '',
                 comptabiliseEffectif: true,
                 numeroContrat: '',
                 descriptionContrat: '',
@@ -256,9 +260,15 @@ export function useTransitionForm({
             if (field === 'codeTypeEvenement') {
                 // Déclencher l'auto-sélection selon l'événement
                 updated = applyTargetEventConfig(val, updated);
+                if (['TRANSFORMATION_CDI', 'RENOUVELLEMENT_CDD', 'EMBAUCHE_APRES_STAGE', 'REPRISE_CONSULTANT', 'REPRISE_ANCIENNETE'].includes(val)) {
+                    updated.dateEffet = updated.dateDebut || updated.dateEffet;
+                }
             }
             if (field === 'dateEffet' && (!prev.dateDebut || prev.dateDebut === prev.dateEffet)) {
                 updated.dateDebut = val;
+            }
+            if (field === 'dateDebut' && exigeNouveauContrat) {
+                updated.dateEffet = val;
             }
             if (field === 'dateDebut' || field === 'aPeriodeEssai' || field === 'dureeEssaiMois') {
                 const dateDeb = field === 'dateDebut' ? val : updated.dateDebut;

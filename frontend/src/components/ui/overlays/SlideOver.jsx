@@ -7,6 +7,7 @@ const widths = {
     lg: 'max-w-xl',
     xl: 'max-w-2xl',
     '2xl': 'max-w-3xl',
+    '3xl': 'max-w-4xl'
 };
 
 /**

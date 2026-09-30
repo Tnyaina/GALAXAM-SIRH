@@ -2,6 +2,7 @@ import { Clock, Calendar, Eye, XCircle } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { fmtDate } from '@/utils/dateUtils';
+import { isRuptureEvent } from '@/features/employees/utils/carriereWorkflowUtils';
 
 export default function TimelineBanners({
     brouillonWf,
@@ -19,6 +20,7 @@ export default function TimelineBanners({
     const delaiTexte = joursAvantPriseEffet !== null
         ? (joursAvantPriseEffet === 0 ? "aujourd'hui" : joursAvantPriseEffet === 1 ? 'demain' : `dans ${joursAvantPriseEffet} jours`)
         : null;
+    const brouillonEstRupture = isRuptureEvent(brouillonWf);
 
     return (
         <>
@@ -49,7 +51,7 @@ export default function TimelineBanners({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto shrink-0">
-                        {contratBrouillon && onOpenContrat && <Button variant="primary" size="sm" onClick={() => onOpenContrat(contratBrouillon)}>Préparer le contrat</Button>}
+                        {!brouillonEstRupture && contratBrouillon && onOpenContrat && <Button variant="primary" size="sm" onClick={() => onOpenContrat(contratBrouillon)}>Préparer le contrat</Button>}
                         {canWrite && (
                             <>
                                 <Button
@@ -71,7 +73,7 @@ export default function TimelineBanners({
                         )}
                         <Button
                             onClick={() => onSelectWorkflowRecap(brouillonWf)}
-                            variant={contratBrouillon ? "outline" : "primary"}
+                            variant={!brouillonEstRupture && contratBrouillon ? "outline" : "primary"}
                             size="sm"
                             iconLeft={<Eye size={16} />}
                         >

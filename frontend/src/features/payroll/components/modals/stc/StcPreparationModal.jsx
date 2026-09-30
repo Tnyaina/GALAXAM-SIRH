@@ -61,6 +61,7 @@ export default function StcPreparationModal({
     nomEmploye,
     dateDepartInitiale = null,
     motifInitial = 'DEMISSION',
+    modePreavisInitial = null,
     moisPreavisInitial = null,
     indemnitePreavisInitiale = null,
     onStcValide,
@@ -112,11 +113,17 @@ export default function StcPreparationModal({
             setForm({
                 dateDepart: fmtDateInput(data.dateDepart || dateRef),
                 motifRupture: data.motifRupture || motifInitial || 'DEMISSION',
-                moisPreavis: moisPreavisInitial !== null ? String(moisPreavisInitial) : String(data.moisPreavisSuggere ?? '0'),
+                moisPreavis: modePreavisInitial
+                    ? (modePreavisInitial === 'DISPENSE_PAYEE' ? String(moisPreavisInitial ?? 0) : '0')
+                    : (moisPreavisInitial !== null ? String(moisPreavisInitial) : String(data.moisPreavisSuggere ?? '0')),
                 joursTravaillesDernierMois: data.joursTravaillesEstimes != null ? String(data.joursTravaillesEstimes) : '',
-                indemnitePreavis: (indemnitePreavisInitiale !== null && Number(indemnitePreavisInitiale) >= 0)
-                    ? String(indemnitePreavisInitiale)
-                    : (data.indemnitePreavisEstimee != null && Number(data.indemnitePreavisEstimee) > 0 ? String(data.indemnitePreavisEstimee) : ''),
+                indemnitePreavis: modePreavisInitial
+                    ? (modePreavisInitial === 'DISPENSE_PAYEE'
+                        ? String(indemnitePreavisInitiale ?? data.indemnitePreavisEstimee ?? 0)
+                        : '0')
+                    : ((indemnitePreavisInitiale !== null && Number(indemnitePreavisInitiale) >= 0)
+                        ? String(indemnitePreavisInitiale)
+                        : (data.indemnitePreavisEstimee != null && Number(data.indemnitePreavisEstimee) > 0 ? String(data.indemnitePreavisEstimee) : '')),
                 indemniteLicenciement: data.indemniteLicenciementEstimee != null && Number(data.indemniteLicenciementEstimee) > 0 ? String(data.indemniteLicenciementEstimee) : '',
                 autresIndemnites: '',
                 motifAutresIndemnites: '',
@@ -133,7 +140,7 @@ export default function StcPreparationModal({
         } finally {
             setLoadingPrep(false);
         }
-    }, [idEmploye, dateDepartInitiale, motifInitial, moisPreavisInitial, indemnitePreavisInitiale]);
+    }, [idEmploye, dateDepartInitiale, motifInitial, modePreavisInitial, moisPreavisInitial, indemnitePreavisInitiale]);
 
     // Effet : charge la préparation du STC à l'ouverture.
     useEffect(() => {
@@ -158,8 +165,12 @@ export default function StcPreparationModal({
             dateDepart: fmtDateInput(form.dateDepart),
             motifRupture: form.motifRupture,
             joursTravaillesDernierMois: form.joursTravaillesDernierMois ? Number(form.joursTravaillesDernierMois) : null,
-            moisPreavis: form.moisPreavis !== '' ? Number(form.moisPreavis) : 0,
-            indemnitePreavis: form.indemnitePreavis ? Number(form.indemnitePreavis) : null,
+            moisPreavis: modePreavisInitial && modePreavisInitial !== 'DISPENSE_PAYEE'
+                ? 0
+                : (form.moisPreavis !== '' ? Number(form.moisPreavis) : 0),
+            indemnitePreavis: modePreavisInitial && modePreavisInitial !== 'DISPENSE_PAYEE'
+                ? 0
+                : (form.indemnitePreavis !== '' ? Number(form.indemnitePreavis) : null),
             indemniteLicenciement: form.indemniteLicenciement ? Number(form.indemniteLicenciement) : null,
             autresIndemnites: form.autresIndemnites ? Number(form.autresIndemnites) : null,
             motifAutresIndemnites: form.motifAutresIndemnites || null,
@@ -224,6 +235,7 @@ export default function StcPreparationModal({
         : step === 'SIMULATION'
         ? `Simulation STC — ${prepData?.nomComplet || nomEmploye || ''}`
         : `Préparation Solde de Tout Compte — ${prepData?.nomComplet || nomEmploye || ''}`;
+    const dateDepartFuture = Boolean(form.dateDepart && form.dateDepart > fmtDateInput(new Date()));
 
     // Rendu
     return (
@@ -272,6 +284,7 @@ export default function StcPreparationModal({
                                     size="sm"
                                     onClick={handleValiderDefinitivement}
                                     loading={submitting}
+                                    disabled={dateDepartFuture}
                                     iconLeft={<FileCheck size={15} />}
                                 >
                                     Valider et Émettre le Reçu Officiel
@@ -360,10 +373,31 @@ export default function StcPreparationModal({
                         {/* VUE 1 : PRÉPARATION & SAISIE DES PARAMÈTRES */}
                         {step === 'PREPARATION' && (
                             <form onSubmit={handleSimuler} className="space-y-4">
+                                {modePreavisInitial && (
+                                    <Alert
+                                        type={modePreavisInitial === 'DISPENSE_PAYEE' ? 'warning' : 'info'}
+                                        title="Préavis repris de la rupture"
+                                        message={modePreavisInitial === 'DISPENSE_PAYEE'
+                                            ? `Dispense payée · une indemnité compensatrice estimée à ${formatMoneyAr(form.indemnitePreavis || 0)} est incluse. Vérifiez le montant avant simulation.`
+                                            : modePreavisInitial === 'EFFECTUE'
+                                                ? 'Préavis travaillé · aucune indemnité compensatrice n’est ajoutée au STC. Le salaire du préavis reste versé normalement.'
+                                                : 'Dispense demandée par le salarié · aucune indemnité compensatrice de préavis n’est ajoutée au STC.'}
+                                    />
+                                )}
+
+                                {dateDepartFuture && (
+                                    <Alert
+                                        type="warning"
+                                        title="Départ planifié"
+                                        message="Le calcul peut être simulé dès maintenant. Le reçu officiel et le règlement ne pourront être validés qu’à partir de la date de départ effective."
+                                    />
+                                )}
+
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <Input
                                         type="date"
                                         label="Date de Départ Effective *"
+                                        hint="Date utilisée pour calculer le salaire final, les congés et l’ancienneté."
                                         required
                                         value={form.dateDepart}
                                         onChange={(e) => handleFormChange('dateDepart', e.target.value)}
@@ -377,23 +411,28 @@ export default function StcPreparationModal({
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className={`grid grid-cols-1 ${modePreavisInitial && modePreavisInitial !== 'DISPENSE_PAYEE' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'} gap-3`}>
                                     <Input
                                         type="number"
                                         label="Jours Travaillés Dernier Mois"
                                         step="0.5"
                                         placeholder={`Estimé: ${prepData.joursTravaillesEstimes || 0}`}
+                                        hint={`Estimation automatique : ${prepData.joursTravaillesEstimes || 0} jour(s). Ajustez selon les jours réellement travaillés.`}
                                         value={form.joursTravaillesDernierMois}
                                         onChange={(e) => handleFormChange('joursTravaillesDernierMois', e.target.value)}
                                     />
-                                    <Input
-                                        type="number"
-                                        label="Préavis (en mois)"
-                                        min="0"
-                                        max="6"
-                                        value={form.moisPreavis}
-                                        onChange={(e) => handleFormChange('moisPreavis', e.target.value)}
-                                    />
+                                    {modePreavisInitial === 'DISPENSE_PAYEE' && (
+                                        <Input
+                                            type="number"
+                                            label="Durée de préavis indemnisée (mois)"
+                                            min="0"
+                                            max="6"
+                                            step="0.5"
+                                            hint="Reprise de la rupture. Vérifiez la durée indemnisée."
+                                            value={form.moisPreavis}
+                                            onChange={(e) => handleFormChange('moisPreavis', e.target.value)}
+                                        />
+                                    )}
                                     <Select
                                         label="Mode de Règlement *"
                                         required
@@ -411,17 +450,25 @@ export default function StcPreparationModal({
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <MoneyInput
-                                            label="Surcharge Indemnité Licenciement (Ar)"
+                                            label="Indemnité de licenciement (Ar)"
                                             placeholder={`Suggéré: ${formatMoneyAr(prepData.indemniteLicenciementEstimee)}`}
+                                            hint="Montant estimé automatiquement. Ajustez uniquement si une régularisation est nécessaire."
                                             value={form.indemniteLicenciement}
                                             onValueChange={(value) => handleFormChange('indemniteLicenciement', value)}
                                         />
-                                        <MoneyInput
-                                            label="Surcharge Indemnité Préavis (Ar)"
-                                            placeholder={`Suggéré: ${formatMoneyAr(prepData.indemnitePreavisEstimee)}`}
-                                            value={form.indemnitePreavis}
-                                            onValueChange={(value) => handleFormChange('indemnitePreavis', value)}
-                                        />
+                                        {(!modePreavisInitial || modePreavisInitial === 'DISPENSE_PAYEE') && (
+                                            <MoneyInput
+                                                label={modePreavisInitial === 'DISPENSE_PAYEE'
+                                                    ? 'Indemnité compensatrice de préavis (Ar)'
+                                                    : 'Indemnité compensatrice de préavis (Ar)'}
+                                                placeholder={`Suggéré: ${formatMoneyAr(prepData.indemnitePreavisEstimee)}`}
+                                                hint={modePreavisInitial === 'DISPENSE_PAYEE'
+                                                    ? 'Montant transmis depuis la rupture. Ajustez-le si nécessaire.'
+                                                    : 'Montant estimé selon le motif. Vérifiez ou ajustez avant simulation.'}
+                                                value={form.indemnitePreavis}
+                                                onValueChange={(value) => handleFormChange('indemnitePreavis', value)}
+                                            />
+                                        )}
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -491,6 +538,24 @@ export default function StcPreparationModal({
                                         type="info"
                                         title="Mode Simulation"
                                         message="Ce résultat est purement indicatif. Aucun enregistrement n'a été créé et aucun prêt n'a été clôturé. Cliquez sur 'Valider et Émettre le Reçu Officiel' pour officialiser le solde de tout compte."
+                                    />
+                                )}
+
+                                {modePreavisInitial && (
+                                    <Alert
+                                        type={modePreavisInitial === 'DISPENSE_PAYEE' ? 'warning' : 'info'}
+                                        title="Contrôle du préavis"
+                                        message={modePreavisInitial === 'DISPENSE_PAYEE'
+                                            ? `Vérifiez la ligne d’indemnité compensatrice : ${formatMoneyAr(calculResult.indemnitePreavis || 0)}.`
+                                            : `Aucune indemnité compensatrice ne doit apparaître pour ce préavis. Montant calculé : ${formatMoneyAr(calculResult.indemnitePreavis || 0)}.`}
+                                    />
+                                )}
+
+                                {dateDepartFuture && (
+                                    <Alert
+                                        type="warning"
+                                        title="Validation différée"
+                                        message="La simulation est disponible. La validation officielle du STC sera activée à la date de départ effective."
                                     />
                                 )}
 

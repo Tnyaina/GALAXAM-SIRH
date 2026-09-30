@@ -9,6 +9,8 @@ export default function ContratFieldsSection({
     lockTypeContrat = false,
     lockTypeIntervenant = false,
     signatureOptional = false,
+    dateDebutLabel = 'Date de début',
+    dateDebutHint,
 }) {
     const selectedType = typesContrat.find(
         (tc) => String(tc.idTypeContrat) === String(formData.idTypeContrat)
@@ -88,11 +90,12 @@ export default function ContratFieldsSection({
             <h4 className="text-sm font-medium text-[var(--color-fg)]">Dates du contrat</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Input
-                    label="Date de début"
+                    label={dateDebutLabel}
                     type="date"
                     required
                     value={formData.dateDebut}
                     onChange={(e) => setField('dateDebut', e.target.value)}
+                    hint={dateDebutHint}
                 />
 
                 <Input

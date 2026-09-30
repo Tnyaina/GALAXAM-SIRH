@@ -140,6 +140,7 @@ export default function CarriereTimeline({
                         <HistoriqueContratsTable
                             displayContrats={displayContrats}
                             contratActif={contratActif}
+                            workflowsList={workflowsList}
                             onOpenCertificat={onOpenCertificat}
                             onOpenAttestation={onOpenAttestation}
                             onOpenContrat={onOpenContrat}

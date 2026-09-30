@@ -5,10 +5,13 @@ import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDate } from '@/utils/dateUtils';
+import { getTransitionedContractIds } from '@/features/employees/utils/carriereWorkflowUtils';
+import HasPermission from '@/features/auth/components/HasPermission';
 
 export default function HistoriqueContratsTable({
     displayContrats = [],
     contratActif = null,
+    workflowsList = [],
     onOpenCertificat,
     onOpenAttestation,
     onOpenContrat,
@@ -17,6 +20,7 @@ export default function HistoriqueContratsTable({
     // Données dérivées stables
     const today = new Date().setHours(0, 0, 0, 0);
     const hasContratActif = Boolean(contratActif) || displayContrats.some(ct => Boolean(ct.isActif) && !ct.isAnnule);
+    const transitionedContractIds = useMemo(() => getTransitionedContractIds(workflowsList), [workflowsList]);
 
     // État local : les contrats annulés restent masqués par défaut.
     const [showAnnules, setShowAnnules] = useState(false);
@@ -89,6 +93,7 @@ export default function HistoriqueContratsTable({
                             const isDebutFutur = ct.dateDebut && new Date(ct.dateDebut).getTime() > today;
                             const isAnnule = Boolean(ct.isAnnule) || ct.codeStatutContrat === 'ANNULE';
                             const isClotureOuRomp = Boolean(ct.isCloture || ct.isRompu);
+                            const isTransitionne = transitionedContractIds.has(Number(ct.idContrat));
                             const isPlanifie = (Boolean(ct.isPlanifie) || isDebutFutur) && !isAnnule && !isClotureOuRomp;
                             const isContratEnCours = Boolean(ct.isActif) && !isPlanifie && !isAnnule;
                             const estDateFinEchue = ct.dateFin && new Date(ct.dateFin).getTime() < today;
@@ -131,7 +136,7 @@ export default function HistoriqueContratsTable({
                                         ) : (
                                             <StatusBadge
                                                 status={isPlanifie ? 'PLANIFIE' : isContratEnCours ? 'ACTIF' : (ct.codeStatutContrat || 'CLOTURE')}
-                                                label={ct.libelleStatutContrat}
+                                                label={isTransitionne ? 'Terminé · transition' : ct.libelleStatutContrat}
                                                 size="sm"
                                             />
                                         )}
@@ -158,8 +163,24 @@ export default function HistoriqueContratsTable({
                                             )}
                                         </div>
                                     </Td>
-                                    <Td className="font-mono text-[var(--color-fg-muted)]">
-                                        {ct.dateSignature ? fmtDate(ct.dateSignature) : <span className="text-[var(--color-fg-subtle)] font-normal text-xs">Non renseignée</span>}
+                                    <Td>
+                                        <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                            <span className="font-mono text-[var(--color-fg-muted)]">
+                                                {ct.dateSignature ? fmtDate(ct.dateSignature) : <span className="text-[var(--color-fg-subtle)] font-normal text-xs">Non renseignée</span>}
+                                            </span>
+                                            {!isAnnule && ct.codeStatutContrat !== 'BROUILLON' && onOpenContrat && (
+                                                <HasPermission authority="EMPLOYE_WRITE">
+                                                    <Button
+                                                        type="button"
+                                                        onClick={() => onOpenContrat(ct)}
+                                                        variant="ghost"
+                                                        size="xs"
+                                                    >
+                                                        {ct.dateSignature ? 'Modifier' : 'Renseigner'}
+                                                    </Button>
+                                                </HasPermission>
+                                            )}
+                                        </div>
                                     </Td>
                                     <Td>
                                         <span className={`text-xs font-semibold ${ct.comptabiliseEffectif ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]'}`}>
@@ -203,6 +224,22 @@ export default function HistoriqueContratsTable({
                                                     <Button
                                                         onClick={() => onOpenContrat(ct)}
                                                         variant="ghost"
+                                                        size="xs"
+                                                        iconLeft={<FileText size={13} />}
+                                                    >
+                                                        Consulter
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        ) : isTransitionne ? (
+                                            <div className="flex justify-end items-center gap-1.5">
+                                                <span className="text-[10.5px] text-[var(--color-fg-muted)] px-2 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] font-sans">
+                                                    Contrat remplacé
+                                                </span>
+                                                {onOpenContrat && (
+                                                    <Button
+                                                        onClick={() => onOpenContrat(ct)}
+                                                        variant="outline"
                                                         size="xs"
                                                         iconLeft={<FileText size={13} />}
                                                     >
