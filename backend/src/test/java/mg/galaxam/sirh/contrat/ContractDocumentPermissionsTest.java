@@ -2,7 +2,7 @@ package mg.galaxam.sirh.contrat;
 
 import mg.galaxam.sirh.contrat.api.*;
 import mg.galaxam.sirh.contrat.application.DocumentRhService;
-import mg.galaxam.sirh.contrat.api.dto.ContratTravailDocumentDTO;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.ContratTravailDocumentDTO;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.util.List;
@@ -23,16 +23,21 @@ class ContractDocumentPermissionsTest {
     static class Config {
         @Bean DataSource source() throws Exception { var ds=mock(DataSource.class); when(ds.getConnection()).thenReturn(mock(Connection.class)); return ds; }
         @Bean DocumentRhService service() { return mock(DocumentRhService.class); }
-        @Bean DocumentOfficielRhController official(DataSource ds, DocumentRhService service) { return new DocumentOfficielRhController(ds,service); }
-        @Bean DocumentRhController upload(DataSource ds) { var controller=new DocumentRhController(); ReflectionTestUtils.setField(controller,"dataSource",ds); return controller; }
+        @Bean DocumentRhController documentController(DataSource ds, DocumentRhService service) {
+            var controller = new DocumentRhController();
+            ReflectionTestUtils.setField(controller, "dataSource", ds);
+            ReflectionTestUtils.setField(controller, "documentRhService", service);
+            return controller;
+        }
     }
     AnnotationConfigApplicationContext context;
     @BeforeEach void setup() { context=new AnnotationConfigApplicationContext(Config.class); }
     @AfterEach void cleanup() { SecurityContextHolder.clearContext(); context.close(); }
     void login(String... permissions) { SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("user","password",java.util.Arrays.stream(permissions).map(SimpleGrantedAuthority::new).toList())); }
     @Test void contractGenerationRequiresEmployeeAndPayrollRead() throws Exception {
-        var controller=context.getBean(DocumentOfficielRhController.class);
+        var controller=context.getBean(DocumentRhController.class);
         login("EMPLOYE_READ"); assertThrows(AccessDeniedException.class,()->controller.getContratData(42)); assertThrows(AccessDeniedException.class,()->controller.downloadContratDocx(42));
+
         login("PAIE_READ"); assertThrows(AccessDeniedException.class,()->controller.getContratData(42));
         login("EMPLOYE_READ","PAIE_READ"); assertDoesNotThrow(()->controller.getContratData(42));
         login("ROLE_ADMIN"); assertDoesNotThrow(()->controller.getContratData(42));

@@ -12,9 +12,9 @@ import { useTransitionForm } from '@/features/employees/hooks/useTransitionForm'
 // Sections UI
 import FormSectionHeader from '@/features/employees/components/carriere/form/FormSectionHeader';
 import TransitionTypeSection from '@/features/employees/components/carriere/form/TransitionTypeSection';
-import ContratFieldsSection from '@/features/employees/components/carriere/form/ContratFieldsSection';
+import ContratFieldsSection, { PeriodeEssaiFieldsSection } from '@/features/employees/components/carriere/form/ContratFieldsSection';
 import AffectationFieldsSection from '@/features/employees/components/carriere/form/AffectationFieldsSection';
-import PeriodeEssaiFieldsSection from '@/features/employees/components/carriere/form/PeriodeEssaiFieldsSection';
+
 import TransitionComparatifCard from '@/features/employees/components/carriere/preview/TransitionComparatifCard';
 
 export default function TransitionModal({

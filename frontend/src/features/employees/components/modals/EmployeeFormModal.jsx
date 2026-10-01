@@ -24,10 +24,12 @@ import SearchSelect from '@/components/ui/forms/SearchSelect';
 import { Card } from '@/components/ui/data-display/Card';
 import { AGENCES_BANCAIRES, VILLES_MADAGASCAR, NATIONALITES_STANDARDS } from '@/constants/madagascarGeo';
 
-import CiviliteStep from '@/features/employees/components/form/CiviliteStep';
-import CoordonneesPhotoStep from '@/features/employees/components/form/CoordonneesPhotoStep';
-import FamilleFormStep from '@/features/employees/components/form/FamilleFormStep';
-import UrgenceFormStep from '@/features/employees/components/form/UrgenceFormStep';
+import {
+    CiviliteStep,
+    CoordonneesPhotoStep,
+    FamilleFormStep,
+    UrgenceFormStep
+} from '@/features/employees/components/form/EmployeeFormSteps';
 
 import { validerChampsEtape, validerToutesEtapesEmploye } from '@/features/employees/utils/employeFormValidation';
 import { fmtDateInput } from '@/utils/dateUtils';

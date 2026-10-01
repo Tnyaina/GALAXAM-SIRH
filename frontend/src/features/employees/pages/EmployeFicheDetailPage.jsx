@@ -26,7 +26,7 @@ const FamilleContactsTab = lazy(() => import('@/features/employees/components/ta
 const CongesTab = lazy(() => import('@/features/employees/components/tabs/CongesTab'));
 const PointageTab = lazy(() => import('@/features/employees/components/tabs/PointageTab'));
 const EmployePaieTab = lazy(() => import('@/features/employees/components/tabs/EmployePaieTab'));
-const UploadDocumentModal = lazy(() => import('@/features/employees/components/tabs/UploadDocumentModal'));
+const UploadDocumentModal = lazy(() => import('@/features/employees/components/modals/UploadDocumentModal'));
 import SEO from '@/components/system/SEO';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import SlideOver from '@/components/ui/overlays/SlideOver';

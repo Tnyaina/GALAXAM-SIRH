@@ -11,9 +11,9 @@ import { useContractReferentiels } from '@/features/employees/hooks/useContractR
 import { fmtDateInput, fmtDateFr } from '@/utils/dateUtils';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 
-import ContratFieldsSection from '@/features/employees/components/carriere/form/ContratFieldsSection';
+import ContratFieldsSection, { PeriodeEssaiFieldsSection } from '@/features/employees/components/carriere/form/ContratFieldsSection';
 import AffectationFieldsSection from '@/features/employees/components/carriere/form/AffectationFieldsSection';
-import PeriodeEssaiFieldsSection from '@/features/employees/components/carriere/form/PeriodeEssaiFieldsSection';
+
 
 export default function EmbaucheModal({
     isOpen,

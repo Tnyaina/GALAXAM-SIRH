@@ -29,7 +29,7 @@ import paieService from '@/features/payroll/api/paieService';
 import stcService from '@/features/payroll/api/stcService';
 import { getErrorMessage } from '@/api/apiClient';
 
-import DemandeAcompteAvanceModal from './DemandeAcompteAvanceModal';
+import DemandeAcompteAvanceModal from '@/features/employees/components/modals/DemandeAcompteAvanceModal';
 
 // Lazy loading des lourds modules et modales de paie externes
 const BulletinPaieDrawer = lazy(() => import('@/features/payroll/components/views/BulletinPaieDrawer'));

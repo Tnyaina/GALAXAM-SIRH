@@ -3,8 +3,8 @@ package mg.galaxam.sirh.contrat.api;
 
 import java.util.List;
 import mg.galaxam.sirh.common.dto.PageDTO;
-import mg.galaxam.sirh.contrat.api.dto.EmbaucheInitialeRequest;
 import mg.galaxam.sirh.contrat.api.dto.TransitionCarriereRequest;
+import mg.galaxam.sirh.contrat.api.dto.TransitionCarriereRequest.EmbaucheInitialeRequest;
 import mg.galaxam.sirh.contrat.api.dto.TransitionCarriereRequest.ValidationRequest;
 import mg.galaxam.sirh.common.transaction.TransactionRunner;
 import mg.galaxam.sirh.contrat.persistence.WorkflowRh;

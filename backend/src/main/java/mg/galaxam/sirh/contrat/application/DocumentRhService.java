@@ -2,7 +2,7 @@ package mg.galaxam.sirh.contrat.application;
 
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
-import mg.galaxam.sirh.contrat.api.dto.ContratTravailDocumentDTO;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.ContratTravailDocumentDTO;
 import org.springframework.core.env.Environment;
 import mg.galaxam.sirh.contrat.persistence.RefTypeDocument;
 import mg.galaxam.sirh.contrat.persistence.WorkflowRh;

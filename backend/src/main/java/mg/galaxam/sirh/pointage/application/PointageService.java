@@ -649,7 +649,7 @@ public class PointageService {
                         ind.put("nbJoursOuvrablesPeriode", nbOuvrablesPeriode);
                         siteIndemnites.add(ind);
 
-                        if ("DEPLACEMENT".equalsIgnoreCase(codeInd) || "TRANSPORT".equalsIgnoreCase(codeInd)) {
+                        if ("DPLCT".equalsIgnoreCase(codeInd) || "DEPLACEMENT".equalsIgnoreCase(codeInd) || "TRANSPORT".equalsIgnoreCase(codeInd)) {
                             montantDeplacementMois = montantRef;
                             montantDeplacementJour = montantJour;
                         } else if ("REPAS".equalsIgnoreCase(codeInd)) {
@@ -994,7 +994,7 @@ public class PointageService {
                                                 if ("REPAS".equalsIgnoreCase(codeInd)) {
                                                     repasRecue = accorde;
                                                     mntRepasDb = mntCalc;
-                                                } else if ("DEPLACEMENT".equalsIgnoreCase(codeInd) || "TRANSPORT".equalsIgnoreCase(codeInd)) {
+                                                } else if ("DPLCT".equalsIgnoreCase(codeInd) || "DEPLACEMENT".equalsIgnoreCase(codeInd) || "TRANSPORT".equalsIgnoreCase(codeInd)) {
                                                     depRecue = accorde;
                                                     mntDepDb = mntCalc;
                                                     if (accorde) {
@@ -1224,7 +1224,7 @@ public class PointageService {
                                         if (!beneficie) {
                                             exclusionsIndemnites.add(idIndDerog);
                                             derogationMotifs.put(idIndDerog, motif);
-                                            if ("TRANSPORT".equalsIgnoreCase(codeInd) || "DEPLACEMENT".equalsIgnoreCase(codeInd)) {
+                                            if ("DPLCT".equalsIgnoreCase(codeInd) || "TRANSPORT".equalsIgnoreCase(codeInd) || "DEPLACEMENT".equalsIgnoreCase(codeInd)) {
                                                 excluDeplacement = true;
                                                 motifExcluDeplacement = motif;
                                             } else if ("REPAS".equalsIgnoreCase(codeInd)) {

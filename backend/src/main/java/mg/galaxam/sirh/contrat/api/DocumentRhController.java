@@ -36,14 +36,24 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.ContratTravailDocumentDTO;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.AttestationTravailDTO;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.CertificatTravailDTO;
+import mg.galaxam.sirh.contrat.application.DocumentRhService;
+
 @RestController
 public class DocumentRhController {
 
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private DocumentRhService documentRhService;
+
     @Value("${app.upload.doc-dir:uploads/documents}")
     private String docUploadDir;
+
 
     /**
      * Récupère la liste des documents RH d'un employé + la synthèse des documents obligatoires manquants.
@@ -265,4 +275,93 @@ public class DocumentRhController {
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
+
+    // =========================================================================
+    // DOCUMENTS OFFICIELS RH (CONTRATS, ATTESTATIONS, CERTIFICATS)
+    // =========================================================================
+
+    @GetMapping({"/documents/contrat/{idContrat}", "/api/documents/contrat/{idContrat}"})
+    @PreAuthorize("(hasAuthority('EMPLOYE_READ') and hasAuthority('PAIE_READ')) or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<ContratTravailDocumentDTO> getContratData(@PathVariable Integer idContrat) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                    .body(documentRhService.preparerContrat(idContrat, c));
+        }
+    }
+
+    @GetMapping({"/documents/contrat/{idContrat}/docx", "/api/documents/contrat/{idContrat}/docx"})
+    @PreAuthorize("(hasAuthority('EMPLOYE_READ') and hasAuthority('PAIE_READ')) or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> downloadContratDocx(@PathVariable Integer idContrat) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            var dto = documentRhService.preparerContrat(idContrat, c);
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            documentRhService.genererContratDocx(dto, output);
+            String filename = "Contrat_" + dto.numeroContrat().replaceAll("[^a-zA-Z0-9_-]", "_") + ".docx";
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                    .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(filename).build().toString())
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+                    .body(output.toByteArray());
+        }
+    }
+
+    @GetMapping({"/documents/attestation/{idEmploye}", "/api/documents/attestation/{idEmploye}"})
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<AttestationTravailDTO> getAttestationData(
+            @PathVariable Integer idEmploye,
+            @RequestParam(defaultValue = "contrat") String typeAnciennete,
+            @RequestParam(defaultValue = "false") boolean inclureSalaire) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            AttestationTravailDTO dto = documentRhService.preparerAttestation(idEmploye, typeAnciennete, inclureSalaire, c);
+            return ResponseEntity.ok(dto);
+        }
+    }
+
+    @GetMapping({"/documents/attestation/{idEmploye}/docx", "/api/documents/attestation/{idEmploye}/docx"})
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> downloadAttestationDocx(
+            @PathVariable Integer idEmploye,
+            @RequestParam(defaultValue = "contrat") String typeAnciennete,
+            @RequestParam(defaultValue = "false") boolean inclureSalaire) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            AttestationTravailDTO dto = documentRhService.preparerAttestation(idEmploye, typeAnciennete, inclureSalaire, c);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            documentRhService.genererAttestationDocx(dto, baos);
+
+            String filename = "Attestation_Travail_" + dto.getEmploye().getMatricule() + ".docx";
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+                    .body(baos.toByteArray());
+        }
+    }
+
+    @GetMapping({"/documents/certificat/{idContrat}", "/api/documents/certificat/{idContrat}"})
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CertificatTravailDTO> getCertificatData(
+            @PathVariable Integer idContrat,
+            @RequestParam(defaultValue = "contrat") String typeAnciennete) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            CertificatTravailDTO dto = documentRhService.preparerCertificat(idContrat, typeAnciennete, c);
+            return ResponseEntity.ok(dto);
+        }
+    }
+
+    @GetMapping({"/documents/certificat/{idContrat}/docx", "/api/documents/certificat/{idContrat}/docx"})
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> downloadCertificatDocx(
+            @PathVariable Integer idContrat,
+            @RequestParam(defaultValue = "contrat") String typeAnciennete) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            CertificatTravailDTO dto = documentRhService.preparerCertificat(idContrat, typeAnciennete, c);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            documentRhService.genererCertificatDocx(dto, baos);
+
+            String filename = "Certificat_Travail_" + dto.getEmploye().getMatricule() + ".docx";
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+                    .body(baos.toByteArray());
+        }
+    }
 }
+

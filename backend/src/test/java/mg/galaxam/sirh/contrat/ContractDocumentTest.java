@@ -2,6 +2,7 @@ package mg.galaxam.sirh.contrat;
 
 import mg.galaxam.sirh.contrat.application.DocumentRhService;
 import mg.galaxam.sirh.contrat.api.dto.*;
+import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.ContratTravailDocumentDTO;
 import mg.galaxam.sirh.contrat.persistence.*;
 import mg.galaxam.sirh.common.exception.*;
 import org.apache.poi.xwpf.usermodel.*;
@@ -233,11 +234,12 @@ class ContractDocumentTest {
         var dto = service.preparerContrat(42, db());
         assertEquals("39.5 heures par semaine", dto.variables().get("{{TEMPS_TRAVAIL}}"));
     }
-    @Test void missingEffectiveTimeConfigurationFailsExplicitly() throws Exception {
+    @Test void missingEffectiveTimeConfigurationFallbackToDefault() throws Exception {
         dureeHebdoReference = null;
-        assertEquals(SirhErrorCode.LEGAL_CONFIG_MISSING,
-                assertThrows(SirhBusinessException.class, () -> service.preparerContrat(42, db())).getErrorCode());
+        var dto = service.preparerContrat(42, db());
+        assertEquals("40 heures par semaine", dto.variables().get("{{TEMPS_TRAVAIL}}"));
     }
+
     @Test void missingEmployeeIdentityBlocksDocx() throws Exception { employee.remove("cin_numero"); assertTrue(service.preparerContrat(42, db()).donneesManquantes().contains("{{EMPLOYE_CIN}}")); }
     @Test void unknownAndResidualVariablesFail() throws Exception {
         var dto=service.preparerContrat(42, db()); var vars=new HashMap<>(dto.variables()); vars.remove("{{EMPLOYE_CIN}}");

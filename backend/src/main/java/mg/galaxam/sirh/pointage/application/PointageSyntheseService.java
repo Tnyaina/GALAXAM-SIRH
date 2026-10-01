@@ -321,7 +321,7 @@ public class PointageSyntheseService {
         } else {
             String sqlSiteInd = "SELECT c.montant_reference FROM site_indemnite_config c " +
                                 "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
-                                "WHERE c.id_site = ? AND i.code IN ('DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE LIMIT 1";
+                                "WHERE c.id_site = ? AND i.code IN ('DPLCT', 'DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE LIMIT 1";
             try (PreparedStatement psSI = c.prepareStatement(sqlSiteInd)) {
                 psSI.setInt(1, idSite);
                 try (ResultSet rsSI = psSI.executeQuery()) {
@@ -367,7 +367,7 @@ public class PointageSyntheseService {
                         "LEFT JOIN pointage_indemnite_jour pij_repas ON p.id_pointage = pij_repas.id_pointage " +
                         "    AND pij_repas.id_indemnite = (SELECT id_indemnite FROM ref_indemnite WHERE code = 'REPAS' LIMIT 1) " +
                         "LEFT JOIN pointage_indemnite_jour pij_dep ON p.id_pointage = pij_dep.id_pointage " +
-                        "    AND pij_dep.id_indemnite IN (SELECT id_indemnite FROM ref_indemnite WHERE code IN ('DEPLACEMENT', 'TRANSPORT') LIMIT 1) " +
+                        "    AND pij_dep.id_indemnite IN (SELECT id_indemnite FROM ref_indemnite WHERE code IN ('DPLCT', 'DEPLACEMENT', 'TRANSPORT') LIMIT 1) " +
                         "WHERE p.id_employe = ? AND p.date_pointage BETWEEN ? AND ? " +
                         "ORDER BY p.date_pointage";
 
@@ -855,7 +855,7 @@ public class PointageSyntheseService {
         Map<Integer, BigDecimal> siteDeplacementRefMap = new HashMap<>();
         String sqlSiteIndConfig = "SELECT c.id_site, c.montant_reference FROM site_indemnite_config c " +
                                   "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
-                                  "WHERE i.code IN ('DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE";
+                                  "WHERE i.code IN ('DPLCT', 'DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE";
         try (PreparedStatement psSIC = c.prepareStatement(sqlSiteIndConfig);
              ResultSet rsSIC = psSIC.executeQuery()) {
             while (rsSIC.next()) {
@@ -1198,7 +1198,7 @@ public class PointageSyntheseService {
             Map<Integer, BigDecimal> siteDeplacementRefMap = new HashMap<>();
             String sqlSiteIndConfig = "SELECT c.id_site, c.montant_reference FROM site_indemnite_config c " +
                                       "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
-                                      "WHERE i.code IN ('DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE";
+                                      "WHERE i.code IN ('DPLCT', 'DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE";
             try (PreparedStatement psSIC = c.prepareStatement(sqlSiteIndConfig);
                  ResultSet rsSIC = psSIC.executeQuery()) {
                 while (rsSIC.next()) {
@@ -1959,7 +1959,7 @@ public class PointageSyntheseService {
         Map<Integer, BigDecimal> siteDeplacementRefMap = new HashMap<>();
         String sqlSiteIndConfig = "SELECT c.id_site, c.montant_reference FROM site_indemnite_config c " +
                                   "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
-                                  "WHERE i.code IN ('DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE";
+                                  "WHERE i.code IN ('DPLCT', 'DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE";
         try (PreparedStatement psSIC = c.prepareStatement(sqlSiteIndConfig);
              ResultSet rsSIC = psSIC.executeQuery()) {
             while (rsSIC.next()) {

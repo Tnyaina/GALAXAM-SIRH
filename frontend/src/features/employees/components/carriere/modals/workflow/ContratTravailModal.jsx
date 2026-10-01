@@ -7,7 +7,7 @@ import FormError from '@/components/ui/feedback/FormError';
 import Modal from '@/components/ui/overlays/Modal';
 import HasPermission from '@/features/auth/components/HasPermission';
 import { DocumentFrame } from '@/features/employees/components/carriere/ContractDocument';
-import UploadDocumentModal from '@/features/employees/components/tabs/UploadDocumentModal';
+import UploadDocumentModal from '@/features/employees/components/modals/UploadDocumentModal';
 import documentService from '@/api/documentService';
 import documentRhService from '@/features/employees/api/documentRhService';
 import contratService from '@/features/employees/api/contratService';
