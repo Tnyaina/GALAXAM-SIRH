@@ -60,7 +60,7 @@ public class RefTypeMouvementPaieController {
             try (PreparedStatement ps = c.prepareStatement(
                     "SELECT id_rubrique, code, libelle, categorie, sens, type_valeur, soumis_irsa, " +
                     "soumis_cnaps, soumis_sante, est_fixe, est_actif, description, ordre_affichage, " +
-                    "reference_reglementaire, date_debut_effet, etape_calcul " +
+                    "reference_reglementaire, date_debut_effet, etape_calcul, date_fin_effet, id_rubrique_origine, condition_application, methode_calcul, politique_arrondi, soumis_fmfp " +
                     "FROM paie_rubrique ORDER BY ordre_affichage, code");
                  ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -80,10 +80,15 @@ public class RefTypeMouvementPaieController {
                     item.put("referenceReglementaire", rs.getString("reference_reglementaire"));
                     item.put("dateDebutEffet", rs.getDate("date_debut_effet"));
                     item.put("etapeCalcul", rs.getString("etape_calcul"));
+                    item.put("methodeCalcul",rs.getString("methode_calcul")); item.put("politiqueArrondi",rs.getString("politique_arrondi"));
+                    item.put("soumisFmfp",rs.getObject("soumis_fmfp"));
                     item.put("dateFinEffet", rs.getDate("date_fin_effet"));
                     item.put("idRubriqueOrigine", rs.getObject("id_rubrique_origine"));
                     item.put("conditionApplication", rs.getString("condition_application"));
                     item.put("ordreAffichage", rs.getInt("ordre_affichage"));
+                    var capability=mg.galaxam.sirh.paie.domain.engine.PayrollCalculatorRegistry.describe(rs.getString("code"),rs.getString("categorie"),rs.getBoolean("est_fixe"),rs.getString("etape_calcul"));
+                    item.put("niveauConfiguration",capability.niveau());item.put("calculateur",capability.calculateur());
+                    item.put("phaseCalcul",capability.phase());item.put("sourceCalcul",capability.source());item.put("arrondiCalculateur",capability.arrondi());
                     rubriques.add(item);
                 }
             }

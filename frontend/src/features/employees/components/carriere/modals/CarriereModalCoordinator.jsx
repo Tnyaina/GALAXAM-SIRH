@@ -5,11 +5,9 @@ import Loading from '@/components/ui/feedback/Loading';
 const EmbaucheModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/EmbaucheModal'));
 const TransitionModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/TransitionModal'));
 const WorkflowDraftSummaryModal = lazy(() => import('@/features/employees/components/carriere/modals/WorkflowDraftSummaryModal'));
-const ConfirmationEssaiModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/ConfirmationEssaiModal'));
-const RenouvellementEssaiModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/RenouvellementEssaiModal'));
+const ArbitrageEssaiModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/ArbitrageEssaiModal'));
 const RuptureContratModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/RuptureContratModal'));
-const CertificatTravailModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/CertificatTravailModal'));
-const AttestationTravailModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/AttestationTravailModal'));
+const DocumentOfficielModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/DocumentOfficielModal'));
 const ContratTravailModal = lazy(() => import('@/features/employees/components/carriere/modals/workflow/ContratTravailModal'));
 const StcPreparationModal = lazy(() => import('@/features/payroll/components/modals/stc/StcPreparationModal'));
 
@@ -90,9 +88,10 @@ export default function CarriereModalCoordinator({
             )}
 
             {isConfirmationModalOpen && (
-                <ConfirmationEssaiModal
+                <ArbitrageEssaiModal
                     isOpen={isConfirmationModalOpen}
                     onClose={() => setIsConfirmationModalOpen(false)}
+                    mode="CONFIRMATION"
                     idEmploye={idEmploye}
                     nomEmploye={nomEmploye}
                     contratActif={contratActif}
@@ -104,9 +103,10 @@ export default function CarriereModalCoordinator({
             )}
 
             {isRenouvellementModalOpen && (
-                <RenouvellementEssaiModal
+                <ArbitrageEssaiModal
                     isOpen={isRenouvellementModalOpen}
                     onClose={() => setIsRenouvellementModalOpen(false)}
+                    mode="RENOUVELLEMENT"
                     idEmploye={idEmploye}
                     nomEmploye={nomEmploye}
                     contratActif={contratActif}
@@ -136,9 +136,10 @@ export default function CarriereModalCoordinator({
             )}
 
             {isCertificatModalOpen && (
-                <CertificatTravailModal
+                <DocumentOfficielModal
                     isOpen={isCertificatModalOpen}
                     onClose={() => setIsCertificatModalOpen(false)}
+                    typeDocument="CERTIFICAT"
                     employe={employe || { idEmploye, nom: nomEmploye, matricule: matriculeEmploye }}
                     contrat={selectedCertificatContrat || contratActif || (contratsList?.length > 0 ? contratsList[0] : null)}
                     contratsList={contratsList}
@@ -154,9 +155,10 @@ export default function CarriereModalCoordinator({
             )}
 
             {isAttestationModalOpen && (
-                <AttestationTravailModal
+                <DocumentOfficielModal
                     isOpen={isAttestationModalOpen}
                     onClose={() => setIsAttestationModalOpen(false)}
+                    typeDocument="ATTESTATION"
                     employe={employe || { idEmploye, nom: nomEmploye, matricule: matriculeEmploye }}
                     contrat={selectedAttestationContrat || contratActif || (contratsList?.length > 0 ? contratsList[0] : null)}
                     contratsList={contratsList}

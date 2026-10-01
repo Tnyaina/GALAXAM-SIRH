@@ -46,6 +46,8 @@ public class PaieRubriqueController {
         entity.setReferenceReglementaire(req.getReferenceReglementaire());
         entity.setDateDebutEffet(req.getDateDebutEffet());
         entity.setEtapeCalcul(req.getEtapeCalcul());
+        entity.setMethodeCalcul(req.getMethodeCalcul()); entity.setPolitiqueArrondi(req.getPolitiqueArrondi());
+        entity.setSoumisFmfp(req.getSoumisFmfp());
         entity.setDateFinEffet(req.getDateFinEffet());
         entity.setConditionApplication(req.getConditionApplication());
         return entity;
@@ -57,6 +59,9 @@ public class PaieRubriqueController {
                 || !("GAIN".equals(rubrique.getSens()) || "RETENUE".equals(rubrique.getSens()))) {
             invalid("Seules les rubriques manuelles de gain ou de retenue en montant peuvent être créées ici.");
         }
+        if (!"CONFIGURABLE".equals(mg.galaxam.sirh.paie.domain.engine.PayrollCalculatorRegistry.describe(
+                rubrique.getCode(),rubrique.getCategorie(),rubrique.isEstFixe(),rubrique.getEtapeCalcul()).niveau()))
+            invalid("Cette rubrique appartient à un calculateur dédié. Utilisez son paramétrage métier.");
         if (rubrique.getDateFinEffet() != null && (rubrique.getDateDebutEffet() == null
                 || rubrique.getDateFinEffet().isBefore(rubrique.getDateDebutEffet()))) {
             invalid("La fin de validité doit suivre le début de validité.");
@@ -65,6 +70,11 @@ public class PaieRubriqueController {
                 .contains(rubrique.getConditionApplication() == null ? "" : rubrique.getConditionApplication())) {
             invalid("Condition d’application non prise en charge.");
         }
+        if (!java.util.Set.of("MONTANT","QUANTITE_TAUX","POURCENTAGE_SALAIRE_BASE").contains(rubrique.getMethodeCalcul()==null?"":rubrique.getMethodeCalcul())
+                || !java.util.Set.of("CENTIME","ARIARY","DIZAINE").contains(rubrique.getPolitiqueArrondi()==null?"":rubrique.getPolitiqueArrondi()))
+            invalid("Méthode ou politique d’arrondi non prise en charge.");
+        if (!"BRUT".equals(rubrique.getEtapeCalcul()) && Boolean.TRUE.equals(rubrique.getSoumisFmfp()))
+            invalid("Un ajout ou une retenue nette ne peut pas alimenter le FMFP.");
         if (requireEvidence && (rubrique.getReferenceReglementaire() == null || rubrique.getReferenceReglementaire().isBlank()
                 || rubrique.getDateDebutEffet() == null)) {
             invalid("La référence du traitement et sa date de début d'effet sont obligatoires.");
@@ -269,6 +279,10 @@ public class PaieRubriqueController {
                 var oldFin = found.getDateFinEffet();
                 String oldCondition = found.getConditionApplication();
                 String oldReference = found.getReferenceReglementaire();
+                String oldMethod=found.getMethodeCalcul(), oldRounding=found.getPolitiqueArrondi();
+                Boolean oldFmfp=found.getSoumisFmfp();
+                found.setMethodeCalcul(req.getMethodeCalcul()); found.setPolitiqueArrondi(req.getPolitiqueArrondi());
+                found.setSoumisFmfp(req.getSoumisFmfp());
                 if (req.getIdRubriqueOrigine() != null) invalid("Utilisez la création de version pour changer la filiation.");
                 found.setDateFinEffet(req.getDateFinEffet());
                 if (req.getConditionApplication() != null) found.setConditionApplication(req.getConditionApplication());
@@ -328,7 +342,9 @@ public class PaieRubriqueController {
                         || !Objects.equals(oldEtapeCalcul, found.getEtapeCalcul())
                         || !Objects.equals(oldFin, found.getDateFinEffet())
                         || !Objects.equals(oldCondition, found.getConditionApplication())
-                        || !Objects.equals(oldReference, found.getReferenceReglementaire()))) {
+                        || !Objects.equals(oldReference, found.getReferenceReglementaire())
+                        || !Objects.equals(oldMethod,found.getMethodeCalcul()) || !Objects.equals(oldRounding,found.getPolitiqueArrondi())
+                        || !Objects.equals(oldFmfp,found.getSoumisFmfp()))) {
                     invalid("Cette rubrique possède des mouvements historiques. Créez une nouvelle version pour changer son traitement.");
                 }
                 validateManualRubrique(found, found.getDateDebutEffet() != null);

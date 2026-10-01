@@ -31,6 +31,9 @@ public class PaieRubrique extends ClassMere {
     private String referenceReglementaire;
     private LocalDate dateDebutEffet;
     private String etapeCalcul;
+    private String methodeCalcul = "MONTANT";
+    private String politiqueArrondi = "CENTIME";
+    private Boolean soumisFmfp;
     private LocalDate dateFinEffet;
     private Integer idRubriqueOrigine;
     private String conditionApplication = "TOUS";
@@ -53,8 +56,8 @@ public class PaieRubrique extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO paie_rubrique (code, libelle, categorie, type_valeur, sens, " +
-                     "soumis_cnaps, soumis_sante, soumis_irsa, est_fixe, ordre_affichage, est_actif, description, reference_reglementaire, date_debut_effet, etape_calcul, date_fin_effet, id_rubrique_origine, condition_application) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_rubrique";
+                     "soumis_cnaps, soumis_sante, soumis_irsa, est_fixe, ordre_affichage, est_actif, description, reference_reglementaire, date_debut_effet, etape_calcul, date_fin_effet, id_rubrique_origine, condition_application, methode_calcul, politique_arrondi, soumis_fmfp) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_rubrique";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
@@ -74,6 +77,7 @@ public class PaieRubrique extends ClassMere {
             ps.setDate(16, dateFinEffet == null ? null : Date.valueOf(dateFinEffet));
             ps.setObject(17, idRubriqueOrigine);
             ps.setString(18, conditionApplication);
+            ps.setString(19,methodeCalcul); ps.setString(20,politiqueArrondi); ps.setObject(21,soumisFmfp);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -88,7 +92,7 @@ public class PaieRubrique extends ClassMere {
     protected ClassMere modifier(Connection c) throws Exception {
         String sql = "UPDATE paie_rubrique SET code = ?, libelle = ?, categorie = ?, type_valeur = ?, sens = ?, " +
                      "soumis_cnaps = ?, soumis_sante = ?, soumis_irsa = ?, est_fixe = ?, ordre_affichage = ?, " +
-                     "est_actif = ?, description = ?, reference_reglementaire = ?, date_debut_effet = ?, etape_calcul = ?, date_fin_effet = ?, id_rubrique_origine = ?, condition_application = ? WHERE id_rubrique = ?";
+                     "est_actif = ?, description = ?, reference_reglementaire = ?, date_debut_effet = ?, etape_calcul = ?, date_fin_effet = ?, id_rubrique_origine = ?, condition_application = ?, methode_calcul = ?, politique_arrondi = ?, soumis_fmfp = ? WHERE id_rubrique = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
@@ -108,7 +112,8 @@ public class PaieRubrique extends ClassMere {
             ps.setDate(16, dateFinEffet == null ? null : Date.valueOf(dateFinEffet));
             ps.setObject(17, idRubriqueOrigine);
             ps.setString(18, conditionApplication);
-            ps.setInt(19, idRubrique);
+            ps.setString(19,methodeCalcul); ps.setString(20,politiqueArrondi); ps.setObject(21,soumisFmfp);
+            ps.setInt(22, idRubrique);
             ps.executeUpdate();
         }
         return this;
@@ -197,6 +202,8 @@ public class PaieRubrique extends ClassMere {
         Date dateEffet = rs.getDate("date_debut_effet");
         r.setDateDebutEffet(dateEffet == null ? null : dateEffet.toLocalDate());
         r.setEtapeCalcul(rs.getString("etape_calcul"));
+        r.setMethodeCalcul(rs.getString("methode_calcul")); r.setPolitiqueArrondi(rs.getString("politique_arrondi"));
+        r.setSoumisFmfp((Boolean)rs.getObject("soumis_fmfp"));
         Date fin = rs.getDate("date_fin_effet");
         r.setDateFinEffet(fin == null ? null : fin.toLocalDate());
         r.setIdRubriqueOrigine((Integer) rs.getObject("id_rubrique_origine"));
@@ -254,6 +261,12 @@ public class PaieRubrique extends ClassMere {
     public void setIdRubriqueOrigine(Integer v) { idRubriqueOrigine = v; }
     public String getConditionApplication() { return conditionApplication; }
     public void setConditionApplication(String v) { conditionApplication = v; }
+    public String getMethodeCalcul() { return methodeCalcul; }
+    public void setMethodeCalcul(String v) { methodeCalcul=v; }
+    public String getPolitiqueArrondi() { return politiqueArrondi; }
+    public void setPolitiqueArrondi(String v) { politiqueArrondi=v; }
+    public Boolean getSoumisFmfp() { return soumisFmfp; }
+    public void setSoumisFmfp(Boolean v) { soumisFmfp=v; }
     public String getEtapeCalcul() { return etapeCalcul; }
     public void setEtapeCalcul(String etapeCalcul) { this.etapeCalcul = etapeCalcul; }
 

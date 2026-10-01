@@ -137,4 +137,10 @@ public class TransitionCarriereRequest {
 
     public String getCommentaire() { return commentaire; }
     public void setCommentaire(String commentaire) { this.commentaire = commentaire; }
+
+    public static class ValidationRequest {
+        private String commentaireValidation;
+        public String getCommentaireValidation() { return commentaireValidation; }
+        public void setCommentaireValidation(String commentaireValidation) { this.commentaireValidation = commentaireValidation; }
+    }
 }

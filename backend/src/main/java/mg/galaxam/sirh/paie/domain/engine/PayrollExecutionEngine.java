@@ -535,10 +535,11 @@ public class PayrollExecutionEngine {
                     String cat = gv.getCategorie() != null ? gv.getCategorie() : "PRIME";
                     String lib = gv.getLibelle() != null && !gv.getLibelle().isBlank() ? gv.getLibelle() : gv.getCode();
                     BulletinPaieLigne ligne = creerLigne(bp, gv.getCodeRubrique(), lib, "GAIN", cat,
-                            gv.getMontant(), null, gv.getMontant(), null, 120);
+                            gv.getBaseCalcul(), gv.getTaux(), gv.getQuantite(), gv.getMontant(), null, 120);
                     ligne.setImposable(gv.isImposable());
                     ligne.setSoumisCotisation(gv.isSoumisCotisation());
                     ligne.setEtapeCalcul(gv.getEtapeCalcul());
+                    ligne.setCommentaire(gv.getExplicationCalcul());
                     lignes.add(ligne);
                     totalPrimes = totalPrimes.add(gv.getMontant());
                 }
@@ -560,12 +561,14 @@ public class PayrollExecutionEngine {
         // L'assujettissement social est indépendant de l'imposition IRSA.
         BigDecimal assietteSociale = totalGainsBruts;
         BigDecimal assietteSanteVariables = totalGainsBruts;
+        BigDecimal assietteFmfp=totalGainsBruts;
         if (input.getGainsVariablesDynamiques() != null) {
             for (PayrollCalculationInput.GainVariable gain : input.getGainsVariablesDynamiques()) {
                 assietteSociale = assietteSociale.add(
                         ManualGainContributions.resolve(gain).correctionSociale());
                 assietteSanteVariables = assietteSanteVariables.add(
                         ManualGainContributions.resolve(gain).correctionSante());
+                assietteFmfp=assietteFmfp.add(ManualGainContributions.resolve(gain).correctionFmfp());
             }
         }
         assietteSociale = assietteSociale.max(BigDecimal.ZERO);
@@ -573,7 +576,7 @@ public class PayrollExecutionEngine {
 
         BigDecimal sme = zeroIfNull(input.getSmeNational());
         SocialContributionCalculator socialCalculator = new SocialContributionCalculator();
-        SocialContributionCalculator.Result social = socialCalculator.calculate(assietteSociale, assietteSanteVariables, assietteSociale,
+        SocialContributionCalculator.Result social = socialCalculator.calculate(assietteSociale, assietteSanteVariables, assietteFmfp,
                 new SocialContributionCalculator.Rules(input.getTauxCnapsSalarialDecimal(), input.getTauxCnapsPatronalDecimal(),
                         input.getTauxSanteSalarialDecimal(), input.getTauxSantePatronalDecimal(), input.getTauxFmfpPatronalDecimal(), sme, input.isEstPlafonneSante()));
 
@@ -595,7 +598,7 @@ public class PayrollExecutionEngine {
             // 2.3 FMFP Patronale (1% sur brut total)
             BigDecimal fmfpPat = MoneyRoundingPolicy.contribution(social.fmfp());
             lignes.add(creerLigne(bp, "COTISATION_FMFP_PAT", "Cotisation FMFP Patronale (1%)", "PATRONAL", "COTISATION_PATRONALE",
-                    assietteSociale, input.getTauxFmfpPatronalDecimal().movePointRight(2), null, fmfpPat, 330));
+                    assietteFmfp.max(BigDecimal.ZERO), input.getTauxFmfpPatronalDecimal().movePointRight(2), null, fmfpPat, 330));
             totalCotisPatronales = totalCotisPatronales.add(fmfpPat);
         }
 
@@ -750,10 +753,11 @@ public class PayrollExecutionEngine {
                     String cat = gv.getCategorie() != null ? gv.getCategorie() : "INDEMNITE_NON_IMPOSABLE";
                     String lib = gv.getLibelle() != null && !gv.getLibelle().isBlank() ? gv.getLibelle() : gv.getCode();
                     BulletinPaieLigne ligne = creerLigne(bp, gv.getCodeRubrique(), lib, "GAIN", cat,
-                            gv.getMontant(), null, gv.getMontant(), null, 530);
+                            gv.getBaseCalcul(), gv.getTaux(), gv.getQuantite(), gv.getMontant(), null, 530);
                     ligne.setImposable(gv.isImposable());
                     ligne.setSoumisCotisation(gv.isSoumisCotisation());
                     ligne.setEtapeCalcul(gv.getEtapeCalcul());
+                    ligne.setCommentaire(gv.getExplicationCalcul());
                     lignes.add(ligne);
                     totalIndemnitesNet = totalIndemnitesNet.add(gv.getMontant());
                 }
@@ -902,6 +906,7 @@ public class PayrollExecutionEngine {
                         BulletinPaieLigne ligne = creerLigne(bp, codeRubrique, libelle, "RETENUE", "RETENUE_DIVERSE",
                                 a.getMontant(), null, mntRetenu, null, ordre);
                         ligne.setEtapeCalcul("RETENUE_NET");
+                        ligne.setCommentaire(a.getExplicationCalcul());
                         lignes.add(ligne);
                         totalAutresRetenues = totalAutresRetenues.add(mntRetenu);
                     }

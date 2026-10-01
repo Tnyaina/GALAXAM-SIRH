@@ -1,3 +1,5 @@
+import ManualVariableValueFields from '../ManualVariableValueFields';
+import { manualMethod, manualValuePayload } from '../../utils/manualVariableCalculation';
 import { useCallback, useEffect, useState } from 'react';
 import { Calculator, Plus, RefreshCw } from 'lucide-react';
 import Alert from '@/components/ui/feedback/Alert';
@@ -104,8 +106,10 @@ export default function BulletinVariableCorrection({ bulletin, onBulletinUpdated
 
     const submit = async event => {
         event.preventDefault();
-        const amount = Number(form.montant);
-        if (!selectedType || !Number.isFinite(amount) || amount <= 0 || form.motif.trim().length < 8) {
+        let valuePayload;
+        try { valuePayload = manualValuePayload(selectedType, form); }
+        catch (cause) { setError(cause.message); return; }
+        if (!selectedType || form.motif.trim().length < 8) {
             setError('Renseignez le type, un montant positif et un motif de huit caractères minimum.');
             return;
         }
@@ -114,7 +118,7 @@ export default function BulletinVariableCorrection({ bulletin, onBulletinUpdated
             idPeriodePaie: periodId,
             typeMouvement: selectedType.code,
             sens: selectedType.sens,
-            montant: amount,
+            ...valuePayload,
             motif: form.motif.trim(),
         }), 'Variable créée. Approuvez-la avant la simulation et le recalcul.');
         if (saved) {
@@ -216,13 +220,14 @@ export default function BulletinVariableCorrection({ bulletin, onBulletinUpdated
             {showForm && <form onSubmit={submit} className="space-y-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3">
                 <Select label="Type de variable" value={form.typeMouvement} onChange={value => setForm(current => ({ ...current, typeMouvement: value }))}
                     options={[{ value: '', label: 'Choisir un type' }, ...types.map(type => ({ value: type.code, label: type.libelle }))]} />
-                <MoneyInput label="Montant (Ar)" placeholder="Ex. 100 000,50" value={form.montant} onValueChange={value => setForm(current => ({ ...current, montant: value }))} min={0} maxDecimals={2} />
+                <ManualVariableValueFields type={selectedType} form={form} onChange={(name, value) => setForm(current => ({ ...current, [name]: value }))} />
+                {manualMethod(selectedType) === 'MONTANT' && <MoneyInput label="Montant (Ar)" placeholder="Ex. 100 000,50" value={form.montant} onValueChange={value => setForm(current => ({ ...current, montant: value }))} min={0} maxDecimals={2} />}
                 <Textarea label="Motif" placeholder="Ex. Prime de performance du mois" value={form.motif} onChange={event => setForm(current => ({ ...current, motif: event.target.value }))} rows={2} />
                 <div className="flex gap-2"><Button type="submit" variant="primary" size="xs" disabled={busy}>Enregistrer</Button>
                     <Button type="button" variant="ghost" size="xs" onClick={() => setShowForm(false)}>Fermer</Button></div>
             </form>}
 
-            {canAdd && !pending && (stale || manualVariables.some(variable => variable.statut === 'APPROUVE')) && <div className="space-y-2 border-t border-[var(--color-border-subtle)] pt-2.5">
+            {canAdd && (pending || stale || manualVariables.some(variable => variable.statut === 'APPROUVE')) && <div className="space-y-2 border-t border-[var(--color-border-subtle)] pt-2.5">
                 <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="outline" size="xs" iconLeft={<Calculator size={13} />} onClick={simulate} disabled={busy || pending}>Simuler ce bulletin</Button>
                     <Button type="button" variant="primary" size="xs" iconLeft={<RefreshCw size={13} />} onClick={recalculate}

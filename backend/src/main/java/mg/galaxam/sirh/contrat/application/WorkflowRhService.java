@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import mg.galaxam.sirh.contrat.api.dto.EmbaucheInitialeRequest;
 import mg.galaxam.sirh.contrat.api.dto.TransitionCarriereRequest;
-import mg.galaxam.sirh.contrat.api.dto.ValiderWorkflowRequest;
+import mg.galaxam.sirh.contrat.api.dto.TransitionCarriereRequest.ValidationRequest;
 import mg.galaxam.sirh.contrat.domain.CarriereTransitionValidator;
 import mg.galaxam.sirh.contrat.persistence.ContratTravail;
 import mg.galaxam.sirh.contrat.persistence.EmployeAffectationCarriere;
@@ -139,7 +139,7 @@ public class WorkflowRhService {
     /**
      * ÉTAPE 2 — Valider un workflow BROUILLON.
      */
-    public WorkflowRhCPL validerWorkflow(Integer idWorkflow, ValiderWorkflowRequest req, Integer currentUserId,
+    public WorkflowRhCPL validerWorkflow(Integer idWorkflow, ValidationRequest req, Integer currentUserId,
             Connection c) throws Exception {
         if (idWorkflow == null) {
             throw new IllegalArgumentException("ID du workflow obligatoire pour la validation.");
@@ -231,7 +231,7 @@ public class WorkflowRhService {
     /**
      * Valider un brouillon d'embauche initiale.
      */
-    private void validerEmbaucheInitiale(WorkflowRh workflow, ValiderWorkflowRequest req, Integer currentUserId,
+    private void validerEmbaucheInitiale(WorkflowRh workflow, ValidationRequest req, Integer currentUserId,
             Connection c) throws Exception {
         if (workflow.getDateEffet() != null && workflow.getDateEffet().toLocalDate().isAfter(java.time.LocalDate.now())) {
             ContratTravail cible = new ContratTravail().rechercherParId(workflow.getIdContratCible(), c);
@@ -931,7 +931,7 @@ public class WorkflowRhService {
     /**
      * Valide et applique une transition de carrière.
      */
-    private void validerTransition(WorkflowRh workflow, ValiderWorkflowRequest req, Integer currentUserId, Connection c)
+    private void validerTransition(WorkflowRh workflow, ValidationRequest req, Integer currentUserId, Connection c)
             throws Exception {
         Date dateEffet = workflow.getDateEffet();
         Date today = new Date(System.currentTimeMillis());
@@ -992,7 +992,7 @@ public class WorkflowRhService {
      * l'appliquera).
      * Si la date d'effet est présente ou passée → application immédiate.
      */
-    private void validerRupture(WorkflowRh workflow, ValiderWorkflowRequest req, Integer currentUserId, Connection c)
+    private void validerRupture(WorkflowRh workflow, ValidationRequest req, Integer currentUserId, Connection c)
             throws Exception {
         Date dateEffet = workflow.getDateEffet() != null ? workflow.getDateEffet()
                 : new Date(System.currentTimeMillis());
@@ -1086,7 +1086,7 @@ public class WorkflowRhService {
     /**
      * Annule un workflow BROUILLON.
      */
-    public WorkflowRhCPL annulerWorkflow(Integer idWorkflow, ValiderWorkflowRequest req, Integer currentUserId,
+    public WorkflowRhCPL annulerWorkflow(Integer idWorkflow, ValidationRequest req, Integer currentUserId,
             Connection c) throws Exception {
         WorkflowRh workflow = new WorkflowRh().rechercherParId(idWorkflow, c);
         if (workflow == null) {
@@ -1145,7 +1145,7 @@ public class WorkflowRhService {
     /**
      * Annule la planification d'un workflow validé à date ultérieure.
      */
-    public WorkflowRhCPL annulerWorkflowPlanifie(Integer idWorkflow, ValiderWorkflowRequest req, Integer currentUserId,
+    public WorkflowRhCPL annulerWorkflowPlanifie(Integer idWorkflow, ValidationRequest req, Integer currentUserId,
             Connection c) throws Exception {
         WorkflowRh workflow = new WorkflowRh().rechercherParId(idWorkflow, c);
         if (workflow == null) {

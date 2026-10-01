@@ -5,7 +5,6 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import mg.galaxam.sirh.conge.persistence.DemandeConge;
 import mg.galaxam.sirh.conge.persistence.MouvementSoldeConge;

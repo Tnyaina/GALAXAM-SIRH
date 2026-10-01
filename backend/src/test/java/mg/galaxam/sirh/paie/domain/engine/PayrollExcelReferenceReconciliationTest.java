@@ -88,7 +88,7 @@ class PayrollExcelReferenceReconciliationTest {
         var bulletin = ENGINE.calculerBulletin(input).getBulletin();
         assertEquals(0, new BigDecimal("411361.01").compareTo(bulletin.getTotalGainsBruts()));
         assertEquals(0, new BigDecimal("8227.22").compareTo(bulletin.getTotalCotisationsSalariales()));
-        assertEquals(0, new BigDecimal("403133.79").compareTo(bulletin.getSalaireNetImposable()));
+        assertEquals(0, new BigDecimal("403133.79").compareTo(bulletin.getRevenuNetAvantImpot()));
         assertEquals(0, new BigDecimal("3000").compareTo(bulletin.getIrsaNet()));
         assertEquals(0, new BigDecimal("399123.79").compareTo(bulletin.getNetAvantArrondi()));
         assertEquals(0, new BigDecimal("399120").compareTo(bulletin.getNetAPayer()));

@@ -186,7 +186,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                     <>
                                                         {[...gainsBruts, ...retenuesBrut].sort((a, b) => Number(a.ordre || 0) - Number(b.ordre || 0)).map((l, index) => (
                                                             <div key={`${l.codeRubrique}-${index}`} className="flex justify-between gap-4 text-[var(--color-fg)]">
-                                                                <span className="font-sans">{l.libelleRubrique}</span>
+                                                                <span className="font-sans">{l.libelleRubrique}{l.commentaire && <span className="block text-xs font-normal text-[var(--color-fg-muted)]">{l.commentaire}</span>}</span>
                                                                 <span className={`font-bold whitespace-nowrap ${l.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
                                                                     {l.sens === 'GAIN' ? '+' : '−'}{formatAr(l.montantSalarial)}
                                                                 </span>

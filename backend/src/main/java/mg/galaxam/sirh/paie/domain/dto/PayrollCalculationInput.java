@@ -179,6 +179,9 @@ public class PayrollCalculationInput {
         private boolean imposable = true;
         private boolean soumisCotisation = true;
         private Boolean soumisSante;
+        private Boolean soumisFmfp;
+        private String explicationCalcul;
+        private BigDecimal baseCalcul, quantite, taux;
 
         public GainVariable() {}
         public GainVariable(Integer idAvance, String code, String libelle, BigDecimal montant,
@@ -216,6 +219,16 @@ public class PayrollCalculationInput {
         public void setImposable(boolean imposable) { this.imposable = imposable; }
         public boolean isSoumisCotisation() { return soumisCotisation; }
         public void setSoumisCotisation(boolean soumisCotisation) { this.soumisCotisation = soumisCotisation; }
+        public boolean isSoumisFmfp() { return soumisFmfp != null ? soumisFmfp : soumisCotisation; }
+        public void setSoumisFmfp(boolean v) { soumisFmfp=v; }
+        public BigDecimal getBaseCalcul() { return baseCalcul != null ? baseCalcul : montant; }
+        public void setBaseCalcul(BigDecimal v) { baseCalcul=v; }
+        public BigDecimal getQuantite() { return quantite; }
+        public void setQuantite(BigDecimal v) { quantite=v; }
+        public BigDecimal getTaux() { return taux; }
+        public void setTaux(BigDecimal v) { taux=v; }
+        public String getExplicationCalcul() { return explicationCalcul; }
+        public void setExplicationCalcul(String v) { explicationCalcul=v; }
         public boolean isSoumisSante() { return soumisSante != null ? soumisSante : soumisCotisation; }
         public void setSoumisSante(boolean soumisSante) { this.soumisSante = soumisSante; }
     }

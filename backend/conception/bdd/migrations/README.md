@@ -77,6 +77,8 @@ incompatible fait échouer l'index unique et demande un arbitrage explicite.
 
 | `26-10-01-sp46-validite-conditions-rubriques.sql` | Ajoute validité, filiation et condition des rubriques manuelles ; interdit les chevauchements | `06_schema_paie.sql` |
 
+| `26-10-01-sp47-methodes-rubriques.sql` | Méthodes manuelles, arrondi, assiette FMFP séparée et précision des paramètres de ligne ; aucun ajout de table | `06_schema_paie.sql` |
+
 ### Remarques Opérationnelles
 - Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 81 tables et 9 vues cohérentes.
 - Les scripts du dossier `migrations/` sont destinés uniquement à la mise à niveau de bases déjà déployées antérieurement ; vérifier l'état de chaque migration avant de la rejouer.

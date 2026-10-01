@@ -14,8 +14,9 @@ public class PaieAjustementRequest {
     private String typeMouvement; // Code optionnel si idTypeMouvement non renseigné
     private String sens; // 'GAIN' ou 'RETENUE'
 
-    @NotNull(message = "Le montant est obligatoire.")
     private BigDecimal montant;
+    private BigDecimal quantiteSaisie;
+    private BigDecimal tauxSaisi;
 
     private Date dateDemande;
     private String motif;
@@ -38,6 +39,10 @@ public class PaieAjustementRequest {
     public String getSens() { return sens; }
     public void setSens(String sens) { this.sens = sens; }
 
+    public BigDecimal getQuantiteSaisie() { return quantiteSaisie; }
+    public void setQuantiteSaisie(BigDecimal v) { quantiteSaisie=v; }
+    public BigDecimal getTauxSaisi() { return tauxSaisi; }
+    public void setTauxSaisi(BigDecimal v) { tauxSaisi=v; }
     public BigDecimal getMontant() { return montant; }
     public void setMontant(BigDecimal montant) { this.montant = montant; }
 

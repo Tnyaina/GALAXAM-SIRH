@@ -50,6 +50,8 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping({ "/api/v1/paie/ajustements", "/v1/paie/ajustements", "/paie/ajustements" })
 public class PaieAjustementController {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private mg.galaxam.sirh.paie.application.PayrollService payrollService;
     private final DataSource dataSource;
     private final PayrollAdjustmentWorkflowService adjustmentWorkflowService;
     private final PayrollPeriodWorkflowService periodWorkflowService;
@@ -127,6 +129,7 @@ public class PaieAjustementController {
                         map.put("imposable", rs.getObject("type_imposable"));
                         map.put("cotisable", rs.getObject("type_cotisable"));
                         map.put("montant", rs.getBigDecimal("montant"));
+                        map.put("quantiteSaisie",rs.getBigDecimal("quantite_saisie"));map.put("tauxSaisi",rs.getBigDecimal("taux_saisi"));
                         map.put("montantInitial", rs.getBigDecimal("montant_initial"));
                         map.put("montantImpute", rs.getBigDecimal("montant_impute"));
                         map.put("soldeRestant", rs.getBigDecimal("solde_restant"));
@@ -195,7 +198,7 @@ public class PaieAjustementController {
         try (Connection c = dataSource.getConnection()) {
             List<Map<String, Object>> types = new ArrayList<>();
             String sql = "SELECT t.code, t.libelle, t.sens, t.categorie, t.nature, t.description, " +
-                    "r.soumis_irsa AS imposable, r.soumis_cnaps AS cotisable " +
+                    "r.soumis_irsa AS imposable, r.soumis_cnaps AS cotisable, t.id_rubrique " +
                     "FROM ref_type_mouvement_paie t " +
                     "LEFT JOIN paie_rubrique r ON r.id_rubrique = t.id_rubrique " +
                     "WHERE t.est_actif = TRUE AND t.saisie_manuelle_autorisee = TRUE " +
@@ -211,6 +214,22 @@ public class PaieAjustementController {
                     type.put("description", rs.getString("description"));
                     type.put("imposable", rs.getObject("imposable"));
                     type.put("cotisable", rs.getObject("cotisable"));
+                    if("VARIABLE_DAF".equals(rs.getString("nature")) && rs.getObject("id_rubrique")!=null) {
+                        var rule=mg.galaxam.sirh.paie.persistence.PaieRubrique.trouverParId(rs.getInt("id_rubrique"),c);
+                        if(idPeriode!=null) {
+                            try(var period=c.prepareStatement("SELECT date_debut,date_fin FROM periode_paie WHERE id_periode_paie=?")) {
+                                period.setInt(1,idPeriode); try(var dates=period.executeQuery()) {
+                                    if(dates.next()) {
+                                        try { rule=mg.galaxam.sirh.paie.application.ManualRubriqueResolver.resolve(c,rs.getInt("id_rubrique"),dates.getDate(1).toLocalDate(),dates.getDate(2).toLocalDate()); }
+                                        catch(SirhBusinessException e) { type.put("configurationError",e.getMessage()); }
+                                    }
+                                }
+                            }
+                        }
+                        type.put("methodeCalcul",rule.getMethodeCalcul()); type.put("politiqueArrondi",rule.getPolitiqueArrondi());
+                        type.put("imposable",rule.isSoumisIrsa()); type.put("cotisable",rule.isSoumisCnaps()); type.put("soumisSante",rule.isSoumisSante());
+                        type.put("rubriqueVersion",rule.getCode());
+                    }
                     types.add(type);
                 }
             }
@@ -507,16 +526,40 @@ public class PaieAjustementController {
                 String sens = typeMvt.getSens();
                 Integer idType = typeMvt.getIdTypeMouvement();
 
+                BigDecimal resolvedAmount=req.getMontant();
+                if ("VARIABLE_DAF".equals(typeMvt.getNature())) {
+                    if(typeMvt.getIdRubrique()==null || req.getIdPeriodePaie()==null)
+                        throw new SirhBusinessException(SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,"Rubrique et période obligatoires pour une variable manuelle.");
+                    java.time.LocalDate start,end;
+                    try(var ps=c.prepareStatement("SELECT date_debut,date_fin FROM periode_paie WHERE id_periode_paie=?")) {
+                        ps.setInt(1,req.getIdPeriodePaie()); try(var rs=ps.executeQuery()) {
+                            if(!rs.next()) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,"Période inconnue.");
+                            start=rs.getDate(1).toLocalDate();end=rs.getDate(2).toLocalDate();
+                        }
+                    }
+                    var rule=mg.galaxam.sirh.paie.application.ManualRubriqueResolver.resolve(c,typeMvt.getIdRubrique(),start,end);
+                    if(!rule.isEstActif()) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,"Cette version est désactivée pour la nouvelle saisie.");
+                    BigDecimal salary=null;
+                    if("POURCENTAGE_SALAIRE_BASE".equals(rule.getMethodeCalcul()))
+                        salary=payrollService.preparerInput(req.getIdEmploye(),req.getIdPeriodePaie(),true,c).getSalaireBaseContractuel();
+                    try {
+                        resolvedAmount=mg.galaxam.sirh.paie.domain.engine.ManualAmountCalculator.calculate(rule.getMethodeCalcul(),rule.getPolitiqueArrondi(),
+                                req.getMontant(),req.getQuantiteSaisie(),req.getTauxSaisi(),salary).montant();
+                    } catch(IllegalArgumentException e) { throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,e.getMessage()); }
+                }
+                if(resolvedAmount==null || resolvedAmount.signum()<=0)
+                    throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,"Le montant doit être positif.");
                 PaieAvanceAcompte entity = new PaieAvanceAcompte();
                 entity.setIdEmploye(req.getIdEmploye());
                 entity.setIdPeriodePaie(req.getIdPeriodePaie());
                 entity.setIdTypeMouvement(idType);
                 entity.setTypeMouvement(codeType);
                 entity.setSens(sens);
-                entity.setMontant(req.getMontant());
-                entity.setMontantInitial(req.getMontant());
+                entity.setMontant(resolvedAmount);
+                entity.setQuantiteSaisie(req.getQuantiteSaisie()); entity.setTauxSaisi(req.getTauxSaisi());
+                entity.setMontantInitial(resolvedAmount);
                 entity.setMontantImpute(java.math.BigDecimal.ZERO);
-                entity.setSoldeRestant(req.getMontant());
+                entity.setSoldeRestant(resolvedAmount);
                 entity.setProvenance(typeMvt.getProvenanceDefaut());
                 entity.setDateDemande(req.getDateDemande() != null ? req.getDateDemande()
                         : new java.sql.Date(System.currentTimeMillis()));

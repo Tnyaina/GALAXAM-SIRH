@@ -30,13 +30,15 @@ class PayrollVariableRubriqueLinkTest {
         input.setTauxFmfpPatronal(new BigDecimal("0.01"));
         var gain = new PayrollCalculationInput.GainVariable(1, "TYPE", "Prime",
                 new BigDecimal("10000"), "PRIME", true, cnaps);
-        gain.setEtapeCalcul("BRUT"); gain.setSoumisSante(health);
+        gain.setEtapeCalcul("BRUT"); gain.setSoumisSante(health); gain.setSoumisFmfp(!cnaps);
         input.ajouterGainVariable(gain);
         var bulletin = new BulletinPaie();
         var lines = new ArrayList<BulletinPaieLigne>();
         new PayrollExecutionEngine().calculerCotisationsSociales(new BigDecimal("110000"), input, bulletin, lines);
         assertEquals(0, new BigDecimal(deductions).compareTo(bulletin.getTotalCotisationsSalariales()));
         for (var line : lines) {
+            if ("COTISATION_FMFP_PAT".equals(line.getCodeRubrique()))
+                assertEquals(0, new BigDecimal(cnaps ? "100000" : "110000").compareTo(line.getBaseCalcul()));
             if ("COTISATION_CNAPS_SAL".equals(line.getCodeRubrique()))
                 assertEquals(0, new BigDecimal(cnapsBase).compareTo(line.getBaseCalcul()));
             if ("COTISATION_OSTIE_SAL".equals(line.getCodeRubrique()))

@@ -22,6 +22,9 @@ public class PaieRubriqueRequest {
     private String referenceReglementaire;
     private LocalDate dateDebutEffet;
     private String etapeCalcul;
+    private String methodeCalcul = "MONTANT";
+    private String politiqueArrondi = "CENTIME";
+    private Boolean soumisFmfp;
     private LocalDate dateFinEffet;
     private Integer idRubriqueOrigine;
     private String conditionApplication = "TOUS";
@@ -71,6 +74,12 @@ public class PaieRubriqueRequest {
     public void setIdRubriqueOrigine(Integer v) { idRubriqueOrigine = v; }
     public String getConditionApplication() { return conditionApplication; }
     public void setConditionApplication(String v) { conditionApplication = v; }
+    public String getMethodeCalcul() { return methodeCalcul; }
+    public void setMethodeCalcul(String v) { methodeCalcul=v; }
+    public String getPolitiqueArrondi() { return politiqueArrondi; }
+    public void setPolitiqueArrondi(String v) { politiqueArrondi=v; }
+    public Boolean getSoumisFmfp() { return soumisFmfp; }
+    public void setSoumisFmfp(Boolean v) { soumisFmfp=v; }
     public String getEtapeCalcul() { return etapeCalcul; }
     public void setEtapeCalcul(String etapeCalcul) { this.etapeCalcul = etapeCalcul; }
 }

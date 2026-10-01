@@ -972,7 +972,7 @@ public class PayrollService {
                 "COALESCE(rtmp.categorie, 'PRIME') AS categorie_type, " +
                 "pr.soumis_irsa AS est_imposable, " +
                 "pr.soumis_cnaps AS est_soumis_cotisation, pr.soumis_sante AS rubrique_soumis_sante, " +
-                "pr.date_debut_effet AS rubrique_date_debut_effet, pr.date_fin_effet AS rubrique_date_fin_effet, pr.condition_application, " +
+                "pr.methode_calcul, pr.politique_arrondi, COALESCE(pr.soumis_fmfp,pr.soumis_cnaps) AS rubrique_soumis_fmfp, pr.date_debut_effet AS rubrique_date_debut_effet, pr.date_fin_effet AS rubrique_date_fin_effet, pr.condition_application, " +
                 "pr.categorie AS rubrique_categorie, " +
                 "pr.etape_calcul AS rubrique_etape_calcul, " +
                 "pr.code AS rubrique_code " +
@@ -1009,6 +1009,23 @@ public class PayrollService {
                     String motif = rs.getString("motif");
                     int idAvance = rs.getInt("id_avance");
 
+                    String explanation=null;
+                    mg.galaxam.sirh.paie.domain.engine.ManualAmountCalculator.Result amountCalculation=null;
+                    if("VARIABLE_DAF".equals(rs.getString("nature_type")) && rs.getString("rubrique_code")!=null) {
+                        try {
+                            var calculation=mg.galaxam.sirh.paie.domain.engine.ManualAmountCalculator.calculate(
+                                    rs.getString("methode_calcul"),rs.getString("politique_arrondi"),rs.getBigDecimal("montant_initial"),
+                                    rs.getBigDecimal("quantite_saisie"),rs.getBigDecimal("taux_saisi"),in.getSalaireBaseContractuel());
+                            amountCalculation=calculation;
+                            montant=calculation.montant().subtract(rs.getBigDecimal("montant_impute")).max(BigDecimal.ZERO);
+                            explanation="Version "+rs.getString("rubrique_code")+" ; condition "+rs.getString("condition_application")+" ; "+calculation.explication();
+                            if(!simulation && !"MONTANT".equals(rs.getString("methode_calcul"))) {
+                                try(var update=c.prepareStatement("UPDATE paie_avance_acompte SET montant=?,montant_initial=?,solde_restant=?,updated_at=CURRENT_TIMESTAMP WHERE id_avance=? AND montant_impute=0")) {
+                                    update.setBigDecimal(1,montant);update.setBigDecimal(2,montant);update.setBigDecimal(3,montant);update.setInt(4,idAvance);update.executeUpdate();
+                                }
+                            }
+                        } catch(IllegalArgumentException e) { throw new SirhBusinessException(SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,codeType+" : "+e.getMessage()); }
+                    }
                     if (montant == null || montant.compareTo(BigDecimal.ZERO) <= 0) continue;
 
                     if ("VARIABLE_DAF".equals(rs.getString("nature_type"))) {
@@ -1061,12 +1078,15 @@ public class PayrollService {
                                     idAvance, codeType, libelleFinal, montant, catType, imposable, soumisCotis);
                             gv.setSoumisSante(PayrollConfigurationGuard.requireFlag(
                                     rs, "rubrique_soumis_sante", "RUBRIQUE_PAIE", idEmploye));
+                            gv.setSoumisFmfp(rs.getBoolean("rubrique_soumis_fmfp"));
+                            gv.setExplicationCalcul(explanation);
+                            if(amountCalculation!=null) { gv.setBaseCalcul(amountCalculation.base()); gv.setQuantite(amountCalculation.quantite()); gv.setTaux(amountCalculation.taux()); }
                             gv.setCodeRubrique(rs.getString("rubrique_code"));
                             String etape = rs.getString("rubrique_etape_calcul");
                             if (etape == null) {
                                 throw PayrollConfigurationGuard.missing("ETAPE_RUBRIQUE_PAIE", idEmploye, codeType);
                             }
-                            if ("GAIN_NET".equals(etape) && (imposable || soumisCotis || gv.isSoumisSante())) {
+                            if ("GAIN_NET".equals(etape) && (imposable || soumisCotis || gv.isSoumisSante() || gv.isSoumisFmfp())) {
                                 throw new SirhBusinessException(SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
                                         "La variable " + codeType + " est ajoutée après impôt mais affecte une assiette. Choisissez l'étape brut.");
                             }
@@ -1087,6 +1107,7 @@ public class PayrollService {
                         a.setIdEmploye(rs.getInt("id_employe"));
                         a.setTypeMouvement(codeType);
                         a.setCodeRubriqueCalcul(rs.getString("rubrique_code"));
+                        a.setExplicationCalcul(explanation);
                         a.setSens(sens != null ? sens : "RETENUE");
                         a.setMontant(montant);
                         a.setMotif(motif);

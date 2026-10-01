@@ -5,7 +5,7 @@ import java.util.List;
 import mg.galaxam.sirh.common.dto.PageDTO;
 import mg.galaxam.sirh.contrat.api.dto.EmbaucheInitialeRequest;
 import mg.galaxam.sirh.contrat.api.dto.TransitionCarriereRequest;
-import mg.galaxam.sirh.contrat.api.dto.ValiderWorkflowRequest;
+import mg.galaxam.sirh.contrat.api.dto.TransitionCarriereRequest.ValidationRequest;
 import mg.galaxam.sirh.common.transaction.TransactionRunner;
 import mg.galaxam.sirh.contrat.persistence.WorkflowRh;
 import mg.galaxam.sirh.contrat.persistence.WorkflowRhCPL;
@@ -58,7 +58,7 @@ public class WorkflowRhController {
     @PreAuthorize("hasAuthority('EMPLOYE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> validerWorkflow(
             @PathVariable Integer idWorkflow,
-            @RequestBody(required = false) ValiderWorkflowRequest req) {
+            @RequestBody(required = false) ValidationRequest req) {
         WorkflowRhCPL result = transactionRunner.required(c ->
                 workflowRhService.validerWorkflow(idWorkflow, req, getCurrentUserId(), c));
         return ResponseEntity.ok(result);
@@ -105,7 +105,7 @@ public class WorkflowRhController {
     @PreAuthorize("hasAuthority('EMPLOYE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> annulerWorkflow(
             @PathVariable Integer idWorkflow,
-            @RequestBody(required = false) ValiderWorkflowRequest req) {
+            @RequestBody(required = false) ValidationRequest req) {
         WorkflowRhCPL result = transactionRunner.required(c ->
                 workflowRhService.annulerWorkflow(idWorkflow, req, getCurrentUserId(), c));
         return ResponseEntity.ok(result);
@@ -115,7 +115,7 @@ public class WorkflowRhController {
     @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> annulerWorkflowPlanifie(
             @PathVariable Integer idWorkflow,
-            @RequestBody(required = false) ValiderWorkflowRequest req) {
+            @RequestBody(required = false) ValidationRequest req) {
         WorkflowRhCPL result = transactionRunner.required(c ->
                 workflowRhService.annulerWorkflowPlanifie(idWorkflow, req, getCurrentUserId(), c));
         return ResponseEntity.ok(result);

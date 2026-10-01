@@ -396,11 +396,6 @@ class PayrollPointageToBulletinIntegrationTest {
     }
 
     private void insertPresentPointages(Connection connection, int employeeId, int periodId,
-            LocalDate start, LocalDate end) throws Exception {
-        insertPresentPointages(connection, employeeId, periodId, start, end, 8);
-    }
-
-    private void insertPresentPointages(Connection connection, int employeeId, int periodId,
             LocalDate start, LocalDate end, int hours) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
                 "INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, "

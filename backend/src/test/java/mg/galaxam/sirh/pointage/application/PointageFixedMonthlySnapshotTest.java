@@ -1,7 +1,6 @@
 package mg.galaxam.sirh.pointage.application;
 
 import mg.galaxam.sirh.conge.testutils.CongeTestFixtureHelper;
-import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -17,7 +16,6 @@ import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @ActiveProfiles("test")

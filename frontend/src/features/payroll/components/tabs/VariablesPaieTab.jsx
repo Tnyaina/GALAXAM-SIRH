@@ -1,3 +1,5 @@
+import ManualVariableValueFields from '../ManualVariableValueFields';
+import { manualMethod, manualValuePayload, manualValueEstimate } from '../../utils/manualVariableCalculation';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
     SlidersHorizontal, 
@@ -33,12 +35,6 @@ import { isManualPayrollVariable, isManualPayrollVariableType } from '@/features
 import { useAuth } from '@/context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-const parseAriaryAmount = (value) => {
-    const normalized = String(value ?? '').trim().replace(/[\s\u00a0\u202f]/g, '').replace(',', '.');
-    if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) return null;
-    const amount = Number(normalized);
-    return Number.isFinite(amount) && amount > 0 ? amount : null;
-};
 
 export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, mutationDisabledReason = '', onVariableChanged, onPendingCountChange }) {
     const { hasPermission } = useAuth();
@@ -225,11 +221,9 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             setFormError('Veuillez sélectionner un type configuré.');
             return;
         }
-        const amount = parseAriaryAmount(form.montant);
-        if (amount === null) {
-            setFormError('Saisissez un montant positif, avec au plus deux décimales (ex. 1 250,50).');
-            return;
-        }
+        let valuePayload;
+        try { valuePayload = manualValuePayload(selectedType, form); }
+        catch (cause) { setFormError(cause.message); return; }
         if (!form.motif || form.motif.trim().length < 8) {
             setFormError('Ajoutez une justification précise (au moins 8 caractères) pour conserver la trace de cette variable.');
             return;
@@ -246,7 +240,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 idPeriodePaie: idPeriodeActive || null,
                 typeMouvement: form.typeMouvement,
                 sens: form.sens,
-                montant: amount,
+                ...valuePayload,
                 motif: form.motif || 'Variable de paie'
             });
 
@@ -432,8 +426,9 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         && !['REJETE', 'ANNULE', 'CANCELLED'].includes(variable.statut)
     );
     const previewEmployee = eligibleEmployees.find(emp => Number(emp.idEmploye ?? emp.id_employe) === Number(form.idEmploye));
-    const montantNum = parseAriaryAmount(form.montant);
-    const hasValidMontant = montantNum != null && montantNum > 0;
+    const montantNum = manualValueEstimate(selectedType, form, previewBulletin?.salaireBase);
+    let hasValidMontant = false;
+    try { manualValuePayload(selectedType, form); hasValidMontant = true; } catch { /* Saisie incomplète. */ }
 
     // Rendu
     return (
@@ -716,7 +711,8 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         </div>}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <MoneyInput
+                        <ManualVariableValueFields type={selectedType} form={form} onChange={handleFormChange} />
+                        {manualMethod(selectedType) === 'MONTANT' && <MoneyInput
                             label="Montant en Ariary"
                             required
                             placeholder="Ex. 1 250,50"
@@ -725,7 +721,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                             onValueChange={(value) => handleFormChange('montant', value)}
                             min={0}
                             maxDecimals={2}
-                        />
+                        />}
 
                         <Input
                             label="Motif / Justification"

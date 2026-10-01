@@ -3,11 +3,9 @@ package mg.galaxam.sirh.pointage.application;
 import mg.galaxam.sirh.conge.application.CongeService;
 import mg.galaxam.sirh.conge.application.RegularisationCongeResult;
 import mg.galaxam.sirh.conge.testutils.CongeTestFixtureHelper;
-import mg.galaxam.sirh.organisation.persistence.RefSite;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
 import mg.galaxam.sirh.paie.application.PayrollService;
-import mg.galaxam.sirh.pointage.api.dto.SaisiePointageJourDTO;
 import mg.galaxam.sirh.pointage.api.dto.PointageSyntheseMensuelleDTO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,7 +24,6 @@ import java.sql.ResultSet;
 import java.sql.Time;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -40,13 +37,7 @@ class PointagePhase6IntegrationTest {
     private DataSource dataSource;
 
     @Autowired
-    private PointageService pointageService;
-
-    @Autowired
     private PointageSyntheseService pointageSyntheseService;
-
-    @Autowired
-    private PointageAnomalieService pointageAnomalieService;
 
     @Autowired
     private CongeService congeService;

@@ -207,6 +207,12 @@ public class EmployeRequest {
         public void setTitulaireCompte(String titulaireCompte) { this.titulaireCompte = titulaireCompte; }
     }
 
+    public static class DesactivationRequest {
+        private String motif;
+        public String getMotif() { return motif; }
+        public void setMotif(String motif) { this.motif = motif; }
+    }
+
     // Getters and Setters
     public String getMatricule() { return matricule; }
     public void setMatricule(String matricule) { this.matricule = matricule; }

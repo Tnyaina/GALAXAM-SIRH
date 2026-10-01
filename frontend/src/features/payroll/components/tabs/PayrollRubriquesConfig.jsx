@@ -12,6 +12,7 @@ const initial = {
     soumisIrsa: true, soumisCnaps: true, soumisSante: true,
     referenceReglementaire: '', dateDebutEffet: '', description: '',
     estFixe: false, estActif: true,
+    methodeCalcul: 'MONTANT', politiqueArrondi: 'CENTIME', soumisFmfp: null,
     etapeCalcul: 'BRUT', dateFinEffet: '', conditionApplication: 'TOUS',
 };
 
@@ -44,7 +45,7 @@ export default function PayrollRubriquesConfig() {
     }, []);
 
     const manualRubriques = useMemo(() => rubriques.filter(r =>
-        !r.estFixe && ['GAIN', 'RETENUE'].includes(r.sens)
+        r.niveauConfiguration === 'CONFIGURABLE' && !r.estFixe && ['GAIN', 'RETENUE'].includes(r.sens)
         && ['PRIME', 'INDEMNITE_IMPOSABLE', 'INDEMNITE_NON_IMPOSABLE', 'RETENUE_DIVERSE'].includes(r.categorie)
     ), [rubriques]);
 
@@ -53,7 +54,7 @@ export default function PayrollRubriquesConfig() {
         const retenue = category === 'RETENUE_DIVERSE';
         const exonerated = retenue || category === 'INDEMNITE_NON_IMPOSABLE';
         setForm(previous => ({ ...previous, categorie: category, sens: retenue ? 'RETENUE' : 'GAIN',
-            soumisIrsa: !exonerated, soumisCnaps: !exonerated, soumisSante: !exonerated,
+            soumisIrsa: !exonerated, soumisCnaps: !exonerated, soumisSante: !exonerated, soumisFmfp: exonerated ? false : null,
             etapeCalcul: retenue ? 'RETENUE_NET' : exonerated ? 'GAIN_NET' : 'BRUT' }));
     };
 
@@ -85,7 +86,7 @@ export default function PayrollRubriquesConfig() {
             <h3 className="font-bold text-base">Rubriques manuelles et assiettes</h3>
             <p className="text-sm text-[var(--color-fg-muted)] mt-1">Définissez le traitement d’un gain ou d’une retenue, puis associez la rubrique à un type de variable dans l’onglet voisin.</p>
         </div>
-        <Alert type="info" message="Choisissez d’abord où le montant intervient, puis les assiettes qu’il affecte. Un gain dans le brut peut être exclu de l’IRSA ou des cotisations. Un ajout au net après impôt est hors assiettes. Les assiettes CNaPS et santé se règlent séparément. Le FMFP conserve le traitement actuel lié à l’assiette CNaPS." />
+        <Alert type="info" message="Choisissez d’abord où le montant intervient, puis les assiettes qu’il affecte. Un gain dans le brut peut être exclu de l’IRSA ou des cotisations. Un ajout au net après impôt est hors assiettes. Les assiettes CNaPS et santé se règlent séparément. Le FMFP peut être réglé séparément ; le réglage historique suit CNaPS." />
         {error && <Alert type="error" message={error} />}
         {success && <Alert type="success" message={success} onClose={() => setSuccess('')} />}
         {canEdit && <form onSubmit={submit} className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-4 space-y-4">
@@ -100,12 +101,16 @@ export default function PayrollRubriquesConfig() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Select label="Étape d’intervention" value={form.etapeCalcul} onChange={value => setForm(previous => ({
                     ...previous, etapeCalcul: value,
-                    ...(value === 'GAIN_NET' ? { soumisIrsa: false, soumisCnaps: false, soumisSante: false } : {}),
+                    ...(value === 'GAIN_NET' ? { soumisIrsa: false, soumisCnaps: false, soumisSante: false, soumisFmfp: false } : {}),
                 }))} options={form.sens === 'RETENUE'
                     ? [{ value: 'RETENUE_NET', label: 'Retenue sur le net après impôt' }]
                     : [{ value: 'BRUT', label: 'Dans le brut, avant cotisations et impôt' },
                         { value: 'GAIN_NET', label: 'Ajout au net après impôt' }]} />
-                <div className="text-sm text-[var(--color-fg-muted)] self-end py-2">Méthode : montant saisi en ariary, conservé à deux décimales.</div>
+                <Select label="Méthode de calcul" value={form.methodeCalcul} onChange={value => setField('methodeCalcul', value)} options={[
+                    { value: 'MONTANT', label: 'Montant saisi' },
+                    { value: 'QUANTITE_TAUX', label: 'Quantité × taux unitaire' },
+                    { value: 'POURCENTAGE_SALAIRE_BASE', label: 'Pourcentage du salaire de base' },
+                ]} />
             </div>
             {form.sens === 'GAIN' && form.etapeCalcul === 'BRUT' && <div className="flex flex-wrap gap-5 text-sm">
                 <label className="flex items-center gap-2"><input type="checkbox" checked={form.soumisIrsa} onChange={e => setField('soumisIrsa', e.target.checked)} /> Inclus dans l’assiette IRSA</label>
@@ -127,6 +132,18 @@ export default function PayrollRubriquesConfig() {
                 ]} />
             </div>
             <p className="text-xs text-[var(--color-fg-muted)]">Une règle doit couvrir toute la période. Un mouvement approuvé incompatible bloque le calcul et doit être corrigé. Une nouvelle version conserve la famille métier et ferme la précédente à la veille de sa date d’effet.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Select label="Arrondi du montant de la rubrique" value={form.politiqueArrondi} onChange={value => setField('politiqueArrondi', value)} options={[
+                    { value: 'CENTIME', label: 'Deux décimales, au plus proche' },
+                    { value: 'ARIARY', label: 'Ariary entier, au plus proche' },
+                    { value: 'DIZAINE', label: 'Dizaine d’ariary, au plus proche' },
+                ]} />
+                {form.etapeCalcul === 'BRUT' && <Select label="Assiette FMFP" value={form.soumisFmfp == null ? 'HERITE' : form.soumisFmfp ? 'OUI' : 'NON'} onChange={value => setField('soumisFmfp', value === 'HERITE' ? null : value === 'OUI')} options={[
+                    { value: 'HERITE', label: 'Traitement historique : comme CNaPS' },
+                    { value: 'OUI', label: 'Inclus dans l’assiette FMFP' }, { value: 'NON', label: 'Exclu de l’assiette FMFP' },
+                ]} />}
+            </div>
+            <p className="text-xs text-[var(--color-fg-muted)]">L’arrondi de cette ligne est indépendant de l’impôt et de l’arrondi final du net. La référence de traitement doit justifier les assiettes choisies.</p>
             <Textarea label="Description et consignes" value={form.description} onChange={e => setField('description', e.target.value)} />
             <div className="flex justify-end"><Button type="submit" variant="primary" disabled={saving}>{saving ? 'Enregistrement…' : versionSource ? 'Créer la version' : editingId ? 'Enregistrer la rubrique' : 'Créer la rubrique'}</Button></div>
         </form>}
@@ -144,6 +161,7 @@ export default function PayrollRubriquesConfig() {
                                 etapeCalcul: r.etapeCalcul || (r.sens === 'RETENUE' ? 'RETENUE_NET' : r.soumisIrsa ? 'BRUT' : 'GAIN_NET'),
                                 soumisSante: r.soumisSante, description: r.description || '',
                                 referenceReglementaire: r.referenceReglementaire || '',
+                                methodeCalcul: r.methodeCalcul || 'MONTANT', politiqueArrondi: r.politiqueArrondi || 'CENTIME', soumisFmfp: r.soumisFmfp ?? null,
                                 dateDebutEffet: r.dateDebutEffet || '', dateFinEffet: r.dateFinEffet || '', conditionApplication: r.conditionApplication || 'TOUS', estActif: r.estActif });
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                         }}>Modifier</Button>}
@@ -156,5 +174,13 @@ export default function PayrollRubriquesConfig() {
                 </div>
             )}
         </div>
+        <details className="border border-[var(--color-border-subtle)] p-4">
+            <summary className="cursor-pointer font-semibold">Calculateurs métier et limites de configuration</summary>
+            <p className="text-sm text-[var(--color-fg-muted)] my-3">Les calculateurs système restent protégés. Les calculateurs semi-configurables utilisent les paramètres de leur domaine (taux, barèmes, forfaits), pas une formule libre. La valorisation des congés garde son taux historique dédié.</p>
+            <div className="space-y-2">{rubriques.filter(r => r.niveauConfiguration !== 'CONFIGURABLE').map(r => <div key={r.id} className="text-sm border-t border-[var(--color-border-subtle)] pt-2">
+                <strong>{r.libelle}</strong> · {r.niveauConfiguration} · {r.calculateur}<br />
+                <span className="text-xs text-[var(--color-fg-muted)]">{r.phaseCalcul} · {r.sourceCalcul} · {r.arrondiCalculateur}</span>
+            </div>)}</div>
+        </details>
     </div>;
 }

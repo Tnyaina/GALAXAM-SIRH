@@ -1,6 +1,5 @@
 package mg.galaxam.sirh.conge;
 
-import mg.galaxam.sirh.conge.application.CongeService;
 import mg.galaxam.sirh.conge.application.CongeTauxApplicableService;
 import mg.galaxam.sirh.conge.testutils.CongeTestFixtureHelper;
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
@@ -31,19 +30,15 @@ class CongePayrollIntegrationTest {
     private DataSource dataSource;
 
     @Autowired
-    private CongeService congeService;
-
-    @Autowired
     private CongeTauxApplicableService congeTauxApplicableService;
 
-    private int adminUserId;
     private int employeId;
 
     @BeforeEach
     void setUp() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             CongeTestFixtureHelper.cleanDatabase(c);
-            adminUserId = CongeTestFixtureHelper.createAdminUser(c, "admin.payroll@galaxam.mg");
+            CongeTestFixtureHelper.createAdminUser(c, "admin.payroll@galaxam.mg");
             employeId = CongeTestFixtureHelper.createEmploye(c, "EMP-PAY-001", "Ravelo", "Lala");
             int contratId = CongeTestFixtureHelper.createContratActif(c, employeId, LocalDate.of(2025, 1, 1));
             CongeTestFixtureHelper.createAffectation(c, employeId, contratId, LocalDate.of(2025, 1, 1), new BigDecimal("1500000.00"));

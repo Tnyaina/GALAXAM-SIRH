@@ -34,6 +34,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 class PayrollVariablesCopiedDataTest {
     @MockitoBean(name = "org.springframework.context.annotation.internalScheduledAnnotationProcessor")
     ScheduledAnnotationBeanPostProcessor scheduling;
+    @Autowired mg.galaxam.sirh.paie.api.PaieAjustementController adjustments;
     @Autowired DataSource dataSource;
     @Autowired PayrollService payroll;
     @Autowired PaieRubriqueController rubriques;
@@ -123,6 +124,16 @@ class PayrollVariablesCopiedDataTest {
                             money(!taxable && !retention ? "10000" : "0", exported.getIndemnitesNonImposables());
                         } finally { c.rollback(); }
                     }
+                    if (retention) {
+                        try (Connection c = dataSource.getConnection()) {
+                            c.setAutoCommit(false);
+                            try (var ps = c.prepareStatement("UPDATE paie_avance_acompte SET montant_impute=3000,solde_restant=7000 WHERE id_avance=?")) {
+                                ps.setInt(1,movement); ps.executeUpdate();
+                                var partial=payroll.calculerBulletinEmploye(3,1,true,null,c);
+                                money("392123.79",partial.getBulletin().getNetAvantArrondi());
+                            } finally {c.rollback();}
+                        }
+                    }
                 } finally { cancelMovement(movement); }
             }
             var futureReq = rubrique("R_FUTUR_" + suffix, false, true);
@@ -180,6 +191,43 @@ class PayrollVariablesCopiedDataTest {
                     } finally {c.rollback();}
                 }
             } finally {cancelMovement(versionMovement);}
+            // Le catalogue est réellement lu, pas seulement les créations de ses contrôleurs.
+            assertNotNull(types.getCatalogue().getBody());
+            for(String method:new String[]{"QUANTITE_TAUX","POURCENTAGE_SALAIRE_BASE"}) {
+                var methodReq=rubrique("R_M_"+(method.equals("QUANTITE_TAUX")?"Q":"P")+"_"+suffix,false,false);
+                methodReq.setCategorie("PRIME"); methodReq.setEtapeCalcul("BRUT"); methodReq.setMethodeCalcul(method);
+                methodReq.setSoumisFmfp(false);
+                var methodRule=(PaieRubrique)rubriques.creerRubrique(methodReq).getBody();
+                var typeReq=new RefTypeMouvementPaieRequest();
+                typeReq.setCode("V_M_"+(method.equals("QUANTITE_TAUX")?"Q":"P")+"_"+suffix);typeReq.setLibelle("Méthode "+method);
+                typeReq.setSens("GAIN");typeReq.setCategorie("PRIME");typeReq.setIdRubrique(methodRule.getIdRubrique());
+                var methodType=(RefTypeMouvementPaie)types.creerTypeMouvement(typeReq).getBody();
+                var request=new mg.galaxam.sirh.paie.api.dto.PaieAjustementRequest();
+                request.setIdEmploye(3);request.setIdPeriodePaie(1);request.setIdTypeMouvement(methodType.getIdTypeMouvement());
+                request.setMotif("Recette méthode calculée");request.setMontant(new BigDecimal("999999"));
+                request.setQuantiteSaisie(new BigDecimal("1.5"));request.setTauxSaisi(new BigDecimal(method.equals("QUANTITE_TAUX")?"2500.125":"10"));
+                var body=(java.util.Map<?,?>)adjustments.creerAjustement(request,SecurityContextHolder.getContext().getAuthentication()).getBody();
+                int methodMovement=((Number)body.get("idAvance")).intValue();
+                String expectedAmount=method.equals("QUANTITE_TAUX")?"3750.19":"35000";
+                money(expectedAmount,(BigDecimal)body.get("montant"));
+                try {
+                    try(Connection c=dataSource.getConnection();var ps=c.prepareStatement("UPDATE paie_avance_acompte SET statut='APPROUVE' WHERE id_avance=?")) {ps.setInt(1,methodMovement);ps.executeUpdate();}
+                    var result=calculate(true);
+                    var calculated=result.getLignes().stream().filter(l->methodRule.getCode().equals(l.getCodeRubrique())).findFirst().orElseThrow();
+                    money(expectedAmount,calculated.getMontantSalarial());assertNotNull(calculated.getCommentaire());
+                    methodReq.setMethodeCalcul("MONTANT");
+                    assertThrows(SirhBusinessException.class,()->rubriques.modifierRubrique(methodRule.getIdRubrique(),methodReq));
+                    try(Connection c=dataSource.getConnection()) {
+                        c.setAutoCommit(false);
+                        try {
+                            var actual=payroll.calculerBulletinEmploye(3,1,false,null,c);
+                            var actualLine=actual.getLignes().stream().filter(l->methodRule.getCode().equals(l.getCodeRubrique())).findFirst().orElseThrow();
+                            assertEquals(calculated.getCommentaire(),actualLine.getCommentaire());
+                            try(var ps=c.prepareStatement("SELECT montant_impute FROM paie_avance_acompte WHERE id_avance=?")) {ps.setInt(1,methodMovement);try(var rs=ps.executeQuery()){rs.next();money(expectedAmount,rs.getBigDecimal(1));}}
+                        } finally {c.rollback();}
+                    }
+                } finally {cancelMovement(methodMovement);}
+            }
             money("399120", calculate(true).getBulletin().getNetAPayer());
         } finally { SecurityContextHolder.clearContext(); }
     }

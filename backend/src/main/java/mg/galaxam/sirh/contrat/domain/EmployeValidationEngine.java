@@ -7,7 +7,7 @@ import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
-import mg.galaxam.sirh.contrat.api.dto.DesactivationRequest;
+import mg.galaxam.sirh.contrat.api.dto.EmployeRequest.DesactivationRequest;
 import mg.galaxam.sirh.contrat.api.dto.EmployeRequest;
 import org.springframework.stereotype.Component;
 

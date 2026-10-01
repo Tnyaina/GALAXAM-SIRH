@@ -1,6 +1,5 @@
 package mg.galaxam.sirh.pointage.api.dto;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.math.BigDecimal;

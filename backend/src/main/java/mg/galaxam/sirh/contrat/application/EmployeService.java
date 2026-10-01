@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.dto.PageDTO;
-import mg.galaxam.sirh.contrat.api.dto.DesactivationRequest;
+import mg.galaxam.sirh.contrat.api.dto.EmployeRequest.DesactivationRequest;
 import mg.galaxam.sirh.contrat.api.dto.EmployeFicheDetailDTO;
 import mg.galaxam.sirh.contrat.api.dto.EmployeRequest;
 import mg.galaxam.sirh.dashboard.application.NotificationRhService;

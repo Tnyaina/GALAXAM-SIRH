@@ -34,8 +34,11 @@ public class PaieAvanceAcompte extends ClassMere {
     private String typeMouvement; // ACOMPTE_15, AVANCE_SPECIALE, CALL_PERSO, NOTE_DE_FRAIS, PRIME_EXCEPTIONNELLE, RETENUE_DIVERSE
     // Donnée de calcul issue du catalogue lié, sans colonne supplémentaire.
     private String codeRubriqueCalcul;
+    private String explicationCalcul;
     private String sens = "RETENUE"; // RETENUE, GAIN
     private BigDecimal montant;
+    private BigDecimal quantiteSaisie;
+    private BigDecimal tauxSaisi;
     private BigDecimal montantInitial;
     private BigDecimal montantImpute = BigDecimal.ZERO;
     private BigDecimal soldeRestant;
@@ -72,8 +75,8 @@ public class PaieAvanceAcompte extends ClassMere {
         String sql = "INSERT INTO paie_avance_acompte (" +
                 "id_employe, id_periode_paie, type_mouvement, sens, montant, montant_initial, montant_impute, solde_restant, provenance, " +
                 "date_demande, date_accord, date_paiement, mode_reglement, motif, " +
-                "statut, id_bulletin, cree_par, approuve_par, id_type_mouvement" +
-                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_avance";
+                "statut, id_bulletin, cree_par, approuve_par, id_type_mouvement, quantite_saisie, taux_saisi" +
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_avance";
 
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             int p = 1;
@@ -99,6 +102,7 @@ public class PaieAvanceAcompte extends ClassMere {
             if (creePar != null) ps.setInt(p++, creePar); else ps.setNull(p++, java.sql.Types.INTEGER);
             if (approuvePar != null) ps.setInt(p++, approuvePar); else ps.setNull(p++, java.sql.Types.INTEGER);
             if (idTypeMouvement != null) ps.setInt(p++, idTypeMouvement); else ps.setNull(p++, java.sql.Types.INTEGER);
+            ps.setBigDecimal(p++,quantiteSaisie); ps.setBigDecimal(p++,tauxSaisi);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -114,7 +118,7 @@ public class PaieAvanceAcompte extends ClassMere {
         String sql = "UPDATE paie_avance_acompte SET " +
                 "id_employe = ?, id_periode_paie = ?, type_mouvement = ?, sens = ?, montant = ?, " +
                 "date_demande = ?, date_accord = ?, date_paiement = ?, mode_reglement = ?, motif = ?, " +
-                "statut = ?, id_bulletin = ?, cree_par = ?, approuve_par = ?, id_type_mouvement = ?, updated_at = CURRENT_TIMESTAMP " +
+                "statut = ?, id_bulletin = ?, cree_par = ?, approuve_par = ?, id_type_mouvement = ?, quantite_saisie = ?, taux_saisi = ?, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_avance = ?";
 
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -137,6 +141,7 @@ public class PaieAvanceAcompte extends ClassMere {
             if (creePar != null) ps.setInt(p++, creePar); else ps.setNull(p++, java.sql.Types.INTEGER);
             if (approuvePar != null) ps.setInt(p++, approuvePar); else ps.setNull(p++, java.sql.Types.INTEGER);
             if (idTypeMouvement != null) ps.setInt(p++, idTypeMouvement); else ps.setNull(p++, java.sql.Types.INTEGER);
+            ps.setBigDecimal(p++,quantiteSaisie); ps.setBigDecimal(p++,tauxSaisi);
             ps.setInt(p++, idAvance);
 
             ps.executeUpdate();
@@ -284,6 +289,7 @@ public class PaieAvanceAcompte extends ClassMere {
         a.setMontantInitial(rs.getBigDecimal("montant_initial"));
         a.setMontantImpute(rs.getBigDecimal("montant_impute"));
         a.setSoldeRestant(rs.getBigDecimal("solde_restant"));
+        a.setQuantiteSaisie(rs.getBigDecimal("quantite_saisie")); a.setTauxSaisi(rs.getBigDecimal("taux_saisi"));
         a.setProvenance(rs.getString("provenance"));
         a.setDateDemande(rs.getDate("date_demande"));
         a.setDateAccord(rs.getDate("date_accord"));
@@ -324,6 +330,12 @@ public class PaieAvanceAcompte extends ClassMere {
     public String getSens() { return sens; }
     public void setSens(String sens) { this.sens = sens; }
 
+    public BigDecimal getQuantiteSaisie() { return quantiteSaisie; }
+    public void setQuantiteSaisie(BigDecimal v) { quantiteSaisie=v; }
+    public BigDecimal getTauxSaisi() { return tauxSaisi; }
+    public void setTauxSaisi(BigDecimal v) { tauxSaisi=v; }
+    public String getExplicationCalcul() { return explicationCalcul; }
+    public void setExplicationCalcul(String v) { explicationCalcul=v; }
     public BigDecimal getMontant() { return montant; }
     public void setMontant(BigDecimal montant) { this.montant = montant; }
     public BigDecimal getMontantInitial() { return montantInitial; }

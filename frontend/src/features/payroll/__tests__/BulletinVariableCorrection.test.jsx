@@ -73,7 +73,7 @@ describe('Correction depuis le bulletin', () => {
 
         expect(host.textContent).toContain('Retenue téléphonie personnelle');
         expect(host.textContent.replace(/\s/g, ' ')).toContain('1 010,5 Ar');
-        expect([...host.querySelectorAll('button')].some(button => button.textContent.includes('Annuler cette variable'))).toBe(true);
+        expect([...host.querySelectorAll('button')].some(button => button.textContent.includes('Annuler'))).toBe(true);
     });
 
     it('attend l’approbation puis une simulation avant le recalcul individuel', async () => {
@@ -102,14 +102,14 @@ describe('Correction depuis le bulletin', () => {
         }} />));
 
         const button = label => [...host.querySelectorAll('button')].find(item => item.textContent.includes(label));
-        expect(button('Recalculer ce bulletin').disabled).toBe(true);
+        expect(button('Recalculer').disabled).toBe(true);
         await act(async () => button('Approuver').click());
-        expect(button('Recalculer ce bulletin').disabled).toBe(true);
-        await act(async () => button('Simuler ce bulletin').click());
+        expect(button('Recalculer').disabled).toBe(true);
+        await act(async () => button('Simuler').click());
         expect(paieService.calculerBulletinEmploye).toHaveBeenCalledWith(2, 1, true);
-        expect(button('Recalculer ce bulletin').disabled).toBe(false);
+        expect(button('Recalculer').disabled).toBe(false);
         expect(host.textContent.replace(/\s/g, ' ')).toContain('104 000 Ar');
-        await act(async () => button('Recalculer ce bulletin').click());
+        await act(async () => button('Recalculer').click());
         expect(paieService.calculerBulletinEmploye).toHaveBeenCalledWith(2, 1, false);
     });
 });

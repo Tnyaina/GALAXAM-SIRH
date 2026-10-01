@@ -51,9 +51,6 @@ public class PointageAnomalieService {
     private PointageService pointageSaisieService;
 
     @Autowired
-    private PointageSyntheseService pointageSyntheseService;
-
-    @Autowired
     private CalendrierOuvrableEngine calendrierOuvrableEngine;
 
     @Autowired
@@ -689,32 +686,13 @@ public class PointageAnomalieService {
             // Contrôle d'éligibilité et verrouillage de période
             pointageSaisieService.verifierEligibilitePointage(c, idEmp, idSite, datePtg);
 
-            LocalDate perDebut = null;
-            LocalDate perFin = null;
             if ((idPer == null || idPer <= 0) && datePtg != null) {
-                String sqlFindPer2 = "SELECT id_periode_paie, date_debut, date_fin FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin LIMIT 1";
+                String sqlFindPer2 = "SELECT id_periode_paie FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin LIMIT 1";
                 try (PreparedStatement psF2 = c.prepareStatement(sqlFindPer2)) {
                     psF2.setDate(1, datePtg);
                     try (ResultSet rsF2 = psF2.executeQuery()) {
                         if (rsF2.next()) {
                             idPer = rsF2.getInt("id_periode_paie");
-                            Date d1 = rsF2.getDate("date_debut");
-                            Date d2 = rsF2.getDate("date_fin");
-                            if (d1 != null) perDebut = d1.toLocalDate();
-                            if (d2 != null) perFin = d2.toLocalDate();
-                        }
-                    }
-                }
-            } else if (idPer != null && idPer > 0) {
-                String sqlPerBounds = "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?";
-                try (PreparedStatement psPB = c.prepareStatement(sqlPerBounds)) {
-                    psPB.setInt(1, idPer);
-                    try (ResultSet rsPB = psPB.executeQuery()) {
-                        if (rsPB.next()) {
-                            Date d1 = rsPB.getDate("date_debut");
-                            Date d2 = rsPB.getDate("date_fin");
-                            if (d1 != null) perDebut = d1.toLocalDate();
-                            if (d2 != null) perFin = d2.toLocalDate();
                         }
                     }
                 }
@@ -999,16 +977,6 @@ public class PointageAnomalieService {
 
     private static BigDecimal zeroIfNull(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
-    }
-
-    private static double parseDouble(Object val, double defaultValue) {
-        if (val == null) return defaultValue;
-        if (val instanceof Number n) return n.doubleValue();
-        try {
-            return Double.parseDouble(val.toString().trim());
-        } catch (Exception e) {
-            return defaultValue;
-        }
     }
 
     private static boolean parseBoolean(Object val) {

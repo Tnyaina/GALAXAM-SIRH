@@ -1,15 +1,16 @@
 package mg.galaxam.sirh.contrat.api;
 
-
 import java.sql.Connection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
+
 import mg.galaxam.sirh.contrat.persistence.RefCategorieProfessionnelle;
 import mg.galaxam.sirh.contrat.persistence.RefModeCalculPaie;
 import mg.galaxam.sirh.contrat.persistence.RefMotifMouvement;
 import mg.galaxam.sirh.contrat.persistence.RefMotifSortie;
+import mg.galaxam.sirh.contrat.persistence.RefTypeDocument;
 import mg.galaxam.sirh.contrat.persistence.RefTypeEvenementRh;
 import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,14 +19,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Controller unifié pour tous les référentiels et nomenclatures RH :
+ * - Carrière : catégories pro, modes de paie, motifs mouvement, motifs sortie, types d'événements
+ * - Documents : types de pièces justificatives et documents légaux RH
+ */
 @RestController
-@RequestMapping("/ref-carriere")
 public class RefCarriereController {
 
     @Autowired
     private DataSource dataSource;
 
-    @GetMapping("/all")
+    // =========================================================================
+    // RÉFÉRENTIELS DE CARRIÈRE & CONTRAT (/ref-carriere)
+    // =========================================================================
+
+    @GetMapping("/ref-carriere/all")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getAllReferentielsCarriere() {
         try (Connection c = dataSource.getConnection()) {
@@ -42,7 +51,7 @@ public class RefCarriereController {
         }
     }
 
-    @GetMapping("/types-evenements")
+    @GetMapping("/ref-carriere/types-evenements")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getTypesEvenementRh() {
         try (Connection c = dataSource.getConnection()) {
@@ -55,7 +64,7 @@ public class RefCarriereController {
     }
 
     // Catégories Professionnelles
-    @GetMapping("/categories-pro")
+    @GetMapping("/ref-carriere/categories-pro")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getCategoriesPro(@RequestParam(value = "actifUniquement", required = false, defaultValue = "false") Boolean actifUniquement) {
         try (Connection c = dataSource.getConnection()) {
@@ -67,7 +76,7 @@ public class RefCarriereController {
         }
     }
 
-    @PostMapping("/categories-pro")
+    @PostMapping("/ref-carriere/categories-pro")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createCategoriePro(@RequestBody RefCategorieProfessionnelle cat) {
         try (Connection c = dataSource.getConnection()) {
@@ -87,7 +96,7 @@ public class RefCarriereController {
         }
     }
 
-    @PutMapping("/categories-pro/{id}")
+    @PutMapping("/ref-carriere/categories-pro/{id}")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateCategoriePro(@PathVariable int id, @RequestBody RefCategorieProfessionnelle cat) {
         try (Connection c = dataSource.getConnection()) {
@@ -120,7 +129,7 @@ public class RefCarriereController {
     }
 
     // Modes de Calcul Paie
-    @GetMapping("/modes-paie")
+    @GetMapping("/ref-carriere/modes-paie")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getModesPaie(@RequestParam(value = "actifUniquement", required = false, defaultValue = "false") Boolean actifUniquement) {
         try (Connection c = dataSource.getConnection()) {
@@ -133,7 +142,7 @@ public class RefCarriereController {
     }
 
     // Motifs de Mouvement
-    @GetMapping("/motifs-mouvement")
+    @GetMapping("/ref-carriere/motifs-mouvement")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getMotifsMouvement(@RequestParam(value = "actifUniquement", required = false, defaultValue = "false") Boolean actifUniquement) {
         try (Connection c = dataSource.getConnection()) {
@@ -146,12 +155,104 @@ public class RefCarriereController {
     }
 
     // Motifs de Sortie
-    @GetMapping("/motifs-sortie")
+    @GetMapping("/ref-carriere/motifs-sortie")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getMotifsSortie(@RequestParam(value = "actifUniquement", required = false, defaultValue = "false") Boolean actifUniquement) {
         try (Connection c = dataSource.getConnection()) {
             List<RefMotifSortie> list = RefMotifSortie.listAll(c, actifUniquement);
             return ResponseEntity.ok(list);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    // =========================================================================
+    // RÉFÉRENTIELS DES TYPES DE DOCUMENTS (/ref-types-documents)
+    // =========================================================================
+
+    @GetMapping("/ref-types-documents")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getAllTypesDocument(@RequestParam(value = "actifUniquement", required = false, defaultValue = "false") Boolean actifUniquement) {
+        try (Connection c = dataSource.getConnection()) {
+            List<RefTypeDocument> list = RefTypeDocument.listAll(c, actifUniquement);
+            return ResponseEntity.ok(list);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @PostMapping("/ref-types-documents")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> createTypeDocument(@RequestBody RefTypeDocument typeDoc) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                typeDoc.save(c);
+                AuditLog.audit(c, "CREATION", "ref_type_document", String.valueOf(typeDoc.getIdTypeDocument()), null, typeDoc);
+                c.commit();
+                return ResponseEntity.status(HttpStatus.CREATED).body(typeDoc);
+            } catch (Exception ex) {
+                c.rollback();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @PutMapping("/ref-types-documents/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> updateTypeDocument(@PathVariable int id, @RequestBody RefTypeDocument typeDoc) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefTypeDocument existing = new RefTypeDocument().rechercherParId(id, c);
+                if (existing == null) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Type de document non trouvé.");
+                }
+                existing.setLibelle(typeDoc.getLibelle());
+                existing.setCategorie(typeDoc.getCategorie());
+                existing.setDescription(typeDoc.getDescription());
+                existing.setObligatoire(typeDoc.isObligatoire());
+                existing.setExtensionAutorisee(typeDoc.getExtensionAutorisee());
+                existing.setTailleMaxMo(typeDoc.getTailleMaxMo());
+                existing.setActif(typeDoc.isActif());
+
+                existing.update(c);
+                AuditLog.audit(c, "MODIFICATION", "ref_type_document", String.valueOf(id), null, existing);
+                c.commit();
+                return ResponseEntity.ok(existing);
+            } catch (Exception ex) {
+                c.rollback();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
+    @DeleteMapping("/ref-types-documents/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> deleteTypeDocument(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                RefTypeDocument existing = new RefTypeDocument().rechercherParId(id, c);
+                if (existing == null) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Type de document non trouvé.");
+                }
+                existing.delete(c);
+                AuditLog.audit(c, "SUPPRESSION", "ref_type_document", String.valueOf(id), existing, null);
+                c.commit();
+                return ResponseEntity.ok("Type de document désactivé avec succès.");
+            } catch (Exception ex) {
+                c.rollback();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
+            }
         } catch (Exception e) {
             e.printStackTrace();
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
