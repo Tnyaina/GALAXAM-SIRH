@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, FileText, Scale, Settings2, CreditCard } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
-import Tabs from '@/components/ui/navigation/Tabs';
+import AdministrationSettingsView from '@/features/administration/components/navigation/AdministrationSettingsView';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import SEO from '@/components/system/SEO';
 
@@ -12,29 +12,31 @@ const CalendrierFerieTab = lazy(() => import('@/features/administration/componen
 const CotisationsIrsaTab = lazy(() => import('@/features/administration/components/payroll/CotisationsIrsaTab'));
 const IndemnitesSitesTab = lazy(() => import('@/features/administration/components/payroll/IndemnitesSitesTab'));
 const ReglementationFiscaleTab = lazy(() => import('@/features/administration/components/payroll/ReglementationFiscaleTab'));
-const VariableTypesConfig = lazy(() => import('@/features/payroll/components/tabs/VariableTypesConfig.jsx'));
-const PayrollRubriquesConfig = lazy(() => import('@/features/payroll/components/tabs/PayrollRubriquesConfig.jsx'));
+const PayrollConfigurationTab = lazy(() => import('@/features/payroll/components/tabs/PayrollConfigurationTab.jsx'));
 const PayrollRulesReadOnly = lazy(() => import('@/features/payroll/components/tabs/PayrollRulesReadOnly.jsx'));
 const ModesPaiementTab = lazy(() => import('@/features/administration/components/payroll/ModesPaiementTab'));
 
 const MODULES = [
-    { id: 'general', label: 'Général & Système', icon: <Sliders size={18} /> },
-    { id: 'paie', label: 'Paie & Rémunération', icon: <FileText size={18} /> },
-    { id: 'conges', label: 'Congés & Absences', icon: <Calendar size={18} /> },
-    { id: 'pointage', label: 'Pointage & Présence', icon: <Clock size={18} /> }
+    { id: 'general', label: 'Règles communes', icon: <Sliders size={18} /> },
+    { id: 'paie', label: 'Paie', icon: <FileText size={18} /> },
+    { id: 'conges', label: 'Congés', icon: <Calendar size={18} /> },
+    { id: 'pointage', label: 'Pointage', icon: <Clock size={18} /> },
+    { id: 'calendrier', label: 'Calendrier', icon: <Calendar size={18} /> }
 ];
 
 export default function ParametresModulesPanel() {
     const [searchParams, setSearchParams] = useSearchParams();
 
     // Niveau 1: Module
-    const activeModule = searchParams.get('module') || 'paie';
+    const requestedModule = searchParams.get('module');
+    const activeModule = searchParams.get('tab') === 'calendrier' ? 'calendrier' : MODULES.some(module => module.id === requestedModule) ? requestedModule : 'paie';
 
     // Niveau 2: Sous-onglet
-    const activeTab = searchParams.get('tab') || (
+    const requestedTab = searchParams.get('tab') || (
         activeModule === 'paie' ? 'reglementation_fiscale' :
         activeModule === 'conges' ? 'regles_acquisition' :
         activeModule === 'pointage' ? 'parametres_globaux_pointage' :
+        activeModule === 'calendrier' ? 'calendrier' :
         'parametres_globaux_systeme'
     );
 
@@ -44,24 +46,35 @@ export default function ParametresModulesPanel() {
         else if (moduleId === 'pointage') defaultTab = 'parametres_globaux_pointage';
         else if (moduleId === 'general') defaultTab = 'parametres_globaux_systeme';
 
-        setSearchParams({ module: moduleId, tab: defaultTab });
+        if (moduleId === 'calendrier') defaultTab = 'calendrier';
+        setSearchParams(previous => { const next = new URLSearchParams(previous); next.set('module', moduleId); next.set('tab', previous.get(`${moduleId}_tab`) || defaultTab); return next; });
     };
 
     const handleTabChange = (tabKey) => {
-        setSearchParams({ module: activeModule, tab: tabKey });
+        setSearchParams(previous => {
+            const next = new URLSearchParams(previous);
+            next.set('module', activeModule); next.set('tab', tabKey); next.set(`${activeModule}_tab`, tabKey);
+            return next;
+        });
     };
 
-    // Définition des sous-onglets pour la Paie
-    const paieTabs = [
-        { id: 'reglementation_fiscale', label: 'Cadre Réglementaire & IRSA', icon: <Scale size={16} /> },
-        { id: 'parametres_globaux_paie', label: 'Constantes (Paie & Primes)', icon: <Sliders size={16} /> },
-        { id: 'types_variables', label: 'Types de variables', icon: <Settings2 size={16} /> },
-        { id: 'rubriques_variables', label: 'Rubriques variables', icon: <Settings2 size={16} /> },
-        { id: 'regles_calcul', label: 'Règles appliquées', icon: <Scale size={16} /> },
-        { id: 'modes_paiement', label: 'Modes de paiement', icon: <CreditCard size={16} /> },
-        { id: 'cotisations_irsa', label: 'Cotisations Sociales & Sites', icon: <ShieldCheck size={16} /> },
-        { id: 'indemnites_sites', label: 'Indemnités (Sites)', icon: <Gift size={16} /> },
-        { id: 'calendrier', label: 'Calendrier & Fériés', icon: <Calendar size={16} /> },
+    const paieGroups = [
+        { id: 'calcul', label: 'Rubriques & variables', items: [
+            { id: 'rubriques_variables', label: 'Rubriques de calcul', icon: <Settings2 size={16} /> },
+            { id: 'types_variables', label: 'Types de variables', icon: <Settings2 size={16} /> },
+            { id: 'regles_calcul', label: 'Règles appliquées', icon: <Scale size={16} /> },
+        ] },
+        { id: 'fiscalite', label: 'Fiscalité & cotisations', items: [
+            { id: 'reglementation_fiscale', label: 'Cadre réglementaire & IRSA', icon: <Scale size={16} /> },
+            { id: 'cotisations_irsa', label: 'Cotisations & organismes', icon: <ShieldCheck size={16} /> },
+        ] },
+        { id: 'primes', label: 'Primes & indemnités', items: [
+            { id: 'parametres_globaux_paie', label: 'Règles & barèmes de paie', icon: <Sliders size={16} /> },
+            { id: 'indemnites_sites', label: 'Indemnités par site', icon: <Gift size={16} /> },
+        ] },
+        { id: 'paiement', label: 'Paiement', items: [
+            { id: 'modes_paiement', label: 'Modes de paiement', icon: <CreditCard size={16} /> },
+        ] },
     ];
 
     // Définition des sous-onglets pour les Congés
@@ -82,58 +95,41 @@ export default function ParametresModulesPanel() {
     ];
 
     const currentTabs = activeModule === 'paie'
-        ? paieTabs
+        ? paieGroups.flatMap(group => group.items)
         : activeModule === 'conges'
         ? congesTabs
         : activeModule === 'pointage'
         ? pointageTabs
-        : generalTabs;
+        : activeModule === 'calendrier' ? [{ id: 'calendrier', label: 'Calendrier & jours fériés', icon: <Calendar size={16} /> }] : generalTabs;
+
+    const canonicalTab = { majorations: 'reglementation_fiscale', majorations_params: 'reglementation_fiscale', parametres_globaux: 'parametres_globaux_paie', tolerance_pointage: 'parametres_globaux_pointage' }[requestedTab] || requestedTab;
+    const activeTab = currentTabs.some(tab => tab.id === canonicalTab) ? canonicalTab : currentTabs[0].id;
 
     return (
-        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full">
             <SEO title="Paramétrage des Modules" description="Configuration des barèmes, cotisations, majorations et règles métier." />
 
             <PageHeader
-                title="Paramétrage des Modules Métier"
-                subtitle="Configuration technique des barèmes de paie, règles de congés, tolérances de pointage et constantes système."
+                title="Règles métier"
+                subtitle="Choisissez un domaine, puis la règle ou le barème à configurer."
                 icon={Wrench}
                 breadcrumbs={[
                     { label: 'Tableau de bord', href: '/dashboard' },
                     { label: 'Paramètres', href: '/admin/organisation' },
-                    { label: 'Paramétrage des Modules' }
+                    { label: 'Règles métier' }
                 ]}
             />
 
-            {/* Niveau 1 : Sélection du Module (Pills / Boutons horizontaux compacts) */}
-            <div className="flex flex-wrap gap-1.5">
-                {MODULES.map(mod => {
-                    const isActive = activeModule === mod.id;
-                    return (
-                        <button
-                            key={mod.id}
-                            onClick={() => handleModuleChange(mod.id)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors border ${
-                                isActive
-                                ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] border-[var(--color-brand-500)] shadow-xs'
-                                : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-fg)]'
-                            }`}
-                        >
-                            {mod.icon}
-                            {mod.label}
-                        </button>
-                    );
-                })}
-            </div>
-
-            {/* Niveau 2 : Sélecteur d'onglets principal avec persistance URL */}
-            <div className="space-y-4">
-                <Tabs
-                    tabs={currentTabs}
-                    activeTab={activeTab === 'majorations_params' ? 'majorations' : activeTab}
-                    onChange={handleTabChange}
-                    variant="underline"
-                />
-
+            <AdministrationSettingsView
+                groups={[{ id: 'domaines', label: 'Domaines métier', items: MODULES }]}
+                activeId={activeModule} onChange={handleModuleChange}
+            >
+                <div className="space-y-5">
+                    <AdministrationSettingsView
+                        groups={activeModule === 'paie' ? paieGroups : [{ id: activeModule, label: 'Configuration', items: currentTabs }]}
+                        activeId={activeTab === 'majorations_params' || activeTab === 'majorations' ? 'reglementation_fiscale' : activeTab === 'parametres_globaux' ? 'parametres_globaux_paie' : activeTab}
+                        onChange={handleTabChange} vertical={activeModule === 'paie'}
+                    >
                 {/* Contenu de l'onglet actif avec le SkeletonTable standardisé */}
                 <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
                         {activeModule === 'general' && (
@@ -149,8 +145,8 @@ export default function ParametresModulesPanel() {
                                 {(activeTab === 'parametres_globaux_paie' || activeTab === 'parametres_globaux') && (
                                     <ParametresGlobauxTab fixedCategory="PAIE" />
                                 )}
-                                {activeTab === 'types_variables' && <VariableTypesConfig />}
-                                {activeTab === 'rubriques_variables' && <PayrollRubriquesConfig />}
+                                {activeTab === 'types_variables' && <PayrollConfigurationTab key="types" domaine="types" />}
+                                {activeTab === 'rubriques_variables' && <PayrollConfigurationTab key="rubriques" domaine="rubriques" />}
                                 {activeTab === 'regles_calcul' && <PayrollRulesReadOnly />}
                                 {activeTab === 'modes_paiement' && <ModesPaiementTab />}
                                 {activeTab === 'calendrier' && <CalendrierFerieTab />}
@@ -168,6 +164,7 @@ export default function ParametresModulesPanel() {
                             </>
                         )}
 
+                        {activeModule === 'calendrier' && <CalendrierFerieTab />}
                         {activeModule === 'pointage' && (
                             <>
                                 {(activeTab === 'parametres_globaux_pointage' || activeTab === 'tolerance_pointage') && (
@@ -176,7 +173,9 @@ export default function ParametresModulesPanel() {
                             </>
                         )}
                 </Suspense>
-            </div>
+                    </AdministrationSettingsView>
+                </div>
+            </AdministrationSettingsView>
         </div>
     );
 }

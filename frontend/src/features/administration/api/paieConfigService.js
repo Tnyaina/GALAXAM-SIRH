@@ -177,8 +177,8 @@ const paieConfigService = {
     // ----------------------------------------------------
     // PARAMETRES GLOBAUX DE PAIE
     // ----------------------------------------------------
-    getParametresGlobaux: async () => {
-        const response = await apiClient.get('/referentiel/parametres-globaux');
+    getParametresGlobaux: async (categorie = null, signal) => {
+        const response = await apiClient.get('/referentiel/parametres-globaux', { params: categorie ? { categorie } : {}, signal });
         return response.data;
     },
     createParametreGlobal: async (data) => {

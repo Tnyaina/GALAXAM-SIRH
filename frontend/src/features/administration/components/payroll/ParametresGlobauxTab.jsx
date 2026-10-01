@@ -1,25 +1,23 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
-    Sliders, Search, LayoutGrid, List,
-    Edit2, Plus, Calendar, ShieldCheck,
-    Lock, CheckCircle2, XCircle, Power,
+    Sliders, Search, Calendar, ShieldCheck,
     Clock, Moon, Sun, Utensils, Timer, Bus,
     Coffee, Coins, Shield, Hourglass, AlertTriangle,
-    Bell, CalendarClock, HeartHandshake, HeartPulse,
+    Bell, CalendarClock, HeartHandshake, HeartPulse, ChevronDown,
     Award, TrendingUp, Gift, FileText, Repeat, UserCheck,
-    Layers, ChevronDown, ChevronUp, AlertCircle, Info,
-    FolderKanban, Check, Eye
 } from 'lucide-react';
 import paieConfigService from '@/features/administration/api/paieConfigService';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea, Select } from '@/components/ui/forms/Input';
-import { Card, CardHeader, CardBody, CardFooter } from '@/components/ui/data-display/Card';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import { Card } from '@/components/ui/data-display/Card';
+import StatCard from '@/components/ui/data-display/StatCard';
 import { fmtDateInput } from '@/utils/dateUtils';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
+import { useAuth } from '@/context/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 import Modal from '@/components/ui/overlays/Modal';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { getErrorMessage } from '@/api/apiClient';
@@ -417,21 +415,7 @@ const CATEGORIE_LABELS = {
     PAIE: "Constantes de Paie & Primes"
 };
 
-function getStatut(param) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const debut = param.dateDebut ? new Date(param.dateDebut) : null;
-    if (debut) debut.setHours(0, 0, 0, 0);
-
-    const fin = param.dateFin ? new Date(param.dateFin) : null;
-    if (fin) fin.setHours(0, 0, 0, 0);
-
-    if (!debut) return 'EN_VIGUEUR';
-    if (debut > today) return 'PROGRAMME';
-    if (!fin || fin >= today) return 'EN_VIGUEUR';
-    return 'ARCHIVE';
-}
+function getStatut(param) { return param.statutTemporel || 'NON_DATE'; }
 
 function StatutBadge({ statut }) {
     const styles = {
@@ -442,7 +426,8 @@ function StatutBadge({ statut }) {
     const labels = {
         EN_VIGUEUR: '● En vigueur',
         PROGRAMME:  '◆ Programmé',
-        ARCHIVE:    '○ Archivé'
+        ARCHIVE:    '○ Archivé',
+        NON_DATE: 'Non daté'
     };
     return (
         <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold border rounded-none uppercase tracking-wide ${styles[statut] || styles.ARCHIVE}`}>
@@ -453,6 +438,7 @@ function StatutBadge({ statut }) {
 
 function formatPeriodeValidite(dateDebut, dateFin, statut) {
     const fmt = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : null;
+    if (!dateDebut) return dateFin ? `Jusqu’au ${fmt(dateFin)}` : 'Dates non renseignées';
     const dStr = fmt(dateDebut);
     const fStr = fmt(dateFin);
 
@@ -486,17 +472,6 @@ function formatValeurAffichage(code, valeur) {
         return `${v} ${meta.unite}`;
     }
 
-    const c = String(code).toUpperCase();
-    if (c.includes('MONTANT') || c.includes('REDUCTION')) {
-        const num = Number(v);
-        return isNaN(num) ? `${v} Ar` : `${num.toLocaleString('fr-MG', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} Ar`;
-    }
-    if (c.includes('HEURE') || (c.includes('DUREE') && !c.includes('MOIS') && !c.includes('JOUR'))) {
-        return `${v} h`;
-    }
-    if (c.includes('JOUR')) return `${v} j`;
-    if (c.includes('MOIS')) return `${v} mois`;
-    if (c.includes('ANS') || c.includes('ANNEE')) return `${v} ans`;
 
     return v;
 }
@@ -504,19 +479,28 @@ function formatValeurAffichage(code, valeur) {
 export default function ParametresGlobauxTab({ fixedCategory = null }) {
     // État local : données, filtres, version et modale d'édition.
     const toast = useToast();
+    const { hasPermission } = useAuth();
+    const canWrite = hasPermission('ROLE_ADMIN') || hasPermission('PAIE_WRITE');
+    const submitLock = useRef(false);
+    const toggleLock = useRef(false);
+    const requestController = useRef(null);
+    const [details, setDetails] = useState(null);
+    const [detailsError, setDetailsError] = useState('');
+    const [collapsedBlocks, setCollapsedBlocks] = useState(() => new Set());
+    const [showFilters, setShowFilters] = useState(false);
+    const [urlParams, setUrlParams] = useSearchParams();
+    const filterPrefix = `pg_${fixedCategory || 'all'}_`;
+    const setFilter = (name, value) => setUrlParams(previous => { const next = new URLSearchParams(previous); next.set(filterPrefix + name, value); return next; });
     const [parametres, setParametres] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     // Filtres et Navigation
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState(fixedCategory || 'ALL');
-    const [selectedStatut, setSelectedStatut] = useState('EN_VIGUEUR'); // Par défaut : uniquement les paramètres ayant pris effet (En vigueur)
-    const [selectedNature, setSelectedNature] = useState('ALL'); // ALL, RULES, SYSTEM
-    const [selectedEtatActif, setSelectedEtatActif] = useState('ALL'); // ALL, ACTIF, INACTIF
-    const [viewMode, setViewMode] = useState('THEMES'); // THEMES par défaut (ergonomique et groupé), TABLE et CARDS disponibles
-    // Blocs thématiques repliés par défaut (state vide = tous repliés)
-    const [expandedBlocks, setExpandedBlocks] = useState({});
+    const searchTerm = urlParams.get(filterPrefix + 'q') || '';
+    const selectedCategory = fixedCategory || urlParams.get(filterPrefix + 'categorie') || 'ALL';
+    const selectedStatut = urlParams.get(filterPrefix + 'statut') || 'EN_VIGUEUR';
+    const selectedNature = urlParams.get(filterPrefix + 'nature') || 'ALL';
+    const selectedEtatActif = urlParams.get(filterPrefix + 'etat') || 'ALL';
 
     // Actions
     const [togglingId, setTogglingId] = useState(null);
@@ -524,6 +508,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
     const [isNouvelleVersion, setIsNouvelleVersion] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [modalError, setModalError] = useState(null);
+    const [fieldErrors, setFieldErrors] = useState({});
 
     const [formData, setFormData] = useState({
         idParametre: null,
@@ -537,39 +522,27 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
         estDesactivable: false
     });
 
-    const toggleExpandBlock = (blockId) => {
-        setExpandedBlocks(prev => ({
-            ...prev,
-            [blockId]: !prev[blockId]
-        }));
-    };
-
-    const handleExpandAll = () => {
-        const all = {};
-        THEMATIC_BLOCKS.forEach(b => { all[b.id] = true; });
-        all['ORPHANS'] = true;
-        setExpandedBlocks(all);
-    };
-
-    const handleCollapseAll = () => setExpandedBlocks({});
-
     const loadParametres = useCallback(async () => {
+        requestController.current?.abort();
+        const controller = new AbortController();
+        requestController.current = controller;
         setLoading(true);
         setError(null);
         try {
-            const data = await paieConfigService.getParametresGlobaux(fixedCategory);
-            setParametres(data || []);
-        } catch (err) {
-            console.error('Erreur chargement paramètres globaux:', err);
+            const data = await paieConfigService.getParametresGlobaux(fixedCategory, controller.signal);
+            if (!controller.signal.aborted) setParametres(data || []);
+        } catch {
+            if (controller.signal.aborted) return;
             setError("Impossible de charger les paramètres. Veuillez réessayer.");
         } finally {
-            setLoading(false);
+            if (!controller.signal.aborted) setLoading(false);
         }
     }, [fixedCategory]);
 
     // Effet : charge les paramètres à l'ouverture ou au changement de périmètre.
     useEffect(() => {
         loadParametres();
+        return () => requestController.current?.abort();
     }, [loadParametres]);
 
     // Calcul des statistiques globales
@@ -652,126 +625,23 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
         });
     }, [parametres, selectedCategory, selectedStatut, selectedNature, selectedEtatActif, searchTerm]);
 
-    // Blocs thématiques enrichis avec leurs paramètres réels, statut conjoint et détection des effets cascade
     const thematicBlocksWithData = useMemo(() => {
-        // Filtrer les blocs par catégorie
-        const categoryBlocks = THEMATIC_BLOCKS.filter(b => {
-            if (selectedCategory !== 'ALL' && b.categorie !== selectedCategory) return false;
-            return true;
+        const groups = new Map();
+        filteredParametres.forEach(param => {
+            const block = paramToBlockMap.get(param.codeParametre);
+            const id = block?.id || 'autres';
+            if (!groups.has(id)) groups.set(id, { id, titre: block?.titre || 'Autres paramètres', sousTitre: block?.sousTitre || '', icone: block?.icone || Sliders, params: [] });
+            groups.get(id).params.push(param);
         });
-
-        const mapped = categoryBlocks.map(block => {
-            // Tous les paramètres de la base appartenant à ce bloc
-            const blockParams = parametres.filter(p => block.codes.includes(p.codeParametre));
-
-            // Paramètre maître éventuel (interrupteur principal)
-            const masterParam = block.masterCode ? blockParams.find(p => p.codeParametre === block.masterCode) : null;
-            const isMasterInactive = masterParam ? (!masterParam.estActif && getStatut(masterParam) === 'EN_VIGUEUR') : false;
-
-            // Paramètres en vigueur
-            const enVigueurParams = blockParams.filter(p => getStatut(p) === 'EN_VIGUEUR');
-            const hasDeactivable = blockParams.some(p => p.estDesactivable);
-            const activeCount = enVigueurParams.filter(p => p.estActif).length;
-            const totalCount = enVigueurParams.length || blockParams.length;
-
-            let statusType = 'ALL_ACTIVE';
-            if (!hasDeactivable) {
-                statusType = 'SYSTEM_PROTECTED';
-            } else if (isMasterInactive) {
-                statusType = 'MASTER_OFF';
-            } else if (activeCount === totalCount) {
-                statusType = 'ALL_ACTIVE';
-            } else if (activeCount === 0) {
-                statusType = 'ALL_OFF';
-            } else {
-                statusType = 'PARTIAL_OFF';
-            }
-
-            // Paramètres filtrés pour l'affichage selon la barre d'outils
-            const displayParams = blockParams.filter(p => {
-                const statut = getStatut(p);
-                if (selectedStatut !== 'ALL' && statut !== selectedStatut) return false;
-                if (selectedNature === 'RULES' && !p.estDesactivable) return false;
-                if (selectedNature === 'SYSTEM' && p.estDesactivable) return false;
-                if (selectedEtatActif === 'ACTIF' && !p.estActif) return false;
-                if (selectedEtatActif === 'INACTIF' && p.estActif) return false;
-
-                if (searchTerm.trim()) {
-                    const q = searchTerm.toLowerCase();
-                    const code = (p.codeParametre || '').toLowerCase();
-                    const desc = (p.description || '').toLowerCase();
-                    const meta = PARAMETRE_METADATA[p.codeParametre];
-                    const titre = (meta?.titre || '').toLowerCase();
-                    const val = (p.valeur || '').toLowerCase();
-                    const bTitre = (block.titre || '').toLowerCase();
-                    const bDesc = (block.sousTitre || '').toLowerCase();
-
-                    return code.includes(q) || desc.includes(q) || titre.includes(q) || val.includes(q) || bTitre.includes(q) || bDesc.includes(q);
-                }
-
-                return true;
-            });
-
-            return {
-                ...block,
-                allParams: blockParams,
-                displayParams,
-                masterParam,
-                isMasterInactive,
-                statusType,
-                activeCount,
-                totalCount
-            };
-        });
-
-        // Détection de paramètres additionnels non référencés explicitement dans les blocs statiques
-        const knownCodes = new Set(THEMATIC_BLOCKS.flatMap(b => b.codes));
-        const orphanParams = parametres.filter(p => !knownCodes.has(p.codeParametre));
-        if (orphanParams.length > 0) {
-            const orphanDisplayParams = orphanParams.filter(p => {
-                if (selectedCategory !== 'ALL' && p.categorie !== selectedCategory) return false;
-                const statut = getStatut(p);
-                if (selectedStatut !== 'ALL' && statut !== selectedStatut) return false;
-                if (selectedNature === 'RULES' && !p.estDesactivable) return false;
-                if (selectedNature === 'SYSTEM' && p.estDesactivable) return false;
-                if (selectedEtatActif === 'ACTIF' && !p.estActif) return false;
-                if (selectedEtatActif === 'INACTIF' && p.estActif) return false;
-                if (searchTerm.trim()) {
-                    const q = searchTerm.toLowerCase();
-                    return (p.codeParametre || '').toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q);
-                }
-                return true;
-            });
-
-            if (orphanDisplayParams.length > 0) {
-                mapped.push({
-                    id: 'AUTRES_PARAMETRES',
-                    categorie: orphanParams[0]?.categorie || 'RH_GENERAL',
-                    titre: "Autres Paramètres Système",
-                    sousTitre: "Paramètres complémentaires configurés dans l'environnement",
-                    icone: Sliders,
-                    regleConjointe: "Paramètres transversaux sans regroupement spécifique.",
-                    effetCascade: "Gestion standard selon la politique de chaque paramètre.",
-                    codes: orphanParams.map(p => p.codeParametre),
-                    allParams: orphanParams,
-                    displayParams: orphanDisplayParams,
-                    masterParam: null,
-                    isMasterInactive: false,
-                    statusType: 'ALL_ACTIVE',
-                    activeCount: orphanParams.filter(p => p.estActif).length,
-                    totalCount: orphanParams.length
-                });
-            }
-        }
-
-        return mapped;
-    }, [parametres, selectedCategory, selectedStatut, selectedNature, selectedEtatActif, searchTerm]);
+        return [...groups.values()];
+    }, [filteredParametres, paramToBlockMap]);
 
     // Gestion de l'interrupteur d'activation direct
     const handleToggleActif = async (param, e) => {
         if (e) e.stopPropagation();
 
-        if (getStatut(param) !== 'EN_VIGUEUR') {
+        if (toggleLock.current) return;
+        if (!param.peutBasculer) {
             toast.error("Seule une version en vigueur peut être basculée directement.");
             return;
         }
@@ -781,6 +651,8 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
             return;
         }
 
+        setDetailsError('');
+        toggleLock.current = true;
         const nouveauStatut = !param.estActif;
         setTogglingId(param.idParametre);
 
@@ -798,16 +670,19 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                     ? `${nomParam} activé.`
                     : (param.effetDesactivation || `${nomParam} désactivé.`)
             );
+            return true;
         } catch (err) {
-            console.error('Erreur bascule statut paramètre:', err);
-            toast.error(getErrorMessage(err, "Impossible de modifier l'état du paramètre."));
+            setDetailsError(getErrorMessage(err, "L’état n’a pas été modifié. Réessayez."));
+            return false;
         } finally {
+            toggleLock.current = false;
             setTogglingId(null);
         }
     };
 
     // Ouverture Modale Modification ou Versionnage
     const handleOpenEdit = (param, asNewVersion = false) => {
+        setFieldErrors({});
         setIsNouvelleVersion(asNewVersion);
         setModalError(null);
 
@@ -830,8 +705,24 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
         setShowModal(true);
     };
 
+    const validateField = (field, value, draft = formData) => {
+        if (field === 'valeur' && !String(value ?? '').trim()) return 'Renseignez une valeur.';
+        if (field === 'dateDebut' && !value) return 'Choisissez la date de début.';
+        if (field === 'dateFin' && value && (!draft.dateDebut || value < draft.dateDebut)) return 'La date de fin ne peut pas précéder la date de début.';
+        return '';
+    };
+    const handleField = (field, value) => {
+        setFormData(previous => ({ ...previous, [field]: value }));
+        if (fieldErrors[field]) setFieldErrors(previous => ({ ...previous, [field]: validateField(field,value) }));
+    };
+
     const handleSave = async (e) => {
         e.preventDefault();
+        if (submitLock.current || submitting) return;
+        const errors = Object.fromEntries(['valeur','dateDebut','dateFin'].map(field => [field,validateField(field,formData[field])]));
+        setFieldErrors(errors);
+        if (Object.values(errors).some(Boolean)) return;
+        submitLock.current = true;
         setSubmitting(true);
         setModalError(null);
 
@@ -852,7 +743,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
 
             if (isNouvelleVersion) {
                 await paieConfigService.createParametreGlobal(payload);
-                toast.success(`Nouvelle version de « ${nomParam} » programmée.`);
+                toast.success(`Nouvelle version de « ${nomParam} » enregistrée.`);
             } else {
                 await paieConfigService.updateParametreGlobal(formData.idParametre, payload);
                 toast.success(`« ${nomParam} » mis à jour.`);
@@ -865,6 +756,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
             const msg = getErrorMessage(err, "Erreur lors de la sauvegarde du paramètre.");
             setModalError(msg);
         } finally {
+            submitLock.current = false;
             setSubmitting(false);
         }
     };
@@ -872,918 +764,108 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
     if (loading && parametres.length === 0) {
         return (
             <div className="space-y-4">
-                <SkeletonTable rows={6} />
+                <SkeletonTable rows={6} columns={5} />
             </div>
         );
     }
 
-    // Rendu
     return (
-        <div className="space-y-4">
+        <div className="space-y-3.5">
             {error && <Alert type="error" message={error} />}
-
-            {/* KPI STATS CARDS - GALAXAM IDENTITY (NO ROUNDED, PURE CSS TOKENS) */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-                {/* Total */}
-                <button
-                    type="button"
-                    onClick={() => { setSelectedStatut('EN_VIGUEUR'); setSelectedNature('ALL'); setSelectedEtatActif('ALL'); }}
-                    className="group text-left p-4 rounded-none border border-[var(--color-border-subtle)] bg-[var(--color-surface)] hover:border-[var(--color-border)] transition-all cursor-pointer"
-                >
-                    <div className="flex items-center justify-between text-xs text-[var(--color-fg-muted)] font-medium">
-                        <span>Total Paramètres</span>
-                        <Sliders size={16} className="text-[var(--color-fg-muted)]" />
-                    </div>
-                    <div className="text-2xl font-black text-[var(--color-fg)] mt-1.5 tracking-tight">
-                        {metrics.enVigueur}
-                    </div>
-                    <div className="text-[11px] text-[var(--color-fg-muted)] mt-1 flex items-center gap-1">
-                        <span>{metrics.programme > 0 ? `${metrics.programme} programmé(s) à venir` : `${metrics.enVigueur} en vigueur`}</span>
-                    </div>
-                </button>
-
-                {/* Règles Métier Actives */}
-                <button
-                    type="button"
-                    onClick={() => { setSelectedNature('RULES'); setSelectedEtatActif('ACTIF'); setSelectedStatut('EN_VIGUEUR'); }}
-                    className="group text-left p-4 rounded-none border border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/10 hover:border-[var(--color-success-500)]/60 transition-all cursor-pointer"
-                >
-                    <div className="flex items-center justify-between text-xs text-[var(--color-success-600)] font-medium">
-                        <span>Règles Actives</span>
-                        <span className="inline-block w-2 h-2 rounded-none bg-[var(--color-success-500)]" />
-                    </div>
-                    <div className="text-2xl font-black text-[var(--color-success-600)] mt-1.5 tracking-tight">
-                        {metrics.reglesActives}
-                    </div>
-                    <div className="text-[11px] text-[var(--color-success-600)]/80 mt-1">
-                        Politiques opérationnelles actives
-                    </div>
-                </button>
-
-                {/* Règles Métier Inactives */}
-                <button
-                    type="button"
-                    onClick={() => { setSelectedNature('RULES'); setSelectedEtatActif('INACTIF'); setSelectedStatut('EN_VIGUEUR'); }}
-                    className="group text-left p-4 rounded-none border border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/10 hover:border-[var(--color-warning-500)]/60 transition-all cursor-pointer"
-                >
-                    <div className="flex items-center justify-between text-xs text-[var(--color-warning-600)] font-medium">
-                        <span>Règles Désactivées</span>
-                        <Power size={15} className="text-[var(--color-warning-500)]" />
-                    </div>
-                    <div className="text-2xl font-black text-[var(--color-warning-600)] mt-1.5 tracking-tight">
-                        {metrics.reglesInactives}
-                    </div>
-                    <div className="text-[11px] text-[var(--color-warning-600)]/80 mt-1">
-                        Coupées volontairement
-                    </div>
-                </button>
-
-                {/* Constantes Système Incompressibles */}
-                <button
-                    type="button"
-                    onClick={() => { setSelectedNature('SYSTEM'); setSelectedEtatActif('ALL'); setSelectedStatut('EN_VIGUEUR'); }}
-                    className="group text-left p-4 rounded-none border border-[var(--color-brand-500)]/30 bg-[var(--color-brand-500)]/10 hover:border-[var(--color-brand-500)]/60 transition-all cursor-pointer"
-                >
-                    <div className="flex items-center justify-between text-xs text-[var(--color-brand-600)] font-medium">
-                        <span>Constantes Système</span>
-                        <Lock size={15} className="text-[var(--color-brand-500)]" />
-                    </div>
-                    <div className="text-2xl font-black text-[var(--color-brand-600)] mt-1.5 tracking-tight">
-                        {metrics.constantesSysteme}
-                    </div>
-                    <div className="text-[11px] text-[var(--color-brand-600)]/80 mt-1">
-                        Constantes système requises
-                    </div>
-                </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+                <StatCard title="Paramètres" value={metrics.total} subtext="Toutes les versions" icon={<Sliders size={18} />} color="brand" active={selectedStatut === 'ALL'} onClick={() => setFilter('statut', 'ALL')} />
+                <StatCard title="En vigueur" value={metrics.enVigueur} subtext={`${metrics.reglesActives} règle(s) active(s)`} icon={<ShieldCheck size={18} />} color="success" active={selectedStatut === 'EN_VIGUEUR'} onClick={() => setFilter('statut', 'EN_VIGUEUR')} />
+                <StatCard title="Programmés" value={metrics.programme} subtext="Versions à venir" icon={<Calendar size={18} />} color="info" active={selectedStatut === 'PROGRAMME'} onClick={() => setFilter('statut', 'PROGRAMME')} />
+                <StatCard title="Archivés" value={metrics.archive} subtext="Versions précédentes" icon={<Clock size={18} />} color="neutral" active={selectedStatut === 'ARCHIVE'} onClick={() => setFilter('statut', 'ARCHIVE')} />
             </div>
 
-            {/* Barre de Recherche, Filtres & Bascule de vue */}
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none p-4 space-y-3.5 shadow-xs">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                    <div className="relative flex-1">
-                        <Input
-                            placeholder="Rechercher un paramètre, une règle ou un bloc thématique (ex: Assiduité, Repas, Préavis, CDD...)"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            iconLeft={<Search size={15} className="text-[var(--color-fg-muted)]" />}
-                        />
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                        {/* Filtre Catégorie */}
-                        {!fixedCategory && (
-                            <Select
-                                value={selectedCategory}
-                                onChange={(e) => setSelectedCategory(e.target.value)}
-                                className="w-48 text-xs"
-                            >
-                                <option value="ALL">Tous les domaines</option>
-                                {availableCategories.map(c => (
-                                    <option key={c.value} value={c.value}>{c.label}</option>
-                                ))}
-                            </Select>
-                        )}
-
-                        {/* Filtre Nature */}
-                        <Select
-                            value={selectedNature}
-                            onChange={(e) => setSelectedNature(e.target.value)}
-                            className="w-44 text-xs"
-                        >
-                            <option value="ALL">Toutes natures</option>
-                            <option value="RULES">Règles débrayables</option>
-                            <option value="SYSTEM">Constantes système</option>
+            <Card className="overflow-visible p-0" shadow="sm">
+                <div className="p-3.5 sm:p-4 space-y-3">
+                    <div className="flex flex-col xl:flex-row xl:items-end gap-3">
+                        <div className="flex-1 min-w-[220px]"><Input label="Rechercher" aria-label="Rechercher un paramètre" placeholder="Nom, code ou valeur…" value={searchTerm} onChange={event => setFilter('q', event.target.value)} iconLeft={<Search size={16} />} /></div>
+                        <Select label="Validité" aria-label="Validité" value={selectedStatut} onChange={event => setFilter('statut',event.target.value)}>
+                            <option value="EN_VIGUEUR">En vigueur ({metrics.enVigueur})</option><option value="PROGRAMME">Programmés ({metrics.programme})</option><option value="ARCHIVE">Archivés ({metrics.archive})</option><option value="ALL">Toutes les versions ({metrics.total})</option>
                         </Select>
-
-                        {/* Filtre Activation */}
-                        <Select
-                            value={selectedEtatActif}
-                            onChange={(e) => setSelectedEtatActif(e.target.value)}
-                            className="w-40 text-xs"
-                        >
-                            <option value="ALL">Tous états</option>
-                            <option value="ACTIF">Actifs seulement</option>
-                            <option value="INACTIF">Désactivés seulement</option>
-                        </Select>
-
-                        {/* Filtre Statut temporel */}
-                        <Select
-                            value={selectedStatut}
-                            onChange={(e) => setSelectedStatut(e.target.value)}
-                            className="w-48 text-xs"
-                        >
-                            <option value="EN_VIGUEUR">En vigueur ({metrics.enVigueur})</option>
-                            <option value="PROGRAMME">Programmés ({metrics.programme})</option>
-                            <option value="ARCHIVE">Archivés ({metrics.archive})</option>
-                            <option value="ALL">Tous les statuts ({metrics.total})</option>
-                        </Select>
-
-                        {/* Bascule Vue Blocs Thématiques / Tableau / Cartes */}
-                        <div className="flex border border-[var(--color-border-subtle)] rounded-none overflow-hidden">
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('THEMES')}
-                                className={`px-2.5 py-1.5 flex items-center gap-1.5 text-xs font-bold transition-colors cursor-pointer rounded-none ${
-                                    viewMode === 'THEMES'
-                                        ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)]'
-                                        : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
-                                }`}
-                                title="Vue Blocs Thématiques & Règles Conjointes (Recommandée)"
-                                aria-label="Vue par Blocs Thématiques"
-                            >
-                                <Layers size={14} />
-                                <span className="hidden sm:inline">Blocs Thématiques</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('TABLE')}
-                                className={`px-2.5 py-1.5 flex items-center gap-1.5 text-xs font-bold transition-colors cursor-pointer rounded-none ${
-                                    viewMode === 'TABLE'
-                                        ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)]'
-                                        : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
-                                }`}
-                                title="Vue Tableau Exhaustif"
-                                aria-label="Affichage en tableau exhaustif"
-                            >
-                                <List size={14} />
-                                <span className="hidden sm:inline">Tableau</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('CARDS')}
-                                className={`p-1.5 transition-colors cursor-pointer rounded-none ${
-                                    viewMode === 'CARDS'
-                                        ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)]'
-                                        : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
-                                }`}
-                                title="Vue Cartes Individuelles"
-                                aria-label="Affichage en cartes individuelles"
-                            >
-                                <LayoutGrid size={14} />
-                            </button>
+                        <div className="flex gap-2">
+                            <Button variant="outline" aria-expanded={showFilters} onClick={() => setShowFilters(previous => !previous)} iconLeft={<Sliders size={16} />}>{showFilters ? 'Masquer les filtres' : 'Plus de filtres'}</Button>
                         </div>
                     </div>
+                    {showFilters && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 border-t border-[var(--color-border-subtle)] pt-3">
+                        {!fixedCategory && <Select label="Domaine" value={selectedCategory} onChange={event => setFilter('categorie',event.target.value)}><option value="ALL">Tous les domaines</option>{availableCategories.map(category => <option key={category.value} value={category.value}>{category.label}</option>)}</Select>}
+                        <Select label="Nature" value={selectedNature} onChange={event => setFilter('nature',event.target.value)}><option value="ALL">Toutes les natures</option><option value="RULES">Règles désactivables</option><option value="SYSTEM">Constantes protégées</option></Select>
+                        <Select label="Activation" value={selectedEtatActif} onChange={event => setFilter('etat',event.target.value)}><option value="ALL">Tous les états</option><option value="ACTIF">Actifs</option><option value="INACTIF">Désactivés</option></Select>
+                    </div>}
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--color-fg-muted)]">
+                        <span>{filteredParametres.length} version(s) affichée(s) sur {parametres.length} dans ce domaine.</span>
+                        {(searchTerm || selectedNature !== 'ALL' || selectedEtatActif !== 'ALL') && <Button variant="ghost" size="sm" onClick={() => { setFilter('q', ''); setFilter('nature', 'ALL'); setFilter('etat', 'ALL'); }}>Effacer les filtres</Button>}
+                    </div>
                 </div>
+            </Card>
 
-                {/* Indicateur contextuel et raccourcis d'affichage */}
-                <div className="text-xs text-[var(--color-fg-muted)] flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-[var(--color-border-subtle)]">
-                    <span className="flex items-center gap-1.5">
-                        <ShieldCheck size={14} className="text-[var(--color-brand-500)] shrink-0" />
-                        <span>
-                            Les paramètres sont organisés en <strong>blocs thématiques</strong> avec mise en évidence des <strong>règles conjointes</strong> et des <strong>effets cascades</strong>.
-                        </span>
-                    </span>
-
-                    <div className="flex items-center justify-between sm:justify-end gap-3">
-                        {viewMode === 'THEMES' && (
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={handleExpandAll}
-                                    className="text-[11px] font-semibold text-[var(--color-brand-600)] hover:underline cursor-pointer"
-                                >
-                                    Déplier tout
-                                </button>
-                                <span className="text-[var(--color-border-subtle)]">|</span>
-                                <button
-                                    type="button"
-                                    onClick={handleCollapseAll}
-                                    className="text-[11px] font-semibold text-[var(--color-fg-muted)] hover:underline cursor-pointer"
-                                >
-                                    Replier tout
-                                </button>
+            {filteredParametres.length === 0 ? <Card><EmptyState title="Aucun paramètre" description="Aucune version ne correspond aux filtres sélectionnés." bordered={false} /></Card> : (
+                <div className="space-y-3.5" aria-label="Paramètres globaux">
+                    {thematicBlocksWithData.map(block => {
+                        const BlockIcon = block.icone;
+                        const isCollapsed = collapsedBlocks.has(block.id);
+                        return <Card key={block.id} className="overflow-hidden p-0" shadow="sm">
+                            <button
+                                type="button"
+                                aria-expanded={!isCollapsed}
+                                aria-controls={`param-block-${block.id}`}
+                                onClick={() => setCollapsedBlocks(previous => {
+                                    const next = new Set(previous);
+                                    if (next.has(block.id)) next.delete(block.id);
+                                    else next.add(block.id);
+                                    return next;
+                                })}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-left bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-hover)] transition-colors"
+                            >
+                                <span className="flex h-9 w-9 items-center justify-center border border-[var(--color-brand-500)]/20 bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)]"><BlockIcon size={18} /></span>
+                                <span className="min-w-0 flex-1"><span role="heading" aria-level="2" className="block text-sm font-bold text-[var(--color-fg)]">{block.titre}</span>{block.sousTitre && <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">{block.sousTitre}</span>}</span>
+                                <span className="text-xs font-semibold text-[var(--color-fg-muted)]">{block.params.length} règle(s)</span>
+                                <ChevronDown size={16} aria-hidden="true" className={`shrink-0 text-[var(--color-fg-muted)] transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                            </button>
+                            <div id={`param-block-${block.id}`} hidden={isCollapsed} className="divide-y divide-[var(--color-border-subtle)]">
+                                {block.params.map(param => {
+                                    const meta = PARAMETRE_METADATA[param.codeParametre];
+                                    const ParamIcon = meta?.icone || Sliders;
+                                    const hasActions = canWrite && (param.peutModifier || param.peutVersionner);
+                                    return <article key={param.idParametre} className={`grid grid-cols-1 ${hasActions ? 'lg:grid-cols-[minmax(0,1fr)_auto]' : ''} gap-3 p-4 hover:bg-[var(--color-bg-subtle)]/50 transition-colors`}>
+                                        <div className="flex gap-3 min-w-0">
+                                            <span className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)]"><ParamIcon size={17} /></span>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <button type="button" onClick={() => { setDetailsError(''); setDetails(param); }} className="text-left text-sm font-semibold text-[var(--color-fg)] hover:text-[var(--color-brand-600)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)]">{meta?.titre || param.codeParametre}</button>
+                                                    <StatutBadge statut={getStatut(param)} />
+                                                </div>
+                                                <p className="mt-1 text-xs text-[var(--color-fg-muted)] leading-relaxed">{param.description || meta?.explication || param.codeParametre}</p>
+                                                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--color-fg-muted)]">
+                                                    <span><span className="text-[var(--color-fg-muted)]">Valeur actuelle :</span> <strong className="font-semibold text-[var(--color-fg)]">{formatValeurAffichage(param.codeParametre,param.valeur)}</strong></span>
+                                                    <span>{formatPeriodeValidite(param.dateDebut,param.dateFin,getStatut(param))}</span>
+                                                    <span className={param.estActif ? 'text-[var(--color-success-600)] font-medium' : 'text-[var(--color-fg-muted)]'}>{param.estActif ? 'Actif' : 'Désactivé'}{!param.estDesactivable ? ' · constante protégée' : ''}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {hasActions && <div className="flex flex-wrap items-center justify-end gap-1 lg:min-w-[220px]">{param.peutModifier && <Button variant="outline" size="sm" onClick={() => handleOpenEdit(param,false)}>Modifier</Button>}{param.peutVersionner && <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(param,true)}>Nouvelle version</Button>}</div>}
+                                    </article>;
+                                })}
                             </div>
-                        )}
-                        <span className="font-mono text-[11px] text-[var(--color-fg-muted)]">
-                            {filteredParametres.length} / {parametres.length} affichés
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            {/* VUE BLOCS THÉMATIQUES (VUE PAR DÉFAUT ERGONOMIQUE) */}
-            {viewMode === 'THEMES' && (
-                <div className="space-y-4">
-                    {thematicBlocksWithData.filter(b => b.displayParams.length > 0).length === 0 ? (
-                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none p-12">
-                            <EmptyState
-                                icon={Sliders}
-                                title="Aucun paramètre ou bloc trouvé"
-                                description="Aucun bloc ou paramètre ne correspond aux critères de filtre ou de recherche sélectionnés."
-                            />
-                        </div>
-                    ) : (
-                        thematicBlocksWithData
-                            .filter(block => block.displayParams.length > 0)
-                            .map(block => {
-                                const BlockIcon = block.icone || Sliders;
-                                const isExpanded = Boolean(expandedBlocks[block.id]) || Boolean(searchTerm.trim());
-                                const isCollapsed = !isExpanded;
-
-                                return (
-                                    <div
-                                        key={block.id}
-                                        className={`border rounded-none shadow-xs transition-all overflow-hidden ${
-                                            block.isMasterInactive
-                                                ? 'border-[var(--color-warning-500)]/40 bg-[var(--color-surface)]'
-                                                : 'border-[var(--color-border-subtle)] bg-[var(--color-surface)]'
-                                        }`}
-                                    >
-                                        {/* En-tête du Bloc Thématique */}
-                                        <div
-                                            onClick={() => toggleExpandBlock(block.id)}
-                                            className="py-3 px-4 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/50 cursor-pointer hover:bg-[var(--color-bg-subtle)] transition-colors select-none"
-                                        >
-                                            <div className="flex items-start gap-3 min-w-0">
-                                                <div className={`p-2 rounded-none border shrink-0 mt-0.5 ${
-                                                    block.isMasterInactive
-                                                        ? 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] border-[var(--color-warning-500)]/25'
-                                                        : 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] border-[var(--color-brand-500)]/25'
-                                                }`}>
-                                                    <BlockIcon size={18} />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <h3 className="text-sm font-bold text-[var(--color-fg)]">
-                                                            {block.titre}
-                                                        </h3>
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 border rounded-none bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)]">
-                                                            {CATEGORIE_LABELS[block.categorie] || block.categorie}
-                                                        </span>
-                                                        <span className="text-[10px] font-mono text-[var(--color-fg-muted)] bg-[var(--color-bg-subtle)] px-1.5 py-0.5 border border-[var(--color-border-subtle)]">
-                                                            {block.displayParams.length} paramètre{block.displayParams.length > 1 ? 's' : ''}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-xs text-[var(--color-fg-muted)] mt-0.5 leading-relaxed">
-                                                        {block.sousTitre}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-2 self-end md:self-auto shrink-0" onClick={(e) => e.stopPropagation()}>
-                                                {/* Statut du Bloc */}
-                                                {block.statusType === 'MASTER_OFF' && (
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold border rounded-none bg-[var(--color-warning-500)]/12 text-[var(--color-warning-600)] border-[var(--color-warning-500)]/30">
-                                                        <AlertTriangle size={13} /> Règle Coupée
-                                                    </span>
-                                                )}
-                                                {block.statusType === 'ALL_ACTIVE' && (
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold border rounded-none bg-[var(--color-success-500)]/12 text-[var(--color-success-600)] border-[var(--color-success-500)]/30">
-                                                        <CheckCircle2 size={13} /> Active ({block.activeCount}/{block.totalCount})
-                                                    </span>
-                                                )}
-                                                {block.statusType === 'PARTIAL_OFF' && (
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold border rounded-none bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] border-[var(--color-warning-500)]/25">
-                                                        <AlertCircle size={13} /> Partiel ({block.activeCount}/{block.totalCount})
-                                                    </span>
-                                                )}
-                                                {block.statusType === 'ALL_OFF' && (
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold border rounded-none bg-[var(--color-fg-muted)]/12 text-[var(--color-fg-muted)] border-[var(--color-border-subtle)]">
-                                                        <XCircle size={13} /> Coupé ({block.activeCount}/{block.totalCount})
-                                                    </span>
-                                                )}
-                                                {block.statusType === 'SYSTEM_PROTECTED' && (
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold border rounded-none bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] border-[var(--color-brand-500)]/25">
-                                                        <Lock size={12} /> Constantes Système
-                                                    </span>
-                                                )}
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() => toggleExpandBlock(block.id)}
-                                                    className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface)] border border-transparent hover:border-[var(--color-border-subtle)] cursor-pointer rounded-none ml-1 transition-colors"
-                                                    title={isCollapsed ? "Déplier ce bloc" : "Replier ce bloc"}
-                                                    aria-label={isCollapsed ? `Déplier le bloc ${block.titre}` : `Replier le bloc ${block.titre}`}
-                                                >
-                                                    {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Contenu Dépliable du Bloc */}
-                                        {!isCollapsed && (
-                                            <div className="space-y-3 p-4">
-                                                {/* Bannière si le paramètre maître est désactivé */}
-                                                {block.isMasterInactive && (
-                                                    <div className="p-3 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/25 text-xs text-[var(--color-warning-600)] flex items-start gap-2.5">
-                                                        <AlertTriangle size={15} className="shrink-0 mt-0.5" />
-                                                        <div>
-                                                            <span className="font-bold">Bloc inactif : </span>
-                                                            <span>{block.effetCascade}</span>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Fiche de synthèse concise sur la règle */}
-                                                <div className="px-3 py-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-xs text-[var(--color-fg-muted)] flex items-center gap-2.5">
-                                                    <Info size={14} className="shrink-0 text-[var(--color-brand-500)]" />
-                                                    <span className="leading-relaxed">{block.regleConjointe}</span>
-                                                </div>
-
-                                                {/* Tableau compact des paramètres de ce bloc */}
-                                                <div className="border border-[var(--color-border-subtle)] rounded-none overflow-x-auto">
-                                                    <Table bordered={false}>
-                                                        <Thead>
-                                                            <Th>Paramètre</Th>
-                                                            <Th>Rôle</Th>
-                                                            <Th>Type</Th>
-                                                            <Th>État</Th>
-                                                            <Th>Valeur</Th>
-                                                            <Th>Validité</Th>
-                                                            <Th>Statut</Th>
-                                                            <Th className="text-right">Actions</Th>
-                                                        </Thead>
-                                                        <Tbody>
-                                                            {block.displayParams.map(p => {
-                                                                const statut = getStatut(p);
-                                                                const meta = PARAMETRE_METADATA[p.codeParametre];
-                                                                const IconComp = meta?.icone || Sliders;
-                                                                const titreAff = meta?.titre || p.codeParametre;
-                                                                const valAff = formatValeurAffichage(p.codeParametre, p.valeur);
-                                                                const estInactif = !p.estActif;
-
-                                                                const isMaster = block.masterCode === p.codeParametre;
-                                                                const isDependent = block.masterCode && !isMaster;
-                                                                const isSuspendedByMaster = block.isMasterInactive && isDependent;
-
-                                                                return (
-                                                                    <Tr
-                                                                        key={p.idParametre}
-                                                                        className={`hover:bg-[var(--color-bg-subtle)] transition-colors ${
-                                                                            estInactif || isSuspendedByMaster
-                                                                                ? 'opacity-85 bg-[var(--color-warning-500)]/5'
-                                                                                : ''
-                                                                        }`}
-                                                                    >
-                                                                        {/* Paramètre (Libellé uniquement, sans code brut) */}
-                                                                        <Td className="font-medium text-[var(--color-fg)]">
-                                                                            <div className="flex items-center gap-2.5">
-                                                                                <div className={`p-1.5 rounded-none border shrink-0 ${
-                                                                                    estInactif
-                                                                                        ? 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] border-[var(--color-warning-500)]/25'
-                                                                                        : p.estDesactivable
-                                                                                        ? 'bg-[var(--color-success-500)]/10 text-[var(--color-success-600)] border-[var(--color-success-500)]/25'
-                                                                                        : 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] border-[var(--color-brand-500)]/25'
-                                                                                }`}>
-                                                                                    <IconComp size={14} />
-                                                                                </div>
-                                                                                <div>
-                                                                                    <div className="font-bold text-xs flex items-center gap-2">
-                                                                                        <span>{titreAff}</span>
-                                                                                    </div>
-                                                                                    {meta?.explication && (
-                                                                                        <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5 line-clamp-1 max-w-sm" title={meta.explication}>
-                                                                                            {meta.explication}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                        </Td>
-
-                                                                        {/* Rôle */}
-                                                                        <Td>
-                                                                            {isMaster ? (
-                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-[var(--color-brand-500)]/12 text-[var(--color-brand-600)] border border-[var(--color-brand-500)]/30">
-                                                                                    <Power size={10} /> Paramètre Maître
-                                                                                </span>
-                                                                            ) : isSuspendedByMaster ? (
-                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-[var(--color-warning-500)]/15 text-[var(--color-warning-600)] border border-[var(--color-warning-500)]/30" title="Ce paramètre est inopérant car le paramètre maître du bloc est désactivé">
-                                                                                    <AlertTriangle size={10} /> Inactif (Bloc coupé)
-                                                                                </span>
-                                                                            ) : isDependent ? (
-                                                                                <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]">
-                                                                                    Paramètre associé
-                                                                                </span>
-                                                                            ) : (
-                                                                                <span className="text-[11px] text-[var(--color-fg-muted)]">
-                                                                                    Standard
-                                                                                </span>
-                                                                            )}
-                                                                        </Td>
-
-                                                                        {/* Nature / Type */}
-                                                                        <Td>
-                                                                            {p.estDesactivable ? (
-                                                                                <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-success-600)] font-bold">
-                                                                                    <CheckCircle2 size={12} /> Débrayable
-                                                                                </span>
-                                                                            ) : p.historiqueNonConsomme ? (
-                                                                                <span className="text-[11px] text-[var(--color-fg-muted)]">Non utilisé</span>
-                                                                            ) : (
-                                                                                <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-brand-600)] font-bold">
-                                                                                    <Lock size={12} /> Système
-                                                                                </span>
-                                                                            )}
-                                                                        </Td>
-
-                                                                        {/* État / Switch direct */}
-                                                                        <Td>
-                                                                            {p.estDesactivable ? (
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        role="switch"
-                                                                                        aria-checked={p.estActif}
-                                                                                        disabled={togglingId === p.idParametre || statut !== 'EN_VIGUEUR'}
-                                                                                        title={statut !== 'EN_VIGUEUR' ? 'Version non en vigueur' : (p.effetDesactivation || 'Basculer cette règle')}
-                                                                                        onClick={(e) => handleToggleActif(p, e)}
-                                                                                        className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-none border transition-colors duration-150 ease-in-out ${
-                                                                                            p.estActif 
-                                                                                                ? 'bg-[var(--color-success-500)] border-[var(--color-success-600)]' 
-                                                                                                : 'bg-[var(--color-bg-subtle)] border-[var(--color-border)]'
-                                                                                        }`}
-                                                                                    >
-                                                                                        <span
-                                                                                            className={`pointer-events-none inline-block h-3 w-3 rounded-none shadow-xs transform transition duration-150 ease-in-out mt-[1px] ml-[1px] ${
-                                                                                                p.estActif ? 'translate-x-3 bg-[var(--color-surface)]' : 'translate-x-0 bg-[var(--color-fg-muted)]'
-                                                                                            }`}
-                                                                                        />
-                                                                                    </button>
-                                                                                    <span className={`text-[11px] font-bold ${
-                                                                                        isSuspendedByMaster
-                                                                                            ? 'text-[var(--color-warning-600)]'
-                                                                                            : p.estActif
-                                                                                            ? 'text-[var(--color-success-600)]'
-                                                                                            : 'text-[var(--color-warning-600)]'
-                                                                                    }`}>
-                                                                                        {isSuspendedByMaster ? 'Suspendu' : (p.estActif ? 'Actif' : 'Coupé')}
-                                                                                    </span>
-                                                                                </div>
-                                                                            ) : (
-                                                                                <span className="text-[11px] text-[var(--color-fg-muted)] font-medium flex items-center gap-1">
-                                                                                    <Lock size={11} /> {p.historiqueNonConsomme ? 'Historique' : 'Toujours actif'}
-                                                                                </span>
-                                                                            )}
-                                                                        </Td>
-
-                                                                        {/* Valeur */}
-                                                                        <Td className={`font-mono text-xs font-bold ${
-                                                                            estInactif || isSuspendedByMaster ? 'line-through text-[var(--color-fg-muted)]' : 'text-[var(--color-fg)]'
-                                                                        }`}>
-                                                                            {valAff}
-                                                                        </Td>
-
-                                                                        {/* Période de Validité */}
-                                                                        <Td className="text-xs text-[var(--color-fg-muted)]">
-                                                                            {formatPeriodeValidite(p.dateDebut, p.dateFin, statut)}
-                                                                        </Td>
-
-                                                                        {/* Statut temporel */}
-                                                                        <Td>
-                                                                            <StatutBadge statut={statut} />
-                                                                        </Td>
-
-                                                                        {/* Actions */}
-                                                                        <Td className="text-right">
-                                                                            <div className="inline-flex items-center gap-1.5">
-                                                                                {statut !== 'PROGRAMME' && (
-                                                                                    <button
-                                                                                        onClick={() => handleOpenEdit(p, true)}
-                                                                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-surface)] rounded-none border border-transparent hover:border-[var(--color-border-subtle)] cursor-pointer"
-                                                                                        title="Programmer une nouvelle version à date future"
-                                                                                        aria-label={`Programmer nouvelle version pour ${titreAff}`}
-                                                                                    >
-                                                                                        <Plus size={15} />
-                                                                                    </button>
-                                                                                )}
-                                                                                <button
-                                                                                    onClick={() => handleOpenEdit(p, false)}
-                                                                                    className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-surface)] rounded-none border border-transparent hover:border-[var(--color-border-subtle)] cursor-pointer"
-                                                                                    title="Modifier cette version"
-                                                                                    aria-label={`Modifier ${titreAff}`}
-                                                                                >
-                                                                                    <Edit2 size={15} />
-                                                                                </button>
-                                                                            </div>
-                                                                        </Td>
-                                                                    </Tr>
-                                                                );
-                                                            })}
-                                                        </Tbody>
-                                                    </Table>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })
-                    )}
+                        </Card>;
+                    })}
                 </div>
             )}
-
-            {/* VUE TABLEAU EXHAUSTIF */}
-            {viewMode === 'TABLE' && (
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-xs overflow-hidden">
-                    <Table bordered={false}>
-                        <Thead>
-                            <Th>Paramètre Métier</Th>
-                            <Th>Bloc Thématique</Th>
-                            <Th>Domaine</Th>
-                            <Th>Nature</Th>
-                            <Th>État</Th>
-                            <Th>Valeur</Th>
-                            <Th>Période de Validité</Th>
-                            <Th>Statut</Th>
-                            <Th className="text-right">Actions</Th>
-                        </Thead>
-                        <Tbody>
-                            {filteredParametres.length === 0 ? (
-                                <Tr>
-                                    <Td colSpan={9} className="p-0">
-                                        <EmptyState
-                                            icon={Sliders}
-                                            title="Aucun paramètre trouvé"
-                                            description="Aucun paramètre ne correspond aux critères de recherche."
-                                        />
-                                    </Td>
-                                </Tr>
-                            ) : (
-                                filteredParametres.map(p => {
-                                    const statut = getStatut(p);
-                                    const meta = PARAMETRE_METADATA[p.codeParametre];
-                                    const IconComponent = meta?.icone || Sliders;
-                                    const titreAffiche = meta?.titre || p.codeParametre;
-                                    const valeurAffichee = formatValeurAffichage(p.codeParametre, p.valeur);
-                                    const estInactif = !p.estActif;
-                                    const block = paramToBlockMap.get(p.codeParametre);
-                                    const isMaster = block?.masterCode === p.codeParametre;
-
-                                    return (
-                                        <Tr key={p.idParametre} className={`hover:bg-[var(--color-bg-subtle)] ${estInactif ? 'opacity-75 bg-[var(--color-warning-500)]/5' : ''}`}>
-                                            <Td className="font-medium text-[var(--color-fg)]">
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`p-1.5 rounded-none border shrink-0 ${
-                                                        estInactif
-                                                            ? 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] border-[var(--color-warning-500)]/25'
-                                                            : p.estDesactivable
-                                                            ? 'bg-[var(--color-success-500)]/10 text-[var(--color-success-600)] border-[var(--color-success-500)]/25'
-                                                            : 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] border-[var(--color-brand-500)]/25'
-                                                    }`}>
-                                                        <IconComponent size={14} />
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-bold text-xs flex items-center gap-1.5">
-                                                            <span>{titreAffiche}</span>
-                                                            {isMaster && (
-                                                                <span className="text-[9px] font-bold px-1.5 py-0.2 border rounded-none bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] border-[var(--color-brand-500)]/25">
-                                                                    Paramètre Maître
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        {meta?.explication && (
-                                                            <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5 line-clamp-1 max-w-sm" title={meta.explication}>
-                                                                {meta.explication}
-                                                            </div>
-                                                        )}
-                                                        {!p.estActif && p.effetDesactivation && (
-                                                            <div className="text-[11px] text-[var(--color-warning-600)] mt-1">{p.effetDesactivation}</div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </Td>
-                                            <Td>
-                                                {block ? (
-                                                    <span className="text-xs font-semibold text-[var(--color-fg)]" title={block.sousTitre}>
-                                                        {block.titre}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-xs text-[var(--color-fg-muted)]">-</span>
-                                                )}
-                                            </Td>
-                                            <Td>
-                                                <span className="text-xs text-[var(--color-fg-muted)]">{CATEGORIE_LABELS[p.categorie] || p.categorie}</span>
-                                            </Td>
-                                            <Td>
-                                                {p.estDesactivable ? (
-                                                    <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-success-600)] font-bold">
-                                                        <CheckCircle2 size={12} /> Débrayable
-                                                    </span>
-                                                ) : p.historiqueNonConsomme ? (
-                                                    <span className="text-[11px] text-[var(--color-fg-muted)]">Non utilisé</span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-brand-600)] font-bold">
-                                                        <Lock size={12} /> Système
-                                                    </span>
-                                                )}
-                                            </Td>
-                                            <Td>
-                                                {p.estDesactivable ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            type="button"
-                                                            role="switch"
-                                                            aria-checked={p.estActif}
-                                                            disabled={togglingId === p.idParametre || statut !== 'EN_VIGUEUR'}
-                                                            title={statut !== 'EN_VIGUEUR' ? 'Version non en vigueur' : (p.effetDesactivation || 'Basculer cette règle')}
-                                                            onClick={(e) => handleToggleActif(p, e)}
-                                                            className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-none border transition-colors duration-150 ease-in-out ${
-                                                                p.estActif 
-                                                                    ? 'bg-[var(--color-success-500)] border-[var(--color-success-600)]' 
-                                                                    : 'bg-[var(--color-bg-subtle)] border-[var(--color-border)]'
-                                                            }`}
-                                                        >
-                                                            <span
-                                                                className={`pointer-events-none inline-block h-3 w-3 rounded-none shadow-xs transform transition duration-150 ease-in-out mt-[1px] ml-[1px] ${
-                                                                    p.estActif ? 'translate-x-3 bg-[var(--color-surface)]' : 'translate-x-0 bg-[var(--color-fg-muted)]'
-                                                                }`}
-                                                            />
-                                                        </button>
-                                                        <span className={`text-[11px] font-bold ${p.estActif ? 'text-[var(--color-success-600)]' : 'text-[var(--color-warning-600)]'}`}>
-                                                            {p.estActif ? 'Actif' : 'Coupé'}
-                                                        </span>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-[11px] text-[var(--color-fg-muted)] font-medium flex items-center gap-1">
-                                                        <Lock size={11} /> {p.historiqueNonConsomme ? 'Historique' : 'Toujours actif'}
-                                                    </span>
-                                                )}
-                                            </Td>
-                                            <Td className={`font-mono text-xs font-bold ${estInactif ? 'line-through text-[var(--color-fg-muted)]' : ''}`}>
-                                                {valeurAffichee}
-                                            </Td>
-                                            <Td className="text-xs text-[var(--color-fg-muted)]">
-                                                {formatPeriodeValidite(p.dateDebut, p.dateFin, statut)}
-                                            </Td>
-                                            <Td>
-                                                <StatutBadge statut={statut} />
-                                            </Td>
-                                            <Td className="text-right">
-                                                <div className="inline-flex items-center gap-1.5">
-                                                    {statut !== 'PROGRAMME' && (
-                                                        <button
-                                                            onClick={() => handleOpenEdit(p, true)}
-                                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none border border-transparent hover:border-[var(--color-border-subtle)] cursor-pointer"
-                                                            title="Programmer une nouvelle version à date future"
-                                                            aria-label={`Programmer nouvelle version pour ${titreAffiche}`}
-                                                        >
-                                                            <Plus size={15} />
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        onClick={() => handleOpenEdit(p, false)}
-                                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none border border-transparent hover:border-[var(--color-border-subtle)] cursor-pointer"
-                                                        title="Modifier cette version"
-                                                        aria-label={`Modifier ${titreAffiche}`}
-                                                    >
-                                                        <Edit2 size={15} />
-                                                    </button>
-                                                </div>
-                                            </Td>
-                                        </Tr>
-                                    );
-                                })
-                            )}
-                        </Tbody>
-                    </Table>
-                </div>
-            )}
-
-            {/* VUE CARTES INDIVIDUELLES (GROUPÉES PAR BLOCS THÉMATIQUES) */}
-            {viewMode === 'CARDS' && (
-                <div className="space-y-6">
-                    {thematicBlocksWithData.filter(b => b.displayParams.length > 0).length === 0 ? (
-                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none p-12">
-                            <EmptyState
-                                icon={Sliders}
-                                title="Aucun paramètre trouvé"
-                                description="Aucun paramètre ou règle ne correspond aux critères sélectionnés."
-                            />
-                        </div>
-                    ) : (
-                        thematicBlocksWithData
-                            .filter(block => block.displayParams.length > 0)
-                            .map(block => {
-                                const BlockIcon = block.icone || Sliders;
-
-                                return (
-                                    <div key={block.id} className="space-y-3.5">
-                                        <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)]">
-                                            <div className="flex items-center gap-2">
-                                                <BlockIcon size={16} className="text-[var(--color-brand-500)]" />
-                                                <span className="text-xs font-bold uppercase tracking-widest text-[var(--color-fg)]">
-                                                    {block.titre}
-                                                </span>
-                                                <span className="text-[10px] font-bold text-[var(--color-fg-muted)] bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] px-2 py-0.5 rounded-none font-mono">
-                                                    {block.displayParams.length}
-                                                </span>
-                                            </div>
-                                            <span className="text-[11px] text-[var(--color-fg-muted)] hidden sm:inline">
-                                                {block.sousTitre}
-                                            </span>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                            {block.displayParams.map(param => {
-                                                const statut = getStatut(param);
-                                                const meta = PARAMETRE_METADATA[param.codeParametre];
-                                                const IconComponent = meta?.icone || Sliders;
-                                                const titreAffiche = meta?.titre || param.codeParametre;
-                                                const valeurAffichee = formatValeurAffichage(param.codeParametre, param.valeur);
-                                                const estInactif = !param.estActif;
-                                                const isMaster = block.masterCode === param.codeParametre;
-                                                const isSuspendedByMaster = block.isMasterInactive && !isMaster;
-
-                                                return (
-                                                    <Card
-                                                        key={param.idParametre}
-                                                        bordered
-                                                        className={`flex flex-col justify-between rounded-none border transition-all ${
-                                                            estInactif || isSuspendedByMaster
-                                                                ? 'border-dashed border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/5 opacity-85'
-                                                                : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)]'
-                                                        }`}
-                                                    >
-                                                        <CardHeader className="py-3 px-4 border-b border-[var(--color-border-subtle)]">
-                                                            <div className="flex items-start justify-between gap-2.5">
-                                                                <div className="flex items-center gap-2.5 min-w-0">
-                                                                    <div className={`p-2 rounded-none border shrink-0 ${
-                                                                        estInactif
-                                                                            ? 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-600)] border-[var(--color-warning-500)]/25'
-                                                                            : param.estDesactivable
-                                                                            ? 'bg-[var(--color-success-500)]/10 text-[var(--color-success-600)] border-[var(--color-success-500)]/25'
-                                                                            : 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] border-[var(--color-brand-500)]/25'
-                                                                    }`}>
-                                                                        <IconComponent size={16} />
-                                                                    </div>
-                                                                    <div className="min-w-0">
-                                                                        <h3 className="text-xs font-bold text-[var(--color-fg)] truncate" title={titreAffiche}>
-                                                                            {titreAffiche}
-                                                                        </h3>
-                                                                        {isMaster && (
-                                                                            <span className="text-[9px] font-bold px-1.5 py-0.2 border rounded-none bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] border-[var(--color-brand-500)]/25 mt-0.5 inline-block">
-                                                                                Paramètre Maître
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                                <div className="shrink-0 flex items-center gap-1.5">
-                                                                    <StatutBadge statut={statut} />
-                                                                </div>
-                                                            </div>
-                                                        </CardHeader>
-
-                                                        <CardBody className="py-3.5 px-4 space-y-3 flex-1">
-                                                            {/* Switch / Badge d'activation */}
-                                                            <div className="flex items-center justify-between p-2.5 rounded-none bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
-                                                                <div className="flex items-center gap-2">
-                                                                    {param.estDesactivable ? (
-                                                                        isSuspendedByMaster ? (
-                                                                            <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--color-warning-600)]" title="Suspendu par le paramètre maître">
-                                                                                <AlertTriangle size={13} />
-                                                                                Suspendu
-                                                                            </span>
-                                                                        ) : param.estActif ? (
-                                                                            <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--color-success-600)]">
-                                                                                <CheckCircle2 size={13} />
-                                                                                Règle Active
-                                                                            </span>
-                                                                        ) : (
-                                                                            <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--color-warning-600)]">
-                                                                                <XCircle size={13} />
-                                                                                Règle Coupée
-                                                                            </span>
-                                                                        )
-                                                                    ) : param.historiqueNonConsomme ? (
-                                                                        <span className="text-[11px] text-[var(--color-fg-muted)]">Non utilisé</span>
-                                                                    ) : (
-                                                                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--color-brand-600)]" title="Constante système requise par le moteur de paie">
-                                                                            <Lock size={12} />
-                                                                            Constante Système
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-
-                                                                {/* Toggle Switch Rectiligne Galaxam (rounded-none) */}
-                                                                {param.estDesactivable ? (
-                                                                    <button
-                                                                        type="button"
-                                                                        role="switch"
-                                                                        aria-checked={param.estActif}
-                                                                        disabled={togglingId === param.idParametre || statut !== 'EN_VIGUEUR'}
-                                                                        onClick={(e) => handleToggleActif(param, e)}
-                                                                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-none border transition-colors duration-150 ease-in-out focus:outline-none ${
-                                                                            param.estActif 
-                                                                                ? 'bg-[var(--color-success-500)] border-[var(--color-success-600)]' 
-                                                                                : 'bg-[var(--color-bg-subtle)] border-[var(--color-border)]'
-                                                                        }`}
-                                                                        title={statut !== 'EN_VIGUEUR' ? 'Version non en vigueur' : (param.effetDesactivation || 'Basculer cette règle')}
-                                                                    >
-                                                                        <span
-                                                                            className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-none shadow-xs transform transition duration-150 ease-in-out mt-[2px] ml-[2px] ${
-                                                                                param.estActif ? 'translate-x-4 bg-[var(--color-surface)]' : 'translate-x-0 bg-[var(--color-fg-muted)]'
-                                                                            }`}
-                                                                        />
-                                                                    </button>
-                                                                ) : (
-                                                                    <span className="text-[10px] text-[var(--color-fg-muted)] font-mono">
-                                                                        {param.historiqueNonConsomme ? 'Sans effet calcul' : 'Non débrayable'}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-
-                                                            {/* Valeur numérique / textuelle */}
-                                                            <div>
-                                                                <div className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider font-semibold">
-                                                                    {estInactif || isSuspendedByMaster ? 'Valeur enregistrée (inactive)' : 'Valeur d’Application'}
-                                                                </div>
-                                                                <div className={`text-xl font-black mt-0.5 tracking-tight ${
-                                                                    estInactif || isSuspendedByMaster ? 'text-[var(--color-fg-muted)] line-through' : 'text-[var(--color-fg)]'
-                                                                }`}>
-                                                                    {valeurAffichee}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Explication métier */}
-                                                            <div className="text-xs text-[var(--color-fg-muted)] leading-relaxed line-clamp-2" title={meta?.explication || param.description}>
-                                                                {meta?.explication || param.description || '-'}
-                                                            </div>
-                                                            {estInactif && param.effetDesactivation && (
-                                                                <div className="text-xs text-[var(--color-warning-600)]" role="status">
-                                                                    {param.effetDesactivation}
-                                                                </div>
-                                                            )}
-
-                                                            {/* Validité */}
-                                                            <div className="pt-2 border-t border-[var(--color-border-subtle)] flex items-center justify-between text-[11px] text-[var(--color-fg-muted)]">
-                                                                <span className="flex items-center gap-1.5 truncate">
-                                                                    <Calendar size={12} className="shrink-0" />
-                                                                    {formatPeriodeValidite(param.dateDebut, param.dateFin, statut)}
-                                                                </span>
-                                                            </div>
-                                                        </CardBody>
-
-                                                        <CardFooter className="py-2.5 px-4 flex items-center justify-end gap-2 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] rounded-none">
-                                                            {statut !== 'PROGRAMME' && (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="xs"
-                                                                    onClick={() => handleOpenEdit(param, true)}
-                                                                    title="Programmer une nouvelle version à date d'effet future"
-                                                                >
-                                                                    <Plus size={13} className="mr-1" />
-                                                                    Versionner
-                                                                </Button>
-                                                            )}
-                                                            <Button
-                                                                variant="secondary"
-                                                                size="xs"
-                                                                onClick={() => handleOpenEdit(param, false)}
-                                                            >
-                                                                <Edit2 size={13} className="mr-1" />
-                                                                Modifier
-                                                            </Button>
-                                                        </CardFooter>
-                                                    </Card>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            })
-                    )}
-                </div>
-            )}
-
+            <Modal isOpen={!!details} onClose={() => setDetails(null)} title="Détail du paramètre" size="lg">
+                {details && <div className="space-y-4">
+                    <div><h3 className="font-semibold">{PARAMETRE_METADATA[details.codeParametre]?.titre || details.codeParametre}</h3><p className="font-mono text-xs text-[var(--color-fg-muted)]">{details.codeParametre}</p></div>
+                    <p className="text-sm">{details.description || 'Description non renseignée.'}</p>
+                    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm"><div><dt className="text-[var(--color-fg-muted)]">Valeur</dt><dd>{formatValeurAffichage(details.codeParametre,details.valeur)}</dd></div><div><dt className="text-[var(--color-fg-muted)]">Domaine</dt><dd>{CATEGORIE_LABELS[details.categorie] || details.categorie}</dd></div><div><dt className="text-[var(--color-fg-muted)]">Validité</dt><dd>{formatPeriodeValidite(details.dateDebut,details.dateFin,getStatut(details))}</dd></div><div><dt className="text-[var(--color-fg-muted)]">Version</dt><dd><StatutBadge statut={getStatut(details)} /></dd></div></dl>
+                    {details.historiqueNonConsomme && <p className="text-sm text-[var(--color-fg-muted)]">Paramètre historique non consommé par le moteur.</p>}
+                    {parametres.filter(param => param.codeParametre === details.codeParametre && param.idParametre !== details.idParametre).length > 0 && <div className="border-t border-[var(--color-border-subtle)] pt-3 space-y-2"><h4 className="font-semibold text-sm">Autres versions</h4>{parametres.filter(param => param.codeParametre === details.codeParametre && param.idParametre !== details.idParametre).map(param => <div key={param.idParametre} className="flex flex-wrap justify-between gap-2 text-sm"><span>{formatPeriodeValidite(param.dateDebut,param.dateFin,getStatut(param))}</span><span className="font-mono">{formatValeurAffichage(param.codeParametre,param.valeur)}</span></div>)}</div>}
+                    {details.effetDesactivation && <div className="border-t border-[var(--color-border-subtle)] pt-3"><h4 className="font-semibold text-sm">Effet de la désactivation</h4><p className="text-sm text-[var(--color-fg-muted)]">{details.effetDesactivation}</p></div>}
+                    {detailsError && <FormError message={detailsError} />}
+                    {canWrite && details.peutBasculer && <Button variant="outline" onClick={async event => { if (await handleToggleActif(details,event)) setDetails(null); }} loading={togglingId === details.idParametre} className="min-h-[44px]">{details.estActif ? 'Désactiver' : 'Activer'}</Button>}
+                </div>}
+            </Modal>
             {/* MODALE D'ÉDITION / NOUVELLE VERSION AGRANDIE */}
             {(() => {
                 const meta = PARAMETRE_METADATA[formData.codeParametre];
@@ -1793,7 +875,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                 return (
                     <Modal
                         isOpen={showModal}
-                        onClose={() => setShowModal(false)}
+                        onClose={() => { if (!submitLock.current) setShowModal(false); }}
                         title={
                             <div className="flex items-center gap-2.5">
                                 <div className="p-1.5 bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)] border border-[var(--color-brand-500)]/20">
@@ -1814,7 +896,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                             <div className="flex items-center justify-between w-full">
                                 <div className="text-[11px] text-[var(--color-fg-muted)] flex items-center gap-1.5">
                                     <ShieldCheck size={14} className="text-[var(--color-brand-500)]" />
-                                    <span>Traçabilité et historique des versions conservés</span>
+                                    <span>{isNouvelleVersion ? 'Nouvelle version' : 'Version existante'}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Button type="button" onClick={() => setShowModal(false)} variant="ghost" size="sm" disabled={submitting}>
@@ -1827,43 +909,16 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                             </div>
                         }
                     >
-                        <form id="param-global-form" onSubmit={handleSave} className="space-y-4">
+                        <form noValidate id="param-global-form" onSubmit={handleSave} className="space-y-4">
                             {modalError && <FormError message={modalError} />}
 
-                            {/* Fiche de synthèse métier & avertissement temporel */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <div className="md:col-span-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3 text-xs space-y-1.5">
-                                    <div className="font-bold text-[var(--color-fg)] flex items-center gap-1.5">
-                                        <ShieldCheck size={14} className="text-[var(--color-brand-500)]" />
-                                        <span>Règle d'Intégrité Temporelle</span>
-                                    </div>
-                                    <p className="text-[11px] text-[var(--color-fg-muted)] leading-relaxed">
-                                        {isNouvelleVersion
-                                            ? "Cette nouvelle valeur sera enregistrée sous le statut « Programmé ». Elle prendra automatiquement effet dès la date d'application choisie sans altérer les périodes antérieures scellées."
-                                            : "Les ajustements directs prennent effet immédiatement pour les calculs de paie et pointages actifs. Les périodes clôturées conservent leur instantané immuable."}
-                                    </p>
-                                </div>
-
-                                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 text-xs flex flex-col justify-between">
-                                    <span className="text-[10px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider">
-                                        Nature & Domaine
-                                    </span>
-                                    <div>
-                                        <div className="font-bold text-xs text-[var(--color-fg)]">
-                                            {formData.categorie}
-                                        </div>
-                                        <div className="text-[11px] text-[var(--color-brand-600)] font-medium mt-0.5">
-                                            {formData.historiqueNonConsomme ? 'Ancien paramètre sans effet' : (formData.estDesactivable ? 'Règle débrayable' : 'Constante système')}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <p className="text-sm text-[var(--color-fg-muted)]">{isNouvelleVersion ? 'La nouvelle date de début clôture la version précédente à la veille.' : 'Vous modifiez la valeur et les dates de cette version.'}</p>
 
                             {/* Description métier détaillée */}
-                            {(meta?.explication || formData.description) && (
+                            {formData.description && (
                                 <div className="p-2.5 bg-[var(--color-brand-500)]/5 border border-[var(--color-brand-500)]/20 text-xs text-[var(--color-fg-muted)] leading-relaxed">
                                     <span className="font-semibold text-[var(--color-brand-600)] mr-1">Rôle opérationnel :</span>
-                                    {meta?.explication || formData.description}
+                                    {formData.description}
                                 </div>
                             )}
 
@@ -1892,7 +947,9 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                         label={`Valeur du Paramètre ${meta?.unite ? `(${meta.unite})` : ''}`}
                                         required
                                         value={formData.valeur}
-                                        onChange={(e) => setFormData({ ...formData, valeur: e.target.value })}
+                                        onChange={(e) => handleField('valeur', e.target.value)}
+                                        error={fieldErrors.valeur}
+                                        onBlur={() => setFieldErrors(previous => ({ ...previous, valeur: validateField('valeur', formData.valeur) }))}
                                         placeholder={meta?.unite === 'Ar' ? "Ex: 350000.01 ou 2000" : "Ex: 8 ou 19:30"}
                                         hint={meta?.unite ? `Unité de compte : ${meta.unite}. Accepte les valeurs décimales (ex: 350000.01).` : "Saisie de la valeur pivot du moteur."}
                                         className="font-mono font-bold text-sm"
@@ -1940,7 +997,9 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                         type="date"
                                         required
                                         value={fmtDateInput(formData.dateDebut)}
-                                        onChange={(e) => setFormData({ ...formData, dateDebut: e.target.value })}
+                                        onChange={(e) => handleField('dateDebut', e.target.value)}
+                                        error={fieldErrors.dateDebut}
+                                        onBlur={() => setFieldErrors(previous => ({ ...previous, dateDebut: validateField('dateDebut', formData.dateDebut) }))}
                                         hint={isNouvelleVersion ? "Date future d'entrée en vigueur" : "Début de la période d'application"}
                                     />
                                 </div>
@@ -1950,7 +1009,9 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                         label="Date Fin (Optionnel)"
                                         type="date"
                                         value={fmtDateInput(formData.dateFin)}
-                                        onChange={(e) => setFormData({ ...formData, dateFin: e.target.value })}
+                                        onChange={(e) => handleField('dateFin', e.target.value)}
+                                        error={fieldErrors.dateFin}
+                                        onBlur={() => setFieldErrors(previous => ({ ...previous, dateFin: validateField('dateFin', formData.dateFin) }))}
                                         hint="Laisser vide si en vigueur jusqu'à prochaine version"
                                     />
                                 </div>

@@ -61,6 +61,21 @@ public class ParametreGlobal extends ClassMere {
         };
     }
 
+    public String getStatutTemporel() {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (dateDebut == null) return "NON_DATE";
+        if (dateDebut.toLocalDate().isAfter(today)) return "PROGRAMME";
+        if (dateFin != null && dateFin.toLocalDate().isBefore(today)) return "ARCHIVE";
+        return "EN_VIGUEUR";
+    }
+
+    public boolean isPeutBasculer() {
+        return Boolean.TRUE.equals(estDesactivable) && "EN_VIGUEUR".equals(getStatutTemporel()) && getEffetDesactivation() != null;
+    }
+
+    public boolean isPeutVersionner() { return !"PROGRAMME".equals(getStatutTemporel()); }
+    public boolean isPeutModifier() { return true; }
+
     @Override
     public Integer getTuppleID() {
         return idParametre;

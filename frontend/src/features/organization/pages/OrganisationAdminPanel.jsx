@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Building2, Layers, Briefcase } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import Tabs from '@/components/ui/navigation/Tabs';
+import AdministrationSettingsView from '@/features/administration/components/navigation/AdministrationSettingsView';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
@@ -12,10 +12,10 @@ const FonctionsTab = lazy(() => import('@/features/organization/components/struc
 
 export default function OrganisationAdminPanel() {
     const [searchParams, setSearchParams] = useSearchParams();
-    const activeTab = searchParams.get('tab') || 'filiales';
+    const requestedTab = searchParams.get('tab') || 'filiales';
 
     const handleTabChange = (tabKey) => {
-        setSearchParams({ tab: tabKey });
+        setSearchParams(previous => { const next = new URLSearchParams(previous); next.set('tab', tabKey); return next; });
     };
 
     const mainTabs = [
@@ -24,8 +24,10 @@ export default function OrganisationAdminPanel() {
         { id: 'fonctions', label: 'Postes & Fonctions', icon: <Briefcase size={16} /> }
     ];
 
+    const activeTab = mainTabs.some(tab => tab.id === requestedTab) ? requestedTab : mainTabs[0].id;
+
     return (
-        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+        <div className="space-y-3 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full">
             <SEO title="Organisation & Structure" description="Administration des sites, départements, services et postes." />
 
             <PageHeader
@@ -40,20 +42,13 @@ export default function OrganisationAdminPanel() {
             />
 
             {/* Les onglets structurent la page ; les panneaux métier portent leurs propres cadres. */}
-            <div className="space-y-4">
-                <Tabs 
-                    tabs={mainTabs} 
-                    activeTab={activeTab} 
-                    onChange={handleTabChange} 
-                    variant="underline" 
-                />
-
+            <AdministrationSettingsView groups={[{ id: 'sections', label: 'Configuration', items: mainTabs }]} activeId={activeTab} onChange={handleTabChange}>
                 <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
                     {activeTab === 'filiales' && <FilialesSitesTab />}
                     {activeTab === 'departements' && <DepartementsServicesTab />}
                     {activeTab === 'fonctions' && <FonctionsTab />}
                 </Suspense>
-            </div>
+            </AdministrationSettingsView>
         </div>
     );
 }

@@ -98,6 +98,124 @@ public class RefTypeMouvementPaieController {
         }
     }
 
+    /** Catalogue de paramétrage : capacités et choix du moteur, filtrage et pagination serveur. */
+    @GetMapping("/configuration")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<?> getConfiguration(
+            @RequestParam(defaultValue="rubriques") String domaine,
+            @RequestParam(defaultValue="") String recherche,
+            @RequestParam(defaultValue="") String sens,
+            @RequestParam(defaultValue="") String niveau,
+            @RequestParam(defaultValue="") String statut,
+            @RequestParam(defaultValue="ordre") String tri,
+            @RequestParam(defaultValue="1") int page,
+            @RequestParam(defaultValue="10") int taille,
+            @RequestParam(required=false) Integer selection) {
+        if (!List.of("rubriques", "types").contains(domaine) || page < 1
+                || !List.of(10,25,50).contains(taille) || !List.of("ordre","libelle","code").contains(tri))
+            throw new IllegalArgumentException("Les critères du catalogue ne sont pas valides.");
+        Map<String,Object> catalogue = (Map<String,Object>) getCatalogue().getBody();
+        var rubriques = (List<Map<String,Object>>) catalogue.get("rubriques");
+        var types = (List<Map<String,Object>>) catalogue.get("types");
+        try (Connection c = dataSource.getConnection()) {
+            var lockedRubriques = new java.util.HashSet<Integer>();
+            try (var ps = c.prepareStatement("SELECT id_rubrique FROM paie_avance_acompte a JOIN ref_type_mouvement_paie t USING(id_type_mouvement) WHERE id_rubrique IS NOT NULL UNION SELECT id_rubrique FROM bulletin_paie_ligne UNION SELECT id_rubrique_origine FROM paie_rubrique WHERE id_rubrique_origine IS NOT NULL UNION SELECT id_rubrique FROM paie_rubrique WHERE id_rubrique_origine IS NOT NULL"); var rs = ps.executeQuery()) {
+                while (rs.next()) lockedRubriques.add(rs.getInt(1));
+            }
+            var usedTypes = new java.util.HashSet<Integer>();
+            try (var ps = c.prepareStatement("SELECT DISTINCT id_type_mouvement FROM paie_avance_acompte WHERE id_type_mouvement IS NOT NULL"); var rs = ps.executeQuery()) {
+                while (rs.next()) usedTypes.add(rs.getInt(1));
+            }
+            for (var r : rubriques) {
+                boolean manual = "CONFIGURABLE".equals(r.get("niveauConfiguration"));
+                r.put("peutModifier", manual);
+                r.put("traitementVerrouille", !manual || lockedRubriques.contains((Integer)r.get("id")));
+                boolean dedicated = types.stream().anyMatch(t -> Objects.equals(t.get("idRubrique"),r.get("id")) && !"VARIABLE_DAF".equals(t.get("nature")));
+                r.put("peutVersionner", manual && !dedicated && r.get("dateFinEffet")==null);
+                r.put("etapeLibelle", manual ? (r.get("etapeCalcul")==null ? "Étape à renseigner" : label(etapes(), r.get("etapeCalcul"))) : capabilityPhaseLabel(r.get("phaseCalcul")));
+                r.put("methodeLibelle", manual ? label(methodes(), r.get("methodeCalcul")) : r.get("sourceCalcul"));
+                r.put("arrondiLibelle", manual ? label(arrondis(), r.get("politiqueArrondi")) : r.get("arrondiCalculateur"));
+                r.put("conditionLibelle", label(conditions(), r.get("conditionApplication")));
+                r.put("niveauLibelle", label(niveaux(), r.get("niveauConfiguration")));
+                String calculator=Objects.toString(r.get("calculateur"),"");
+                String target=switch(calculator) {
+                    case "CONGES_ET_RUPTURE" -> "/admin/parametres?module=conges&tab=regles_acquisition";
+                    case "PRIMES_METIER" -> "/admin/parametres?module=paie&tab=parametres_globaux_paie";
+                    case "COTISATIONS" -> "/admin/parametres?module=paie&tab=cotisations_irsa";
+                    case "FISCALITE", "HEURES_MAJOREES" -> "/admin/parametres?module=paie&tab=reglementation_fiscale";
+                    default -> null;
+                };
+                r.put("parametrageUrl",target);
+            }
+            for (var t : types) {
+                boolean manual = "VARIABLE_DAF".equals(t.get("nature"));
+                t.put("peutModifier", true);
+                t.put("liaisonVerrouillee", !manual || usedTypes.contains((Integer)t.get("id")));
+                t.put("identiteVerrouillee", true);
+                t.put("niveauConfiguration", manual ? "CONFIGURABLE" : "SEMI_CONFIGURABLE");
+                t.put("niveauLibelle", manual ? "Configurable" : "Circuit dédié");
+                t.put("rubrique", rubriques.stream().filter(r -> Objects.equals(r.get("id"),t.get("idRubrique"))).findFirst().orElse(null));
+            }
+        } catch (Exception e) { throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e); }
+        var all = "types".equals(domaine) ? types : rubriques;
+        String q = java.text.Normalizer.normalize(recherche.trim().toLowerCase(java.util.Locale.ROOT), java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        var filtered = all.stream().filter(item -> {
+            String hay = java.text.Normalizer.normalize((item.get("code")+" "+item.get("libelle")+" "+Objects.toString(item.get("description"),"")).toLowerCase(java.util.Locale.ROOT),java.text.Normalizer.Form.NFD).replaceAll("\\p{M}","");
+            return hay.contains(q) && (sens.isBlank() || sens.equals(item.get("sens")))
+                && (niveau.isBlank() || niveau.equals(item.get("niveauConfiguration")))
+                && (statut.isBlank() || ("actif".equals(statut) == Boolean.TRUE.equals(item.get("estActif"))));
+        }).sorted((a,b) -> {
+            if ("ordre".equals(tri)) { int cmp=Integer.compare(((Number)a.get("ordreAffichage")).intValue(),((Number)b.get("ordreAffichage")).intValue()); if(cmp!=0)return cmp; }
+            String key="libelle".equals(tri)?"libelle":"code";
+            return Objects.toString(a.get(key),"").compareToIgnoreCase(Objects.toString(b.get(key),""));
+        }).toList();
+        int actualPage=Math.min(page, Math.max(1,(filtered.size()+taille-1)/taille));
+        int start=(actualPage-1)*taille;
+        Map<String,Object> result=new LinkedHashMap<>();
+        result.put("items",filtered.subList(start,Math.min(start+taille,filtered.size())));
+        result.put("totalElements",filtered.size()); result.put("page",actualPage); result.put("taille",taille);
+        result.put("selection", all.stream().filter(r -> Objects.equals(r.get("id"),selection)).findFirst().orElse(null));
+        result.put("options",Map.of("categories",categories(),"etapes",etapes(),"methodes",methodes(),"arrondis",arrondis(),"conditions",conditions(),"niveaux",niveaux(),"sens",List.of(Map.of("value","GAIN","label","Gain","categorieType","PRIME"),Map.of("value","RETENUE","label","Retenue","categorieType","RETENUE_DIVERSE")),"statuts",choix("actif","Actifs","inactif","Inactifs"),"tris",choix("ordre","Ordre du catalogue","libelle","Libellé","code","Code"),"assiettes",List.of(Map.of("key","soumisIrsa","label","IRSA"),Map.of("key","soumisCnaps","label","CNaPS"),Map.of("key","soumisSante","label","Santé"),Map.of("key","soumisFmfp","label","FMFP","heriteDe","soumisCnaps"))));
+        result.put("rubriquesCompatibles",rubriques.stream().filter(r -> Boolean.TRUE.equals(r.get("estActif")) && !Boolean.TRUE.equals(r.get("estFixe")) && "MONTANT".equals(r.get("typeValeur"))).toList());
+        result.put("defautsRubrique",Map.ofEntries(Map.entry("categorie","PRIME"),Map.entry("sens","GAIN"),Map.entry("typeValeur","MONTANT"),Map.entry("etapeCalcul","BRUT"),Map.entry("methodeCalcul","MONTANT"),Map.entry("politiqueArrondi","CENTIME"),Map.entry("conditionApplication","TOUS"),Map.entry("soumisIrsa",true),Map.entry("soumisCnaps",true),Map.entry("soumisSante",true),Map.entry("soumisFmfp",true),Map.entry("estActif",true),Map.entry("estFixe",false),Map.entry("ordreAffichage",10)));
+        result.put("defautsType",Map.of("sens","GAIN","categorie","PRIME","estActif",true,"ordreAffichage",100,"estProratise",false,"estPlafonneDixieme",false));
+        result.put("validation", Map.of("codePattern","[A-Z][A-Z0-9_]{2,39}","codeMessage","Utilisez 3 à 40 caractères : lettres majuscules, chiffres ou tirets bas ; commencez par une lettre."));
+        result.put("famille", selection == null || "types".equals(domaine) ? List.of() : rubriques.stream().filter(r -> {
+            var selected=all.stream().filter(a -> Objects.equals(a.get("id"),selection)).findFirst().orElse(null);
+            if(selected==null)return false;
+            return Objects.equals(r.get("idRubriqueOrigine")==null?r.get("id"):r.get("idRubriqueOrigine"),selected.get("idRubriqueOrigine")==null?selected.get("id"):selected.get("idRubriqueOrigine"));
+        }).sorted(java.util.Comparator.comparing(r -> Objects.toString(r.get("dateDebutEffet"),""))).toList());
+        return ResponseEntity.ok(result);
+    }
+
+    private static List<Map<String,Object>> choix(String... values) {
+        var options = new ArrayList<Map<String,Object>>();
+        for(int i=0;i<values.length;i+=2) options.add(Map.of("value",values[i],"label",values[i+1]));
+        return options;
+    }
+    private static List<Map<String,Object>> categories() {
+        var options=choix("PRIME","Prime","INDEMNITE_IMPOSABLE","Indemnité","INDEMNITE_NON_IMPOSABLE","Indemnité hors assiettes","RETENUE_DIVERSE","Retenue sur le net");
+        return options.stream().map(o -> {
+            var r=new LinkedHashMap<String,Object>(o);
+            boolean retenue="RETENUE_DIVERSE".equals(o.get("value"));
+            boolean hors=retenue || "INDEMNITE_NON_IMPOSABLE".equals(o.get("value"));
+            r.put("defauts",Map.of("sens",retenue?"RETENUE":"GAIN","etapeCalcul",retenue?"RETENUE_NET":hors?"GAIN_NET":"BRUT","soumisIrsa",!hors,"soumisCnaps",!hors,"soumisSante",!hors,"soumisFmfp",!hors));
+            return (Map<String,Object>)r;
+        }).toList();
+    }
+    private static List<Map<String,Object>> etapes() {
+        return List.of(Map.of("value","BRUT","label","Dans le brut","sens","GAIN","assiettesModifiables",true),Map.of("value","GAIN_NET","label","Ajout au net après impôt","sens","GAIN","assiettesModifiables",false),Map.of("value","RETENUE_NET","label","Retenue sur le net après impôt","sens","RETENUE","assiettesModifiables",false));
+    }
+    private static List<Map<String,Object>> methodes(){return choix("MONTANT","Montant saisi","QUANTITE_TAUX","Quantité × taux unitaire","POURCENTAGE_SALAIRE_BASE","Pourcentage du salaire de base");}
+    private static List<Map<String,Object>> arrondis(){return choix("CENTIME","Au centime","ARIARY","À l’ariary","DIZAINE","À la dizaine d’ariary");}
+    private static List<Map<String,Object>> conditions(){return choix("TOUS","Tous les salariés","ASSUJETTI_IRSA","Assujettis à l’IRSA","ASSUJETTI_CNAPS","Assujettis à la CNaPS","ASSUJETTI_SANTE","Assujettis à la santé");}
+    private static List<Map<String,Object>> niveaux(){return choix("CONFIGURABLE","Configurable","SEMI_CONFIGURABLE","Partiellement configurable","SYSTEM","Système");}
+    private static String capabilityPhaseLabel(Object phase) {
+        return label(choix("BRUT","Dans le brut","GAIN_NET","Ajout au net après impôt","RETENUE_NET","Retenue sur le net après impôt","COTISATIONS","Calcul des cotisations","IMPOT","Calcul de l’impôt","NET_FINAL","Net final","DOMAINE","Calculateur métier"),phase);
+    }
+    private static String label(List<Map<String,Object>> options,Object value){return options.stream().filter(o->Objects.equals(o.get("value"),value)).map(o->o.get("label").toString()).findFirst().orElse("Calculateur dédié");}
+
     @GetMapping
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> listerTypesMouvement(@RequestParam(name = "tous", defaultValue = "false") boolean tous) {

@@ -4,6 +4,7 @@ import { getErrorMessage } from '@/api/apiClient';
 import referentielService from '@/features/administration/api/referentielService';
 import { getMenuIcon } from '@/utils/iconRegistry';
 import IconPicker from '@/components/ui/forms/IconPicker';
+import Card from '@/components/ui/data-display/Card';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Input, { Select } from '@/components/ui/forms/Input';
@@ -210,22 +211,14 @@ export default function MenuManagementTab() {
 
     // Rendu
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Notifications */}
             {error && <Alert type="error" message={error} />}
 
             {/* Barre d'outils */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-4 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
-                <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)]" size={16} />
-                    <input
-                        type="text"
-                        placeholder="Rechercher par identifiant, libellé..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 border border-[var(--color-border)] rounded-none bg-[var(--color-surface)] text-sm text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]"
-                    />
-                </div>
+            <Card className="overflow-hidden p-0" shadow="none">
+            <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center p-3.5 border-b border-[var(--color-border-subtle)]">
+                <div className="flex-1 max-w-md"><Input aria-label="Rechercher" placeholder="Rechercher par code ou libellé…" value={search} onChange={event => setSearch(event.target.value)} iconLeft={<Search size={16} />} className="min-h-[44px]" /></div>
                 <Button
                     onClick={handleOpenCreateModal}
                     variant="primary"
@@ -237,7 +230,7 @@ export default function MenuManagementTab() {
             </div>
 
             {/* Tableau des menus */}
-            <Table>
+            <Table bordered={false}>
                 <Thead>
                     <Th>Code / Identifiant</Th>
                     <Th>Libellé (Hiérarchie)</Th>
@@ -290,7 +283,7 @@ export default function MenuManagementTab() {
                                         <div className="flex justify-end gap-1.5">
                                             <button
                                                 onClick={() => handleOpenEditModal(menu)}
-                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                                 title="Modifier le menu"
                                                 aria-label={`Modifier ${menu.libelle}`}
                                             >
@@ -298,7 +291,7 @@ export default function MenuManagementTab() {
                                             </button>
                                             <button
                                                 onClick={() => handleOpenDeleteModal(menu)}
-                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
+                                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
                                                 title="Supprimer le menu"
                                                 aria-label={`Supprimer ${menu.libelle}`}
                                             >
@@ -324,6 +317,7 @@ export default function MenuManagementTab() {
                     )}
                 </Tbody>
             </Table>
+            </Card>
 
             {/* Modale d'ajout/modification menu */}
             <Modal

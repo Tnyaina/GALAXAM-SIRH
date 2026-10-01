@@ -335,7 +335,7 @@ export default function DepartementsServicesTab() {
     const filteredServices = services.filter(s => showInactive || s.estActif);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {error && <Alert type="error" message={error} />}
             {actionSuccess && <Alert type="success" message={actionSuccess} />}
 

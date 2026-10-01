@@ -38,6 +38,7 @@ export default function FormModal({
     customFooter,
     formId,
     className = '',
+    noValidate = false,
     children,
 }) {
     const generatedId = useId();
@@ -80,7 +81,7 @@ export default function FormModal({
             className={className}
             footer={customFooter !== undefined ? customFooter : defaultFooter}
         >
-            <form id={computedFormId} onSubmit={onSubmit} className="space-y-4">
+            <form id={computedFormId} noValidate={noValidate} onSubmit={onSubmit} className="space-y-4">
                 {error && <FormError message={error} />}
                 {children}
             </form>

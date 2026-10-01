@@ -11,7 +11,7 @@ export default function SitesList({
     onOpenCreate,
 }) {
     return (
-        <Table>
+        <Table bordered={false}>
             <Thead>
                 <Th>Code Site</Th>
                 <Th>Nom du Site</Th>

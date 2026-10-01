@@ -35,6 +35,7 @@ export default function Button({
   iconLeft,
   iconRight,
   iconOnly = false,
+  wrapLabel = false,
   loading = false,
   disabled = false,
   className = '',
@@ -65,7 +66,7 @@ export default function Button({
       onClick={handleClick}
       className={`
         inline-flex flex-row items-center justify-center font-semibold tracking-wide uppercase text-[0.75em]
-        rounded-none transition-all duration-200 ease-in-out select-none whitespace-nowrap leading-none
+        rounded-none transition-all duration-200 ease-in-out select-none ${wrapLabel ? 'whitespace-normal' : 'whitespace-nowrap'} leading-none
         focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)] focus:ring-offset-0
         ${!isDisabled ? 'active:scale-[0.98] cursor-pointer' : 'opacity-50 cursor-not-allowed shadow-none pointer-events-none disabled:pointer-events-none'}
         ${loading ? 'animate-pulse' : ''}
@@ -82,7 +83,7 @@ export default function Button({
         </svg>
       ) : (iconLeft ?? icon)}
       {hasChildren && (
-        <span className={`inline-flex flex-row items-center justify-center gap-2 whitespace-nowrap leading-none ${loading ? 'opacity-90' : ''}`}>{children}</span>
+        <span className={`inline-flex flex-row items-center gap-2 ${wrapLabel ? 'min-w-0 flex-1 justify-start whitespace-normal text-left leading-snug' : 'justify-center whitespace-nowrap leading-none'} ${loading ? 'opacity-90' : ''}`}>{children}</span>
       )}
       {!loading && iconRight}
     </button>

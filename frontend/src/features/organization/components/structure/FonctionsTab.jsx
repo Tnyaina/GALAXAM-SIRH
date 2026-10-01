@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Plus, Edit2, Eye, Briefcase, Power } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiClient';
 import organisationService from '@/features/organization/api/organisationService';
+import Card from '@/components/ui/data-display/Card';
 import Button from '@/components/ui/forms/Button';
 import Input, { Checkbox } from '@/components/ui/forms/Input';
 import Badge from '@/components/ui/data-display/Badge';
@@ -186,20 +187,21 @@ export default function FonctionsTab() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Notifications */}
             {actionSuccess && <Alert type="success" message={actionSuccess} />}
             {error && <Alert type="error" message={error} />}
 
             {/* Barre d'outils */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-[var(--color-surface)] p-4 rounded-none border border-[var(--color-border-subtle)] shadow-sm">
+            <Card className="overflow-hidden p-0" shadow="none">
+            <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center p-3.5 border-b border-[var(--color-border-subtle)]">
                 <div className="flex items-center gap-3 flex-1 max-w-lg">
                     <div className="flex-1">
                         <Input
                             placeholder="Rechercher par intitulé de poste, code..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            icon={<Search size={16} />}
+                            iconLeft={<Search size={16} />}
                         />
                     </div>
                     <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-subtle)] rounded-none whitespace-nowrap">
@@ -224,7 +226,7 @@ export default function FonctionsTab() {
             </div>
 
             {/* Tableau des fonctions */}
-            <Table>
+            <Table bordered={false}>
                 <Thead>
                     <Th>Code Poste</Th>
                     <Th>Intitulé du Poste / Fonction</Th>
@@ -263,7 +265,7 @@ export default function FonctionsTab() {
                                     <div className="flex justify-end items-center gap-1.5">
                                         <button
                                             onClick={() => handleOpenEdit(f)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                             title="Modifier le poste"
                                             aria-label={`Modifier ${f.libelle}`}
                                         >
@@ -271,7 +273,7 @@ export default function FonctionsTab() {
                                         </button>
                                         <button
                                             onClick={() => requestToggleStatus(f)}
-                                            className={`p-1.5 rounded-none cursor-pointer transition-colors ${
+                                            className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors ${
                                                 f.estActif
                                                     ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
                                                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
@@ -300,6 +302,7 @@ export default function FonctionsTab() {
                     )}
                 </Tbody>
             </Table>
+            </Card>
 
             {/* Modale Fonction */}
             <FonctionFormModal

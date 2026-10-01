@@ -262,7 +262,7 @@ export default function PopulationStepPage() {
                                 <td className="px-4 py-3.5 text-center">
                                     <Badge variant={variant} size="sm">{label}</Badge>
                                 </td>
-                                <td className="px-4 py-3.5 text-[11px] text-[var(--color-fg-muted)] italic max-w-xs">
+                                <td className="px-4 py-3.5 text-[11px] text-[var(--color-fg-muted)]  max-w-xs">
                                     {getPopulationReasonLabel(p.reasonCode || p.reason || p.motif)}
                                 </td>
                             </tr>

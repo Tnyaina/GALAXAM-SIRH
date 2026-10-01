@@ -90,7 +90,7 @@ export default function ModesPaiementTab() {
     };
 
     return (
-        <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4 font-sans">
+        <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-[var(--color-border-subtle)]">
                 <div>
                     <h4 className="font-bold text-[var(--color-fg)] text-base">Modes de Paiement des Salaires</h4>
@@ -194,7 +194,7 @@ export default function ModesPaiementTab() {
                         </div>
                     }
                 >
-                    <form id="form-modifier-mode-paiement" onSubmit={handleSave} className="space-y-4 text-xs font-sans">
+                    <form id="form-modifier-mode-paiement" onSubmit={handleSave} className="space-y-4 text-xs">
                         {saveError && <FormError message={saveError} />}
 
                         <div className="bg-[var(--color-bg-subtle)] p-2.5 border border-[var(--color-border-subtle)] space-y-1">
@@ -261,4 +261,3 @@ export default function ModesPaiementTab() {
         </div>
     );
 }
-

@@ -21,10 +21,10 @@ public class ParametreGlobalController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> getAllParametresGlobaux() {
+    public ResponseEntity<?> getAllParametresGlobaux(@RequestParam(required = false) String categorie) {
         try (Connection c = dataSource.getConnection()) {
             List<ParametreGlobal> list = ParametreGlobal.listAll(c);
-            return ResponseEntity.ok(list);
+            return ResponseEntity.ok(list.stream().filter(p -> categorie == null || categorie.isBlank() || categorie.equals(p.getCategorie())).toList());
         } catch (Exception e) {
             e.printStackTrace();
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);

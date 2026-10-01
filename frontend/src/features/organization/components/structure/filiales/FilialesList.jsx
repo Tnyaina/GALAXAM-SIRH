@@ -10,7 +10,7 @@ export default function FilialesList({
     onOpenCreate,
 }) {
     return (
-        <Table>
+        <Table bordered={false}>
             <Thead>
                 <Th>Code</Th>
                 <Th>Société et siège</Th>

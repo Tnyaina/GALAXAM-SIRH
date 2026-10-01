@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Edit2, Award, CreditCard, ArrowUpRight } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiClient';
 import contratService from '@/features/employees/api/contratService';
@@ -8,12 +8,13 @@ import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 import FormError from '@/components/ui/feedback/FormError';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Modal from '@/components/ui/overlays/Modal';
 import { Card, CardHeader } from '@/components/ui/data-display/Card';
 
-export default function CareerReferenceDataManagementTab() {
+export default function CareerReferenceDataManagementTab({ section = 'categories' }) {
     // État local : référentiels, retours d'action et modales.
     const [categoriesPro, setCategoriesPro] = useState([]);
     const [modesPaie, setModesPaie] = useState([]);
@@ -23,7 +24,8 @@ export default function CareerReferenceDataManagementTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [modalError, setModalError] = useState('');
-    const [actionSuccess, setActionSuccess] = useState('');
+    const toast = useToast();
+    const submitLock = useRef(false);
 
     const [showModalCp, setShowModalCp] = useState(false);
     const [selectedCp, setSelectedCp] = useState(null);
@@ -31,32 +33,26 @@ export default function CareerReferenceDataManagementTab() {
 
     const [formDataCp, setFormDataCp] = useState({ code: '', libelle: '', description: '', estEligibleHs: true, actif: true });
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
-            const [cpList, mpList, mmList, tevList] = await Promise.all([
-                contratService.getCategoriesPro(false),
-                contratService.getModesPaie(),
-                contratService.getMotifsMouvement(),
-                contratService.getTypesEvenementRh(),
-            ]);
-            setCategoriesPro(cpList || []);
-            setModesPaie(mpList || []);
-            setMotifsMouvement(mmList || []);
-            setTypesEvenement(tevList || []);
+            if (section === 'categories') setCategoriesPro(await contratService.getCategoriesPro(false) || []);
+            else if (section === 'modes_calcul') setModesPaie(await contratService.getModesPaie() || []);
+            else if (section === 'motifs') setMotifsMouvement(await contratService.getMotifsMouvement() || []);
+            else if (section === 'evenements') setTypesEvenement(await contratService.getTypesEvenementRh() || []);
         } catch (err) {
             console.error('Erreur chargement référentiels carrière:', err);
             setError('Impossible de charger les référentiels de carrière.');
         } finally {
             setLoading(false);
         }
-    };
+    }, [section]);
 
     // Effet : charge les référentiels de carrière à l'ouverture.
     useEffect(() => {
         loadData();
-    }, []);
+    }, [loadData]);
 
     const handleOpenEditCp = (cp) => {
         setSelectedCp(cp);
@@ -73,7 +69,7 @@ export default function CareerReferenceDataManagementTab() {
 
     const handleSubmitCp = async (e) => {
         e.preventDefault();
-        if (submitting) return;
+        if (submitLock.current || submitting) return;
         setModalError(null);
 
         if (!formDataCp.code.trim() || !formDataCp.libelle.trim()) {
@@ -83,29 +79,32 @@ export default function CareerReferenceDataManagementTab() {
 
         if (!selectedCp) return;
 
+        submitLock.current = true;
         setSubmitting(true);
         try {
             await contratService.updateCategoriePro(selectedCp.idCategorieProfessionnelle, formDataCp);
-            setActionSuccess(`Catégorie "${formDataCp.libelle}" modifiée avec succès.`);
+            toast.success(`Catégorie "${formDataCp.libelle}" modifiée avec succès.`);
             setShowModalCp(false);
             loadData();
         } catch (err) {
             console.error('Erreur enregistrement catégorie:', err);
             setModalError(getErrorMessage(err, "Erreur lors de l'enregistrement."));
         } finally {
+            submitLock.current = false;
             setSubmitting(false);
         }
     };
+
+    const selectedReference = { modes_calcul: modesPaie, motifs: motifsMouvement, evenements: typesEvenement }[section];
 
     // Rendu
     return (
         <div className="space-y-8">
             {/* Notifications */}
-            {actionSuccess && <Alert type="success" message={actionSuccess} />}
             {error && <Alert type="error" message={error} />}
 
             {/* Section 1: Catégories Professionnelles */}
-            <Card className="overflow-hidden p-0" shadow="none">
+            {!error && section === 'categories' && <Card className="overflow-hidden p-0" shadow="none">
                 <CardHeader divided className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3.5">
                     <div>
                         <h2 className="text-base font-bold text-[var(--color-fg)] flex items-center gap-2">
@@ -149,7 +148,7 @@ export default function CareerReferenceDataManagementTab() {
                                         {cp.estEligibleHs ? (
                                             <Badge variant="success" size="sm">Oui</Badge>
                                         ) : (
-                                            <Badge variant="warning" size="sm">Non</Badge>
+                                            <Badge variant="default" size="sm">Non</Badge>
                                         )}
                                     </Td>
                                     <Td>
@@ -158,26 +157,27 @@ export default function CareerReferenceDataManagementTab() {
                                         </Badge>
                                     </Td>
                                     <Td className="text-right">
-                                        <button
+                                        <Button variant="ghost" className="min-h-[44px] min-w-[44px]"
                                             onClick={() => handleOpenEditCp(cp)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                             title="Modifier la catégorie"
                                             aria-label={`Modifier ${cp.libelle}`}
                                         >
                                             <Edit2 size={16} />
-                                        </button>
+                                        </Button>
                                     </Td>
                                 </Tr>
                             ))}
                         </Tbody>
                     </Table>
                 )}
-            </Card>
+            </Card>}
 
             {/* Section 2: Modes de calcul de paie, Motifs et Types d'Événements RH */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-4">
+                {loading && section !== 'categories' && <SkeletonTable rows={5} columns={3} />}
+                {!loading && !error && selectedReference?.length === 0 && <EmptyState title="Aucune référence" description="Aucun élément n’est renseigné dans cette liste." />}
                 {/* Modes de Calcul Paie */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 rounded-none shadow-sm space-y-3">
+                {!loading && !error && selectedReference?.length > 0 && section === 'modes_calcul' && <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 rounded-none shadow-sm space-y-3">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-2">
                         <CreditCard size={15} className="text-[var(--color-brand-500)]" />
                         Modes de Paie ({modesPaie.length})
@@ -193,10 +193,10 @@ export default function CareerReferenceDataManagementTab() {
                             </div>
                         ))}
                     </div>
-                </div>
+                </div>}
 
                 {/* Motifs de Mouvement */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 rounded-none shadow-sm space-y-3">
+                {!loading && !error && selectedReference?.length > 0 && section === 'motifs' && <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 rounded-none shadow-sm space-y-3">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-2">
                         <ArrowUpRight size={15} className="text-[var(--color-brand-500)]" />
                         Motifs de Mouvements ({motifsMouvement.length})
@@ -209,10 +209,10 @@ export default function CareerReferenceDataManagementTab() {
                             </div>
                         ))}
                     </div>
-                </div>
+                </div>}
 
                 {/* Types d'Événements RH */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 rounded-none shadow-sm space-y-3">
+                {!loading && !error && selectedReference?.length > 0 && section === 'evenements' && <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 rounded-none shadow-sm space-y-3">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-2">
                         <Award size={15} className="text-[var(--color-brand-500)]" />
                         Types d'Événements RH ({typesEvenement.length})
@@ -228,7 +228,7 @@ export default function CareerReferenceDataManagementTab() {
                             </div>
                         ))}
                     </div>
-                </div>
+                </div>}
             </div>
 
             {/* Modale d'ajout/modification Catégorie Pro */}

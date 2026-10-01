@@ -36,6 +36,7 @@ export function Tabs({
                             key={tab.id}
                             type="button"
                             onClick={() => onChange(tab.id)}
+                            aria-pressed={isActive}
                             className={`
                                 flex items-center gap-1.5 py-2 px-3 border-b-2 text-xs font-semibold cursor-pointer whitespace-nowrap rounded-none
                                 ${isActive
@@ -72,6 +73,7 @@ export function Tabs({
                         key={tab.id}
                         type="button"
                         onClick={() => onChange(tab.id)}
+                            aria-pressed={isActive}
                         variant={isActive ? 'primary' : 'ghost'}
                         size="sm"
                         iconLeft={tab.icon}

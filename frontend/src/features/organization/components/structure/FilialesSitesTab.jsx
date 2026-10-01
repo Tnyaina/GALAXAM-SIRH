@@ -506,7 +506,7 @@ export default function FilialesSitesTab() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <Tabs
                     tabs={subTabs}
@@ -540,14 +540,15 @@ export default function FilialesSitesTab() {
 
             {error && <Alert type="error" message={error} />}
 
-            <Card className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center p-3.5" shadow="sm">
+            <Card className="overflow-hidden p-0" shadow="none">
+            <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center p-3.5 border-b border-[var(--color-border-subtle)]">
                 <div className="flex items-center gap-3 flex-1 flex-wrap">
                     <div className="flex-1 min-w-[200px] max-w-sm">
                         <Input
                             placeholder={activeSubTab === 'filiales' ? "Rechercher par code, raison sociale..." : "Rechercher un site par code, nom..."}
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            icon={<Search size={15} />}
+                            iconLeft={<Search size={15} />}
                         />
                     </div>
 
@@ -581,7 +582,7 @@ export default function FilialesSitesTab() {
                         <span>Afficher inactifs</span>
                     </label>
                 </div>
-            </Card>
+            </div>
 
             {activeSubTab === 'filiales' && (
                 <FilialesList
@@ -601,6 +602,8 @@ export default function FilialesSitesTab() {
                     onOpenCreate={handleOpenCreateSite}
                 />
             )}
+
+            </Card>
 
             <FilialeFormModal
                 isOpen={showFilialeModal}

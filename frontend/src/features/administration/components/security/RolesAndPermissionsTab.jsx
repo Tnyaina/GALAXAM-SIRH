@@ -352,7 +352,7 @@ export default function RolesAndPermissionsTab() {
 
     // Rendu
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Notifications */}
             {error && <Alert type="error" message={error} />}
 

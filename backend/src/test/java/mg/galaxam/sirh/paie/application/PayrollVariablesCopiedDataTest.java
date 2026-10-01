@@ -42,6 +42,41 @@ class PayrollVariablesCopiedDataTest {
     @Autowired mg.galaxam.sirh.paie.application.export.SafiExportService safi;
 
     @Test
+    @SuppressWarnings("unchecked")
+    void catalogueConfigurationPagineEtVerrouille() throws Exception {
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                "recette", "", AuthorityUtils.createAuthorityList("ROLE_ADMIN", "PAIE_WRITE")));
+        try {
+            var result=(java.util.Map<String,Object>)types.getConfiguration("rubriques","","","","","ordre",1,10,null).getBody();
+            var items=(java.util.List<java.util.Map<String,Object>>)result.get("items");
+            assertEquals(10,items.size());
+            assertTrue((Integer)result.get("totalElements") >= items.size());
+            var second=(java.util.Map<String,Object>)types.getConfiguration("rubriques","","","","","ordre",2,10,null).getBody();
+            var next=(java.util.List<java.util.Map<String,Object>>)second.get("items");
+            assertTrue(next.stream().noneMatch(n -> items.stream().anyMatch(i -> i.get("id").equals(n.get("id")))));
+            var searched=(java.util.Map<String,Object>)types.getConfiguration("rubriques","salaire_base","","","","code",1,10,null).getBody();
+            var salary=((java.util.List<java.util.Map<String,Object>>)searched.get("items")).get(0);
+            assertEquals(false,salary.get("peutModifier"));
+            assertEquals(true,salary.get("traitementVerrouille"));
+            var selected=(java.util.Map<String,Object>)types.getConfiguration("rubriques","inexistant","","","","ordre",1,10,(Integer)salary.get("id")).getBody();
+            assertEquals(0,selected.get("totalElements"));
+            assertNotNull(selected.get("selection")); // La fiche ne disparaît pas lors d'un filtre.
+            var filtered=(java.util.Map<String,Object>)types.getConfiguration("types","","RETENUE","","actif","ordre",1,10,null).getBody();
+            for(var item:(java.util.List<java.util.Map<String,Object>>)filtered.get("items")) {
+                assertEquals("RETENUE",item.get("sens")); assertEquals(true,item.get("estActif"));
+                assertNotNull(item.get("liaisonVerrouillee"));
+            }
+            assertThrows(IllegalArgumentException.class,()->types.getConfiguration("rubriques","","","","","ordre",1,500,null));
+            String dump=System.getProperty("payroll.configuration-preview");
+            if(dump!=null) {
+                var full=types.getConfiguration("rubriques","","","","","ordre",1,50,null).getBody();
+                var mapper=new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
+                java.nio.file.Files.writeString(java.nio.file.Path.of(dump),mapper.writeValueAsString(full));
+            }
+        } finally { SecurityContextHolder.clearContext(); }
+    }
+
+    @Test
     void troisTraitementsEtProtectionsSurAgentY() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             assertEquals("sirh_galaxam_recette_variables_20261001", scalar(c, "SELECT current_database()"));

@@ -99,6 +99,7 @@ export const paieService = {
         return response.data;
     },
 
+    getConfigurationCatalogue: async (params, signal) => (await apiClient.get('referentiel/types-mouvement-paie/configuration', { params, signal })).data,
     getCatalogueVariables: async () => (await apiClient.get('referentiel/types-mouvement-paie/catalogue')).data,
     creerVersionRubrique: async (id, payload) => (await apiClient.post(`paie/rubriques/${id}/versions`, payload)).data,
     creerRubriqueVariable: async (payload) => (await apiClient.post('paie/rubriques', payload)).data,

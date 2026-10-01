@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Shield, Users, Menu } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import Tabs from '@/components/ui/navigation/Tabs';
+import AdministrationSettingsView from '@/features/administration/components/navigation/AdministrationSettingsView';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
@@ -12,25 +12,27 @@ const MenuManagementTab = lazy(() => import('@/features/administration/component
 
 export default function SecuriteAdminPanel() {
     const [searchParams, setSearchParams] = useSearchParams();
-    const activeTab = searchParams.get('tab') || 'users';
+    const requestedTab = searchParams.get('tab') || 'users';
 
     const handleTabChange = (tabKey) => {
-        setSearchParams({ tab: tabKey });
+        setSearchParams(previous => { const next = new URLSearchParams(previous); next.set('tab', tabKey); return next; });
     };
 
     const mainTabs = [
-        { id: 'users', label: 'Gestion des Utilisateurs', icon: <Users size={16} /> },
-        { id: 'roles', label: 'Rôles & Permissions', icon: <Shield size={16} /> },
-        { id: 'menus', label: 'Gestion des Menus', icon: <Menu size={16} /> }
+        { id: 'users', label: 'Utilisateurs', icon: <Users size={16} /> },
+        { id: 'roles', label: 'Rôles & permissions', icon: <Shield size={16} /> },
+        { id: 'menus', label: 'Menus', icon: <Menu size={16} /> }
     ];
 
+    const activeTab = mainTabs.some(tab => tab.id === requestedTab) ? requestedTab : mainTabs[0].id;
+
     return (
-        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans">
+        <div className="space-y-3 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full">
             <SEO title="Sécurité & Accès" description="Administration des comptes utilisateurs, rôles, permissions et menus." />
 
             <PageHeader
-                title="Sécurité & Contrôle d'Accès"
-                subtitle="Gestion des comptes utilisateurs, assignation des rôles RBAC, permissions et visibilité des menus."
+                title="Accès & système"
+                subtitle="Gérez les utilisateurs, leurs permissions et les menus accessibles."
                 icon={Shield}
                 breadcrumbs={[
                     { label: 'Tableau de bord', href: '/dashboard' },
@@ -40,20 +42,13 @@ export default function SecuriteAdminPanel() {
             />
 
             {/* Les panneaux métier portent leur propre cadre ; la navigation reste intégrée à la page. */}
-            <div className="space-y-4">
-                <Tabs 
-                    tabs={mainTabs} 
-                    activeTab={activeTab} 
-                    onChange={handleTabChange} 
-                    variant="underline" 
-                />
-
+            <AdministrationSettingsView groups={[{ id: 'sections', label: 'Configuration', items: mainTabs }]} activeId={activeTab} onChange={handleTabChange}>
                 <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
                     {activeTab === 'users' && <UserManagementTab />}
                     {activeTab === 'roles' && <RolesAndPermissionsTab />}
                     {activeTab === 'menus' && <MenuManagementTab />}
                 </Suspense>
-            </div>
+            </AdministrationSettingsView>
         </div>
     );
 }
