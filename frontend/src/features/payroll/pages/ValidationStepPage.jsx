@@ -1,38 +1,42 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-    CheckCircle2, ShieldCheck,
-    ArrowRight, Check, X, ArrowLeft, RefreshCw
-} from 'lucide-react';
-import SEO from '@/components/system/SEO';
+import { ArrowRight, CheckCircle2, ShieldCheck, RefreshCw } from 'lucide-react';
 import PayrollCampaignShell from '@/features/payroll/components/workflow/PayrollCampaignShell';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
 import Modal from '@/components/ui/overlays/Modal';
-import { Card } from '@/components/ui/data-display/Card';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import Badge from '@/components/ui/data-display/Badge';
+import StatCard from '@/components/ui/data-display/StatCard';
+import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { getErrorMessage } from '@/api/apiClient';
 
-/**
- * ValidationStepPage — Étape 6 : Validation de la paie (Maquette V1 Full V3).
- *
- * Structure cible :
- * 1. Conditions d'éligibilité (Checklist 6 points)
- * 2. Résumé financier global (données backend pures)
- * 3. Action unique : [VALIDER LA PAIE]
- */
+const CHECK_PRESENTATION = {
+    PASS: { label: 'Conforme', variant: 'success' },
+    WARNING: { label: 'À examiner', variant: 'warning' },
+    BLOCK: { label: 'Bloquant', variant: 'danger' },
+};
+
+const formatAmount = (amount) => amount == null ? 'Non renseigné' : formatMoneyAr(amount);
+
+/** Validation de campagne alimentée par le contexte et le cockpit backend. */
 export default function ValidationStepPage() {
-    // Contexte et hook métier
     const { periodId } = useParams();
     const navigate = useNavigate();
     const numericPeriodId = Number(periodId) || null;
-    const { periodes, context, loading: ctxLoading, refresh } = usePayrollCampaign(numericPeriodId);
+    const {
+        periodes,
+        context,
+        loading: ctxLoading,
+        refreshSilent,
+    } = usePayrollCampaign(numericPeriodId);
 
-    // État local
-    const [financials, setFinancials] = useState(null);
+    const [cockpit, setCockpit] = useState(null);
+    const [cockpitLoading, setCockpitLoading] = useState(true);
     const [financialError, setFinancialError] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
@@ -40,353 +44,260 @@ export default function ValidationStepPage() {
     const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
     const [motifReouverture, setMotifReouverture] = useState('');
 
-    // Données dérivées
     const actions = context?.availableActions || {};
-    const canValidate = actions?.VALIDATE?.allowed === true;
-    const canReopen = actions?.REOPEN?.allowed === true;
+    const canValidate = actions.VALIDATE?.allowed === true;
+    const canReopen = actions.REOPEN?.allowed === true;
     const periode = context?.selectedPeriod || context?.currentPeriod;
-    const isValidee = ['PAIE_VALIDEE', 'CLOTUREE'].includes(periode?.state);
-    const isCloturee = periode?.state === 'CLOTUREE';
-    const isStale = context?.recalculationRequired === true;
+    const payrollStatus = periode?.workflowStatuses?.paie;
+    const isValidee = ['VALIDEE', 'CLOTUREE'].includes(payrollStatus?.code);
+    const isCloturee = payrollStatus?.code === 'CLOTUREE';
+    const readiness = cockpit?.readiness || {};
+    const checks = Array.isArray(readiness.checks) ? readiness.checks : [];
+    const kpis = cockpit?.kpis || {};
+    const summary = cockpit?.validationSummary || {};
 
-    const condReadiness = canValidate;
-    const condPopulation = (financials?.includedCount ?? 0) > 0 && financials?.blockedCount === 0;
-    const condCalculActuel = !isStale;
-    const condBulletins = (financials?.includedCount ?? 0) > 0
-        && financials?.bulletins === financials?.includedCount;
-    const condZeroBlocker = financials?.blockedCount === 0;
-    const condControles = canValidate;
-    const allConditionsMet = condReadiness && condPopulation && condCalculActuel && condBulletins && condZeroBlocker && condControles;
+    const loadCockpit = useCallback(() => {
+        if (!numericPeriodId) return Promise.resolve();
+        setCockpitLoading(true);
+        setCockpit(null);
+        setFinancialError('');
+        return paieService.getCockpitPeriode(numericPeriodId)
+            .then((data) => setCockpit(data || null))
+            .catch((err) => setFinancialError(getErrorMessage(err, 'Résumé de validation indisponible.')))
+            .finally(() => setCockpitLoading(false));
+    }, [numericPeriodId]);
 
-    // Effets
     useEffect(() => {
-        if (!numericPeriodId) return;
         let isMounted = true;
-        setFinancials(null);
+        if (!numericPeriodId) return undefined;
+        setCockpitLoading(true);
         setFinancialError('');
         paieService.getCockpitPeriode(numericPeriodId)
-            .then(data => {
-                if (isMounted && data?.kpis) {
-                    const population = Array.isArray(data.population) ? data.population : [];
-                    setFinancials({
-                        includedCount: population.filter(member => ['INCLUDED', 'INCLUS'].includes(member.decision)).length,
-                        blockedCount: population.filter(member => ['BLOCKED', 'BLOQUE'].includes(member.decision)).length,
-                        bulletins: data.kpis.totalBulletins ?? data.kpis.bulletinsCount ?? data.kpis.effectifCalcule ?? (Array.isArray(data.bulletins) ? data.bulletins.length : 0),
-                        brut: data.kpis.totalBrut ?? data.kpis.masseSalarialeBrute ?? 0,
-                        cotisationsSalariales: data.kpis.totalCotisationsSalariales ?? 0,
-                        irsa: data.kpis.totalIrsa ?? 0,
-                        net: data.kpis.totalNetAPayer ?? data.kpis.masseNetAPayer ?? 0,
-                        patronales: data.kpis.totalCotisationsPatronales ?? 0,
-                        coutGlobal: data.kpis.coutGlobalEmployeur ?? ((Number(data.kpis.totalBrut) || 0) + (Number(data.kpis.totalCotisationsPatronales) || 0)),
-                    });
-                }
+            .then((data) => { if (isMounted) setCockpit(data || null); })
+            .catch((err) => {
+                if (isMounted) setFinancialError(getErrorMessage(err, 'Résumé de validation indisponible.'));
             })
-            .catch(err => { if (isMounted) setFinancialError(getErrorMessage(err, 'Contrôle de population indisponible.')); });
+            .finally(() => { if (isMounted) setCockpitLoading(false); });
         return () => { isMounted = false; };
     }, [numericPeriodId]);
 
-    // Actions
+    const refreshView = useCallback(async () => {
+        await Promise.all([refreshSilent(), loadCockpit()]);
+    }, [refreshSilent, loadCockpit]);
+
     const handleValider = useCallback(async () => {
-        if (!numericPeriodId) return;
+        if (!numericPeriodId || !canValidate) return;
         setActionLoading(true);
         setFeedback(null);
         try {
             await paieService.validerPaiePeriode(numericPeriodId);
-            setFeedback({ type: 'success', text: 'Campagne de paie validée avec succès. Les bulletins sont scellés.' });
+            setFeedback({ type: 'success', text: 'Campagne validée. Les bulletins sont scellés.' });
             setConfirmModalOpen(false);
-            await refresh();
+            await refreshView();
         } catch (err) {
-            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la validation.') });
+            setFeedback({ type: 'error', text: getErrorMessage(err, 'Validation impossible.') });
         } finally {
             setActionLoading(false);
         }
-    }, [numericPeriodId, refresh]);
+    }, [numericPeriodId, canValidate, refreshView]);
 
-    const handleReouvrirSubmit = useCallback(async (e) => {
-        e.preventDefault();
-        if (motifReouverture.trim().length < 5) return;
+    const handleReouvrirSubmit = useCallback(async (event) => {
+        event.preventDefault();
+        if (!canReopen || motifReouverture.trim().length < 5) return;
         setActionLoading(true);
         try {
             await periodePaieService.executeCommand(numericPeriodId, 'REOPEN', {
                 version: periode?.version,
-                motif: motifReouverture.trim()
+                motif: motifReouverture.trim(),
             });
             setIsReopenModalOpen(false);
             setMotifReouverture('');
-            setFeedback({ type: 'success', text: 'Période réouverte pour corrections.' });
-            await refresh();
+            setFeedback({ type: 'success', text: 'Période réouverte pour correction.' });
+            await refreshView();
         } catch (err) {
-            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la réouverture.') });
+            setFeedback({ type: 'error', text: getErrorMessage(err, 'Réouverture impossible.') });
         } finally {
             setActionLoading(false);
         }
-    }, [numericPeriodId, periode, motifReouverture, refresh]);
+    }, [numericPeriodId, canReopen, periode, motifReouverture, refreshView]);
 
-    // Rendu
+    const outputsDestination = context?.nextStep?.destination
+        || context?.campaignSteps?.find((step) => step.code === 'OUTPUTS')?.destination;
+
     return (
         <PayrollCampaignShell
             context={context}
             periodes={periodes}
             activeStep="VALIDATION"
             loading={ctxLoading}
-            onRefresh={refresh}
             title="Validation de la paie"
-            description="Approbation finale et scellement officiel des bulletins de la campagne."
+            subtitle="Vérifiez les contrôles et les totaux avant de valider la campagne."
+            prevStep={!isValidee ? {
+                label: 'Contrôle',
+                destination: `/paie/periodes/${numericPeriodId}/controle`,
+            } : undefined}
             primaryAction={isValidee ? {
-                label: 'Continuer vers Sorties',
-                onClick: () => navigate(`/paie/periodes/${numericPeriodId}/sorties`),
-                icon: <ArrowRight size={14} />
+                label: 'Continuer vers les sorties',
+                onClick: () => outputsDestination && navigate(outputsDestination),
+                disabled: !outputsDestination,
+                icon: <ArrowRight size={14} />,
             } : {
                 label: 'Valider la paie',
                 onClick: () => setConfirmModalOpen(true),
                 loading: actionLoading,
-                disabled: !allConditionsMet || !canValidate,
-                icon: <ShieldCheck size={14} />
+                disabled: !canValidate || cockpitLoading || !cockpit,
+                icon: <ShieldCheck size={14} />,
             }}
-            secondaryAction={!isValidee ? {
-                label: 'Retour au contrôle',
-                onClick: () => navigate(`/paie/periodes/${numericPeriodId}/controle`),
-                icon: <ArrowLeft size={14} />
-            } : (canReopen && !isCloturee ? {
-                label: 'Rouvrir la période',
-                onClick: () => setIsReopenModalOpen(true),
-                icon: <RefreshCw size={14} />
-            } : null)}
         >
-            <SEO
-                title="Validation de la paie | GALAXAM SIRH"
-                description="Validation officielle et scellement de la paie."
-            />
-
-            <div className="max-w-4xl mx-auto space-y-6">
+            <div className="space-y-4">
                 {feedback && (
                     <Alert
                         type={feedback.type}
-                        title={feedback.type === 'error' ? 'Erreur' : 'Succès'}
+                        title={feedback.type === 'error' ? 'Erreur' : 'Confirmation'}
                         message={feedback.text}
                         onClose={() => setFeedback(null)}
                     />
                 )}
-                {financialError && <Alert type="error" title="Contrôle incomplet" message={financialError} />}
+                {financialError && <Alert type="error" title="Résumé indisponible" message={financialError} />}
 
-                {/* Statut si déjà validée */}
                 {isValidee && (
-                    <div className="p-4 bg-[var(--color-success-500)]/10 border-2 border-[var(--color-success-500)]/40 rounded-none flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <CheckCircle2 size={24} className="text-[var(--color-success-600)] shrink-0" />
-                            <div>
-                                <h3 className="text-sm font-bold text-[var(--color-fg)]">
-                                    Campagne de paie validée
-                                </h3>
-                                <p className="text-xs text-[var(--color-fg-muted)]">
-                                    Les {financials?.bulletins || '—'} bulletins sont officiellement validés et scellés. Vous pouvez maintenant accéder aux sorties réglementaires.
-                                </p>
-                            </div>
-                        </div>
-                        <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={() => navigate(`/paie/periodes/${numericPeriodId}/sorties`)}
-                            iconRight={<ArrowRight size={14} />}
-                        >
-                            Accéder aux sorties
-                        </Button>
-                    </div>
+                    <Alert
+                        type="success"
+                        title={isCloturee ? 'Campagne clôturée' : 'Campagne validée'}
+                        message={isCloturee
+                            ? 'Les bulletins sont clôturés. Consultez les sorties réglementaires.'
+                            : 'Les bulletins sont validés. Les sorties réglementaires sont disponibles.'}
+                    />
                 )}
 
-                {/* Les conditions servent à décider avant validation ; après scellement,
-                    l'action VALIDATE est normalement interdite par le serveur. */}
-                {!isValidee && <Card className="p-5 border border-[var(--color-border-subtle)] space-y-4">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] pb-2 border-b border-[var(--color-border-subtle)]">
-                        Conditions préalables à la validation
-                    </h3>
+                {!isValidee && context?.recalculationRequired && (
+                    <Alert
+                        type="warning"
+                        title="Recalcul requis"
+                        message={context.recalculationReason || 'Les données de paie ont changé depuis le dernier calcul.'}
+                    />
+                )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                        <div className="flex items-center gap-2.5 p-2.5 bg-[var(--color-bg-subtle)]">
-                            {condReadiness ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
-                            <span className={condReadiness ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
-                                Validation autorisée par les contrôles du serveur
-                            </span>
-                        </div>
+                <Card>
+                    <CardHeader>
+                        <CardTitle size="sm">Contrôles de validation</CardTitle>
+                    </CardHeader>
+                    <CardBody>
+                        {cockpitLoading ? (
+                            <p className="text-sm text-[var(--color-fg-muted)]" role="status">Chargement des contrôles…</p>
+                        ) : checks.length > 0 ? (
+                            <ul className="divide-y divide-[var(--color-border-subtle)]">
+                                {checks.map((check) => {
+                                    const presentation = CHECK_PRESENTATION[check.status] || CHECK_PRESENTATION.WARNING;
+                                    return (
+                                        <li key={check.code} className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                                            <div className="flex min-w-0 items-start gap-2.5">
+                                                <CheckCircle2
+                                                    size={16}
+                                                    aria-hidden="true"
+                                                    className={check.status === 'PASS'
+                                                        ? 'mt-0.5 shrink-0 text-[var(--color-success-600)]'
+                                                        : check.status === 'BLOCK'
+                                                            ? 'mt-0.5 shrink-0 text-[var(--color-danger-600)]'
+                                                            : 'mt-0.5 shrink-0 text-[var(--color-warning-600)]'}
+                                                />
+                                                <p className="text-sm text-[var(--color-fg)]">{check.message}</p>
+                                            </div>
+                                            <Badge variant={presentation.variant} size="sm">{presentation.label}</Badge>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-[var(--color-fg-muted)]">Aucun contrôle disponible.</p>
+                        )}
 
-                        <div className="flex items-center gap-2.5 p-2.5 bg-[var(--color-bg-subtle)]">
-                            {condPopulation ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
-                            <span className={condPopulation ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
-                                {financials?.includedCount ?? '—'} salarié(s) inclus · {financials?.blockedCount ?? '—'} bloqué(s)
-                            </span>
-                        </div>
-
-                        <div className="flex items-center gap-2.5 p-2.5 bg-[var(--color-bg-subtle)]">
-                            {condCalculActuel ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-warning-600)]" />}
-                            <span className={condCalculActuel ? 'text-[var(--color-fg)]' : 'text-[var(--color-warning-600)] font-semibold'}>
-                                Calcul actuel à jour (non obsolète)
-                            </span>
-                        </div>
-
-                        <div className="flex items-center gap-2.5 p-2.5 bg-[var(--color-bg-subtle)]">
-                            {condBulletins ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
-                            <span className={condBulletins ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
-                                {financials?.bulletins ?? 0} / {financials?.includedCount ?? '—'} bulletin(s) calculé(s)
-                            </span>
-                        </div>
-
-                        <div className="flex items-center gap-2.5 p-2.5 bg-[var(--color-bg-subtle)]">
-                            {condZeroBlocker ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
-                            <span className={condZeroBlocker ? 'text-[var(--color-fg)]' : 'text-[var(--color-danger-600)] font-semibold'}>
-                                Aucun salarié bloqué dans la population
-                            </span>
-                        </div>
-
-                        <div className="flex items-center gap-2.5 p-2.5 bg-[var(--color-bg-subtle)]">
-                            {condControles ? <Check size={16} className="text-[var(--color-success-600)]" /> : <X size={16} className="text-[var(--color-danger-600)]" />}
-                            <span className="text-[var(--color-fg)]">
-                                Décision de validation disponible côté serveur
-                            </span>
-                        </div>
-                    </div>
-                </Card>}
-
-                {/* 2. RÉSUMÉ FINANCIER GLOBAL */}
-                <Card className="p-5 border border-[var(--color-border-subtle)] space-y-4">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] pb-2 border-b border-[var(--color-border-subtle)]">
-                        Résumé financier de la campagne
-                    </h3>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        <div className="p-3 bg-[var(--color-bg-subtle)]">
-                            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
-                                Masse Salariale Brute
-                            </span>
-                            <span className="text-base font-black font-mono text-[var(--color-fg)] mt-1 block">
-                                {formatMoneyAr(financials?.brut)}
-                            </span>
-                        </div>
-
-                        <div className="p-3 bg-[var(--color-bg-subtle)]">
-                            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
-                                Cotisations Salariales
-                            </span>
-                            <span className="text-base font-black font-mono text-[var(--color-danger-600)] mt-1 block">
-                                -{formatMoneyAr(financials?.cotisationsSalariales)}
-                            </span>
-                        </div>
-
-                        <div className="p-3 bg-[var(--color-bg-subtle)]">
-                            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
-                                Retenue IRSA / ISI
-                            </span>
-                            <span className="text-base font-black font-mono text-[var(--color-danger-600)] mt-1 block">
-                                -{formatMoneyAr(financials?.irsa)}
-                            </span>
-                        </div>
-
-                        <div className="p-3 bg-[var(--color-success-50)]/30 border-2 border-[var(--color-success-500)]/40 rounded-none">
-                            <span className="text-[10px] text-[var(--color-success-700)] dark:text-[var(--color-success-400)] uppercase font-bold block">
-                                Net à Payer Total
-                            </span>
-                            <span className="text-lg font-black font-mono text-[var(--color-success-700)] dark:text-[var(--color-success-300)] mt-1 block">
-                                {formatMoneyAr(financials?.net)}
-                            </span>
-                        </div>
-
-                        <div className="p-3 bg-[var(--color-bg-subtle)]">
-                            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
-                                Charges Patronales
-                            </span>
-                            <span className="text-base font-black font-mono text-[var(--color-fg)] mt-1 block">
-                                {formatMoneyAr(financials?.patronales)}
-                            </span>
-                        </div>
-
-                        <div className="p-3 bg-[var(--color-bg-subtle)]">
-                            <span className="text-[10px] text-[var(--color-fg-muted)] uppercase font-bold block">
-                                Coût Employeur Global
-                            </span>
-                            <span className="text-base font-black font-mono text-[var(--color-brand-600)] mt-1 block">
-                                {formatMoneyAr(financials?.coutGlobal)}
-                            </span>
-                        </div>
-                    </div>
+                        {!isValidee && !canValidate && !cockpitLoading && (
+                            <Alert
+                                type="warning"
+                                className="mt-4"
+                                title="Validation indisponible"
+                                message="Les règles du serveur ne permettent pas encore de valider cette campagne."
+                            />
+                        )}
+                    </CardBody>
                 </Card>
 
-                {/* Action d'approbation si non validée */}
-                {!isValidee && (
-                    <div className="flex items-center justify-end gap-3 pt-2">
+                <Card>
+                    <CardHeader>
+                        <CardTitle size="sm">Synthèse financière</CardTitle>
+                    </CardHeader>
+                    <CardBody>
+                        {cockpitLoading ? (
+                            <p className="text-sm text-[var(--color-fg-muted)]" role="status">Chargement des montants…</p>
+                        ) : (
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                <StatCard title="Salariés calculés" value={kpis.effectifCalcule ?? 0} color="neutral" subtext={`Population attendue : ${readiness.effectifAttendu ?? 'Non renseignée'}`} />
+                                <StatCard title="Masse brute" value={formatAmount(kpis.totalBrut)} color="neutral" />
+                                <StatCard title="Cotisations salariales" value={formatAmount(kpis.totalCotisationsSalariales)} color="neutral" />
+                                <StatCard title="IRSA / ISI" value={formatAmount(kpis.totalIrsa)} color="neutral" />
+                                <StatCard title="Net à payer" value={formatAmount(summary.netTotal ?? kpis.totalNetAPayer)} color="success" />
+                                <StatCard title="Charges patronales" value={formatAmount(summary.employerContributions ?? kpis.totalCotisationsPatronales)} color="neutral" />
+                            </div>
+                        )}
+                    </CardBody>
+                </Card>
+
+                {canReopen && isValidee && !isCloturee && (
+                    <div className="flex justify-end">
                         <Button
                             variant="secondary"
-                            size="md"
-                            onClick={() => navigate(`/paie/periodes/${numericPeriodId}/controle`)}
-                            iconLeft={<ArrowLeft size={16} />}
+                            size="sm"
+                            onClick={() => setIsReopenModalOpen(true)}
+                            iconLeft={<RefreshCw size={14} />}
                         >
-                            Cockpit de contrôle
-                        </Button>
-                        <Button
-                            variant="primary"
-                            size="md"
-                            onClick={() => setConfirmModalOpen(true)}
-                            disabled={!allConditionsMet || !canValidate}
-                            iconLeft={<ShieldCheck size={16} />}
-                        >
-                            Valider la paie
+                            Rouvrir la période
                         </Button>
                     </div>
                 )}
             </div>
 
-            {/* Modal de confirmation de validation */}
-            <Modal
+            <ConfirmDialog
                 isOpen={confirmModalOpen}
                 onClose={() => setConfirmModalOpen(false)}
-                title="Confirmer la validation de la paie"
-                size="md"
-            >
-                <div className="space-y-4 text-xs">
-                    <p className="text-[var(--color-fg)]">
-                        Vous êtes sur le point de valider officiellement la paie pour <strong>{financials?.bulletins || '—'} salariés</strong> représentant une masse nette de <strong>{formatMoneyAr(financials?.net)}</strong>.
-                    </p>
-                    <div className="p-3 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 rounded text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]">
-                        Cette action scelle les bulletins et active les sorties réglementaires et états de virement.
-                    </div>
-                    <div className="flex justify-end gap-2 pt-2">
-                        <Button variant="secondary" size="sm" onClick={() => setConfirmModalOpen(false)}>
-                            Annuler
-                        </Button>
-                        <Button variant="primary" size="sm" onClick={handleValider} loading={actionLoading}>
-                            Confirmer la validation
-                        </Button>
-                    </div>
-                </div>
-            </Modal>
+                onConfirm={handleValider}
+                title="Confirmer la validation"
+                message={`Valider la paie pour ${kpis.effectifCalcule ?? 0} salarié(s), pour un net total de ${formatAmount(summary.netTotal ?? kpis.totalNetAPayer)} ? Les bulletins seront scellés.`}
+                confirmLabel="Valider la paie"
+                variant="primary"
+                loading={actionLoading}
+            />
 
-            {/* Modal de réouverture pour corrections (Admin) */}
             <Modal
                 isOpen={isReopenModalOpen}
                 onClose={() => setIsReopenModalOpen(false)}
-                title="Réouverture de la période de paie"
+                title="Réouverture de la période"
                 size="md"
             >
-                <form onSubmit={handleReouvrirSubmit} className="space-y-4 text-xs">
-                    <p className="text-[var(--color-fg-muted)]">
-                        La réouverture déverrouille les bulletins pour permettre des corrections. Un motif explicite est requis pour l'audit.
+                <form onSubmit={handleReouvrirSubmit} className="space-y-4">
+                    <p className="text-sm text-[var(--color-fg-muted)]">
+                        Indiquez le motif requis pour l’audit de la réouverture.
                     </p>
                     <div>
-                        <label className="block text-[11px] font-semibold text-[var(--color-fg)] mb-1">
-                            Motif de réouverture (obligatoire)
+                        <label htmlFor="reopen-reason" className="mb-1 block text-sm font-semibold text-[var(--color-fg)]">
+                            Motif
                         </label>
                         <textarea
-                            className="w-full p-2 text-xs border border-[var(--color-border)] rounded bg-[var(--color-surface)] text-[var(--color-fg)]"
+                            id="reopen-reason"
+                            className="w-full border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-sm text-[var(--color-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)]"
                             rows={3}
-                            placeholder="Indiquez la raison détaillée de la réouverture..."
+                            placeholder="Décrivez la correction à effectuer."
                             value={motifReouverture}
-                            onChange={(e) => setMotifReouverture(e.target.value)}
+                            onChange={(event) => setMotifReouverture(event.target.value)}
+                            minLength={5}
                             required
                         />
                     </div>
                     <div className="flex justify-end gap-2">
-                        <Button variant="secondary" size="sm" onClick={() => setIsReopenModalOpen(false)}>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setIsReopenModalOpen(false)}>
                             Annuler
                         </Button>
-                        <Button variant="warning" size="sm" type="submit" loading={actionLoading}>
+                        <Button variant="warning" size="sm" type="submit" loading={actionLoading} disabled={!canReopen || motifReouverture.trim().length < 5}>
                             Confirmer la réouverture
                         </Button>
                     </div>

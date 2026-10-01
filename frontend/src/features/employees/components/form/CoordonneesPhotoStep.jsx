@@ -2,7 +2,6 @@ import { Upload, Camera, Trash2, Phone } from 'lucide-react';
 import Input, { Textarea, AutocompleteInput } from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
 import { Card } from '@/components/ui/data-display/Card';
-import Badge from '@/components/ui/data-display/Badge';
 import Loading from '@/components/ui/feedback/Loading';
 import AuthenticatedImage from '@/components/ui/data-display/AuthenticatedImage';
 

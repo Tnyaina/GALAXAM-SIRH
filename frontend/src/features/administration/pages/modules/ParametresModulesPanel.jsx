@@ -37,7 +37,7 @@ export default function ParametresModulesPanel() {
     );
 
     const handleModuleChange = (moduleId) => {
-        let defaultTab = 'parametres_globaux';
+        let defaultTab = 'reglementation_fiscale';
         if (moduleId === 'conges') defaultTab = 'parametres_globaux_conges';
         else if (moduleId === 'pointage') defaultTab = 'parametres_globaux_pointage';
         else if (moduleId === 'general') defaultTab = 'parametres_globaux_systeme';
@@ -52,6 +52,7 @@ export default function ParametresModulesPanel() {
     // Définition des sous-onglets pour la Paie
     const paieTabs = [
         { id: 'reglementation_fiscale', label: 'Cadre Réglementaire & IRSA', icon: <Scale size={16} /> },
+        { id: 'parametres_globaux_paie', label: 'Constantes (Paie & Primes)', icon: <Sliders size={16} /> },
         { id: 'types_variables', label: 'Types de variables', icon: <Settings2 size={16} /> },
         { id: 'modes_paiement', label: 'Modes de paiement', icon: <CreditCard size={16} /> },
         { id: 'cotisations_irsa', label: 'Cotisations Sociales & Sites', icon: <ShieldCheck size={16} /> },
@@ -141,13 +142,16 @@ export default function ParametresModulesPanel() {
                         {activeModule === 'paie' && (
                             <>
                                 {activeTab === 'reglementation_fiscale' && <ReglementationFiscaleTab />}
+                                {(activeTab === 'parametres_globaux_paie' || activeTab === 'parametres_globaux') && (
+                                    <ParametresGlobauxTab fixedCategory="PAIE" />
+                                )}
                                 {activeTab === 'types_variables' && <VariableTypesConfig />}
                                 {activeTab === 'modes_paiement' && <ModesPaiementTab />}
                                 {activeTab === 'calendrier' && <CalendrierFerieTab />}
                                 {activeTab === 'cotisations_irsa' && <CotisationsIrsaTab />}
                                 {activeTab === 'indemnites_sites' && <IndemnitesSitesTab />}
-                                {/* Compatibilité ascendante : les anciens onglets 'majorations' et 'parametres_globaux' redirigent vers reglementation */}
-                                {(activeTab === 'majorations' || activeTab === 'majorations_params' || activeTab === 'parametres_globaux') && <ReglementationFiscaleTab />}
+                                {/* Compatibilité ascendante : les anciens onglets 'majorations' et 'majorations_params' redirigent vers reglementation */}
+                                {(activeTab === 'majorations' || activeTab === 'majorations_params') && <ReglementationFiscaleTab />}
                             </>
                         )}
 

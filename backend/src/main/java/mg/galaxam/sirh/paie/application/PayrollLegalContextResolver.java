@@ -203,6 +203,18 @@ public class PayrollLegalContextResolver {
         if (assiduite.isActive()) input.setSeuilRetardAssiduiteMinutes(nonNegativeInt(assiduite, "SEUIL_RETARD_ASSIDUITE_MIN"));
         else if (assiduite.isMissing()) throw missingParameter("SEUIL_RETARD_ASSIDUITE_MIN");
 
+        var montantAssiduite = ParametreGlobal.resolve(parameters, "MONTANT_PRIME_ASSIDUITE");
+        if (montantAssiduite.isActive()) {
+            input.setPrimeAssiduiteForfait(nonNegativeDecimal(montantAssiduite, "MONTANT_PRIME_ASSIDUITE"));
+        } else if (montantAssiduite.isDisabled()) {
+            input.setPrimeAssiduiteForfait(BigDecimal.ZERO);
+        } else {
+            // Si non trouvé (missing) : pas de fallback, on ne donne pas (0 Ar)
+            if (input.getPrimeAssiduiteForfait() == null) {
+                input.setPrimeAssiduiteForfait(BigDecimal.ZERO);
+            }
+        }
+
         String[] malusCodes = {"SEUIL_RETARD_PENALITE_PP_MIN", "SEUIL_CONGES_PENALITE_PP_JOURS", "TAUX_PENALITE_PP"};
         boolean malusActive = true;
         for (String code : malusCodes) {

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { History, PlusCircle, Download, Search, FileText, ArrowUpRight, ArrowDownRight, Calendar, User } from 'lucide-react';
+import { History, PlusCircle, Download, Search, FileText, ArrowUpRight, ArrowDownRight, Calendar } from 'lucide-react';
 import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Badge from '@/components/ui/data-display/Badge';

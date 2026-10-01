@@ -2,6 +2,8 @@ package mg.galaxam.sirh.paie.application.workflow;
 
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
@@ -90,6 +92,43 @@ public class PayrollAdjustmentWorkflowService {
                     throw new SirhBusinessException(SirhErrorCode.STATE_CONFLICT,
                             "Un acompte ou une avance déjà versé ne peut pas être annulé par cette commande.");
                 }
+                if (command == PayrollAdjustmentCommand.CANCEL && "IMPUTE_PAIE".equals(entity.getStatut())) {
+                    if (reason == null || reason.isBlank()) {
+                        throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_REASON_REQUIRED,
+                                "Un motif est obligatoire pour annuler une variable imputée.");
+                    }
+                    if (entity.getIdTypeMouvement() == null || entity.getIdBulletin() == null
+                            || entity.getIdPeriodePaie() == null) {
+                        throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
+                                "Le type de cette variable ne permet pas son annulation après imputation.");
+                    }
+                    try (PreparedStatement ps = c.prepareStatement(
+                            "SELECT p.id_periode_paie FROM periode_paie p "
+                                    + "JOIN ref_statut_periode_paie s ON s.id_statut_periode = p.id_statut_periode "
+                                    + "JOIN bulletin_paie b ON b.id_periode_paie = p.id_periode_paie "
+                                    + "WHERE p.id_periode_paie = ? AND b.id_bulletin = ? "
+                                    + "AND s.code = 'VALIDEE' AND b.statut = 'CALCULE' FOR UPDATE OF p, b")) {
+                        ps.setInt(1, entity.getIdPeriodePaie());
+                        ps.setInt(2, entity.getIdBulletin());
+                        try (ResultSet rs = ps.executeQuery()) {
+                            if (!rs.next()) {
+                                throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
+                                        "La variable ne peut être annulée que sur un bulletin calculé non validé.");
+                            }
+                        }
+                    }
+                    try (PreparedStatement ps = c.prepareStatement(
+                            "SELECT owner_code FROM ref_type_mouvement_paie WHERE id_type_mouvement = ?")) {
+                        ps.setInt(1, entity.getIdTypeMouvement());
+                        try (ResultSet rs = ps.executeQuery()) {
+                            if (!rs.next() || !"DAF_PAIE".equals(rs.getString(1))
+                                    || !"VARIABLE_DAF".equals(entity.getProvenance())) {
+                                throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
+                                        "Seule une variable manuelle peut être annulée après imputation.");
+                            }
+                        }
+                    }
+                }
 
                 // Exécution de la transition
                 entity.setStatut(transition.targetStatut());
@@ -163,9 +202,7 @@ public class PayrollAdjustmentWorkflowService {
                 };
                 case CANCEL -> switch (s) {
                     case "EN_ATTENTE", "APPROUVE" -> AdjustmentState.allowed("ANNULE");
-                    case "IMPUTE_PAIE" -> AdjustmentState.blocked(
-                            SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
-                            "Impossible d'annuler un ajustement déjà imputé sur un bulletin.");
+                    case "IMPUTE_PAIE" -> AdjustmentState.allowed("ANNULE");
                     default -> AdjustmentState.blocked(
                             SirhErrorCode.PAYROLL_ADJUSTMENT_COMMAND_BLOCKED,
                             "CANCEL non autorisé depuis l'état : " + s);

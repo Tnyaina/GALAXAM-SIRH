@@ -18,8 +18,8 @@ export default function EmployeFilterBar({
     sites = [],
     departements = [],
     services = [],
-    sortPreset = 'HIERARCHICAL',
-    onSortPresetChange,
+    _sortPreset = 'HIERARCHICAL',
+    _onSortPresetChange,
     onResetFilters,
     totalFound = 0,
 }) {

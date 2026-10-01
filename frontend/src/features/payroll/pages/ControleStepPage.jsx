@@ -1,22 +1,17 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowRight, Eye, Search } from 'lucide-react';
+import { ArrowRight, Eye } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import PayrollCampaignShell from '@/features/payroll/components/workflow/PayrollCampaignShell';
-import Input from '@/components/ui/forms/Input';
 import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
 import Button from '@/components/ui/forms/Button';
-import { Card, CardHeader, CardTitle } from '@/components/ui/data-display/Card';
 import StatCard from '@/components/ui/data-display/StatCard';
-import Tabs from '@/components/ui/navigation/Tabs';
-import Pagination from '@/components/ui/navigation/Pagination';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { getErrorMessage } from '@/api/apiClient';
+import PayrollStepTable, { PayrollEmployeeCell, PayrollMoneyCell } from '@/features/payroll/components/workflow/PayrollStepTable';
 
 const BulletinPaieDrawer = lazy(() => import('@/features/payroll/components/views/BulletinPaieDrawer'));
 const PAGE_SIZE = 20;
@@ -114,86 +109,102 @@ export default function ControleStepPage() {
                     <StatCard title="Net à payer" value={money(cockpit?.kpis?.totalNetAPayer)} color="brand" />
                 </div>
 
-                <Card shadow="none">
-                    <CardHeader className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                        <div>
-                            <CardTitle>État nominatif</CardTitle>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">Montants enregistrés pour la campagne.</p>
+                <PayrollStepTable
+                    title="État nominatif"
+                    badgeCount={matchingCount}
+                    subtitle="Montants enregistrés pour la campagne"
+                    searchValue={query}
+                    onSearchChange={eventOrValue => {
+                        const val = typeof eventOrValue === 'string' ? eventOrValue : eventOrValue?.target?.value || '';
+                        setQuery(val);
+                        setPage(1);
+                    }}
+                    searchPlaceholder="Nom ou matricule…"
+                    filterSlot={
+                        <div className="flex items-center gap-1 ml-2" aria-label="Filtrer les bulletins">
+                            {filterTabs.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    onClick={() => { setFilter(tab.id); setPage(1); }}
+                                    className={`px-2.5 py-0.5 text-xs font-medium border cursor-pointer transition-colors ${
+                                        filter === tab.id
+                                            ? 'border-[var(--color-brand-500)] text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] bg-[var(--color-brand-50)] dark:bg-[var(--color-brand-950)]'
+                                            : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
+                                    }`}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
                         </div>
-                        <div className="w-full lg:w-72">
-                            <Input
-                                aria-label="Rechercher un salarié"
-                                placeholder="Nom ou matricule"
-                                value={query}
-                                onChange={event => { setQuery(event.target.value); setPage(1); }}
-                                iconLeft={<Search size={14} />}
-                            />
-                        </div>
-                    </CardHeader>
-
-                    <Tabs
-                        tabs={filterTabs}
-                        activeTab={filter}
-                        onChange={value => { setFilter(value); setPage(1); }}
-                    />
-
-                    {loading ? (
-                        <div className="p-4"><SkeletonTable rows={6} cols={6} /></div>
-                    ) : error ? null : bulletins.length === 0 ? (
-                        <p className="px-4 py-8 text-sm text-[var(--color-fg-muted)]">
-                            {filter === 'ALERTS' ? 'Aucun bulletin à examiner.' : 'Aucun bulletin trouvé.'}
-                        </p>
-                    ) : (
-                        <Table bordered={false} density="compact" aria-label="Bulletins de la campagne">
-                            <Thead>
-                                <Tr>
-                                    <Th>Salarié</Th>
-                                    <Th className="text-right">Brut</Th>
-                                    <Th className="text-right">Cotisations</Th>
-                                    <Th className="text-right">IRSA</Th>
-                                    <Th className="text-right">Net à payer</Th>
-                                    <Th>Signal</Th>
-                                    <Th className="text-right">Détail</Th>
-                                </Tr>
-                            </Thead>
-                            <Tbody>
-                                {bulletins.map(bulletin => (
-                                    <Tr key={bulletin.idBulletin}>
-                                        <Td className="min-w-48">
-                                            <div className="font-semibold text-[var(--color-fg)]">{bulletin.nomPrenom || 'Nom non renseigné'}</div>
-                                            <div className="text-[11px] text-[var(--color-fg-muted)]">
-                                                {[bulletin.matricule && `Matricule ${bulletin.matricule}`, bulletin.nomSite].filter(Boolean).join(' · ')}
-                                            </div>
-                                        </Td>
-                                        <Td className="text-right font-data tabular-nums whitespace-nowrap">{money(bulletin.totalGainsBruts)}</Td>
-                                        <Td className="text-right font-data tabular-nums whitespace-nowrap">{money(bulletin.totalCotisationsSalariales)}</Td>
-                                        <Td className="text-right font-data tabular-nums whitespace-nowrap">{money(bulletin.irsaNet)}</Td>
-                                        <Td className="text-right font-data font-bold tabular-nums whitespace-nowrap text-[var(--color-brand-700)]">{money(bulletin.netAPayer)}</Td>
-                                        <Td>
-                                            {bulletin.aAlerte === true
-                                                ? <Badge variant="warning" size="xs">À examiner</Badge>
-                                                : <span className="text-xs text-[var(--color-fg-muted)]">Aucun signal</span>}
-                                        </Td>
-                                        <Td className="text-right">
-                                            <Button variant="outline" size="xs" iconLeft={<Eye size={13} />} onClick={() => setSelectedBulletinId(bulletin.idBulletin)}>
-                                                Voir
-                                            </Button>
-                                        </Td>
-                                    </Tr>
-                                ))}
-                            </Tbody>
-                        </Table>
-                    )}
-
-                    {matchingCount > PAGE_SIZE && (
-                        <Pagination
-                            currentPage={page}
-                            pageSize={PAGE_SIZE}
-                            totalItems={matchingCount}
-                            onPageChange={setPage}
-                        />
-                    )}
-                </Card>
+                    }
+                    columns={[
+                        { key: 'salarie', label: 'Salarié', width: 'w-64' },
+                        { key: 'brut', label: 'Salaire Brut', align: 'right' },
+                        { key: 'cotisations', label: 'Cotisations', align: 'right' },
+                        { key: 'irsa', label: 'IRSA', align: 'right' },
+                        { key: 'net', label: 'Net à Payer', align: 'right' },
+                        { key: 'signal', label: 'Signal', align: 'center' },
+                        { key: 'action', label: 'Détail', align: 'center', width: 'w-20' },
+                    ]}
+                    loading={loading}
+                    emptyMessage={filter === 'ALERTS' ? 'Aucun bulletin à examiner.' : 'Aucun bulletin trouvé.'}
+                    pagination={{
+                        currentPage: page,
+                        totalItems: matchingCount,
+                        pageSize: PAGE_SIZE,
+                        onPageChange: setPage,
+                    }}
+                    ariaLabel="Bulletins de la campagne"
+                >
+                    {bulletins.map(bulletin => (
+                        <tr
+                            key={bulletin.idBulletin}
+                            className="hover:bg-[var(--color-bg-subtle)] transition-colors group"
+                        >
+                            <td className="px-4 py-3.5">
+                                <PayrollEmployeeCell
+                                    name={bulletin.nomPrenom || 'Nom non renseigné'}
+                                    matricule={bulletin.matricule}
+                                    subtitle={bulletin.nomSite}
+                                />
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                                <PayrollMoneyCell value={bulletin.totalGainsBruts} />
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                                <PayrollMoneyCell value={bulletin.totalCotisationsSalariales} type="deduction" />
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                                <PayrollMoneyCell value={bulletin.irsaNet} type="deduction" />
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                                <PayrollMoneyCell value={bulletin.netAPayer} type="net" />
+                            </td>
+                            <td className="px-4 py-3.5 text-center">
+                                {bulletin.aAlerte === true ? (
+                                    <Badge variant="warning" size="xs">⚠ À examiner</Badge>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-fg-muted)]">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success-500)] inline-block" />
+                                        OK
+                                    </span>
+                                )}
+                            </td>
+                            <td className="px-4 py-3.5 text-center">
+                                <Button
+                                    variant="outline"
+                                    size="xs"
+                                    iconLeft={<Eye size={13} />}
+                                    onClick={() => setSelectedBulletinId(bulletin.idBulletin)}
+                                    aria-label={`Voir le bulletin de ${bulletin.nomPrenom || bulletin.matricule}`}
+                                >
+                                    Voir
+                                </Button>
+                            </td>
+                        </tr>
+                    ))}
+                </PayrollStepTable>
             </div>
 
             <Suspense fallback={null}>
@@ -202,6 +213,10 @@ export default function ControleStepPage() {
                         isOpen
                         idBulletin={selectedBulletinId}
                         onClose={() => setSelectedBulletinId(null)}
+                        onRecalculateSuccess={async () => {
+                            await refreshSilent();
+                            await loadCockpit();
+                        }}
                     />
                 )}
             </Suspense>

@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect, lazy, Suspense, useMemo } from 'react';
+import { useState, useCallback, useEffect, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Calculator, Play, CheckCircle2, AlertTriangle, RefreshCw, Eye,
-    Users, ArrowRight, Sparkles, ChevronDown, ChevronUp, Search, XCircle, Filter
+    Users, ArrowRight, Sparkles, ChevronDown, ChevronUp, Search, XCircle
 } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import PayrollCampaignShell from '@/features/payroll/components/workflow/PayrollCampaignShell';
@@ -11,11 +11,11 @@ import Alert from '@/components/ui/feedback/Alert';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Badge from '@/components/ui/data-display/Badge';
 import { Card } from '@/components/ui/data-display/Card';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { getErrorMessage } from '@/api/apiClient';
+import PayrollStepTable, { PayrollEmployeeCell, PayrollMoneyCell } from '@/features/payroll/components/workflow/PayrollStepTable';
 
 const BulletinPaieDrawer = lazy(() => import('@/features/payroll/components/views/BulletinPaieDrawer'));
 
@@ -60,7 +60,6 @@ export default function CalculStepPage() {
     const [existingKpis, setExistingKpis] = useState(null);
     const [existingBulletins, setExistingBulletins] = useState([]);
     const [bulletinPage, setBulletinPage] = useState(1);
-    const [bulletinPageCount, setBulletinPageCount] = useState(1);
     const [bulletinTotal, setBulletinTotal] = useState(0);
     const [showResultsTable, setShowResultsTable] = useState(true);
     const [selectedBulletinId, setSelectedBulletinId] = useState(null);
@@ -116,7 +115,6 @@ export default function CalculStepPage() {
             } else {
                 setExistingBulletins([]);
             }
-            setBulletinPageCount(cockpit?.bulletinsPage?.totalPages ?? 1);
             setBulletinTotal(cockpit?.bulletinsPage?.totalElements ?? cockpit?.bulletins?.length ?? 0);
             setCockpitError(null);
         } catch (err) {
@@ -186,7 +184,6 @@ export default function CalculStepPage() {
     const displayBulletins = isSimulationActive
         ? simulationBulletins.slice((bulletinPage - 1) * 20, bulletinPage * 20)
         : existingBulletins;
-    const displayedPageCount = isSimulationActive ? Math.max(1, Math.ceil(simulationBulletins.length / 20)) : bulletinPageCount;
     const populationCount = context?.populationCount ?? context?.population?.eligibleCount ?? context?.periodContext?.nbSalariesTotal;
     const calculationVersion = context?.periodContext?.calculationSnapshotVersion ?? context?.snapshotVersion;
     const controlStep = context?.campaignSteps?.find(step => step.code === 'CONTROL');
@@ -539,7 +536,7 @@ export default function CalculStepPage() {
                             </div>
                         </div>
 
-                        {/* Décomposition technique masquée par défaut pour éviter l'encombrement cognitif */}
+                        {/* Décomposition technique des résultats */}
                         {showResultsTable && (() => {
                             // Filtrage côté client pour la simulation ; côté serveur pour les bulletins persistés.
                             const allBulletinsForFilter = isSimulationActive ? simulationBulletins : existingBulletins;
@@ -552,128 +549,85 @@ export default function CalculStepPage() {
                                     );
                                 })
                                 : allBulletinsForFilter;
-                            // Pour les bulletins persistés on garde la pagination serveur, pour la simulation on pagine côté client.
+
+                            const totalBulletinsCount = isSimulationActive ? simulationBulletins.length : (bulletinTotal || existingBulletins.length);
                             const clientPageCount = Math.max(1, Math.ceil(tableFiltered.length / TABLE_PAGE_SIZE));
                             const clientPage = Math.min(bulletinPage, clientPageCount);
                             const clientSlice = isSimulationActive
                                 ? tableFiltered.slice((clientPage - 1) * TABLE_PAGE_SIZE, clientPage * TABLE_PAGE_SIZE)
-                                : (tableSearch.trim() ? tableFiltered : displayBulletins); // Si recherche active sur persistés : filtrage local
-                            const rowsToShow = isSimulationActive ? clientSlice : (tableSearch.trim() ? tableFiltered : displayBulletins);
-                            const shownPageCount = isSimulationActive ? clientPageCount : (tableSearch.trim() ? 1 : displayedPageCount);
-                            const totalLabel = tableSearch.trim() ? `${tableFiltered.length} / ${isSimulationActive ? simulationBulletins.length : bulletinTotal}` : (isSimulationActive ? simulationBulletins.length : bulletinTotal);
+                                : (tableSearch.trim() ? tableFiltered.slice((bulletinPage - 1) * TABLE_PAGE_SIZE, bulletinPage * TABLE_PAGE_SIZE) : displayBulletins);
+                            const rowsToShow = isSimulationActive || tableSearch.trim() ? clientSlice : displayBulletins;
+                            const currentTotalItems = tableSearch.trim() ? tableFiltered.length : totalBulletinsCount;
+
+                            const columns = [
+                                { key: 'salarie', label: 'Salarié', width: 'w-60' },
+                                { key: 'base', label: 'Salaire Base', align: 'right' },
+                                { key: 'brut', label: 'Brut', align: 'right' },
+                                { key: 'cotisations', label: 'Cotisations', align: 'right' },
+                                { key: 'irsa', label: 'IRSA', align: 'right' },
+                                { key: 'net', label: 'Net à Payer', align: 'right' },
+                                ...(!isSimulationActive ? [{ key: 'action', label: 'Détail', align: 'center', width: 'w-20' }] : []),
+                            ];
+
                             return (
-                                <Card className="border border-[var(--color-border-subtle)] overflow-hidden">
-                                    {/* En-tête avec recherche et filtre */}
-                                    <div className="p-3 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex flex-wrap items-center gap-3">
-                                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                                            <span className="text-xs font-bold text-[var(--color-fg)] shrink-0">
-                                                Décomposition individuelle ({totalLabel} bulletins)
-                                            </span>
-                                            {!isSimulationActive && <span className="text-[11px] text-[var(--color-fg-muted)] hidden sm:inline">· Cliquez sur un collaborateur pour ouvrir son dossier</span>}
-                                        </div>
-                                        {/* Barre de recherche */}
-                                        <div className="relative shrink-0">
-                                            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] pointer-events-none" />
-                                            <input
-                                                id="table-search-bulletins"
-                                                type="text"
-                                                placeholder="Nom ou matricule…"
-                                                value={tableSearch}
-                                                onChange={e => { setTableSearch(e.target.value); setBulletinPage(1); }}
-                                                className="pl-8 pr-8 py-1.5 text-xs border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-500)] w-44"
-                                            />
-                                            {tableSearch && (
-                                                <button type="button" onClick={() => { setTableSearch(''); setBulletinPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] cursor-pointer">
-                                                    <XCircle size={13} />
-                                                </button>
+                                <PayrollStepTable
+                                    title="Décomposition individuelle"
+                                    badgeCount={currentTotalItems}
+                                    subtitle={!isSimulationActive ? "Cliquez sur Voir pour ouvrir le bulletin" : null}
+                                    searchValue={tableSearch}
+                                    onSearchChange={val => { setTableSearch(val); setBulletinPage(1); }}
+                                    searchPlaceholder="Nom ou matricule…"
+                                    columns={columns}
+                                    loading={calcLoading && !isSimulationActive}
+                                    emptyMessage={tableSearch ? `Aucun bulletin correspondant à « ${tableSearch} »` : 'Aucun bulletin calculé pour cette exécution.'}
+                                    pagination={{
+                                        currentPage: bulletinPage,
+                                        totalItems: currentTotalItems,
+                                        pageSize: TABLE_PAGE_SIZE,
+                                        onPageChange: (p) => setBulletinPage(p),
+                                    }}
+                                    ariaLabel="Décomposition des bulletins calculés"
+                                >
+                                    {rowsToShow.map((b) => (
+                                        <tr key={b.idBulletin || b.idEmploye} className="hover:bg-[var(--color-bg-subtle)] transition-colors group">
+                                            <td className="px-4 py-3.5">
+                                                <PayrollEmployeeCell
+                                                    name={b.nomPrenom || b.intitulePoste}
+                                                    matricule={b.matricule}
+                                                    subtitle={b.nomSite}
+                                                />
+                                            </td>
+                                            <td className="px-4 py-3.5 text-right">
+                                                <PayrollMoneyCell value={b.salaireBase} type="muted" />
+                                            </td>
+                                            <td className="px-4 py-3.5 text-right">
+                                                <PayrollMoneyCell value={b.totalGainsBruts} />
+                                            </td>
+                                            <td className="px-4 py-3.5 text-right">
+                                                <PayrollMoneyCell value={b.totalCotisationsSalariales} type="deduction" />
+                                            </td>
+                                            <td className="px-4 py-3.5 text-right">
+                                                <PayrollMoneyCell value={b.irsaNet} type="deduction" />
+                                            </td>
+                                            <td className="px-4 py-3.5 text-right">
+                                                <PayrollMoneyCell value={b.netAPayer} type="net" />
+                                            </td>
+                                            {!isSimulationActive && (
+                                                <td className="px-4 py-3.5 text-center">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="xs"
+                                                        onClick={() => setSelectedBulletinId(b.idBulletin)}
+                                                        iconLeft={<Eye size={13} />}
+                                                        aria-label={`Voir le bulletin de ${b.nomPrenom || b.matricule}`}
+                                                    >
+                                                        Voir
+                                                    </Button>
+                                                </td>
                                             )}
-                                        </div>
-                                    </div>
-                                    {/* Table */}
-                                    <div className="overflow-x-auto">
-                                        <Table className="w-full text-xs" bordered={false}>
-                                            <Thead>
-                                                <Tr>
-                                                    <Th>Salarié</Th>
-                                                    <Th className="text-right">Salaire Base</Th>
-                                                    <Th className="text-right">Brut</Th>
-                                                    <Th className="text-right">Cotisations</Th>
-                                                    <Th className="text-right">IRSA</Th>
-                                                    <Th className="text-right">Net à Payer</Th>
-                                                    {!isSimulationActive && <Th className="text-center w-12">Action</Th>}
-                                                </Tr>
-                                            </Thead>
-                                            <Tbody>
-                                                {rowsToShow.map((b) => (
-                                                    <Tr key={b.idBulletin || b.idEmploye} className="hover:bg-[var(--color-bg-subtle)] transition-colors">
-                                                        <Td className="font-medium text-[var(--color-fg)]">
-                                                            <div>{b.nomPrenom || b.intitulePoste}</div>
-                                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">{b.matricule}</div>
-                                                        </Td>
-                                                        <Td className="text-right font-mono">{formatMoneyAr(b.salaireBase)}</Td>
-                                                        <Td className="text-right font-mono font-medium">{formatMoneyAr(b.totalGainsBruts)}</Td>
-                                                        <Td className="text-right font-mono text-[var(--color-danger-600)]">
-                                                            {b.totalCotisationsSalariales ? `-${formatMoneyAr(b.totalCotisationsSalariales)}` : '—'}
-                                                        </Td>
-                                                        <Td className="text-right font-mono text-[var(--color-danger-600)]">
-                                                            {b.irsaNet ? `-${formatMoneyAr(b.irsaNet)}` : '—'}
-                                                        </Td>
-                                                        <Td className="text-right font-mono font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
-                                                            {formatMoneyAr(b.netAPayer)}
-                                                        </Td>
-                                                        {!isSimulationActive && (
-                                                            <Td className="text-center">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="xs"
-                                                                    onClick={() => setSelectedBulletinId(b.idBulletin)}
-                                                                    iconLeft={<Eye size={13} />}
-                                                                    aria-label={`Voir le bulletin de ${b.nomPrenom || b.matricule}`}
-                                                                />
-                                                            </Td>
-                                                        )}
-                                                    </Tr>
-                                                ))}
-                                            </Tbody>
-                                        </Table>
-                                        {rowsToShow.length === 0 && (
-                                            <p className="p-6 text-sm text-center text-[var(--color-fg-muted)]">
-                                                {tableSearch ? `Aucun bulletin correspondant à « ${tableSearch} »` : 'Aucun bulletin calculé pour cette exécution.'}
-                                            </p>
-                                        )}
-                                    </div>
-                                    {/* Pagination numérotée */}
-                                    {shownPageCount > 1 && (
-                                        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border-subtle)] px-3 py-2.5">
-                                            <span className="text-[11px] text-[var(--color-fg-muted)]">
-                                                Page {bulletinPage} / {shownPageCount} · {totalLabel} résultat(s)
-                                            </span>
-                                            <div className="flex items-center gap-1">
-                                                <Button variant="outline" size="xs" disabled={bulletinPage <= 1} onClick={() => setBulletinPage(p => Math.max(1, p - 1))}>‹</Button>
-                                                {Array.from({ length: Math.min(shownPageCount, 7) }, (_, i) => {
-                                                    // Fenêtre glissante de 7 pages centrée sur la page courante
-                                                    const half = 3;
-                                                    let start = Math.max(1, bulletinPage - half);
-                                                    const end = Math.min(shownPageCount, start + 6);
-                                                    start = Math.max(1, end - 6);
-                                                    return start + i;
-                                                }).map(p => (
-                                                    <button
-                                                        key={p}
-                                                        type="button"
-                                                        onClick={() => setBulletinPage(p)}
-                                                        className={`w-7 h-7 text-[11px] font-semibold border cursor-pointer transition-colors ${
-                                                            p === bulletinPage
-                                                                ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)]'
-                                                                : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border)] hover:bg-[var(--color-bg-subtle)]'
-                                                        }`}
-                                                    >{p}</button>
-                                                ))}
-                                                <Button variant="outline" size="xs" disabled={bulletinPage >= shownPageCount} onClick={() => setBulletinPage(p => Math.min(shownPageCount, p + 1))}>›</Button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </Card>
+                                        </tr>
+                                    ))}
+                                </PayrollStepTable>
                             );
                         })()}
                     </div>

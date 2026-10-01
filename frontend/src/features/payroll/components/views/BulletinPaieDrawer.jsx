@@ -14,9 +14,10 @@ import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import BulletinPaiePrintView from './BulletinPaiePrintView';
+import BulletinVariableCorrection from './BulletinVariableCorrection';
 
 /** Consultation du bulletin calculé. */
-export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin }) {
+export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onRecalculateSuccess }) {
     const [loading, setLoading]           = useState(false);
     const [data, setData]                 = useState(null);
     const [error, setError]               = useState(null);
@@ -52,7 +53,8 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin }) {
         }
     }, [isOpen, idBulletin, chargerBulletin]);
 
-    const formatAr      = (val) => val == null || val === '' ? 'Non renseigné' : formatMoneyAr(val);
+    // Les montants enregistrés ont deux décimales. Les décimales nulles restent masquées.
+    const formatAr = (val) => val == null || val === '' ? 'Non renseigné' : formatMoneyAr(val);
     const formatMinutes = (totalMin) => {
         if (!totalMin || totalMin <= 0) return '0 min';
         const h = Math.floor(totalMin / 60), m = totalMin % 60;
@@ -70,7 +72,19 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin }) {
     const nomAffiche      = bulletin ? (bulletin.nomPrenom || [bulletin.nom, bulletin.prenom].filter(Boolean).join(' ') || [bulletin.nomEmploye, bulletin.prenomEmploye].filter(Boolean).join(' ') || 'Employé') : '';
     const joursTravailles = bulletin ? (bulletin.joursTravailles ?? bulletin.nbJoursTravailles) : null;
     const heuresNormales  = bulletin?.heuresNormales;
-    const netImposable    = bulletin ? (bulletin.revenuNetImposable ?? bulletin.salaireNetImposable ?? bulletin.netImposable) : null;
+    const netAvantImpot = bulletin?.salaireNetImposable;
+    const retenueIsi = Number(bulletin?.retenueIsi5 || 0);
+    const indemniteNet = Number(bulletin?.totalIndemnitesNonImposables || 0);
+    const retenuesTresorerie = Number(bulletin?.totalRetenuesAcomptePret || 0);
+    const ajustementArrondi = bulletin?.netAvantArrondi != null && bulletin?.netAPayer != null
+        ? Math.round((Number(bulletin.netAPayer) - Number(bulletin.netAvantArrondi)) * 100) / 100
+        : null;
+    const estIrsa = !retenueIsi && lignes.some(l => l.codeRubrique === 'IMPOT_IRSA_NET' || l.codeRubrique === 'IMPOT_IRSA_BRUT');
+    const gainsBruts = lignes.filter(l => l.sens === 'GAIN' && l.imposable !== false && l.categorie !== 'NET' && l.categorie !== 'INDEMNITE_NON_IMPOSABLE');
+    const retenuesBrut = lignes.filter(l => l.sens === 'RETENUE' && l.categorie === 'SALAIRE_BASE');
+    const hsExonereeIrsa = Number(fiscalite?.remunerationHsExonereeIrsa ?? lignes.find(l => l.codeRubrique === 'HS_EXONEREE_IRSA')?.montantSalarial ?? 0);
+    const totalLignesBrut = gainsBruts.reduce((total, l) => total + Number(l.montantSalarial || 0), 0)
+        - retenuesBrut.reduce((total, l) => total + Number(l.montantSalarial || 0), 0);
 
     return (
         <>
@@ -124,11 +138,13 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin }) {
                                     <Alert type="warning" className="mb-3" message={`Variation du net · ${bulletin.ecartM1Pct > 0 ? '+' : ''}${bulletin.ecartM1Pct} % par rapport au mois précédent`} />
                                 )}
 
-                                {/* 4 KPIs financiers */}
+                                {/* Montants principaux du bulletin */}
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                                     <StatCard title="Brut" value={formatAr(bulletin.totalGainsBruts)} color="neutral" />
                                     <StatCard title="Cotisations salariales" value={formatAr(bulletin.totalCotisationsSalariales)} color="neutral" />
-                                    <StatCard title="IRSA" value={formatAr(bulletin.irsaNet)} color="neutral" />
+                                    {retenueIsi > 0
+                                        ? <StatCard title="ISI" value={formatAr(bulletin.retenueIsi5)} color="neutral" />
+                                        : estIrsa && <StatCard title="IRSA" value={formatAr(bulletin.irsaNet)} color="neutral" />}
                                     <StatCard title="Net à payer" value={formatAr(bulletin.netAPayer)} color="brand" />
                                 </div>
 
@@ -152,47 +168,35 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin }) {
                             </div>
 
                             <div className="p-4 sm:p-5 space-y-5">
+                                {bulletin.idPeriodePaie && bulletin.idEmploye && <BulletinVariableCorrection
+                                    key={`${bulletin.idPeriodePaie}-${bulletin.idEmploye}`}
+                                    bulletin={bulletin}
+                                    onBulletinUpdated={chargerBulletin}
+                                    onCampaignUpdated={onRecalculateSuccess}
+                                />}
                                 <section aria-labelledby="bulletin-composition">
                                     <h3 id="bulletin-composition" className="text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)] mb-2">Montants du mois</h3>
-                                        {/* Principaux écarts du mois */}
                                         <Card shadow="none" padding className="space-y-2">
                                             <div className="space-y-1.5 font-mono text-[11px]">
-                                                <div className="flex justify-between items-center text-[var(--color-fg)]">
-                                                    <span className="font-sans">Salaire de base contractuel</span>
-                                                    <span className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-bold">+{formatAr(bulletin.salaireBase)}</span>
-                                                </div>
-                                                {Number(bulletin.retenueAbsence || explication?.montantRetenueAbsence) > 0 && (
-                                                    <div className="flex justify-between items-center text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                                                        <span className="font-sans">Déficit horaire / Absences</span>
-                                                        <span className="font-bold">-{formatAr(bulletin.retenueAbsence || explication?.montantRetenueAbsence)}</span>
-                                                    </div>
-                                                )}
-                                                {explication && (explication.nbJoursConge || 0) > 0 && (
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="font-sans">Congés pris ({explication.nbJoursConge} j · TCONGE)</span>
-                                                        <span className={`font-bold ${explication.impactNetConge >= 0 ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
-                                                            {explication.impactNetConge >= 0 ? `+${formatAr(explication.impactNetConge)}` : `-${formatAr(Math.abs(explication.impactNetConge))}`}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                {Number(bulletin.majorationHeuresSupplementaires || (explication ? (explication.montantHs30 || 0) + (explication.montantHs50 || 0) : 0)) > 0 && (
-                                                    <div className="flex justify-between items-center text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
-                                                        <span className="font-sans">Heures supplémentaires</span>
-                                                        <span className="font-bold">+{formatAr(bulletin.majorationHeuresSupplementaires || ((explication?.montantHs30 || 0) + (explication?.montantHs50 || 0)))}</span>
-                                                    </div>
-                                                )}
-                                                {Number(bulletin.totalPrimesEtAutres || (bulletin.primePerformance || 0) + (bulletin.primeAnciennete || 0) + (bulletin.primeAssiduite || 0)) > 0 && (
-                                                    <div className="flex justify-between items-center text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
-                                                        <span className="font-sans">Primes et autres gains</span>
-                                                        <span className="font-bold">+{formatAr(bulletin.totalPrimesEtAutres || ((bulletin.primePerformance || 0) + (bulletin.primeAnciennete || 0) + (bulletin.primeAssiduite || 0)))}</span>
-                                                    </div>
-                                                )}
-                                                {Number(bulletin.totalRetenuesAvances) > 0 && (
-                                                    <div className="flex justify-between items-center text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                                                        <span className="font-sans">Acomptes & Avances prélevés</span>
-                                                        <span className="font-bold">-{formatAr(bulletin.totalRetenuesAvances)}</span>
-                                                    </div>
-                                                )}
+                                                {gainsBruts.length || retenuesBrut.length ? (
+                                                    <>
+                                                        {[...gainsBruts, ...retenuesBrut].sort((a, b) => Number(a.ordre || 0) - Number(b.ordre || 0)).map((l, index) => (
+                                                            <div key={`${l.codeRubrique}-${index}`} className="flex justify-between gap-4 text-[var(--color-fg)]">
+                                                                <span className="font-sans">{l.libelleRubrique}</span>
+                                                                <span className={`font-bold whitespace-nowrap ${l.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
+                                                                    {l.sens === 'GAIN' ? '+' : '−'}{formatAr(l.montantSalarial)}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                        <div className="flex justify-between gap-4 border-t border-[var(--color-border-subtle)] pt-2 font-bold">
+                                                            <span className="font-sans">Total brut</span>
+                                                            <span>{formatAr(bulletin.totalGainsBruts)}</span>
+                                                        </div>
+                                                        {Math.abs(Math.round((totalLignesBrut - Number(bulletin.totalGainsBruts || 0)) * 100)) > 0 && (
+                                                            <p className="font-sans text-[var(--color-warning-700)]">Les rubriques ne correspondent pas au total brut enregistré.</p>
+                                                        )}
+                                                    </>
+                                                ) : <p className="font-sans text-[var(--color-fg-muted)]">Détail du brut indisponible.</p>}
                                             </div>
                                         </Card>
 
@@ -242,10 +246,10 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin }) {
                                         )}
 
                                         {/* Fallback absence sans explication */}
-                                        {!explication && (bulletin.retenueAbsence || 0) > 0 && (
+                                        {!explication && Number(lignes.find(l => l.codeRubrique === 'RETENUE_ABSENCE')?.montantSalarial || 0) > 0 && (
                                             <div className="flex justify-between items-center p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[11px]">
                                                 <span className="text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">Retenue pour absences et retards</span>
-                                                <span className="font-mono font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">-{formatAr(bulletin.retenueAbsence)}</span>
+                                                <span className="font-mono font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">-{formatAr(lignes.find(l => l.codeRubrique === 'RETENUE_ABSENCE')?.montantSalarial)}</span>
                                             </div>
                                         )}
 
@@ -254,7 +258,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin }) {
                                             <div className="flex justify-between items-center p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[11px]">
                                                 <span className="text-[var(--color-fg)]">Heures supplémentaires (+30%: {formatHours(bulletin.heuresHs30)}h / +50%: {formatHours(bulletin.heuresHs50)}h)</span>
                                                 <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
-                                                    +{formatAr(bulletin.majorationHeuresSupplementaires || ((explication?.montantHs30 || 0) + (explication?.montantHs50 || 0)))}
+                                                    +{formatAr(Number(explication?.montantHs30 || 0) + Number(explication?.montantHs50 || 0))}
                                                 </span>
                                             </div>
                                         )}
@@ -264,26 +268,26 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin }) {
                                             <div className="flex justify-between items-center p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[11px]">
                                                 <span className="text-[var(--color-fg)]">Majoration de nuit (+30% / {bulletin.heuresNuit}h)</span>
                                                 <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
-                                                    +{formatAr(bulletin.majorationHeuresNuit || (explication?.montantNuit ?? 0))}
+                                                    +{formatAr(explication?.montantNuit)}
                                                 </span>
                                             </div>
                                         )}
 
                                         {/* Indemnités forfaitaires */}
-                                        {bulletin.totalIndemnitesForfaitaires > 0 && (
+                                        {indemniteNet > 0 && (
                                             <div className="flex justify-between items-center p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[11px]">
-                                                <span className="text-[var(--color-fg)]">Indemnités repas et déplacement</span>
-                                                <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">+{formatAr(bulletin.totalIndemnitesForfaitaires)}</span>
+                                                <span className="text-[var(--color-fg)]">Indemnités et remboursements non imposables</span>
+                                                <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">+{formatAr(bulletin.totalIndemnitesNonImposables)}</span>
                                             </div>
                                         )}
 
-                                        {!explication && (bulletin.retenueAbsence || 0) === 0 && (bulletin.heuresHs30 || 0) === 0 && (bulletin.heuresHs50 || 0) === 0 && !bulletin.totalIndemnitesForfaitaires && (
+                                        {!explication && !lignes.some(l => ['RETENUE_ABSENCE', 'HEURES_SUP_30', 'HEURES_SUP_50'].includes(l.codeRubrique)) && indemniteNet === 0 && (
                                             <p className="text-[11px] text-[var(--color-fg-muted)] py-2">Aucun détail de pointage transmis.</p>
                                         )}
                                 </section>
 
                                 <section aria-labelledby="bulletin-fiscal" className="space-y-3">
-                                    <h3 id="bulletin-fiscal" className="text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">Fiscalité et cotisations</h3>
+                                    <h3 id="bulletin-fiscal" className="text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">Du brut au net à payer</h3>
                                         {/* Synthèse waterfall */}
                                         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] divide-y divide-[var(--color-border-subtle)]">
                                             <div className="flex justify-between items-center px-3.5 py-2.5 font-bold text-xs">
@@ -293,25 +297,65 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin }) {
                                             <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                                 <span className="text-[var(--color-fg-muted)]">Cotisations salariales</span>
                                                 <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                                                    {formatAr(bulletin.totalCotisationsSalariales)}
+                                                    −{formatAr(bulletin.totalCotisationsSalariales)}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between items-center px-3.5 py-2.5 font-bold text-xs bg-[var(--color-bg-subtle)]">
-                                                <span className="text-[var(--color-fg)]">Revenu net imposable</span>
-                                                <span className="font-mono text-[var(--color-fg)]">{formatAr(fiscalite?.revenuNetImposable ?? netImposable)}</span>
+                                                <span className="text-[var(--color-fg)]">Net après cotisations</span>
+                                                <span className="font-mono text-[var(--color-fg)]">{formatAr(netAvantImpot)}</span>
                                             </div>
-                                            <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
-                                                <span className="text-[var(--color-fg-muted)]">Base imposable IRSA</span>
-                                                <span className="font-mono font-semibold text-[var(--color-fg)]">{formatAr(fiscalite?.assietteIrsa ?? bulletin.assietteIrsa ?? bulletin.baseIrsaArrondie)}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
-                                                <span className="text-[var(--color-fg-muted)]">IRSA dû</span>
-                                                <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">-{formatAr(fiscalite?.irsaDu ?? bulletin.irsaDu ?? bulletin.irsaNet)}</span>
-                                            </div>
-                                            {Number(bulletin.totalRetenuesAvances) > 0 && (
+                                            {estIrsa && hsExonereeIrsa > 0 && (
                                                 <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
-                                                    <span className="text-[var(--color-fg-muted)]">Acomptes et prêts prélevés</span>
-                                                    <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">-{formatAr(bulletin.totalRetenuesAvances)}</span>
+                                                    <span className="text-[var(--color-fg-muted)]">Heures supplémentaires exclues de la base IRSA</span>
+                                                    <span className="font-mono">−{formatAr(hsExonereeIrsa)}</span>
+                                                </div>
+                                            )}
+                                            {estIrsa && hsExonereeIrsa > 0 && (
+                                                <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
+                                                    <span className="text-[var(--color-fg-muted)]">Revenu soumis à l’IRSA</span>
+                                                    <span className="font-mono">{formatAr(bulletin.revenuNetImposable)}</span>
+                                                </div>
+                                            )}
+                                            {estIrsa && (
+                                                <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
+                                                    <span className="text-[var(--color-fg-muted)]">Base fiscale IRSA (arrondie)</span>
+                                                    <span className="font-mono">{formatAr(bulletin.baseIrsaArrondie)}</span>
+                                                </div>
+                                            )}
+                                            {estIrsa && Number(bulletin.irsaNet || 0) > 0 && (
+                                                <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
+                                                    <span className="text-[var(--color-fg-muted)]">IRSA prélevé</span>
+                                                    <span className="font-mono font-semibold text-[var(--color-danger-600)]">−{formatAr(bulletin.irsaNet)}</span>
+                                                </div>
+                                            )}
+                                            {retenueIsi > 0 && (
+                                                <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
+                                                    <span className="text-[var(--color-fg-muted)]">ISI prélevé</span>
+                                                    <span className="font-mono font-semibold text-[var(--color-danger-600)]">−{formatAr(bulletin.retenueIsi5)}</span>
+                                                </div>
+                                            )}
+                                            {indemniteNet > 0 && (
+                                                <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
+                                                    <span className="text-[var(--color-fg-muted)]">Indemnités et remboursements non imposables</span>
+                                                    <span className="font-mono font-semibold text-[var(--color-success-600)]">+{formatAr(bulletin.totalIndemnitesNonImposables)}</span>
+                                                </div>
+                                            )}
+                                            {retenuesTresorerie > 0 && (
+                                                <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
+                                                    <span className="text-[var(--color-fg-muted)]">Acomptes, prêts et autres retenues</span>
+                                                    <span className="font-mono font-semibold text-[var(--color-danger-600)]">−{formatAr(bulletin.totalRetenuesAcomptePret)}</span>
+                                                </div>
+                                            )}
+                                            {bulletin.netAvantArrondi != null && (
+                                                <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
+                                                    <span className="text-[var(--color-fg-muted)]">Net avant arrondi</span>
+                                                    <span className="font-mono font-semibold">{formatAr(bulletin.netAvantArrondi)}</span>
+                                                </div>
+                                            )}
+                                            {ajustementArrondi !== null && ajustementArrondi !== 0 && (
+                                                <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
+                                                    <span className="text-[var(--color-fg-muted)]">Ajustement à la dizaine d’ariary</span>
+                                                    <span className="font-mono font-semibold">{ajustementArrondi > 0 ? '+' : '−'}{formatAr(Math.abs(ajustementArrondi))}</span>
                                                 </div>
                                             )}
                                             <div className="flex justify-between items-center px-3.5 py-3 bg-[var(--color-ink-950)] text-[var(--color-on-color)]">
@@ -321,7 +365,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin }) {
                                         </div>
 
                                         {/* Détail tranches IRSA */}
-                                        {(fiscalite || bulletin.assietteIrsa != null || bulletin.baseIrsaArrondie != null) && (
+                                        {estIrsa && (
                                             <Card shadow="none">
                                                 <CardHeader><CardTitle size="sm">Calcul de l’IRSA</CardTitle></CardHeader>
                                                     <div data-testid="irsa-breakdown">
@@ -354,17 +398,17 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin }) {
                                         )}
 
                                         {/* Charges patronales */}
-                                        {(bulletin.totalCotisationsPatronales > 0 || bulletin.coutTotalEmployeur > 0) && (
+                                        {(Number(bulletin.totalCotisationsPatronales) > 0 || Number(bulletin.coutGlobalEmployeur) > 0) && (
                                             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 text-[11px] space-y-1.5">
                                                 <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">Coût Employeur</span>
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-[var(--color-fg-muted)]">Cotisations patronales</span>
                                                     <span className="font-mono font-semibold">{formatAr(bulletin.totalCotisationsPatronales)}</span>
                                                 </div>
-                                                {bulletin.coutTotalEmployeur > 0 && (
+                                                {Number(bulletin.coutGlobalEmployeur) > 0 && (
                                                     <div className="flex justify-between items-center font-bold border-t border-[var(--color-border-subtle)] pt-1.5">
                                                         <span className="text-[var(--color-fg)]">Coût total employeur</span>
-                                                        <span className="font-mono">{formatAr(bulletin.coutTotalEmployeur)}</span>
+                                                        <span className="font-mono">{formatAr(bulletin.coutGlobalEmployeur)}</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -372,43 +416,115 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin }) {
                                 </section>
 
                                 {lignes.length > 0 && (
-                                    <section aria-labelledby="bulletin-rubriques" className="space-y-2">
-                                        <h3 id="bulletin-rubriques" className="text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)]">Résultats détaillés · {lignes.length} rubriques</h3>
-                                        <Card shadow="none">
-                                                {/* Méta-données */}
-                                                <div className="px-3 py-1.5 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex items-center justify-between text-[10px] font-mono text-[var(--color-fg-muted)]">
-                                                    <span>Bulletin n° {bulletin.idBulletin}</span>
-                                                    {bulletin.codePeriode && <span>Période {bulletin.codePeriode}</span>}
-                                                </div>
-                                                <div className="overflow-x-auto border-t border-[var(--color-border-subtle)]">
-                                                    <table className="w-full text-left border-collapse">
-                                                        <thead>
-                                                            <tr className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[10px] text-[var(--color-fg-muted)] uppercase">
-                                                                <th className="p-2">Désignation</th>
-                                                                <th className="p-2 text-right">Base</th>
-                                                                <th className="p-2 text-right">Gain</th>
-                                                                <th className="p-2 text-right">Retenue</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-[var(--color-border-subtle)]">
-                                                            {lignes.map((l, i) => {
-                                                                const isRetenue = l.sens === 'RETENUE';
-                                                                const isGain    = l.sens === 'GAIN' || l.sens === 'INFO';
-                                                                const montantRet = isRetenue ? (l.montantSalarial ?? l.montantRetenue) : (l.montantRetenue && Number(l.montantRetenue) > 0 ? l.montantRetenue : null);
-                                                                const montantGn  = isGain    ? (l.montantSalarial ?? l.montantGain)    : (l.montantGain    && Number(l.montantGain) > 0    ? l.montantGain    : null);
-                                                                return (
-                                                                    <tr key={i} className="hover:bg-[var(--color-bg-subtle)]/40 font-mono text-[11px]">
-                                                                        <td className="p-2 font-sans font-medium text-[var(--color-fg)]">{l.libelleRubrique}</td>
-                                                                        <td className="p-2 text-right text-[var(--color-fg-muted)]">{formatAr(l.baseCalcul)}</td>
-                                                                        <td className="p-2 text-right text-[var(--color-success-600)] font-bold">{montantGn && Number(montantGn) > 0 ? formatAr(montantGn) : '0 Ar'}</td>
-                                                                        <td className="p-2 text-right text-[var(--color-danger-600)] font-bold">{montantRet && Number(montantRet) > 0 ? formatAr(montantRet) : '0 Ar'}</td>
+                                    <section aria-labelledby="bulletin-rubriques" className="space-y-3">
+                                        {(() => {
+                                            // Séparer rubriques salariales et patronales
+                                            const lignesSal = lignes.filter(l => !l.categorie?.includes('PATRONAL') && !l.codeRubrique?.endsWith('_PAT') && l.sens !== 'PATRONAL');
+                                            const lignesPat = lignes.filter(l =>  l.categorie?.includes('PATRONAL') ||  l.codeRubrique?.endsWith('_PAT') || l.sens === 'PATRONAL');
+
+                                            const renderTableSalarial = (rows) => (
+                                                <div>
+                                                    <h3 id="bulletin-rubriques" className="text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)] mb-1.5">
+                                                        Résultats salarié · {rows.length} rubriques
+                                                    </h3>
+                                                    <Card shadow="none">
+                                                        <div className="px-3 py-1.5 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex items-center justify-between text-[10px] font-mono text-[var(--color-fg-muted)]">
+                                                            <span>Bulletin n° {bulletin.idBulletin}</span>
+                                                            {bulletin.codePeriode && <span>Période {bulletin.codePeriode}</span>}
+                                                        </div>
+                                                        <div className="overflow-x-auto border-t border-[var(--color-border-subtle)]">
+                                                            <table className="w-full text-left border-collapse">
+                                                                <thead>
+                                                                    <tr className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[10px] text-[var(--color-fg-muted)] uppercase">
+                                                                        <th className="p-2">Désignation</th>
+                                                                        <th className="p-2 text-right">Base ou taux</th>
+                                                                        <th className="p-2 text-right">Gain</th>
+                                                                        <th className="p-2 text-right">Retenue</th>
                                                                     </tr>
-                                                                );
-                                                            })}
-                                                        </tbody>
-                                                    </table>
+                                                                </thead>
+                                                                <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                                                                    {rows.map((l, i) => {
+                                                                        const isRetenue = l.sens === 'RETENUE';
+                                                                        const isGain    = l.sens === 'GAIN';
+                                                                        const isInfo    = l.sens === 'INFO';
+                                                                        // Montants salarié
+                                                                        const rawRet = isRetenue ? (l.montantSalarial ?? l.montantRetenue) : null;
+                                                                        const rawGn  = isGain    ? (l.montantSalarial ?? l.montantGain)    : null;
+                                                                        const retVal = rawRet != null ? Number(rawRet) : 0;
+                                                                        const gnVal  = rawGn  != null ? Number(rawGn)  : 0;
+                                                                        const baseVal = l.categorie !== 'NET' && l.baseCalcul != null ? Number(l.baseCalcul) : null;
+                                                                        return (
+                                                                            <tr key={i} className="hover:bg-[var(--color-bg-subtle)]/40 font-mono text-[11px]">
+                                                                                <td className="p-2 font-sans font-medium text-[var(--color-fg)]">
+                                                                                    {l.libelleRubrique}
+                                                                                    {isInfo && (
+                                                                                        <span className="ml-1.5 text-[9px] font-mono px-1 py-0.5 rounded bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]">
+                                                                                            info
+                                                                                        </span>
+                                                                                    )}
+                                                                                </td>
+                                                                                <td className="p-2 text-right text-[var(--color-fg-muted)]">{baseVal != null ? formatAr(baseVal) : '—'}</td>
+                                                                                <td className="p-2 text-right text-[var(--color-success-600)] font-bold">{gnVal > 0 ? formatAr(gnVal) : <span className="text-[var(--color-fg-subtle)] font-normal">—</span>}</td>
+                                                                                <td className="p-2 text-right text-[var(--color-danger-600)] font-bold">{retVal > 0 ? formatAr(retVal) : <span className="text-[var(--color-fg-subtle)] font-normal">—</span>}</td>
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </Card>
                                                 </div>
-                                        </Card>
+                                            );
+
+                                            const renderTablePatronal = (rows) => (
+                                                <div>
+                                                    <h3 id="bulletin-rubriques-pat" className="text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)] mb-1.5">
+                                                        Charges patronales · {rows.length} rubriques
+                                                    </h3>
+                                                    <Card shadow="none">
+                                                        <div className="px-3 py-1.5 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex items-center justify-between text-[10px] font-mono text-[var(--color-fg-muted)]">
+                                                            <span>Part employeur</span>
+                                                            {bulletin.codePeriode && <span>Période {bulletin.codePeriode}</span>}
+                                                        </div>
+                                                        <div className="overflow-x-auto border-t border-[var(--color-border-subtle)]">
+                                                            <table className="w-full text-left border-collapse">
+                                                                <thead>
+                                                                    <tr className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[10px] text-[var(--color-fg-muted)] uppercase">
+                                                                        <th className="p-2">Désignation</th>
+                                                                        <th className="p-2 text-right">Base</th>
+                                                                        <th className="p-2 text-right">Taux</th>
+                                                                        <th className="p-2 text-right">Cotisation patronale</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody className="divide-y divide-[var(--color-border-subtle)]">
+                                                                    {rows.map((l, i) => {
+                                                                        const rawPat = l.montantPatronal ?? l.montantRetenue;
+                                                                        const patVal = rawPat != null ? Number(rawPat) : 0;
+                                                                        const baseVal = l.baseCalcul != null ? Number(l.baseCalcul) : null;
+                                                                        const tauxVal = l.tauxPatronal != null ? Number(l.tauxPatronal) : null;
+                                                                        return (
+                                                                            <tr key={i} className="hover:bg-[var(--color-bg-subtle)]/40 font-mono text-[11px]">
+                                                                                <td className="p-2 font-sans font-medium text-[var(--color-fg)]">{l.libelleRubrique}</td>
+                                                                                <td className="p-2 text-right text-[var(--color-fg-muted)]">{baseVal != null ? formatAr(baseVal) : '—'}</td>
+                                                                                <td className="p-2 text-right text-[var(--color-fg-muted)]">{tauxVal != null ? `${tauxVal}%` : '—'}</td>
+                                                                                <td className="p-2 text-right font-bold text-[var(--color-fg)]">{patVal > 0 ? formatAr(patVal) : <span className="text-[var(--color-fg-subtle)] font-normal">—</span>}</td>
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </Card>
+                                                </div>
+                                            );
+
+                                            return (
+                                                <>
+                                                    {renderTableSalarial(lignesSal)}
+                                                    {lignesPat.length > 0 && renderTablePatronal(lignesPat)}
+                                                </>
+                                            );
+                                        })()}
                                     </section>
                                 )}
                             </div>

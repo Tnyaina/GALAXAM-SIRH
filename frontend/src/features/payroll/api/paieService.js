@@ -57,6 +57,11 @@ export const paieService = {
         return response.data;
     },
 
+    getBulletinCorrectionStatus: async (idBulletin) => {
+        const response = await apiClient.get(`paie/bulletin/${idBulletin}/correction-status`);
+        return response.data;
+    },
+
     listerBulletinsPeriode: async (idPeriode) => {
         const response = await apiClient.get(`paie/periode/${idPeriode}/bulletins`);
         return response.data;

@@ -173,9 +173,9 @@ export default function BulletinPaiePrintView({ bulletinComplet, onClose }) {
                         ) : (
                             lignes.map((ligne, idx) => {
                                 const isRetenue = ligne.sens === 'RETENUE';
-                                const isGain = ligne.sens === 'GAIN' || ligne.sens === 'INFO';
-                                const montantRetenue = isRetenue ? (ligne.montantSalarial ?? ligne.montantRetenue) : (ligne.montantRetenue && Number(ligne.montantRetenue) > 0 ? ligne.montantRetenue : null);
-                                const montantGain = isGain ? (ligne.montantSalarial ?? ligne.montantGain) : (ligne.montantGain && Number(ligne.montantGain) > 0 ? ligne.montantGain : null);
+                                const isGain = ligne.sens === 'GAIN';
+                                const montantRetenue = isRetenue ? (ligne.montantSalarial ?? ligne.montantRetenue) : null;
+                                const montantGain = isGain ? (ligne.montantSalarial ?? ligne.montantGain) : null;
                                 return (
                                     <tr key={idx} className={idx % 2 === 1 ? 'bg-[var(--color-print-surface)]' : 'bg-[var(--color-print-paper)]'}>
                                         <td className="border-r border-[var(--color-print-border)] p-1 font-mono text-[10px] text-[var(--color-print-muted)]">

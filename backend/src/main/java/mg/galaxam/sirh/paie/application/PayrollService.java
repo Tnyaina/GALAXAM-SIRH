@@ -282,7 +282,8 @@ public class PayrollService {
         try (PreparedStatement ps = c.prepareStatement(
                 "UPDATE paie_avance_acompte a SET montant_impute = GREATEST(a.montant_impute - i.montant, 0), " +
                 "solde_restant = LEAST(a.solde_restant + i.montant, a.montant_initial), " +
-                "statut = 'APPROUVE', id_bulletin = NULL, updated_at = CURRENT_TIMESTAMP " +
+                "statut = CASE WHEN a.statut = 'ANNULE' THEN 'ANNULE' ELSE 'APPROUVE' END, " +
+                "id_bulletin = NULL, updated_at = CURRENT_TIMESTAMP " +
                 "FROM paie_mouvement_imputation i WHERE i.id_avance = a.id_avance " +
                 "AND i.id_bulletin = ? AND a.id_employe = ?")) {
             ps.setInt(1, bulletinId);
@@ -305,9 +306,10 @@ public class PayrollService {
         }
         try (PreparedStatement ps = c.prepareStatement(
                 "UPDATE paie_avance_acompte SET montant_impute = 0, solde_restant = montant_initial, " +
-                "statut = 'APPROUVE', id_bulletin = NULL, updated_at = CURRENT_TIMESTAMP " +
+                "statut = CASE WHEN statut = 'ANNULE' THEN 'ANNULE' ELSE 'APPROUVE' END, " +
+                "id_bulletin = NULL, updated_at = CURRENT_TIMESTAMP " +
                 "WHERE id_bulletin = ? AND id_employe = ? AND id_periode_paie = ? " +
-                "AND statut IN ('APPROUVE','IMPUTE_PAIE') " +
+                "AND statut IN ('APPROUVE','IMPUTE_PAIE','ANNULE') " +
                 "AND NOT EXISTS (SELECT 1 FROM paie_mouvement_imputation i WHERE i.id_avance = paie_avance_acompte.id_avance)")) {
             ps.setInt(1, bulletinId);
             ps.setInt(2, employeId);

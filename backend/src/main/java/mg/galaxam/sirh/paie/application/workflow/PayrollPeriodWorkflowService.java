@@ -468,14 +468,13 @@ public class PayrollPeriodWorkflowService {
         if (bulletinCount == 0) return 0;
 
         String sql = "SELECT COUNT(*) FROM paie_avance_acompte a "
-                + "WHERE a.id_periode_paie = ? "
-                + "AND a.statut NOT IN ('ANNULE','REJETE') "
-                + "AND a.updated_at > ("
-                + "  SELECT COALESCE(MAX(b.updated_at), '1970-01-01'::timestamptz) "
-                + "  FROM bulletin_paie b WHERE b.id_periode_paie = ?)";
+                + "JOIN bulletin_paie b ON b.id_periode_paie = a.id_periode_paie "
+                + "AND b.id_employe = a.id_employe "
+                + "WHERE a.id_periode_paie = ? AND b.statut IN ('CALCULE','VALIDE','CLOTURE') "
+                + "AND (a.statut NOT IN ('ANNULE','REJETE') OR a.id_bulletin IS NOT NULL) "
+                + "AND a.updated_at > COALESCE(b.updated_at, b.date_calcul, '1970-01-01'::timestamptz)";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, periodId);
-            statement.setInt(2, periodId);
             try (ResultSet result = statement.executeQuery()) {
                 result.next();
                 int changedVariables = result.getInt(1);
@@ -796,12 +795,12 @@ public class PayrollPeriodWorkflowService {
             if (!List.of("EN_COURS", "VALIDEE").contains(state)) {
                 return ActionCapability.denied("PAYROLL_VARIABLE_STATE_LOCKED");
             }
-            int calculated = count(connection,
-                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut IN ('CALCULE','VALIDE','CLOTURE')",
+            int protectedBulletins = count(connection,
+                    "SELECT COUNT(*) FROM bulletin_paie WHERE id_periode_paie = ? AND statut IN ('VALIDE','CLOTURE')",
                     periodId);
-            return calculated == 0
+            return protectedBulletins == 0
                     ? ActionCapability.permit()
-                    : ActionCapability.denied("PAYROLL_ALREADY_CALCULATED");
+                    : ActionCapability.denied("PAYROLL_ALREADY_VALIDATED");
         }
         if (!List.of("VALIDEE", "PAIE_VALIDEE").contains(state)) return ActionCapability.denied("POINTAGE_NOT_FROZEN");
 

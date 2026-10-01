@@ -171,8 +171,6 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
         ];
     }, [salaireBase]);
 
-    const selectedType = types.find(t => t.code === typeCode);
-
     const submit = async event => {
         event.preventDefault();
         if (!canSubmit) return;
@@ -329,9 +327,6 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
                                                 <div>
                                                     <span className="font-bold text-xs text-[var(--color-fg)] block">
                                                         {type.libelle}
-                                                    </span>
-                                                    <span className="text-[10px] text-[var(--color-fg-subtle)] font-mono">
-                                                        {type.code}
                                                     </span>
                                                 </div>
                                             </div>

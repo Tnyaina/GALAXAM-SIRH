@@ -4,13 +4,13 @@ import {
     FileText,
     Receipt,
     Eye,
-    RefreshCw,
     TrendingUp,
     TrendingDown,
     Calculator,
     ChevronDown,
     ChevronRight,
     AlertCircle,
+    Search,
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
@@ -20,6 +20,9 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import StatCard from '@/components/ui/data-display/StatCard';
 import { Card } from '@/components/ui/data-display/Card';
+import Input from '@/components/ui/forms/Input';
+import Select from '@/components/ui/forms/Select';
+import Pagination from '@/components/ui/navigation/Pagination';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { fmtDate } from '@/utils/dateUtils';
 import paieService from '@/features/payroll/api/paieService';
@@ -33,8 +36,9 @@ const BulletinPaieDrawer = lazy(() => import('@/features/payroll/components/view
 const StcPreparationModal = lazy(() => import('@/features/payroll/components/modals/stc/StcPreparationModal'));
 const StcRecuModal = lazy(() => import('@/features/payroll/components/modals/stc/StcRecuModal'));
 
-function AccordionSection({ id, icon, title, badge = null, children, defaultOpen = true, variant = 'default' }) {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
+function AccordionSection({ id, icon, title, badge = null, children, defaultOpen = true, open, onToggle, variant = 'default' }) {
+    const [internalOpen, setInternalOpen] = useState(defaultOpen);
+    const isOpen = open ?? internalOpen;
     const variantBorder = variant === 'warning' ? 'border-[var(--color-warning-500)]/40' : variant === 'danger' ? 'border-[var(--color-danger-500)]/40' : 'border-[var(--color-border-subtle)]';
     const iconColor = variant === 'warning' ? 'text-[var(--color-warning-600)]' : variant === 'danger' ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-brand-600)]';
     return (
@@ -42,7 +46,7 @@ function AccordionSection({ id, icon, title, badge = null, children, defaultOpen
             <button
                 type="button"
                 id={id}
-                onClick={() => setIsOpen(v => !v)}
+                onClick={() => onToggle ? onToggle(!isOpen) : setInternalOpen(v => !v)}
                 className="w-full flex items-center justify-between px-4 py-3 hover:bg-[var(--color-bg-subtle)]/60 transition-colors text-left group"
                 aria-expanded={isOpen}
             >
@@ -76,10 +80,22 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
     const [isStcPrepOpen, setIsStcPrepOpen] = useState(false);
     const [selectedStcRecuId, setSelectedStcRecuId] = useState(null);
     const [isDemandeOpen, setIsDemandeOpen] = useState(false);
+    const [bulletinQuery, setBulletinQuery] = useState('');
+    const [bulletinStatus, setBulletinStatus] = useState('ALL');
+    const [bulletinType, setBulletinType] = useState('ALL');
+    const [bulletinPage, setBulletinPage] = useState(1);
+    const [bulletinPageSize, setBulletinPageSize] = useState(10);
+    const [movementQuery, setMovementQuery] = useState('');
+    const [movementCategory, setMovementCategory] = useState('ALL');
+    const [movementStatus, setMovementStatus] = useState('ALL');
+    const [movementPage, setMovementPage] = useState(1);
+    const [movementPageSize, setMovementPageSize] = useState(10);
+    const [bulletinsOpen, setBulletinsOpen] = useState(true);
+    const [movementsOpen, setMovementsOpen] = useState(false);
 
-    const chargerDonnees = useCallback(async () => {
+    const chargerDonnees = useCallback(async ({ silent = false } = {}) => {
         if (!idEmploye) return;
-        setLoading(true);
+        if (!silent) setLoading(true);
         setSectionErrors({});
         try {
             const [synthRes, bListRes, mvtRes, stcRes] = await Promise.allSettled([
@@ -103,7 +119,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
         } catch (err) {
             setSectionErrors({ synthese: getErrorMessage(err, "Erreur lors du chargement du dossier paie de l'employé.") });
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [idEmploye]);
 
@@ -113,6 +129,54 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
     const handleVoirBulletin = (idBulletin) => { setSelectedBulletinId(idBulletin); setIsDrawerOpen(true); };
 
     const hasStcNeeded = synthese?.stcActionRequise === true;
+
+    const normalizeSearch = (value) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const getMovementCategory = (movement) => {
+        const value = normalizeSearch([movement.typeMouvement, movement.typeLibelle, movement.categorie, movement.domaine].join(' '));
+        if (value.includes('acompte')) return 'ACOMPTE';
+        if (value.includes('avance')) return 'AVANCE';
+        return 'AUTRE';
+    };
+    const bulletinTypes = [...new Set(bulletins.map((item) => item.typeBulletin || 'MENSUEL'))];
+    const bulletinStatuses = [...new Set(bulletins.map((item) => item.statut).filter(Boolean))];
+    const movementStatuses = [...new Set(mouvements.map((item) => item.etatDossier || item.statut).filter(Boolean))];
+    const filteredBulletins = bulletins
+        .filter((item) => {
+            const query = normalizeSearch(bulletinQuery);
+            const searchable = normalizeSearch([item.codePeriode, item.libellePeriode, item.typeBulletin, item.statut].join(' '));
+            return (!query || searchable.includes(query))
+                && (bulletinStatus === 'ALL' || item.statut === bulletinStatus)
+                && (bulletinType === 'ALL' || (item.typeBulletin || 'MENSUEL') === bulletinType);
+        })
+        .sort((a, b) => String(b.codePeriode || b.dateCalcul || '').localeCompare(String(a.codePeriode || a.dateCalcul || '')));
+    const filteredMovements = mouvements
+        .filter((item) => {
+            const query = normalizeSearch(movementQuery);
+            const searchable = normalizeSearch([item.typeLibelle, item.typeMouvement, item.motif, item.etatDossier, item.statut, item.idBulletin].join(' '));
+            const status = item.etatDossier || item.statut || '';
+            return (!query || searchable.includes(query))
+                && (movementCategory === 'ALL' || getMovementCategory(item) === movementCategory)
+                && (movementStatus === 'ALL' || status === movementStatus);
+        })
+        .sort((a, b) => String(b.dateDemande || b.datePaiement || '').localeCompare(String(a.dateDemande || a.datePaiement || '')));
+    const visibleBulletins = filteredBulletins.slice((bulletinPage - 1) * bulletinPageSize, bulletinPage * bulletinPageSize);
+    const visibleMovements = filteredMovements.slice((movementPage - 1) * movementPageSize, movementPage * movementPageSize);
+    const acompteCount = mouvements.filter((item) => getMovementCategory(item) === 'ACOMPTE').length;
+    const avanceCount = mouvements.filter((item) => getMovementCategory(item) === 'AVANCE').length;
+
+    useEffect(() => { setBulletinPage(1); }, [bulletinQuery, bulletinStatus, bulletinType, bulletinPageSize]);
+    useEffect(() => { setMovementPage(1); }, [movementQuery, movementCategory, movementStatus, movementPageSize]);
+    useEffect(() => {
+        if (movementsOpen) document.getElementById('paie-mouvements')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, [movementsOpen]);
+
+    const focusMovements = (category) => {
+        setMovementCategory(category);
+        setMovementStatus('ALL');
+        setMovementQuery('');
+        setMovementPage(1);
+        setMovementsOpen(true);
+    };
 
     if (loading) return <div className="space-y-4 p-4"><SkeletonTable rows={4} columns={4} /></div>;
 
@@ -141,7 +205,6 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                 <div><h2 className="text-base font-bold text-[var(--color-fg)]">Paie et rémunération</h2><p className="text-xs text-[var(--color-fg-muted)]">Situation du salarié et historique des bulletins</p></div>
                 <div className="flex flex-wrap gap-2">
                     {canWrite && <Button type="button" variant="primary" size="xs" onClick={() => setIsDemandeOpen(true)}>Demander un acompte / une avance</Button>}
-                    <Button type="button" variant="outline" size="xs" onClick={chargerDonnees} iconLeft={<RefreshCw size={12} />}>Actualiser</Button>
                 </div>
             </div>
 
@@ -154,9 +217,9 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
                         <StatCard title="Salaire de base" value={formatMoneyAr(synthese.salaireBaseContractuel)} subtext="Montant contractuel de l'affectation" icon={<Banknote size={16} />} color="brand" bordered={false} />
-                        <StatCard title="Net du dernier bulletin" value={synthese.dernierBulletinId ? formatMoneyAr(synthese.dernierNet) : '—'} subtext={synthese.dernierBulletinId ? `Brut : ${formatMoneyAr(synthese.dernierBrut)}` : 'Aucun bulletin calculé'} icon={<FileText size={16} />} color="success" bordered={false} />
-                        <StatCard title="Acomptes à imputer" value={formatMoneyAr(synthese.acomptesRestants)} subtext="Solde approuvé non soldé" icon={<Receipt size={16} />} color="neutral" bordered={false} />
-                        <StatCard title="Avances en cours" value={formatMoneyAr(synthese.avancesRestantes)} subtext="Solde approuvé restant" icon={<Receipt size={16} />} color="neutral" bordered={false} />
+                        <StatCard title="Net du dernier bulletin" value={synthese.dernierBulletinId ? formatMoneyAr(synthese.dernierNet) : 'Aucun bulletin'} subtext={synthese.dernierBulletinId ? `Brut : ${formatMoneyAr(synthese.dernierBrut)}` : 'Aucun bulletin calculé'} icon={<FileText size={16} />} color="success" bordered={false} />
+                        <StatCard title="Acomptes à imputer" value={formatMoneyAr(synthese.acomptesRestants)} subtext={`${acompteCount} mouvement(s) · solde approuvé`} icon={<Receipt size={16} />} color="neutral" bordered={false} onClick={() => focusMovements('ACOMPTE')} />
+                        <StatCard title="Avances en cours" value={formatMoneyAr(synthese.avancesRestantes)} subtext={`${avanceCount} mouvement(s) · solde restant`} icon={<Receipt size={16} />} color="neutral" bordered={false} onClick={() => focusMovements('AVANCE')} />
                     </div>
                     {(synthese.demandesAcompteAvanceEnAttente ?? 0) > 0 && <p className="text-xs text-[var(--color-fg-muted)]">{synthese.demandesAcompteAvanceEnAttente} demande(s) en attente d’approbation · détail dans les mouvements ci-dessous.</p>}
                 </Card>
@@ -179,11 +242,33 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                         {bulletins.length}
                     </span>
                 )}
-                defaultOpen={true}
+                open={bulletinsOpen}
+                onToggle={setBulletinsOpen}
             >
                 {sectionErrors.bulletins ? <Alert type="error" message={sectionErrors.bulletins} /> : bulletins.length === 0 ? (
                     <EmptyState title="Aucun bulletin de paie" description="Aucune paie n'a encore ete calculee ou cloturee pour ce salarie." />
                 ) : (
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(220px,1fr)_190px_190px]">
+                            <Input
+                                aria-label="Rechercher un bulletin par période"
+                                placeholder="Rechercher une période…"
+                                value={bulletinQuery}
+                                onChange={(event) => setBulletinQuery(event.target.value)}
+                                iconLeft={<Search size={14} />}
+                            />
+                            <Select aria-label="Filtrer par statut de bulletin" value={bulletinStatus} onChange={setBulletinStatus} options={[
+                                { value: 'ALL', label: 'Tous les statuts' },
+                                ...bulletinStatuses.map((status) => ({ value: status, label: status })),
+                            ]} />
+                            <Select aria-label="Filtrer par type de bulletin" value={bulletinType} onChange={setBulletinType} options={[
+                                { value: 'ALL', label: 'Tous les types' },
+                                ...bulletinTypes.map((type) => ({ value: type, label: type })),
+                            ]} />
+                        </div>
+                        {filteredBulletins.length === 0 ? (
+                            <EmptyState title="Aucun bulletin correspondant" description="Modifiez la période, le statut ou le type sélectionné." />
+                        ) : <>
                     <div className="overflow-x-auto -mx-4">
                         <Table className="w-full text-xs">
                             <Thead>
@@ -198,7 +283,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                 </Tr>
                             </Thead>
                             <Tbody>
-                                {bulletins.map((b) => (
+                                {visibleBulletins.map((b) => (
                                     <Tr key={b.idBulletin} className="hover:bg-[var(--color-bg-subtle)] transition-colors">
                                         <Td>
                                             <div className="font-semibold text-[var(--color-fg)] leading-tight">{b.codePeriode}</div>
@@ -219,6 +304,15 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                             </Tbody>
                         </Table>
                     </div>
+                    <Pagination
+                        currentPage={bulletinPage}
+                        totalItems={filteredBulletins.length}
+                        pageSize={bulletinPageSize}
+                        onPageChange={setBulletinPage}
+                        onPageSizeChange={setBulletinPageSize}
+                    />
+                        </>}
+                    </div>
                 )}
             </AccordionSection>
 
@@ -232,13 +326,36 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                         {mouvements.length}
                     </span>
                 )}
-                defaultOpen={false}
+                open={movementsOpen}
+                onToggle={setMovementsOpen}
             >
                 {sectionErrors.mouvements ? <Alert type="error" message={sectionErrors.mouvements} /> : mouvements.length === 0 ? (
                     <EmptyState title="Aucun mouvement de paie" description="Aucun acompte, avance, prime ou note de frais n'a ete enregistre pour ce salarie." />
                 ) : (
-                    <div className="space-y-2">
-                        <p className="text-[11px] text-[var(--color-fg-muted)] ">Lecture seule — saisie via la campagne de paie</p>
+                    <div className="space-y-3">
+                        <p className="text-[11px] text-[var(--color-fg-muted)]">Historique en lecture seule · saisie depuis la campagne de paie.</p>
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(220px,1fr)_190px_190px]">
+                            <Input
+                                aria-label="Rechercher un mouvement"
+                                placeholder="Rechercher un acompte, une avance, un motif…"
+                                value={movementQuery}
+                                onChange={(event) => setMovementQuery(event.target.value)}
+                                iconLeft={<Search size={14} />}
+                            />
+                            <Select aria-label="Filtrer par nature de mouvement" value={movementCategory} onChange={setMovementCategory} options={[
+                                { value: 'ALL', label: 'Toutes les natures' },
+                                { value: 'ACOMPTE', label: `Acomptes (${acompteCount})` },
+                                { value: 'AVANCE', label: `Avances (${avanceCount})` },
+                                { value: 'AUTRE', label: 'Autres mouvements' },
+                            ]} />
+                            <Select aria-label="Filtrer par statut de mouvement" value={movementStatus} onChange={setMovementStatus} options={[
+                                { value: 'ALL', label: 'Tous les statuts' },
+                                ...movementStatuses.map((status) => ({ value: status, label: status })),
+                            ]} />
+                        </div>
+                        {filteredMovements.length === 0 ? (
+                            <EmptyState title="Aucun mouvement correspondant" description="Modifiez les filtres ou la recherche." />
+                        ) : <>
                         <div className="overflow-x-auto -mx-4">
                             <Table className="w-full text-xs">
                                 <Thead>
@@ -253,7 +370,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                     </Tr>
                                 </Thead>
                                 <Tbody>
-                                    {mouvements.map((m) => {
+                                    {visibleMovements.map((m) => {
                                         const isGain = m.sens === 'GAIN';
                                         return (
                                             <Tr key={m.idAvance || m.idAjustement}>
@@ -271,7 +388,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                                 <Td className={`text-right font-mono font-bold ${isGain ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
                                                     {isGain ? '+' : '-'}{formatMoneyAr(m.montant)}
                                                 </Td>
-                                                <Td className="text-[var(--color-fg-muted)] max-w-[160px] truncate">{m.motif || '—'}</Td>
+                                                <Td className="text-[var(--color-fg-muted)] max-w-[160px] truncate">{m.motif || 'Non renseigné'}</Td>
                                                 <Td>
                                                     <Badge variant={m.etatDossier === 'SOLDE' || m.statut === 'VALIDE' || m.statut === 'REGLE' ? 'success' : m.etatDossier === 'A_APPROUVER' || m.etatDossier === 'VERSEMENT_A_VERIFIER' ? 'warning' : 'default'} size="xs">
                                                         {({ A_APPROUVER: 'À approuver', A_VERSER: 'À verser', VERSEMENT_A_VERIFIER: 'Versement à vérifier', VERSE_A_IMPUTER: 'Versé, à retenir', REMBOURSEMENT_EN_COURS: 'Remboursement en cours', SOLDE: 'Soldé', REJETE: 'Rejeté', ANNULE: 'Annulé' })[m.etatDossier] || m.statut}
@@ -291,6 +408,14 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                 </Tbody>
                             </Table>
                         </div>
+                        <Pagination
+                            currentPage={movementPage}
+                            totalItems={filteredMovements.length}
+                            pageSize={movementPageSize}
+                            onPageChange={setMovementPage}
+                            onPageSizeChange={setMovementPageSize}
+                        />
+                        </>}
                     </div>
                 )}
             </AccordionSection>
@@ -351,6 +476,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                         isOpen={isDrawerOpen}
                         onClose={() => { setIsDrawerOpen(false); setSelectedBulletinId(null); }}
                         idBulletin={selectedBulletinId}
+                        onRecalculateSuccess={() => chargerDonnees({ silent: true })}
                     />
                 )}
                 {isStcPrepOpen && (
@@ -361,7 +487,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                         nomEmploye={synthese?.nomComplet || employe?.nom || ''}
                         dateDepartInitiale={synthese?.dateFinContrat || null}
                         motifInitial="DEMISSION"
-                        onStcValide={chargerDonnees}
+                        onStcValide={() => chargerDonnees({ silent: true })}
                     />
                 )}
                 {selectedStcRecuId && (
@@ -373,7 +499,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                         employe={employe}
                         synthese={synthese}
                         onClose={() => setIsDemandeOpen(false)}
-                        onCreated={() => { setFeedbackMsg({ type: 'success', message: 'Demande enregistrée en attente d’approbation.' }); chargerDonnees(); }}
+                        onCreated={() => { setFeedbackMsg({ type: 'success', message: 'Demande enregistrée en attente d’approbation.' }); chargerDonnees({ silent: true }); }}
                     />
                 )}
             </Suspense>

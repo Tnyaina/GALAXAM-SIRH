@@ -77,7 +77,7 @@ public class PaieAjustementController {
                     "COALESCE(rtmp.code, paa.type_mouvement) AS type_code, " +
                     "COALESCE(rtmp.libelle, paa.type_mouvement) AS type_libelle, " +
                     "COALESCE(rtmp.sens, paa.sens) AS type_sens, " +
-                    "rtmp.categorie AS type_categorie, pr.soumis_irsa AS type_imposable, " +
+                    "rtmp.categorie AS type_categorie, rtmp.nature AS type_nature, pr.soumis_irsa AS type_imposable, " +
                     "pr.soumis_cnaps AS type_cotisable " +
                     "FROM paie_avance_acompte paa " +
                     "JOIN employe e ON paa.id_employe = e.id_employe " +
@@ -118,6 +118,7 @@ public class PaieAjustementController {
                         map.put("typeLibelle", rs.getString("type_libelle"));
                         map.put("sens", rs.getString("type_sens"));
                         map.put("categorie", rs.getString("type_categorie"));
+                        map.put("nature", rs.getString("type_nature"));
                         map.put("imposable", rs.getObject("type_imposable"));
                         map.put("cotisable", rs.getObject("type_cotisable"));
                         map.put("montant", rs.getBigDecimal("montant"));
@@ -134,6 +135,7 @@ public class PaieAjustementController {
                         map.put("motif", rs.getString("motif"));
                         map.put("statut", rs.getString("statut"));
                         Timestamp uAt = rs.getTimestamp("updated_at");
+                        map.put("updatedAt", uAt);
                         map.put("version", uAt != null ? (int) (uAt.getTime() % Integer.MAX_VALUE) : 1);
                         map.put("idBulletin", rs.getObject("id_bulletin"));
                         map.put("modeReglement", rs.getString("mode_reglement"));
@@ -177,7 +179,7 @@ public class PaieAjustementController {
             Authentication authentication) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             List<Map<String, Object>> types = new ArrayList<>();
-            String sql = "SELECT t.code, t.libelle, t.sens, t.categorie, t.description, " +
+            String sql = "SELECT t.code, t.libelle, t.sens, t.categorie, t.nature, t.description, " +
                     "r.soumis_irsa AS imposable, r.soumis_cnaps AS cotisable " +
                     "FROM ref_type_mouvement_paie t " +
                     "LEFT JOIN paie_rubrique r ON r.id_rubrique = t.id_rubrique " +
@@ -190,6 +192,7 @@ public class PaieAjustementController {
                     type.put("libelle", rs.getString("libelle"));
                     type.put("sens", rs.getString("sens"));
                     type.put("categorie", rs.getString("categorie"));
+                    type.put("nature", rs.getString("nature"));
                     type.put("description", rs.getString("description"));
                     type.put("imposable", rs.getObject("imposable"));
                     type.put("cotisable", rs.getObject("cotisable"));

@@ -183,6 +183,28 @@ class PayrollPointageToBulletinIntegrationTest {
                 assertEquals(result.getBulletin().getIdBulletin(), recalcul.getBulletin().getIdBulletin());
                 assertEquals(result.getBulletin().getNetAPayer(), recalcul.getBulletin().getNetAPayer(),
                         "Un recalcul ne doit ni perdre la prime ni prélever une seconde fois l'acompte ou le prêt");
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "UPDATE paie_avance_acompte SET statut = 'ANNULE', updated_at = CURRENT_TIMESTAMP "
+                                + "WHERE id_employe = ? AND id_periode_paie = ? AND type_mouvement = 'PRIME_EXCEPTIONNELLE'")) {
+                    statement.setInt(1, employeeId);
+                    statement.setInt(2, periodId);
+                    assertEquals(1, statement.executeUpdate());
+                }
+                var sansPrime = payrollService.calculerBulletinEmploye(employeeId, periodId, true, null, connection);
+                assertTrue(sansPrime.getBulletin().getNetAPayer().compareTo(recalcul.getBulletin().getNetAPayer()) < 0,
+                        "La simulation doit exclure une prime imputée puis annulée");
+                var corrige = payrollService.calculerBulletinEmploye(employeeId, periodId, false, null, connection);
+                assertEquals(sansPrime.getBulletin().getNetAPayer(), corrige.getBulletin().getNetAPayer());
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "SELECT statut FROM paie_avance_acompte WHERE id_employe = ? AND id_periode_paie = ? "
+                                + "AND type_mouvement = 'PRIME_EXCEPTIONNELLE'")) {
+                    statement.setInt(1, employeeId);
+                    statement.setInt(2, periodId);
+                    try (ResultSet rows = statement.executeQuery()) {
+                        assertTrue(rows.next());
+                        assertEquals("ANNULE", rows.getString(1), "Le recalcul ne doit pas réactiver la prime annulée");
+                    }
+                }
                 BigDecimal imputePremierePeriode;
                 try (PreparedStatement statement = connection.prepareStatement(
                         "SELECT montant_impute, solde_restant, date_paiement FROM paie_avance_acompte WHERE id_avance = ?")) {

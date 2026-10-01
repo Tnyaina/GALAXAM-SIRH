@@ -20,6 +20,7 @@ class PayrollOptionalParametersTest {
         Map<String, ParametreGlobal.ParametreEtat> result = new HashMap<>();
         for (var entry : Map.of(
                 "SEUIL_RETARD_ASSIDUITE_MIN", "45",
+                "MONTANT_PRIME_ASSIDUITE", "500",
                 "SEUIL_RETARD_PENALITE_PP_MIN", "70",
                 "SEUIL_CONGES_PENALITE_PP_JOURS", "1.0",
                 "TAUX_PENALITE_PP", "0.25",
@@ -45,6 +46,19 @@ class PayrollOptionalParametersTest {
         input = primeInput();
         PayrollLegalContextResolver.applyDynamicParameters(input, params);
         assertFalse(input.isReglePrimeAssiduiteActive());
+        assertEquals(0, new BigDecimal("1000").compareTo(calculatePrimes(input)));
+    }
+
+    @Test
+    void disablingMontantAssiduiteRemovesPrimeFromBulletin() {
+        var params = parameters();
+        var input = primeInput();
+        PayrollLegalContextResolver.applyDynamicParameters(input, params);
+        assertEquals(0, new BigDecimal("1500").compareTo(calculatePrimes(input)));
+
+        disable(params, "MONTANT_PRIME_ASSIDUITE");
+        input = primeInput();
+        PayrollLegalContextResolver.applyDynamicParameters(input, params);
         assertEquals(0, new BigDecimal("1000").compareTo(calculatePrimes(input)));
     }
 

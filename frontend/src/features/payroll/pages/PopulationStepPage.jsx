@@ -1,14 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Search, CheckCircle2, UserX, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, UserX, AlertTriangle } from 'lucide-react';
 import PayrollCampaignShell from '@/features/payroll/components/workflow/PayrollCampaignShell';
 import Badge from '@/components/ui/data-display/Badge';
-import Input from '@/components/ui/forms/Input';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
-import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
-import Pagination from '@/components/ui/navigation/Pagination';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
+import PayrollStepTable, { PayrollEmployeeCell } from '@/features/payroll/components/workflow/PayrollStepTable';
 
 const DECISION_VARIANTS = {
     INCLUS: 'success',
@@ -163,91 +160,115 @@ export default function PopulationStepPage() {
                     </p>
                 )}
 
-                {/* Barre de synthèse Population (V1 Full V3) */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-2 text-xs flex-wrap" aria-label="Filtrer par décision">
-                        <button type="button" onClick={() => { setFilterDecision('ALL'); setCurrentPage(1); }} aria-pressed={filterDecision === 'ALL'} className={`px-2 py-1 border cursor-pointer ${filterDecision === 'ALL' ? 'border-[var(--color-brand-500)] text-[var(--color-brand-700)] bg-[var(--color-brand-100)]' : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)]'}`}>Tous ({population.length})</button>
-                        <button type="button" onClick={() => { setFilterDecision('INCLUS'); setCurrentPage(1); }} aria-pressed={filterDecision === 'INCLUS'} className={`px-2 py-1 border cursor-pointer inline-flex items-center gap-1.5 ${filterDecision === 'INCLUS' ? 'border-[var(--color-success-500)] bg-[var(--color-success-50)]' : 'border-[var(--color-border-subtle)]'}`}>
-                            <CheckCircle2 size={16} />
-                            {includedCount} inclus
-                        </button>
-                        <button type="button" onClick={() => { setFilterDecision('EXCLU'); setCurrentPage(1); }} aria-pressed={filterDecision === 'EXCLU'} className={`px-2 py-1 border cursor-pointer inline-flex items-center gap-1.5 ${filterDecision === 'EXCLU' ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-100)]' : 'border-[var(--color-border-subtle)]'}`}>
-                            <UserX size={16} />
-                            {excludedCount} exclu{excludedCount > 1 ? 's' : ''}
-                        </button>
-                        <button type="button" onClick={() => { setFilterDecision('BLOQUE'); setCurrentPage(1); }} aria-pressed={filterDecision === 'BLOQUE'} className={`px-2 py-1 border cursor-pointer inline-flex items-center gap-1.5 ${filterDecision === 'BLOQUE' ? 'border-[var(--color-danger-500)] bg-[var(--color-danger-50)]' : 'border-[var(--color-border-subtle)]'}`}>
-                            <AlertTriangle size={16} />
-                            {blockedCount} bloqué{blockedCount > 1 ? 's' : ''}
-                        </button>
-                    </div>
-
-                    {/* Filtres & Recherche */}
-                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                        <div className="w-56 max-w-full">
-                            <Input
-                                aria-label="Rechercher un salarié"
-                                placeholder="Rechercher salarié..."
-                                value={searchQuery}
-                                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                                iconLeft={<Search size={14} />}
-                                size="sm"
-                            />
+                {/* Table unifiée Population */}
+                <PayrollStepTable
+                    title="Population de la campagne"
+                    badgeCount={population.length}
+                    searchValue={searchQuery}
+                    onSearchChange={(q) => { setSearchQuery(q); setCurrentPage(1); }}
+                    searchPlaceholder="Rechercher salarié…"
+                    filterSlot={
+                        <div className="flex items-center gap-1.5 text-xs flex-wrap ml-2" aria-label="Filtrer par décision">
+                            <button
+                                type="button"
+                                onClick={() => { setFilterDecision('ALL'); setCurrentPage(1); }}
+                                aria-pressed={filterDecision === 'ALL'}
+                                className={`px-2 py-0.5 border text-xs font-medium cursor-pointer transition-colors ${
+                                    filterDecision === 'ALL'
+                                        ? 'border-[var(--color-brand-500)] text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] bg-[var(--color-brand-50)] dark:bg-[var(--color-brand-950)]'
+                                        : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
+                                }`}
+                            >
+                                Tous ({population.length})
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setFilterDecision('INCLUS'); setCurrentPage(1); }}
+                                aria-pressed={filterDecision === 'INCLUS'}
+                                className={`px-2 py-0.5 border text-xs font-medium cursor-pointer inline-flex items-center gap-1 transition-colors ${
+                                    filterDecision === 'INCLUS'
+                                        ? 'border-[var(--color-success-500)] text-[var(--color-success-700)] dark:text-[var(--color-success-300)] bg-[var(--color-success-50)] dark:bg-[var(--color-success-950)]'
+                                        : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
+                                }`}
+                            >
+                                <CheckCircle2 size={13} />
+                                {includedCount} inclus
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setFilterDecision('EXCLU'); setCurrentPage(1); }}
+                                aria-pressed={filterDecision === 'EXCLU'}
+                                className={`px-2 py-0.5 border text-xs font-medium cursor-pointer inline-flex items-center gap-1 transition-colors ${
+                                    filterDecision === 'EXCLU'
+                                        ? 'border-[var(--color-brand-500)] text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] bg-[var(--color-brand-50)] dark:bg-[var(--color-brand-950)]'
+                                        : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
+                                }`}
+                            >
+                                <UserX size={13} />
+                                {excludedCount} exclu{excludedCount > 1 ? 's' : ''}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setFilterDecision('BLOQUE'); setCurrentPage(1); }}
+                                aria-pressed={filterDecision === 'BLOQUE'}
+                                className={`px-2 py-0.5 border text-xs font-medium cursor-pointer inline-flex items-center gap-1 transition-colors ${
+                                    filterDecision === 'BLOQUE'
+                                        ? 'border-[var(--color-danger-500)] text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)] bg-[var(--color-danger-50)] dark:bg-[var(--color-danger-950)]'
+                                        : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
+                                }`}
+                            >
+                                <AlertTriangle size={13} />
+                                {blockedCount} bloqué{blockedCount > 1 ? 's' : ''}
+                            </button>
                         </div>
-                    </div>
-                </div>
-
-                {/* Liste de contrôle : les exclusions et blocages remontent en premier. */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-x-auto">
-                    {loading ? (
-                        <div className="p-4"><SkeletonTable rows={5} cols={7} /></div>
-                    ) : filteredPopulation.length === 0 ? (
-                        <div className="p-8 text-center text-xs text-[var(--color-fg-muted)]">
-                            {population.length === 0 && !refreshError ? 'Aucun salarié dans cette campagne.' : 'Aucun salarié ne correspond aux filtres.'}
-                        </div>
-                    ) : (
-                        <Table density="compact" bordered={false} aria-label="Population de la campagne">
-                            <Thead>
-                                <Tr>
-                                    <Th>Salarié</Th>
-                                    <Th>Contrat et affectation</Th>
-                                    <Th>Décision</Th>
-                                    <Th>Motif</Th>
-                                </Tr>
-                            </Thead>
-                            <Tbody>
-                                {pagedPopulation.map((p, idx) => {
-                                    const dec = p.decision || 'INCLUS';
-                                    const variant = DECISION_VARIANTS[dec] || 'default';
-                                    const label = DECISION_LABELS[dec] || dec;
-
-                                    return (
-                                        <Tr key={p.idEmploye || p.employeeId || idx}>
-                                            <Td className="font-semibold text-[var(--color-fg)]">
-                                                <span className="block">{p.employeeName || p.nomPrenom || '–'}</span>
-                                                <span className="block font-mono font-normal text-[11px] text-[var(--color-fg-subtle)]">{p.matricule || '–'} · {p.statutEmploye || '–'}</span>
-                                            </Td>
-                                            <Td className="text-xs">
-                                                <span className="block text-[var(--color-fg)]">{p.typeContrat || 'Contrat non renseigné'}</span>
-                                                <span className="block text-[11px] text-[var(--color-fg-muted)]">{p.contractNumber || '—'} · {p.nomSite || 'Site non renseigné'}</span>
-                                            </Td>
-                                            <Td>
-                                                <Badge variant={variant} size="sm">
-                                                    {label}
-                                                </Badge>
-                                            </Td>
-                                            <Td className="text-xs text-[var(--color-fg-muted)] max-w-sm whitespace-normal">
-                                                {getPopulationReasonLabel(p.reasonCode || p.reason || p.motif)}
-                                            </Td>
-                                        </Tr>
-                                    );
-                                })}
-                            </Tbody>
-                        </Table>
-                    )}
-                    {!loading && population.length > 0 && (
-                        <Pagination currentPage={currentPage} totalItems={filteredPopulation.length} pageSize={pageSize} pageSizeOptions={[10, 25, 50]} onPageChange={setCurrentPage} onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }} />
-                    )}
-                </div>
+                    }
+                    columns={[
+                        { key: 'salarie', label: 'Salarié', width: 'w-60' },
+                        { key: 'contrat', label: 'Contrat et affectation' },
+                        { key: 'decision', label: 'Décision', align: 'center', width: 'w-28' },
+                        { key: 'motif', label: 'Motif' },
+                    ]}
+                    loading={loading}
+                    emptyMessage={population.length === 0 && !refreshError ? 'Aucun salarié dans cette campagne.' : 'Aucun salarié ne correspond aux filtres.'}
+                    pagination={population.length > 0 ? {
+                        currentPage,
+                        totalItems: filteredPopulation.length,
+                        pageSize,
+                        pageSizeOptions: [10, 25, 50],
+                        onPageChange: setCurrentPage,
+                        onPageSizeChange: (size) => { setPageSize(size); setCurrentPage(1); },
+                    } : null}
+                    ariaLabel="Population de la campagne"
+                >
+                    {pagedPopulation.map((p, idx) => {
+                        const dec = p.decision || 'INCLUS';
+                        const variant = DECISION_VARIANTS[dec] || 'default';
+                        const label = DECISION_LABELS[dec] || dec;
+                        return (
+                            <tr key={p.idEmploye || p.employeeId || idx} className="hover:bg-[var(--color-bg-subtle)] transition-colors group">
+                                <td className="px-4 py-3.5">
+                                    <PayrollEmployeeCell
+                                        name={p.employeeName || p.nomPrenom}
+                                        matricule={p.matricule}
+                                        subtitle={p.statutEmploye}
+                                    />
+                                </td>
+                                <td className="px-4 py-3.5">
+                                    <div className="text-sm text-[var(--color-fg)]">{p.typeContrat || 'Contrat non renseigné'}</div>
+                                    <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                                        {[p.contractNumber, p.nomSite || 'Site non renseigné'].filter(Boolean).join(' · ')}
+                                    </div>
+                                </td>
+                                <td className="px-4 py-3.5 text-center">
+                                    <Badge variant={variant} size="sm">{label}</Badge>
+                                </td>
+                                <td className="px-4 py-3.5 text-[11px] text-[var(--color-fg-muted)] italic max-w-xs">
+                                    {getPopulationReasonLabel(p.reasonCode || p.reason || p.motif)}
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </PayrollStepTable>
             </div>
         </PayrollCampaignShell>
     );

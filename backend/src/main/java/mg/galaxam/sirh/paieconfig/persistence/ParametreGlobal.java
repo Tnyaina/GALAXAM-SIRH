@@ -39,7 +39,7 @@ public class ParametreGlobal extends ClassMere {
             case "SEUIL_ANCIENNETE_BONIFICATION_ANS", "PALIER_ANNEES_BONIFICATION",
                     "JOURS_BONIFICATION_PAR_PALIER" ->
                     "La bonification d'ancienneté n'est plus calculée.";
-            case "SEUIL_RETARD_ASSIDUITE_MIN" ->
+            case "SEUIL_RETARD_ASSIDUITE_MIN", "MONTANT_PRIME_ASSIDUITE" ->
                     "La prime d'assiduité n'est plus accordée par le calcul de paie.";
             case "SEUIL_RETARD_PENALITE_PP_MIN", "SEUIL_CONGES_PENALITE_PP_JOURS", "TAUX_PENALITE_PP" ->
                     "La pénalité retard/congé sur la prime de performance n'est plus appliquée.";

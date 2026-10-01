@@ -13,12 +13,14 @@ import {
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import MoneyInput from '@/components/ui/forms/MoneyInput';
 import Select from '@/components/ui/forms/Select';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Pagination from '@/components/ui/navigation/Pagination';
@@ -27,6 +29,7 @@ import { getErrorMessage } from '@/api/apiClient';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { fmtDate } from '@/utils/dateUtils';
+import { isManualPayrollVariable, isManualPayrollVariableType } from '@/features/payroll/utils/variableTypes';
 import { useAuth } from '@/context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -39,6 +42,7 @@ const parseAriaryAmount = (value) => {
 
 export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, mutationDisabledReason = '', onVariableChanged, onPendingCountChange }) {
     const { hasPermission } = useAuth();
+    const toast = useToast();
     const navigate = useNavigate();
     const location = useLocation();
     const canConfigure = hasPermission('ROLE_ADMIN');
@@ -51,6 +55,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     const [eligibleEmployees, setEligibleEmployees] = useState([]);
     const [populationError, setPopulationError] = useState('');
     const [filterSens, setFilterSens] = useState('ALL');
+    const [showCancelled, setShowCancelled] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
@@ -59,13 +64,15 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     // Modales de confirmation (Approuver & Supprimer)
     const [approvingVariable, setApprovingVariable] = useState(null);
     const [deletingVariable, setDeletingVariable] = useState(null);
+    const [cancelingVariable, setCancelingVariable] = useState(null);
+    const [cancelReason, setCancelReason] = useState('');
+    const [cancelError, setCancelError] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
     // Modal Nouvelle Variable
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [formError, setFormError] = useState('');
-    const [formNotice, setFormNotice] = useState('');
     const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(false);
     const [bulletinPreview, setBulletinPreview] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
@@ -90,7 +97,8 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             if (requestIdRef.current !== requestId) return;
             setVariables(Array.isArray(ajustementsRes) ? ajustementsRes : (ajustementsRes?.content || ajustementsRes?.items || []));
             setRefreshError(false);
-            const loadedTypes = Array.isArray(typesRes) ? typesRes : (typesRes?.content || typesRes?.items || []);
+            const loadedTypes = (Array.isArray(typesRes) ? typesRes : (typesRes?.content || typesRes?.items || []))
+                .filter(isManualPayrollVariableType);
             setTypesMouvements(loadedTypes);
             if (loadedTypes.length > 0) {
                 setForm(prev => ({
@@ -183,7 +191,6 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
 
     const handleFormChange = (field, val) => {
         setFormError('');
-        setFormNotice('');
         if (field === 'idEmploye' || field === 'typeMouvement' || field === 'sens') {
             setDuplicateAcknowledged(false);
         }
@@ -246,14 +253,14 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             if (keepOpen) {
                 setForm(previous => ({ ...previous, montant: '', motif: '' }));
                 setDuplicateAcknowledged(false);
-                setFormNotice('Variable enregistrée. Vous pouvez saisir la suivante pour ce salarié ou en choisir un autre.');
+                toast.success('Variable enregistrée. Vous pouvez saisir la suivante pour ce salarié ou en choisir un autre.');
                 setPreviewRevision(revision => revision + 1);
             } else {
                 setIsModalOpen(false);
                 setForm({ idEmploye: '', typeMouvement: typesMouvements[0]?.code || '', sens: typesMouvements[0]?.sens || '', montant: '', motif: '' });
             }
             await chargerDonnees({ silent: true });
-            if (!keepOpen) setFeedbackMsg({ type: 'success', text: 'Variable enregistrée. Approuvez-la avant le calcul réel de la paie.' });
+            if (!keepOpen) toast.success('Variable enregistrée. Approuvez-la avant le calcul réel de la paie.');
             onVariableChanged?.();
         } catch (err) {
             setFormError(getErrorMessage(err, 'Erreur lors de la création de la variable.'));
@@ -271,7 +278,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         try {
             await paieService.supprimerAjustement(idAvance);
             await chargerDonnees({ silent: true });
-            setFeedbackMsg({ type: 'success', text: 'Variable supprimée avec succès.' });
+            toast.success('Variable supprimée.');
             onVariableChanged?.();
             setDeletingVariable(null);
         } catch (err) {
@@ -279,6 +286,29 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 type: 'error',
                 text: getErrorMessage(err, 'Impossible de supprimer cette variable.')
             });
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleConfirmAnnuler = async () => {
+        if (!cancelingVariable) return;
+        if (cancelReason.trim().length < 8) {
+            setCancelError('Indiquez un motif d’annulation de huit caractères minimum.');
+            return;
+        }
+        setActionLoading(true);
+        setCancelError('');
+        try {
+            await paieService.executerCommandeAjustement(cancelingVariable.idAvance, 'CANCEL', cancelReason.trim(), cancelingVariable.version);
+            await chargerDonnees({ silent: true });
+            toast.success('Variable annulée. Recalculez le bulletin concerné.');
+            onVariableChanged?.();
+            setCancelingVariable(null);
+            setCancelReason('');
+            setCancelError('');
+        } catch (err) {
+            setCancelError(getErrorMessage(err, 'Impossible d’annuler cette variable.'));
         } finally {
             setActionLoading(false);
         }
@@ -293,7 +323,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         try {
             await paieService.executerCommandeAjustement(idAvance, 'APPROVE', null, approvingVariable.version);
             await chargerDonnees({ silent: true });
-            setFeedbackMsg({ type: 'success', text: 'Variable approuvée. Le calcul réel peut désormais la prendre en compte.' });
+            toast.success('Variable approuvée. Le calcul réel peut désormais la prendre en compte.');
             onVariableChanged?.();
             setApprovingVariable(null);
         } catch (err) {
@@ -307,6 +337,8 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
 
     // Filtrage
     const listVariables = Array.isArray(variables) ? variables : [];
+    const cancelledCount = listVariables.filter(v => v.statut === 'ANNULE').length;
+    const activeVariables = listVariables.filter(v => v.statut !== 'ANNULE');
     // Un même type peut être saisi plusieurs fois (ex. deux primes exceptionnelles).
     // Le système ne le bloque donc pas : il force une vérification consciente.
     const possibleDuplicate = Boolean(form.idEmploye && form.typeMouvement && listVariables.some((variable) => {
@@ -317,6 +349,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             && !['REJETE', 'ANNULE', 'CANCELLED'].includes(variable.statut);
     }));
     const filteredVariables = listVariables.filter(v => {
+        if (!showCancelled && v.statut === 'ANNULE') return false;
         const matchSens = filterSens === 'ALL' || v.sens === filterSens;
         const q = searchQuery.toLowerCase();
         const nomComplet = v.nomComplet || v.nom_complet || '';
@@ -332,11 +365,11 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     }).sort((a, b) => Number(b.statut === 'EN_ATTENTE') - Number(a.statut === 'EN_ATTENTE'));
     const pagedVariables = filteredVariables.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-    const totalGains = listVariables
+    const totalGains = activeVariables
         .filter(v => v.sens === 'GAIN')
         .reduce((sum, v) => sum + (Number(v.montant) || 0), 0);
 
-    const totalRetenues = listVariables
+    const totalRetenues = activeVariables
         .filter(v => v.sens === 'RETENUE')
         .reduce((sum, v) => sum + (Number(v.montant) || 0), 0);
     const pendingCount = listVariables.filter(v => v.statut === 'EN_ATTENTE').length;
@@ -365,15 +398,35 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     const previewBase = previewBulletin?.salaireBase ?? previewBulletin?.salaire_base;
     const previewCotisations = previewBulletin?.totalCotisationsSalariales ?? previewBulletin?.total_cotisations_salariales;
     const previewNetImposable = previewBulletin?.salaireNetImposable ?? previewBulletin?.salaire_net_imposable;
-    const previewBaseIrsa = previewBulletin?.revenuNetImposable ?? previewBulletin?.revenu_net_imposable;
+    const previewRevenuIrsa = previewBulletin?.revenuNetImposable ?? previewBulletin?.revenu_net_imposable;
+    const previewBaseIrsa = previewBulletin?.baseIrsaArrondie ?? previewBulletin?.base_irsa_arrondie;
     const previewIrsa = previewBulletin?.irsaNet ?? previewBulletin?.irsa_net;
     const previewIsi = previewBulletin?.retenueIsi5 ?? previewBulletin?.retenue_isi_5;
     const previewIndemnitesNet = previewBulletin?.totalIndemnitesNonImposables ?? previewBulletin?.total_indemnites_non_imposables;
     const previewRetenues = previewBulletin?.totalRetenuesAcomptePret ?? previewBulletin?.total_retenues_acompte_pret;
     const previewAvantArrondi = previewBulletin?.netAvantArrondi ?? previewBulletin?.net_avant_arrondi;
-    const previewNetAvantRetenues = previewNetImposable == null ? null
-        : Number(previewNetImposable) - Number(previewIrsa || 0) - Number(previewIsi || 0) + Number(previewIndemnitesNet || 0);
     const previewLines = Array.isArray(bulletinPreview?.lignes) ? bulletinPreview.lignes : [];
+    const previewFiscalite = bulletinPreview?.explicationFiscalite;
+    const previewHsExoneree = Number(previewFiscalite?.remunerationHsExonereeIrsa
+        ?? previewLines.find(line => line.codeRubrique === 'HS_EXONEREE_IRSA')?.montantSalarial ?? 0);
+    const previewIsIrsa = Number(previewIsi || 0) === 0
+        && previewLines.some(line => ['IMPOT_IRSA_BRUT', 'IMPOT_IRSA_NET'].includes(line.codeRubrique));
+    const previewAjustement = previewAvantArrondi != null && previewNet != null
+        ? Math.round((Number(previewNet) - Number(previewAvantArrondi)) * 100) / 100 : 0;
+    const previewSteps = [
+        ['Brut calculé', previewGross, '', 'font-bold text-[var(--color-fg)]'],
+        Number(previewCotisations || 0) > 0 && ['Cotisations salariales', previewCotisations, '−', 'text-[var(--color-danger-600)] font-semibold'],
+        ['Net après cotisations', previewNetImposable, '', 'font-medium text-[var(--color-fg)]'],
+        previewIsIrsa && previewHsExoneree > 0 && ['Heures supplémentaires exclues de la base IRSA', previewHsExoneree, '−', 'text-[var(--color-fg-muted)]'],
+        previewIsIrsa && previewHsExoneree > 0 && ['Revenu soumis à l’IRSA', previewRevenuIrsa, '', 'text-[var(--color-fg)]'],
+        previewIsIrsa && ['Base fiscale IRSA (arrondie)', previewBaseIrsa, '', 'text-[var(--color-fg-muted)]'],
+        previewIsIrsa && Number(previewIrsa || 0) > 0 && ['IRSA prélevé', previewIrsa, '−', 'text-[var(--color-danger-600)] font-semibold'],
+        Number(previewIsi || 0) > 0 && ['ISI prélevé', previewIsi, '−', 'text-[var(--color-danger-600)] font-semibold'],
+        Number(previewIndemnitesNet || 0) > 0 && ['Indemnités et remboursements non imposables', previewIndemnitesNet, '+', 'text-[var(--color-success-700)] font-semibold'],
+        Number(previewRetenues || 0) > 0 && ['Acomptes, prêts et autres retenues', previewRetenues, '−', 'text-[var(--color-danger-600)] font-semibold'],
+        ['Net avant arrondi', previewAvantArrondi, '', 'text-[var(--color-fg)] font-medium'],
+        previewAjustement !== 0 && ['Ajustement à la dizaine d’ariary', Math.abs(previewAjustement), previewAjustement > 0 ? '+' : '−', 'text-[var(--color-fg)]'],
+    ].filter(Boolean);
     const employeeVariables = listVariables.filter(variable =>
         Number(variable.idEmploye ?? variable.id_employe) === Number(form.idEmploye)
         && !['REJETE', 'ANNULE', 'CANCELLED'].includes(variable.statut)
@@ -447,10 +500,13 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 {canConfigure && <Button variant="ghost" size="sm" onClick={() => navigate('/admin/parametres?module=paie&tab=types_variables', { state: { from: location.pathname + location.search } })} iconLeft={<SlidersHorizontal size={14} />}>
                     Catalogue des types
                 </Button>}
+                {cancelledCount > 0 && <Button variant="ghost" size="sm" onClick={() => { setShowCancelled(value => !value); setCurrentPage(1); }}>
+                    {showCancelled ? 'Masquer les annulées' : `Afficher les annulées (${cancelledCount})`}
+                </Button>}
                 <Button
                     variant="primary"
                     size="sm"
-                    onClick={() => { setFormError(''); setFormNotice(''); setIsModalOpen(true); }}
+                    onClick={() => { setFormError(''); setIsModalOpen(true); }}
                     iconLeft={<Plus size={14} />}
                     className="w-full sm:w-auto justify-center shrink-0"
                     disabled={!canMutate}
@@ -469,7 +525,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                     title="Aucune variable de paie"
                     description="Il n’y a aucun élément variable (prime, acompte, retenue) enregistré pour cette période ou ces filtres."
                     actionLabel={canMutate ? 'Ajouter une variable' : undefined}
-                    onAction={canMutate ? () => { setFormError(''); setFormNotice(''); setIsModalOpen(true); } : undefined}
+                    onAction={canMutate ? () => { setFormError(''); setIsModalOpen(true); } : undefined}
                     actionIcon={canMutate ? <Plus size={14} /> : undefined}
                 />
             ) : (
@@ -533,7 +589,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                                     Approuver
                                                 </Button>
                                             )}
-                                            {canMutate && v.statut !== 'IMPUTE_PAIE' && idAvance && (
+                                            {canMutate && v.statut === 'EN_ATTENTE' && isManualPayrollVariable(v) && idAvance && (
                                                 <Button
                                                     variant="ghost"
                                                     size="xs"
@@ -542,6 +598,13 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                                     className="text-[var(--color-danger-600)] hover:bg-[var(--color-danger-50)] dark:hover:bg-[var(--color-danger-950)]/40"
                                                 >
                                                     Supprimer
+                                                </Button>
+                                            )}
+                                            {canMutate && ['APPROUVE', 'IMPUTE_PAIE'].includes(v.statut) && isManualPayrollVariable(v) && idAvance && (
+                                                <Button variant="ghost" size="xs" iconLeft={<Trash2 size={13} />}
+                                                    onClick={() => { setCancelingVariable(v); setCancelReason(''); setCancelError(''); }}
+                                                    className="text-[var(--color-danger-600)] hover:bg-[var(--color-danger-50)]">
+                                                    Annuler la variable
                                                 </Button>
                                             )}
                                         </div>
@@ -596,7 +659,6 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             >
                 <form onSubmit={handleSubmit} className="text-xs">
                     {formError && <div role="alert" className="mb-4 flex items-start gap-2 border border-[var(--color-danger-500)]/35 bg-[var(--color-danger-500)]/10 p-3 text-[var(--color-danger-700)]"><AlertCircle size={14} className="mt-0.5 shrink-0" />{formError}</div>}
-                    {formNotice && <p role="status" className="mb-4 border border-[var(--color-success-300)] bg-[var(--color-success-50)] p-3 text-[var(--color-success-700)]">{formNotice}</p>}
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.25fr] gap-6 items-start">
                       <div className="space-y-4">
                         <div className="border-l-2 border-[var(--color-brand-500)] pl-3">
@@ -654,15 +716,15 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         </div>}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <Input
+                        <MoneyInput
                             label="Montant en Ariary"
-                            type="text"
-                            inputMode="decimal"
                             required
                             placeholder="Ex. 1 250,50"
                             hint="Montant positif en Ar."
                             value={form.montant}
-                            onChange={(e) => handleFormChange('montant', e.target.value)}
+                            onValueChange={(value) => handleFormChange('montant', value)}
+                            min={0}
+                            maxDecimals={2}
                         />
 
                         <Input
@@ -740,7 +802,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                 {/* KPIs Salaire de Base et Brut Provisoire */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/60 p-3">
-                                        <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Salaire de base</span>
+                                        <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Salaire contractuel</span>
                                         <strong className="mt-1 block font-mono text-base font-bold text-[var(--color-fg)]">{formatAr(previewBase)}</strong>
                                     </div>
                                     <div className="border border-[var(--color-brand-500)]/30 bg-[var(--color-brand-500)]/5 p-3">
@@ -756,21 +818,11 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                         <span className="text-[10px] text-[var(--color-fg-muted)] font-mono">Période active</span>
                                     </div>
                                     <div className="space-y-1">
-                                        {[
-                                            ['Brut calculé', previewGross, false, 'font-bold text-[var(--color-fg)]'],
-                                            ['Cotisations salariales', previewCotisations, true, 'text-[var(--color-danger-600)] font-semibold'],
-                                            ['Net imposable', previewNetImposable, false, 'text-[var(--color-fg)] font-medium'],
-                                            ['Base retenue pour l’IRSA', previewBaseIrsa, false, 'text-[var(--color-fg-muted)]'],
-                                            ['IRSA / ISI', Number(previewIrsa || 0) + Number(previewIsi || 0), true, 'text-[var(--color-danger-600)] font-semibold'],
-                                            ['Gains ajoutés après impôt', previewIndemnitesNet, false, 'text-[var(--color-success-700)] font-semibold'],
-                                            ['Net avant retenues personnelles', previewNetAvantRetenues, false, 'text-[var(--color-fg)] font-medium'],
-                                            ['Acomptes et autres retenues', previewRetenues, true, 'text-[var(--color-danger-600)] font-semibold'],
-                                            ['Net avant arrondi', previewAvantArrondi, false, 'text-[var(--color-fg-muted)]'],
-                                        ].map(([label, amount, deduction, valueClass]) => amount != null && (
+                                        {previewSteps.map(([label, amount, sign, valueClass]) => amount != null && (
                                             <div key={label} className="flex items-baseline justify-between gap-3 text-xs py-1 border-b border-[var(--color-border-subtle)]/30 last:border-0">
                                                 <span className="text-[var(--color-fg-muted)] truncate">{label}</span>
                                                 <strong className={`shrink-0 font-mono ${valueClass || 'text-[var(--color-fg)]'}`}>
-                                                    {deduction && Number(amount) > 0 ? '−' : ''}{formatAr(amount)}
+                                                    {sign}{formatAr(amount)}
                                                 </strong>
                                             </div>
                                         ))}
@@ -820,11 +872,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                             <span className="block font-mono text-sm font-bold">
                                                 {form.sens === 'RETENUE' ? '−' : '+'}{formatAr(montantNum)}
                                             </span>
-                                            {form.sens === 'RETENUE' && previewNet != null && (
-                                                <span className="text-[10px] opacity-90 block">
-                                                    Net projeté : <strong>{formatAr(Math.max(0, Number(previewNet) - montantNum))}</strong>
-                                                </span>
-                                            )}
+                                            <span className="text-[10px] opacity-90 block">Effet réel visible après simulation du bulletin.</span>
                                         </div>
                                     </div>
                                 )}
@@ -834,7 +882,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                     <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 space-y-2">
                                         <div className="flex items-center justify-between pb-1 border-b border-[var(--color-border-subtle)]">
                                             <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                                                Variables déjà enregistrées ({employeeVariables.length})
+                                                Mouvements déjà enregistrés ({employeeVariables.length})
                                             </p>
                                         </div>
                                         <div className="space-y-1">
@@ -851,17 +899,20 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                     </div>
                                 )}
 
-                                {/* Principales Lignes Calculées */}
+                                {/* Rubriques calculées du bulletin provisoire */}
                                 {previewLines.length > 0 && (
                                     <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 space-y-2">
                                         <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] pb-1 border-b border-[var(--color-border-subtle)]">
-                                            Principales lignes calculées
+                                            Rubriques calculées ({previewLines.length})
                                         </p>
                                         <div className="space-y-1">
-                                            {previewLines.slice(0, 5).map((line, index) => (
+                                            {previewLines.map((line, index) => (
                                                 <div key={`${line.codeRubrique || line.code_rubrique || 'ligne'}-${index}`} className="flex justify-between items-center gap-3 py-1 text-xs border-b border-[var(--color-border-subtle)]/30 last:border-0">
-                                                    <span className="truncate text-[var(--color-fg-muted)]">{line.libelleRubrique || line.libelle_rubrique || line.codeRubrique || line.code_rubrique || 'Élément de paie'}</span>
-                                                    <strong className="shrink-0 font-mono text-xs text-[var(--color-fg)]">{formatAr(line.montantSalarial ?? line.montant_salarial)}</strong>
+                                                    <span className="text-[var(--color-fg-muted)]">{line.libelleRubrique || line.libelle_rubrique || line.codeRubrique || line.code_rubrique || 'Élément de paie'}</span>
+                                                    <strong className={`shrink-0 font-mono text-xs ${line.sens === 'RETENUE' ? 'text-[var(--color-danger-600)]' : line.sens === 'GAIN' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                                        {line.sens === 'PATRONAL' ? 'Employeur · ' : line.sens === 'RETENUE' ? '−' : line.sens === 'GAIN' ? '+' : 'Info · '}
+                                                        {formatAr(line.sens === 'PATRONAL' ? line.montantPatronal : line.montantSalarial ?? line.montant_salarial)}
+                                                    </strong>
                                                 </div>
                                             ))}
                                         </div>
@@ -926,6 +977,36 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         )}
                     </div>
                 )}
+            </ConfirmDialog>
+
+            <ConfirmDialog
+                isOpen={Boolean(cancelingVariable)}
+                onClose={() => {
+                    if (!actionLoading) {
+                        setCancelingVariable(null);
+                        setCancelReason('');
+                        setCancelError('');
+                    }
+                }}
+                onConfirm={handleConfirmAnnuler}
+                title="Annuler la variable de paie"
+                message="Cette annulation sera tracée. Si la variable figure déjà sur un bulletin, recalculez ce bulletin pour retirer son effet."
+                confirmLabel={actionLoading ? 'Annulation…' : 'Confirmer l’annulation'}
+                variant="danger"
+                loading={actionLoading}
+            >
+                <Input
+                    label="Motif d’annulation"
+                    placeholder="Ex : Erreur de saisie, justificatif manquant (8 caractères min.)..."
+                    value={cancelReason}
+                    onChange={event => {
+                        setCancelReason(event.target.value);
+                        if (cancelError) setCancelError('');
+                    }}
+                    error={cancelError}
+                    required
+                    autoFocus
+                />
             </ConfirmDialog>
 
             {/* Modale de Confirmation - Suppression */}

@@ -27,6 +27,8 @@ import org.springframework.web.bind.annotation.*;
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.List;
 import java.util.Map;
 
@@ -109,6 +111,33 @@ public class PaieController {
                         "Bulletin de paie introuvable.");
             }
             return ResponseEntity.ok(bp);
+        }
+    }
+
+    @GetMapping("/bulletin/{id}/correction-status")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> obtenirStatutCorrectionBulletin(@PathVariable("id") Integer idBulletin) throws Exception {
+        String sql = "SELECT b.id_bulletin, "
+                + "(SELECT COUNT(*) FROM paie_avance_acompte a WHERE a.id_periode_paie = b.id_periode_paie "
+                + "AND a.id_employe = b.id_employe AND a.statut = 'EN_ATTENTE') AS pending_count, "
+                + "EXISTS (SELECT 1 FROM paie_avance_acompte a WHERE a.id_periode_paie = b.id_periode_paie "
+                + "AND a.id_employe = b.id_employe "
+                + "AND (a.statut NOT IN ('ANNULE','REJETE') OR a.id_bulletin = b.id_bulletin) "
+                + "AND a.updated_at > COALESCE(b.updated_at, b.date_calcul, '1970-01-01'::timestamptz)) "
+                + "AS recalculation_required "
+                + "FROM bulletin_paie b WHERE b.id_bulletin = ?";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, idBulletin);
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_NOT_FOUND,
+                            "Bulletin de paie introuvable.");
+                }
+                return ResponseEntity.ok(Map.of(
+                        "pendingCount", result.getInt("pending_count"),
+                        "recalculationRequired", result.getBoolean("recalculation_required")));
+            }
         }
     }
 
