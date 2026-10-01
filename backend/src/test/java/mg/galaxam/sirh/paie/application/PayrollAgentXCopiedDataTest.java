@@ -86,7 +86,8 @@ class PayrollAgentXCopiedDataTest {
     money("399139.58",simulated.getBulletin().getTotalGainsBruts());
     money("9978.49",simulated.getBulletin().getTotalCotisationsSalariales());
     money("380081.09",simulated.getBulletin().getNetAvantArrondi());
-    money("371200",simulated.getBulletin().getBaseIrsaArrondie());
+    money("389100",simulated.getBulletin().getBaseIrsaArrondie());
+    assertTrue(simulated.getLignes().stream().noneMatch(l -> "HS_EXONEREE_IRSA".equals(l.getCodeRubrique())));
     money("3000",simulated.getBulletin().getIrsaNet());
     money("380080",simulated.getBulletin().getNetAPayer());
     var actual=payroll.calculerBulletinEmploye(employee,1,false,null,c);

@@ -760,7 +760,7 @@ Chaque ligne correspond à un exercice fiscal d'application de la Loi de Finance
 - `minimum_perception_irsa` : Minimum de perception fiscale (3 000 Ar sous LF 2026, anciennement 2 000 Ar sous LF 2024/2025).
 - `deduction_charge_famille` : Déduction pour enfant à charge (2 000 Ar / enfant).
 - `duree_hebdo_legale` (40h), `diviseur_mensuel_heures` (173.33).
-- `exoneration_hs_irsa_active` (`TRUE`), `plafond_mensuel_hs_exonerees` (20.00 heures).
+- `exoneration_hs_irsa_active` (`FALSE` par défaut ; activation explicite requise), `plafond_mensuel_hs_exonerees` (20.00 heures).
 
 ### 23.2. Versions Réelles Actuelles du Système
 1. `LF_2024_2025` : Applicable du 01/01/2022 au 31/12/2025 (SME 262 680 Ar, Min IRSA 2 000 Ar, Barème 5 tranches).

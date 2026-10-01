@@ -82,3 +82,5 @@ incompatible fait échouer l'index unique et demande un arbitrage explicite.
 ### Remarques Opérationnelles
 - Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 81 tables et 9 vues cohérentes.
 - Les scripts du dossier `migrations/` sont destinés uniquement à la mise à niveau de bases déjà déployées antérieurement ; vérifier l'état de chaque migration avant de la rejouer.
+
+- `26-10-01-sp48-hs-imposables-par-defaut.sql` : désactive la bascule globale d'exonération HS sur les bases existantes ; valeur par défaut des nouvelles configurations légales à FALSE. Aucun recalcul de bulletin.

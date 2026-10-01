@@ -47,7 +47,7 @@ public class PaieConfigLegale extends ClassMere {
     private Integer diviseurValorisationCongeJours;
 
     // Exonération fiscale Heures Supplémentaires (CGI 01.03.03-9°)
-    private Boolean exonerationHsIrsaActive = Boolean.TRUE;
+    private Boolean exonerationHsIrsaActive = Boolean.FALSE;
     private BigDecimal plafondMensuelHsExonerees = new BigDecimal("20.00");
 
     // Champ calculé (non stocké, calculé côté SQL)

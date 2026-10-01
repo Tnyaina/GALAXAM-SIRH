@@ -39,7 +39,7 @@ Les −150 minutes sont un autre ajustement, explicitement présent dans la feui
 | Déplacement | 35 272,7273 | 35 272,70 |
 | Brut | 399 139,6315 | 399 139,58 |
 | Cotisations salariales | 9 978,4908 | 9 978,49 |
-| Assiette IRSA arrondie | 389 100 | 371 200 |
+| Assiette IRSA arrondie | 389 100 | 389 100 |
 | IRSA retenu | 3 000 | 3 000 |
 | Téléphonie personnelle | 6 080 | 6 080 |
 | Net avant arrondi | 380 081,1407 | 380 081,09 |
@@ -51,7 +51,7 @@ Les cinq centimes de différence avant arrondi s'expliquent principalement par :
 - les congés valorisés à partir des lots, plutôt que neuf fois leur taux moyen préalablement arrondi ;
 - les montants de HS et cotisations arrondis au centime.
 
-**Le net identique ne signifie pas que toutes les règles fiscales sont identiques.** Le moteur exclut ici les 17 899,09 Ar de HS de l'assiette IRSA selon sa configuration actuelle ; le récapitulatif Excel ne le fait pas. Le minimum de 3 000 Ar masque cette différence pour Agent X. La présente recette ne constitue pas une validation juridique de cette exonération ni du barème.
+**Paramétrage modifié après le premier rapprochement :** les HS sont maintenant imposables par défaut (migration sp48). L’assiette IRSA passe de 371 200 à **389 100 Ar**, comme le récapitulatif Excel. Le minimum de 3 000 Ar maintient le même impôt et le même net pour Agent X. L’exonération reste possible par activation explicite ; cette recette ne constitue pas une validation juridique du barème.
 
 ## Congés : portée de la comparaison
 
