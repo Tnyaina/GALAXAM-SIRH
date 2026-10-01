@@ -5,7 +5,7 @@ import { getErrorMessage } from '@/api/apiClient';
 import paieConfigService from '@/features/administration/api/paieConfigService';
 import organisationService from '@/features/organization/api/organisationService';
 import { fmtDateInput } from '@/utils/dateUtils';
-import Tabs from '@/components/ui/navigation/Tabs';
+import SideTabs from '@/components/ui/navigation/SideTabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import FormModal from '@/components/ui/overlays/FormModal';
@@ -26,7 +26,8 @@ function JoursFerieFormModal({ isOpen, onClose, onSubmit, editingFerie, formData
 export default function CalendrierFerieTab() {
     // Contexte, navigation et confirmation
     const [searchParams, setSearchParams] = useSearchParams();
-    const subSection = searchParams.get('subtab') || 'feries';
+    const requestedSubSection = searchParams.get('subtab');
+    const subSection = ['feries', 'site_feries', 'periodes'].includes(requestedSubSection) ? requestedSubSection : 'feries';
 
     const setSubSection = (newSubTab) => {
         setSearchParams(prev => {
@@ -343,22 +344,19 @@ export default function CalendrierFerieTab() {
 
     // Rendu
     return (
-        <div className="space-y-6">
+        <SideTabs
+            tabs={[
+                { id: 'feries', label: 'Jours fériés nationaux', icon: <Calendar size={16} />, count: filteredFeries.length },
+                { id: 'site_feries', label: 'Fériés spécifiques par site', icon: <MapPin size={16} />, count: filteredSiteFeries.length },
+                { id: 'periodes', label: 'Périodes exceptionnelles', icon: <Calendar size={16} />, count: filteredPeriodes.length }
+            ]}
+            activeTab={subSection}
+            onChange={setSubSection}
+            className="space-y-6"
+        >
             {error && <Alert type="error" message={error} />}
 
-            {/* Onglets internes + Filtres */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-[var(--color-surface)] rounded-none p-2 gap-3">
-                <Tabs
-                    tabs={[
-                        { id: 'feries', label: 'Jours Fériés Nationaux', icon: <Calendar size={16} />, count: filteredFeries.length },
-                        { id: 'site_feries', label: 'Fériés Spécifiques par Site', icon: <MapPin size={16} />, count: filteredSiteFeries.length },
-                        { id: 'periodes', label: 'Périodes Exceptionnelles', icon: <Calendar size={16} />, count: filteredPeriodes.length }
-                    ]}
-                    activeTab={subSection}
-                    onChange={setSubSection}
-                    variant="pills"
-                />
-
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
                     <div className="relative flex-1 md:flex-initial">
                         <Search size={14} className="absolute left-2.5 top-2.5 text-[var(--color-fg-muted)]" />
@@ -472,6 +470,6 @@ export default function CalendrierFerieTab() {
 
             {/* Modale de confirmation globale */}
             <ConfirmModal />
-        </div>
+        </SideTabs>
     );
 }

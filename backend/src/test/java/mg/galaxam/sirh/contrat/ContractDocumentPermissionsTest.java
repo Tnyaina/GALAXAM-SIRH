@@ -2,10 +2,8 @@ package mg.galaxam.sirh.contrat;
 
 import mg.galaxam.sirh.contrat.api.*;
 import mg.galaxam.sirh.contrat.application.DocumentRhService;
-import mg.galaxam.sirh.contrat.api.dto.DocumentRhDTO.ContratTravailDocumentDTO;
 import javax.sql.DataSource;
 import java.sql.Connection;
-import java.util.List;
 import org.junit.jupiter.api.*;
 import org.springframework.context.annotation.*;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;

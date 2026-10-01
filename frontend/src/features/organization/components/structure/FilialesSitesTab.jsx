@@ -8,7 +8,7 @@ import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Card from '@/components/ui/data-display/Card';
-import Tabs from '@/components/ui/navigation/Tabs';
+import SideTabs from '@/components/ui/navigation/SideTabs';
 import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
@@ -152,7 +152,8 @@ function FilialeFormModal({ isOpen, onClose, onSubmit, selectedFiliale, formData
 export default function FilialesSitesTab() {
     // Contexte et navigation
     const [searchParams, setSearchParams] = useSearchParams();
-    const activeSubTab = searchParams.get('subtab') || 'filiales';
+    const requestedSubTab = searchParams.get('subtab');
+    const activeSubTab = ['filiales', 'sites'].includes(requestedSubTab) ? requestedSubTab : 'filiales';
     const toast = useToast();
 
     const setActiveSubTab = (newSubTab) => {
@@ -506,15 +507,8 @@ export default function FilialesSitesTab() {
     }
 
     return (
-        <div className="space-y-4">
+        <SideTabs tabs={subTabs} activeTab={activeSubTab} onChange={setActiveSubTab} className="space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <Tabs
-                    tabs={subTabs}
-                    activeTab={activeSubTab}
-                    onChange={setActiveSubTab}
-                    variant="underline"
-                />
-
                 <div>
                     {activeSubTab === 'filiales' ? (
                         <Button
@@ -638,6 +632,6 @@ export default function FilialesSitesTab() {
                 variant={confirmState.variant}
                 loading={confirmState.loading}
             />
-        </div>
+        </SideTabs>
     );
 }

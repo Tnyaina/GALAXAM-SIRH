@@ -47,13 +47,14 @@ export default function ParametresModulesPanel() {
         else if (moduleId === 'general') defaultTab = 'parametres_globaux_systeme';
 
         if (moduleId === 'calendrier') defaultTab = 'calendrier';
-        setSearchParams(previous => { const next = new URLSearchParams(previous); next.set('module', moduleId); next.set('tab', previous.get(`${moduleId}_tab`) || defaultTab); return next; });
+        setSearchParams(previous => { const next = new URLSearchParams(previous); next.set('module', moduleId); next.set('tab', previous.get(`${moduleId}_tab`) || defaultTab); next.delete('subtab'); return next; });
     };
 
     const handleTabChange = (tabKey) => {
         setSearchParams(previous => {
             const next = new URLSearchParams(previous);
             next.set('module', activeModule); next.set('tab', tabKey); next.set(`${activeModule}_tab`, tabKey);
+            next.delete('subtab');
             return next;
         });
     };
@@ -106,10 +107,11 @@ export default function ParametresModulesPanel() {
     const activeTab = currentTabs.some(tab => tab.id === canonicalTab) ? canonicalTab : currentTabs[0].id;
 
     return (
-        <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full">
+        <div className="flex-1 min-h-0 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full flex flex-col overflow-hidden">
             <SEO title="Paramétrage des Modules" description="Configuration des barèmes, cotisations, majorations et règles métier." />
 
             <PageHeader
+                className="shrink-0 mb-3.5"
                 title="Règles métier"
                 subtitle="Choisissez un domaine, puis la règle ou le barème à configurer."
                 icon={Wrench}
@@ -123,12 +125,13 @@ export default function ParametresModulesPanel() {
             <AdministrationSettingsView
                 groups={[{ id: 'domaines', label: 'Domaines métier', items: MODULES }]}
                 activeId={activeModule} onChange={handleModuleChange}
+                contained scrollContent={false}
             >
-                <div className="space-y-5">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                     <AdministrationSettingsView
                         groups={activeModule === 'paie' ? paieGroups : [{ id: activeModule, label: 'Configuration', items: currentTabs }]}
                         activeId={activeTab === 'majorations_params' || activeTab === 'majorations' ? 'reglementation_fiscale' : activeTab === 'parametres_globaux' ? 'parametres_globaux_paie' : activeTab}
-                        onChange={handleTabChange} vertical={activeModule === 'paie'}
+                        onChange={handleTabChange} contained
                     >
                 {/* Contenu de l'onglet actif avec le SkeletonTable standardisé */}
                 <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>

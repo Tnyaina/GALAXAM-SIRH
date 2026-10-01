@@ -11,6 +11,7 @@ import TypeCongeModal from './TypeCongeModal';
 import MotifFamilialModal from './MotifFamilialModal';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import SideTabs from '@/components/ui/navigation/SideTabs';
 
 export default function ParametresCongesTab() {
   // Contexte
@@ -118,39 +119,16 @@ export default function ParametresCongesTab() {
 
   // Rendu
   return (
-    <div className="space-y-6 ">
-      <div className="flex flex-col md:flex-row gap-6">
-        
-        {/* Menu Latéral Paramètres */}
-        <div className="w-full md:w-64 shrink-0 space-y-1">
-          <button
-            onClick={() => setActiveSubTab('types')}
-            className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-l-2  ${
-              activeSubTab === 'types' 
-                ? 'bg-[var(--color-brand-50)] text-[var(--color-brand-600)] border-[var(--color-brand-500)]' 
-                : 'bg-transparent text-[var(--color-fg-subtle)] border-transparent hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-fg)]'
-            }`}
-          >
-            <FileText size={16} />
-            Types de Congés
-          </button>
-          
-          <button
-            onClick={() => setActiveSubTab('evenements')}
-            className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-l-2  ${
-              activeSubTab === 'evenements' 
-                ? 'bg-[var(--color-brand-50)] text-[var(--color-brand-600)] border-[var(--color-brand-500)]' 
-                : 'bg-transparent text-[var(--color-fg-subtle)] border-transparent hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-fg)]'
-            }`}
-          >
-            <ShieldAlert size={16} />
-            Événements Familiaux
-          </button>
-
-        </div>
-
-        {/* Contenu Principal Paramètres */}
-        <div className="flex-1">
+    <SideTabs
+      title="Configuration des congés"
+      tabs={[
+        { id: 'types', label: 'Types de congés', icon: <FileText size={16} />, count: types.length },
+        { id: 'evenements', label: 'Événements familiaux', icon: <ShieldAlert size={16} />, count: motifs.length }
+      ]}
+      activeTab={activeSubTab}
+      onChange={setActiveSubTab}
+      className="space-y-6"
+    >
           {activeSubTab === 'types' && (
             <Card>
               <CardHeader>
@@ -365,9 +343,6 @@ export default function ParametresCongesTab() {
             </Card>
           )}
 
-        </div>
-      </div>
-
       <TypeCongeModal 
         isOpen={showTypeModal} 
         onClose={() => setShowTypeModal(false)} 
@@ -383,6 +358,6 @@ export default function ParametresCongesTab() {
 
       <ConfirmModal />
 
-    </div>
+    </SideTabs>
   );
 }

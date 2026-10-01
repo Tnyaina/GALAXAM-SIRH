@@ -17,14 +17,15 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
 import FormModal from '@/components/ui/overlays/FormModal';
-import Tabs from '@/components/ui/navigation/Tabs';
+import SideTabs from '@/components/ui/navigation/SideTabs';
 import useConfirm from '@/hooks/useConfirm';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 export default function IndemnitesSitesTab() {
     // Contexte, navigation et confirmation
     const [searchParams, setSearchParams] = useSearchParams();
-    const subSection = searchParams.get('subtab') || 'indemnites';
+    const requestedSubSection = searchParams.get('subtab');
+    const subSection = ['indemnites', 'sites_config', 'exclusions'].includes(requestedSubSection) ? requestedSubSection : 'indemnites';
 
     const setSubSection = (newSubTab) => {
         setSearchParams(prev => {
@@ -235,23 +236,18 @@ export default function IndemnitesSitesTab() {
 
     // Rendu
     return (
-        <div className="space-y-6">
+        <SideTabs
+            tabs={[
+                { id: 'indemnites', label: 'Types d’indemnités', icon: <Gift size={16} />, count: indemnites.length },
+                { id: 'sites_config', label: 'Tarifs par site', icon: <MapPin size={16} />, count: siteIndemnites.length },
+                { id: 'exclusions', label: 'Exclusions employés', icon: <ShieldAlert size={16} /> }
+            ]}
+            activeTab={subSection}
+            onChange={setSubSection}
+            className="space-y-6"
+        >
             {/* Notifications */}
             {error && <Alert type="error" message={error} />}
-
-            {/* Onglets de navigation internes */}
-            <div>
-                <Tabs
-                    tabs={[
-                        { id: 'indemnites', label: 'Types d\'Indemnités', icon: <Gift size={16} />, count: indemnites.length },
-                        { id: 'sites_config', label: 'Tarifs par Site', icon: <MapPin size={16} />, count: siteIndemnites.length },
-                        { id: 'exclusions', label: 'Exclusions Employés', icon: <ShieldAlert size={16} /> }
-                    ]}
-                    activeTab={subSection}
-                    onChange={setSubSection}
-                    variant="pills"
-                />
-            </div>
 
             {/* SECTION 1: CATALOGUE INDEMNITES */}
             {subSection === 'indemnites' && (
@@ -675,6 +671,6 @@ export default function IndemnitesSitesTab() {
 
             {/* Modale de confirmation globale */}
             <ConfirmModal />
-        </div>
+        </SideTabs>
     );
 }

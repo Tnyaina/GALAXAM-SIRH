@@ -4,7 +4,7 @@ import { FileText, UserCheck, Landmark } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiClient';
 import organisationService from '@/features/organization/api/organisationService';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
-import Tabs from '@/components/ui/navigation/Tabs';
+import SideTabs from '@/components/ui/navigation/SideTabs';
 import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
 import { useToast } from '@/components/ui/feedback/Toast';
@@ -114,7 +114,8 @@ function BanqueFormModal({ isOpen, onClose, onSubmit, editingBanque, formData, s
 export default function ReferentielsRhTab() {
     // Contexte et navigation
     const [searchParams, setSearchParams] = useSearchParams();
-    const activeSection = searchParams.get('subtab') || 'contrats'; // 'contrats' | 'intervenants' | 'banques'
+    const requestedSection = searchParams.get('subtab');
+    const activeSection = ['contrats', 'intervenants', 'banques'].includes(requestedSection) ? requestedSection : 'contrats';
     const toast = useToast();
 
     const setActiveSection = (newSubTab) => {
@@ -402,20 +403,16 @@ export default function ReferentielsRhTab() {
     }
 
     return (
-        <div className="space-y-6">
-            <div>
-                <Tabs
-                    tabs={[
-                        { id: 'contrats', label: `Types de Contrat (${typesContrat.length})`, icon: <FileText size={16} /> },
-                        { id: 'intervenants', label: `Régimes Intervenants (${typesIntervenant.length})`, icon: <UserCheck size={16} /> },
-                        { id: 'banques', label: `Banques & Agences (${banques.length})`, icon: <Landmark size={16} /> }
-                    ]}
-                    activeTab={activeSection}
-                    onChange={setActiveSection}
-                    variant="underline"
-                />
-            </div>
-
+        <SideTabs
+            tabs={[
+                { id: 'contrats', label: 'Types de contrat', icon: <FileText size={16} />, count: typesContrat.length },
+                { id: 'intervenants', label: 'Régimes intervenants', icon: <UserCheck size={16} />, count: typesIntervenant.length },
+                { id: 'banques', label: 'Banques & agences', icon: <Landmark size={16} />, count: banques.length }
+            ]}
+            activeTab={activeSection}
+            onChange={setActiveSection}
+            className="space-y-6"
+        >
             {error && <Alert type="error" message={error} />}
 
             {activeSection === 'contrats' && (
@@ -486,6 +483,6 @@ export default function ReferentielsRhTab() {
                 onConfirm={confirmState.onConfirm}
                 onCancel={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
             />
-        </div>
+        </SideTabs>
     );
 }

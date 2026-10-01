@@ -4,7 +4,7 @@ import { Building2, Check, Edit2, MapPin, Plus, Power, ShieldCheck, Eye } from '
 import paieConfigService from '@/features/administration/api/paieConfigService';
 import organisationService from '@/features/organization/api/organisationService';
 import { fmtDate, fmtDateInput } from '@/utils/dateUtils';
-import Tabs from '@/components/ui/navigation/Tabs';
+import SideTabs from '@/components/ui/navigation/SideTabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import FormModal from '@/components/ui/overlays/FormModal';
@@ -172,7 +172,10 @@ function CotisationsList({ cotisations = [], onOpenCreate, onOpenEdit, onToggleS
 export default function CotisationsIrsaTab() {
     // Contexte, navigation et confirmation
     const [searchParams, setSearchParams] = useSearchParams();
-    const subSection = searchParams.get('subtab') || 'cotisations';
+    const requestedSubSection = searchParams.get('subtab');
+    const subSection = requestedSubSection === 'irsa'
+        ? 'cotisations'
+        : ['cotisations', 'site_cotisations'].includes(requestedSubSection) ? requestedSubSection : 'cotisations';
 
     const setSubSection = (newSubTab) => {
         setSearchParams(prev => {
@@ -391,21 +394,18 @@ export default function CotisationsIrsaTab() {
 
     // Rendu
     return (
-        <div className="space-y-6">
+        <SideTabs
+            tabs={[
+                { id: 'cotisations', label: 'Cotisations sociales', icon: <ShieldCheck size={16} />, count: cotisations.length },
+                { id: 'site_cotisations', label: 'Rattachement par site', icon: <MapPin size={16} />, count: filteredSiteCotisations.length }
+            ]}
+            activeTab={subSection}
+            onChange={setSubSection}
+            className="space-y-6"
+        >
             {error && <Alert type="error" message={error} />}
 
-            {/* Onglets internes + Filtre d'affichage */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <Tabs
-                    tabs={[
-                        { id: 'cotisations', label: 'Cotisations Sociales Référentielles', icon: <ShieldCheck size={16} />, count: cotisations.length },
-                        { id: 'site_cotisations', label: 'Rattachement par Site', icon: <MapPin size={16} />, count: filteredSiteCotisations.length },
-                    ]}
-                    activeTab={subSection === 'irsa' ? 'cotisations' : subSection}
-                    onChange={setSubSection}
-                    variant="pills"
-                />
-
+            <div className="flex justify-end">
                 {subSection === 'site_cotisations' && (
                     <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-subtle)] rounded-none">
                         <input
@@ -462,6 +462,6 @@ export default function CotisationsIrsaTab() {
 
             {/* Boîte de confirmation */}
             <ConfirmModal />
-        </div>
+        </SideTabs>
     );
 }
