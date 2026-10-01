@@ -35,78 +35,89 @@ export const validerEmail = (email) => {
 export const calculerAge = calculateAge;
 
 /**
- * Valide les champs obligatoires et règles légales d'une étape du formulaire collaborateur.
- * 
- * @param {string} stepId 'civilite' | 'cin' | 'coordonnees' | 'famille' | 'urgence' | 'banque'
- * @param {object} formData Données complètes du formulaire
- * @param {string|null} matriculeError Erreur d'unicité éventuelle sur le matricule
- * @param {object} [options={}] Options contextuelles (customNationalite, isCustomNat)
- * @returns {string|null} Message d'erreur bloquant ou null si l'étape est valide
+ * Valide les champs d'une étape et renvoie une map d'erreurs par champ : { [fieldName]: string }.
+ * Permet l'affichage de <FieldError /> inline sous chaque input au blur ou à la soumission.
  */
-export const validerEtapeEmploye = (stepId, formData, matriculeError = '', options = {}) => {
+export const validerChampsEtape = (stepId, formData, matriculeError = '', options = {}) => {
+  const errors = {};
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   if (stepId === 'civilite') {
-    if (!formData.matricule || !formData.nom || !formData.prenom || !formData.dateNaissance) {
-      return "Veuillez renseigner tous les champs obligatoires (Matricule, Nom, Prénom, Date de Naissance).";
+    if (!formData.matricule || !formData.matricule.trim()) {
+      errors.matricule = "Le matricule est obligatoire.";
+    } else if (matriculeError) {
+      errors.matricule = matriculeError;
     }
-    if (matriculeError) {
-      return matriculeError;
+    if (!formData.nom || !formData.nom.trim()) {
+      errors.nom = "Le nom de famille est obligatoire.";
     }
-
-    const [y, m, d] = String(formData.dateNaissance).substring(0, 10).split('-').map(Number);
-    const dateNaiss = new Date(y, m - 1, d, 0, 0, 0, 0);
-    if (dateNaiss > today) {
-      return "La date de naissance ne peut pas être postérieure à aujourd'hui.";
+    if (!formData.prenom || !formData.prenom.trim()) {
+      errors.prenom = "Le prénom est obligatoire.";
     }
-
-    const age = calculerAge(formData.dateNaissance, today);
-    if (age !== null && age < AGE_MINIMUM_LEGAL) {
-      return `L'employé doit avoir au minimum ${AGE_MINIMUM_LEGAL} ans révolus (âge calculé : ${age} ans).`;
+    if (!formData.dateNaissance) {
+      errors.dateNaissance = "La date de naissance est obligatoire.";
+    } else {
+      const [y, m, d] = String(formData.dateNaissance).substring(0, 10).split('-').map(Number);
+      const dateNaiss = new Date(y, m - 1, d, 0, 0, 0, 0);
+      if (dateNaiss > today) {
+        errors.dateNaissance = "La date de naissance ne peut pas être dans le futur.";
+      } else {
+        const age = calculerAge(formData.dateNaissance, today);
+        if (age !== null && age < AGE_MINIMUM_LEGAL) {
+          errors.dateNaissance = `Âge minimum légal : ${AGE_MINIMUM_LEGAL} ans (calculé : ${age} ans).`;
+        }
+      }
     }
-
     if (formData.nationalite === 'Autre' || options.isCustomNat) {
       const customNat = options.customNationalite || '';
       if (!customNat.trim()) {
-        return "Veuillez préciser la nationalité pour le choix 'Autre'.";
+        errors.nationalite = "Veuillez préciser la nationalité.";
       }
     }
   }
 
   if (stepId === 'cin') {
-    if (!formData.cinNumero || !formData.cinDateDelivrance || !formData.cinLieuDelivrance) {
-      return "Le numéro, la date et le lieu de délivrance du CIN sont obligatoires.";
-    }
-
-    const cleanCin = String(formData.cinNumero).replace(/\s+/g, '');
-    if (!PATTERN_CIN.test(cleanCin)) {
-      return "Le numéro de CIN doit comporter exactement 12 chiffres.";
-    }
-
-    const [yCin, mCin, dCin] = String(formData.cinDateDelivrance).substring(0, 10).split('-').map(Number);
-    const dateCin = new Date(yCin, mCin - 1, dCin, 0, 0, 0, 0);
-    if (dateCin > today) {
-      return "La date de délivrance du CIN ne peut pas être dans le futur.";
-    }
-
-    if (formData.dateNaissance) {
-      const ageDelivrance = calculerAge(formData.dateNaissance, dateCin);
-      if (ageDelivrance !== null && ageDelivrance < AGE_MINIMUM_LEGAL) {
-        return `La date de délivrance du CIN est incompatible avec la date de naissance (délivré avant l'âge légal de ${AGE_MINIMUM_LEGAL} ans).`;
+    if (!formData.cinNumero || !formData.cinNumero.trim()) {
+      errors.cinNumero = "Le numéro de CIN est obligatoire.";
+    } else {
+      const cleanCin = String(formData.cinNumero).replace(/\s+/g, '');
+      if (!PATTERN_CIN.test(cleanCin)) {
+        errors.cinNumero = "Le numéro de CIN doit comporter exactement 12 chiffres.";
       }
+    }
+
+    if (!formData.cinDateDelivrance) {
+      errors.cinDateDelivrance = "La date de délivrance du CIN est obligatoire.";
+    } else {
+      const [yCin, mCin, dCin] = String(formData.cinDateDelivrance).substring(0, 10).split('-').map(Number);
+      const dateCin = new Date(yCin, mCin - 1, dCin, 0, 0, 0, 0);
+      if (dateCin > today) {
+        errors.cinDateDelivrance = "La date de délivrance du CIN ne peut pas être dans le futur.";
+      } else if (formData.dateNaissance) {
+        const ageDelivrance = calculerAge(formData.dateNaissance, dateCin);
+        if (ageDelivrance !== null && ageDelivrance < AGE_MINIMUM_LEGAL) {
+          errors.cinDateDelivrance = `Délivré avant l'âge légal de ${AGE_MINIMUM_LEGAL} ans.`;
+        }
+      }
+    }
+
+    if (!formData.cinLieuDelivrance || !formData.cinLieuDelivrance.trim()) {
+      errors.cinLieuDelivrance = "Le lieu de délivrance est obligatoire.";
     }
   }
 
   if (stepId === 'coordonnees') {
-    if (!formData.adresse || !formData.telephone) {
-      return "L'adresse et le téléphone sont obligatoires.";
+    if (!formData.adresse || !formData.adresse.trim()) {
+      errors.adresse = "L'adresse de résidence est obligatoire.";
     }
-    if (!PATTERN_TELEPHONE.test(String(formData.telephone).trim())) {
-      return "Le format du numéro de téléphone est invalide (ex: 034 00 000 00 ou +261 34 00 000 00).";
+    if (!formData.telephone || !formData.telephone.trim()) {
+      errors.telephone = "Le numéro de téléphone est obligatoire.";
+    } else if (!PATTERN_TELEPHONE.test(String(formData.telephone).trim())) {
+      errors.telephone = "Format invalide (ex: 034 00 000 00 ou +261 34 00 000 00).";
     }
-    if (formData.email && !validerEmail(formData.email)) {
-      return "L'adresse email saisie est invalide.";
+    if (formData.email && formData.email.trim() && !validerEmail(formData.email)) {
+      errors.email = "L'adresse email saisie est invalide.";
     }
   }
 
@@ -115,19 +126,19 @@ export const validerEtapeEmploye = (stepId, formData, matriculeError = '', optio
       for (let i = 0; i < formData.enfants.length; i++) {
         const enf = formData.enfants[i];
         if (!enf.nom || !enf.nom.trim()) {
-          return `L'enfant n°${i + 1} doit obligatoirement avoir un nom.`;
+          errors[`enfant_${i}_nom`] = `L'enfant n°${i + 1} doit obligatoirement avoir un nom.`;
         }
         if (enf.dateNaissance) {
           const [yE, mE, dE] = String(enf.dateNaissance).substring(0, 10).split('-').map(Number);
           const dateNaissEnf = new Date(yE, mE - 1, dE, 0, 0, 0, 0);
           if (dateNaissEnf > today) {
-            return `La date de naissance de l'enfant n°${i + 1} ne peut pas être dans le futur.`;
+            errors[`enfant_${i}_dateNaissance`] = `Date de naissance dans le futur.`;
           }
           if (enf.dateFinScolarite) {
             const [yS, mS, dS] = String(enf.dateFinScolarite).substring(0, 10).split('-').map(Number);
             const dateScol = new Date(yS, mS - 1, dS, 0, 0, 0, 0);
             if (dateScol < dateNaissEnf) {
-              return `L'enfant n°${i + 1} : la date de fin de scolarité ne peut pas précéder sa date de naissance.`;
+              errors[`enfant_${i}_dateFinScolarite`] = `Ne peut précéder la naissance.`;
             }
           }
         }
@@ -141,15 +152,30 @@ export const validerEtapeEmploye = (stepId, formData, matriculeError = '', optio
       const hasBanque = cb.idBanque !== null && cb.idBanque !== undefined && cb.idBanque !== '';
       const hasRib = cb.numCompteRib && cb.numCompteRib.trim().length > 0;
       if (hasRib && !hasBanque) {
-        return "La banque doit être sélectionnée si un numéro de compte RIB est renseigné.";
+        errors.idBanque = "Sélectionnez une banque si un compte/RIB est renseigné.";
       }
       if (hasBanque && !hasRib) {
-        return "Le numéro de compte RIB est obligatoire si une banque est sélectionnée.";
+        errors.numCompteRib = "Le numéro de compte RIB est obligatoire si une banque est sélectionnée.";
       }
     }
   }
 
-  return null;
+  return errors;
+};
+
+/**
+ * Valide les champs obligatoires et règles légales d'une étape du formulaire collaborateur.
+ * 
+ * @param {string} stepId 'civilite' | 'cin' | 'coordonnees' | 'famille' | 'urgence' | 'banque'
+ * @param {object} formData Données complètes du formulaire
+ * @param {string|null} matriculeError Erreur d'unicité éventuelle sur le matricule
+ * @param {object} [options={}] Options contextuelles (customNationalite, isCustomNat)
+ * @returns {string|null} Premier message d'erreur bloquant ou null si l'étape est valide
+ */
+export const validerEtapeEmploye = (stepId, formData, matriculeError = '', options = {}) => {
+  const errors = validerChampsEtape(stepId, formData, matriculeError, options);
+  const keys = Object.keys(errors);
+  return keys.length > 0 ? errors[keys[0]] : null;
 };
 
 /**

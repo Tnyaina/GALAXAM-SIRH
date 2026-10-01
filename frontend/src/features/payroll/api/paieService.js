@@ -100,6 +100,9 @@ export const paieService = {
     },
 
     getCatalogueVariables: async () => (await apiClient.get('referentiel/types-mouvement-paie/catalogue')).data,
+    creerVersionRubrique: async (id, payload) => (await apiClient.post(`paie/rubriques/${id}/versions`, payload)).data,
+    creerRubriqueVariable: async (payload) => (await apiClient.post('paie/rubriques', payload)).data,
+    modifierRubriqueVariable: async (id, payload) => (await apiClient.put(`paie/rubriques/${id}`, payload)).data,
     creerTypeVariable: async (payload) => (await apiClient.post('referentiel/types-mouvement-paie', payload)).data,
     modifierTypeVariable: async (id, payload) => (await apiClient.put(`referentiel/types-mouvement-paie/${id}`, payload)).data,
 

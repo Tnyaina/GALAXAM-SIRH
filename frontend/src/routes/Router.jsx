@@ -16,7 +16,7 @@ import StatusPage from "@/components/system/StatusPage";
 const Login = lazy(() => import("@/features/auth/pages/Login"));
 
 // Module Dashboard
-const Dashboard = lazy(() => import("@/features/dashboard/pages/Dashboard"));
+const Dashboard = lazy(() => import("@/features/dashboard/pages/DashboardPage"));
 
 // Module Pointage & Présence
 const GestionPointagesPage = lazy(() => import("@/features/attendance/pages/GestionPointagesPage"));
@@ -41,7 +41,7 @@ const AcomptesAvancesPage       = lazy(() => import("@/features/payroll/pages/Ac
 const DeclarationsSortiesPage   = lazy(() => import("@/features/payroll/pages/DeclarationsSortiesPage"));
 
 // Module Employés
-const EmployeList = lazy(() => import("@/features/employees/pages/EmployeList"));
+const EmployeList = lazy(() => import("@/features/employees/pages/EmployeListPage"));
 const EmployeFicheDetailPage = lazy(() => import("@/features/employees/pages/EmployeFicheDetailPage"));
 const CarrieresSupervisionPage = lazy(() => import("@/features/employees/pages/CarrieresSupervisionPage"));
 

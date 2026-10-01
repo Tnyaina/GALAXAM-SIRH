@@ -9,6 +9,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class EmployeCPL extends ClassMere {
 
@@ -707,4 +708,71 @@ public class EmployeCPL extends ClassMere {
 
     public String getAlerteContratNiveau() { return alerteContratNiveau; }
     public void setAlerteContratNiveau(String alerteContratNiveau) { this.alerteContratNiveau = alerteContratNiveau; }
+
+    // ─── Logique Métier POO & Flags Sérialisés pour le Frontend ───────
+    @JsonProperty("hasContratActif")
+    public boolean hasContratActif() {
+        return this.idContratActif != null && this.idContratActif > 0
+                && !"BROUILLON".equalsIgnoreCase(this.codeStatutContrat)
+                && !"Aucun contrat".equalsIgnoreCase(this.statutContrat);
+    }
+
+    @JsonProperty("hasAlerteContrat")
+    public boolean hasAlerteContrat() {
+        return this.alerteContratTexte != null && !this.alerteContratTexte.isBlank();
+    }
+
+    @JsonProperty("isHomme")
+    public boolean isHomme() {
+        return "M".equalsIgnoreCase(this.sexe);
+    }
+
+    @JsonProperty("isFemme")
+    public boolean isFemme() {
+        return "F".equalsIgnoreCase(this.sexe);
+    }
+
+    @JsonProperty("genreLibelle")
+    public String getGenreLibelle() {
+        if (isHomme()) return "Masculin";
+        if (isFemme()) return "Féminin";
+        return (this.sexe != null && !this.sexe.isBlank()) ? this.sexe : "Non renseigné";
+    }
+
+    @JsonProperty("isMajeur")
+    public boolean isMajeur() {
+        return this.age != null && this.age >= 18;
+    }
+
+    @JsonProperty("hasCompteBancairePrincipal")
+    public boolean hasCompteBancairePrincipal() {
+        return this.idCompteBanquePrincipal != null && this.idCompteBanquePrincipal > 0;
+    }
+
+    @JsonProperty("hasEnfants")
+    public boolean hasEnfants() {
+        return this.nbEnfants != null && this.nbEnfants > 0;
+    }
+
+    @JsonProperty("hasContactsUrgence")
+    public boolean hasContactsUrgence() {
+        return this.nbContactsUrgence != null && this.nbContactsUrgence > 0;
+    }
+
+    @JsonProperty("isMarie")
+    public boolean isMarie() {
+        return this.situationFamiliale != null && this.situationFamiliale.toLowerCase().startsWith("mari");
+    }
+
+    @JsonProperty("isCelibataire")
+    public boolean isCelibataire() {
+        return this.situationFamiliale != null && (this.situationFamiliale.toLowerCase().startsWith("cél") || this.situationFamiliale.toLowerCase().startsWith("cel"));
+    }
+
+    @JsonProperty("typeContratLibelle")
+    public String getTypeContratLibelle() {
+        if (this.typeContrat != null && !this.typeContrat.isBlank()) return this.typeContrat;
+        if (hasContratActif() && this.statutContrat != null && !this.statutContrat.isBlank()) return this.statutContrat;
+        return null;
+    }
 }

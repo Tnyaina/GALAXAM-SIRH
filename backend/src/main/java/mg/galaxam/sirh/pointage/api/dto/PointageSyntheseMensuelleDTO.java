@@ -430,7 +430,27 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
     }
 
     // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
+    @com.fasterxml.jackson.annotation.JsonProperty("isPeriodeOuverte")
     public boolean isPeriodeOuverte()  { return "OUVERTE".equalsIgnoreCase(statutPeriode); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isPeriodeCloturee")
     public boolean isPeriodeCloturee() { return "CLOTUREE".equalsIgnoreCase(statutPeriode); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isPeriodeEnCours")
+    public boolean isPeriodeEnCours()  { return "EN_COURS".equalsIgnoreCase(statutPeriode); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isPeriodeValidee")
+    public boolean isPeriodeValidee()  { return "VALIDEE".equalsIgnoreCase(statutPeriode); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("hasAnomalies")
     public boolean hasAnomalies()      { return nbAnomaliesNonResolues > 0; }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("hasAbsenceRetenue")
+    public boolean hasAbsenceRetenue() { return (minutesAbsenceFinale != null && minutesAbsenceFinale > 0) || heuresAbsenceRetenues > 0; }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("hasOvertime")
+    public boolean hasOvertime()       { return (minutesHs30Finales != null && minutesHs30Finales > 0) || (minutesHs50Finales != null && minutesHs50Finales > 0) || heuresHs30 > 0 || heuresHs50 > 0; }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("hasAjustements")
+    public boolean hasAjustements()    { return minutesAjustementPeriode != null && minutesAjustementPeriode != 0; }
 }

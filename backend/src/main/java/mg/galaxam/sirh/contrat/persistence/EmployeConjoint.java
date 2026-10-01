@@ -8,6 +8,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class EmployeConjoint extends ClassMere {
 
@@ -189,4 +190,21 @@ public class EmployeConjoint extends ClassMere {
 
     public Timestamp getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Timestamp updatedAt) { this.updatedAt = updatedAt; }
+
+    // ─── Logique Métier POO & Flags Sérialisés pour le Frontend ───────
+    @JsonProperty("nomComplet")
+    public String getNomComplet() {
+        return ((nom != null ? nom : "") + " " + (prenom != null ? prenom : "")).trim();
+    }
+
+    @JsonProperty("age")
+    public Integer getAge() {
+        if (this.dateNaissance == null) return null;
+        return java.time.Period.between(this.dateNaissance.toLocalDate(), java.time.LocalDate.now()).getYears();
+    }
+
+    @JsonProperty("hasEmploi")
+    public boolean hasEmploi() {
+        return (societe != null && !societe.isBlank()) || (fonction != null && !fonction.isBlank());
+    }
 }

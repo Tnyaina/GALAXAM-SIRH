@@ -34,13 +34,12 @@ export default function EmployeSideSummaryPanel({
     emp,
     documentsCount = 0,
     activeTab,
-    onNavigateTab,
-    canWrite: _canWrite = false
+    onNavigateTab
 }) {
     if (!emp) return null;
 
-    const hasContract = Boolean(emp.idContratActif || (emp.statutContrat && emp.statutContrat !== 'Aucun contrat' && emp.statutContrat !== 'BROUILLON'));
-    const contratType = emp.libelleTypeContrat || emp.typeContrat || (hasContract ? emp.statutContrat : null);
+    const hasContract = emp.hasContratActif ?? Boolean(emp.idContratActif || (emp.statutContrat && emp.statutContrat !== 'Aucun contrat' && emp.statutContrat !== 'BROUILLON'));
+    const contratType = emp.typeContratLibelle || emp.libelleTypeContrat || emp.typeContrat || (hasContract ? emp.statutContrat : null);
 
     return (
         <div className="space-y-3.5">

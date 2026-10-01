@@ -13,6 +13,8 @@ const CotisationsIrsaTab = lazy(() => import('@/features/administration/componen
 const IndemnitesSitesTab = lazy(() => import('@/features/administration/components/payroll/IndemnitesSitesTab'));
 const ReglementationFiscaleTab = lazy(() => import('@/features/administration/components/payroll/ReglementationFiscaleTab'));
 const VariableTypesConfig = lazy(() => import('@/features/payroll/components/tabs/VariableTypesConfig.jsx'));
+const PayrollRubriquesConfig = lazy(() => import('@/features/payroll/components/tabs/PayrollRubriquesConfig.jsx'));
+const PayrollRulesReadOnly = lazy(() => import('@/features/payroll/components/tabs/PayrollRulesReadOnly.jsx'));
 const ModesPaiementTab = lazy(() => import('@/features/administration/components/payroll/ModesPaiementTab'));
 
 const MODULES = [
@@ -54,6 +56,8 @@ export default function ParametresModulesPanel() {
         { id: 'reglementation_fiscale', label: 'Cadre Réglementaire & IRSA', icon: <Scale size={16} /> },
         { id: 'parametres_globaux_paie', label: 'Constantes (Paie & Primes)', icon: <Sliders size={16} /> },
         { id: 'types_variables', label: 'Types de variables', icon: <Settings2 size={16} /> },
+        { id: 'rubriques_variables', label: 'Rubriques variables', icon: <Settings2 size={16} /> },
+        { id: 'regles_calcul', label: 'Règles appliquées', icon: <Scale size={16} /> },
         { id: 'modes_paiement', label: 'Modes de paiement', icon: <CreditCard size={16} /> },
         { id: 'cotisations_irsa', label: 'Cotisations Sociales & Sites', icon: <ShieldCheck size={16} /> },
         { id: 'indemnites_sites', label: 'Indemnités (Sites)', icon: <Gift size={16} /> },
@@ -146,6 +150,8 @@ export default function ParametresModulesPanel() {
                                     <ParametresGlobauxTab fixedCategory="PAIE" />
                                 )}
                                 {activeTab === 'types_variables' && <VariableTypesConfig />}
+                                {activeTab === 'rubriques_variables' && <PayrollRubriquesConfig />}
+                                {activeTab === 'regles_calcul' && <PayrollRulesReadOnly />}
                                 {activeTab === 'modes_paiement' && <ModesPaiementTab />}
                                 {activeTab === 'calendrier' && <CalendrierFerieTab />}
                                 {activeTab === 'cotisations_irsa' && <CotisationsIrsaTab />}

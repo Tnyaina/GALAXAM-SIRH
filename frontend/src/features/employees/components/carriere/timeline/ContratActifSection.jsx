@@ -77,7 +77,7 @@ function ContractActionMenu({ label, icon, children }) {
         >
             {!isIconOnly ? label : null}
         </Button>
-        {open && <div id={id} data-actions style={{ left: menuLeft }} className="absolute top-full mt-2 z-20 w-64 max-w-[calc(100vw-3rem)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg p-1 flex flex-col gap-1"
+        {open && <div id={id} data-actions style={{ left: menuLeft }} className="absolute top-full mt-2 z-20 w-64 max-w-[calc(100vw-3rem)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg rounded-none p-1 flex flex-col gap-1"
             onClick={event => { if (event.target.closest('button')) close(); }}>{children}</div>}
     </div>;
 }

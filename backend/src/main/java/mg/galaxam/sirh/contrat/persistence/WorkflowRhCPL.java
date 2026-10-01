@@ -323,26 +323,42 @@ public class WorkflowRhCPL {
     @com.fasterxml.jackson.annotation.JsonProperty("isAnnulable")
     public boolean isAnnulable() { return isBrouillon() || isPlanifie(); }
 
+    @com.fasterxml.jackson.annotation.JsonProperty("badgeVariant")
+    public String getBadgeVariant() {
+        if (isBrouillon()) return "warning";
+        if (isPlanifie()) return "info";
+        if (isActif()) return "success";
+        if (isAnnule()) return "default";
+        if (isHistorise()) return "neutral";
+        return "default";
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isEmbauche")
     public boolean isEmbauche() {
         return "EMBAUCHE_INITIALE".equals(codeTypeEvenement) || "REPRISE_ANCIENNETE".equals(codeTypeEvenement);
     }
 
+    @com.fasterxml.jackson.annotation.JsonProperty("isEssai")
     public boolean isEssai() {
         return "CONFIRMATION_ESSAI".equals(codeTypeEvenement) || "RENOUVELLEMENT_ESSAI".equals(codeTypeEvenement);
     }
 
+    @com.fasterxml.jackson.annotation.JsonProperty("isConfirmationEssai")
     public boolean isConfirmationEssai() {
         return "CONFIRMATION_ESSAI".equals(codeTypeEvenement);
     }
 
+    @com.fasterxml.jackson.annotation.JsonProperty("isRenouvellementEssai")
     public boolean isRenouvellementEssai() {
         return "RENOUVELLEMENT_ESSAI".equals(codeTypeEvenement);
     }
 
+    @com.fasterxml.jackson.annotation.JsonProperty("isRenouvellementCdd")
     public boolean isRenouvellementCdd() {
         return "RENOUVELLEMENT_CDD".equals(codeTypeEvenement);
     }
 
+    @com.fasterxml.jackson.annotation.JsonProperty("isRupture")
     public boolean isRupture() {
         if (codeTypeEvenement == null) return false;
         return switch (codeTypeEvenement) {
@@ -352,6 +368,7 @@ public class WorkflowRhCPL {
         };
     }
 
+    @com.fasterxml.jackson.annotation.JsonProperty("isAvenant")
     public boolean isAvenant() {
         if (codeTypeEvenement == null) return false;
         return switch (codeTypeEvenement) {
@@ -360,6 +377,7 @@ public class WorkflowRhCPL {
         };
     }
 
+    @com.fasterxml.jackson.annotation.JsonProperty("isExigeNouveauContrat")
     public boolean isExigeNouveauContrat() {
         if (codeTypeEvenement == null) return false;
         return switch (codeTypeEvenement) {
@@ -368,6 +386,7 @@ public class WorkflowRhCPL {
         };
     }
 
+    @com.fasterxml.jackson.annotation.JsonProperty("isAutorisePeriodeEssai")
     public boolean isAutorisePeriodeEssai() {
         if (codeTypeEvenement == null) return false;
         return isExigeNouveauContrat() && !"RENOUVELLEMENT_CDD".equals(codeTypeEvenement);

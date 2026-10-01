@@ -27,7 +27,7 @@ const InfoRow = ({ label, children, mono = false }) => {
 export default function FichePersonnelleTab({ emp, comptes = [], canWrite = false, onEdit, onAddCompte }) {
     if (!emp) return null;
 
-    const genreLibelle = emp.sexe === 'M' ? 'Masculin' : emp.sexe === 'F' ? 'Féminin' : emp.sexe;
+    const genreLibelle = emp.genreLibelle || (emp.sexe === 'M' ? 'Masculin' : emp.sexe === 'F' ? 'Féminin' : emp.sexe);
 
     return (
         <div className="space-y-4 font-sans">
@@ -35,7 +35,7 @@ export default function FichePersonnelleTab({ emp, comptes = [], canWrite = fals
             <Card shadow="sm">
                 <CardHeader className="flex items-center justify-between">
                     <CardTitle size="sm" className="tracking-wider flex items-center gap-2">
-                        <User size={15} className="text-[var(--color-brand-500)]" />
+                        <User size={15} className="text-[var(--color-brand-600)]" />
                         Identité &amp; État civil
                     </CardTitle>
                     {genreLibelle && (
@@ -49,7 +49,7 @@ export default function FichePersonnelleTab({ emp, comptes = [], canWrite = fals
                         {/* Volet Gauche : État Civil & Situation */}
                         <div className="bg-[var(--color-bg-subtle)]/50 p-4 sm:p-5 space-y-2">
                             <h4 className="font-bold text-[var(--color-fg)] text-xs pb-2 border-b border-[var(--color-border-subtle)] flex items-center gap-1.5">
-                                <Heart size={13} className="text-[var(--color-brand-500)]" />
+                                <Heart size={13} className="text-[var(--color-brand-600)]" />
                                 État civil &amp; Situation personnelle
                             </h4>
                             <div className="space-y-0.5 pt-1">
@@ -68,7 +68,7 @@ export default function FichePersonnelleTab({ emp, comptes = [], canWrite = fals
                         {/* Volet Droit : Pièces Officielles & Sécurité Sociale */}
                         <div className="bg-[var(--color-bg-subtle)]/50 p-4 sm:p-5 space-y-2">
                             <h4 className="font-bold text-[var(--color-fg)] text-xs pb-2 border-b border-[var(--color-border-subtle)] flex items-center gap-1.5">
-                                <Shield size={13} className="text-[var(--color-brand-500)]" />
+                                <Shield size={13} className="text-[var(--color-brand-600)]" />
                                 Pièces d'identité &amp; CNaPS
                             </h4>
                             <div className="space-y-0.5 pt-1">
@@ -94,7 +94,7 @@ export default function FichePersonnelleTab({ emp, comptes = [], canWrite = fals
             <Card shadow="sm">
                 <CardHeader className="flex items-center justify-between">
                     <CardTitle size="sm" className="tracking-wider flex items-center gap-2">
-                        <Landmark size={15} className="text-[var(--color-brand-500)]" />
+                        <Landmark size={15} className="text-[var(--color-brand-600)]" />
                         Domicile &amp; Règlements bancaires
                     </CardTitle>
                     {comptes.length > 0 && (
@@ -106,7 +106,7 @@ export default function FichePersonnelleTab({ emp, comptes = [], canWrite = fals
                 <CardBody className="p-5 space-y-4">
                     {/* Domicile : adresse et ville distinctes et préservées */}
                     <div className="bg-[var(--color-bg-subtle)]/50 border border-[var(--color-border-subtle)] p-3.5 sm:p-4 flex items-start gap-3 text-xs">
-                        <MapPin size={16} className="text-[var(--color-brand-500)] shrink-0 mt-0.5" />
+                        <MapPin size={16} className="text-[var(--color-brand-600)] shrink-0 mt-0.5" />
                         <div className="space-y-1 min-w-0 flex-1">
                             <span className="text-[11px] font-medium text-[var(--color-fg-muted)] block uppercase tracking-wider">
                                 Adresse de résidence &amp; Ville

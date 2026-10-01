@@ -97,6 +97,8 @@ public class DashboardService {
         action.put("destination", destination);
         action.put("requiredAuthority", requiredAuthority);
         action.put("severity", severity);
+        action.put("isDanger", "DANGER".equalsIgnoreCase(severity));
+        action.put("isWarning", "WARNING".equalsIgnoreCase(severity));
         actions.add(action);
     }
 
@@ -304,6 +306,10 @@ public class DashboardService {
                 row.put("numeroContrat", rs.getString("numero_contrat"));
                 row.put("dateEcheance", rs.getDate("date_fin"));
                 row.put("joursRestants", 0);
+                row.put("isToday", true);
+                row.put("isUrgent", true);
+                row.put("isCritique", true);
+                row.put("badgeVariant", "danger");
                 alertes.add(row);
             }
         }
@@ -328,6 +334,10 @@ public class DashboardService {
                     row.put("matricule", rs.getString("matricule"));
                     row.put("dateEcheance", rs.getDate("date_fin_essai"));
                     row.put("joursRestants", 0);
+                    row.put("isToday", true);
+                    row.put("isUrgent", true);
+                    row.put("isCritique", true);
+                    row.put("badgeVariant", "danger");
                     alertes.add(row);
                 }
             }
@@ -356,6 +366,7 @@ public class DashboardService {
             ps.setDate(3, Date.valueOf(today.plusDays(7)));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    int joursRestants = rs.getInt("jours_restants");
                     Map<String, Object> row = new LinkedHashMap<>();
                     row.put("typeAlerte", "CONTRAT_ECHEANCE_7J");
                     row.put("priorite", "HAUTE");
@@ -365,7 +376,11 @@ public class DashboardService {
                     row.put("typeContrat", rs.getString("type_contrat"));
                     row.put("numeroContrat", rs.getString("numero_contrat"));
                     row.put("dateEcheance", rs.getDate("date_fin"));
-                    row.put("joursRestants", rs.getInt("jours_restants"));
+                    row.put("joursRestants", joursRestants);
+                    row.put("isToday", joursRestants == 0);
+                    row.put("isUrgent", true);
+                    row.put("isCritique", false);
+                    row.put("badgeVariant", joursRestants == 0 ? "danger" : "warning");
                     alertes.add(row);
                 }
             }
@@ -394,6 +409,7 @@ public class DashboardService {
             ps.setDate(3, Date.valueOf(today.plusDays(30)));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    int joursRestants = rs.getInt("jours_restants");
                     Map<String, Object> row = new LinkedHashMap<>();
                     row.put("typeAlerte", "CONTRAT_ECHEANCE_30J");
                     row.put("priorite", "NORMALE");
@@ -403,7 +419,11 @@ public class DashboardService {
                     row.put("typeContrat", rs.getString("type_contrat"));
                     row.put("numeroContrat", rs.getString("numero_contrat"));
                     row.put("dateEcheance", rs.getDate("date_fin"));
-                    row.put("joursRestants", rs.getInt("jours_restants"));
+                    row.put("joursRestants", joursRestants);
+                    row.put("isToday", false);
+                    row.put("isUrgent", false);
+                    row.put("isCritique", false);
+                    row.put("badgeVariant", "primary");
                     alertes.add(row);
                 }
             }
@@ -446,6 +466,36 @@ public class DashboardService {
         return brouillons;
     }
 
+    /**
+     * Enum interne métier définissant le profil d'affichage d'un statut d'activité RH.
+     */
+    public enum ActiviteStatut {
+        VALIDE("success", "Validé"),
+        PLANIFIE("info", "Planifié"),
+        REJETE("danger", "Rejeté"),
+        EN_COURS("default", "En cours");
+
+        private final String badgeVariant;
+        private final String libelleParDefaut;
+
+        ActiviteStatut(String badgeVariant, String libelleParDefaut) {
+            this.badgeVariant = badgeVariant;
+            this.libelleParDefaut = libelleParDefaut;
+        }
+
+        public String getBadgeVariant() { return badgeVariant; }
+        public String getLibelleParDefaut() { return libelleParDefaut; }
+
+        public static ActiviteStatut from(String statutCode) {
+            if (statutCode == null) return EN_COURS;
+            String upper = statutCode.trim().toUpperCase();
+            if ("PLANIFIE".equals(upper)) return PLANIFIE;
+            if ("ACTIF".equals(upper) || "VALIDE".equals(upper)) return VALIDE;
+            if ("ANNULE".equals(upper) || "REFUSE".equals(upper) || "REJETE".equals(upper)) return REJETE;
+            return EN_COURS;
+        }
+    }
+
     public List<Map<String, Object>> buildActiviteRecente(Connection c) throws Exception {
         List<Map<String, Object>> activite = new ArrayList<>();
 
@@ -484,10 +534,29 @@ public class DashboardService {
                 row.put("idEmploye", rs.getInt("id_employe"));
                 row.put("nomPrenom", rs.getString("nom_prenom"));
                 row.put("matricule", rs.getString("matricule"));
-                row.put("statutCode", rs.getString("statut_code"));
-                row.put("statutLibelle", rs.getString("statut_libelle"));
-                row.put("dateEffet", rs.getDate("date_effet"));
+                String statutCode = rs.getString("statut_code");
+                String statutLibelle = rs.getString("statut_libelle");
+                Date dateEffet = rs.getDate("date_effet");
+                row.put("statutCode", statutCode);
+                row.put("statutLibelle", statutLibelle);
+                row.put("dateEffet", dateEffet);
                 row.put("dateAction", rs.getTimestamp("date_action"));
+
+                ActiviteStatut resolvedStatut = ActiviteStatut.from(statutCode);
+                boolean isValide = resolvedStatut == ActiviteStatut.VALIDE;
+                boolean isPlanifie = resolvedStatut == ActiviteStatut.PLANIFIE;
+                boolean isRejete = resolvedStatut == ActiviteStatut.REJETE;
+                boolean isEnCours = resolvedStatut == ActiviteStatut.EN_COURS;
+
+                row.put("isValide", isValide);
+                row.put("isPlanifie", isPlanifie);
+                row.put("isRejete", isRejete);
+                row.put("isEnCours", isEnCours);
+                row.put("badgeVariant", resolvedStatut.getBadgeVariant());
+                row.put("statutLibelleAffichage", isPlanifie && dateEffet != null
+                        ? "Planifié (" + dateEffet + ")"
+                        : (isValide ? "Validé" : isRejete ? "Rejeté" : (statutLibelle != null && !statutLibelle.isEmpty() ? statutLibelle : resolvedStatut.getLibelleParDefaut())));
+
                 activite.add(row);
             }
         }

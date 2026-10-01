@@ -31,7 +31,14 @@ const formatDateOnly = (dateString) => {
   return new Date(dateString).toLocaleDateString('fr-FR');
 };
 
-const getTypeCongeBadgeConfig = (code, libelle) => {
+const getTypeCongeBadgeConfig = (code, libelle, d = null) => {
+  if (d?.badgeVariant) {
+    return { variant: d.badgeVariant };
+  }
+  if (d?.isCp) return { variant: 'brand' };
+  if (d?.isMaladie) return { variant: 'info' };
+  if (d?.isEvenementFamilial) return { variant: 'warning' };
+  if (d?.isSansSolde) return { variant: 'outline' };
   const c = (code || '').toUpperCase();
   const l = (libelle || '').toLowerCase();
   if (c.includes('ANNUEL') || c.includes('CP') || l.includes('annuel') || l.includes('payé')) {
@@ -105,9 +112,9 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
     };
   }, [menuActionsOpen]);
 
-  const loadData = async () => {
+  const loadData = async ({ background = false } = {}) => {
     try {
-      setLoading(true);
+      if (!background) setLoading(true);
       setError(null);
       const [soldeRes, situationRes, mvtRes, poolRes, refRes] = await Promise.all([
         congeService.getSoldeEmploye(idEmploye).catch(() => null),
@@ -125,7 +132,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
     } catch (err) {
       setError(getErrorMessage(err, "Erreur de chargement des congés de l'employé."));
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   };
 
@@ -161,7 +168,10 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
     return () => { cancelled = true; };
   }, [idEmploye, currentPage, pageSize, statusFilter, debouncedSearch, refreshDemandes]);
 
-  const reloadData = () => { loadData(); setRefreshDemandes((version) => version + 1); };
+  const reloadData = ({ background = false } = {}) => {
+    loadData({ background });
+    setRefreshDemandes((version) => version + 1);
+  };
 
   const handleAnnulerConfirm = async () => {
     if (confirmAnnulerState.idDemande) {
@@ -246,7 +256,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
             >
               Autres actions
             </Button>
-            <div className={`absolute right-0 top-full mt-1 z-30 min-w-48 p-1 border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg flex flex-col items-stretch gap-0.5 ${menuActionsOpen ? '' : 'hidden'}`}>
+            <div className={`absolute right-0 top-full mt-1 z-30 min-w-48 p-1 border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg rounded-none flex flex-col items-stretch gap-0.5 ${menuActionsOpen ? '' : 'hidden'}`}>
               <Button
                 variant="ghost"
                 size="sm"
@@ -255,7 +265,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
                   setShowExportModal(true);
                 }}
                 iconLeft={<Download size={14} />}
-                className="justify-start text-xs"
+                className="justify-start text-xs rounded-none"
               >
                 Bilan annuel Excel
               </Button>
@@ -268,7 +278,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
                     setShowInitModal(true);
                   }}
                   iconLeft={<SlidersHorizontal size={14} />}
-                  className="justify-start text-xs"
+                  className="justify-start text-xs rounded-none"
                 >
                   Initialiser le solde
                 </Button>
@@ -281,7 +291,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
                   navigate('/conges');
                 }}
                 iconLeft={<ExternalLink size={14} />}
-                className="justify-start text-xs"
+                className="justify-start text-xs rounded-none"
               >
                 Module Congés
               </Button>
@@ -396,8 +406,8 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
                 </Thead>
                 <Tbody>
                   {demandesEmploye.map((d) => {
-                    const badgeConfig = getTypeCongeBadgeConfig(d.codeTypeConge, d.libelleTypeConge);
-                    const isRegul = d.commentaire && d.commentaire.includes('[REGULARISATION_POINTAGE]');
+                    const badgeConfig = getTypeCongeBadgeConfig(d.codeTypeConge, d.libelleTypeConge, d);
+                    const isRegul = Boolean(d.isRegularisationPointage || (d.commentaire && d.commentaire.includes('[REGULARISATION_POINTAGE]')));
                     const cleanCommentaire = d.commentaire ? d.commentaire.replace('[REGULARISATION_POINTAGE]', '').trim() : '';
 
                     return (
@@ -517,7 +527,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
           canWrite={canWrite}
           canValidate={canValidateConges}
           matricule={employe?.matricule}
-          onAjustementSuccess={reloadData}
+          onAjustementSuccess={() => reloadData({ background: true })}
           onVoirDemande={async (idDemande) => {
             try {
               const res = await congeService.getDemandeParId(idDemande);
@@ -562,7 +572,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
             referentiels={referentiels}
             isOpen={showDemandeModal}
             onClose={() => { setShowDemandeModal(false); setSelectedDemande(null); }}
-            onSuccess={() => { setShowDemandeModal(false); setSelectedDemande(null); reloadData(); }}
+            onSuccess={() => { setShowDemandeModal(false); setSelectedDemande(null); reloadData({ background: true }); }}
           />
         </Suspense>
       )}
@@ -585,7 +595,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
           <InitialisationSoldeModal
             isOpen={showInitModal}
             onClose={() => setShowInitModal(false)}
-            onSuccess={reloadData}
+            onSuccess={() => reloadData({ background: true })}
             employe={employe}
             soldeData={soldeEmploye}
             situationData={situationData}

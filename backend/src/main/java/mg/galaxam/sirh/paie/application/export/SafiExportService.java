@@ -117,6 +117,13 @@ public class SafiExportService {
                 BigDecimal mnt = l.getMontantSalarial() != null ? l.getMontantSalarial() : BigDecimal.ZERO;
                 if (mnt.compareTo(BigDecimal.ZERO) == 0) continue;
 
+                // Les variables manuelles portent leur assiette effectivement appliquée,
+                // indépendamment du nom de leur famille et de leur place dans le brut.
+                if (l.getEtapeCalcul() != null && "GAIN".equals(l.getSens()) && !l.isImposable()) {
+                    indemNonImpos = indemNonImpos.add(mnt);
+                    continue;
+                }
+
                 // 1. Salaire de base et congés (Base - Colonne I)
                 if ("SALAIRE_BASE".equals(cat) || code.startsWith("SALAIRE_BASE") || code.startsWith("SALAIRE_PRORATA")
                         || "INDEMNITE_CONGE".equals(code) || "INDEMNITE_CONGE_PAYE".equals(code) || "INDEMNITE_COMPENSATRICE_CONGE".equals(code)) {

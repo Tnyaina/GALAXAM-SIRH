@@ -132,6 +132,8 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
 
     const normalizeSearch = (value) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const getMovementCategory = (movement) => {
+        if (movement.isAcompte) return 'ACOMPTE';
+        if (movement.isAvance) return 'AVANCE';
         const value = normalizeSearch([movement.typeMouvement, movement.typeLibelle, movement.categorie, movement.domaine].join(' '));
         if (value.includes('acompte')) return 'ACOMPTE';
         if (value.includes('avance')) return 'AVANCE';
@@ -213,7 +215,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                 <Card padding shadow="none" className="space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <div><h3 className="text-sm font-bold">Dernier bulletin</h3><p className="text-xs text-[var(--color-fg-muted)]">{synthese.dernierePeriodeLibelle || synthese.dernierePeriodeCode || 'Aucun bulletin'}{synthese.derniereDateCalcul ? ` · calculé le ${fmtDate(synthese.derniereDateCalcul)}` : ''}</p></div>
-                        {synthese.dernierStatut && <Badge variant={synthese.dernierStatut === 'VALIDE' || synthese.dernierStatut === 'CLOTURE' ? 'success' : 'info'} size="xs">{synthese.dernierStatut}</Badge>}
+                        {synthese.dernierStatut && <Badge variant={synthese.dernierBadgeVariant || (synthese.isDernierValide ? 'success' : synthese.isDernierCalcule ? 'info' : 'default')} size="xs">{synthese.dernierStatut}</Badge>}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
                         <StatCard title="Salaire de base" value={formatMoneyAr(synthese.salaireBaseContractuel)} subtext="Montant contractuel de l'affectation" icon={<Banknote size={16} />} color="brand" bordered={false} />
@@ -289,12 +291,12 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                             <div className="font-semibold text-[var(--color-fg)] leading-tight">{b.codePeriode}</div>
                                             <span className="text-[10px] text-[var(--color-fg-muted)] block truncate max-w-[140px]">{b.libellePeriode}</span>
                                         </Td>
-                                        <Td><Badge variant={b.typeBulletin === 'STC' ? 'warning' : 'default'} size="xs">{b.typeBulletin || 'MENSUEL'}</Badge></Td>
+                                        <Td><Badge variant={b.isStc || b.typeBulletin === 'STC' ? 'warning' : 'default'} size="xs">{b.typeBulletin || 'MENSUEL'}</Badge></Td>
                                         <Td className="font-mono text-[var(--color-fg-muted)]">{fmtDate(b.dateCalcul)}</Td>
                                         <Td className="text-right font-mono">{formatMoneyAr(b.totalGainsBruts)}</Td>
                                         <Td className="text-right font-mono font-bold text-[var(--color-fg)]">{formatMoneyAr(b.netAPayer)}</Td>
                                         <Td>
-                                            <Badge variant={b.statut === 'VALIDE' || b.statut === 'CLOTURE' ? 'success' : b.statut === 'CALCULE' ? 'info' : 'default'} size="xs">{b.statut}</Badge>
+                                            <Badge variant={b.badgeVariant || (b.isValide || b.isCloture ? 'success' : b.isCalcule ? 'info' : 'default')} size="xs">{b.statut}</Badge>
                                         </Td>
                                         <Td className="text-right">
                                             <Button type="button" variant="outline" size="xs" iconLeft={<Eye size={12} />} onClick={() => handleVoirBulletin(b.idBulletin)}>Voir</Button>
@@ -371,7 +373,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                 </Thead>
                                 <Tbody>
                                     {visibleMovements.map((m) => {
-                                        const isGain = m.sens === 'GAIN';
+                                        const isGain = Boolean(m.isGain ?? (m.sens === 'GAIN'));
                                         return (
                                             <Tr key={m.idAvance || m.idAjustement}>
                                                 <Td className="font-mono text-[var(--color-fg-muted)]">{fmtDate(m.dateDemande || m.datePaiement)}</Td>

@@ -8,9 +8,11 @@ import AuthenticatedImage from '@/components/ui/data-display/AuthenticatedImage'
 export default function CoordonneesPhotoStep({
     formData,
     set,
-    villesStandards,
-    uploadingPhoto,
+    villesStandards = [],
+    uploadingPhoto = false,
     handlePhotoSelect,
+    fieldErrors = {},
+    onFieldBlur,
 }) {
     return (
         <div className="space-y-4">
@@ -18,7 +20,7 @@ export default function CoordonneesPhotoStep({
             <Card padding className="bg-[var(--color-bg-subtle)]/60">
                 <div className="pb-2 mb-3 border-b border-[var(--color-border-subtle)]">
                     <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                        <Camera size={14} className="text-[var(--color-brand-500)]" />
+                        <Camera size={14} className="text-[var(--color-brand-600)]" />
                         Photo de profil
                     </label>
                 </div>
@@ -75,24 +77,51 @@ export default function CoordonneesPhotoStep({
             <Card padding className="space-y-4">
                 <div className="pb-2 border-b border-[var(--color-border-subtle)]">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                        <Phone size={14} className="text-brand-500" />
+                        <Phone size={14} className="text-[var(--color-brand-600)]" />
                         Coordonnées & Résidence
                     </h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                        <Textarea label="Adresse" required rows={2} value={formData.adresse} onChange={e => set('adresse', e.target.value)} placeholder="Adresse complète de résidence" />
+                        <Textarea 
+                            label="Adresse" 
+                            required 
+                            rows={2} 
+                            value={formData.adresse} 
+                            onChange={e => set('adresse', e.target.value)} 
+                            onBlur={() => onFieldBlur?.('adresse')}
+                            error={fieldErrors.adresse}
+                            placeholder="Adresse complète de résidence" 
+                        />
                     </div>
                     <AutocompleteInput 
                         label="Ville" 
                         value={formData.ville} 
                         onChange={e => set('ville', e.target.value)} 
+                        onBlur={() => onFieldBlur?.('ville')}
+                        error={fieldErrors.ville}
                         placeholder="Ex: Antananarivo, Toamasina..."
                         options={villesStandards}
                         listId="coord-villes-list"
                     />
-                    <Input label="Téléphone" required value={formData.telephone} onChange={e => set('telephone', e.target.value)} placeholder="Ex: 034 12 345 67" />
-                    <Input label="Email" type="email" value={formData.email} onChange={e => set('email', e.target.value)} placeholder="email@domaine.mg" />
+                    <Input 
+                        label="Téléphone" 
+                        required 
+                        value={formData.telephone} 
+                        onChange={e => set('telephone', e.target.value)} 
+                        onBlur={() => onFieldBlur?.('telephone')}
+                        error={fieldErrors.telephone}
+                        placeholder="Ex: 034 12 345 67" 
+                    />
+                    <Input 
+                        label="Email" 
+                        type="email" 
+                        value={formData.email} 
+                        onChange={e => set('email', e.target.value)} 
+                        onBlur={() => onFieldBlur?.('email')}
+                        error={fieldErrors.email}
+                        placeholder="email@domaine.mg" 
+                    />
                 </div>
             </Card>
         </div>

@@ -134,7 +134,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         {(() => {
-                            const isAbsence = recap.absenceFinale && recap.absenceFinale !== '00h00' && recap.absenceFinale !== '—';
+                            const isAbsence = Boolean(fiche?.hasRetardNet ?? (recap.absenceFinale && recap.absenceFinale !== '00h00' && recap.absenceFinale !== '—'));
                             const isHs30 = recap.hs30Finales && recap.hs30Finales !== '00h00' && recap.hs30Finales !== '—';
                             const isHs50 = recap.hs50Finales && recap.hs50Finales !== '00h00' && recap.hs50Finales !== '—';
                             return [
@@ -163,13 +163,13 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                     cardBorder: isHs50 ? 'border-2 border-[var(--color-success-500)]/40 bg-[var(--color-success-500)]/5' : 'border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]'
                                 },
                             ].map((item) => (
-                                <div key={item.label} className={`p-3 relative transition-all rounded ${item.cardBorder}`}>
+                                <div key={item.label} className={`p-3 relative transition-all rounded-none ${item.cardBorder}`}>
                                     <div className="flex items-center justify-between gap-1">
                                         <span className="text-xs font-medium text-[var(--color-fg-muted)]">
                                             {item.label} : <strong className={`font-mono text-base ${item.tone}`}>{item.value || '—'}</strong>
                                         </span>
                                         {item.badge && (
-                                            <span className={`text-[10px] px-1.5 py-0.5 font-bold uppercase rounded ${
+                                            <span className={`text-[10px] px-1.5 py-0.5 font-bold uppercase rounded-none ${
                                                 item.highlight && item.badge === 'Retenue'
                                                     ? 'bg-[var(--color-danger-500)]/15 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]'
                                                     : 'bg-[var(--color-success-500)]/15 text-[var(--color-success-700)] dark:text-[var(--color-success-300)]'

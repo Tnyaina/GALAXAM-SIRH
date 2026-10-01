@@ -460,6 +460,63 @@ public class VDemandeCongeCpl extends ClassMere {
         return "VALIDE".equalsIgnoreCase(codeStatutDemande);
     }
 
+    @com.fasterxml.jackson.annotation.JsonProperty("isEnAttente")
+    public boolean isEnAttente() {
+        return "EN_ATTENTE".equalsIgnoreCase(codeStatutDemande);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isRefuse")
+    public boolean isRefuse() {
+        return "REFUSE".equalsIgnoreCase(codeStatutDemande);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isAnnule")
+    public boolean isAnnule() {
+        return "ANNULE".equalsIgnoreCase(codeStatutDemande);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isCp")
+    public boolean isCp() {
+        String c = codeTypeConge != null ? codeTypeConge.toUpperCase() : "";
+        String l = libelleTypeConge != null ? libelleTypeConge.toLowerCase() : "";
+        return c.contains("ANNUEL") || c.contains("CP") || l.contains("annuel") || l.contains("payé");
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isMaladie")
+    public boolean isMaladie() {
+        String c = codeTypeConge != null ? codeTypeConge.toUpperCase() : "";
+        String l = libelleTypeConge != null ? libelleTypeConge.toLowerCase() : "";
+        return c.contains("MALADIE") || c.contains("MATERNITE") || c.contains("ACCIDENT") || l.contains("maladie") || l.contains("maternité");
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isEvenementFamilial")
+    public boolean isEvenementFamilial() {
+        String c = codeTypeConge != null ? codeTypeConge.toUpperCase() : "";
+        String l = libelleTypeConge != null ? libelleTypeConge.toLowerCase() : "";
+        return c.contains("FAMILIAL") || c.contains("EVENEMENT") || l.contains("mariage") || l.contains("naissance") || l.contains("décès");
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isSansSolde")
+    public boolean isSansSolde() {
+        String c = codeTypeConge != null ? codeTypeConge.toUpperCase() : "";
+        String l = libelleTypeConge != null ? libelleTypeConge.toLowerCase() : "";
+        return c.contains("SANS_SOLDE") || l.contains("sans solde");
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isRegularisationPointage")
+    public boolean isRegularisationPointage() {
+        return commentaire != null && commentaire.contains("[REGULARISATION_POINTAGE]");
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("badgeVariant")
+    public String getBadgeVariant() {
+        if (isCp()) return "brand";
+        if (isMaladie()) return "info";
+        if (isEvenementFamilial()) return "warning";
+        if (isSansSolde()) return "outline";
+        return "default";
+    }
+
     /** Décisions calculées par CongeService avec l'état et les permissions courantes. */
     public Map<String, ActionCapability> getAvailableActions() {
         return availableActions;

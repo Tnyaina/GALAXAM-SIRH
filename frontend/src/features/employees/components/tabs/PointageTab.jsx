@@ -231,40 +231,53 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const handleOpenPdfModal = () => handleExportDocument('pdf');
 
 
-    const getStatutBadge = (statut) => {
-        switch (statut?.toUpperCase()) {
-            case 'PRESENT':
-                return <Badge variant="success" size="sm">Présent</Badge>;
-            case 'DEMI_JOURNEE':
-                return <Badge variant="brand" size="sm">Demi-journée</Badge>;
-            case 'DISPENSE_POINTAGE':
-                return <Badge variant="brand" size="sm">Autonome</Badge>;
-            case 'RETARD':
-                return <Badge variant="warning" size="sm">Retard</Badge>;
-            case 'CONGE':
-                return <Badge variant="info" size="sm">Congé</Badge>;
-            case 'FERIE_CHOME':
-                return <Badge variant="neutral" size="sm">Férié chômé</Badge>;
-            case 'FERIE_TRAVAILLE':
-                return <Badge variant="purple" size="sm">Férié +100%</Badge>;
-            case 'SAMEDI_TRAVAILLE':
-                return <Badge variant="brand" size="sm">Samedi travaillé</Badge>;
-            case 'DIMANCHE_TRAVAILLE':
-                return <Badge variant="purple" size="sm">Dimanche +40%</Badge>;
-            case 'REPOS':
-                return <Badge variant="neutral" size="sm">Repos</Badge>;
-            case 'ABSENT':
-            case 'ABSENCE_NON_JUSTIFIEE':
-                return <Badge variant="danger" size="sm">Absent</Badge>;
-            case 'NON_CONCERNE':
-                return <Badge variant="neutral" size="sm" className="text-[10px]">Non concerné</Badge>;
-            case 'PLANIFIE':
-                return <Badge variant="neutral" size="sm" className="text-[var(--color-fg-muted)]">Planifié</Badge>;
-            case 'NON_ECHU':
-                return <span className="text-[11px] text-[var(--color-fg-subtle)]">-</span>;
-            default:
-                return <Badge variant="neutral" size="sm">{statut || '-'}</Badge>;
+    const getStatutBadge = (target) => {
+        const ptg = typeof target === 'object' && target !== null ? target : null;
+        const statut = (ptg ? ptg.statut : target)?.toUpperCase();
+
+        if (ptg?.isNonEchu || statut === 'NON_ECHU') {
+            return <span className="text-[11px] text-[var(--color-fg-subtle)]">-</span>;
         }
+        if (ptg?.isConge || statut === 'CONGE' || statut === 'CONGE_PAYE') {
+            return <Badge variant="info" size="sm">Congé</Badge>;
+        }
+        if (ptg?.isFerieTravaille || statut === 'FERIE_TRAVAILLE') {
+            return <Badge variant="purple" size="sm">Férié +100%</Badge>;
+        }
+        if (ptg?.isFerieChome || statut === 'FERIE_CHOME') {
+            return <Badge variant="neutral" size="sm">Férié chômé</Badge>;
+        }
+        if (ptg?.isDimancheTravaille || statut === 'DIMANCHE_TRAVAILLE') {
+            return <Badge variant="purple" size="sm">Dimanche +40%</Badge>;
+        }
+        if (ptg?.isSamediTravaille || statut === 'SAMEDI_TRAVAILLE') {
+            return <Badge variant="brand" size="sm">Samedi travaillé</Badge>;
+        }
+        if (ptg?.isDispensePointage || statut === 'DISPENSE_POINTAGE') {
+            return <Badge variant="brand" size="sm">Autonome</Badge>;
+        }
+        if (ptg?.isDemiJournee || statut === 'DEMI_JOURNEE') {
+            return <Badge variant="brand" size="sm">Demi-journée</Badge>;
+        }
+        if (ptg?.isPresent || statut === 'PRESENT') {
+            return <Badge variant="success" size="sm">Présent</Badge>;
+        }
+        if (ptg?.isRetard || statut === 'RETARD') {
+            return <Badge variant="warning" size="sm">Retard</Badge>;
+        }
+        if (ptg?.isAbsent || statut === 'ABSENT' || statut === 'ABSENCE_NON_JUSTIFIEE') {
+            return <Badge variant="danger" size="sm">Absent</Badge>;
+        }
+        if (ptg?.isRepos || statut === 'REPOS') {
+            return <Badge variant="neutral" size="sm">Repos</Badge>;
+        }
+        if (ptg?.isPlanifie || statut === 'PLANIFIE') {
+            return <Badge variant="neutral" size="sm" className="text-[var(--color-fg-muted)]">Planifié</Badge>;
+        }
+        if (ptg?.isNonConcerne || statut === 'NON_CONCERNE') {
+            return <Badge variant="neutral" size="sm" className="text-[10px]">Non concerné</Badge>;
+        }
+        return <Badge variant="neutral" size="sm">{statut || '-'}</Badge>;
     };
 
     const kpis = ficheData?.kpis || {};
@@ -287,14 +300,22 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const nuitVal = parseFloat(kpis?.heuresNuit) || 0;
     const dimVal = parseFloat(kpis?.heuresDimanche) || 0;
     const ferVal = parseFloat(kpis?.heuresFerie) || 0;
-    const hasMajorations = (hs30Val > 0 || hs50Val > 0 || nuitVal > 0 || dimVal > 0 || ferVal > 0);
-    const isAssiduiteRuleDisabled = kpis?.primeAssiduiteEligible === 'DISABLED';
+    const hasMajorations = ficheData?.hasMajorations ?? (hs30Val > 0 || hs50Val > 0 || nuitVal > 0 || dimVal > 0 || ferVal > 0);
+    const isAssiduiteRuleDisabled = ficheData?.isPrimeAssiduiteActive !== undefined
+        ? !ficheData.isPrimeAssiduiteActive
+        : kpis?.primeAssiduiteEligible === 'DISABLED';
     const seuilAssiduiteMinutes = kpis.seuilAssiduiteMinutes || regles.seuilAssiduiteMinutes || '-';
     const dureeHebdoLegale = regles.dureeHebdoLegale || kpis.dureeHebdoLegale || '-';
     const dureeJourNormale = regles.dureeJourNormale;
-    const isAssiduiteEligible = kpis.primeAssiduiteEligible === 'true';
-    const hasRetardNet = Boolean(recap?.retardNet && recap.retardNet !== '00h00' && recap.retardNet !== '0h');
-    const hasHsNettes = Boolean(recap?.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' && recap.heuresSuppNettes !== '0h');
+    const isAssiduiteEligible = ficheData?.isPrimeAssiduiteEligible !== undefined
+        ? Boolean(ficheData.isPrimeAssiduiteEligible)
+        : kpis.primeAssiduiteEligible === 'true';
+    const hasRetardNet = ficheData?.hasRetardNet !== undefined
+        ? Boolean(ficheData.hasRetardNet)
+        : Boolean(recap?.retardNet && recap.retardNet !== '00h00' && recap.retardNet !== '0h');
+    const hasHsNettes = ficheData?.hasHsNettes !== undefined
+        ? Boolean(ficheData.hasHsNettes)
+        : Boolean(recap?.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' && recap.heuresSuppNettes !== '0h');
 
     const totalRetardMinutes = Number(kpis.retardBrutMinutes || 0);
     const totalRetardHhMm = kpis.retardCumule || '-';
@@ -471,10 +492,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                     </div>
                     {ficheData.statutPeriode && (
                         <Badge
-                            variant={ficheData.statutPeriode === 'CLOTUREE' || ficheData.statutPeriode === 'VALIDEE' ? 'success' : 'warning'}
+                            variant={ficheData.isPeriodeCloturee || ficheData.isPeriodeValidee || ficheData.statutPeriode === 'CLOTUREE' || ficheData.statutPeriode === 'VALIDEE' ? 'success' : 'warning'}
                             size="sm"
                         >
-                            {ficheData.statutPeriode === 'CLOTUREE' ? 'Clôturée' : ficheData.statutPeriode === 'VALIDEE' ? 'Validée' : ficheData.statutPeriode === 'EN_COURS' ? 'En cours' : ficheData.statutPeriode}
+                            {ficheData.isPeriodeCloturee || ficheData.statutPeriode === 'CLOTUREE' ? 'Clôturée' : ficheData.isPeriodeValidee || ficheData.statutPeriode === 'VALIDEE' ? 'Validée' : ficheData.isPeriodeEnCours || ficheData.statutPeriode === 'EN_COURS' ? 'En cours' : ficheData.statutPeriode}
                         </Badge>
                     )}
                 </div>
@@ -719,16 +740,18 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     ) : (
                                         pointages.map((ptg, idx) => {
                                             const st = (ptg.statut || '').toUpperCase();
-                                            const isConge = st === 'CONGE' || st === 'CONGE_PAYE';
-                                            const isFerie = st === 'FERIE_CHOME' || (st === 'FERIE' && (!ptg.heures || ptg.heures === '00h00' || ptg.heures === '—'));
-                                            const isRepos = st === 'REPOS';
-                                            const isNonEchu = st === 'NON_ECHU';
-                                            const isMerged = isConge || isFerie || isRepos || isNonEchu;
+                                            const isConge = Boolean(ptg.isConge ?? (st === 'CONGE' || st === 'CONGE_PAYE'));
+                                            const isFerie = Boolean(ptg.isFerieChome ?? (st === 'FERIE_CHOME' || (st === 'FERIE' && (!ptg.heures || ptg.heures === '00h00' || ptg.heures === '—'))));
+                                            const isRepos = Boolean(ptg.isRepos ?? (st === 'REPOS'));
+                                            const isNonEchu = Boolean(ptg.isNonEchu ?? (st === 'NON_ECHU'));
+                                            const isMerged = Boolean(ptg.isMerged ?? (isConge || isFerie || isRepos || isNonEchu));
 
                                             const isContinu = Boolean(
-                                                ptg.horaireContinuJour ||
-                                                ptg.horaireContinu ||
-                                                (ptg.sortiePause === '12:00' && ptg.retourPause === '12:00')
+                                                ptg.isContinu ?? (
+                                                    ptg.horaireContinuJour ||
+                                                    ptg.horaireContinu ||
+                                                    (ptg.sortiePause === '12:00' && ptg.retourPause === '12:00')
+                                                )
                                             );
                                             const isWeekendDay = Boolean(
                                                 ptg.weekend ?? (
@@ -803,7 +826,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                             </Td>
                                                             {isContinu ? (
                                                                 <Td colSpan={2} className="text-center py-2.5 px-2 bg-[var(--color-orange-500)]/[0.04]">
-                                                                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-orange-700)] dark:text-[var(--color-orange-200)] bg-[var(--color-orange-500)]/15 px-2 py-0.5 rounded border border-[var(--color-orange-500)]/25" title="Journée continue sans pause">
+                                                                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-orange-700)] dark:text-[var(--color-orange-200)] bg-[var(--color-orange-500)]/15 px-2 py-0.5 rounded-none border border-[var(--color-orange-500)]/25" title="Journée continue sans pause">
                                                                         <FastForward size={11} className="shrink-0" /> Continu
                                                                     </span>
                                                                 </Td>
@@ -864,7 +887,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
 
                                                     {/* Colonne 10 : Statut */}
                                                     <Td className="text-center py-2.5 px-3">
-                                                        {getStatutBadge(ptg.statut)}
+                                                        {getStatutBadge(ptg)}
                                                     </Td>
 
                                                     {dynamicAllowances.map((allowance) => {
@@ -1388,7 +1411,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
             ) : null}
 
             {correctionDate && ficheData?.idPeriode && <Suspense fallback={null}>
-                <DafAjustementPointageModal isOpen onClose={() => setCorrectionDate(null)} employe={employe || ficheData} idEmploye={idEmploye} idPeriode={ficheData.idPeriode} initialDate={correctionDate} onSuccess={async () => { setCorrectionDate(null); await loadFiche(); }} />
+                <DafAjustementPointageModal isOpen onClose={() => setCorrectionDate(null)} employe={employe || ficheData} idEmploye={idEmploye} idPeriode={ficheData.idPeriode} initialDate={correctionDate} onSuccess={async () => { setCorrectionDate(null); await loadFiche({ background: true }); }} />
             </Suspense>}
             {showBalance && ficheData?.idPeriode && <Suspense fallback={null}>
                 <PointageSoldePeriodeModal employe={ficheData.soldePeriode} idPeriodePaie={ficheData.idPeriode} readOnly={!actions.ADJUST_BALANCE} onClose={() => setShowBalance(false)} onChanged={() => loadFiche({ background: true })} />

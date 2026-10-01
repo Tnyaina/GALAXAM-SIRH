@@ -162,7 +162,10 @@ public class DocumentRhController {
                 doc.setExtension(extension);
                 doc.setTailleOctet(file.getSize());
                 if (dateDocumentStr != null && !dateDocumentStr.isBlank()) {
-                    doc.setDateDocument(Date.valueOf(dateDocumentStr));
+                    Date parsedDocDate = mg.galaxam.sirh.contrat.api.dto.EmployeRequest.parseFlexibleDate(dateDocumentStr);
+                    if (parsedDocDate != null) {
+                        doc.setDateDocument(parsedDocDate);
+                    }
                 }
                 doc.setCommentaire(commentaire);
 

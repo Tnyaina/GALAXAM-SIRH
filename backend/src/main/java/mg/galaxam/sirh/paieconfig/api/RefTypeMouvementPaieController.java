@@ -59,7 +59,9 @@ public class RefTypeMouvementPaieController {
             List<Map<String, Object>> rubriques = new ArrayList<>();
             try (PreparedStatement ps = c.prepareStatement(
                     "SELECT id_rubrique, code, libelle, categorie, sens, type_valeur, soumis_irsa, " +
-                    "soumis_cnaps, est_fixe, est_actif FROM paie_rubrique ORDER BY ordre_affichage, code");
+                    "soumis_cnaps, soumis_sante, est_fixe, est_actif, description, ordre_affichage, " +
+                    "reference_reglementaire, date_debut_effet, etape_calcul " +
+                    "FROM paie_rubrique ORDER BY ordre_affichage, code");
                  ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     Map<String, Object> item = new LinkedHashMap<>();
@@ -71,8 +73,17 @@ public class RefTypeMouvementPaieController {
                     item.put("typeValeur", rs.getString("type_valeur"));
                     item.put("soumisIrsa", rs.getBoolean("soumis_irsa"));
                     item.put("soumisCnaps", rs.getBoolean("soumis_cnaps"));
+                    item.put("soumisSante", rs.getBoolean("soumis_sante"));
                     item.put("estFixe", rs.getBoolean("est_fixe"));
                     item.put("estActif", rs.getBoolean("est_actif"));
+                    item.put("description", rs.getString("description"));
+                    item.put("referenceReglementaire", rs.getString("reference_reglementaire"));
+                    item.put("dateDebutEffet", rs.getDate("date_debut_effet"));
+                    item.put("etapeCalcul", rs.getString("etape_calcul"));
+                    item.put("dateFinEffet", rs.getDate("date_fin_effet"));
+                    item.put("idRubriqueOrigine", rs.getObject("id_rubrique_origine"));
+                    item.put("conditionApplication", rs.getString("condition_application"));
+                    item.put("ordreAffichage", rs.getInt("ordre_affichage"));
                     rubriques.add(item);
                 }
             }

@@ -36,7 +36,7 @@ export default function WeeklyPointageCalculationTable({ weeks = [], pointages =
                         const overtime = Number(week.heuresHsNettes ?? (overtime30 + overtime50));
                         const deficit = Number(week.heuresDeficit ?? week.heuresAbsenceRetenues ?? 0);
                         const missingDays = pointages.filter((day) => day.dateComplete >= start && day.dateComplete <= end
-                            && day.statut === 'ABSENT' && !day.idPointage);
+                            && (day.isAbsent || day.statut === 'ABSENT') && !day.idPointage);
 
                         return (
                             <Fragment key={start || index}>
@@ -89,19 +89,19 @@ export default function WeeklyPointageCalculationTable({ weeks = [], pointages =
                                                 {missingDays.length > 0 ? 'Voir les jours à saisir' : 'Voir le détail'}
                                             </summary>
                                             {missingDays.length > 0 ? (
-                                                <div className="mt-3 rounded border border-[var(--color-border-subtle)] p-3">
+                                                <div className="mt-3 rounded-none border border-[var(--color-border-subtle)] p-3">
                                                     <strong className="block mb-1 text-[var(--color-fg)]">Saisie à compléter</strong>
                                                     <p>{missingDays.map((day) => fmtDate(day.dateComplete)).join(' · ')}</p>
                                                     <p className="mt-1">Le déficit calculé reste provisoire tant que ces journées n&apos;ont pas de statut enregistré.</p>
                                                 </div>
                                             ) : (
                                                 <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                                    <div className="rounded border border-[var(--color-border-subtle)] p-3">
+                                                    <div className="rounded-none border border-[var(--color-border-subtle)] p-3">
                                                         <strong className="block mb-2 text-[var(--color-fg)]">Calcul des heures</strong>
                                                         <p>Surplus journalier : <strong>+{formatHeuresMinutes(surplus)}</strong> <span className="text-[11px] text-[var(--color-fg-muted)]">({formatHeuresDecimal(surplus)})</span></p>
                                                         <p>Dont utilisé pour les journées courtes : <strong>{formatHeuresMinutes(used)}</strong> <span className="text-[11px] text-[var(--color-fg-muted)]">({formatHeuresDecimal(used)})</span></p>
                                                     </div>
-                                                    <div className="rounded border border-[var(--color-border-subtle)] p-3">
+                                                    <div className="rounded-none border border-[var(--color-border-subtle)] p-3">
                                                         <strong className="block mb-2 text-[var(--color-fg)]">Heures qualifiées</strong>
                                                         {[
                                                             ['Nuit', Number(week.heuresNuit || 0)],
@@ -114,7 +114,7 @@ export default function WeeklyPointageCalculationTable({ weeks = [], pointages =
                                                             </p>
                                                         ))}
                                                     </div>
-                                                    <div className="rounded border border-[var(--color-border-subtle)] p-3">
+                                                    <div className="rounded-none border border-[var(--color-border-subtle)] p-3">
                                                         <strong className="block mb-2 text-[var(--color-fg)]">Ponctualité</strong>
                                                         <p>Retards constatés : <strong>{formatHeuresMinutes(late)}</strong> <span className="text-[11px] text-[var(--color-fg-muted)]">({formatHeuresDecimal(late)})</span></p>
                                                     </div>

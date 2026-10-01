@@ -1,6 +1,5 @@
 package mg.galaxam.sirh.paie.api;
 
-
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -37,14 +36,18 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Contrôleur REST pour la saisie et la gestion des variables de paie, acomptes, avances et primes.
+ * Contrôleur REST pour la saisie et la gestion des variables de paie, acomptes,
+ * avances et primes.
  * Base URL : /api/v1/paie/ajustements
  *
- * <p>Le workflow des ajustements passe désormais par {@link PayrollAdjustmentWorkflowService} :
- * le client demande une commande ({@link PayrollAdjustmentCommand}), le backend décide la transition.
+ * <p>
+ * Le workflow des ajustements passe désormais par
+ * {@link PayrollAdjustmentWorkflowService} :
+ * le client demande une commande ({@link PayrollAdjustmentCommand}), le backend
+ * décide la transition.
  */
 @RestController
-@RequestMapping({"/api/v1/paie/ajustements", "/v1/paie/ajustements", "/paie/ajustements"})
+@RequestMapping({ "/api/v1/paie/ajustements", "/v1/paie/ajustements", "/paie/ajustements" })
 public class PaieAjustementController {
 
     private final DataSource dataSource;
@@ -73,18 +76,20 @@ public class PaieAjustementController {
         try (Connection c = dataSource.getConnection()) {
             StringBuilder sql = new StringBuilder(
                     "SELECT paa.*, " +
-                    "e.matricule, TRIM(CONCAT(COALESCE(e.nom, ''), ' ', COALESCE(e.prenom, ''))) AS nom_complet, " +
-                    "COALESCE(rtmp.code, paa.type_mouvement) AS type_code, " +
-                    "COALESCE(rtmp.libelle, paa.type_mouvement) AS type_libelle, " +
-                    "COALESCE(rtmp.sens, paa.sens) AS type_sens, " +
-                    "rtmp.categorie AS type_categorie, rtmp.nature AS type_nature, pr.soumis_irsa AS type_imposable, " +
-                    "pr.soumis_cnaps AS type_cotisable " +
-                    "FROM paie_avance_acompte paa " +
-                    "JOIN employe e ON paa.id_employe = e.id_employe " +
-                    "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement " +
-                    "LEFT JOIN paie_rubrique pr ON pr.id_rubrique = rtmp.id_rubrique " +
-                    "WHERE 1=1 "
-            );
+                            "e.matricule, TRIM(CONCAT(COALESCE(e.nom, ''), ' ', COALESCE(e.prenom, ''))) AS nom_complet, "
+                            +
+                            "COALESCE(rtmp.code, paa.type_mouvement) AS type_code, " +
+                            "COALESCE(rtmp.libelle, paa.type_mouvement) AS type_libelle, " +
+                            "COALESCE(rtmp.sens, paa.sens) AS type_sens, " +
+                            "rtmp.categorie AS type_categorie, rtmp.nature AS type_nature, pr.soumis_irsa AS type_imposable, "
+                            +
+                            "pr.soumis_cnaps AS type_cotisable " +
+                            "FROM paie_avance_acompte paa " +
+                            "JOIN employe e ON paa.id_employe = e.id_employe " +
+                            "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement "
+                            +
+                            "LEFT JOIN paie_rubrique pr ON pr.id_rubrique = rtmp.id_rubrique " +
+                            "WHERE 1=1 ");
 
             List<Object> params = new ArrayList<>();
             if (idPeriode != null) {
@@ -129,7 +134,8 @@ public class PaieAjustementController {
                         map.put("dateDemande", rs.getDate("date_demande"));
                         map.put("datePaiement", rs.getDate("date_paiement"));
                         map.put("versementConfirmeAt", rs.getTimestamp("versement_confirme_at"));
-                        map.put("dateVersementConfirme", rs.getTimestamp("versement_confirme_at") != null ? rs.getDate("date_paiement") : null);
+                        map.put("dateVersementConfirme",
+                                rs.getTimestamp("versement_confirme_at") != null ? rs.getDate("date_paiement") : null);
                         map.put("referenceVersement", rs.getString("reference_versement"));
                         map.put("dateAccord", rs.getDate("date_accord"));
                         map.put("motif", rs.getString("motif"));
@@ -146,13 +152,17 @@ public class PaieAjustementController {
                             BigDecimal solde = rs.getBigDecimal("solde_restant");
                             String etat = "EN_ATTENTE".equals(statut) ? "A_APPROUVER"
                                     : "REJETE".equals(statut) ? "REJETE"
-                                    : "ANNULE".equals(statut) ? "ANNULE"
-                                    : !verse && ("IMPUTE_PAIE".equals(statut)
-                                        || rs.getBigDecimal("montant_impute").signum() > 0) ? "VERSEMENT_A_VERIFIER"
-                                    : !verse ? "A_VERSER"
-                                    : solde != null && solde.signum() == 0 ? "SOLDE"
-                                    : rs.getBigDecimal("montant_impute").signum() > 0 ? "REMBOURSEMENT_EN_COURS"
-                                    : "VERSE_A_IMPUTER";
+                                            : "ANNULE".equals(statut) ? "ANNULE"
+                                                    : !verse && ("IMPUTE_PAIE".equals(statut)
+                                                            || rs.getBigDecimal("montant_impute").signum() > 0)
+                                                                    ? "VERSEMENT_A_VERIFIER"
+                                                                    : !verse ? "A_VERSER"
+                                                                            : solde != null && solde.signum() == 0
+                                                                                    ? "SOLDE"
+                                                                                    : rs.getBigDecimal("montant_impute")
+                                                                                            .signum() > 0
+                                                                                                    ? "REMBOURSEMENT_EN_COURS"
+                                                                                                    : "VERSE_A_IMPUTER";
                             map.put("etatDossier", etat);
                             boolean canWrite = PayrollPeriodUserContext.from(authentication).hasAny("PAIE_WRITE");
                             map.put("actions", Map.of(
@@ -160,8 +170,13 @@ public class PaieAjustementController {
                                     "REJECT", canWrite && "EN_ATTENTE".equals(statut),
                                     "CONFIRM_VERSEMENT", canWrite && !verse
                                             && ("APPROUVE".equals(statut) || "IMPUTE_PAIE".equals(statut))));
+                            boolean isGain = "GAIN".equalsIgnoreCase(rs.getString("type_sens"));
+                            map.put("isGain", isGain);
+                            map.put("isRetenue", !isGain);
+                            map.put("isAcompte", "ACOMPTE".equalsIgnoreCase(categorie));
+                            map.put("isAvance", "AVANCE".equalsIgnoreCase(categorie));
+                            resultats.add(map);
                         }
-                        resultats.add(map);
                     }
                 }
             }
@@ -207,11 +222,12 @@ public class PaieAjustementController {
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> listerModesReglement() throws Exception {
         try (Connection c = dataSource.getConnection();
-             PreparedStatement ps = c.prepareStatement(
-                     "SELECT code, libelle FROM ref_mode_paiement WHERE actif = TRUE ORDER BY libelle");
-             ResultSet rs = ps.executeQuery()) {
+                PreparedStatement ps = c.prepareStatement(
+                        "SELECT code, libelle FROM ref_mode_paiement WHERE actif = TRUE ORDER BY libelle");
+                ResultSet rs = ps.executeQuery()) {
             List<Map<String, String>> modes = new ArrayList<>();
-            while (rs.next()) modes.add(Map.of("code", rs.getString("code"), "libelle", rs.getString("libelle")));
+            while (rs.next())
+                modes.add(Map.of("code", rs.getString("code"), "libelle", rs.getString("libelle")));
             return ResponseEntity.ok(modes);
         }
     }
@@ -220,10 +236,10 @@ public class PaieAjustementController {
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> listerTousModesPaiement() throws Exception {
         try (Connection c = dataSource.getConnection();
-             PreparedStatement ps = c.prepareStatement(
-                     "SELECT id_mode_paiement, code, libelle, exige_rib, inclus_fichier_virement, actif " +
-                     "FROM ref_mode_paiement ORDER BY id_mode_paiement");
-             ResultSet rs = ps.executeQuery()) {
+                PreparedStatement ps = c.prepareStatement(
+                        "SELECT id_mode_paiement, code, libelle, exige_rib, inclus_fichier_virement, actif " +
+                                "FROM ref_mode_paiement ORDER BY id_mode_paiement");
+                ResultSet rs = ps.executeQuery()) {
             List<Map<String, Object>> modes = new ArrayList<>();
             while (rs.next()) {
                 Map<String, Object> map = new HashMap<>();
@@ -253,7 +269,8 @@ public class PaieAjustementController {
                     psCheck.setInt(1, id);
                     try (ResultSet rs = psCheck.executeQuery()) {
                         if (!rs.next()) {
-                            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Mode de paiement introuvable"));
+                            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                    .body(Map.of("message", "Mode de paiement introuvable"));
                         }
                         old.put("libelle", rs.getString("libelle"));
                         old.put("exigeRib", rs.getBoolean("exige_rib"));
@@ -262,10 +279,16 @@ public class PaieAjustementController {
                     }
                 }
 
-                String libelle = payload.containsKey("libelle") && payload.get("libelle") != null ? ((String) payload.get("libelle")).trim() : (String) old.get("libelle");
-                boolean exigeRib = payload.containsKey("exigeRib") ? Boolean.TRUE.equals(payload.get("exigeRib")) : (boolean) old.get("exigeRib");
-                boolean inclusVirement = payload.containsKey("inclusFichierVirement") ? Boolean.TRUE.equals(payload.get("inclusFichierVirement")) : (boolean) old.get("inclusFichierVirement");
-                boolean actif = payload.containsKey("actif") ? Boolean.TRUE.equals(payload.get("actif")) : (boolean) old.get("actif");
+                String libelle = payload.containsKey("libelle") && payload.get("libelle") != null
+                        ? ((String) payload.get("libelle")).trim()
+                        : (String) old.get("libelle");
+                boolean exigeRib = payload.containsKey("exigeRib") ? Boolean.TRUE.equals(payload.get("exigeRib"))
+                        : (boolean) old.get("exigeRib");
+                boolean inclusVirement = payload.containsKey("inclusFichierVirement")
+                        ? Boolean.TRUE.equals(payload.get("inclusFichierVirement"))
+                        : (boolean) old.get("inclusFichierVirement");
+                boolean actif = payload.containsKey("actif") ? Boolean.TRUE.equals(payload.get("actif"))
+                        : (boolean) old.get("actif");
 
                 String updateSql = "UPDATE ref_mode_paiement SET libelle = ?, exige_rib = ?, inclus_fichier_virement = ?, actif = ? WHERE id_mode_paiement = ?";
                 try (PreparedStatement psUp = c.prepareStatement(updateSql)) {
@@ -295,14 +318,16 @@ public class PaieAjustementController {
                 "COUNT(*) FILTER (WHERE a.statut = 'APPROUVE' AND a.versement_confirme_at IS NULL " +
                 "AND a.montant_impute = 0) AS a_verser, " +
                 "COUNT(*) FILTER (WHERE a.versement_confirme_at IS NULL AND a.montant_impute > 0) AS a_verifier, " +
-                "COUNT(*) FILTER (WHERE a.versement_confirme_at IS NOT NULL AND a.solde_restant > 0) AS en_recouvrement, " +
+                "COUNT(*) FILTER (WHERE a.versement_confirme_at IS NOT NULL AND a.solde_restant > 0) AS en_recouvrement, "
+                +
                 "COALESCE(SUM(a.solde_restant) FILTER (WHERE a.versement_confirme_at IS NOT NULL " +
                 "AND a.statut IN ('APPROUVE','IMPUTE_PAIE')), 0) AS encours_verse " +
                 "FROM paie_avance_acompte a JOIN ref_type_mouvement_paie t " +
                 "ON t.id_type_mouvement = a.id_type_mouvement " +
                 "WHERE t.categorie IN ('ACOMPTE','AVANCE')";
-        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+        try (Connection c = dataSource.getConnection();
+                PreparedStatement ps = c.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
             rs.next();
             return ResponseEntity.ok(Map.of(
                     "aApprouver", rs.getInt("a_approuver"),
@@ -324,11 +349,12 @@ public class PaieAjustementController {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 List<Map<String, Object>> rows = new ArrayList<>();
-                while (rs.next()) rows.add(Map.of(
-                        "idBulletin", rs.getInt("id_bulletin"),
-                        "montant", rs.getBigDecimal("montant"),
-                        "codePeriode", rs.getString("code_periode"),
-                        "statutBulletin", rs.getString("statut_bulletin")));
+                while (rs.next())
+                    rows.add(Map.of(
+                            "idBulletin", rs.getInt("id_bulletin"),
+                            "montant", rs.getBigDecimal("montant"),
+                            "codePeriode", rs.getString("code_periode"),
+                            "statutBulletin", rs.getString("statut_bulletin")));
                 return ResponseEntity.ok(rows);
             }
         }
@@ -352,12 +378,13 @@ public class PaieAjustementController {
                 try (PreparedStatement ps = c.prepareStatement(sql)) {
                     ps.setInt(1, id);
                     try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next()) throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
-                                "Demande introuvable.");
+                        if (!rs.next())
+                            throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
+                                    "Demande introuvable.");
                         categorie = rs.getString("categorie");
                         if (!("ACOMPTE".equals(categorie) || "AVANCE".equals(categorie))
                                 || !("APPROUVE".equals(rs.getString("statut"))
-                                    || "IMPUTE_PAIE".equals(rs.getString("statut")))
+                                        || "IMPUTE_PAIE".equals(rs.getString("statut")))
                                 || rs.getTimestamp("versement_confirme_at") != null) {
                             throw new SirhBusinessException(SirhErrorCode.STATE_CONFLICT,
                                     "Seul un acompte ou une avance approuvé, ou un dossier historique imputé, peut être rapproché d'un versement.");
@@ -381,21 +408,25 @@ public class PaieAjustementController {
                         "SELECT 1 FROM ref_mode_paiement WHERE code = ? AND actif = TRUE")) {
                     ps.setString(1, request.modeReglement());
                     try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next()) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
-                                "Mode de règlement inconnu ou inactif.");
+                        if (!rs.next())
+                            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                    "Mode de règlement inconnu ou inactif.");
                     }
                 }
                 try (PreparedStatement ps = c.prepareStatement(
                         "UPDATE paie_avance_acompte SET date_paiement = ?, mode_reglement = ?, " +
-                        "reference_versement = ?, versement_confirme_at = CURRENT_TIMESTAMP, " +
-                        "versement_confirme_par = ?, " +
-                        "statut = CASE WHEN solde_restant > 0 THEN 'APPROUVE' ELSE 'IMPUTE_PAIE' END, " +
-                        "updated_at = CURRENT_TIMESTAMP WHERE id_avance = ?")) {
+                                "reference_versement = ?, versement_confirme_at = CURRENT_TIMESTAMP, " +
+                                "versement_confirme_par = ?, " +
+                                "statut = CASE WHEN solde_restant > 0 THEN 'APPROUVE' ELSE 'IMPUTE_PAIE' END, " +
+                                "updated_at = CURRENT_TIMESTAMP WHERE id_avance = ?")) {
                     ps.setDate(1, Date.valueOf(request.dateVersement()));
                     ps.setString(2, request.modeReglement());
                     ps.setString(3, request.referenceVersement().trim());
                     Integer userId = getCurrentUserId();
-                    if (userId != null) ps.setInt(4, userId); else ps.setNull(4, java.sql.Types.INTEGER);
+                    if (userId != null)
+                        ps.setInt(4, userId);
+                    else
+                        ps.setNull(4, java.sql.Types.INTEGER);
                     ps.setInt(5, id);
                     ps.executeUpdate();
                 }
@@ -455,8 +486,10 @@ public class PaieAjustementController {
                             "JOIN contrat_travail ct ON ct.id_contrat = eac.id_contrat " +
                             "JOIN periode_paie p ON p.id_periode_paie = ? " +
                             "WHERE eac.id_employe = ? " +
-                            "AND eac.date_debut <= p.date_fin AND (eac.date_fin IS NULL OR eac.date_fin >= p.date_debut) " +
-                            "AND ct.date_debut <= p.date_fin AND (ct.date_fin IS NULL OR ct.date_fin >= p.date_debut) " +
+                            "AND eac.date_debut <= p.date_fin AND (eac.date_fin IS NULL OR eac.date_fin >= p.date_debut) "
+                            +
+                            "AND ct.date_debut <= p.date_fin AND (ct.date_fin IS NULL OR ct.date_fin >= p.date_debut) "
+                            +
                             "LIMIT 1";
                     try (PreparedStatement psCouv = c.prepareStatement(sqlCouv)) {
                         psCouv.setInt(1, req.getIdPeriodePaie());
@@ -485,7 +518,8 @@ public class PaieAjustementController {
                 entity.setMontantImpute(java.math.BigDecimal.ZERO);
                 entity.setSoldeRestant(req.getMontant());
                 entity.setProvenance(typeMvt.getProvenanceDefaut());
-                entity.setDateDemande(req.getDateDemande() != null ? req.getDateDemande() : new java.sql.Date(System.currentTimeMillis()));
+                entity.setDateDemande(req.getDateDemande() != null ? req.getDateDemande()
+                        : new java.sql.Date(System.currentTimeMillis()));
                 entity.setMotif(req.getMotif());
                 entity.setModeReglement(req.getModeReglement() != null ? req.getModeReglement() : "VIREMENT");
                 // P1-01 : Le statut initial est toujours EN_ATTENTE — le client ne décide pas.
@@ -494,10 +528,12 @@ public class PaieAjustementController {
                 entity.setCreePar(userId);
 
                 entity.save(c);
-                AuditLog.audit(c, "CREATION", "paie_avance_acompte", String.valueOf(entity.getIdAvance()), null, entity);
+                AuditLog.audit(c, "CREATION", "paie_avance_acompte", String.valueOf(entity.getIdAvance()), null,
+                        entity);
 
                 int version = 1;
-                try (PreparedStatement psVer = c.prepareStatement("SELECT updated_at FROM paie_avance_acompte WHERE id_avance = ?")) {
+                try (PreparedStatement psVer = c
+                        .prepareStatement("SELECT updated_at FROM paie_avance_acompte WHERE id_avance = ?")) {
                     psVer.setInt(1, entity.getIdAvance());
                     try (ResultSet rsVer = psVer.executeQuery()) {
                         if (rsVer.next()) {
@@ -532,7 +568,8 @@ public class PaieAjustementController {
     /**
      * Exécute une commande métier sur un ajustement de paie.
      *
-     * <p>Remplace l'ancien endpoint PUT /{id}/statut (mutation directe d'état).
+     * <p>
+     * Remplace l'ancien endpoint PUT /{id}/statut (mutation directe d'état).
      * Le client fournit une commande explicite (APPROVE, REJECT, CANCEL) ;
      * le backend décide si la transition est autorisée.
      */
@@ -562,10 +599,13 @@ public class PaieAjustementController {
     }
 
     /**
-     * @deprecated Cet endpoint appliquait directement un statut arbitraire fourni par le client,
-     * violant le principe « le backend décide ». Utilisez POST /{id}/commands.
+     * @deprecated Cet endpoint appliquait directement un statut arbitraire fourni
+     *             par le client,
+     *             violant le principe « le backend décide ». Utilisez POST
+     *             /{id}/commands.
      *
-     * <p>Retourne 410 Gone pour détecter les consommateurs obsolètes.
+     *             <p>
+     *             Retourne 410 Gone pour détecter les consommateurs obsolètes.
      */
     @PutMapping("/{id}/statut")
     @Deprecated(forRemoval = true)
@@ -578,8 +618,10 @@ public class PaieAjustementController {
     }
 
     /**
-     * @deprecated Cet endpoint appliquait directement un statut arbitraire fourni par le client.
-     * Retourne 410 Gone pour détecter les consommateurs obsolètes utilisant PATCH.
+     * @deprecated Cet endpoint appliquait directement un statut arbitraire fourni
+     *             par le client.
+     *             Retourne 410 Gone pour détecter les consommateurs obsolètes
+     *             utilisant PATCH.
      */
     @PatchMapping("/{id}/statut")
     @Deprecated(forRemoval = true)

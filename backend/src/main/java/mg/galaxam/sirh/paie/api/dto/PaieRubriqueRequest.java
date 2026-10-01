@@ -1,5 +1,7 @@
 package mg.galaxam.sirh.paie.api.dto;
 
+import java.time.LocalDate;
+
 /**
  * DTO de requête pour la création et modification d'une rubrique de paie.
  */
@@ -17,6 +19,12 @@ public class PaieRubriqueRequest {
     private Integer ordreAffichage = 10;
     private Boolean estActif = true;
     private String description;
+    private String referenceReglementaire;
+    private LocalDate dateDebutEffet;
+    private String etapeCalcul;
+    private LocalDate dateFinEffet;
+    private Integer idRubriqueOrigine;
+    private String conditionApplication = "TOUS";
 
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
@@ -53,4 +61,16 @@ public class PaieRubriqueRequest {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public String getReferenceReglementaire() { return referenceReglementaire; }
+    public void setReferenceReglementaire(String referenceReglementaire) { this.referenceReglementaire = referenceReglementaire; }
+    public LocalDate getDateDebutEffet() { return dateDebutEffet; }
+    public void setDateDebutEffet(LocalDate dateDebutEffet) { this.dateDebutEffet = dateDebutEffet; }
+    public LocalDate getDateFinEffet() { return dateFinEffet; }
+    public void setDateFinEffet(LocalDate v) { dateFinEffet = v; }
+    public Integer getIdRubriqueOrigine() { return idRubriqueOrigine; }
+    public void setIdRubriqueOrigine(Integer v) { idRubriqueOrigine = v; }
+    public String getConditionApplication() { return conditionApplication; }
+    public void setConditionApplication(String v) { conditionApplication = v; }
+    public String getEtapeCalcul() { return etapeCalcul; }
+    public void setEtapeCalcul(String etapeCalcul) { this.etapeCalcul = etapeCalcul; }
 }

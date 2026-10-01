@@ -71,6 +71,11 @@ incompatible fait échouer l'index unique et demande un arbitrage explicite.
 | `26-09-28-sp40-second-repas-pointage.sql` | Trace le deuxième repas automatique dans le pointage, sans nouvelle indemnité | `05_schema_pointage.sql` |
 | `26-09-29-sp41-pointage-repos.sql` | Ajoute le statut journalier REPOS aux bases existantes | `05_schema_pointage.sql` |
 | `26-09-30-sp42-paie-precision-montants.sql` | Élargit les montants et taux horaires de paie pour les valeurs élevées en ariary | `06_schema_paie.sql` |
+| `26-10-01-sp44-rubriques-variables-gouvernance.sql` | Ajoute la référence et la date d'effet aux rubriques, corrige le lien de la retenue exceptionnelle après contrôle des mouvements historiques | `06_schema_paie.sql` |
+
+| `26-10-01-sp45-etape-variables-manuelles.sql` | Sépare l’étape des assiettes et conserve l’étape exécutée sur les lignes nouvelles | `06_schema_paie.sql` |
+
+| `26-10-01-sp46-validite-conditions-rubriques.sql` | Ajoute validité, filiation et condition des rubriques manuelles ; interdit les chevauchements | `06_schema_paie.sql` |
 
 ### Remarques Opérationnelles
 - Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 81 tables et 9 vues cohérentes.

@@ -11,6 +11,8 @@
 
 Le module Paie transforme une période de pointage contrôlée, des droits à congé et des variables décidées en lignes de bulletin justifiables. Il sépare les faits temporels, les décisions de gestion, les paramètres légaux datés et les opérations de trésorerie. Cette séparation permet d'expliquer chaque gain ou retenue sans déduire une règle de paie d'un intitulé de colonne Excel.
 
+La [matrice des rubriques actuellement appliquées](./matrice-rubriques-paie-actuelle.md) distingue les effets réellement codés des propriétés simplement stockées dans le référentiel et fixe les limites du paramétrage actuel.
+
 La recette du 26 juillet au 25 août 2026 reproduit les composantes connues des exemples TMM et TNR. Elle ne certifie pas encore leurs bulletins complets : `AUTIMP` additionne déplacement et prime exceptionnelle sans détail fiable dans les classeurs. Le [rapport de préproduction](./audit-preproduction-pointage-paie-2026-09-25.md) précise les vérifications réalisées et les conditions restantes.
 
 ## Table des matières
@@ -198,3 +200,48 @@ Le verdict détaillé et la liste des correctifs sont conservés dans le [rappor
 Ces règles sont décrites pour le système observé en septembre 2026. Elles
 doivent rester synchronisées avec les migrations, les tests de recette et les
 décisions de la DAF lorsque les pratiques de paie évoluent.
+
+### Paramétrage contrôlé des variables manuelles
+
+La configuration des rubriques utilise `paie_rubrique` et celle des types utilise
+`ref_type_mouvement_paie` ; aucune table supplémentaire n'est requise. Dans
+**Paramétrage des Modules → Paie → Rubriques variables**, un administrateur
+choisit l’étape (brut, gain net après impôt ou retenue nette), l'assiette IRSA,
+les assiettes CNaPS et santé séparées, une référence de traitement
+et une date de début d'effet. La rubrique est ensuite associée à un type dans
+**Types de variables**. Une date postérieure au début de la période bloque le
+calcul. Après utilisation, le code, le sens, l’étape, les assiettes et la date d'effet
+ne peuvent plus être modifiés : une évolution de régime demande une nouvelle
+version de rubrique. Les types liés restent dans la même famille.
+
+La migration `26-10-01-sp44-rubriques-variables-gouvernance.sql` fait évoluer
+la table existante et corrige la liaison de `RETENUE_DIVERSE` avec sa propre
+rubrique de retenue nette. Elle échoue si des mouvements historiques utilisent
+encore l'ancienne liaison ; leur traitement doit alors être examiné avant
+reprise. Les rubriques automatiques conservent leurs circuits dédiés.
+
+La migration `26-10-01-sp45-etape-variables-manuelles.sql` ajoute l’étape aux
+rubriques et aux lignes de bulletin existantes, sans nouvelle table. Les rubriques
+existantes reprennent leur placement antérieur ; les lignes historiques ne sont
+pas reclassées. Un gain au brut peut être exonéré d’IRSA et soumis ou non aux
+cotisations. Un gain ajouté après impôt reste hors assiettes.
+
+### Versions et conditions des rubriques manuelles
+
+La migration sp46 ajoute à `paie_rubrique` une fin de validité, une référence à
+la rubrique d’origine et une condition d’application. Aucune nouvelle table.
+Le bouton **Nouvelle version** conserve la famille, ferme la précédente à la
+veille du nouveau début et garde les types liés. Le moteur résout la version
+qui couvre toute la période ; une règle qui change en milieu de période bloque
+le calcul (pas de prorata implicite). Les chevauchements sont refusés par un
+contrôle PostgreSQL sérialisé par famille. Le code de chaque version reste
+unique et la ligne de bulletin référence la rubrique réellement utilisée.
+
+Une version ne peut pas reprendre une période déjà liée à un bulletin ou à un
+mouvement non annulé. Les versions utilisées et les familles versionnées ne
+peuvent plus changer leurs paramètres de calcul. Les conditions disponibles
+sont **tous**, **assujetti IRSA**, **assujetti CNaPS** et **assujetti santé**,
+évaluées sur le profil du salarié, indépendamment des assiettes de la rubrique.
+Un mouvement approuvé incompatible bloque le calcul avec un motif explicite ;
+il n’est pas consommé ni omis silencieusement. Les conditions composées,
+formules libres et calculateurs automatiques restent hors de ce périmètre.

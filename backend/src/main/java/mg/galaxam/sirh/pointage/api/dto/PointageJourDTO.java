@@ -121,11 +121,84 @@ public class PointageJourDTO {
     public void setMinutesRetard(Integer minutesRetard) { this.minutesRetard = minutesRetard; }
 
     // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
+    @com.fasterxml.jackson.annotation.JsonProperty("isPresent")
     public boolean isPresent()  { return "PRESENT".equalsIgnoreCase(statut); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isRetard")
     public boolean isRetard()   { return "RETARD".equalsIgnoreCase(statut) || (minutesRetard != null && minutesRetard > 0); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isAbsent")
     public boolean isAbsent()   { return "ABSENT".equalsIgnoreCase(statut) || "ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(statut); }
-    public boolean isConge()    { return "CONGE".equalsIgnoreCase(statut); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isConge")
+    public boolean isConge()    { return "CONGE".equalsIgnoreCase(statut) || "CONGE_PAYE".equalsIgnoreCase(statut); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isRepos")
     public boolean isRepos()    { return "REPOS".equalsIgnoreCase(statut); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isEnCours")
     public boolean isEnCours()  { return "EN_COURS".equalsIgnoreCase(statut); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isAnomalie")
     public boolean isAnomalie() { return "ANOMALIE".equalsIgnoreCase(statut) || "ANOMALIE_SAISIE".equalsIgnoreCase(statut) || isRetard() || isAbsent(); }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isFerie")
+    public boolean isFerie() {
+        return "FERIE".equalsIgnoreCase(statut) || "FERIE_CHOME".equalsIgnoreCase(statut) || "FERIE_TRAVAILLE".equalsIgnoreCase(statut);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isFerieChome")
+    public boolean isFerieChome() {
+        return "FERIE_CHOME".equalsIgnoreCase(statut) || ("FERIE".equalsIgnoreCase(statut) && (heures == null || "00h00".equals(heures) || "—".equals(heures) || "-".equals(heures)));
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isFerieTravaille")
+    public boolean isFerieTravaille() {
+        return "FERIE_TRAVAILLE".equalsIgnoreCase(statut);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isDimancheTravaille")
+    public boolean isDimancheTravaille() {
+        return "DIMANCHE_TRAVAILLE".equalsIgnoreCase(statut);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isSamediTravaille")
+    public boolean isSamediTravaille() {
+        return "SAMEDI_TRAVAILLE".equalsIgnoreCase(statut);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isDemiJournee")
+    public boolean isDemiJournee() {
+        return "DEMI_JOURNEE".equalsIgnoreCase(statut);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isDispensePointage")
+    public boolean isDispensePointage() {
+        return "DISPENSE_POINTAGE".equalsIgnoreCase(statut);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isPlanifie")
+    public boolean isPlanifie() {
+        return "PLANIFIE".equalsIgnoreCase(statut);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isNonEchu")
+    public boolean isNonEchu() {
+        return "NON_ECHU".equalsIgnoreCase(statut);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isNonConcerne")
+    public boolean isNonConcerne() {
+        return "NON_CONCERNE".equalsIgnoreCase(statut);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isMerged")
+    public boolean isMerged() {
+        return isConge() || isFerieChome() || isRepos() || isNonEchu();
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isContinu")
+    public boolean isContinu() {
+        return horaireContinuJour || ("12:00".equals(sortiePause) && "12:00".equals(retourPause));
+    }
 }

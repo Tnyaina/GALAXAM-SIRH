@@ -51,7 +51,7 @@ export default function FamilleContactsTab({
             <Card shadow="sm">
                 <CardHeader className="flex flex-wrap items-center justify-between gap-3">
                     <CardTitle size="sm" className="tracking-wider flex items-center gap-2">
-                        <Heart size={15} className="text-[var(--color-brand-500)]" />
+                        <Heart size={15} className="text-[var(--color-brand-600)]" />
                         Situation familiale &amp; Ayants droit
                     </CardTitle>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -85,23 +85,23 @@ export default function FamilleContactsTab({
                     {hasConjoint ? (
                         <div className="bg-[var(--color-bg-subtle)]/50 border border-[var(--color-border-subtle)] p-4 sm:p-5 space-y-2">
                             <h4 className="font-bold text-[var(--color-fg)] text-xs pb-2 border-b border-[var(--color-border-subtle)] flex items-center gap-1.5">
-                                <User size={13} className="text-[var(--color-brand-500)]" />
+                                <User size={13} className="text-[var(--color-brand-600)]" />
                                 Conjoint déclaré
                             </h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1 pt-1">
-                                <InfoRow label="Nom &amp; Prénom">{conjoint.nom} {conjoint.prenom}</InfoRow>
+                                <InfoRow label="Nom &amp; Prénom">{conjoint.nomComplet || `${conjoint.nom || ''} ${conjoint.prenom || ''}`.trim()}</InfoRow>
                                 <InfoRow label="Date de naissance">
-                                    {fmtDate(conjoint.dateNaissance)}{conjoint.lieuNaissance ? ` à ${conjoint.lieuNaissance}` : ''}
+                                    {fmtDate(conjoint.dateNaissance)}{conjoint.age ? ` (${conjoint.age} ans)` : ''}{conjoint.lieuNaissance ? ` à ${conjoint.lieuNaissance}` : ''}
                                 </InfoRow>
                                 <InfoRow label="Employeur / Métier">
-                                    {conjoint.societe ? `${conjoint.societe}${conjoint.fonction ? ` (${conjoint.fonction})` : ''}` : conjoint.fonction}
+                                    {conjoint.societe ? `${conjoint.societe}${conjoint.fonction ? ` (${conjoint.fonction})` : ''}` : (conjoint.fonction || 'Non renseigné')}
                                 </InfoRow>
                             </div>
                         </div>
                     ) : (
                         <div className="bg-[var(--color-bg-subtle)]/50 border border-[var(--color-border-subtle)] px-4 py-3 flex items-center justify-between gap-3 text-xs text-[var(--color-fg-muted)]">
                             <div className="flex items-center gap-2">
-                                <Heart size={14} className="text-[var(--color-brand-500)] shrink-0" />
+                                <Heart size={14} className="text-[var(--color-brand-600)] shrink-0" />
                                 <span>Célibataire ou conjoint non déclaré sur ce dossier.</span>
                             </div>
                             {canWrite && onEditFamille && (
@@ -123,7 +123,7 @@ export default function FamilleContactsTab({
                     <div className="space-y-2.5">
                         <div className="flex items-center justify-between">
                             <h4 className="text-xs font-bold text-[var(--color-fg)] flex items-center gap-1.5">
-                                <Baby size={13} className="text-[var(--color-brand-500)]" />
+                                <Baby size={13} className="text-[var(--color-brand-600)]" />
                                 Enfants déclarés ({enfants.length})
                             </h4>
                         </div>
@@ -146,14 +146,14 @@ export default function FamilleContactsTab({
                                                     {enf.nom} {enf.prenom}
                                                 </p>
                                                 <span className="text-[11px] text-[var(--color-fg-muted)]">
-                                                    {enf.sexe === 'M' ? 'Garçon' : enf.sexe === 'F' ? 'Fille' : 'Non précisé'}
+                                                    {enf.genreLibelle || (enf.sexe === 'M' ? 'Garçon' : enf.sexe === 'F' ? 'Fille' : 'Non précisé')}
                                                 </span>
                                             </Td>
                                             <Td isData className="font-mono text-xs text-[var(--color-fg)]">
                                                 <span>{fmtDate(enf.dateNaissance)}</span>
-                                                {enf.evalIrsa.age !== null && (
+                                                {(enf.evalIrsa.age !== null || enf.age !== undefined) && (
                                                     <span className="text-[var(--color-fg-muted)] font-sans ml-1">
-                                                        ({enf.evalIrsa.age} ans)
+                                                        ({enf.evalIrsa.age ?? enf.age} ans)
                                                     </span>
                                                 )}
                                             </Td>
@@ -164,7 +164,7 @@ export default function FamilleContactsTab({
                                                     <span className="text-[var(--color-brand-600)] font-semibold">
                                                         Étudiant{enf.certificatFourni ? ' (certificat fourni)' : ' (certificat en attente)'}
                                                     </span>
-                                                ) : enf.evalIrsa.age !== null && enf.evalIrsa.age < fiscalConfig.ageLimiteDefaut ? (
+                                                ) : (enf.evalIrsa.age ?? enf.age) !== null && (enf.evalIrsa.age ?? enf.age) < fiscalConfig.ageLimiteDefaut ? (
                                                     <span className="text-[var(--color-fg-muted)]">Mineur à charge</span>
                                                 ) : (
                                                     <span className="text-[var(--color-fg-muted)]">Majeur</span>
@@ -188,7 +188,7 @@ export default function FamilleContactsTab({
                         ) : (
                             <div className="bg-[var(--color-bg-subtle)]/50 border border-[var(--color-border-subtle)] px-4 py-3 flex items-center justify-between gap-3 text-xs text-[var(--color-fg-muted)]">
                                 <div className="flex items-center gap-2">
-                                    <Baby size={14} className="text-[var(--color-brand-500)] shrink-0" />
+                                    <Baby size={14} className="text-[var(--color-brand-600)] shrink-0" />
                                     <span>Aucun enfant déclaré pour ce collaborateur.</span>
                                 </div>
                                 {canWrite && onEditFamille && (
@@ -214,7 +214,7 @@ export default function FamilleContactsTab({
                 <CardHeader className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5">
                         <CardTitle size="sm" className="tracking-wider flex items-center gap-2">
-                            <ShieldAlert size={15} className="text-[var(--color-brand-500)]" />
+                            <ShieldAlert size={15} className="text-[var(--color-brand-600)]" />
                             Contacts d'urgence
                         </CardTitle>
                         {contactsUrgence.length > 0 && (

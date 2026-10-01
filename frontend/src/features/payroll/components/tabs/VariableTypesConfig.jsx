@@ -570,21 +570,23 @@ export default function VariableTypesConfig() {
                                     </div>
                                 </div>
 
-                                {/* CARTOUCHE PREMIUM : Simulation d'impact sur le bulletin */}
+                                {/* Lecture du traitement actuel du moteur ; aucun calcul hypothétique ici. */}
                                 <div className="p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] space-y-2">
                                     <div className="flex items-center gap-1.5 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] font-bold text-xs">
                                         <Info size={14} />
-                                        <span>Impact sur le bulletin de paie</span>
+                                        <span>Traitement actuel de la rubrique</span>
                                     </div>
 
                                     {selectedRubrique ? (
                                         <div className="space-y-2 text-xs">
                                             <p className="text-[var(--color-fg)]">
-                                                {form.sens === 'RETENUE' ? (
-                                                    'Déduction directe sur le net à payer, après calcul de l’impôt (IRSA) et cotisations.'
-                                                ) : (
-                                                    `Ajouté ${selectedRubrique.soumisIrsa ? 'dans le salaire brut (imposable)' : 'après impôt (exonéré)'}.`
-                                                )}
+                                                {isSpecial
+                                                    ? 'Circuit métier dédié : son traitement ne se déduit pas des seuls indicateurs de la rubrique.'
+                                                    : form.sens === 'RETENUE'
+                                                        ? 'Déduction du net disponible après impôt et cotisations.'
+                                                        : selectedRubrique.etapeCalcul === 'BRUT'
+                                                            ? 'Gain ajouté au brut avant le calcul des cotisations et de l’impôt.'
+                                                            : 'Gain ajouté au net après impôt.'}
                                             </p>
 
                                             <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[var(--color-border-subtle)]/60">
@@ -592,7 +594,7 @@ export default function VariableTypesConfig() {
                                                     variant={selectedRubrique.soumisIrsa ? 'warning' : 'success'}
                                                     size="xs"
                                                 >
-                                                    IRSA : {selectedRubrique.soumisIrsa ? 'Imposable' : 'Exonéré'}
+                                                    IRSA : {selectedRubrique.soumisIrsa ? 'Dans l’assiette' : 'Hors assiette'}
                                                 </Badge>
                                                 <Badge
                                                     variant={selectedRubrique.soumisCnaps ? 'warning' : 'neutral'}
@@ -600,10 +602,16 @@ export default function VariableTypesConfig() {
                                                 >
                                                     CNAPS : {selectedRubrique.soumisCnaps ? 'Cotisable' : 'Non cotisable'}
                                                 </Badge>
+                                                <Badge variant={selectedRubrique.soumisSante ? 'warning' : 'neutral'} size="xs">
+                                                    Santé : {selectedRubrique.soumisSante ? 'Cotisable' : 'Non cotisable'}
+                                                </Badge>
                                                 <Badge variant="default" size="xs">
                                                     Rubrique : {selectedRubrique.code}
                                                 </Badge>
                                             </div>
+                                            <p className="text-[11px] text-[var(--color-fg-muted)]">
+                                                Les assiettes CNaPS et santé sont indépendantes pour les variables manuelles. La conformité du régime et sa date d’effet doivent être vérifiées séparément.
+                                            </p>
                                         </div>
                                     ) : (
                                         <p className="text-[var(--color-fg-muted)] text-[11px]">
@@ -688,4 +696,3 @@ export default function VariableTypesConfig() {
         </div>
     );
 }
-

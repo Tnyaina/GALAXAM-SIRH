@@ -433,7 +433,7 @@ export default function MouvementsSoldeTable({
                           <button
                             type="button"
                             onClick={() => onVoirDemande(demandeMatch[1])}
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] bg-[var(--color-brand-500)]/10 hover:bg-[var(--color-brand-500)]/20 transition-colors"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono font-medium rounded-none text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] bg-[var(--color-brand-500)]/10 hover:bg-[var(--color-brand-500)]/20 transition-colors"
                             title={`Consulter le détail de la demande #${demandeMatch[1]}`}
                           >
                             <FileText size={10} />

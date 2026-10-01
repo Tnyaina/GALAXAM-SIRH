@@ -76,6 +76,15 @@ export function fmtDateInput(d) {
             if (/^\d{4}-\d{2}-\d{2}$/.test(parts[0])) return parts[0];
         }
 
+        // Cas 4 : Format français DD/MM/YYYY ou D/M/YYYY
+        const frMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (frMatch) {
+            const day = frMatch[1].padStart(2, '0');
+            const month = frMatch[2].padStart(2, '0');
+            const year = frMatch[3];
+            return `${year}-${month}-${day}`;
+        }
+
         const parsed = new Date(s);
         if (!isNaN(parsed.getTime())) {
             const yyyy = parsed.getFullYear();

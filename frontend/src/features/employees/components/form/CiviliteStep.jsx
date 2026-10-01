@@ -7,16 +7,14 @@ import { GENRES_SEXE, SITUATIONS_FAMILIALES, REGLES_FISCALES_IRSA } from '@/cons
 export default function CiviliteStep({
     formData,
     set,
-    villesStandards,
-    nationalitesStandards,
-    _isCustomNat,
-    _customNationalite,
-    _setCustomNationalite,
-    _handleNationaliteChange,
+    villesStandards = [],
+    nationalitesStandards = [],
     onGenerateMatricule,
     onBlurMatricule,
-    matriculeError,
-    generatingMatricule
+    matriculeError = '',
+    generatingMatricule = false,
+    fieldErrors = {},
+    onFieldBlur,
 }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -29,7 +27,7 @@ export default function CiviliteStep({
                         value={formData.matricule} 
                         onChange={e => set('matricule', e.target.value)} 
                         onBlur={onBlurMatricule}
-                        error={Boolean(matriculeError)}
+                        error={fieldErrors.matricule || matriculeError}
                         placeholder="Ex: 0001" 
                         containerClassName="flex-1"
                     />
@@ -44,17 +42,40 @@ export default function CiviliteStep({
                         <Wand2 size={15} />
                     </Button>
                 </div>
-                {matriculeError && (
-                    <p className="text-[11px] text-[var(--color-danger-500)] mt-0.5">{matriculeError}</p>
-                )}
             </div>
-            <Select label="Sexe" required value={formData.sexe} onChange={e => set('sexe', e.target.value)}>
+
+            <Select 
+                label="Sexe" 
+                required 
+                value={formData.sexe} 
+                onChange={e => set('sexe', e.target.value)}
+                error={fieldErrors.sexe}
+            >
                 {GENRES_SEXE.map(g => (
                     <option key={g.value} value={g.value}>{g.label}</option>
                 ))}
             </Select>
-            <Input label="Nom" required value={formData.nom} onChange={e => set('nom', e.target.value)} placeholder="Nom de famille" />
-            <Input label="Prénom(s)" required value={formData.prenom} onChange={e => set('prenom', e.target.value)} placeholder="Prénoms" />
+
+            <Input 
+                label="Nom" 
+                required 
+                value={formData.nom} 
+                onChange={e => set('nom', e.target.value)} 
+                onBlur={() => onFieldBlur?.('nom')}
+                error={fieldErrors.nom}
+                placeholder="Nom de famille" 
+            />
+
+            <Input 
+                label="Prénom(s)" 
+                required 
+                value={formData.prenom} 
+                onChange={e => set('prenom', e.target.value)} 
+                onBlur={() => onFieldBlur?.('prenom')}
+                error={fieldErrors.prenom}
+                placeholder="Prénoms" 
+            />
+
             <Input 
                 label="Date de Naissance" 
                 required 
@@ -62,14 +83,17 @@ export default function CiviliteStep({
                 max={fmtDateInput(new Date(new Date().setFullYear(new Date().getFullYear() - REGLES_FISCALES_IRSA.AGE_MIN_LEGAL_EMPLOYE)))}
                 value={formData.dateNaissance} 
                 onChange={e => set('dateNaissance', e.target.value)} 
+                onBlur={() => onFieldBlur?.('dateNaissance')}
+                error={fieldErrors.dateNaissance}
                 hint={`Âge minimum légal : ${REGLES_FISCALES_IRSA.AGE_MIN_LEGAL_EMPLOYE} ans`}
             />
             
             <AutocompleteInput 
                 label="Lieu de Naissance" 
-                required 
                 value={formData.lieuNaissance} 
                 onChange={e => set('lieuNaissance', e.target.value)} 
+                onBlur={() => onFieldBlur?.('lieuNaissance')}
+                error={fieldErrors.lieuNaissance}
                 placeholder="Ex: Antananarivo, Toamasina..."
                 options={villesStandards}
                 listId="villes-list"
@@ -80,18 +104,36 @@ export default function CiviliteStep({
                 required 
                 value={formData.nationalite} 
                 onChange={e => set('nationalite', e.target.value)} 
+                onBlur={() => onFieldBlur?.('nationalite')}
+                error={fieldErrors.nationalite}
                 placeholder="Ex: Malgache, Française..."
                 options={nationalitesStandards}
                 listId="nationalites-list"
             />
 
-            <Select label="Situation Familiale" value={formData.situationFamiliale} onChange={e => set('situationFamiliale', e.target.value)}>
+            <Select 
+                label="Situation Familiale" 
+                value={formData.situationFamiliale} 
+                onChange={e => set('situationFamiliale', e.target.value)}
+            >
                 {SITUATIONS_FAMILIALES.map(s => (
                     <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
             </Select>
-            <Input label="Père" value={formData.pereNomPrenom} onChange={e => set('pereNomPrenom', e.target.value)} placeholder="Nom et prénom du père" />
-            <Input label="Mère" value={formData.mereNomPrenom} onChange={e => set('mereNomPrenom', e.target.value)} placeholder="Nom et prénom de la mère" />
+
+            <Input 
+                label="Père" 
+                value={formData.pereNomPrenom} 
+                onChange={e => set('pereNomPrenom', e.target.value)} 
+                placeholder="Nom et prénom du père" 
+            />
+
+            <Input 
+                label="Mère" 
+                value={formData.mereNomPrenom} 
+                onChange={e => set('mereNomPrenom', e.target.value)} 
+                placeholder="Nom et prénom de la mère" 
+            />
         </div>
     );
 }

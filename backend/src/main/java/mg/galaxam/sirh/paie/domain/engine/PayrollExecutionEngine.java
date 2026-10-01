@@ -531,13 +531,14 @@ public class PayrollExecutionEngine {
         // Primes et gains dynamiques imposables (configurés en BDD dans ref_type_mouvement_paie)
         if (input.getGainsVariablesDynamiques() != null) {
             for (PayrollCalculationInput.GainVariable gv : input.getGainsVariablesDynamiques()) {
-                if (gv.getMontant() != null && gv.getMontant().compareTo(BigDecimal.ZERO) > 0 && gv.isImposable()) {
+                if (ManualGainContributions.resolve(gv).brut().signum() > 0) {
                     String cat = gv.getCategorie() != null ? gv.getCategorie() : "PRIME";
                     String lib = gv.getLibelle() != null && !gv.getLibelle().isBlank() ? gv.getLibelle() : gv.getCode();
-                    BulletinPaieLigne ligne = creerLigne(bp, gv.getCode(), lib, "GAIN", cat,
+                    BulletinPaieLigne ligne = creerLigne(bp, gv.getCodeRubrique(), lib, "GAIN", cat,
                             gv.getMontant(), null, gv.getMontant(), null, 120);
                     ligne.setImposable(gv.isImposable());
                     ligne.setSoumisCotisation(gv.isSoumisCotisation());
+                    ligne.setEtapeCalcul(gv.getEtapeCalcul());
                     lignes.add(ligne);
                     totalPrimes = totalPrimes.add(gv.getMontant());
                 }
@@ -558,22 +559,21 @@ public class PayrollExecutionEngine {
 
         // L'assujettissement social est indépendant de l'imposition IRSA.
         BigDecimal assietteSociale = totalGainsBruts;
+        BigDecimal assietteSanteVariables = totalGainsBruts;
         if (input.getGainsVariablesDynamiques() != null) {
             for (PayrollCalculationInput.GainVariable gain : input.getGainsVariablesDynamiques()) {
-                if (gain.getMontant() == null || gain.getMontant().signum() <= 0) continue;
-                if (gain.isImposable() && !gain.isSoumisCotisation()) {
-                    assietteSociale = assietteSociale.subtract(gain.getMontant());
-                } else if (!gain.isImposable() && gain.isSoumisCotisation()) {
-                    assietteSociale = assietteSociale.add(gain.getMontant());
-                }
+                assietteSociale = assietteSociale.add(
+                        ManualGainContributions.resolve(gain).correctionSociale());
+                assietteSanteVariables = assietteSanteVariables.add(
+                        ManualGainContributions.resolve(gain).correctionSante());
             }
         }
         assietteSociale = assietteSociale.max(BigDecimal.ZERO);
+        assietteSanteVariables = assietteSanteVariables.max(BigDecimal.ZERO);
 
         BigDecimal sme = zeroIfNull(input.getSmeNational());
-        BigDecimal plafondCnaps = sme.multiply(MULTIPLICATEUR_PLAFOND_CNAPS);
         SocialContributionCalculator socialCalculator = new SocialContributionCalculator();
-        SocialContributionCalculator.Result social = socialCalculator.calculate(assietteSociale,
+        SocialContributionCalculator.Result social = socialCalculator.calculate(assietteSociale, assietteSanteVariables, assietteSociale,
                 new SocialContributionCalculator.Rules(input.getTauxCnapsSalarialDecimal(), input.getTauxCnapsPatronalDecimal(),
                         input.getTauxSanteSalarialDecimal(), input.getTauxSantePatronalDecimal(), input.getTauxFmfpPatronalDecimal(), sme, input.isEstPlafonneSante()));
 
@@ -613,9 +613,7 @@ public class PayrollExecutionEngine {
             String patRateStr = input.getTauxSantePatronalDecimal() != null ? input.getTauxSantePatronalDecimal().movePointRight(2).stripTrailingZeros().toPlainString() : "0";
             String libelleSantePat = estOmsi ? "Cotisation OMSI Patronale (5.5%)" : (estOstie ? "Cotisation OSTIE Patronale (5%)" : "Cotisation Santé " + organe + " Patronale (" + patRateStr + "%)");
 
-            BigDecimal assietteSante = input.isEstPlafonneSante()
-                    ? assietteSociale.min(plafondCnaps)
-                    : assietteSociale;
+            BigDecimal assietteSante = social.health().assiette();
 
             SocialContributionCalculator.Contribution resSante = social.health();
             BigDecimal santeSal = resSante.partSalariale();
@@ -675,7 +673,12 @@ public class PayrollExecutionEngine {
             bp.setIrsaNet(MoneyRoundingPolicy.tax(BigDecimal.ZERO));
         } else if (input.isSoumisIrsa()) {
             // Assiette IRSA Fiscale : Net Imposable Social - Rémunération des HS exonérées (CGI Art. 01.03.03-9°)
-            BigDecimal assietteFiscale = salaireNetImposable.subtract(zeroIfNull(hsExonereeIrsa)).max(BigDecimal.ZERO);
+            BigDecimal gainsBrutsExoneres = (input.getGainsVariablesDynamiques() != null
+                    ? input.getGainsVariablesDynamiques() : List.<PayrollCalculationInput.GainVariable>of()).stream()
+                    .map(gain -> ManualGainContributions.resolve(gain).exclusionIrsa())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal assietteFiscale = salaireNetImposable.subtract(zeroIfNull(hsExonereeIrsa))
+                    .subtract(gainsBrutsExoneres).max(BigDecimal.ZERO);
             bp.setRevenuNetImposable(assietteFiscale);
 
             // Régime Salarié : Barème progressif IRSA unifié (6 tranches, min 3 000 Ar)
@@ -743,13 +746,14 @@ public class PayrollExecutionEngine {
         // 6.5 Indemnités et gains dynamiques non imposables
         if (input.getGainsVariablesDynamiques() != null) {
             for (PayrollCalculationInput.GainVariable gv : input.getGainsVariablesDynamiques()) {
-                if (gv.getMontant() != null && gv.getMontant().compareTo(BigDecimal.ZERO) > 0 && !gv.isImposable()) {
+                if (ManualGainContributions.resolve(gv).ajoutNet().signum() > 0) {
                     String cat = gv.getCategorie() != null ? gv.getCategorie() : "INDEMNITE_NON_IMPOSABLE";
                     String lib = gv.getLibelle() != null && !gv.getLibelle().isBlank() ? gv.getLibelle() : gv.getCode();
-                    BulletinPaieLigne ligne = creerLigne(bp, gv.getCode(), lib, "GAIN", cat,
+                    BulletinPaieLigne ligne = creerLigne(bp, gv.getCodeRubrique(), lib, "GAIN", cat,
                             gv.getMontant(), null, gv.getMontant(), null, 530);
                     ligne.setImposable(gv.isImposable());
                     ligne.setSoumisCotisation(gv.isSoumisCotisation());
+                    ligne.setEtapeCalcul(gv.getEtapeCalcul());
                     lignes.add(ligne);
                     totalIndemnitesNet = totalIndemnitesNet.add(gv.getMontant());
                 }
@@ -780,7 +784,8 @@ public class PayrollExecutionEngine {
                 boolean isAcompteQuinzaine = "ACOMPTE_15".equalsIgnoreCase(type) || "AVANCE_QUINZAINE".equalsIgnoreCase(type);
 
                 if (isAcompteQuinzaine) {
-                    String codeRubrique = mapRubriqueAvance(type);
+                    String codeRubrique = a.getCodeRubriqueCalcul() != null
+                            ? a.getCodeRubriqueCalcul() : mapRubriqueAvance(type);
                     String libelle = a.getMotif() != null && !a.getMotif().isBlank() ? a.getMotif() : "Acompte sur salaire";
 
                     BigDecimal mntAcompte = MoneyRoundingPolicy.amount(a.getMontant().min(soldeDisponibleAcompte));
@@ -810,7 +815,8 @@ public class PayrollExecutionEngine {
                 boolean isAvanceSpeciale = "AVANCE_SPECIALE".equalsIgnoreCase(type);
 
                 if (isAvanceSpeciale) {
-                    String codeRubrique = mapRubriqueAvance(type);
+                    String codeRubrique = a.getCodeRubriqueCalcul() != null
+                            ? a.getCodeRubriqueCalcul() : mapRubriqueAvance(type);
                     String libelle = a.getMotif() != null && !a.getMotif().isBlank() ? a.getMotif() : "Avance sur salaire (Art. 68)";
 
                     BigDecimal capaciteRestanteAvance = plafondDixiemeAvances.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
@@ -881,7 +887,8 @@ public class PayrollExecutionEngine {
                 boolean isAvanceSpeciale = "AVANCE_SPECIALE".equalsIgnoreCase(type);
 
                 if (!isAcompte && !isAvanceSpeciale) {
-                    String codeRubrique = mapRubriqueAvance(type);
+                    String codeRubrique = a.getCodeRubriqueCalcul() != null
+                            ? a.getCodeRubriqueCalcul() : mapRubriqueAvance(type);
                     String libelleDefaut = "CALL_PERSO".equalsIgnoreCase(type)
                             ? "Retenue Téléphonie Privée (Call Perso)"
                             : "Retenue Diverse sur Salaire";
@@ -892,8 +899,10 @@ public class PayrollExecutionEngine {
 
                     if (mntRetenu.compareTo(BigDecimal.ZERO) > 0) {
                         int ordre = "CALL_PERSO".equalsIgnoreCase(type) ? 630 : 640;
-                        lignes.add(creerLigne(bp, codeRubrique, libelle, "RETENUE", "RETENUE_DIVERSE",
-                                a.getMontant(), null, mntRetenu, null, ordre));
+                        BulletinPaieLigne ligne = creerLigne(bp, codeRubrique, libelle, "RETENUE", "RETENUE_DIVERSE",
+                                a.getMontant(), null, mntRetenu, null, ordre);
+                        ligne.setEtapeCalcul("RETENUE_NET");
+                        lignes.add(ligne);
                         totalAutresRetenues = totalAutresRetenues.add(mntRetenu);
                     }
                     if (a.getIdAvance() != null && mntRetenu.compareTo(BigDecimal.ZERO) > 0) {

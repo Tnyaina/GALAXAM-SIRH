@@ -8,6 +8,7 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Pagination from '@/components/ui/navigation/Pagination';
 import { fmtDate } from '@/utils/dateUtils';
 
 const formatBytes = (bytes) => {
@@ -29,7 +30,9 @@ export default function DocumentsRhTab({
     const obligatoiresManquants = useMemo(() => documentsData.obligatoiresManquants || [], [documentsData.obligatoiresManquants]);
     const documents = useMemo(() => documentsData.documents || [], [documentsData.documents]);
 
-    // Recherche et filtrage
+    // Pagination & Filtres
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('ALL');
@@ -38,6 +41,10 @@ export default function DocumentsRhTab({
         const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim().toLowerCase()), 300);
         return () => clearTimeout(timer);
     }, [searchQuery]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch, selectedCategory]);
 
     const countContrats = useMemo(() => documents.filter(d => Boolean(d.idContrat)).length, [documents]);
     const countObligatoires = useMemo(() => documents.filter(d => Boolean(d.typeDocumentObligatoire)).length, [documents]);
@@ -57,6 +64,11 @@ export default function DocumentsRhTab({
             return true;
         });
     }, [documents, selectedCategory, debouncedSearch]);
+
+    const paginatedDocuments = useMemo(() => {
+        const start = (page - 1) * pageSize;
+        return filteredDocuments.slice(start, start + pageSize);
+    }, [filteredDocuments, page, pageSize]);
 
     return (
         <div className="space-y-4 font-sans">
@@ -89,7 +101,7 @@ export default function DocumentsRhTab({
                 <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <div className="flex items-center gap-2.5 flex-wrap">
                         <CardTitle size="sm" className="tracking-wider flex items-center gap-2">
-                            <FileText size={15} className="text-[var(--color-brand-500)]" />
+                            <FileText size={15} className="text-[var(--color-brand-600)]" />
                             Pièces justificatives &amp; Documents RH
                         </CardTitle>
                         <Badge variant={isConforme ? "success" : "warning"} size="xs" dot>
@@ -188,82 +200,94 @@ export default function DocumentsRhTab({
                             />
                         </div>
                     ) : (
-                        <Table bordered={false}>
-                            <Thead>
-                                <Tr>
-                                    <Th>Document &amp; Intitulé</Th>
-                                    <Th>Catégorie &amp; Statut</Th>
-                                    <Th>Date &amp; Taille</Th>
-                                    <Th align="right">Actions</Th>
-                                </Tr>
-                            </Thead>
-                            <Tbody>
-                                {filteredDocuments.map((doc) => (
-                                    <Tr key={doc.idDocument} className="hover:bg-[var(--color-bg-subtle)]/40 transition-colors">
-                                        <Td>
-                                            <div className="flex items-center gap-2.5">
-                                                <div className="w-7 h-7 bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] flex items-center justify-center shrink-0">
-                                                    <FileText size={15} />
+                        <>
+                            <Table bordered={false}>
+                                <Thead>
+                                    <Tr>
+                                        <Th>Document &amp; Intitulé</Th>
+                                        <Th>Catégorie &amp; Statut</Th>
+                                        <Th>Date &amp; Taille</Th>
+                                        <Th align="right">Actions</Th>
+                                    </Tr>
+                                </Thead>
+                                <Tbody>
+                                    {paginatedDocuments.map((doc) => (
+                                        <Tr key={doc.idDocument} className="hover:bg-[var(--color-bg-subtle)]/40 transition-colors">
+                                            <Td>
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="w-7 h-7 bg-[var(--color-brand-600)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] flex items-center justify-center shrink-0">
+                                                        <FileText size={15} />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="font-bold text-xs text-[var(--color-fg)] truncate max-w-sm" title={doc.nomAffichage || doc.nomOriginal}>
+                                                            {doc.nomAffichage || doc.nomOriginal}
+                                                        </p>
+                                                        <p className="text-[11px] text-[var(--color-fg-muted)] truncate">
+                                                            {doc.typeDocumentLibelle}
+                                                            {doc.numeroContrat && ` · ${doc.numeroContrat}`}
+                                                            {doc.codeTypeContrat && ` · ${doc.codeTypeContrat}`}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div className="min-w-0">
-                                                    <p className="font-bold text-xs text-[var(--color-fg)] truncate max-w-sm" title={doc.nomAffichage || doc.nomOriginal}>
-                                                        {doc.nomAffichage || doc.nomOriginal}
-                                                    </p>
-                                                    <p className="text-[11px] text-[var(--color-fg-muted)] truncate">
-                                                        {doc.typeDocumentLibelle}
-                                                        {doc.numeroContrat && ` · ${doc.numeroContrat}`}
-                                                        {doc.codeTypeContrat && ` · ${doc.codeTypeContrat}`}
-                                                    </p>
+                                            </Td>
+                                            <Td>
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    {doc.typeDocumentObligatoire ? (
+                                                        <Badge variant="warning" size="xs">Obligatoire</Badge>
+                                                    ) : (
+                                                        <Badge variant="default" size="xs">{doc.categorie || 'Dossier RH'}</Badge>
+                                                    )}
+                                                    {doc.contratSigne && (
+                                                        <Badge variant="success" size="xs">Signé ✓</Badge>
+                                                    )}
                                                 </div>
-                                            </div>
-                                        </Td>
-                                        <Td>
-                                            <div className="flex items-center gap-1.5 flex-wrap">
-                                                {doc.typeDocumentObligatoire ? (
-                                                    <Badge variant="warning" size="xs">Obligatoire</Badge>
-                                                ) : (
-                                                    <Badge variant="default" size="xs">{doc.categorie || 'Dossier RH'}</Badge>
-                                                )}
-                                                {doc.contratSigne && (
-                                                    <Badge variant="success" size="xs">Signé ✓</Badge>
-                                                )}
-                                            </div>
-                                        </Td>
-                                        <Td isData className="text-xs">
-                                            <span className="font-mono text-[var(--color-fg)]">{fmtDate(doc.dateDocument)}</span>
-                                            <span className="text-[11px] text-[var(--color-fg-muted)] block font-mono">
-                                                {formatBytes(doc.tailleOctet)}
-                                            </span>
-                                        </Td>
-                                        <Td align="right">
-                                            <div className="flex justify-end items-center gap-1">
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="xs"
-                                                    onClick={() => onDownloadDoc(doc.idDocument, doc.nomAffichage || doc.nomOriginal)}
-                                                    iconLeft={<Download size={13} className="text-[var(--color-brand-600)]" />}
-                                                    title="Visualiser / Télécharger"
-                                                >
-                                                    Ouvrir
-                                                </Button>
-                                                {canWrite && (
+                                            </Td>
+                                            <Td isData className="text-xs">
+                                                <span className="font-mono text-[var(--color-fg)]">{fmtDate(doc.dateDocument)}</span>
+                                                <span className="text-[11px] text-[var(--color-fg-muted)] block font-mono">
+                                                    {formatBytes(doc.tailleOctet)}
+                                                </span>
+                                            </Td>
+                                            <Td align="right">
+                                                <div className="flex justify-end items-center gap-1">
                                                     <Button
                                                         type="button"
                                                         variant="ghost"
                                                         size="xs"
-                                                        onClick={() => onDeleteDoc(doc.idDocument, doc.nomAffichage || doc.nomOriginal)}
-                                                        iconLeft={<Trash2 size={13} className="text-[var(--color-danger-500)]" />}
-                                                        title="Supprimer"
-                                                        aria-label="Supprimer le document"
-                                                    />
-                                                )}
-                                            </div>
-                                        </Td>
-                                    </Tr>
-                                ))}
-                            </Tbody>
-                        </Table>
+                                                        onClick={() => onDownloadDoc(doc.idDocument, doc.nomAffichage || doc.nomOriginal)}
+                                                        iconLeft={<Download size={13} className="text-[var(--color-brand-600)]" />}
+                                                        title="Visualiser / Télécharger"
+                                                    >
+                                                        Ouvrir
+                                                    </Button>
+                                                    {canWrite && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="xs"
+                                                            onClick={() => onDeleteDoc(doc.idDocument, doc.nomAffichage || doc.nomOriginal)}
+                                                            iconLeft={<Trash2 size={13} className="text-[var(--color-danger-500)]" />}
+                                                            title="Supprimer"
+                                                            aria-label="Supprimer le document"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </Td>
+                                        </Tr>
+                                    ))}
+                                </Tbody>
+                            </Table>
+                            {filteredDocuments.length > pageSize && (
+                                <Pagination
+                                    currentPage={page}
+                                    totalItems={filteredDocuments.length}
+                                    pageSize={pageSize}
+                                    pageSizeOptions={[5, 10, 20, 50]}
+                                    onPageChange={setPage}
+                                    onPageSizeChange={(newSize) => { setPageSize(newSize); setPage(1); }}
+                                />
+                            )}
+                        </>
                     )}
                 </CardBody>
             </Card>

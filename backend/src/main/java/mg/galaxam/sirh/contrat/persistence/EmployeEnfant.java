@@ -10,6 +10,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class EmployeEnfant extends ClassMere {
 
@@ -280,4 +281,34 @@ public class EmployeEnfant extends ClassMere {
 
     public Timestamp getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Timestamp updatedAt) { this.updatedAt = updatedAt; }
+
+    // ─── Logique Métier POO & Flags Sérialisés pour le Frontend ───────
+    @JsonProperty("isGarcon")
+    public boolean isGarcon() {
+        return "M".equalsIgnoreCase(this.sexe);
+    }
+
+    @JsonProperty("isFille")
+    public boolean isFille() {
+        return "F".equalsIgnoreCase(this.sexe);
+    }
+
+    @JsonProperty("genreLibelle")
+    public String getGenreLibelle() {
+        if (isGarcon()) return "Garçon";
+        if (isFille()) return "Fille";
+        return this.sexe != null && !this.sexe.isBlank() ? this.sexe : "Non précisé";
+    }
+
+    @JsonProperty("age")
+    public Integer getAge() {
+        if (this.dateNaissance == null) return null;
+        return java.time.Period.between(this.dateNaissance.toLocalDate(), java.time.LocalDate.now()).getYears();
+    }
+
+    @JsonProperty("isMineur")
+    public boolean isMineur() {
+        Integer a = getAge();
+        return a != null && a < 21;
+    }
 }

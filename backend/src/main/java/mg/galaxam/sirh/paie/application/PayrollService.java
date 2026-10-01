@@ -968,14 +968,23 @@ public class PayrollService {
                 "COALESCE(rtmp.code, paa.type_mouvement) AS code_effectif, " +
                 "COALESCE(rtmp.sens, paa.sens) AS sens_effectif, " +
                 "rtmp.libelle AS libelle_type, " +
+                "rtmp.nature AS nature_type, " +
                 "COALESCE(rtmp.categorie, 'PRIME') AS categorie_type, " +
                 "pr.soumis_irsa AS est_imposable, " +
-                "pr.soumis_cnaps AS est_soumis_cotisation, " +
+                "pr.soumis_cnaps AS est_soumis_cotisation, pr.soumis_sante AS rubrique_soumis_sante, " +
+                "pr.date_debut_effet AS rubrique_date_debut_effet, pr.date_fin_effet AS rubrique_date_fin_effet, pr.condition_application, " +
+                "pr.categorie AS rubrique_categorie, " +
+                "pr.etape_calcul AS rubrique_etape_calcul, " +
                 "pr.code AS rubrique_code " +
                 "FROM paie_avance_acompte paa " +
                 "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement " +
-                "LEFT JOIN paie_rubrique pr ON rtmp.id_rubrique = pr.id_rubrique " +
                 "JOIN periode_paie periode_cible ON periode_cible.id_periode_paie = ? " +
+                "LEFT JOIN paie_rubrique linked ON linked.id_rubrique=rtmp.id_rubrique " +
+                "LEFT JOIN LATERAL (SELECT r.* FROM paie_rubrique r WHERE " +
+                "(CASE WHEN rtmp.nature='VARIABLE_DAF' THEN COALESCE(r.id_rubrique_origine,r.id_rubrique)=COALESCE(linked.id_rubrique_origine,linked.id_rubrique) " +
+                "AND (r.date_debut_effet IS NULL OR r.date_debut_effet<=periode_cible.date_debut) " +
+                "AND (r.date_fin_effet IS NULL OR r.date_fin_effet>=periode_cible.date_fin) " +
+                "ELSE r.id_rubrique=linked.id_rubrique END)) pr ON TRUE " +
                 "JOIN periode_paie periode_origine ON periode_origine.id_periode_paie = paa.id_periode_paie " +
                 "WHERE paa.id_employe = ? AND paa.statut = 'APPROUVE' " +
                 "AND paa.solde_restant > 0 AND (" +
@@ -1002,6 +1011,26 @@ public class PayrollService {
 
                     if (montant == null || montant.compareTo(BigDecimal.ZERO) <= 0) continue;
 
+                    if ("VARIABLE_DAF".equals(rs.getString("nature_type"))) {
+                        if (rs.getString("rubrique_code") == null) {
+                            throw new SirhBusinessException(SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
+                                    "Aucune version de rubrique ne couvre toute la période pour " + codeType + ". Vérifiez les dates de validité.");
+                        }
+                        if (!mg.galaxam.sirh.paie.domain.engine.ManualRuleApplicability.applies(
+                                rs.getString("condition_application"), in.isSoumisIrsa(), in.isSoumisCnaps(), in.isSoumisSante())) {
+                            throw new SirhBusinessException(SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
+                                    "Le mouvement " + codeType + " n’est pas applicable à ce salarié (" + rs.getString("condition_application") + "). Corrigez ou annulez le mouvement.");
+                        }
+                    }
+
+                    java.sql.Date rubriqueDateEffet = rs.getDate("rubrique_date_debut_effet");
+                    if (rubriqueDateEffet != null
+                            && rubriqueDateEffet.toLocalDate().isAfter(in.getDateDebutPeriode().toLocalDate())) {
+                        throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                                mg.galaxam.sirh.common.exception.SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
+                                "La rubrique du mouvement " + codeType + " entre en vigueur après la période calculée.");
+                    }
+
                     if ("GAIN".equalsIgnoreCase(sens)) {
                         idsGains.add(idAvance);
                         if ("PRIME_PERFORMANCE".equalsIgnoreCase(codeType)) {
@@ -1018,7 +1047,7 @@ public class PayrollService {
                         } else {
                             // Variable / Prime dynamique configurée en base de données
                             String libelleType = rs.getString("libelle_type");
-                            String catType = rs.getString("categorie_type");
+                            String catType = rs.getString("rubrique_categorie");
                             if (rs.getString("rubrique_code") == null) {
                                 throw PayrollConfigurationGuard.missing("RUBRIQUE_PAIE", idEmploye, codeType);
                             }
@@ -1030,14 +1059,34 @@ public class PayrollService {
 
                             PayrollCalculationInput.GainVariable gv = new PayrollCalculationInput.GainVariable(
                                     idAvance, codeType, libelleFinal, montant, catType, imposable, soumisCotis);
+                            gv.setSoumisSante(PayrollConfigurationGuard.requireFlag(
+                                    rs, "rubrique_soumis_sante", "RUBRIQUE_PAIE", idEmploye));
+                            gv.setCodeRubrique(rs.getString("rubrique_code"));
+                            String etape = rs.getString("rubrique_etape_calcul");
+                            if (etape == null) {
+                                throw PayrollConfigurationGuard.missing("ETAPE_RUBRIQUE_PAIE", idEmploye, codeType);
+                            }
+                            if ("GAIN_NET".equals(etape) && (imposable || soumisCotis || gv.isSoumisSante())) {
+                                throw new SirhBusinessException(SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
+                                        "La variable " + codeType + " est ajoutée après impôt mais affecte une assiette. Choisissez l'étape brut.");
+                            }
+                            gv.setEtapeCalcul(etape);
                             in.ajouterGainVariable(gv);
                         }
                     } else {
                         // RETENUE (ACOMPTE_15, AVANCE_SPECIALE, CALL_PERSO, RETENUE_DIVERSE)
+                        if ("VARIABLE_DAF".equals(rs.getString("nature_type"))
+                                && (!"RETENUE_NET".equals(rs.getString("rubrique_etape_calcul"))
+                                || rs.getBoolean("est_imposable") || rs.getBoolean("est_soumis_cotisation")
+                                || rs.getBoolean("rubrique_soumis_sante"))) {
+                            throw new SirhBusinessException(SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
+                                    "La retenue manuelle " + codeType + " doit intervenir sur le net sans modifier les assiettes.");
+                        }
                         PaieAvanceAcompte a = new PaieAvanceAcompte();
                         a.setIdAvance(idAvance);
                         a.setIdEmploye(rs.getInt("id_employe"));
                         a.setTypeMouvement(codeType);
+                        a.setCodeRubriqueCalcul(rs.getString("rubrique_code"));
                         a.setSens(sens != null ? sens : "RETENUE");
                         a.setMontant(montant);
                         a.setMotif(motif);
@@ -1799,7 +1848,13 @@ public class PayrollService {
                     map.put("idPeriodePaie", rs.getInt("id_periode_paie"));
                     map.put("referenceBulletin", rs.getString("reference_bulletin"));
                     map.put("typeBulletin", rs.getString("type_bulletin"));
-                    map.put("statut", rs.getString("statut"));
+                    String statut = rs.getString("statut");
+                    map.put("statut", statut);
+                    map.put("isValide", "VALIDE".equalsIgnoreCase(statut));
+                    map.put("isCloture", "CLOTURE".equalsIgnoreCase(statut));
+                    map.put("isCalcule", "CALCULE".equalsIgnoreCase(statut));
+                    map.put("isStc", "STC".equalsIgnoreCase(rs.getString("type_bulletin")));
+                    map.put("badgeVariant", "VALIDE".equalsIgnoreCase(statut) || "CLOTURE".equalsIgnoreCase(statut) ? "success" : "CALCULE".equalsIgnoreCase(statut) ? "info" : "default");
                     map.put("salaireBase", rs.getBigDecimal("salaire_base"));
                     map.put("totalGainsBruts", rs.getBigDecimal("total_gains_bruts"));
                     map.put("totalCotisationsSalariales", rs.getBigDecimal("total_cotisations_salariales"));
@@ -1939,6 +1994,10 @@ public class PayrollService {
                     synthese.put("dernierBrut", rs.getBigDecimal("total_gains_bruts"));
                     synthese.put("dernierNet", rs.getBigDecimal("net_a_payer"));
                     synthese.put("dernierStatut", rs.getString("statut"));
+                    String st = rs.getString("statut");
+                    synthese.put("isDernierValide", "VALIDE".equalsIgnoreCase(st) || "CLOTURE".equalsIgnoreCase(st));
+                    synthese.put("isDernierCalcule", "CALCULE".equalsIgnoreCase(st));
+                    synthese.put("dernierBadgeVariant", "VALIDE".equalsIgnoreCase(st) || "CLOTURE".equalsIgnoreCase(st) ? "success" : "info");
                 } else {
                     synthese.put("dernierBulletinId", null);
                     synthese.put("dernierePeriodeCode", null);
@@ -1948,6 +2007,9 @@ public class PayrollService {
                     synthese.put("dernierBrut", null);
                     synthese.put("dernierNet", null);
                     synthese.put("dernierStatut", null);
+                    synthese.put("isDernierValide", false);
+                    synthese.put("isDernierCalcule", false);
+                    synthese.put("dernierBadgeVariant", "default");
                 }
             }
         }

@@ -123,8 +123,10 @@ export default function EmployeFicheDetailPage() {
     const [motifDesactivation, setMotifDesactivation] = useState('Demission');
     const [submitting, setSubmitting] = useState(false);
 
-    const loadEmployeDetail = useCallback(async () => {
-        setLoading(true);
+    const loadEmployeDetail = useCallback(async (silent = false) => {
+        if (!silent) {
+            setLoading(true);
+        }
         setError('');
         try {
             const data = await employeService.getEmployeFicheDetail(id);
@@ -133,7 +135,9 @@ export default function EmployeFicheDetailPage() {
             console.error('Erreur chargement fiche employé:', err);
             setError('Impossible de charger la fiche de cet employé.');
         } finally {
-            setLoading(false);
+            if (!silent) {
+                setLoading(false);
+            }
         }
     }, [id]);
 
@@ -212,7 +216,7 @@ export default function EmployeFicheDetailPage() {
             await employeService.updateEmploye(id, formData);
             toast({ title: 'Succès', message: 'Fiche employé modifiée avec succès.', type: 'success' });
             handleCloseForm();
-            loadEmployeDetail();
+            loadEmployeDetail(true);
         } catch (err) {
             console.error('Erreur modification employé:', err);
             throw err;
@@ -229,7 +233,7 @@ export default function EmployeFicheDetailPage() {
             await employeService.desactiverEmploye(id, motifDesactivation);
             setIsDesactivationModalOpen(false);
             toast({ title: 'Succès', message: 'Employé désactivé avec succès.', type: 'success' });
-            loadEmployeDetail();
+            loadEmployeDetail(true);
         } catch (err) {
             console.error('Erreur désactivation:', err);
             setError(getErrorMessage(err, 'Impossible de désactiver cet employé.'));
@@ -246,7 +250,7 @@ export default function EmployeFicheDetailPage() {
             await employeService.reactiverEmploye(id);
             setIsReactiverModalOpen(false);
             toast({ title: 'Succès', message: 'Employé réactivé avec succès.', type: 'success' });
-            loadEmployeDetail();
+            loadEmployeDetail(true);
         } catch (err) {
             console.error('Erreur réactivation:', err);
             setError(getErrorMessage(err, 'Impossible de réactiver cet employé.'));
@@ -359,7 +363,9 @@ export default function EmployeFicheDetailPage() {
     const contactsUrgence = detailData.contactsUrgence || [];
     const comptes = detailData.comptesBancaires || [];
 
-    const hasNoActiveContract = !emp?.idContratActif && !emp?.dateEmbauche && !emp?.nomFonction && (!emp?.statutContrat || emp?.statutContrat === 'Aucun contrat' || emp?.statutContrat === 'BROUILLON');
+    const hasNoActiveContract = emp?.hasContratActif !== undefined
+        ? !emp.hasContratActif
+        : (!emp?.idContratActif && !emp?.dateEmbauche && !emp?.nomFonction && (!emp?.statutContrat || emp?.statutContrat === 'Aucun contrat' || emp?.statutContrat === 'BROUILLON'));
 
     return (
         <div className="flex-1 min-h-0 flex flex-col gap-3 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans overflow-hidden">
@@ -437,9 +443,6 @@ export default function EmployeFicheDetailPage() {
                             <FichePersonnelleTab
                                 emp={emp}
                                 comptes={comptes}
-                                conjoint={conjoint}
-                                enfants={enfants}
-                                contactsUrgence={contactsUrgence}
                                 canWrite={canWrite}
                                 onEdit={handleOpenEdit}
                                 onAddCompte={handleOpenAddCompte}
@@ -630,7 +633,6 @@ export default function EmployeFicheDetailPage() {
                         handleTabChange(tabId);
                         setIsSummaryOpen(false);
                     }}
-                    canWrite={canWrite}
                 />
             </SlideOver>
         </div>

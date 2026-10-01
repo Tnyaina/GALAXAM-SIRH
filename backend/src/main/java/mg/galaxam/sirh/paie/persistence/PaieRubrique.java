@@ -5,6 +5,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
+import java.sql.Date;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +28,12 @@ public class PaieRubrique extends ClassMere {
     private Integer ordreAffichage = 10;
     private boolean estActif = true;
     private String description;
+    private String referenceReglementaire;
+    private LocalDate dateDebutEffet;
+    private String etapeCalcul;
+    private LocalDate dateFinEffet;
+    private Integer idRubriqueOrigine;
+    private String conditionApplication = "TOUS";
     private Timestamp createdAt;
 
     public PaieRubrique() {
@@ -45,8 +53,8 @@ public class PaieRubrique extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO paie_rubrique (code, libelle, categorie, type_valeur, sens, " +
-                     "soumis_cnaps, soumis_sante, soumis_irsa, est_fixe, ordre_affichage, est_actif, description) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_rubrique";
+                     "soumis_cnaps, soumis_sante, soumis_irsa, est_fixe, ordre_affichage, est_actif, description, reference_reglementaire, date_debut_effet, etape_calcul, date_fin_effet, id_rubrique_origine, condition_application) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_rubrique";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
@@ -60,6 +68,12 @@ public class PaieRubrique extends ClassMere {
             ps.setInt(10, ordreAffichage != null ? ordreAffichage : 10);
             ps.setBoolean(11, estActif);
             ps.setString(12, description);
+            ps.setString(13, referenceReglementaire);
+            ps.setDate(14, dateDebutEffet == null ? null : Date.valueOf(dateDebutEffet));
+            ps.setString(15, etapeCalcul);
+            ps.setDate(16, dateFinEffet == null ? null : Date.valueOf(dateFinEffet));
+            ps.setObject(17, idRubriqueOrigine);
+            ps.setString(18, conditionApplication);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -74,7 +88,7 @@ public class PaieRubrique extends ClassMere {
     protected ClassMere modifier(Connection c) throws Exception {
         String sql = "UPDATE paie_rubrique SET code = ?, libelle = ?, categorie = ?, type_valeur = ?, sens = ?, " +
                      "soumis_cnaps = ?, soumis_sante = ?, soumis_irsa = ?, est_fixe = ?, ordre_affichage = ?, " +
-                     "est_actif = ?, description = ? WHERE id_rubrique = ?";
+                     "est_actif = ?, description = ?, reference_reglementaire = ?, date_debut_effet = ?, etape_calcul = ?, date_fin_effet = ?, id_rubrique_origine = ?, condition_application = ? WHERE id_rubrique = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
             ps.setString(2, libelle);
@@ -88,7 +102,13 @@ public class PaieRubrique extends ClassMere {
             ps.setInt(10, ordreAffichage != null ? ordreAffichage : 10);
             ps.setBoolean(11, estActif);
             ps.setString(12, description);
-            ps.setInt(13, idRubrique);
+            ps.setString(13, referenceReglementaire);
+            ps.setDate(14, dateDebutEffet == null ? null : Date.valueOf(dateDebutEffet));
+            ps.setString(15, etapeCalcul);
+            ps.setDate(16, dateFinEffet == null ? null : Date.valueOf(dateFinEffet));
+            ps.setObject(17, idRubriqueOrigine);
+            ps.setString(18, conditionApplication);
+            ps.setInt(19, idRubrique);
             ps.executeUpdate();
         }
         return this;
@@ -173,6 +193,14 @@ public class PaieRubrique extends ClassMere {
         r.setOrdreAffichage(rs.getInt("ordre_affichage"));
         r.setEstActif(rs.getBoolean("est_actif"));
         r.setDescription(rs.getString("description"));
+        r.setReferenceReglementaire(rs.getString("reference_reglementaire"));
+        Date dateEffet = rs.getDate("date_debut_effet");
+        r.setDateDebutEffet(dateEffet == null ? null : dateEffet.toLocalDate());
+        r.setEtapeCalcul(rs.getString("etape_calcul"));
+        Date fin = rs.getDate("date_fin_effet");
+        r.setDateFinEffet(fin == null ? null : fin.toLocalDate());
+        r.setIdRubriqueOrigine((Integer) rs.getObject("id_rubrique_origine"));
+        r.setConditionApplication(rs.getString("condition_application"));
         r.setCreatedAt(rs.getTimestamp("created_at"));
         return r;
     }
@@ -216,6 +244,18 @@ public class PaieRubrique extends ClassMere {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public String getReferenceReglementaire() { return referenceReglementaire; }
+    public void setReferenceReglementaire(String referenceReglementaire) { this.referenceReglementaire = referenceReglementaire; }
+    public LocalDate getDateDebutEffet() { return dateDebutEffet; }
+    public void setDateDebutEffet(LocalDate dateDebutEffet) { this.dateDebutEffet = dateDebutEffet; }
+    public LocalDate getDateFinEffet() { return dateFinEffet; }
+    public void setDateFinEffet(LocalDate v) { dateFinEffet = v; }
+    public Integer getIdRubriqueOrigine() { return idRubriqueOrigine; }
+    public void setIdRubriqueOrigine(Integer v) { idRubriqueOrigine = v; }
+    public String getConditionApplication() { return conditionApplication; }
+    public void setConditionApplication(String v) { conditionApplication = v; }
+    public String getEtapeCalcul() { return etapeCalcul; }
+    public void setEtapeCalcul(String etapeCalcul) { this.etapeCalcul = etapeCalcul; }
 
     public Timestamp getCreatedAt() { return createdAt; }
     public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }

@@ -271,4 +271,17 @@ public class PointageTronconSemaineDTO implements Serializable {
     public void setNbJoursFerie(int nbJoursFerie) {
         this.nbJoursFerie = nbJoursFerie;
     }
+
+    // ─── Helpers Métier & Sérialisation JSON ──────────────────────────────────
+    @com.fasterxml.jackson.annotation.JsonProperty("hasOvertime")
+    public boolean hasOvertime() { return heuresHsNettes > 0 || heuresHs30 > 0 || heuresHs50 > 0; }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("hasDeficit")
+    public boolean hasDeficit() { return heuresDeficit > 0; }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("hasRetard")
+    public boolean hasRetard() { return heuresRetard > 0; }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("hasMajorations")
+    public boolean hasMajorations() { return heuresNuit > 0 || heuresDimanche > 0 || heuresFerie > 0; }
 }

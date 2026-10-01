@@ -107,6 +107,14 @@ CREATE TABLE paie_rubrique (
     ordre_affichage INT NOT NULL DEFAULT 10,
     est_actif BOOLEAN NOT NULL DEFAULT TRUE,
     description TEXT,
+    reference_reglementaire TEXT,
+    date_debut_effet DATE,
+    date_fin_effet DATE,
+    id_rubrique_origine INT REFERENCES paie_rubrique(id_rubrique),
+    condition_application VARCHAR(30) NOT NULL DEFAULT 'TOUS'
+        CONSTRAINT chk_rubrique_condition CHECK (condition_application IN ('TOUS','ASSUJETTI_IRSA','ASSUJETTI_CNAPS','ASSUJETTI_SANTE')),
+    CONSTRAINT chk_rubrique_validite CHECK (date_fin_effet IS NULL OR date_debut_effet IS NULL OR date_fin_effet >= date_debut_effet),
+    etape_calcul VARCHAR(20) CONSTRAINT chk_rubrique_etape_calcul CHECK (etape_calcul IN ('BRUT', 'GAIN_NET', 'RETENUE_NET')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_rubrique_categorie CHECK (categorie IN (
         'SALAIRE_BASE', 'HEURES_SUP', 'PRIME', 'INDEMNITE_IMPOSABLE',
@@ -259,6 +267,30 @@ CREATE TABLE bulletin_paie (
     CONSTRAINT uk_bulletin_employe_periode_type UNIQUE (id_periode_paie, id_employe, type_bulletin)
 );
 
+
+CREATE INDEX idx_rubrique_versions ON paie_rubrique ((COALESCE(id_rubrique_origine,id_rubrique)),date_debut_effet);
+
+-- Sérialise les changements d’une même famille et interdit les versions ambiguës.
+CREATE OR REPLACE FUNCTION verifier_versions_rubrique() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE famille INT;
+BEGIN
+ famille := COALESCE(NEW.id_rubrique_origine, NEW.id_rubrique);
+ PERFORM pg_advisory_xact_lock(46001, famille);
+ IF NEW.id_rubrique_origine IS NOT NULL AND (NEW.id_rubrique_origine=NEW.id_rubrique OR
+    NOT EXISTS (SELECT 1 FROM paie_rubrique WHERE id_rubrique=NEW.id_rubrique_origine AND id_rubrique_origine IS NULL)) THEN
+    RAISE EXCEPTION 'La version doit référencer la rubrique d’origine';
+ END IF;
+ IF EXISTS (SELECT 1 FROM paie_rubrique r WHERE COALESCE(r.id_rubrique_origine,r.id_rubrique)=famille
+   AND r.id_rubrique<>NEW.id_rubrique AND daterange(r.date_debut_effet,r.date_fin_effet,'[]')
+       && daterange(NEW.date_debut_effet,NEW.date_fin_effet,'[]')) THEN
+   RAISE EXCEPTION 'Chevauchement des versions de rubrique';
+ END IF;
+ RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS trg_versions_rubrique ON paie_rubrique;
+CREATE TRIGGER trg_versions_rubrique BEFORE INSERT OR UPDATE OF date_debut_effet,date_fin_effet,id_rubrique_origine
+ON paie_rubrique FOR EACH ROW EXECUTE FUNCTION verifier_versions_rubrique();
+
 CREATE INDEX idx_bulletin_periode ON bulletin_paie(id_periode_paie);
 CREATE INDEX idx_bulletin_employe ON bulletin_paie(id_employe);
 CREATE INDEX idx_bulletin_statut ON bulletin_paie(statut);
@@ -286,6 +318,7 @@ CREATE TABLE bulletin_paie_ligne (
     ordre INT NOT NULL DEFAULT 10,
     imposable BOOLEAN NOT NULL DEFAULT TRUE,
     soumis_cotisation BOOLEAN NOT NULL DEFAULT TRUE,
+    etape_calcul VARCHAR(20) CONSTRAINT chk_ligne_etape_calcul CHECK (etape_calcul IN ('BRUT', 'GAIN_NET', 'RETENUE_NET')),
     commentaire VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_ligne_sens CHECK (sens IN ('GAIN', 'RETENUE', 'PATRONAL', 'INFO'))
@@ -687,16 +720,22 @@ INSERT INTO paie_rubrique (id_rubrique, code, libelle, categorie, type_valeur, s
 (34, 'REGULARISATION_PAIE', 'Régularisation sur Mois Antérieur', 'RETENUE_DIVERSE', 'MONTANT', 'NEUTRE', TRUE, TRUE, TRUE, FALSE, 730, 'Ajustement positif ou négatif régularisé'),
 (35, 'AUTIMP', 'Autres Gains Imposables', 'PRIME', 'MONTANT', 'GAIN', TRUE, TRUE, TRUE, FALSE, 740, 'Autres primes brutes imposables'),
 (36, 'EXTRA_DEPLACEMENT', 'Indemnité de Déplacement Extra', 'INDEMNITE_NON_IMPOSABLE', 'MONTANT', 'GAIN', FALSE, FALSE, FALSE, FALSE, 750, 'Extra déplacement ou mission exceptionnelle non imposable'),
-(37, 'AJUSTEMENT_ARRONDI', 'Ajustement Arrondi Monétaire (Net)', 'NET', 'MONTANT', 'NEUTRE', FALSE, FALSE, FALSE, TRUE, 999, 'Écart monétaire d''arrondi pour équilibre parfait');
+(37, 'AJUSTEMENT_ARRONDI', 'Ajustement Arrondi Monétaire (Net)', 'NET', 'MONTANT', 'NEUTRE', FALSE, FALSE, FALSE, TRUE, 999, 'Écart monétaire d''arrondi pour équilibre parfait'),
+(38, 'RETENUE_DIVERSE', 'Retenue exceptionnelle', 'RETENUE_DIVERSE', 'MONTANT', 'RETENUE', FALSE, FALSE, FALSE, FALSE, 640, 'Retenue nette manuelle motivée');
 
-SELECT setval('paie_rubrique_id_rubrique_seq', (SELECT GREATEST(MAX(id_rubrique), 37) FROM paie_rubrique));
+SELECT setval('paie_rubrique_id_rubrique_seq', (SELECT GREATEST(MAX(id_rubrique), 38) FROM paie_rubrique));
+
+UPDATE paie_rubrique SET etape_calcul = CASE
+    WHEN sens = 'RETENUE' THEN 'RETENUE_NET'
+    WHEN soumis_irsa THEN 'BRUT' ELSE 'GAIN_NET' END
+WHERE NOT est_fixe AND sens IN ('GAIN', 'RETENUE');
 
 -- Types de Mouvements Variables
 INSERT INTO ref_type_mouvement_paie (id_type_mouvement, code, libelle, sens, categorie, id_rubrique, est_proratise, est_plafonne_dixieme, nature, owner_code, saisie_manuelle_autorisee, periode_obligatoire, motif_obligatoire, provenance_defaut, est_actif, ordre_affichage, description) VALUES
 (1, 'ACOMPTE_15', 'Acompte sur salaire', 'RETENUE', 'ACOMPTE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'RETENUE_ACOMPTE_15'), FALSE, FALSE, 'ACOMPTE', 'TRESORERIE', TRUE, TRUE, TRUE, 'ACOMPTE', TRUE, 10, 'Acompte versé puis imputé sur une période déterminée'),
 (2, 'AVANCE_SPECIALE', 'Avance exceptionnelle sur salaire', 'RETENUE', 'AVANCE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'RETENUE_AVANCE_SPECIALE'), FALSE, TRUE, 'AVANCE', 'TRESORERIE', TRUE, TRUE, TRUE, 'AVANCE', TRUE, 20, 'Avance employeur avec suivi du solde restant'),
 (3, 'CALL_PERSO', 'Retenue téléphonie personnelle', 'RETENUE', 'RETENUE_DIVERSE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'RETENUE_CALL_PERSO'), FALSE, FALSE, 'RETENUE_NETTE', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 30, 'Retenue nette manuelle avec source décrite dans le motif'),
-(4, 'RETENUE_DIVERSE', 'Retenue exceptionnelle', 'RETENUE', 'RETENUE_DIVERSE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REGULARISATION_PAIE'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 40, 'Retenue exceptionnelle motivée'),
+(4, 'RETENUE_DIVERSE', 'Retenue exceptionnelle', 'RETENUE', 'RETENUE_DIVERSE', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'RETENUE_DIVERSE'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 40, 'Retenue exceptionnelle motivée'),
 (5, 'PRIME_PERFORMANCE', 'Prime de performance', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_PERFORMANCE'), TRUE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 50, 'Montant attribué puis transformé par le moteur'),
 (6, 'PRIME_ASSIDUITE', 'Prime d''assiduité', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_ASSIDUITE'), FALSE, FALSE, 'AUTOMATIQUE', 'SYSTEME', FALSE, TRUE, FALSE, 'SYSTEME', TRUE, 60, 'Non saisissable tant que le forfait daté n''est pas configuré'),
 (7, 'PRIME_EXCEPTIONNELLE', 'Prime exceptionnelle', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_EXCEPTIONNELLE'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 70, 'Gratification ponctuelle décidée par la direction'),

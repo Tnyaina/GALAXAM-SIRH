@@ -13,15 +13,19 @@ public final class SocialContributionCalculator {
                          Contribution health,
                          BigDecimal fmfp) {}
     public Result calculate(BigDecimal base, Rules rules) {
-        BigDecimal cnapsBase = base.min(rules.smig().multiply(new BigDecimal("8")));
+        return calculate(base, base, base, rules);
+    }
+    public Result calculate(BigDecimal cnapsAssiette, BigDecimal healthAssiette,
+                            BigDecimal fmfpAssiette, Rules rules) {
+        BigDecimal cnapsBase = cnapsAssiette.max(BigDecimal.ZERO).min(rules.smig().multiply(new BigDecimal("8")));
         var cnaps = new Contribution(cnapsBase,
                 MoneyRoundingPolicy.contribution(cnapsBase.multiply(rules.cnapsEmployee())),
                 MoneyRoundingPolicy.contribution(cnapsBase.multiply(rules.cnapsEmployer())));
-        BigDecimal healthBase = rules.capHealth() ? base.min(rules.smig().multiply(new BigDecimal("8"))) : base;
+        BigDecimal healthBase = rules.capHealth() ? healthAssiette.max(BigDecimal.ZERO).min(rules.smig().multiply(new BigDecimal("8"))) : healthAssiette.max(BigDecimal.ZERO);
         var health = new Contribution(healthBase,
                 MoneyRoundingPolicy.contribution(healthBase.multiply(rules.healthEmployee())),
                 MoneyRoundingPolicy.contribution(healthBase.multiply(rules.healthEmployer())));
-        BigDecimal fmfp = MoneyRoundingPolicy.contribution(base.multiply(rules.fmfpRate()));
+        BigDecimal fmfp = MoneyRoundingPolicy.contribution(fmfpAssiette.max(BigDecimal.ZERO).multiply(rules.fmfpRate()));
         return new Result(cnaps, health, fmfp);
     }
 }

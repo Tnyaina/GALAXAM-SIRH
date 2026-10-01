@@ -6,11 +6,19 @@ import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import { fmtDate } from '@/utils/dateUtils';
 
 // Helper pour styliser les types de congés de façon cohérente
-const getTypeBadgeConfig = (code) => {
+const getTypeBadgeConfig = (code, d = null) => {
+  if (d?.badgeVariant) {
+    const label = d.isCp ? 'Congé annuel payé'
+      : d.isMaladie ? 'Maladie / Santé'
+      : d.isEvenementFamilial ? 'Événement familial'
+      : d.isSansSolde ? 'Congé sans solde'
+      : null;
+    return { variant: d.badgeVariant, label };
+  }
   switch (code) {
     case 'CONGE_PAYE':
     case 'ANNUEL':
-      return { variant: 'success', label: 'Congé annuel payé' };
+      return { variant: 'brand', label: 'Congé annuel payé' };
     case 'MALADIE':
     case 'ACCIDENT_TRAVAIL':
       return { variant: 'info', label: 'Maladie / Santé' };
@@ -21,7 +29,7 @@ const getTypeBadgeConfig = (code) => {
     case 'PATERNITE':
       return { variant: 'purple', label: 'Maternité / Paternité' };
     case 'SANS_SOLDE':
-      return { variant: 'neutral', label: 'Congé sans solde' };
+      return { variant: 'outline', label: 'Congé sans solde' };
     default:
       return { variant: 'default', label: null };
   }
@@ -44,8 +52,8 @@ export default function DemandeDetailsModal({
       ? 'Après-midi'
       : 'Demi-journée';
 
-  const typeConfig = getTypeBadgeConfig(demande.codeTypeConge);
-  const isRegularisationPointage = demande.commentaire?.includes('[REGULARISATION_POINTAGE]');
+  const typeConfig = getTypeBadgeConfig(demande.codeTypeConge, demande);
+  const isRegularisationPointage = Boolean(demande.isRegularisationPointage || demande.commentaire?.includes('[REGULARISATION_POINTAGE]'));
   const cleanCommentaire = demande.commentaire?.replace(/\[REGULARISATION_POINTAGE\]\s*/g, '').trim();
 
   const hasDerogations = Boolean(

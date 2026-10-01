@@ -104,4 +104,68 @@ public class FichePointageEmployeDTO {
         this.indemnitesDisponibles = indemnitesDisponibles == null
                 ? new LinkedHashMap<>() : new LinkedHashMap<>(indemnitesDisponibles);
     }
+
+    // ─── Helpers Métier POO & Sérialisation JSON ─────────────────────────────
+    @com.fasterxml.jackson.annotation.JsonProperty("isPeriodeCloturee")
+    public boolean isPeriodeCloturee() {
+        return "CLOTUREE".equalsIgnoreCase(statutPeriode);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isPeriodeValidee")
+    public boolean isPeriodeValidee() {
+        return "VALIDEE".equalsIgnoreCase(statutPeriode);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isPeriodeEnCours")
+    public boolean isPeriodeEnCours() {
+        return "EN_COURS".equalsIgnoreCase(statutPeriode);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isPrimeAssiduiteActive")
+    public boolean isPrimeAssiduiteActive() {
+        if (kpis == null) return false;
+        String val = kpis.get("primeAssiduiteEligible");
+        return val != null && !"DISABLED".equalsIgnoreCase(val);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isPrimeAssiduiteEligible")
+    public boolean isPrimeAssiduiteEligible() {
+        if (kpis == null) return false;
+        return "true".equalsIgnoreCase(kpis.get("primeAssiduiteEligible"));
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("hasMajorations")
+    public boolean hasMajorations() {
+        if (kpis == null) return false;
+        double hs30 = parseDoubleQuiet(kpis.get("heuresHs30"));
+        double hs50 = parseDoubleQuiet(kpis.get("heuresHs50"));
+        double nuit = parseDoubleQuiet(kpis.get("heuresNuit"));
+        double dim = parseDoubleQuiet(kpis.get("heuresDimanche"));
+        double fer = parseDoubleQuiet(kpis.get("heuresFerie"));
+        return (hs30 > 0 || hs50 > 0 || nuit > 0 || dim > 0 || fer > 0);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("hasHsNettes")
+    public boolean hasHsNettes() {
+        if (recap == null) return false;
+        String hs = recap.get("heuresSuppNettes");
+        return hs != null && !hs.isBlank() && !"00h00".equals(hs) && !"0h".equals(hs);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("hasRetardNet")
+    public boolean hasRetardNet() {
+        if (recap == null) return false;
+        String r = recap.get("retardNet");
+        return r != null && !r.isBlank() && !"00h00".equals(r) && !"0h".equals(r);
+    }
+
+    private double parseDoubleQuiet(String val) {
+        if (val == null || val.isBlank()) return 0.0;
+        String clean = val.replace("h", "").replace(",", ".").trim();
+        try {
+            return Double.parseDouble(clean);
+        } catch (Exception e) {
+            return 0.0;
+        }
+    }
 }

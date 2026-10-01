@@ -30,6 +30,7 @@ public class BulletinPaieLigne extends ClassMere {
     private Integer ordre = 10;
     private boolean imposable = true;
     private boolean soumisCotisation = true;
+    private String etapeCalcul;
     private String commentaire;
     private Timestamp createdAt;
 
@@ -51,8 +52,8 @@ public class BulletinPaieLigne extends ClassMere {
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO bulletin_paie_ligne (id_bulletin, id_rubrique, code_rubrique, libelle_rubrique, " +
                      "sens, categorie, base_calcul, taux_salarial, taux_patronal, quantite, " +
-                     "montant_salarial, montant_patronal, ordre, imposable, soumis_cotisation, commentaire) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_ligne";
+                     "montant_salarial, montant_patronal, ordre, imposable, soumis_cotisation, commentaire, etape_calcul) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id_ligne";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idBulletin);
             if (idRubrique != null) {
@@ -74,6 +75,7 @@ public class BulletinPaieLigne extends ClassMere {
             ps.setBoolean(14, imposable);
             ps.setBoolean(15, soumisCotisation);
             ps.setString(16, commentaire);
+            ps.setString(17, etapeCalcul);
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -89,7 +91,7 @@ public class BulletinPaieLigne extends ClassMere {
         String sql = "UPDATE bulletin_paie_ligne SET id_bulletin = ?, id_rubrique = ?, code_rubrique = ?, " +
                      "libelle_rubrique = ?, sens = ?, categorie = ?, base_calcul = ?, taux_salarial = ?, " +
                      "taux_patronal = ?, quantite = ?, montant_salarial = ?, montant_patronal = ?, " +
-                     "ordre = ?, imposable = ?, soumis_cotisation = ?, commentaire = ? WHERE id_ligne = ?";
+                     "ordre = ?, imposable = ?, soumis_cotisation = ?, commentaire = ?, etape_calcul = ? WHERE id_ligne = ?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idBulletin);
             if (idRubrique != null) {
@@ -111,7 +113,8 @@ public class BulletinPaieLigne extends ClassMere {
             ps.setBoolean(14, imposable);
             ps.setBoolean(15, soumisCotisation);
             ps.setString(16, commentaire);
-            ps.setInt(17, idLigne);
+            ps.setString(17, etapeCalcul);
+            ps.setInt(18, idLigne);
             ps.executeUpdate();
         }
         return this;
@@ -182,6 +185,7 @@ public class BulletinPaieLigne extends ClassMere {
         l.setOrdre(rs.getInt("ordre"));
         l.setImposable(rs.getBoolean("imposable"));
         l.setSoumisCotisation(rs.getBoolean("soumis_cotisation"));
+        l.setEtapeCalcul(rs.getString("etape_calcul"));
         l.setCommentaire(rs.getString("commentaire"));
         l.setCreatedAt(rs.getTimestamp("created_at"));
         return l;
@@ -235,6 +239,8 @@ public class BulletinPaieLigne extends ClassMere {
 
     public boolean isSoumisCotisation() { return soumisCotisation; }
     public void setSoumisCotisation(boolean soumisCotisation) { this.soumisCotisation = soumisCotisation; }
+    public String getEtapeCalcul() { return etapeCalcul; }
+    public void setEtapeCalcul(String etapeCalcul) { this.etapeCalcul = etapeCalcul; }
 
     public String getCommentaire() { return commentaire; }
     public void setCommentaire(String commentaire) { this.commentaire = commentaire; }

@@ -80,9 +80,13 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
         ? Math.round((Number(bulletin.netAPayer) - Number(bulletin.netAvantArrondi)) * 100) / 100
         : null;
     const estIrsa = !retenueIsi && lignes.some(l => l.codeRubrique === 'IMPOT_IRSA_NET' || l.codeRubrique === 'IMPOT_IRSA_BRUT');
-    const gainsBruts = lignes.filter(l => l.sens === 'GAIN' && l.imposable !== false && l.categorie !== 'NET' && l.categorie !== 'INDEMNITE_NON_IMPOSABLE');
+    const gainsBruts = lignes.filter(l => l.sens === 'GAIN' && (l.etapeCalcul
+        ? l.etapeCalcul === 'BRUT'
+        : l.imposable !== false && l.categorie !== 'NET' && l.categorie !== 'INDEMNITE_NON_IMPOSABLE'));
     const retenuesBrut = lignes.filter(l => l.sens === 'RETENUE' && l.categorie === 'SALAIRE_BASE');
     const hsExonereeIrsa = Number(fiscalite?.remunerationHsExonereeIrsa ?? lignes.find(l => l.codeRubrique === 'HS_EXONEREE_IRSA')?.montantSalarial ?? 0);
+    const gainsBrutsExoneres = lignes.filter(l => l.sens === 'GAIN' && l.etapeCalcul === 'BRUT' && l.imposable === false)
+        .reduce((total, l) => total + Number(l.montantSalarial || 0), 0);
     const totalLignesBrut = gainsBruts.reduce((total, l) => total + Number(l.montantSalarial || 0), 0)
         - retenuesBrut.reduce((total, l) => total + Number(l.montantSalarial || 0), 0);
 
@@ -304,13 +308,19 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                 <span className="text-[var(--color-fg)]">Net après cotisations</span>
                                                 <span className="font-mono text-[var(--color-fg)]">{formatAr(netAvantImpot)}</span>
                                             </div>
+                                            {estIrsa && gainsBrutsExoneres > 0 && (
+                                                <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
+                                                    <span className="text-[var(--color-fg-muted)]">Gains du brut exclus de l’assiette IRSA</span>
+                                                    <span className="font-mono">−{formatAr(gainsBrutsExoneres)}</span>
+                                                </div>
+                                            )}
                                             {estIrsa && hsExonereeIrsa > 0 && (
                                                 <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                                     <span className="text-[var(--color-fg-muted)]">Heures supplémentaires exclues de la base IRSA</span>
                                                     <span className="font-mono">−{formatAr(hsExonereeIrsa)}</span>
                                                 </div>
                                             )}
-                                            {estIrsa && hsExonereeIrsa > 0 && (
+                                            {estIrsa && (hsExonereeIrsa > 0 || gainsBrutsExoneres > 0) && (
                                                 <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                                     <span className="text-[var(--color-fg-muted)]">Revenu soumis à l’IRSA</span>
                                                     <span className="font-mono">{formatAr(bulletin.revenuNetImposable)}</span>

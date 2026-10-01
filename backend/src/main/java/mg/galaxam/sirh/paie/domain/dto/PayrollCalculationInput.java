@@ -171,11 +171,14 @@ public class PayrollCalculationInput {
     public static class GainVariable {
         private Integer idAvance;
         private String code;
+        private String codeRubrique;
+        private String etapeCalcul;
         private String libelle;
         private BigDecimal montant;
         private String categorie = "PRIME";
         private boolean imposable = true;
         private boolean soumisCotisation = true;
+        private Boolean soumisSante;
 
         public GainVariable() {}
         public GainVariable(Integer idAvance, String code, String libelle, BigDecimal montant,
@@ -193,6 +196,16 @@ public class PayrollCalculationInput {
         public void setIdAvance(Integer idAvance) { this.idAvance = idAvance; }
         public String getCode() { return code; }
         public void setCode(String code) { this.code = code; }
+        public String getCodeRubrique() { return codeRubrique != null ? codeRubrique : code; }
+        public void setCodeRubrique(String codeRubrique) { this.codeRubrique = codeRubrique; }
+        public String getEtapeCalcul() { return etapeCalcul != null ? etapeCalcul : (imposable ? "BRUT" : "GAIN_NET"); }
+        public void setEtapeCalcul(String etapeCalcul) {
+            if (etapeCalcul != null && !"BRUT".equals(etapeCalcul) && !"GAIN_NET".equals(etapeCalcul)) {
+                throw new IllegalArgumentException("Étape de gain manuel invalide : " + etapeCalcul);
+            }
+            this.etapeCalcul = etapeCalcul;
+        }
+        public boolean isDansBrut() { return "BRUT".equals(getEtapeCalcul()); }
         public String getLibelle() { return libelle; }
         public void setLibelle(String libelle) { this.libelle = libelle; }
         public BigDecimal getMontant() { return montant; }
@@ -203,6 +216,8 @@ public class PayrollCalculationInput {
         public void setImposable(boolean imposable) { this.imposable = imposable; }
         public boolean isSoumisCotisation() { return soumisCotisation; }
         public void setSoumisCotisation(boolean soumisCotisation) { this.soumisCotisation = soumisCotisation; }
+        public boolean isSoumisSante() { return soumisSante != null ? soumisSante : soumisCotisation; }
+        public void setSoumisSante(boolean soumisSante) { this.soumisSante = soumisSante; }
     }
 
     public List<GainVariable> getGainsVariablesDynamiques() {

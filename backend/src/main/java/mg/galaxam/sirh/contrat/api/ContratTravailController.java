@@ -773,6 +773,15 @@ public class ContratTravailController {
         if (ct.getIdTypeContrat() != null && ct.getIdTypeContrat() > 0) {
             map.put("libelleTypeContrat", fetchLibelle(c,
                     "SELECT libelle FROM ref_type_contrat WHERE id_type_contrat = ?", ct.getIdTypeContrat()));
+            String codeType = fetchLibelle(c, "SELECT code FROM ref_type_contrat WHERE id_type_contrat = ?", ct.getIdTypeContrat());
+            map.put("codeTypeContrat", codeType);
+            if (codeType != null) {
+                map.put("isCdi", "CDI".equalsIgnoreCase(codeType));
+                map.put("isCdd", "CDD".equalsIgnoreCase(codeType));
+                map.put("isStage", "STAGE".equalsIgnoreCase(codeType));
+                map.put("isConsultant", "CONSULTANT".equalsIgnoreCase(codeType));
+                map.put("isPrestataire", "PRESTATAIRE".equalsIgnoreCase(codeType));
+            }
         }
         if (ct.getIdTypeIntervenant() != null && ct.getIdTypeIntervenant() > 0) {
             map.put("libelleTypeIntervenant",

@@ -297,7 +297,7 @@ export default function DafAjustementPointageModal({
                                                 heureEntreeAm: checked ? '' : prev.heureEntreeAm
                                             }));
                                         }}
-                                        className="w-4 h-4 rounded accent-brand-600 cursor-pointer"
+                                        className="w-4 h-4 rounded-none accent-brand-600 cursor-pointer"
                                     />
                                 </label>
                             </div>
@@ -493,16 +493,16 @@ export default function DafAjustementPointageModal({
                                             const totalH = Number(ptg.totalHeures || (ptg.heures ? parseFloat(ptg.heures) : 0));
                                             const hasWorked = totalH > 0;
 
-                                            const isAbsent = ptg.statut === 'ABSENT' || ptg.statut === 'ABSENCE_NON_JUSTIFIEE' || ptg.codeStatut === 'ABSENCE_NON_JUSTIFIEE';
-                                            const isConge = ptg.statut === 'CONGE' || ptg.codeStatut === 'CONGE' || Boolean(ptg.typeConge);
-                                            const isRetard = ptg.statut === 'RETARD' || (ptg.ecart && ptg.ecart.startsWith('-') && !ptg.ecartPositif) || (ptg.minutesRetard > 0);
-                                            const isRepos = (isWeekend && !hasWorked) || ptg.statut === 'REPOS' || ptg.codeStatut === 'REPOS';
-                                            const isDimancheTrav = isSunday && hasWorked;
-                                            const isSamediTrav = isSaturday && hasWorked;
-                                            const isPlanifie = ptg.statut === 'PLANIFIE' || ptg.statut === 'NON_ECHU';
-                                            const isAutonome = (ptg.statut === 'AUTONOME' || ptg.statut === 'DISPENSE_POINTAGE') && !isWeekend;
-                                            const isPresent = (ptg.statut === 'PRESENT' || hasWorked || ptg.present) && !isRepos && !isDimancheTrav && !isSamediTrav;
-                                            const hasAnomalie = Boolean(ptg.anomalieSaisie || isAbsent || isRetard || ptg.statut === 'ANOMALIE');
+                                            const isAbsent = Boolean(ptg.isAbsent ?? (ptg.statut === 'ABSENT' || ptg.statut === 'ABSENCE_NON_JUSTIFIEE' || ptg.codeStatut === 'ABSENCE_NON_JUSTIFIEE'));
+                                            const isConge = Boolean(ptg.isConge ?? (ptg.statut === 'CONGE' || ptg.codeStatut === 'CONGE' || Boolean(ptg.typeConge)));
+                                            const isRetard = Boolean(ptg.isRetard ?? (ptg.statut === 'RETARD' || (ptg.ecart && ptg.ecart.startsWith('-') && !ptg.ecartPositif) || (ptg.minutesRetard > 0)));
+                                            const isRepos = Boolean(ptg.isRepos ?? ((isWeekend && !hasWorked) || ptg.statut === 'REPOS' || ptg.codeStatut === 'REPOS'));
+                                            const isDimancheTrav = Boolean(ptg.isDimancheTravaille ?? (isSunday && hasWorked));
+                                            const isSamediTrav = Boolean(ptg.isSamediTravaille ?? (isSaturday && hasWorked));
+                                            const isPlanifie = Boolean(ptg.isPlanifie ?? (ptg.statut === 'PLANIFIE' || ptg.statut === 'NON_ECHU'));
+                                            const isAutonome = Boolean(ptg.isDispensePointage ?? ((ptg.statut === 'AUTONOME' || ptg.statut === 'DISPENSE_POINTAGE') && !isWeekend));
+                                            const isPresent = Boolean(ptg.isPresent ?? ((ptg.statut === 'PRESENT' || hasWorked || ptg.present) && !isRepos && !isDimancheTrav && !isSamediTrav));
+                                            const hasAnomalie = Boolean(ptg.isAnomalie ?? (ptg.anomalieSaisie || isAbsent || isRetard || ptg.statut === 'ANOMALIE'));
 
                                             const dateFormatted = dateVal ? fmtDate(dateVal) : `${ptg.date} (${ptg.jour || ''})`;
                                             
