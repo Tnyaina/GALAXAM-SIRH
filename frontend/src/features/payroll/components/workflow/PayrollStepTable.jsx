@@ -1,11 +1,13 @@
 import { Search, XCircle } from 'lucide-react';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Pagination from '@/components/ui/navigation/Pagination';
+import { Table, Thead, Th, Tbody, Tr } from '@/components/ui/data-display/Table';
+import Badge from '@/components/ui/data-display/Badge';
 import { formatRoundedMoneyAr } from '@/utils/moneyUtils';
 
 /**
  * PayrollStepTable — Composant unifié pour les tables du workflow de paie (Population, Calcul, Contrôle).
- * Harmonise le conteneur, l'en-tête/recherche, les dimensions de colonnes, la hauteur de ligne et la pagination.
+ * Construit sur les composants officiels du Design System Galaxam (Table, Thead, Th, Tbody, Tr).
  */
 export default function PayrollStepTable({
     title,
@@ -36,21 +38,21 @@ export default function PayrollStepTable({
             {/* Barre supérieure : Titre + Filtres + Recherche unifiée */}
             {(title || filterSlot || onSearchChange || actionsSlot) && (
                 <div className="px-4 py-3 bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    <div className="flex items-center gap-2.5 flex-wrap min-w-0">
                         {title && (
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
                                     {title}
                                 </span>
                                 {badgeCount !== undefined && badgeCount !== null && (
-                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-[var(--color-surface)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)] font-medium">
+                                    <Badge variant="neutral" size="xs">
                                         {badgeCount}
-                                    </span>
+                                    </Badge>
                                 )}
                             </div>
                         )}
                         {subtitle && (
-                            <span className="text-[11px] text-[var(--color-fg-muted)] hidden md:inline">
+                            <span className="text-xs text-[var(--color-fg-muted)] hidden md:inline">
                                 · {subtitle}
                             </span>
                         )}
@@ -89,42 +91,40 @@ export default function PayrollStepTable({
                 </div>
             )}
 
-            {/* Corps du tableau */}
-            <div className="overflow-x-auto">
-                {loading ? (
-                    <div className="p-4">
-                        <SkeletonTable rows={skeletonRows} cols={colSpan} />
-                    </div>
-                ) : (
-                    <table className="w-full text-sm border-collapse" aria-label={ariaLabel}>
-                        <thead>
-                            <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                                {columns.map((col, idx) => {
-                                    const alignClass = col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left';
-                                    return (
-                                        <th
-                                            key={col.key || idx}
-                                            className={`px-4 py-3 ${alignClass} ${col.width || ''} ${col.className || ''}`}
-                                        >
-                                            {col.label}
-                                        </th>
-                                    );
-                                })}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--color-border-subtle)]">
-                            {children}
-                        </tbody>
-                    </table>
-                )}
+            {/* Corps du tableau utilisant Table du Design System */}
+            {loading ? (
+                <div className="p-4">
+                    <SkeletonTable rows={skeletonRows} cols={colSpan} bordered={false} />
+                </div>
+            ) : (
+                <Table bordered={false} density="compact" rowHover aria-label={ariaLabel}>
+                    <Thead>
+                        <Tr>
+                            {columns.map((col, idx) => {
+                                const alignClass = col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left';
+                                return (
+                                    <Th
+                                        key={col.key || idx}
+                                        className={`${alignClass} ${col.width || ''} ${col.className || ''}`}
+                                    >
+                                        {col.label}
+                                    </Th>
+                                );
+                            })}
+                        </Tr>
+                    </Thead>
+                    <Tbody zebra>
+                        {children}
+                    </Tbody>
+                </Table>
+            )}
 
-                {/* État vide si aucun enfant ou résultat */}
-                {!loading && (!children || (Array.isArray(children) && children.length === 0)) && (
-                    <div className="p-8 text-center text-sm text-[var(--color-fg-muted)]">
-                        {emptyMessage}
-                    </div>
-                )}
-            </div>
+            {/* État vide si aucun enfant ou résultat */}
+            {!loading && (!children || (Array.isArray(children) && children.length === 0)) && (
+                <div className="p-8 text-center text-sm text-[var(--color-fg-muted)]">
+                    {emptyMessage}
+                </div>
+            )}
 
             {/* Pagination unifiée */}
             {!loading && pagination && pagination.totalItems > 0 && (
@@ -144,13 +144,13 @@ export default function PayrollStepTable({
 /** Cellule standard pour afficher un salarié (Nom + matricule pill + sous-titre affectation/site) */
 export function PayrollEmployeeCell({ name, matricule, subtitle }) {
     return (
-        <div>
-            <div className="font-semibold text-[var(--color-fg)] text-sm leading-tight">
+        <div className="py-0.5">
+            <div className="font-semibold text-[var(--color-fg)] text-xs leading-snug">
                 {name || '–'}
             </div>
-            <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-[var(--color-fg-muted)]">
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[var(--color-fg-muted)]">
                 {matricule && (
-                    <span className="font-mono bg-[var(--color-bg-subtle)] group-hover:bg-[var(--color-surface)] px-1 py-0.5 rounded text-[10px] border border-[var(--color-border-subtle)]">
+                    <span className="font-mono bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] px-1.5 py-0.2 text-[10px] border border-[var(--color-border-subtle)] font-medium">
                         {matricule}
                     </span>
                 )}
@@ -164,7 +164,7 @@ export function PayrollEmployeeCell({ name, matricule, subtitle }) {
 export function PayrollMoneyCell({ value, type = 'normal' }) {
     if (type === 'net') {
         return (
-            <span className="font-mono font-bold text-sm tabular-nums whitespace-nowrap text-[var(--color-success-700)] dark:text-[var(--color-success-400)] bg-[var(--color-success-50)] dark:bg-[var(--color-success-950)] px-2 py-0.5 rounded">
+            <span className="font-mono font-bold text-xs tabular-nums whitespace-nowrap text-[var(--color-success-700)] dark:text-[var(--color-success-300)] bg-[var(--color-success-50)] dark:bg-[var(--color-success-950)] border border-[var(--color-success-300)]/60 dark:border-[var(--color-success-800)] px-2 py-0.5 inline-block">
                 {formatRoundedMoneyAr(value)}
             </span>
         );
@@ -172,20 +172,20 @@ export function PayrollMoneyCell({ value, type = 'normal' }) {
     if (type === 'deduction') {
         const num = Number(value || 0);
         return (
-            <span className="font-mono text-sm tabular-nums whitespace-nowrap text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+            <span className="font-mono text-xs tabular-nums whitespace-nowrap text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] font-medium">
                 {num > 0 ? `−${formatRoundedMoneyAr(num)}` : '—'}
             </span>
         );
     }
     if (type === 'muted') {
         return (
-            <span className="font-mono text-sm tabular-nums whitespace-nowrap text-[var(--color-fg-muted)]">
+            <span className="font-mono text-xs tabular-nums whitespace-nowrap text-[var(--color-fg-muted)]">
                 {value != null ? formatRoundedMoneyAr(value) : '—'}
             </span>
         );
     }
     return (
-        <span className="font-mono text-sm tabular-nums whitespace-nowrap text-[var(--color-fg)]">
+        <span className="font-mono text-xs tabular-nums whitespace-nowrap font-medium text-[var(--color-fg)]">
             {value != null ? formatRoundedMoneyAr(value) : '—'}
         </span>
     );

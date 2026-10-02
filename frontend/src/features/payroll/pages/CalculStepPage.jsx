@@ -11,6 +11,8 @@ import Alert from '@/components/ui/feedback/Alert';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Badge from '@/components/ui/data-display/Badge';
 import { Card } from '@/components/ui/data-display/Card';
+import StatCard from '@/components/ui/data-display/StatCard';
+import { Tr, Td } from '@/components/ui/data-display/Table';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
@@ -500,40 +502,32 @@ export default function CalculStepPage() {
                             );
                         })()}
 
-                        {/* 4 KPIs Clés consolidés */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 rounded-none">
-                                <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
-                                    Masse Salariale Brute
-                                </span>
-                                <span className="text-base font-black font-mono text-[var(--color-fg)] mt-1 block">
-                                    {formatMoneyAr(displayKpis?.brut)}
-                                </span>
-                            </div>
-                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 rounded-none">
-                                <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
-                                    Cotisations Salariales
-                                </span>
-                                <span className="text-base font-black font-mono text-[var(--color-fg)] mt-1 block">
-                                    {formatMoneyAr(displayKpis?.cotisationsSalariales)}
-                                </span>
-                            </div>
-                            <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3.5 rounded-none">
-                                <span className="text-[11px] font-bold text-[var(--color-fg-muted)] uppercase tracking-wider block">
-                                    Retenue IRSA (DGI)
-                                </span>
-                                <span className="text-base font-black font-mono text-[var(--color-fg)] mt-1 block">
-                                    {formatMoneyAr(displayKpis?.irsa)}
-                                </span>
-                            </div>
-                            <div className="bg-[var(--color-surface)] border-2 border-[var(--color-success-500)]/40 p-3.5 rounded-none bg-[var(--color-success-50)]/20">
-                                <span className="text-[11px] font-bold text-[var(--color-success-700)] dark:text-[var(--color-success-400)] uppercase tracking-wider block">
-                                    Total Net à Payer
-                                </span>
-                                <span className="text-base font-black font-mono text-[var(--color-success-700)] dark:text-[var(--color-success-300)] mt-1 block">
-                                    {formatMoneyAr(displayKpis?.net)}
-                                </span>
-                            </div>
+                        {/* 4 KPIs Clés consolidés avec StatCard */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <StatCard
+                                title="Masse Salariale Brute"
+                                value={formatMoneyAr(displayKpis?.brut)}
+                                subtext="Salaires bruts imposables"
+                                color="brand"
+                            />
+                            <StatCard
+                                title="Cotisations Salariales"
+                                value={formatMoneyAr(displayKpis?.cotisationsSalariales)}
+                                subtext="Charges sociales déduites"
+                                color="info"
+                            />
+                            <StatCard
+                                title="Retenue IRSA (DGI)"
+                                value={formatMoneyAr(displayKpis?.irsa)}
+                                subtext="Impôt sur les revenus salariaux"
+                                color="warning"
+                            />
+                            <StatCard
+                                title="Total Net à Payer"
+                                value={formatMoneyAr(displayKpis?.net)}
+                                subtext="Masse nette des virements"
+                                color="success"
+                            />
                         </div>
 
                         {/* Décomposition technique des résultats */}
@@ -589,31 +583,31 @@ export default function CalculStepPage() {
                                     ariaLabel="Décomposition des bulletins calculés"
                                 >
                                     {rowsToShow.map((b) => (
-                                        <tr key={b.idBulletin || b.idEmploye} className="hover:bg-[var(--color-bg-subtle)] transition-colors group">
-                                            <td className="px-4 py-3.5">
+                                        <Tr key={b.idBulletin || b.idEmploye}>
+                                            <Td>
                                                 <PayrollEmployeeCell
                                                     name={b.nomPrenom || b.intitulePoste}
                                                     matricule={b.matricule}
                                                     subtitle={b.nomSite}
                                                 />
-                                            </td>
-                                            <td className="px-4 py-3.5 text-right">
+                                            </Td>
+                                            <Td className="text-right">
                                                 <PayrollMoneyCell value={b.salaireBase} type="muted" />
-                                            </td>
-                                            <td className="px-4 py-3.5 text-right">
+                                            </Td>
+                                            <Td className="text-right">
                                                 <PayrollMoneyCell value={b.totalGainsBruts} />
-                                            </td>
-                                            <td className="px-4 py-3.5 text-right">
+                                            </Td>
+                                            <Td className="text-right">
                                                 <PayrollMoneyCell value={b.totalCotisationsSalariales} type="deduction" />
-                                            </td>
-                                            <td className="px-4 py-3.5 text-right">
+                                            </Td>
+                                            <Td className="text-right">
                                                 <PayrollMoneyCell value={b.irsaNet} type="deduction" />
-                                            </td>
-                                            <td className="px-4 py-3.5 text-right">
+                                            </Td>
+                                            <Td className="text-right">
                                                 <PayrollMoneyCell value={b.netAPayer} type="net" />
-                                            </td>
+                                            </Td>
                                             {!isSimulationActive && (
-                                                <td className="px-4 py-3.5 text-center">
+                                                <Td className="text-center">
                                                     <Button
                                                         variant="outline"
                                                         size="xs"
@@ -623,9 +617,9 @@ export default function CalculStepPage() {
                                                     >
                                                         Voir
                                                     </Button>
-                                                </td>
+                                                </Td>
                                             )}
-                                        </tr>
+                                        </Tr>
                                     ))}
                                 </PayrollStepTable>
                             );

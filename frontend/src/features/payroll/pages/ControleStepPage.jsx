@@ -7,6 +7,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
 import Button from '@/components/ui/forms/Button';
 import StatCard from '@/components/ui/data-display/StatCard';
+import { Tr, Td } from '@/components/ui/data-display/Table';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
@@ -102,11 +103,31 @@ export default function ControleStepPage() {
             <div className="space-y-4">
                 {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
 
-                <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-                    <StatCard title="Bulletins calculés" value={totalBulletins} color="neutral" />
-                    <StatCard title="À examiner" value={alerts} color="neutral" subtext="Signaux du calcul" />
-                    <StatCard title="Points bloquants" value={blockers} color="neutral" subtext="Campagne" />
-                    <StatCard title="Net à payer" value={money(cockpit?.kpis?.totalNetAPayer)} color="brand" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <StatCard
+                        title="Bulletins calculés"
+                        value={totalBulletins}
+                        color="brand"
+                        subtext="Campagne courante"
+                    />
+                    <StatCard
+                        title="À examiner"
+                        value={alerts}
+                        color={alerts > 0 ? "warning" : "neutral"}
+                        subtext={alerts > 0 ? "Anomalies à contrôler" : "Aucun signal d'anomalie"}
+                    />
+                    <StatCard
+                        title="Points bloquants"
+                        value={blockers}
+                        color={blockers > 0 ? "danger" : "neutral"}
+                        subtext={blockers > 0 ? "Bloque la validation" : "Aucun blocage"}
+                    />
+                    <StatCard
+                        title="Total Net à payer"
+                        value={money(cockpit?.kpis?.totalNetAPayer)}
+                        color="success"
+                        subtext="Masse nette des virements"
+                    />
                 </div>
 
                 <PayrollStepTable
@@ -121,21 +142,28 @@ export default function ControleStepPage() {
                     }}
                     searchPlaceholder="Nom ou matricule…"
                     filterSlot={
-                        <div className="flex items-center gap-1 ml-2" aria-label="Filtrer les bulletins">
-                            {filterTabs.map(tab => (
-                                <button
-                                    key={tab.id}
-                                    type="button"
-                                    onClick={() => { setFilter(tab.id); setPage(1); }}
-                                    className={`px-2.5 py-0.5 text-xs font-medium border cursor-pointer transition-colors ${
-                                        filter === tab.id
-                                            ? 'border-[var(--color-brand-500)] text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] bg-[var(--color-brand-50)] dark:bg-[var(--color-brand-950)]'
-                                            : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
-                                    }`}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
+                        <div className="flex items-center gap-1 text-xs" aria-label="Filtrer les bulletins">
+                            {filterTabs.map(tab => {
+                                const active = filter === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        type="button"
+                                        onClick={() => { setFilter(tab.id); setPage(1); }}
+                                        aria-pressed={active}
+                                        className={`px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer border ${
+                                            active
+                                                ? 'bg-[var(--color-surface)] text-[var(--color-fg)] border-[var(--color-border-subtle)] border-b-2 border-b-[var(--color-brand-500)] shadow-xs'
+                                                : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface)]/60'
+                                        }`}
+                                    >
+                                        <span>{tab.label}</span>
+                                        <span className="font-mono text-[10px] px-1 py-0.2 bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]">
+                                            {tab.count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     }
                     columns={[
@@ -158,40 +186,34 @@ export default function ControleStepPage() {
                     ariaLabel="Bulletins de la campagne"
                 >
                     {bulletins.map(bulletin => (
-                        <tr
-                            key={bulletin.idBulletin}
-                            className="hover:bg-[var(--color-bg-subtle)] transition-colors group"
-                        >
-                            <td className="px-4 py-3.5">
+                        <Tr key={bulletin.idBulletin}>
+                            <Td>
                                 <PayrollEmployeeCell
                                     name={bulletin.nomPrenom || 'Nom non renseigné'}
                                     matricule={bulletin.matricule}
                                     subtitle={bulletin.nomSite}
                                 />
-                            </td>
-                            <td className="px-4 py-3.5 text-right">
+                            </Td>
+                            <Td className="text-right">
                                 <PayrollMoneyCell value={bulletin.totalGainsBruts} />
-                            </td>
-                            <td className="px-4 py-3.5 text-right">
+                            </Td>
+                            <Td className="text-right">
                                 <PayrollMoneyCell value={bulletin.totalCotisationsSalariales} type="deduction" />
-                            </td>
-                            <td className="px-4 py-3.5 text-right">
+                            </Td>
+                            <Td className="text-right">
                                 <PayrollMoneyCell value={bulletin.irsaNet} type="deduction" />
-                            </td>
-                            <td className="px-4 py-3.5 text-right">
+                            </Td>
+                            <Td className="text-right">
                                 <PayrollMoneyCell value={bulletin.netAPayer} type="net" />
-                            </td>
-                            <td className="px-4 py-3.5 text-center">
+                            </Td>
+                            <Td className="text-center">
                                 {bulletin.aAlerte === true ? (
-                                    <Badge variant="warning" size="xs">⚠ À examiner</Badge>
+                                    <Badge variant="warning" size="xs" dot>À examiner</Badge>
                                 ) : (
-                                    <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-fg-muted)]">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success-500)] inline-block" />
-                                        OK
-                                    </span>
+                                    <Badge variant="success" size="xs" dot>OK</Badge>
                                 )}
-                            </td>
-                            <td className="px-4 py-3.5 text-center">
+                            </Td>
+                            <Td className="text-center">
                                 <Button
                                     variant="outline"
                                     size="xs"
@@ -201,8 +223,8 @@ export default function ControleStepPage() {
                                 >
                                     Voir
                                 </Button>
-                            </td>
-                        </tr>
+                            </Td>
+                        </Tr>
                     ))}
                 </PayrollStepTable>
             </div>

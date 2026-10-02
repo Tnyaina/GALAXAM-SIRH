@@ -55,7 +55,7 @@ public class GrandLivrePaieExportService {
             Sheet detail = workbook.createSheet("Détail rubriques");
             Sheet checks = workbook.createSheet("Contrôle");
             for (Sheet sheet : List.of(summary, detail, checks)) sheet.setDisplayGridlines(false);
-            title(summary, 0, "GRAND LIVRE DE PAIE", styles.title);
+            banner(summary, "GRAND LIVRE DE PAIE", 5, styles.title);
             title(summary, 1, "État mensuel nominatif · période " + period.code(), styles.subtitle);
             title(summary, 3, "Du " + period.start().format(DATE) + " au " + period.end().format(DATE)
                     + "   |   " + bulletins.size() + " bulletins validés ou clôturés", styles.subtitle);
@@ -65,7 +65,7 @@ public class GrandLivrePaieExportService {
             summary.setColumnWidth(0, 3600);
             summary.setRepeatingRows(new CellRangeAddress(7, 7, 0, SUMMARY_COLUMNS.length - 1));
 
-            title(detail, 0, "DÉTAIL DES RUBRIQUES DE PAIE", styles.title);
+            banner(detail, "DÉTAIL DES RUBRIQUES DE PAIE", 5, styles.title);
             title(detail, 1, "Toutes les lignes enregistrées des bulletins de la période " + period.code(), styles.subtitle);
             header(detail, 2, DETAIL_COLUMNS, styles.header);
             detail.createFreezePane(3, 3);
@@ -163,14 +163,19 @@ public class GrandLivrePaieExportService {
         String[] fields = {b.getReferenceBulletin(), b.getMatricule(), b.getNomPrenom(), l.getCodeRubrique(),
                 l.getLibelleRubrique(), l.getSens(), l.getCategorie()};
         for (int col = 0; col < fields.length; col++) cell(sheet, rowIndex, col, s.text).setCellValue(n(fields[col]));
-        BigDecimal[] amounts = {l.getBaseCalcul(), l.getQuantite(), l.getTauxSalarial(), l.getTauxPatronal(), l.getMontantSalarial(), l.getMontantPatronal()};
+        BigDecimal legacyPatronalRate = "PATRONAL".equals(l.getSens()) && l.getTauxPatronal() == null
+                ? l.getTauxSalarial() : null;
+        BigDecimal[] amounts = {l.getBaseCalcul(), l.getQuantite(),
+                "PATRONAL".equals(l.getSens()) ? null : l.getTauxSalarial(),
+                l.getTauxPatronal() != null ? l.getTauxPatronal() : legacyPatronalRate,
+                l.getMontantSalarial(), l.getMontantPatronal()};
         for (int i = 0; i < amounts.length; i++) {
             Cell c = cell(sheet, rowIndex, 7 + i, s.money);
             if (amounts[i] != null) c.setCellValue(amounts[i].doubleValue());
         }
     }
     private static void writeChecks(Sheet sheet, Period period, int count, int lines, int totalRow, Styles s) {
-        title(sheet, 0, "CONTRÔLE DU GRAND LIVRE", s.title);
+        banner(sheet, "CONTRÔLE DU GRAND LIVRE", 1, s.title);
         title(sheet, 1, "Période " + period.code() + " · bulletins validés et clôturés uniquement", s.subtitle);
         sheet.setColumnWidth(0, 10000); sheet.setColumnWidth(1, 6500); sheet.setColumnWidth(2, 6500);
         cell(sheet, 3, 0, s.header).setCellValue("Indicateur");
@@ -202,6 +207,12 @@ public class GrandLivrePaieExportService {
         Cell cell = row.createCell(column); cell.setCellStyle(style); return cell;
     }
     private static void title(Sheet sheet, int row, String value, CellStyle style) { cell(sheet, row, 0, style).setCellValue(value); }
+    private static void banner(Sheet sheet, String value, int lastColumn, CellStyle style) {
+        for (int col = 0; col <= lastColumn; col++) cell(sheet, 0, col, style);
+        sheet.getRow(0).getCell(0).setCellValue(value);
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, lastColumn));
+        sheet.getRow(0).setHeightInPoints(36);
+    }
     private static void header(Sheet sheet, int row, String[] columns, CellStyle style) {
         for (int i = 0; i < columns.length; i++) cell(sheet, row, i, style).setCellValue(columns[i]);
         sheet.getRow(row).setHeightInPoints(32);
@@ -209,7 +220,7 @@ public class GrandLivrePaieExportService {
     private static class Styles {
         final CellStyle title, subtitle, header, text, money, totalLabel, totalMoney;
         Styles(XSSFWorkbook book) {
-            title = make(book, 16, true, null, false);
+            title = make(book, 16, true, new byte[]{32, 51, 40}, false);
             subtitle = make(book, 10, false, null, false);
             header = make(book, 10, true, new byte[]{32, 51, 40}, false);
             text = make(book, 10, false, null, true);

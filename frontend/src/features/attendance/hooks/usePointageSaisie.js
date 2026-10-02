@@ -29,7 +29,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
     const [siteIndemnites, setSiteIndemnites] = useState([]);
     const [periodeInfo, setPeriodeInfo] = useState(null);
     const [statsJour, setStatsJour] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
     const previewTimers = useRef(new Map());

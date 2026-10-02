@@ -99,6 +99,28 @@ public class RefTypeMouvementPaieController {
     }
 
     /** Catalogue de paramétrage : capacités et choix du moteur, filtrage et pagination serveur. */
+    @GetMapping("/configuration/parcours")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<?> getParcoursConfiguration() {
+        return ResponseEntity.ok(Map.of(
+                "phases", mg.galaxam.sirh.paie.domain.engine.PayrollCalculatorRegistry.phases(),
+                "rubriques", tousLesElements("rubriques"), "types", tousLesElements("types")));
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String,Object>> tousLesElements(String domaine) {
+        var items = new ArrayList<Map<String,Object>>();
+        int page = 1;
+        do {
+            Map<String,Object> result = (Map<String,Object>) getConfiguration(domaine, "", "", "", "", "ordre", page++, 1000, null).getBody();
+            items.addAll((List<Map<String,Object>>) result.get("items"));
+            if (items.size() >= ((Number) result.get("totalElements")).intValue()) break;
+        } while (true);
+        return items;
+    }
+
+    /** Catalogue de paramétrage : capacités et choix du moteur, filtrage et pagination serveur. */
     @GetMapping("/configuration")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     @SuppressWarnings("unchecked")
@@ -113,7 +135,7 @@ public class RefTypeMouvementPaieController {
             @RequestParam(defaultValue="10") int taille,
             @RequestParam(required=false) Integer selection) {
         if (!List.of("rubriques", "types").contains(domaine) || page < 1
-                || !List.of(10,25,50).contains(taille) || !List.of("ordre","libelle","code").contains(tri))
+                || !List.of(10,25,50,1000).contains(taille) || !List.of("ordre","libelle","code").contains(tri))
             throw new IllegalArgumentException("Les critères du catalogue ne sont pas valides.");
         Map<String,Object> catalogue = (Map<String,Object>) getCatalogue().getBody();
         var rubriques = (List<Map<String,Object>>) catalogue.get("rubriques");

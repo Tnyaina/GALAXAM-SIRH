@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import { attendanceService } from '@/features/attendance/api/attendanceApi';
 import useDebounce from '@/hooks/useDebounce';
 import { getErrorMessage } from '@/api/apiClient';
@@ -25,19 +26,23 @@ export function usePointageAnomalies(initialFilters = {}) {
 
     // Chargement annulable
     const loadAnomalies = useCallback(async (signal) => {
-        if (!(Number(filters.idPeriodePaie) > 0) && !filters.datePointage) return;
+        const idPeriodeNum = Number(filters.idPeriodePaie);
+        const idSiteNum = Number(filters.idSite);
+        const dateTrim = filters.datePointage ? String(filters.datePointage).trim() : '';
+
+        if (!(idPeriodeNum > 0) && !dateTrim) return;
         setLoading(true);
         setError(null);
         try {
             const queryParams = {};
-            if (Number(filters.idPeriodePaie) > 0) {
-                queryParams.idPeriodePaie = Number(filters.idPeriodePaie);
+            if (idPeriodeNum > 0) {
+                queryParams.idPeriodePaie = idPeriodeNum;
             }
-            if (Number(filters.idSite) > 0) {
-                queryParams.idSite = Number(filters.idSite);
+            if (idSiteNum > 0) {
+                queryParams.idSite = idSiteNum;
             }
-            if (filters.datePointage && String(filters.datePointage).trim()) {
-                queryParams.datePointage = String(filters.datePointage).trim();
+            if (dateTrim) {
+                queryParams.datePointage = dateTrim;
             }
             if (debouncedSearch && String(debouncedSearch).trim()) {
                 queryParams.search = String(debouncedSearch).trim();
@@ -51,7 +56,7 @@ export function usePointageAnomalies(initialFilters = {}) {
                 setPeriode(data.periode || null);
             }
         } catch (err) {
-            if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') {
+            if (axios.isCancel(err) || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') {
                 return;
             }
             console.error('Erreur chargement anomalies:', err);
@@ -59,7 +64,7 @@ export function usePointageAnomalies(initialFilters = {}) {
         } finally {
             setLoading(false);
         }
-    }, [filters, debouncedSearch]);
+    }, [filters.idPeriodePaie, filters.idSite, filters.datePointage, debouncedSearch]);
 
     useEffect(() => {
         const controller = new AbortController();

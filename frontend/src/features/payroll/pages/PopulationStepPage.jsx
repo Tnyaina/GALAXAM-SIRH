@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { CheckCircle2, UserX, AlertTriangle } from 'lucide-react';
 import PayrollCampaignShell from '@/features/payroll/components/workflow/PayrollCampaignShell';
 import Badge from '@/components/ui/data-display/Badge';
+import { Tr, Td } from '@/components/ui/data-display/Table';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
 import PayrollStepTable, { PayrollEmployeeCell } from '@/features/payroll/components/workflow/PayrollStepTable';
@@ -168,58 +169,32 @@ export default function PopulationStepPage() {
                     onSearchChange={(q) => { setSearchQuery(q); setCurrentPage(1); }}
                     searchPlaceholder="Rechercher salarié…"
                     filterSlot={
-                        <div className="flex items-center gap-1.5 text-xs flex-wrap ml-2" aria-label="Filtrer par décision">
-                            <button
-                                type="button"
-                                onClick={() => { setFilterDecision('ALL'); setCurrentPage(1); }}
-                                aria-pressed={filterDecision === 'ALL'}
-                                className={`px-2 py-0.5 border text-xs font-medium cursor-pointer transition-colors ${
-                                    filterDecision === 'ALL'
-                                        ? 'border-[var(--color-brand-500)] text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] bg-[var(--color-brand-50)] dark:bg-[var(--color-brand-950)]'
-                                        : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
-                                }`}
-                            >
-                                Tous ({population.length})
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { setFilterDecision('INCLUS'); setCurrentPage(1); }}
-                                aria-pressed={filterDecision === 'INCLUS'}
-                                className={`px-2 py-0.5 border text-xs font-medium cursor-pointer inline-flex items-center gap-1 transition-colors ${
-                                    filterDecision === 'INCLUS'
-                                        ? 'border-[var(--color-success-500)] text-[var(--color-success-700)] dark:text-[var(--color-success-300)] bg-[var(--color-success-50)] dark:bg-[var(--color-success-950)]'
-                                        : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
-                                }`}
-                            >
-                                <CheckCircle2 size={13} />
-                                {includedCount} inclus
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { setFilterDecision('EXCLU'); setCurrentPage(1); }}
-                                aria-pressed={filterDecision === 'EXCLU'}
-                                className={`px-2 py-0.5 border text-xs font-medium cursor-pointer inline-flex items-center gap-1 transition-colors ${
-                                    filterDecision === 'EXCLU'
-                                        ? 'border-[var(--color-brand-500)] text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] bg-[var(--color-brand-50)] dark:bg-[var(--color-brand-950)]'
-                                        : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
-                                }`}
-                            >
-                                <UserX size={13} />
-                                {excludedCount} exclu{excludedCount > 1 ? 's' : ''}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { setFilterDecision('BLOQUE'); setCurrentPage(1); }}
-                                aria-pressed={filterDecision === 'BLOQUE'}
-                                className={`px-2 py-0.5 border text-xs font-medium cursor-pointer inline-flex items-center gap-1 transition-colors ${
-                                    filterDecision === 'BLOQUE'
-                                        ? 'border-[var(--color-danger-500)] text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)] bg-[var(--color-danger-50)] dark:bg-[var(--color-danger-950)]'
-                                        : 'border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)]'
-                                }`}
-                            >
-                                <AlertTriangle size={13} />
-                                {blockedCount} bloqué{blockedCount > 1 ? 's' : ''}
-                            </button>
+                        <div className="flex items-center gap-1 text-xs flex-wrap" aria-label="Filtrer par décision">
+                            {[
+                                { id: 'ALL', label: `Tous (${population.length})` },
+                                { id: 'INCLUS', label: `${includedCount} inclus`, icon: CheckCircle2, color: 'text-[var(--color-success-600)]' },
+                                { id: 'EXCLU', label: `${excludedCount} exclu${excludedCount > 1 ? 's' : ''}`, icon: UserX },
+                                { id: 'BLOQUE', label: `${blockedCount} bloqué${blockedCount > 1 ? 's' : ''}`, icon: AlertTriangle, color: 'text-[var(--color-danger-600)]' },
+                            ].map(tab => {
+                                const Icon = tab.icon;
+                                const active = filterDecision === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        type="button"
+                                        onClick={() => { setFilterDecision(tab.id); setCurrentPage(1); }}
+                                        aria-pressed={active}
+                                        className={`px-2.5 py-1 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer border ${
+                                            active
+                                                ? 'bg-[var(--color-surface)] text-[var(--color-fg)] border-[var(--color-border-subtle)] border-b-2 border-b-[var(--color-brand-500)] shadow-xs'
+                                                : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-surface)]/60'
+                                        }`}
+                                    >
+                                        {Icon && <Icon size={12} className={active && tab.color ? tab.color : 'text-[var(--color-fg-muted)]'} />}
+                                        <span>{tab.label}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     }
                     columns={[
@@ -245,27 +220,27 @@ export default function PopulationStepPage() {
                         const variant = DECISION_VARIANTS[dec] || 'default';
                         const label = DECISION_LABELS[dec] || dec;
                         return (
-                            <tr key={p.idEmploye || p.employeeId || idx} className="hover:bg-[var(--color-bg-subtle)] transition-colors group">
-                                <td className="px-4 py-3.5">
+                            <Tr key={p.idEmploye || p.employeeId || idx}>
+                                <Td>
                                     <PayrollEmployeeCell
                                         name={p.employeeName || p.nomPrenom}
                                         matricule={p.matricule}
                                         subtitle={p.statutEmploye}
                                     />
-                                </td>
-                                <td className="px-4 py-3.5">
-                                    <div className="text-sm text-[var(--color-fg)]">{p.typeContrat || 'Contrat non renseigné'}</div>
+                                </Td>
+                                <Td>
+                                    <div className="text-xs font-medium text-[var(--color-fg)]">{p.typeContrat || 'Contrat non renseigné'}</div>
                                     <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
                                         {[p.contractNumber, p.nomSite || 'Site non renseigné'].filter(Boolean).join(' · ')}
                                     </div>
-                                </td>
-                                <td className="px-4 py-3.5 text-center">
-                                    <Badge variant={variant} size="sm">{label}</Badge>
-                                </td>
-                                <td className="px-4 py-3.5 text-[11px] text-[var(--color-fg-muted)]  max-w-xs">
+                                </Td>
+                                <Td className="text-center">
+                                    <Badge variant={variant} size="xs">{label}</Badge>
+                                </Td>
+                                <Td className="text-[11px] text-[var(--color-fg-muted)] max-w-xs">
                                     {getPopulationReasonLabel(p.reasonCode || p.reason || p.motif)}
-                                </td>
-                            </tr>
+                                </Td>
+                            </Tr>
                         );
                     })}
                 </PayrollStepTable>

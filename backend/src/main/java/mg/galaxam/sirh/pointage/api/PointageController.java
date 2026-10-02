@@ -218,7 +218,7 @@ public class PointageController {
 
     // Anomalies et régularisation
     @GetMapping("/anomalies")
-    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> getAnomalies(@RequestParam(required = false) Integer idSite,
             @RequestParam(required = false) Integer idPeriode,
             @RequestParam(required = false) Integer idPeriodePaie,
@@ -243,7 +243,7 @@ public class PointageController {
     }
 
     @PutMapping("/anomalies/{idPointage}/regulariser")
-    @PreAuthorize("hasAuthority('POINTAGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('POINTAGE_WRITE') or hasAuthority('POINTAGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> regulariser(@PathVariable int idPointage,
             @RequestBody Map<String, Object> payload) throws Exception {
         boolean ok = pointageAnomalieService.regulariserPointage(idPointage, payload);

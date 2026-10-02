@@ -6,7 +6,7 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/data-disp
 import StatCard from '@/components/ui/data-display/StatCard';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
-import Modal from '@/components/ui/overlays/Modal';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
 import paieService from '@/features/payroll/api/paieService';
@@ -57,6 +57,9 @@ export default function SortiesStepPage() {
     }, [id, canClose, period, refreshSilent]);
 
     const kpis = cockpit?.kpis || {};
+    const totalBrut = kpis.totalGainsBruts ?? kpis.totalBrut ?? kpis.masseSalarialeBrute ?? null;
+    const totalNet = kpis.totalNetAPayer ?? kpis.masseNetAPayer ?? null;
+
     return (
         <PayrollCampaignShell context={context} periodes={periodes} activeStep="OUTPUTS" loading={loading}
             title="Sorties et clôture" subtitle="Vérifiez la campagne, accédez aux documents disponibles et clôturez la période."
@@ -73,11 +76,11 @@ export default function SortiesStepPage() {
                 {!validated && <Alert type="warning" title="Validation requise" message="Validez la paie avant la clôture et l’accès aux documents de la période." />}
                 {closed && <Alert type="success" title="Période clôturée" message="La période est en lecture seule. Les bulletins individuels restent accessibles." />}
 
-                <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-                    <StatCard title="Période" value={periodCode} color="neutral" />
-                    <StatCard title="Bulletins calculés" value={kpis.effectifCalcule ?? '—'} color="neutral" />
-                    <StatCard title="Brut total" value={kpis.totalGainsBruts == null ? '—' : formatMoneyAr(kpis.totalGainsBruts)} color="neutral" />
-                    <StatCard title="Net à payer" value={kpis.totalNetAPayer == null ? '—' : formatMoneyAr(kpis.totalNetAPayer)} color="brand" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <StatCard title="Période" value={periodCode} color="brand" subtext="Campagne traitée" />
+                    <StatCard title="Bulletins calculés" value={kpis.effectifCalcule ?? kpis.totalBulletins ?? '—'} color="info" subtext="Effectif payé" />
+                    <StatCard title="Brut total" value={totalBrut == null ? '—' : formatMoneyAr(totalBrut)} color="neutral" subtext="Masse salariale brute" />
+                    <StatCard title="Total Net à payer" value={totalNet == null ? '—' : formatMoneyAr(totalNet)} color="success" subtext="Virements bancaires" />
                 </div>
 
                 <Card shadow="none">
@@ -113,12 +116,17 @@ export default function SortiesStepPage() {
                 </Card>
             </div>
 
-            <Modal isOpen={confirmOpen} onClose={() => setConfirmOpen(false)} title="Clôturer la période" size="md">
-                <div className="space-y-4 text-sm">
-                    <p>La période <strong>{periodCode}</strong> passera en lecture seule. Vérifiez la validation de la paie avant de poursuivre.</p>
-                    <div className="flex justify-end gap-2"><Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>Annuler</Button><Button variant="primary" size="sm" loading={closing} onClick={closePeriod}>Confirmer la clôture</Button></div>
-                </div>
-            </Modal>
+            <ConfirmDialog
+                isOpen={confirmOpen}
+                onClose={() => setConfirmOpen(false)}
+                onConfirm={closePeriod}
+                title="Clôturer la période"
+                message={`La période ${periodCode} passera en lecture seule. Vérifiez la validation de la paie avant de poursuivre.`}
+                confirmLabel="Confirmer la clôture"
+                cancelLabel="Annuler"
+                variant="primary"
+                loading={closing}
+            />
         </PayrollCampaignShell>
     );
 }

@@ -18,7 +18,7 @@ export default function WorkflowStepper({ steps = [], currentStep, onStepClick, 
     return (
         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs px-3 py-2 flex items-center justify-between gap-4 flex-wrap">
             {/* Stepper */}
-            <div className="flex items-center gap-0 overflow-x-auto">
+            <div className="flex items-center gap-2 overflow-x-auto">
                 {steps.map((step, idx) => {
                     const isActive = step.id === currentStep;
                     const isClickable = step.status === 'active' || step.status === 'done' || step.status === 'pending';
@@ -27,11 +27,6 @@ export default function WorkflowStepper({ steps = [], currentStep, onStepClick, 
 
                     return (
                         <div key={step.id} className="flex items-center">
-                            {/* Connecteur */}
-                            {idx > 0 && (
-                                <div className={`h-px w-6 shrink-0 ${isDone ? 'bg-[var(--color-brand-500)]' : 'bg-[var(--color-border-subtle)]'}`} />
-                            )}
-
                             {/* Etape */}
                             <button
                                 type="button"

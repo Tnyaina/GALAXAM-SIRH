@@ -50,9 +50,13 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
 
     // État local
     const [periodes, setPeriodes] = useState([]);
-    const [selectedPeriodeId, setSelectedPeriodeId] = useState('');
+    const [selectedPeriodeId, setSelectedPeriodeId] = useState(() => (
+        activePeriode?.idPeriodePaie ? String(activePeriode.idPeriodePaie) : (searchParams.get('periode') || '')
+    ));
     const [sites, setSites] = useState([]);
-    const [selectedSiteId, setSelectedSiteId] = useState(0);
+    const [selectedSiteId, setSelectedSiteId] = useState(() => (
+        searchParams.get('site') ? Number(searchParams.get('site')) : 0
+    ));
 
     // Filtres anomalies & Pagination
     const [searchQuery, setSearchQuery] = useState('');
@@ -84,7 +88,10 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         updateFilters,
         loadAnomalies,
         regulariser
-    } = usePointageAnomalies();
+    } = usePointageAnomalies({
+        idPeriodePaie: activePeriode?.idPeriodePaie || (searchParams.get('periode') ? Number(searchParams.get('periode')) : 0),
+        idSite: searchParams.get('site') ? Number(searchParams.get('site')) : 0
+    });
 
     // Effets
     useEffect(() => {
@@ -99,12 +106,13 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                 if (resPeriodes && resPeriodes.length > 0) {
                     setPeriodes(resPeriodes);
                     const active = (activePeriode ? resPeriodes.find(p => p.idPeriodePaie === activePeriode.idPeriodePaie) : null)
-                        || resPeriodes.find(p => String(p.idPeriodePaie) === String(context?.selectedPeriod?.id));
+                        || (paramPeriode ? resPeriodes.find(p => String(p.idPeriodePaie) === String(paramPeriode)) : null)
+                        || resPeriodes.find(p => String(p.idPeriodePaie) === String(context?.selectedPeriod?.id))
+                        || resPeriodes[0];
                     if (active) {
                         const pid = String(active.idPeriodePaie);
                         setSelectedPeriodeId(pid);
-                        updateFilters({ idPeriodePaie: active.idPeriodePaie });
-                        if (!paramPeriode) {
+                        if (!paramPeriode || String(paramPeriode) !== pid) {
                             setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('periode', pid); return n; }, { replace: true });
                         }
                     }
@@ -124,9 +132,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     // Synchronisation si le parent change activePeriode
     useEffect(() => {
         if (activePeriode?.idPeriodePaie && String(activePeriode.idPeriodePaie) !== String(selectedPeriodeId)) {
-            const pid = String(activePeriode.idPeriodePaie);
-            setSelectedPeriodeId(pid);
-            updateFilters({ idPeriodePaie: activePeriode.idPeriodePaie });
+            setSelectedPeriodeId(String(activePeriode.idPeriodePaie));
         }
     }, [activePeriode?.idPeriodePaie]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -97,6 +97,9 @@ public class SecurityConfig {
                 // (La finesse READ/WRITE/VALIDATE est assurée par @PreAuthorize et la hiérarchie de rôles)
                 .anyRequest().authenticated()
             )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(new org.springframework.security.web.authentication.HttpStatusEntryPoint(org.springframework.http.HttpStatus.UNAUTHORIZED))
+            )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

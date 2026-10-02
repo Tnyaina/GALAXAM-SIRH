@@ -55,6 +55,7 @@ export default function VariablesStepPage() {
                         onPendingCountChange={setPendingCount}
                         canMutate={canMutate}
                         mutationDisabledReason={mutationDisabledReason}
+                        periodStatus={context?.selectedPeriod?.statutCode || context?.selectedPeriod?.statut || context?.selectedPeriod?.state || context?.currentPeriod?.statutCode || context?.currentPeriod?.statut || context?.currentPeriod?.state}
                     />
                 </Suspense>
             </div>

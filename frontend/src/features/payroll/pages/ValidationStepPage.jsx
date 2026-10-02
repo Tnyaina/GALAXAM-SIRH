@@ -9,6 +9,7 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Badge from '@/components/ui/data-display/Badge';
 import StatCard from '@/components/ui/data-display/StatCard';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
+import { Skeleton, SkeletonStatCard } from '@/components/ui/feedback/Skeleton';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
@@ -184,7 +185,11 @@ export default function ValidationStepPage() {
                     </CardHeader>
                     <CardBody>
                         {cockpitLoading ? (
-                            <p className="text-sm text-[var(--color-fg-muted)]" role="status">Chargement des contrôles…</p>
+                            <div className="space-y-3 py-2">
+                                <Skeleton className="h-6 w-full" />
+                                <Skeleton className="h-6 w-5/6" />
+                                <Skeleton className="h-6 w-4/6" />
+                            </div>
                         ) : checks.length > 0 ? (
                             <ul className="divide-y divide-[var(--color-border-subtle)]">
                                 {checks.map((check) => {
@@ -229,15 +234,19 @@ export default function ValidationStepPage() {
                     </CardHeader>
                     <CardBody>
                         {cockpitLoading ? (
-                            <p className="text-sm text-[var(--color-fg-muted)]" role="status">Chargement des montants…</p>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                {Array.from({ length: 6 }).map((_, i) => (
+                                    <SkeletonStatCard key={i} />
+                                ))}
+                            </div>
                         ) : (
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                 <StatCard title="Salariés calculés" value={kpis.effectifCalcule ?? 0} color="neutral" subtext={`Population attendue : ${readiness.effectifAttendu ?? 'Non renseignée'}`} />
-                                <StatCard title="Masse brute" value={formatAmount(kpis.totalBrut)} color="neutral" />
-                                <StatCard title="Cotisations salariales" value={formatAmount(kpis.totalCotisationsSalariales)} color="neutral" />
-                                <StatCard title="IRSA / ISI" value={formatAmount(kpis.totalIrsa)} color="neutral" />
-                                <StatCard title="Net à payer" value={formatAmount(summary.netTotal ?? kpis.totalNetAPayer)} color="success" />
-                                <StatCard title="Charges patronales" value={formatAmount(summary.employerContributions ?? kpis.totalCotisationsPatronales)} color="neutral" />
+                                <StatCard title="Masse brute" value={formatAmount(kpis.totalBrut)} color="brand" subtext="Salaires bruts imposables" />
+                                <StatCard title="Cotisations salariales" value={formatAmount(kpis.totalCotisationsSalariales)} color="info" subtext="Charges sociales déduites" />
+                                <StatCard title="IRSA / ISI" value={formatAmount(kpis.totalIrsa)} color="warning" subtext="Impôt retenu à la source" />
+                                <StatCard title="Net à payer" value={formatAmount(summary.netTotal ?? kpis.totalNetAPayer)} color="success" subtext="Montant net des virements" />
+                                <StatCard title="Charges patronales" value={formatAmount(summary.employerContributions ?? kpis.totalCotisationsPatronales)} color="neutral" subtext="Coût employeur CNaPS / Santé" />
                             </div>
                         )}
                     </CardBody>

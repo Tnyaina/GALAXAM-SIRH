@@ -1,6 +1,7 @@
 import { useEffect, lazy, Suspense, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Alert from '@/components/ui/feedback/Alert';
 import SEO from '@/components/system/SEO';
 import WorkflowStepper from '@/components/ui/navigation/WorkflowStepper';
 import { useAuth } from '@/context/AuthContext';
@@ -34,6 +35,8 @@ export default function GestionPointagesPage() {
     const [allPeriodes, setAllPeriodes] = useState([]);
     const [activePeriode, setActivePeriode] = useState(null);
     const [anomaliesCount, setAnomaliesCount] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     // Données dérivées
     const isDaf = hasPermission('POINTAGE_VALIDATE');
@@ -67,12 +70,19 @@ export default function GestionPointagesPage() {
     useEffect(() => {
         let isMounted = true;
         const fetchData = async () => {
+            setLoading(true);
+            setError(null);
             try {
                 const [list, context] = await Promise.all([
                     periodePaieService.getAllPeriodes(),
                     periodePaieService.getContext(paramPeriodeId ? Number(paramPeriodeId) : null)
                 ]);
-                if (!isMounted || !list || list.length === 0) return;
+                if (!isMounted) return;
+                if (!list || list.length === 0) {
+                    setError('Aucune période de paie disponible.');
+                    setLoading(false);
+                    return;
+                }
                 setAllPeriodes(list);
 
                 const selectedId = context?.selectedPeriod?.id;
@@ -108,7 +118,12 @@ export default function GestionPointagesPage() {
                     }
                 }
             } catch (err) {
-                console.error('Erreur chargement periode active:', err);
+                if (isMounted) {
+                    console.error('Erreur chargement periode active:', err);
+                    setError('Impossible de charger les données de la période de pointage.');
+                }
+            } finally {
+                if (isMounted) setLoading(false);
             }
         };
         fetchData();
@@ -160,31 +175,41 @@ export default function GestionPointagesPage() {
                 activePeriode={activePeriode}
             />
 
+            {error && (
+                <div className="my-3">
+                    <Alert type="error" title="Période indisponible" message={error} />
+                </div>
+            )}
+
             {/* Contenu de l'etape active */}
             <div className="w-full">
-                <Suspense fallback={<SkeletonTable rows={6} columns={6} />}>
-                    {activeStep === 'saisie' && (
-                        <SaisieQuotidiennePage
-                            activePeriode={activePeriode}
-                            onSelectPeriode={handlePeriodeChange}
-                        />
-                    )}
+                {loading ? (
+                    <SkeletonTable rows={8} columns={8} />
+                ) : (
+                    <Suspense fallback={<SkeletonTable rows={6} columns={6} />}>
+                        {activeStep === 'saisie' && activePeriode && (
+                            <SaisieQuotidiennePage
+                                activePeriode={activePeriode}
+                                onSelectPeriode={handlePeriodeChange}
+                            />
+                        )}
 
-                    {activeStep === 'suivi' && (
-                        <SuiviAnomaliesPage
-                            activePeriode={activePeriode}
-                            onSelectPeriode={handlePeriodeChange}
-                            onTabChange={handleStepChange}
-                        />
-                    )}
+                        {activeStep === 'suivi' && activePeriode && (
+                            <SuiviAnomaliesPage
+                                activePeriode={activePeriode}
+                                onSelectPeriode={handlePeriodeChange}
+                                onTabChange={handleStepChange}
+                            />
+                        )}
 
-                    {activeStep === 'arbitrage' && (
-                        <ArbitrageDafPage
-                            activePeriode={activePeriode}
-                            onSelectPeriode={handlePeriodeChange}
-                        />
-                    )}
-                </Suspense>
+                        {activeStep === 'arbitrage' && activePeriode && (
+                            <ArbitrageDafPage
+                                activePeriode={activePeriode}
+                                onSelectPeriode={handlePeriodeChange}
+                            />
+                        )}
+                    </Suspense>
+                )}
             </div>
         </div>
     );

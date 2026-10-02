@@ -1,9 +1,12 @@
+import { forwardRef } from 'react';
+
 /**
  * Card — composant de carte avec de bonnes valeurs par défaut.
  * Respecte strictement les tokens du design system (pas d'arrondi, tokens sémantiques).
  */
 
-export function Card({
+export const Card = forwardRef(function Card({
+  as: Component = 'div',
   children,
   className = '',
   hover = false,
@@ -11,7 +14,7 @@ export function Card({
   bordered = true,
   shadow = 'sm',
   ...props
-}) {
+}, ref) {
   const shadows = {
     none: '',
     sm: 'shadow-sm',
@@ -20,7 +23,8 @@ export function Card({
   };
 
   return (
-    <div
+    <Component
+      ref={ref}
       className={[
         'bg-[var(--color-surface)] text-[var(--color-fg)] rounded-none',
         bordered ? 'border border-[var(--color-border-subtle)]' : '',
@@ -34,9 +38,9 @@ export function Card({
       {...props}
     >
       {children}
-    </div>
+    </Component>
   );
-}
+});
 
 export function CardHeader({
   children,

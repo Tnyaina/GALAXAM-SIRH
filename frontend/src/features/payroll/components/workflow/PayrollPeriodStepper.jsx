@@ -111,7 +111,6 @@ export default function PayrollPeriodStepper({
             aria-label="Workflow de campagne de paie"
             className="relative bg-[var(--color-surface)] border border-[var(--color-border-subtle)]"
         >
-            <div className="absolute top-[50%] left-0 right-0 h-px bg-[var(--color-border-subtle)] translate-y-[-50%] z-0 hidden md:block" />
             <ol className="relative z-10 flex items-stretch overflow-x-auto" aria-label="Étapes de la campagne">
                 {steps.map((step, index) => {
                     const conf = stateConfig[step.state] || stateConfig.BLOCKED;

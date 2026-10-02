@@ -7,6 +7,7 @@ import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -18,11 +19,24 @@ class AnnualPayrollExportServiceTest {
             rows.add(row(employee, "2026-08", 1000));
             rows.add(row(employee, "2026-09", 2000));
         }
-        var result = new AnnualPayrollExportService().render(2026, List.of("2026-08", "2026-09"), rows);
+        BulletinPaieLigne configured = new BulletinPaieLigne();
+        configured.setCodeRubrique("PRIME_EXCEPTIONNELLE");
+        configured.setLibelleRubrique("Prime exceptionnelle");
+        configured.setSens("GAIN");
+        configured.setCategorie("PRIME");
+        configured.setEtapeCalcul("BRUT");
+        configured.setMontantSalarial(BigDecimal.valueOf(5000));
+        BulletinPaieLigne leaveDeduction = new BulletinPaieLigne();
+        leaveDeduction.setCodeRubrique("DEDUCTION_CONGE_BASE");
+        leaveDeduction.setLibelleRubrique("Déduction de congé");
+        leaveDeduction.setSens("RETENUE");
+        leaveDeduction.setCategorie("SALAIRE_BASE");
+        leaveDeduction.setMontantSalarial(BigDecimal.valueOf(35000));
+        var result = new AnnualPayrollExportService().render(2026, List.of("2026-08", "2026-09"), rows, List.of(configured, leaveDeduction));
         assertEquals(2, result.coveredMonths());
         assertEquals(101, result.employees());
         try (var book = WorkbookFactory.create(new ByteArrayInputStream(result.bytes()))) {
-            assertEquals(3, book.getNumberOfSheets());
+            assertEquals(4, book.getNumberOfSheets());
             var summary = book.getSheet("Récap annuel");
             var months = book.getSheet("Synthèse par mois");
             var detail = book.getSheet("Détail mensuel");
@@ -41,6 +55,13 @@ class AnnualPayrollExportServiceTest {
             assertTrue(detail.isColumnHidden(26));
             assertTrue(detail.isColumnHidden(27));
             assertEquals("09 — Septembre 2026", detail.getRow(105).getCell(1).getStringCellValue());
+            var control = book.getSheet("Contrôle rubriques");
+            assertEquals("DEDUCTION_CONGE_BASE", control.getRow(4).getCell(0).getStringCellValue());
+            assertEquals("Non ventilée séparément", control.getRow(4).getCell(4).getStringCellValue());
+            assertEquals("À vérifier", control.getRow(4).getCell(5).getStringCellValue());
+            assertEquals("PRIME_EXCEPTIONNELLE", control.getRow(5).getCell(0).getStringCellValue());
+            assertEquals("Indemnités / primes", control.getRow(5).getCell(4).getStringCellValue());
+            assertEquals("À vérifier", control.getRow(5).getCell(5).getStringCellValue());
         }
     }
 

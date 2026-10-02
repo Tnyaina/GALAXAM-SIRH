@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
+import java.util.Collections;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -145,9 +146,23 @@ public class PointageAnomalieService {
             }
 
             if (periodeDebut == null || periodeFin == null) {
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
-                        mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND,
-                        "La période de paie demandée est introuvable ou incomplète.");
+                Map<String, Object> emptyResp = new HashMap<>();
+                emptyResp.put("anomalies", Collections.emptyList());
+                Map<String, Integer> emptyStats = new HashMap<>();
+                emptyStats.put("total", 0);
+                emptyStats.put("incomplets", 0);
+                emptyStats.put("retards", 0);
+                emptyStats.put("absences", 0);
+                emptyStats.put("critiques", 0);
+                emptyStats.put("hautes", 0);
+                emptyStats.put("moyennes", 0);
+                emptyStats.put("faibles", 0);
+                emptyStats.put("bloquantes", 0);
+                emptyResp.put("stats", emptyStats);
+                emptyResp.put("semaines", Collections.emptyList());
+                emptyResp.put("kpis", Collections.emptyMap());
+                emptyResp.put("periode", null);
+                return emptyResp;
             }
 
             StringBuilder sql = new StringBuilder(

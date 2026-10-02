@@ -74,7 +74,7 @@ public class EtatSocialMensuelExportService {
             Sheet summary = workbook.createSheet("Synthèse sociale");
             Sheet detail = workbook.createSheet("Détail nominatif");
             summary.setDisplayGridlines(false); detail.setDisplayGridlines(false);
-            heading(summary, 0, "ÉTAT SOCIAL MENSUEL", styles.title);
+            banner(summary, "ÉTAT SOCIAL MENSUEL", SUMMARY.length - 1, styles.title);
             heading(summary, 1, "Période " + periodCode + " · données des bulletins validés ou clôturés", styles.muted);
             heading(summary, 2, "Document interne de contrôle · les déclarations par organisme sont préparées séparément", styles.muted);
             header(summary, 4, SUMMARY, styles.header);
@@ -101,7 +101,7 @@ public class EtatSocialMensuelExportService {
             cell(summary, sr + 3, 0, styles.muted).setCellValue("Un salarié présent dans plusieurs organismes est compté dans chacun d'eux.");
             summary.createFreezePane(0, 5);
 
-            heading(detail, 0, "COTISATIONS PAR SALARIÉ", styles.title);
+            banner(detail, "COTISATIONS PAR SALARIÉ", DETAIL.length - 1, styles.title);
             heading(detail, 1, "Période " + periodCode + " · une ligne par salarié et par organisme", styles.muted);
             header(detail, 3, DETAIL, styles.header);
             for (int i = 0; i < DETAIL.length; i++) detail.setColumnWidth(i, i == 0 || i == 3 ? 10500 : i >= 6 ? 5700 : 5200);
@@ -183,6 +183,12 @@ public class EtatSocialMensuelExportService {
         return result;
     }
     private static void heading(Sheet sheet, int row, String value, CellStyle style) { cell(sheet, row, 0, style).setCellValue(value); }
+    private static void banner(Sheet sheet, String value, int lastColumn, CellStyle style) {
+        for (int col = 0; col <= lastColumn; col++) cell(sheet, 0, col, style);
+        sheet.getRow(0).getCell(0).setCellValue(value);
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, lastColumn));
+        sheet.getRow(0).setHeightInPoints(36);
+    }
     private static void header(Sheet sheet, int row, String[] values, CellStyle style) {
         for (int col = 0; col < values.length; col++) cell(sheet, row, col, style).setCellValue(values[col]);
         sheet.getRow(row).setHeightInPoints(30);
@@ -198,10 +204,10 @@ public class EtatSocialMensuelExportService {
     private static final class Styles {
         final CellStyle title, muted, header, text, integer, money, totalText, totalMoney;
         Styles(Workbook workbook) {
-            Font titleFont = workbook.createFont(); titleFont.setBold(true); titleFont.setFontHeightInPoints((short) 16); titleFont.setColor(IndexedColors.DARK_GREEN.getIndex());
+            Font titleFont = workbook.createFont(); titleFont.setBold(true); titleFont.setFontHeightInPoints((short) 16); titleFont.setColor(IndexedColors.WHITE.getIndex());
             Font headerFont = workbook.createFont(); headerFont.setBold(true); headerFont.setColor(IndexedColors.WHITE.getIndex());
             Font totalFont = workbook.createFont(); totalFont.setBold(true); totalFont.setColor(IndexedColors.DARK_GREEN.getIndex());
-            title = workbook.createCellStyle(); title.setFont(titleFont);
+            title = workbook.createCellStyle(); title.setFont(titleFont); title.setFillForegroundColor(IndexedColors.DARK_GREEN.getIndex()); title.setFillPattern(FillPatternType.SOLID_FOREGROUND); title.setVerticalAlignment(VerticalAlignment.CENTER);
             muted = workbook.createCellStyle(); muted.setFont(workbook.createFont());
             header = workbook.createCellStyle(); header.setFont(headerFont); header.setFillForegroundColor(IndexedColors.DARK_GREEN.getIndex()); header.setFillPattern(FillPatternType.SOLID_FOREGROUND); header.setWrapText(true); border(header);
             text = workbook.createCellStyle(); border(text);

@@ -50,13 +50,34 @@ export function usePayrollCampaign(requestedPeriodId = null) {
 
             if (abortRef.current !== token) return; // réponse obsolète
 
+            const periodList = Array.isArray(allPeriodes) ? allPeriodes : [];
+
             // Résoudre l'ID sélectionné depuis le contexte si pas fourni en URL
-            const resolvedId = periodeId
+            let resolvedId = periodeId
                 || ctx?.selectedPeriod?.id
                 || ctx?.currentPeriod?.id
                 || null;
 
-            let populationCount = ctx?.populationCount ?? null;
+            let finalCtx = ctx;
+
+            // Lorsqu'aucune période ne couvre la date métier et qu'aucun ID n'a été spécifié,
+            // le backend renvoie selectedPeriod = null.
+            // On résout directement la période la plus récente en une seule passe
+            // pour éviter un rechargement différé en cascade (flash d'état vide).
+            if (!resolvedId && periodList.length > 0) {
+                const latestId = Number(periodList[0]?.idPeriodePaie || periodList[0]?.id);
+                if (latestId) {
+                    try {
+                        finalCtx = await periodePaieService.getContext(latestId);
+                        if (abortRef.current !== token) return;
+                        resolvedId = latestId;
+                    } catch {
+                        // En cas d'erreur sur la période de fallback, conserver finalCtx
+                    }
+                }
+            }
+
+            let populationCount = finalCtx?.populationCount ?? null;
             if (resolvedId && populationCount == null) {
                 try {
                     const cockpit = await paieService.getCockpitPeriode(resolvedId, { light: true });
@@ -69,9 +90,9 @@ export function usePayrollCampaign(requestedPeriodId = null) {
                 }
             }
 
-            const enrichedCtx = ctx ? { ...ctx, populationCount } : null;
+            const enrichedCtx = finalCtx ? { ...finalCtx, populationCount } : null;
 
-            setPeriodes(Array.isArray(allPeriodes) ? allPeriodes : []);
+            setPeriodes(periodList);
             setContext(enrichedCtx);
             setSelectedPeriodeId(resolvedId);
         } catch (err) {

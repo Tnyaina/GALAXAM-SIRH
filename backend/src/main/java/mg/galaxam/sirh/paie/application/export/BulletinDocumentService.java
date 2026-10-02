@@ -85,7 +85,7 @@ public class BulletinDocumentService {
             sheet.setDisplayGridlines(false);
             int[] widths = {10500, 4800, 3600, 5400, 5400};
             for (int i = 0; i < widths.length; i++) sheet.setColumnWidth(i, widths[i]);
-            CellStyle title = style(book, true, (short) 16, DARK, false, false);
+            CellStyle title = style(book, true, (short) 16, 0xFFFFFF, true, false);
             CellStyle label = style(book, true, (short) 10, DARK, false, false);
             CellStyle header = style(book, true, (short) 10, 0xFFFFFF, true, false);
             CellStyle body = style(book, false, (short) 10, DARK, false, false);
@@ -95,9 +95,13 @@ public class BulletinDocumentService {
             borders(tableNumber);
             borders(header);
             CellStyle total = style(book, true, (short) 11, DARK, true, true);
-            CellStyle net = style(book, true, (short) 14, DARK, true, true);
+            CellStyle net = style(book, true, (short) 14, 0xFFFFFF, true, true);
+            CellStyle netLabel = style(book, true, (short) 14, 0xFFFFFF, true, false);
             int r = 0;
             cell(sheet, r++, 0, "BULLETIN DE PAIE", title);
+            for (int col = 1; col < 5; col++) cell(sheet, 0, col, "", title);
+            sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(0, 0, 0, 4));
+            sheet.getRow(0).setHeightInPoints(36);
             cell(sheet, r++, 0, context.entreprise(), label);
             cell(sheet, r++, 0, context.adresse(), body);
             cell(sheet, r++, 0, "NIF : " + context.nif() + "   STAT : " + context.stat(), body);
@@ -125,6 +129,7 @@ public class BulletinDocumentService {
                 numeric(sheet, r, 3, l.gain(), tableNumber);
                 numeric(sheet, r++, 4, l.retenue(), tableNumber);
             }
+            int lastDetailRow = r - 1;
             r++;
             cell(sheet, r, 0, "Gains bruts", label); numeric(sheet, r++, 3, b.getTotalGainsBruts(), total);
             cell(sheet, r, 0, "Cotisations salariales", label); numeric(sheet, r++, 4, b.getTotalCotisationsSalariales(), total);
@@ -132,7 +137,12 @@ public class BulletinDocumentService {
             cell(sheet, r, 0, "IRSA / ISI", label); numeric(sheet, r++, 4, impot(b), total);
             cell(sheet, r, 0, "Avances et prêts", label); numeric(sheet, r++, 4, b.getTotalRetenuesAcomptePret(), total);
             r++;
-            cell(sheet, r, 0, "NET À PAYER", net); numeric(sheet, r++, 3, b.getNetAPayer(), net);
+            cell(sheet, r, 0, "NET À PAYER", netLabel);
+            for (int col = 1; col < 5; col++) cell(sheet, r, col, "", net);
+            numeric(sheet, r++, 3, b.getNetAPayer(), net);
+            sheet.getRow(r - 1).setHeightInPoints(34);
+            sheet.createFreezePane(1, headerRow + 1);
+            if (lastDetailRow > headerRow) sheet.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(headerRow, lastDetailRow, 0, 4));
             sheet.setRepeatingRows(new org.apache.poi.ss.util.CellRangeAddress(headerRow, headerRow, 0, columns.length - 1));
             sheet.getPrintSetup().setPaperSize(PrintSetup.A4_PAPERSIZE);
             sheet.setFitToPage(true);
@@ -152,10 +162,10 @@ public class BulletinDocumentService {
             page.heading(context, b);
             page.tableHeader();
             for (Rubrique l : rubriques) {
-                if (page.y < 150) { page.close(); page = new PageWriter(doc); page.continuation(context, b); page.tableHeader(); }
+                if (page.y - page.rubriqueHeight(l) < 145) { page.close(); page = new PageWriter(doc); page.continuation(context, b); page.tableHeader(); }
                 page.rubrique(l);
             }
-            if (page.y < 190) { page.close(); page = new PageWriter(doc); page.continuation(context, b); }
+            if (page.y < 205) { page.close(); page = new PageWriter(doc); page.continuation(context, b); }
             page.totals(b);
             page.close();
             doc.save(output);
@@ -204,15 +214,33 @@ public class BulletinDocumentService {
         }
         void rubrique(Rubrique l) throws Exception {
             float rowY = y;
-            if (((int) (rowY / 21)) % 2 == 0) fill(LEFT, rowY + 15, RIGHT - LEFT, 21, 0xF7F9F7);
-            String label = l.libelle();
-            if (label.length() > 43) label = label.substring(0, 42) + "…";
-            text(LEFT + 8, rowY + 1, label, 8, false, DARK);
+            List<String> labelLines = wrapLabel(l.libelle());
+            float height = 21 + (labelLines.size() - 1) * 10;
+            if (((int) (rowY / 21)) % 2 == 0) fill(LEFT, rowY + 15, RIGHT - LEFT, height, 0xF7F9F7);
+            for (int i = 0; i < labelLines.size(); i++) text(LEFT + 8, rowY + 1 - i * 10, labelLines.get(i), 8, false, DARK);
             right(342, rowY + 1, fmt(l.base()), 8, false, DARK);
             right(397, rowY + 1, l.taux() == null ? "" : fmt(l.taux()) + " %", 8, false, DARK);
             right(475, rowY + 1, fmt(l.gain()), 8, false, DARK);
             right(RIGHT - 8, rowY + 1, fmt(l.retenue()), 8, false, DARK);
-            y -= 21;
+            y -= height;
+        }
+        float rubriqueHeight(Rubrique l) throws Exception { return 21 + (wrapLabel(l.libelle()).size() - 1) * 10; }
+        List<String> wrapLabel(String value) throws Exception {
+            List<String> lines = new ArrayList<>();
+            StringBuilder current = new StringBuilder();
+            for (String word : safe(value).split("\\s+")) {
+                String candidate = current.isEmpty() ? word : current + " " + word;
+                if (!current.isEmpty() && REGULAR.getStringWidth(candidate) / 1000 * 8 > 250) {
+                    lines.add(current.toString());
+                    current.setLength(0);
+                    current.append(word);
+                } else {
+                    current.setLength(0);
+                    current.append(candidate);
+                }
+            }
+            if (!current.isEmpty()) lines.add(current.toString());
+            return lines.isEmpty() ? List.of("") : lines;
         }
         void totals(BulletinPaie b) throws Exception {
             y -= 14;
@@ -224,9 +252,9 @@ public class BulletinDocumentService {
             summary("IRSA / ISI", impot(b));
             summary("Avances et prêts", b.getTotalRetenuesAcomptePret());
             y -= 7;
-            fill(LEFT, y + 12, RIGHT - LEFT, 33, PALE);
-            text(LEFT + 12, y - 9, "NET À PAYER", 12, true, DARK);
-            right(RIGHT - 12, y - 9, fmt(b.getNetAPayer()) + " Ar", 14, true, DARK);
+            fill(LEFT, y + 12, RIGHT - LEFT, 36, DARK);
+            text(LEFT + 12, y - 10, "NET À PAYER", 12, true, 0xFFFFFF);
+            right(RIGHT - 12, y - 10, fmt(b.getNetAPayer()) + " Ar", 14, true, 0xFFFFFF);
             y -= 54;
         }
         void summary(String label, BigDecimal value) throws Exception {

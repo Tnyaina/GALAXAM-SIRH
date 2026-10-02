@@ -109,7 +109,7 @@ export default function ParametresModulesPanel() {
     }
 
     return (
-        <div className="flex-1 min-h-0 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full flex flex-col overflow-hidden">
+        <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto w-full space-y-3 lg:space-y-4">
             <SEO title="Paramétrage des Modules" description="Configuration des barèmes, cotisations, majorations et règles métier." />
 
             <PageHeader
@@ -127,13 +127,11 @@ export default function ParametresModulesPanel() {
             <AdministrationSettingsView
                 groups={[{ id: 'domaines', label: 'Domaines métier', items: MODULES }]}
                 activeId={activeModule} onChange={handleModuleChange}
-                contained scrollContent={false}
             >
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                     <AdministrationSettingsView
                         groups={activeModule === 'paie' ? paieGroups : [{ id: activeModule, label: 'Configuration', items: currentTabs }]}
                         activeId={activeTab === 'majorations_params' || activeTab === 'majorations' ? 'reglementation_fiscale' : activeTab === 'parametres_globaux' ? 'parametres_globaux_paie' : activeTab}
-                        onChange={handleTabChange} contained
+                        onChange={handleTabChange}
                     >
                 {/* Contenu de l'onglet actif avec le SkeletonTable standardisé */}
                 <Suspense fallback={<SkeletonTable rows={5} columns={5} />}>
@@ -176,7 +174,6 @@ export default function ParametresModulesPanel() {
                         )}
                 </Suspense>
                     </AdministrationSettingsView>
-                </div>
             </AdministrationSettingsView>
         </div>
     );

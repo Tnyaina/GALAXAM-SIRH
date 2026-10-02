@@ -28,6 +28,9 @@ const attendanceApi = {
             if (cleanParams.idSite != null && Number(cleanParams.idSite) <= 0) {
                 delete cleanParams.idSite;
             }
+            if (cleanParams.idPeriodePaie != null && Number(cleanParams.idPeriodePaie) <= 0) {
+                delete cleanParams.idPeriodePaie;
+            }
             if (cleanParams.datePointage === '' || cleanParams.datePointage == null) {
                 delete cleanParams.datePointage;
             }

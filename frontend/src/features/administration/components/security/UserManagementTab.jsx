@@ -247,10 +247,18 @@ export default function UserManagementTab() {
 
             {/* Barre d'outils */}
             <Card className="overflow-hidden p-0" shadow="none">
-            <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center p-3.5 border-b border-[var(--color-border-subtle)]">
-                <div className="flex-1 max-w-md"><Input aria-label="Rechercher" placeholder="Rechercher par identifiant ou rôle…" value={search} onChange={event => setSearch(event.target.value)} iconLeft={<Search size={16} />} className="min-h-[44px]" /></div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center p-3 border-b border-[var(--color-border-subtle)]">
+                <div className="flex-1 max-w-md">
+                    <Input
+                        aria-label="Rechercher"
+                        placeholder="Rechercher par identifiant ou rôle…"
+                        value={search}
+                        onChange={event => setSearch(event.target.value)}
+                        iconLeft={<Search size={15} />}
+                    />
+                </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1.5 hover:bg-[var(--color-bg-subtle)] rounded-none whitespace-nowrap">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1.5 hover:bg-[var(--color-bg-subtle)] rounded-none whitespace-nowrap min-h-[34px]">
                         <input
                             type="checkbox"
                             checked={showInactive}
@@ -263,8 +271,8 @@ export default function UserManagementTab() {
                     <Button
                         onClick={handleOpenCreateModal}
                         variant="primary"
-                        size="sm"
-                        iconLeft={<UserPlus size={16} />}
+                        size="md"
+                        iconLeft={<UserPlus size={15} />}
                     >
                         Nouvel Utilisateur
                     </Button>

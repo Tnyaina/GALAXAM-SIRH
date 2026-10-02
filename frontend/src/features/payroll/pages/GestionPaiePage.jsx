@@ -8,11 +8,13 @@ import {
 import SEO from '@/components/system/SEO';
 import Button from '@/components/ui/forms/Button';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
+import Alert from '@/components/ui/feedback/Alert';
+import { Card } from '@/components/ui/data-display/Card';
 import StatCard from '@/components/ui/data-display/StatCard';
 import PayrollPeriodStepper from '@/features/payroll/components/workflow/PayrollPeriodStepper';
 import PayrollIssueBadge from '@/features/payroll/components/feedback/PayrollIssueBadge';
 import PageHeader from '@/components/ui/navigation/PageHeader';
-import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import { Skeleton, SkeletonStatCard, SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
@@ -41,7 +43,7 @@ export default function GestionPaiePage() {
     const rawTab = searchParams.get('tab') || 'centre';
     const requestedPeriodId = Number(searchParams.get('periodId')) || null;
 
-    const { periodes, context, loading, selectPeriode } = usePayrollCampaign(requestedPeriodId);
+    const { periodes, context, loading, error, selectPeriode } = usePayrollCampaign(requestedPeriodId);
 
     // État local
     const [periodKpis, setPeriodKpis] = useState(null);
@@ -71,7 +73,9 @@ export default function GestionPaiePage() {
     // Effets
     useEffect(() => {
         if (rawTab === 'validation') {
-            navigate('/pointages?tab=validation', { replace: true });
+            const targetId = activePeriod?.id || requestedPeriodId;
+            const dest = targetId ? `/paie/periodes/${targetId}/validation` : '/paie';
+            navigate(dest, { replace: true });
         } else if (rawTab === 'bulletins') {
             const suffix = requestedPeriodId ? `/paie/periodes/${requestedPeriodId}/controle` : '/paie';
             navigate(suffix, { replace: true });
@@ -197,6 +201,7 @@ export default function GestionPaiePage() {
                             idPeriodeActive={activePeriod?.id}
                             canMutate={addVariableCapability?.allowed === true}
                             mutationDisabledReason={(addVariableCapability?.reasonCodes || []).join(', ') || 'La période est en lecture seule.'}
+                            periodStatus={activePeriod?.statutCode || activePeriod?.statut || activePeriod?.state}
                             onVariableChanged={() => activePeriod?.id && loadPeriodKpis(activePeriod.id)}
                         />
                     </div>
@@ -241,46 +246,66 @@ export default function GestionPaiePage() {
                 )}
             />
 
+            {error && (
+                <div className="mb-2">
+                    <Alert
+                        type="error"
+                        title="Erreur lors du chargement de la campagne de paie"
+                        message={error}
+                    />
+                </div>
+            )}
+
             {/* Contexte de la période et progression de la campagne */}
             <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 sm:p-6 shadow-xs relative">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-3 flex-wrap">
-                            <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-[var(--color-brand-500)]/15 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]">
-                                {isCurrentBusinessPeriod ? 'Période courante' : 'Période sélectionnée'}
-                            </span>
-                            <h2 className="text-2xl sm:text-3xl font-bold text-[var(--color-fg)] tracking-tight">
-                                {activePeriod?.code || activePeriod?.label || 'Aucune campagne active'}
-                            </h2>
-                            <PayrollWorkflowStatusBadges statuses={activePeriod?.workflowStatuses} size="md" />
-                            {recalcRequired && (
-                                <PayrollIssueBadge severity="WARNING" label="Calcul obsolète" />
-                            )}
-                            {activeBlockers.length > 0 && (
-                                <PayrollIssueBadge
-                                    severity="BLOCKER"
-                                    count={activeBlockers.length}
-                                    label="bloquant(s)"
-                                    className="cursor-help"
-                                    title={activeBlockers.map(b => b.message).join('\n')}
-                                />
+                {loading && !context ? (
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <Skeleton className="h-4 w-28" />
+                            <Skeleton className="h-8 w-44" />
+                            <Skeleton className="h-6 w-20" />
+                        </div>
+                        <Skeleton className="h-4 w-72" />
+                    </div>
+                ) : (
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-[var(--color-brand-500)]/15 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]">
+                                    {isCurrentBusinessPeriod ? 'Période courante' : 'Période sélectionnée'}
+                                </span>
+                                <h2 className="text-2xl sm:text-3xl font-bold text-[var(--color-fg)] tracking-tight">
+                                    {activePeriod?.code || activePeriod?.label || 'Aucune campagne active'}
+                                </h2>
+                                <PayrollWorkflowStatusBadges statuses={activePeriod?.workflowStatuses} size="md" />
+                                {recalcRequired && (
+                                    <PayrollIssueBadge severity="WARNING" label="Calcul obsolète" />
+                                )}
+                                {activeBlockers.length > 0 && (
+                                    <PayrollIssueBadge
+                                        severity="BLOCKER"
+                                        count={activeBlockers.length}
+                                        label="bloquant(s)"
+                                        className="cursor-help"
+                                        title={activeBlockers.map(b => b.message).join('\n')}
+                                    />
+                                )}
+                            </div>
+
+                            {activePeriod && (
+                                <p className="text-xs text-[var(--color-fg-muted)] flex items-center gap-3 flex-wrap">
+                                    <span>
+                                        Du <strong className="text-[var(--color-fg)]">{fmtDate(activePeriod.startDate)}</strong> au <strong className="text-[var(--color-fg)]">{fmtDate(activePeriod.endDate)}</strong>
+                                    </span>
+                                    <span>· Population : <strong className="text-[var(--color-fg)] font-mono">{periodKpis?.populationCount ?? context?.populationCount ?? activePeriod.employeeCount ?? '–'}</strong> salariés</span>
+                                    {context?.snapshotPointageVersion && (
+                                        <span>· Snapshot Pointage : <code className="font-mono text-[var(--color-brand-600)]">v{context.snapshotPointageVersion}</code></span>
+                                    )}
+                                </p>
                             )}
                         </div>
-
-                        {activePeriod && (
-                            <p className="text-xs text-[var(--color-fg-muted)] flex items-center gap-3 flex-wrap">
-                                <span>
-                                    Du <strong className="text-[var(--color-fg)]">{fmtDate(activePeriod.startDate)}</strong> au <strong className="text-[var(--color-fg)]">{fmtDate(activePeriod.endDate)}</strong>
-                                </span>
-                                <span>· Population : <strong className="text-[var(--color-fg)] font-mono">{periodKpis?.populationCount ?? context?.populationCount ?? activePeriod.employeeCount ?? '–'}</strong> salariés</span>
-                                {context?.snapshotPointageVersion && (
-                                    <span>· Snapshot Pointage : <code className="font-mono text-[var(--color-brand-600)]">v{context.snapshotPointageVersion}</code></span>
-                                )}
-                            </p>
-                        )}
                     </div>
-
-                </div>
+                )}
 
                 {/* Stepper de campagne compact */}
                 {campaignSteps.length > 0 && (
@@ -330,34 +355,45 @@ export default function GestionPaiePage() {
 
             {/* GRILLE DE SYNTHÈSE KPI */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard
-                    title="Bulletins calculés"
-                    value={kpiLoading ? '…' : (periodKpis?.totalBulletins ?? 0)}
-                    subtext={hasCalculatedBulletins ? `Période ${activePeriod?.code || ''}` : 'En attente du calcul'}
-                    icon={<FileText size={18} />}
-                    color="brand"
-                />
-                <StatCard
-                    title="Masse Brute"
-                    value={kpiLoading ? '…' : hasCalculatedBulletins ? formatAr(periodKpis?.totalBrut) : '—'}
-                    subtext={hasCalculatedBulletins ? 'Salaires bruts imposables' : 'En attente du calcul'}
-                    icon={<DollarSign size={18} />}
-                    color="info"
-                />
-                <StatCard
-                    title="Net à payer"
-                    value={kpiLoading ? '…' : hasCalculatedBulletins ? formatAr(periodKpis?.totalNet) : '—'}
-                    subtext={hasCalculatedBulletins ? 'Montant total des virements' : 'En attente du calcul'}
-                    icon={<Banknote size={18} />}
-                    color="success"
-                />
-                <StatCard
-                    title="Alertes & Contrôles"
-                    value={kpiLoading ? '…' : (periodKpis?.totalAlertes ?? 0)}
-                    subtext={(periodKpis?.totalAlertes ?? 0) > 0 ? 'Anomalies nécessitant examen' : 'Aucune anomalie signalée'}
-                    icon={<AlertTriangle size={18} />}
-                    color={(periodKpis?.totalAlertes ?? 0) > 0 ? 'warning' : 'neutral'}
-                />
+                {(loading && !context) || (kpiLoading && !periodKpis) ? (
+                    <>
+                        <SkeletonStatCard />
+                        <SkeletonStatCard />
+                        <SkeletonStatCard />
+                        <SkeletonStatCard />
+                    </>
+                ) : (
+                    <>
+                        <StatCard
+                            title="Bulletins calculés"
+                            value={kpiLoading ? '…' : (periodKpis?.totalBulletins ?? 0)}
+                            subtext={hasCalculatedBulletins ? `Période ${activePeriod?.code || ''}` : 'En attente du calcul'}
+                            icon={<FileText size={18} />}
+                            color="brand"
+                        />
+                        <StatCard
+                            title="Masse Brute"
+                            value={kpiLoading ? '…' : hasCalculatedBulletins ? formatAr(periodKpis?.totalBrut) : '—'}
+                            subtext={hasCalculatedBulletins ? 'Salaires bruts imposables' : 'En attente du calcul'}
+                            icon={<DollarSign size={18} />}
+                            color="info"
+                        />
+                        <StatCard
+                            title="Net à payer"
+                            value={kpiLoading ? '…' : hasCalculatedBulletins ? formatAr(periodKpis?.totalNet) : '—'}
+                            subtext={hasCalculatedBulletins ? 'Montant total des virements' : 'En attente du calcul'}
+                            icon={<Banknote size={18} />}
+                            color="success"
+                        />
+                        <StatCard
+                            title="Alertes & Contrôles"
+                            value={kpiLoading ? '…' : (periodKpis?.totalAlertes ?? 0)}
+                            subtext={(periodKpis?.totalAlertes ?? 0) > 0 ? 'Anomalies nécessitant examen' : 'Aucune anomalie signalée'}
+                            icon={<AlertTriangle size={18} />}
+                            color={(periodKpis?.totalAlertes ?? 0) > 0 ? 'warning' : 'neutral'}
+                        />
+                    </>
+                )}
             </div>
 
             {activePeriod && (
@@ -389,16 +425,21 @@ export default function GestionPaiePage() {
                         </div>
                     </div>
                     {(activeBlockers.length > 0 || recalcRequired) && (
-                        <div className="px-4 py-3 bg-[var(--color-warning-500)]/10 text-xs text-[var(--color-fg)] space-y-1">
+                        <div className="p-4 border-t border-[var(--color-border-subtle)] space-y-2">
                             {recalcRequired && (
-                                <p className="font-semibold text-[var(--color-warning-800)] dark:text-[var(--color-warning-300)]">
-                                    Le calcul doit être relancé après les dernières modifications.
-                                </p>
+                                <Alert
+                                    type="warning"
+                                    title="Recalcul requis"
+                                    message="Le calcul doit être relancé après les dernières modifications des données sources."
+                                />
                             )}
                             {activeBlockers.map((blocker, idx) => (
-                                <p key={blocker.code || idx}>
-                                    • <strong className="text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]">{blocker.message}</strong>
-                                </p>
+                                <Alert
+                                    key={blocker.code || idx}
+                                    type="error"
+                                    title="Point bloquant"
+                                    message={blocker.message}
+                                />
                             ))}
                         </div>
                     )}
@@ -413,61 +454,76 @@ export default function GestionPaiePage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Acomptes & Avances */}
-                    <button type="button"
+                    <Card
+                        hover
+                        padding
+                        className="text-left cursor-pointer transition-all group"
                         onClick={() => navigate('/paie/acomptes-avances')}
-                        className="w-full text-left bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 cursor-pointer hover:border-[var(--color-brand-500)] hover:shadow-xs focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] transition-all group"
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/paie/acomptes-avances')}
                     >
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5 text-[var(--color-fg)]">
-                                <SlidersHorizontal size={18} className="text-[var(--color-brand-600)]" />
+                                <SlidersHorizontal size={18} className="text-[var(--color-brand-600)] shrink-0" />
                                 <h4 className="text-sm font-bold group-hover:text-[var(--color-brand-600)] transition-colors">
                                     Acomptes & Avances
                                 </h4>
                             </div>
-                            <ChevronRight size={16} className="text-[var(--color-fg-subtle)] group-hover:translate-x-0.5 transition-transform" />
+                            <ChevronRight size={16} className="text-[var(--color-fg-subtle)] group-hover:translate-x-0.5 transition-transform shrink-0" />
                         </div>
                         <p className="text-xs text-[var(--color-fg-muted)] mt-2 leading-relaxed">
                             Gestion des demandes d’acomptes, avances sur salaire et suivi des imputations mensuelles.
                         </p>
-                    </button>
+                    </Card>
 
                     {/* Historique des Périodes */}
-                    <button type="button"
+                    <Card
+                        hover
+                        padding
+                        className="text-left cursor-pointer transition-all group"
                         onClick={() => navigate('/paie?tab=periodes')}
-                        className="w-full text-left bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 cursor-pointer hover:border-[var(--color-brand-500)] hover:shadow-xs focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] transition-all group"
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/paie?tab=periodes')}
                     >
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5 text-[var(--color-fg)]">
-                                <CalendarRange size={18} className="text-[var(--color-brand-600)]" />
+                                <CalendarRange size={18} className="text-[var(--color-brand-600)] shrink-0" />
                                 <h4 className="text-sm font-bold group-hover:text-[var(--color-brand-600)] transition-colors">
                                     Historique des Périodes
                                 </h4>
                             </div>
-                            <ChevronRight size={16} className="text-[var(--color-fg-subtle)] group-hover:translate-x-0.5 transition-transform" />
+                            <ChevronRight size={16} className="text-[var(--color-fg-subtle)] group-hover:translate-x-0.5 transition-transform shrink-0" />
                         </div>
                         <p className="text-xs text-[var(--color-fg-muted)] mt-2 leading-relaxed">
                             Consultation des campagnes passées, archives en lecture seule, ouverture et clôture de périodes.
                         </p>
-                    </button>
+                    </Card>
 
                     {/* Documents et exports de paie */}
-                    <button type="button"
+                    <Card
+                        hover
+                        padding
+                        className="text-left cursor-pointer transition-all group"
                         onClick={() => navigate('/paie/declarations')}
-                        className="w-full text-left bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 cursor-pointer hover:border-[var(--color-brand-500)] hover:shadow-xs focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] transition-all group"
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/paie/declarations')}
                     >
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5 text-[var(--color-fg)]">
-                                <FileText size={18} className="text-[var(--color-brand-600)]" />
+                                <FileText size={18} className="text-[var(--color-brand-600)] shrink-0" />
                                 <h4 className="text-sm font-bold group-hover:text-[var(--color-brand-600)] transition-colors">
                                     Documents et exports
                                 </h4>
                             </div>
-                            <ChevronRight size={16} className="text-[var(--color-fg-subtle)] group-hover:translate-x-0.5 transition-transform" />
+                            <ChevronRight size={16} className="text-[var(--color-fg-subtle)] group-hover:translate-x-0.5 transition-transform shrink-0" />
                         </div>
                         <p className="text-xs text-[var(--color-fg-muted)] mt-2 leading-relaxed">
                             Bulletins et états de paie mensuels, trimestriels et annuels à consulter ou télécharger.
                         </p>
-                    </button>
+                    </Card>
                 </div>
             </div>
         </div>

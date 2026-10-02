@@ -1,7 +1,9 @@
 import { useState, useRef, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, Calendar, Clock, Sparkles } from 'lucide-react';
+import { Calendar, Sparkles } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
+import Alert from '@/components/ui/feedback/Alert';
+import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
 import SEO from '@/components/system/SEO';
 import { useAuth } from '@/context/AuthContext';
@@ -44,7 +46,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     }, [paramDate, activePeriode?.dateDebut, activePeriode?.dateFin, todayStr]);
 
     const parsedParamSite = paramSite ? Number(paramSite) : null;
-    const initialSite = (parsedParamSite && parsedParamSite > 0) ? parsedParamSite : null;
+    const initialSite = (parsedParamSite && parsedParamSite > 0) ? parsedParamSite : 1;
 
     useEffect(() => {
         const fetchSites = async () => {
@@ -381,43 +383,41 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
 
                 {/* 1.bis Alert : Date future */}
                 {isFuture && (
-                    <div className="bg-[var(--color-warning-500)]/10 border-l-4 border-l-[var(--color-warning-500)] p-3 text-xs text-[var(--color-warning-800)] dark:text-[var(--color-warning-200)] flex items-center justify-between gap-3 shadow-xs flex-wrap">
-                        <div className="flex items-center gap-2.5">
-                            <AlertCircle size={16} className="shrink-0 text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]" />
-                            <div>
-                                <span className="font-bold">Date future ({selectedDate})</span>
-                                <span className="ml-2 text-[11px] opacity-85">— Conformément aux règles d'intégrité temporelle du GRH, la saisie et la modification des pointages sont strictement désactivées pour les dates non échues.</span>
-                            </div>
+                    <Alert
+                        type="warning"
+                        title={`Date future (${selectedDate})`}
+                    >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-1">
+                            <span>Conformément aux règles d'intégrité temporelle du GRH, la saisie et la modification des pointages sont strictement désactivées pour les dates non échues.</span>
+                            <Button
+                                size="xs"
+                                variant="outline"
+                                onClick={() => handleDateChange(getTodayDateString())}
+                                className="shrink-0"
+                            >
+                                Revenir à aujourd'hui ({getTodayDateString()})
+                            </Button>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => handleDateChange(getTodayDateString())}
-                            className="px-3 py-1.5 text-xs font-bold bg-[var(--color-warning-600)] hover:bg-[var(--color-warning-700)] text-[var(--color-on-color)] rounded-none cursor-pointer transition-colors shrink-0 shadow-xs"
-                        >
-                            Revenir à aujourd'hui ({getTodayDateString()})
-                        </button>
-                    </div>
+                    </Alert>
                 )}
 
                 {/* 2. Alert : Aucune période de paie ouverte */}
                 {!periodeInfo && !loading && (
-                    <div className="bg-[var(--color-warning-500)]/10 border-l-4 border-l-[var(--color-warning-500)] p-3 text-xs text-[var(--color-warning-800)] dark:text-[var(--color-warning-200)] flex items-center justify-between gap-3 shadow-xs flex-wrap">
-                        <div className="flex items-center gap-2.5">
-                            <AlertCircle size={16} className="shrink-0 text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]" />
-                            <div>
-                                <span className="font-bold">Aucune période de paie ouverte pour le {selectedDate}</span>
-                                <span className="ml-2 text-[11px] opacity-85">— La saisie est verrouillée en lecture seule.</span>
-                            </div>
-                        </div>
-                        {canValidate && (
-                            <Button
-                                size="xs"
-                                variant="primary"
-                                onClick={() => navigate(`/paie?tab=periodes&action=create&targetDate=${selectedDate}`)}
-                                icon={<Sparkles size={13} className="text-[var(--color-warning-300)]" />}
-                                className="shrink-0"
-                            >
-                                Créer la période ({(() => {
+                    <Alert
+                        type="warning"
+                        title={`Aucune période de paie ouverte pour le ${selectedDate}`}
+                    >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-1">
+                            <span>La saisie est verrouillée en lecture seule.</span>
+                            {canValidate && (
+                                <Button
+                                    size="xs"
+                                    variant="primary"
+                                    onClick={() => navigate(`/paie?tab=periodes&action=create&targetDate=${selectedDate}`)}
+                                    icon={<Sparkles size={13} className="text-[var(--color-warning-300)]" />}
+                                    className="shrink-0"
+                                >
+                                    Créer la période ({(() => {
                                     if (!selectedDate) return 'Suivante';
                                     const parts = selectedDate.split('-');
                                     if (parts.length === 3) {
@@ -431,9 +431,10 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                                     }
                                     return 'Suivante';
                                 })()})
-                            </Button>
-                        )}
-                    </div>
+                                </Button>
+                            )}
+                        </div>
+                    </Alert>
                 )}
 
                 {/* 4. Information locale à cette grille : pas de composant séparé à rechercher. */}
@@ -461,15 +462,9 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
 
                 {/* 5. Table de Saisie DOMINANTE (scroll interne) */}
                 {loading ? (
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-12 text-center text-xs font-bold text-[var(--color-fg-muted)] flex items-center justify-center gap-2" style={{ minHeight: 'calc(100vh - 260px)' }}>
-                        <Clock size={16} className="animate-spin text-[var(--color-brand-500)]" />
-                        Chargement des pointages…
-                    </div>
+                    <SkeletonTable rows={8} columns={10} />
                 ) : error ? (
-                    <div className="bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/30 p-4 text-xs font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] flex items-center gap-2">
-                        <AlertCircle size={15} />
-                        {error}
-                    </div>
+                    <Alert type="error" title="Impossible de charger les pointages" message={error} />
                 ) : (
                     <PointageGridTable
                         grilleData={filteredData}

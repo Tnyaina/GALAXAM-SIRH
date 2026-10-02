@@ -111,6 +111,11 @@ apiClient.interceptors.response.use(
         return response;
     },
     async (error) => {
+        // En cas d'annulation explicite (AbortController / axios cancel), propager l'erreur telle quelle
+        if (axios.isCancel(error) || error?.code === 'ERR_CANCELED' || error?.name === 'CanceledError') {
+            return Promise.reject(error);
+        }
+
         const originalRequest = error.config;
 
         if (!error.response && error.request) {

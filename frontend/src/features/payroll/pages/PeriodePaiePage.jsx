@@ -465,7 +465,7 @@ export default function PeriodePaiePage() {
                     </div>
                     <HasPermission authority={['PAIE_WRITE', 'PAIE_VALIDATE', 'POINTAGE_VALIDATE']}>
                         <div className="flex flex-wrap items-center gap-2">
-                            <Button onClick={handleOpenCreateWithSuggestion} variant="primary" size="md" icon={<Plus size={16} />}>Créer la campagne</Button>
+                            <Button onClick={handleOpenCreateWithSuggestion} variant="primary" size="sm" iconLeft={<Plus size={14} />}>Créer la campagne</Button>
                             <Button onClick={handleOpenCreateBlank} variant="outline" size="sm">Choisir d’autres dates</Button>
                         </div>
                     </HasPermission>

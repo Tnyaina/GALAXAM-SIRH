@@ -18,6 +18,7 @@ import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import MoneyInput from '@/components/ui/forms/MoneyInput';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
+import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
@@ -51,6 +52,42 @@ const MODE_ICONS = {
 export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese, onClose, onCreated }) {
     const { periodes, context, selectedPeriodeId, selectPeriode, loading: loadingPeriod, error: periodError } = usePayrollCampaign();
 
+    // État pour la sélection autonome d'employé (quand non injecté en prop)
+    const [selectedEmpId, setSelectedEmpId] = useState(idEmploye ? String(idEmploye) : '');
+    const [selectedEmp, setSelectedEmp] = useState(employe || null);
+    const [fetchedSynthese, setFetchedSynthese] = useState(null);
+    const [loadingEmpSynthese, setLoadingEmpSynthese] = useState(false);
+
+    useEffect(() => {
+        if (idEmploye) {
+            setSelectedEmpId(String(idEmploye));
+            setSelectedEmp(employe || null);
+            setFetchedSynthese(null);
+            return;
+        }
+        if (!selectedEmpId) {
+            setFetchedSynthese(null);
+            return;
+        }
+        let active = true;
+        setLoadingEmpSynthese(true);
+        paieService.getSynthesePaieEmploye(selectedEmpId)
+            .then(res => {
+                if (active) setFetchedSynthese(res);
+            })
+            .catch(() => {
+                if (active) setFetchedSynthese(null);
+            })
+            .finally(() => {
+                if (active) setLoadingEmpSynthese(false);
+            });
+        return () => { active = false; };
+    }, [idEmploye, employe, selectedEmpId]);
+
+    const effectiveIdEmploye = idEmploye || selectedEmpId;
+    const effectiveEmploye = employe || selectedEmp;
+    const effectiveSynthese = synthese || fetchedSynthese;
+
     // 1. Référentiels dynamiques chargés depuis le Backend (aucune valeur en dur)
     const [types, setTypes] = useState([]);
     const [typeCode, setTypeCode] = useState('');
@@ -67,9 +104,9 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
     const [error, setError] = useState(null);
 
     // Chiffres repères financiers de l'employé fournis par le backend
-    const salaireBase = synthese?.salaireBaseContractuel || 0;
+    const salaireBase = effectiveSynthese?.salaireBaseContractuel || 0;
     const plafondAcompte = salaireBase > 0 ? Math.round(salaireBase * 0.5) : 0;
-    const encoursAcomptes = (synthese?.acomptesRestants || 0) + (synthese?.avancesRestantes || 0);
+    const encoursAcomptes = (effectiveSynthese?.acomptesRestants || 0) + (effectiveSynthese?.avancesRestantes || 0);
 
     // Chargement dynamique des types de mouvements autorisés pour la période sélectionnée
     useEffect(() => {
@@ -155,7 +192,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
 
     // La soumission ne dépend que des champs obligatoires et de l'autorisation workflow backend
     const canSubmit = isVariableAllowed && !loadingPeriod && !loadingTypes && !submitting
-        && Boolean(selectedPeriodeId) && Boolean(typeCode) && isMontantValide && hasMotif;
+        && Boolean(effectiveIdEmploye) && Boolean(selectedPeriodeId) && Boolean(typeCode) && isMontantValide && hasMotif;
 
     // Raccourcis de calcul ergonomiques (purement indicatifs, aucune règle bloquante)
     const quickAmounts = useMemo(() => {
@@ -178,7 +215,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
         setError(null);
         try {
             await paieService.creerAjustement({
-                idEmploye: Number(idEmploye),
+                idEmploye: Number(effectiveIdEmploye),
                 idPeriodePaie: Number(selectedPeriodeId),
                 typeMouvement: typeCode,
                 montant: numMontant,
@@ -199,11 +236,27 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
         <Modal isOpen onClose={onClose} title="Demande d’acompte ou d’avance sur salaire" size="2xl">
             <form onSubmit={submit} className="space-y-4 text-xs">
                 <p className="text-xs text-[var(--color-fg-muted)]">
-                    La demande sera enregistrée en attente d’approbation dans la campagne de paie sélectionnée.
+                    Saisir une demande d'acompte ou d'avance — La demande sera enregistrée en attente d’approbation dans la campagne de paie sélectionnée.
                 </p>
                 {error && <FormError message={error} />}
                 {periodError && <Alert type="error" message={periodError} />}
                 {typesError && <Alert type="error" message={typesError} />}
+
+                {/* Sélecteur de collaborateur quand la modale est ouverte hors de la fiche employé */}
+                {!idEmploye && (
+                    <div className="space-y-1">
+                        <EmployeSearchSelect
+                            required
+                            label="Collaborateur bénéficiaire"
+                            value={selectedEmpId}
+                            onChange={(val, empObj) => {
+                                setSelectedEmpId(val ? String(val) : '');
+                                setSelectedEmp(empObj || null);
+                            }}
+                            placeholder="Rechercher par nom, prénom ou matricule…"
+                        />
+                    </div>
+                )}
 
                 {/* 1. Carte collaborateur & repères financiers contextuels */}
                 <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-3 rounded-none">
@@ -214,16 +267,16 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
                             </span>
                             <div>
                                 <span className="font-bold text-[var(--color-fg)] text-xs">
-                                    {employe?.nomComplet || 'Collaborateur sélectionné'}
+                                    {effectiveEmploye?.nomComplet || effectiveEmploye?.nom || (effectiveIdEmploye ? 'Collaborateur sélectionné' : 'Aucun collaborateur sélectionné')}
                                 </span>
-                                {employe?.matricule && (
+                                {effectiveEmploye?.matricule && (
                                     <span className="ml-1.5 text-[11px] text-[var(--color-fg-muted)] font-mono">
-                                        #{employe.matricule}
+                                        #{effectiveEmploye.matricule}
                                     </span>
                                 )}
-                                {(employe?.fonction || employe?.poste) && (
+                                {(effectiveEmploye?.fonction || effectiveEmploye?.poste) && (
                                     <span className="ml-2 text-[11px] text-[var(--color-fg-subtle)]">
-                                        · {employe.fonction || employe.poste}
+                                        · {effectiveEmploye.fonction || effectiveEmploye.poste}
                                     </span>
                                 )}
                             </div>
@@ -231,33 +284,39 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
                         <Badge variant="outline" size="xs">Dossier Paie</Badge>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
-                            <span className="text-[10px] text-[var(--color-fg-muted)] block uppercase tracking-wider font-semibold">
-                                Salaire contractuel de base
-                            </span>
-                            <span className="text-xs font-bold text-[var(--color-fg)] font-mono mt-0.5 block">
-                                {salaireBase > 0 ? formatMoneyAr(salaireBase) : 'Non renseigné'}
-                            </span>
+                    {!effectiveIdEmploye ? (
+                        <p className="text-xs text-[var(--color-fg-muted)] py-1">
+                            Sélectionnez un collaborateur ci-dessus pour afficher ses repères financiers (salaire de base, repère 50%, encours).
+                        </p>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
+                                <span className="text-[10px] text-[var(--color-fg-muted)] block uppercase tracking-wider font-semibold">
+                                    Salaire contractuel de base
+                                </span>
+                                <span className="text-xs font-bold text-[var(--color-fg)] font-mono mt-0.5 block">
+                                    {loadingEmpSynthese ? 'Chargement…' : salaireBase > 0 ? formatMoneyAr(salaireBase) : 'Non renseigné'}
+                                </span>
+                            </div>
+                            <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
+                                <span className="text-[10px] text-[var(--color-fg-muted)] block uppercase tracking-wider font-semibold">
+                                    Repère quinzaine (50%)
+                                </span>
+                                <span className="text-xs font-bold text-[var(--color-brand-700)] font-mono mt-0.5 block">
+                                    {loadingEmpSynthese ? '…' : plafondAcompte > 0 ? formatMoneyAr(plafondAcompte) : '—'}
+                                </span>
+                            </div>
+                            <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
+                                <span className="text-[10px] text-[var(--color-fg-muted)] block uppercase tracking-wider font-semibold">
+                                    Encours acomptes / avances
+                                </span>
+                                <span className={`text-xs font-bold font-mono mt-0.5 block ${encoursAcomptes > 0 ? 'text-[var(--color-warning-600)]' : 'text-[var(--color-success-600)]'}`}>
+                                    {loadingEmpSynthese ? '…' : formatMoneyAr(encoursAcomptes)}
+                                    {!loadingEmpSynthese && encoursAcomptes === 0 && <span className="ml-1 text-[10px] font-normal text-[var(--color-fg-subtle)]">(Aucun encours)</span>}
+                                </span>
+                            </div>
                         </div>
-                        <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
-                            <span className="text-[10px] text-[var(--color-fg-muted)] block uppercase tracking-wider font-semibold">
-                                Repère quinzaine (50%)
-                            </span>
-                            <span className="text-xs font-bold text-[var(--color-brand-700)] font-mono mt-0.5 block">
-                                {plafondAcompte > 0 ? formatMoneyAr(plafondAcompte) : '—'}
-                            </span>
-                        </div>
-                        <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
-                            <span className="text-[10px] text-[var(--color-fg-muted)] block uppercase tracking-wider font-semibold">
-                                Encours acomptes / avances
-                            </span>
-                            <span className={`text-xs font-bold font-mono mt-0.5 block ${encoursAcomptes > 0 ? 'text-[var(--color-warning-600)]' : 'text-[var(--color-success-600)]'}`}>
-                                {formatMoneyAr(encoursAcomptes)}
-                                {encoursAcomptes === 0 && <span className="ml-1 text-[10px] font-normal text-[var(--color-fg-subtle)]">(Aucun encours)</span>}
-                            </span>
-                        </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* 2. Période de paie ciblée */}

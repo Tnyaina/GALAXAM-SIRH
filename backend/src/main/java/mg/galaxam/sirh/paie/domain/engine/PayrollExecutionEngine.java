@@ -983,7 +983,12 @@ public class PayrollExecutionEngine {
         l.setImposable(gainBrut);
         l.setSoumisCotisation(gainBrut);
         l.setBaseCalcul(baseCalcul != null ? MoneyRoundingPolicy.amount(baseCalcul) : null);
-        l.setTauxSalarial(taux != null ? MoneyRoundingPolicy.amount(taux) : null);
+        BigDecimal tauxLigne = taux != null ? MoneyRoundingPolicy.amount(taux) : null;
+        if ("PATRONAL".equals(sens)) {
+            l.setTauxPatronal(tauxLigne);
+        } else {
+            l.setTauxSalarial(tauxLigne);
+        }
         l.setQuantite(quantite);
         l.setMontantSalarial(mntSal != null ? MoneyRoundingPolicy.amount(mntSal) : null);
         l.setMontantPatronal(mntPat != null ? MoneyRoundingPolicy.amount(mntPat) : null);

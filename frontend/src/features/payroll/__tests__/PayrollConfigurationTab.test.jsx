@@ -32,6 +32,7 @@ afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
 describe('Paramétrage paie',()=>{
     it('consulte d’abord le catalogue et envoie la pagination au backend en conservant le contexte',async()=>{
         await render();expect(host.querySelector('[role="dialog"]')).toBeNull();
+        expect(host.querySelector('section[aria-label="Fiche de configuration"]').textContent).toContain('Prime de recette');
         const next=host.querySelector('button[aria-label="Page suivante"]');
         await act(async()=>next.click());
         expect(paieService.getConfigurationCatalogue.mock.calls.at(-1)[0].page).toBe(2);
@@ -39,7 +40,7 @@ describe('Paramétrage paie',()=>{
         expect(host.querySelector('output').textContent).toContain('rb_page=2');
     });
     it('affiche les erreurs sous les champs sans bandeau global et conserve les valeurs',async()=>{
-        await render();await click('Nouveau');await fill('Libellé','Ma prime');
+        await render();await click('Nouvelle règle manuelle');await fill('Libellé','Ma prime');
         await act(async()=>document.querySelector('[role="dialog"] form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
         expect(document.querySelector('[role="dialog"]').textContent).toContain('Renseignez ce champ.');
         expect(document.querySelector('[role="dialog"]').textContent).not.toContain('L’enregistrement');
@@ -49,7 +50,7 @@ describe('Paramétrage paie',()=>{
     it('bloque la double soumission et préserve la saisie après une erreur réseau',async()=>{
         let reject;
         paieService.creerRubriqueVariable.mockImplementation(()=>new Promise((_,r)=>{reject=r;}));
-        await render();await click('Nouveau');await fill('Code','PRIME_TEST');await fill('Libellé','Ma prime');await fill('Référence','Accord interne');await fill('Début','2027-01-01');
+        await render();await click('Nouvelle règle manuelle');await fill('Code','PRIME_TEST');await fill('Libellé','Ma prime');await fill('Référence','Accord interne');await fill('Début','2027-01-01');
         const form=document.querySelector('[role="dialog"] form');
         await act(async()=>{form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
         expect(paieService.creerRubriqueVariable).toHaveBeenCalledTimes(1);

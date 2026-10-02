@@ -16,11 +16,12 @@ import {
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import MoneyInput from '@/components/ui/forms/MoneyInput';
-import Select from '@/components/ui/forms/Select';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Badge from '@/components/ui/data-display/Badge';
+import StatCard from '@/components/ui/data-display/StatCard';
 import Alert from '@/components/ui/feedback/Alert';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -36,12 +37,23 @@ import { useAuth } from '@/context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 
-export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, mutationDisabledReason = '', onVariableChanged, onPendingCountChange }) {
+export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, mutationDisabledReason = '', periodStatus = '', onVariableChanged, onPendingCountChange }) {
     const { hasPermission } = useAuth();
     const toast = useToast();
     const navigate = useNavigate();
     const location = useLocation();
     const canConfigure = hasPermission('ROLE_ADMIN');
+    const disabledExplanation = periodStatus === 'PAIE_VALIDEE'
+        ? 'La paie de cette période est validée : les variables ne peuvent plus être ajoutées ou modifiées.'
+        : mutationDisabledReason.includes('PAYROLL_ALREADY_VALIDATED')
+            ? 'Des bulletins de cette période sont déjà validés : les variables ne peuvent plus être modifiées.'
+            : mutationDisabledReason.includes('PAYROLL_VARIABLE_STATE_LOCKED')
+                ? 'Le statut de cette période ne permet pas la saisie de variables.'
+                : mutationDisabledReason.includes('PERIOD_CLOSED')
+                    ? 'Cette période est clôturée : les variables ne peuvent plus être modifiées.'
+                    : mutationDisabledReason.includes('FORBIDDEN')
+                        ? 'Vous ne disposez pas du droit de modifier les variables de paie.'
+                        : mutationDisabledReason;
     // État local : variables, filtres, formulaire et retours d'action.
     const [variables, setVariables] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -441,18 +453,31 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 />
             )}
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] divide-x divide-[var(--color-border-subtle)]">
-                {[
-                    ['Variables', listVariables.length, 'text-[var(--color-fg)]'],
-                    ['À approuver', pendingCount, pendingCount > 0 ? 'text-[var(--color-warning-700)]' : 'text-[var(--color-fg)]'],
-                    ['Gains', `+${formatAr(totalGains)}`, 'text-[var(--color-success-700)]'],
-                    ['Retenues', `−${formatAr(totalRetenues)}`, 'text-[var(--color-danger-700)]'],
-                ].map(([label, value, tone]) => (
-                    <div key={label} className="p-3 min-w-0">
-                        <p className="text-[10px] uppercase tracking-wider font-bold text-[var(--color-fg-muted)]">{label}</p>
-                        <p className={`mt-1 text-lg font-bold font-mono truncate ${tone}`}>{value}</p>
-                    </div>
-                ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard
+                    title="Variables"
+                    value={listVariables.length}
+                    subtext="Éléments enregistrés"
+                    color="brand"
+                />
+                <StatCard
+                    title="À approuver"
+                    value={pendingCount}
+                    subtext={pendingCount > 0 ? "En attente d'approbation" : "Toutes approuvées"}
+                    color={pendingCount > 0 ? "warning" : "neutral"}
+                />
+                <StatCard
+                    title="Gains déclarés"
+                    value={`+${formatAr(totalGains)}`}
+                    subtext="Primes et indemnités"
+                    color="success"
+                />
+                <StatCard
+                    title="Retenues déclarées"
+                    value={`−${formatAr(totalRetenues)}`}
+                    subtext="Acomptes et déductions"
+                    color="danger"
+                />
             </div>
 
             <details className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-3 py-2 text-xs text-[var(--color-fg-muted)]">
@@ -464,6 +489,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 <Alert type="warning" message={`${pendingCount} variable(s) en attente d’approbation. Le calcul réel reste bloqué jusqu’à leur approbation ou suppression.`} />
             )}
             {refreshError && <p role="status" className="text-xs text-[var(--color-warning-700)]">Mise à jour indisponible ; les dernières données chargées restent affichées.</p>}
+            {!canMutate && idPeriodeActive && <Alert type="info" message={disabledExplanation || 'La période est en lecture seule.'} />}
 
             {/* Barre de filtre et Action */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3">
@@ -479,7 +505,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         />
                     </div>
                     <div className="w-56">
-                        <Select
+                        <SearchSelect
                             value={filterSens}
                             onChange={(val) => { setFilterSens(val); setCurrentPage(1); }}
                             options={[
@@ -505,7 +531,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                     iconLeft={<Plus size={14} />}
                     className="w-full sm:w-auto justify-center shrink-0"
                     disabled={!canMutate}
-                    title={!canMutate ? mutationDisabledReason : undefined}
+                    title={!canMutate ? disabledExplanation : undefined}
                 >
                     Ajouter une variable
                 </Button>
@@ -693,7 +719,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                 </button>
                             ))}
                         </div>
-                        <Select
+                        <SearchSelect
                             label="Type de variable"
                             required
                             value={form.typeMouvement}

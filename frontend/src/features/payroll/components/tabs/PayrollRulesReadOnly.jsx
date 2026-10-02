@@ -4,6 +4,7 @@ import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import Badge from '@/components/ui/data-display/Badge';
+import Card from '@/components/ui/data-display/Card';
 import Alert from '@/components/ui/feedback/Alert';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -28,9 +29,10 @@ export default function PayrollRulesReadOnly() {
         const next = new URLSearchParams(previous);
         if (value) next.set(`rg_${key}`, String(value)); else next.delete(`rg_${key}`);
         if (key !== 'page' && key !== 'selection') next.delete('rg_page');
+        if (key !== 'selection') next.delete('rg_selection');
         return next;
     }, { replace: true });
-    const selected = data?.selection;
+    const selected = data?.selection || data?.items?.[0] || null;
     const rubric = selected?.rubrique;
 
     return <div className="space-y-5">
@@ -42,7 +44,7 @@ export default function PayrollRulesReadOnly() {
         </div>
         {error && <Alert type="error" title="Règles indisponibles" message={error} />}
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)] gap-5 items-start">
-            <section aria-label="Catalogue des règles" className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] min-w-0">
+            <Card as="section" aria-label="Catalogue des règles" className="min-w-0">
                 <div className="p-4 space-y-4">
                     <h3 className="font-semibold">Correspondances <span className="font-normal text-sm text-[var(--color-fg-muted)]">· {data?.totalElements ?? '—'}</span></h3>
                     <Input aria-label="Rechercher une règle" placeholder="Rechercher un type ou une rubrique…" iconLeft={<Search size={16} />}
@@ -71,8 +73,8 @@ export default function PayrollRulesReadOnly() {
                     </Tr>)}</Tbody></Table></div>}
                 {data && data.totalElements > 0 && <Pagination currentPage={data.page} totalElements={data.totalElements} pageSize={data.taille}
                     pageSizeOptions={[10, 25, 50]} onPageChange={value => setFilter('page', value)} onPageSizeChange={value => setFilter('taille', value)} />}
-            </section>
-            <section aria-label="Détail de la règle" className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 min-w-0 xl:sticky xl:top-4">
+            </Card>
+            <Card as="section" aria-label="Détail de la règle" padding className="min-w-0 xl:sticky xl:top-4">
                 {!selected ? <EmptyState bordered={false} title="Choisissez un type" description="Sélectionnez une ligne pour lire la rubrique et les assiettes appliquées." /> : <>
                     <Badge variant="neutral">{selected.niveauLibelle}</Badge>
                     <h3 className="mt-3 text-lg font-semibold">{selected.libelle}</h3>
@@ -94,7 +96,7 @@ export default function PayrollRulesReadOnly() {
                     {rubric?.referenceReglementaire && <p className="mt-4 text-xs text-[var(--color-fg-muted)]">Référence : {rubric.referenceReglementaire}</p>}
                     {rubric?.dateDebutEffet && <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Effet depuis le {rubric.dateDebutEffet}</p>}
                 </>}
-            </section>
+            </Card>
         </div>
     </div>;
 }

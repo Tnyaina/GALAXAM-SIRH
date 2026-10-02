@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ShieldCheck, AlertTriangle, XCircle, ExternalLink } from 'lucide-react';
 import PayrollCampaignShell from '@/features/payroll/components/workflow/PayrollCampaignShell';
 import PayrollIssuePanel from '@/features/payroll/components/feedback/PayrollIssuePanel';
+import Button from '@/components/ui/forms/Button';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieConfigService from '@/features/administration/api/paieConfigService';
 import paieService from '@/features/payroll/api/paieService';
@@ -23,12 +24,13 @@ export default function PreparationStepPage() {
     const issues = context?.issues || [];
     const warnings = context?.warnings || [];
     const periode = context?.selectedPeriod || context?.currentPeriod;
-    const actions = useMemo(() => context?.availableActions || {}, [context?.availableActions]);
 
     // État local
     const [legalConfig, setLegalConfig] = useState(null);
     const [readiness, setReadiness] = useState([]);
     const [readinessError, setReadinessError] = useState(null);
+    const [acomptes, setAcomptes] = useState([]);
+    const [acomptesError, setAcomptesError] = useState(false);
 
     // Effets
     useEffect(() => {
@@ -62,6 +64,27 @@ export default function PreparationStepPage() {
             });
         return () => { isMounted = false; };
     }, [numericPeriodId]);
+
+    useEffect(() => {
+        let isMounted = true;
+        if (!numericPeriodId) return undefined;
+        paieService.listerAjustements(numericPeriodId, null, 'ACOMPTE_AVANCE')
+            .then(items => {
+                if (!isMounted) return;
+                setAcomptes(Array.isArray(items) ? items : []);
+                setAcomptesError(false);
+            })
+            .catch(() => {
+                if (!isMounted) return;
+                setAcomptes([]);
+                setAcomptesError(true);
+            });
+        return () => { isMounted = false; };
+    }, [numericPeriodId]);
+
+    const acomptesAVerifier = acomptes.filter(item =>
+        ['A_APPROUVER', 'VERSEMENT_A_VERIFIER'].includes(item.etatDossier)
+    ).length;
 
     const pointageCheck = readiness.find(check => check.code === 'POINTAGE_FROZEN');
     const isPointageGele = pointageCheck?.status === 'PASS';
@@ -113,8 +136,14 @@ export default function PreparationStepPage() {
             {
                 id: 'ACOMPTES',
                 label: 'Acomptes / avances',
-                status: actions?.ADD_VARIABLE?.allowed ? 'PASS' : 'WARNING',
-                summary: 'Retenues d’acomptes et avances imputables sur le mois.',
+                status: acomptesError || acomptesAVerifier > 0 ? 'WARNING' : 'PASS',
+                summary: acomptesError
+                    ? 'Vérification des acomptes et avances indisponible.'
+                    : acomptesAVerifier > 0
+                        ? `${acomptesAVerifier} dossier(s) à approuver ou versement(s) à vérifier pour cette période.`
+                        : acomptes.length > 0
+                            ? 'Dossiers d’acomptes et avances vérifiés pour cette période.'
+                            : 'Aucun acompte ni avance pour cette période.',
                 source: 'Paie / Ajustements',
                 action: { label: 'Voir acomptes', onClick: () => navigate('/paie/acomptes-avances') },
             },
@@ -145,7 +174,7 @@ export default function PreparationStepPage() {
                 source: 'Pointage / Configuration',
             },
         ];
-    }, [isPointageGele, actions, legalConfig, plafondCnaps, navigate]);
+    }, [isPointageGele, acomptes, acomptesError, acomptesAVerifier, legalConfig, plafondCnaps, navigate]);
 
     // Décompte de readiness
     const nbPrets = checklistItems.filter(i => i.status === 'PASS').length;
@@ -258,14 +287,15 @@ export default function PreparationStepPage() {
                                 </div>
 
                                 {item.action && (
-                                    <button
-                                        type="button"
+                                    <Button
+                                        variant="ghost"
+                                        size="xs"
                                         onClick={item.action.onClick}
-                                        className="text-xs font-medium text-[var(--color-brand-600)] hover:underline flex items-center gap-1 shrink-0 cursor-pointer self-start focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)]"
+                                        iconRight={<ExternalLink size={12} />}
+                                        className="shrink-0 self-start text-[var(--color-brand-600)]"
                                     >
-                                        <span>{item.action.label}</span>
-                                        <ExternalLink size={12} aria-hidden="true" />
-                                    </button>
+                                        {item.action.label}
+                                    </Button>
                                 )}
                             </article>
                         );

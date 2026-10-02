@@ -8,6 +8,8 @@ import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.ss.util.AreaReference;
 import org.apache.poi.ss.SpreadsheetVersion;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -58,12 +60,14 @@ public class AnnualPayrollExportService {
         }
         if (periods.isEmpty()) throw new IllegalStateException("Aucune période de paie validée pour " + year + ".");
         Map<String, PayRow> monthly = new LinkedHashMap<>();
+        List<BulletinPaieLigne> auditedLines = new ArrayList<>();
         for (Period period : periods) {
             Map<Integer, String> filiales = GrandLivrePaieExportService.loadFiliales(period.id(), connection);
             for (BulletinPaie bulletin : BulletinPaie.listerParPeriode(period.id(), connection)) {
                 if (!"VALIDE".equals(bulletin.getStatut()) && !"CLOTURE".equals(bulletin.getStatut()))
                     throw new IllegalStateException("Bulletin non validé dans la période " + period.code() + ".");
                 List<BulletinPaieLigne> lines = BulletinPaieLigne.listerParBulletin(bulletin.getIdBulletin(), connection);
+                auditedLines.addAll(lines);
                 String key = period.code() + ":" + bulletin.getIdEmploye();
                 String[] identity = GrandLivrePaieExportService.summaryIdentity(bulletin, filiales.get(bulletin.getIdBulletin()));
                 BigDecimal[] values = normalized(GrandLivrePaieExportService.summaryValues(bulletin, lines));
@@ -73,10 +77,14 @@ public class AnnualPayrollExportService {
             }
         }
         if (monthly.isEmpty()) throw new IllegalStateException("Aucun bulletin validé pour " + year + ".");
-        return render(year, periods.stream().map(Period::code).toList(), new ArrayList<>(monthly.values()));
+        return render(year, periods.stream().map(Period::code).toList(), new ArrayList<>(monthly.values()), auditedLines);
     }
 
     Result render(int year, List<String> periodCodes, List<PayRow> monthlyRows) throws Exception {
+        return render(year, periodCodes, monthlyRows, List.of());
+    }
+
+    Result render(int year, List<String> periodCodes, List<PayRow> monthlyRows, List<BulletinPaieLigne> auditedLines) throws Exception {
         if (monthlyRows.isEmpty()) throw new IllegalStateException("Aucun bulletin à récapituler.");
         monthlyRows.sort(Comparator.comparing(PayRow::period).thenComparing(r -> text(r.identity()[0])));
         Map<Integer, PayRow> annual = new LinkedHashMap<>();
@@ -146,6 +154,7 @@ public class AnnualPayrollExportService {
                         "A4:AB" + (4 + monthlyRows.size()), SpreadsheetVersion.EXCEL2007));
                 writeMonthlyOverview(book, year, periodCodes, monthlyRows, annualRows.size(),
                         titleStyle, subtitleStyle, headerStyle, summaryStyle, alternateStyle, totalStyle);
+                writeRubricControl(book, auditedLines);
                 for (Sheet sheet : List.of(summary, detail)) {
                     sheet.setDisplayGridlines(false); sheet.setFitToPage(true);
                     sheet.getPrintSetup().setLandscape(true);
@@ -157,6 +166,112 @@ public class AnnualPayrollExportService {
                 book.write(output);
                 return new Result(output.toByteArray(), periodCodes.size(), annualRows.size());
             }
+        }
+    }
+
+    private static void writeRubricControl(Workbook book, List<BulletinPaieLigne> lines) {
+        Sheet sheet = book.createSheet("Contrôle rubriques");
+        sheet.setDisplayGridlines(false);
+        CellStyle title = annualStyle(book, true, true, false);
+        CellStyle header = annualStyle(book, true, true, false);
+        CellStyle textStyle = annualStyle(book, false, false, false);
+        CellStyle money = annualStyle(book, false, false, true);
+        CellStyle integer = annualStyle(book, false, false, true);
+        integer.setDataFormat(book.createDataFormat().getFormat("#,##0"));
+        CellStyle review = annualStyle(book, true, false, false);
+        Row top = sheet.createRow(0); top.setHeightInPoints(36);
+        for (int col = 0; col < 9; col++) top.createCell(col).setCellStyle(title);
+        top.getCell(0).setCellValue("CONTRÔLE DES RUBRIQUES DE PAIE");
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 8));
+        sheet.createRow(1).createCell(0).setCellValue("Classement des lignes réellement présentes dans les bulletins inclus ; les variables configurées demandent une revue.");
+        String[] columns = {"Code rubrique", "Libellé", "Sens", "Catégorie", "Destination annuelle", "Contrôle", "Occurrences", "Montant salarié (Ar)", "Montant patronal (Ar)"};
+        Row headings = sheet.createRow(3); headings.setHeightInPoints(30);
+        for (int col = 0; col < columns.length; col++) {
+            Cell cell = headings.createCell(col); cell.setCellValue(columns[col]); cell.setCellStyle(header);
+        }
+        Map<String, RubricAudit> audits = new LinkedHashMap<>();
+        for (BulletinPaieLigne line : lines) {
+            String code = text(line.getCodeRubrique());
+            String key = code + "|" + text(line.getSens()) + "|" + text(line.getCategorie());
+            audits.computeIfAbsent(key, ignored -> new RubricAudit(line)).add(line);
+        }
+        int rowIndex = 4;
+        for (RubricAudit audit : audits.values().stream().sorted(Comparator.comparing(a -> text(a.code))).toList()) {
+            Row row = sheet.createRow(rowIndex++); row.setHeightInPoints(25);
+            String[] values = {audit.code, audit.label, audit.sens, audit.category,
+                    annualDestination(audit.code, audit.sens), audit.review ? "À vérifier" : "Classée"};
+            for (int col = 0; col < values.length; col++) {
+                Cell cell = row.createCell(col); cell.setCellValue(values[col]); cell.setCellStyle(col == 5 && audit.review ? review : textStyle);
+            }
+            Cell count = row.createCell(6); count.setCellValue(audit.count); count.setCellStyle(integer);
+            Cell amount = row.createCell(7); amount.setCellValue(audit.employeeAmount.doubleValue()); amount.setCellStyle(money);
+            Cell employer = row.createCell(8); employer.setCellValue(audit.employerAmount.doubleValue()); employer.setCellStyle(money);
+        }
+        int[] widths = {22, 38, 11, 22, 29, 15, 12, 21, 21};
+        for (int col = 0; col < widths.length; col++) sheet.setColumnWidth(col, widths[col] * 256);
+        sheet.createFreezePane(2, 4);
+        if (rowIndex > 4) sheet.setAutoFilter(new CellRangeAddress(3, rowIndex - 1, 0, 8));
+        sheet.setRepeatingRows(new CellRangeAddress(3, 3, 0, 8));
+        sheet.setFitToPage(true);
+        sheet.getPrintSetup().setLandscape(true);
+        sheet.getPrintSetup().setPaperSize(PrintSetup.A3_PAPERSIZE);
+        sheet.getPrintSetup().setFitWidth((short) 1);
+        sheet.getPrintSetup().setFitHeight((short) 0);
+    }
+
+    private static CellStyle annualStyle(Workbook book, boolean bold, boolean dark, boolean numeric) {
+        XSSFCellStyle style = (XSSFCellStyle) book.createCellStyle();
+        Font font = book.createFont(); font.setBold(bold);
+        font.setColor(dark ? IndexedColors.WHITE.getIndex() : IndexedColors.BLACK.getIndex());
+        style.setFont(font); style.setVerticalAlignment(VerticalAlignment.CENTER);
+        if (dark) {
+            style.setFillForegroundColor(new XSSFColor(new byte[]{47, 74, 60}, null));
+            style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        }
+        if (numeric) {
+            style.setAlignment(HorizontalAlignment.RIGHT);
+            style.setDataFormat(book.createDataFormat().getFormat("#,##0.00"));
+        }
+        return style;
+    }
+
+    private static String annualDestination(String code, String sens) {
+        String upper = code.toUpperCase(Locale.ROOT);
+        if ("PATRONAL".equals(sens)) return "Cotisations patronales (total)";
+        if ("INFO".equals(sens)) return "Information, hors totaux";
+        if ("GAIN".equals(sens)) {
+            if ("SALAIRE_BASE".equals(upper)) return "Salaire de base";
+            if (upper.contains("CONGE")) return "Indemnité congé";
+            return "Indemnités / primes";
+        }
+        if (!"RETENUE".equals(sens)) return "Non classée";
+        if ("RETENUE_ABSENCE".equals(upper)) return "Retenue absence";
+        if (upper.contains("ABSENCE") || upper.contains("CONGE")) return "Non ventilée séparément";
+        if (upper.contains("CNAPS")) return "CNaPS salarié";
+        if (upper.contains("OSTIE") || upper.contains("OMSI") || upper.contains("SANTE")) return "Santé salarié";
+        if (upper.contains("IRSA") || upper.contains("ISI")) return "Impôt retenu (total bulletin)";
+        if (upper.contains("AVANCE") || upper.contains("ACOMPTE")) return "Avance / acompte";
+        if (upper.contains("PRET")) return "Prêt";
+        return "Autres retenues";
+    }
+
+    private static final class RubricAudit {
+        final String code, label, sens, category;
+        boolean review;
+        int count;
+        BigDecimal employeeAmount = BigDecimal.ZERO;
+        BigDecimal employerAmount = BigDecimal.ZERO;
+        RubricAudit(BulletinPaieLigne line) {
+            code = text(line.getCodeRubrique()); label = text(line.getLibelleRubrique());
+            sens = text(line.getSens()); category = text(line.getCategorie());
+        }
+        void add(BulletinPaieLigne line) {
+            count++;
+            employeeAmount = employeeAmount.add(line.getMontantSalarial() == null ? BigDecimal.ZERO : line.getMontantSalarial());
+            employerAmount = employerAmount.add(line.getMontantPatronal() == null ? BigDecimal.ZERO : line.getMontantPatronal());
+            review |= code.isBlank() || "Non classée".equals(annualDestination(code, sens))
+                    || "Non ventilée séparément".equals(annualDestination(code, sens))
+                    || line.getEtapeCalcul() != null;
         }
     }
 

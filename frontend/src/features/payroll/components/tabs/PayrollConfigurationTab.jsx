@@ -7,6 +7,7 @@ import Input, { Textarea } from '@/components/ui/forms/Input';
 import Select from '@/components/ui/forms/Select';
 import FieldError from '@/components/ui/forms/FieldError';
 import Badge from '@/components/ui/data-display/Badge';
+import Card from '@/components/ui/data-display/Card';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -60,7 +61,7 @@ export default function PayrollConfigurationTab({ domaine = 'rubriques', embedde
     }, [editor]);
     const items = data?.items || [];
     const options = data?.options || {};
-    const selected = data?.selection;
+    const selected = data?.selection || items[0] || null;
     const detailRef = useRef(null);
     useEffect(() => {
         if (selected?.id === selectedId && window.matchMedia?.('(max-width: 1279px)').matches) {
@@ -82,11 +83,28 @@ export default function PayrollConfigurationTab({ domaine = 'rubriques', embedde
         setParams(previous => { const next = new URLSearchParams(previous); next.delete('vt_creer'); return next; }, { replace: true });
     }, [data, isTypes, params, setParams]);
 
+    useEffect(() => {
+        if (!data) return;
+        const action = isTypes ? (params.get('vt_modifier') === '1' ? 'vt_modifier' : null)
+            : params.get('rb_creer') === '1' ? 'rb_creer'
+                : params.get('rb_versionner') === '1' ? 'rb_versionner'
+                    : params.get('rb_modifier') === '1' ? 'rb_modifier' : null;
+        if (!action || (action !== 'rb_creer' && !data.selection)) return;
+        const item = action === 'rb_creer' ? null : data.selection;
+        const version = action === 'rb_versionner';
+        setForm({ code: '', libelle: '', description: '', referenceReglementaire: '', dateDebutEffet: '', dateFinEffet: '', idRubrique: '',
+            ...(isTypes ? data.defautsType : data.defautsRubrique), ...item,
+            ...(version ? { code: '', dateDebutEffet: '', dateFinEffet: '', idRubriqueOrigine: undefined } : {}) });
+        setEditor({ item, version }); setErrors({}); setFormError('');
+        setParams(previous => { const next = new URLSearchParams(previous); next.delete(action); return next; }, { replace: true });
+    }, [data, isTypes, params, setParams]);
+
     function handleFilter(key, value) {
         setParams(previous => {
             const next = new URLSearchParams(previous);
             value ? next.set(prefix + key, String(value)) : next.delete(prefix + key);
             if (key !== 'page' && key !== 'selection') next.delete(prefix + 'page');
+            if (key !== 'selection') next.delete(prefix + 'selection');
             return next;
         }, { replace: true });
     }
@@ -162,17 +180,14 @@ export default function PayrollConfigurationTab({ domaine = 'rubriques', embedde
         {!embedded && <div className="border-l-2 border-[var(--color-brand-500)] pl-4 py-1 text-sm text-[var(--color-fg-muted)]">
             {isTypes ? 'Le type définit la saisie. La rubrique associée définit le calcul et le traitement fiscal et social.' : 'Les règles manuelles sont configurables ici. Les calculateurs dédiés utilisent les paramètres de leur domaine.'}
         </div>}
-        {embedded && <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--color-fg-muted)]">
-            <p>{isTypes ? 'Le type rend une variable saisissable ; la rubrique liée pilote son traitement.' : 'Les rubriques manuelles définissent le calcul et les assiettes. Les circuits dédiés restent consultables.'}</p>
-            <Button variant="ghost" className="min-h-[44px]" loading={refreshing && !loading} iconLeft={<RefreshCw size={16} />} onClick={refresh}>Actualiser</Button>
-        </div>}
+        {embedded && <div className="flex justify-end"><Button variant="ghost" className="min-h-[44px]" loading={refreshing && !loading} iconLeft={<RefreshCw size={16} />} onClick={refresh}>Actualiser</Button></div>}
         {error && <Alert type="error" title="Catalogue indisponible" message={error} />}
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(330px,0.84fr)_minmax(0,1.6fr)] gap-5 items-start">
-            <section aria-label="Catalogue" aria-busy={loading || refreshing} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] min-w-0">
+            <Card as="section" aria-label="Catalogue" aria-busy={loading || refreshing} className="min-w-0">
                 <div className="p-4 sm:p-5 border-b border-[var(--color-border-subtle)] space-y-4">
                     <div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold">{isTypes ? 'Types disponibles' : 'Rubriques disponibles'}</h3>
                         <p className="text-xs text-[var(--color-fg-muted)] mt-1">{data ? `${data.totalElements} élément${data.totalElements > 1 ? 's' : ''} dans le catalogue` : 'Chargement du catalogue'}</p></div>
-                        {canWrite && <Button disabled={refreshing || !data} className="min-h-[44px]" iconLeft={<Plus size={16} />} onClick={() => handleOpen()}>Nouveau</Button>}</div>
+                        {canWrite && <Button disabled={refreshing || !data} className="min-h-[44px]" iconLeft={<Plus size={16} />} onClick={() => handleOpen()}>{isTypes ? 'Nouveau type' : 'Nouvelle règle manuelle'}</Button>}</div>
                     <Input aria-label="Rechercher dans le catalogue" placeholder="Code ou libellé…" iconLeft={<Search size={16} />} value={query} onChange={e => handleFilter('q',e.target.value)} className="min-h-[44px]" />
                     <details className="group border border-[var(--color-border-subtle)]">
                         <summary className="flex items-center gap-2 cursor-pointer min-h-[44px] px-3 text-sm font-medium list-none"><Filter size={15} />Filtres et tri
@@ -187,8 +202,8 @@ export default function PayrollConfigurationTab({ domaine = 'rubriques', embedde
                 </div>
                 {loading ? <SkeletonTable rows={5} columns={2} bordered={false} /> : error && !data ? <p className="p-5 text-sm text-[var(--color-fg-muted)]">Le catalogue n’a pas été chargé. Utilisez Actualiser pour réessayer.</p> : items.length === 0 ? <EmptyState bordered={false} icon={Settings2} title="Aucun résultat" description="Aucun élément ne correspond à cette sélection." actionLabel={query || read('sens') || read('niveau') || read('statut') ? 'Effacer les filtres' : canWrite ? 'Créer un élément' : undefined} onAction={query || read('sens') || read('niveau') || read('statut') ? clearFilters : () => handleOpen()} /> : <>
                     <ul aria-label={isTypes ? 'Types de variables' : 'Rubriques de paie'} className="divide-y divide-[var(--color-border-subtle)]">
-                        {items.map(item => <li key={item.id}><button type="button" aria-pressed={selectedId === item.id} onClick={() => handleFilter('selection',item.id)}
-                            className={`w-full min-h-[70px] text-left px-4 py-3 flex items-center gap-3 border-l-[3px] focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] ${selectedId === item.id ? 'border-[var(--color-brand-500)] bg-[var(--color-bg-subtle)]' : 'border-transparent hover:bg-[var(--color-bg-subtle)]'}`}>
+                        {items.map(item => <li key={item.id}><button type="button" aria-pressed={selected?.id === item.id} onClick={() => handleFilter('selection',item.id)}
+                            className={`w-full min-h-[70px] text-left px-4 py-3 flex items-center gap-3 border-l-[3px] focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] ${selected?.id === item.id ? 'border-[var(--color-brand-500)] bg-[var(--color-bg-subtle)]' : 'border-transparent hover:bg-[var(--color-bg-subtle)]'}`}>
                             <span className="min-w-0 flex-1"><span className="block text-sm font-semibold leading-snug">{item.libelle}</span>
                                 <span className="block text-xs font-data text-[var(--color-fg-muted)] mt-1">{item.code} · {isTypes ? item.rubrique?.etapeLibelle || item.niveauLibelle : item.etapeLibelle}</span></span>
                             <span className="shrink-0"><Badge variant={item.estActif ? 'success' : 'neutral'}>{item.estActif ? 'Actif' : 'Inactif'}</Badge></span>
@@ -196,13 +211,13 @@ export default function PayrollConfigurationTab({ domaine = 'rubriques', embedde
                     </ul>
                     <Pagination currentPage={data.page} totalElements={data.totalElements} pageSize={data.taille} pageSizeOptions={[10,25,50]} onPageChange={v => handleFilter('page',v)} onPageSizeChange={v => handleFilter('taille',v)} className="[&_button]:!min-h-[44px] [&_button]:!min-w-[44px] [&_select]:min-h-[44px]" />
                 </>}
-            </section>
-            <section ref={detailRef} aria-label="Fiche de configuration" className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 sm:p-6 min-w-0 xl:sticky xl:top-4">
+            </Card>
+            <Card as="section" ref={detailRef} aria-label="Fiche de configuration" padding className="min-w-0 xl:sticky xl:top-4">
                 {!selected ? <div className="min-h-[320px] flex flex-col justify-center max-w-lg mx-auto"><span className="w-12 h-12 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-center text-[var(--color-brand-500)]"><Settings2 size={22} /></span>
                     <p className="text-xs font-semibold tracking-wider text-[var(--color-brand-500)] mt-6">{isTypes ? 'ÉTAPE 02 · SAISIE' : 'ÉTAPE 01 · TRAITEMENT'}</p>
                     <h3 className="text-xl font-semibold mt-2">{isTypes ? 'Relier un type à une rubrique' : 'Examiner une rubrique de calcul'}</h3>
                     <p className="text-sm text-[var(--color-fg-muted)] leading-relaxed mt-2">{isTypes ? 'Choisissez un type pour vérifier la rubrique liée et son traitement, ou créez un nouveau type.' : 'Choisissez une rubrique pour lire son intervention, ses assiettes et ses versions, ou créez une nouvelle règle.'}</p>
-                    {canWrite && <Button className="mt-6 self-start min-h-[44px]" iconLeft={<Plus size={16} />} disabled={!data || refreshing} onClick={() => handleOpen()}>{isTypes ? 'Créer un type' : 'Créer une rubrique'}</Button>}
+                    {canWrite && <Button className="mt-6 self-start min-h-[44px]" iconLeft={<Plus size={16} />} disabled={!data || refreshing} onClick={() => handleOpen()}>{isTypes ? 'Créer un type' : 'Créer une règle manuelle'}</Button>}
                 </div> : <>
                     <div className="space-y-2"><Badge variant="neutral">{selected.niveauLibelle}</Badge><h3 className="text-xl font-semibold break-words">{selected.libelle}</h3><p className="text-xs font-data text-[var(--color-fg-muted)]">{selected.code}</p></div>
                     {selected.description && <p className="text-sm leading-relaxed text-[var(--color-fg-muted)] mt-4">{selected.description}</p>}
@@ -219,9 +234,9 @@ export default function PayrollConfigurationTab({ domaine = 'rubriques', embedde
                         {isTypes && selected.rubrique?.id && <Button variant="outline" className="min-h-[44px]" iconRight={<ArrowRight size={16} />} onClick={() => navigate(`/paie/configuration?vue=rubriques&rb_selection=${selected.rubrique.id}`)}>Voir la rubrique</Button>}
                     </div>
                 </>}
-            </section>
+            </Card>
         </div>
-        <FormModal noValidate isOpen={!!editor} onClose={handleClose} onSubmit={handleSubmit} loading={saving} error={formError} title={editor?.version ? 'Nouvelle version de la rubrique' : editor?.item ? `Modifier ${isTypes ? 'le type' : 'la rubrique'}` : `Créer ${isTypes ? 'un type de variable' : 'une rubrique'}`} size="4xl" className="[&_button]:min-h-[44px] [&_button]:min-w-[44px]" submitLabel={editor?.version ? 'Enregistrer la nouvelle version' : 'Enregistrer'}>
+        <FormModal noValidate isOpen={!!editor} onClose={handleClose} onSubmit={handleSubmit} loading={saving} error={formError} title={editor?.version ? 'Nouvelle version de la rubrique' : editor?.item ? `Modifier ${isTypes ? 'le type' : 'la rubrique'}` : `Créer ${isTypes ? 'un type de variable' : 'une règle manuelle'}`} size="4xl" className="[&_button]:min-h-[44px] [&_button]:min-w-[44px]" submitLabel={editor?.version ? 'Enregistrer la nouvelle version' : 'Enregistrer'}>
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(260px,1fr)] gap-8">
                 <div className="space-y-6 min-w-0">
                     <fieldset disabled={saving} className="space-y-4"><legend className="font-semibold mb-3">1. Identification</legend>
