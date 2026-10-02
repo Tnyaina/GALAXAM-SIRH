@@ -1048,13 +1048,13 @@ export default function AnomalieRegularisationModal({
                                                         <label className="flex items-center gap-1 cursor-pointer">
                                                             <input type="checkbox" checked={Boolean(selection.matin)}
                                                                 onChange={(event) => updateSelection('matin', event.target.checked)}
-                                                                className="w-3.5 h-3.5 accent-brand-600" />
+                                                                className="w-3.5 h-3.5 accent-[var(--color-brand-600)]" />
                                                             <span>Aller</span>
                                                         </label>
                                                         <label className="flex items-center gap-1 cursor-pointer">
                                                             <input type="checkbox" checked={Boolean(selection.am)}
                                                                 onChange={(event) => updateSelection('am', event.target.checked)}
-                                                                className="w-3.5 h-3.5 accent-brand-600" />
+                                                                className="w-3.5 h-3.5 accent-[var(--color-brand-600)]" />
                                                             <span>Retour</span>
                                                         </label>
                                                     </>
@@ -1062,7 +1062,7 @@ export default function AnomalieRegularisationModal({
                                                     <label className="flex items-center gap-1 cursor-pointer" title={`Accorder une exception d'indemnité sur ce jour d'absence — ${allowance.libelle || allowance.code}`}>
                                                         <input type="checkbox" checked={Boolean(selection.accordee)}
                                                             onChange={(event) => updateSelection('accordee', event.target.checked)}
-                                                            className="w-3.5 h-3.5 accent-brand-600" />
+                                                            className="w-3.5 h-3.5 accent-[var(--color-brand-600)]" />
                                                         <span className={selection.accordee ? 'text-[var(--color-success-600)] font-bold' : 'text-[var(--color-fg-muted)]'}>
                                                             {selection.accordee ? 'Accordée' : 'Non accordée'}
                                                         </span>

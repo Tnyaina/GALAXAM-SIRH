@@ -83,6 +83,7 @@ public class PointageAnomalieService {
     ) throws SQLException {
         Map<String, Object> response = new HashMap<>();
         List<PointageAnomalieDTO> anomalies = new ArrayList<>();
+        final Integer effectiveSiteId = (idSite != null && idSite > 0) ? idSite : null;
         int countIncomplets = 0;
         int countRetards = 0;
         int countAbsences = 0;
@@ -200,9 +201,9 @@ public class PointageAnomalieService {
             );
 
             List<Object> params = new ArrayList<>();
-            if (idSite != null && idSite > 0) {
+            if (effectiveSiteId != null) {
                 sql.append("AND p.id_site = ? ");
-                params.add(idSite);
+                params.add(effectiveSiteId);
             }
             if (effectivePeriodeId != null && effectivePeriodeId > 0) {
                 sql.append("AND p.id_periode_paie = ? ");
@@ -391,10 +392,10 @@ public class PointageAnomalieService {
             // Calcul du nombre total d'employés suivis
             int totalEmployes = 0;
             String sqlCountEmp = "SELECT COUNT(DISTINCT id_employe) FROM pointage_jour WHERE id_periode_paie = ? " +
-                    (idSite != null && idSite > 0 ? "AND id_site = ? " : "");
+                    (effectiveSiteId != null ? "AND id_site = ? " : "");
             try (PreparedStatement psCE = c.prepareStatement(sqlCountEmp)) {
                 psCE.setInt(1, effectivePeriodeId);
-                if (idSite != null && idSite > 0) psCE.setInt(2, idSite);
+                if (effectiveSiteId != null) psCE.setInt(2, effectiveSiteId);
                 try (ResultSet rsCE = psCE.executeQuery()) {
                     if (rsCE.next()) totalEmployes = rsCE.getInt(1);
                 }
@@ -415,10 +416,10 @@ public class PointageAnomalieService {
             BigDecimal totalIndemnites = BigDecimal.ZERO;
             String sqlTot = "SELECT COUNT(DISTINCT date_pointage) AS nb_distinct_dates, COUNT(*) AS nb_j, COALESCE(SUM(total_heures), 0) AS tot_h, COALESCE(SUM(montant_total_indemnites), 0) AS tot_ind " +
                             "FROM pointage_jour WHERE id_periode_paie = ? " +
-                            (idSite != null && idSite > 0 ? "AND id_site = ? " : "");
+                            (effectiveSiteId != null ? "AND id_site = ? " : "");
             try (PreparedStatement psTot = c.prepareStatement(sqlTot)) {
                 psTot.setInt(1, effectivePeriodeId);
-                if (idSite != null && idSite > 0) psTot.setInt(2, idSite);
+                if (effectiveSiteId != null) psTot.setInt(2, effectiveSiteId);
                 try (ResultSet rsTot = psTot.executeQuery()) {
                     if (rsTot.next()) {
                         totalJoursDistinctsSaisis = rsTot.getInt("nb_distinct_dates");
@@ -430,7 +431,7 @@ public class PointageAnomalieService {
             }
 
             // Jours ouvrables théoriques dans la période
-            int joursOuvrablesPeriode = calendrierOuvrableEngine.compterJoursOuvrables(periodeDebut, periodeFin, idSite, c);
+            int joursOuvrablesPeriode = calendrierOuvrableEngine.compterJoursOuvrables(periodeDebut, periodeFin, effectiveSiteId, c);
             int totalJoursTheoriques = Math.max(1, joursOuvrablesPeriode);
 
             // Construction de la progression hebdomadaire (S1 à S5)
@@ -461,13 +462,13 @@ public class PointageAnomalieService {
                 String sqlW = "SELECT COUNT(DISTINCT date_pointage) AS nb_distinct_dates, COUNT(*) AS nb_saisis, COALESCE(SUM(total_heures), 0) AS total_h " +
                               "FROM pointage_jour WHERE date_pointage BETWEEN ? AND ? " +
                               (effectivePeriodeId != null ? "AND id_periode_paie = ? " : "") +
-                              (idSite != null && idSite > 0 ? "AND id_site = ? " : "");
+                              (effectiveSiteId != null ? "AND id_site = ? " : "");
                 try (PreparedStatement psW = c.prepareStatement(sqlW)) {
                     int pIdx = 1;
                     psW.setDate(pIdx++, Date.valueOf(wDeb));
                     psW.setDate(pIdx++, Date.valueOf(wFin));
                     if (effectivePeriodeId != null) psW.setInt(pIdx++, effectivePeriodeId);
-                    if (idSite != null && idSite > 0) psW.setInt(pIdx++, idSite);
+                    if (effectiveSiteId != null) psW.setInt(pIdx++, effectiveSiteId);
                     try (ResultSet rsW = psW.executeQuery()) {
                         if (rsW.next()) {
                             joursDistinctsSem = rsW.getInt("nb_distinct_dates");
@@ -481,7 +482,7 @@ public class PointageAnomalieService {
                         .filter(a -> semCode.equals(a.getSemaineCode()) && "todo".equals(a.getStatutAnomalie()))
                         .count();
 
-                int joursOuvresSem = calendrierOuvrableEngine.compterJoursOuvrables(wDeb, wFin, idSite, c);
+                int joursOuvresSem = calendrierOuvrableEngine.compterJoursOuvrables(wDeb, wFin, effectiveSiteId, c);
                 int theoriqueSem = Math.max(1, joursOuvresSem);
                 int progressPercent = Math.min(100, (int) Math.round(((double) joursDistinctsSem / theoriqueSem) * 100.0));
 

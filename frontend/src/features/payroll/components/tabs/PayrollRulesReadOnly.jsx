@@ -1,96 +1,100 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Search, ShieldAlert } from 'lucide-react';
-import paieService from '@/features/payroll/api/paieService';
-import { getErrorMessage } from '@/api/apiClient';
+import { useSearchParams } from 'react-router-dom';
+import { RefreshCw, Search } from 'lucide-react';
+import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import Select from '@/components/ui/forms/Select';
+import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
+import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import Pagination from '@/components/ui/navigation/Pagination';
+import useDebounce from '@/hooks/useDebounce';
+import usePayrollConfiguration from '@/features/payroll/hooks/usePayrollConfiguration';
 
-function traitement(type, rubrique) {
-    if (!rubrique) return 'Rubrique absente : traitement à vérifier';
-    if (type.nature !== 'VARIABLE_DAF') return 'Circuit métier dédié dans le moteur';
-    if (type.sens === 'RETENUE') return 'Après impôt et cotisations : retenue sur le net disponible';
-    return rubrique.etapeCalcul === 'BRUT'
-        ? 'Avant cotisations et impôt : gain dans le brut'
-        : 'Après impôt : gain ajouté au net avant retenues';
-}
-
+/** Vue de lecture : le catalogue serveur fournit les traitements et la pagination. */
 export default function PayrollRulesReadOnly() {
-    const [catalogue, setCatalogue] = useState({ types: [], rubriques: [] });
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [query, setQuery] = useState('');
+    const [params, setParams] = useSearchParams();
+    const read = (key, fallback = '') => params.get(`rg_${key}`) || fallback;
+    const query = read('q');
+    const debouncedQuery = useDebounce(query, 300);
+    const { data, loading, refreshing, error, refresh } = usePayrollConfiguration({
+        domaine: 'types', recherche: debouncedQuery, sens: read('sens'), niveau: read('niveau'),
+        statut: read('statut'), tri: read('tri', 'ordre'), page: Number(read('page', '1')),
+        taille: Number(read('taille', '10')), selection: Number(read('selection')) || undefined,
+    });
+    const options = data?.options || {};
+    const setFilter = (key, value) => setParams(previous => {
+        const next = new URLSearchParams(previous);
+        if (value) next.set(`rg_${key}`, String(value)); else next.delete(`rg_${key}`);
+        if (key !== 'page' && key !== 'selection') next.delete('rg_page');
+        return next;
+    }, { replace: true });
+    const selected = data?.selection;
+    const rubric = selected?.rubrique;
 
-    useEffect(() => {
-        let active = true;
-        paieService.getCatalogueVariables()
-            .then(data => { if (active) setCatalogue({
-                types: Array.isArray(data?.types) ? data.types : [],
-                rubriques: Array.isArray(data?.rubriques) ? data.rubriques : [],
-            }); })
-            .catch(cause => { if (active) setError(getErrorMessage(cause, 'Catalogue des rubriques indisponible.')); })
-            .finally(() => { if (active) setLoading(false); });
-        return () => { active = false; };
-    }, []);
-
-    const rows = useMemo(() => {
-        const rubriques = new Map(catalogue.rubriques.map(rubrique => [Number(rubrique.id), rubrique]));
-        const search = query.trim().toLowerCase();
-        return catalogue.types
-            .map(type => ({ type, rubrique: rubriques.get(Number(type.idRubrique)) }))
-            .filter(({ type, rubrique }) => !search || `${type.code} ${type.libelle} ${rubrique?.code || ''} ${rubrique?.libelle || ''}`.toLowerCase().includes(search));
-    }, [catalogue, query]);
-
-    return (
-        <div className="space-y-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5">
-            <div>
-                <h3 className="font-bold text-base text-[var(--color-fg)]">Lecture des règles de paie actuelles</h3>
-                <p className="text-sm text-[var(--color-fg-muted)] mt-1">
-                    Correspondance entre les types de variables, les rubriques et les étapes du moteur. Cette vue ne modifie aucun calcul.
-                </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-xs">
-                {['1 · Brut et gains', '2 · Cotisations', '3 · IRSA ou ISI', '4 · Gains nets, retenues et arrondi'].map(stage => (
-                    <div key={stage} className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 font-semibold">{stage}</div>
-                ))}
-            </div>
-
-            <Alert type="info" message="Pour les variables manuelles, l’étape d’intervention est indépendante des assiettes. IRSA décide de l’inclusion fiscale, CNaPS et santé ont des assiettes distinctes. Les réglages affichés sont ceux de la rubrique liée ; pour une famille versionnée, le calcul sélectionne la version couvrant la période. Les circuits métier dédiés suivent leur propre calcul." />
-            <Alert type="warning" message="Les anciennes rubriques peuvent ne pas porter de référence ou de date d’effet. Une exonération doit être vérifiée dans son contexte avant de créer une nouvelle rubrique. Les circuits métier dédiés conservent leur calcul propre." />
-
-            {error && <Alert type="error" message={error} />}
-            {loading ? <SkeletonTable rows={6} columns={6} /> : (
-                <>
-                    <div className="max-w-sm">
-                        <Input type="search" value={query} onChange={event => setQuery(event.target.value)} iconLeft={<Search size={15} />} placeholder="Rechercher un type ou une rubrique" aria-label="Rechercher une règle de paie" />
-                    </div>
-                    <div className="overflow-x-auto">
-                        <Table aria-label="Règles de calcul actuellement appliquées">
-                            <Thead><Tr>
-                                <Th>Type de variable</Th><Th>Rubrique liée</Th><Th>Étape effective</Th>
-                                <Th>IRSA</Th><Th>CNaPS</Th><Th>Santé</Th><Th>Référence / effet</Th><Th>Base congés</Th>
-                            </Tr></Thead>
-                            <Tbody>
-                                {rows.map(({ type, rubrique }) => (
-                                    <Tr key={type.id ?? type.code}>
-                                        <Td><span className="font-semibold">{type.libelle}</span><span className="block text-[11px] font-mono text-[var(--color-fg-muted)]">{type.code}</span></Td>
-                                        <Td>{rubrique ? <><span>{rubrique.libelle}</span><span className="block text-[11px] font-mono text-[var(--color-fg-muted)]">{rubrique.code}</span></> : 'Non liée'}</Td>
-                                        <Td>{traitement(type, rubrique)}</Td>
-                                        <Td>{type.sens === 'RETENUE' ? 'Sans effet' : type.nature !== 'VARIABLE_DAF' ? 'Circuit dédié' : !rubrique ? 'À vérifier' : (rubrique.soumisIrsa ? 'Dans l’assiette' : 'Hors assiette')}</Td>
-                                        <Td>{type.sens === 'RETENUE' ? 'Sans effet' : type.nature !== 'VARIABLE_DAF' ? 'Circuit dédié' : !rubrique ? 'À vérifier' : (rubrique.soumisCnaps ? 'Dans l’assiette' : 'Hors assiette')}</Td>
-                                        <Td>{type.sens === 'RETENUE' ? 'Sans effet' : type.nature !== 'VARIABLE_DAF' ? 'Circuit dédié' : !rubrique ? 'À vérifier' : (rubrique.soumisSante ? 'Dans l’assiette' : 'Hors assiette')}</Td>
-                                        <Td>{rubrique ? <><span>{rubrique.referenceReglementaire || 'Historique non renseigné'}</span><span className="block text-[11px]">{rubrique.dateDebutEffet || 'Date non renseignée'}</span></> : '—'}</Td>
-                                        <Td>Non déterminée par ce type</Td>
-                                    </Tr>
-                                ))}
-                            </Tbody>
-                        </Table>
-                    </div>
-                    <p className="text-xs text-[var(--color-fg-muted)] flex items-start gap-2"><ShieldAlert size={15} className="shrink-0" /> Les montants et assiettes exacts restent expliqués sur chaque bulletin calculé ou simulé. L'ordre d'affichage du référentiel ne change pas l'ordre de calcul.</p>
-                </>
-            )}
+    return <div className="space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+            <div><h2 className="text-lg font-semibold">Règles actuellement configurées</h2>
+                <p className="mt-1 text-sm text-[var(--color-fg-muted)]">Correspondance entre les types et les rubriques. Cette vue ne modifie aucun calcul.</p></div>
+            <Button variant="ghost" className="min-h-[44px]" iconLeft={<RefreshCw size={16} />}
+                loading={refreshing && !loading} onClick={refresh}>Actualiser</Button>
         </div>
-    );
+        {error && <Alert type="error" title="Règles indisponibles" message={error} />}
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)] gap-5 items-start">
+            <section aria-label="Catalogue des règles" className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] min-w-0">
+                <div className="p-4 space-y-4">
+                    <h3 className="font-semibold">Correspondances <span className="font-normal text-sm text-[var(--color-fg-muted)]">· {data?.totalElements ?? '—'}</span></h3>
+                    <Input aria-label="Rechercher une règle" placeholder="Rechercher un type ou une rubrique…" iconLeft={<Search size={16} />}
+                        value={query} onChange={event => setFilter('q', event.target.value)} className="min-h-[44px]" />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <Select aria-label="Filtrer par sens" value={read('sens')} onChange={value => setFilter('sens', value)}
+                            options={[{ value: '', label: 'Gains et retenues' }, ...(options.sens || [])]} className="min-h-[44px]" />
+                        <Select aria-label="Filtrer par niveau" value={read('niveau')} onChange={value => setFilter('niveau', value)}
+                            options={[{ value: '', label: 'Tous les circuits' }, ...(options.niveaux || [])]} className="min-h-[44px]" />
+                        <Select aria-label="Filtrer par statut" value={read('statut')} onChange={value => setFilter('statut', value)}
+                            options={[{ value: '', label: 'Tous les statuts' }, ...(options.statuts || [])]} className="min-h-[44px]" />
+                    </div>
+                </div>
+                {loading ? <SkeletonTable rows={5} columns={4} bordered={false} /> : !data ? null : data.items.length === 0
+                    ? <EmptyState bordered={false} title="Aucune règle trouvée" description="Modifiez la recherche ou les filtres." actionLabel="Effacer les filtres" onAction={() => {
+                        setParams(previous => { const next = new URLSearchParams(previous); ['q', 'sens', 'niveau', 'statut', 'page'].forEach(key => next.delete(`rg_${key}`)); return next; });
+                    }} />
+                    : <div className="overflow-x-auto"><Table bordered={false} aria-label="Règles appliquées"><Thead>
+                        <Tr><Th>Type de variable</Th><Th>Rubrique liée</Th><Th>Intervention</Th><Th>Statut</Th></Tr>
+                    </Thead><Tbody>{data.items.map(type => <Tr key={type.id} className={selected?.id === type.id ? 'bg-[var(--color-bg-subtle)]' : ''}>
+                        <Td><Button variant="ghost" className="min-h-[44px] !justify-start !text-left !normal-case !tracking-normal !whitespace-normal"
+                            aria-pressed={selected?.id === type.id} onClick={() => setFilter('selection', type.id)}>{type.libelle}</Button></Td>
+                        <Td>{type.rubrique?.libelle || 'À vérifier'}</Td>
+                        <Td>{type.rubrique?.etapeLibelle || type.niveauLibelle}</Td>
+                        <Td><Badge variant={type.estActif ? 'success' : 'neutral'}>{type.estActif ? 'Actif' : 'Inactif'}</Badge></Td>
+                    </Tr>)}</Tbody></Table></div>}
+                {data && data.totalElements > 0 && <Pagination currentPage={data.page} totalElements={data.totalElements} pageSize={data.taille}
+                    pageSizeOptions={[10, 25, 50]} onPageChange={value => setFilter('page', value)} onPageSizeChange={value => setFilter('taille', value)} />}
+            </section>
+            <section aria-label="Détail de la règle" className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 min-w-0 xl:sticky xl:top-4">
+                {!selected ? <EmptyState bordered={false} title="Choisissez un type" description="Sélectionnez une ligne pour lire la rubrique et les assiettes appliquées." /> : <>
+                    <Badge variant="neutral">{selected.niveauLibelle}</Badge>
+                    <h3 className="mt-3 text-lg font-semibold">{selected.libelle}</h3>
+                    <p className="mt-1 text-sm text-[var(--color-fg-muted)]">Rubrique : {rubric?.libelle || 'Aucune rubrique liée'}</p>
+                    {rubric && <dl className="mt-5 divide-y divide-[var(--color-border-subtle)] text-sm">
+                        {[
+                            ['Étape', rubric.etapeLibelle || rubric.phaseCalcul],
+                            ['Méthode', rubric.methodeLibelle || rubric.sourceCalcul],
+                            ['Arrondi', rubric.arrondiLibelle || rubric.arrondiCalculateur],
+                            ['Condition', rubric.conditionLibelle],
+                            ...(selected.niveauConfiguration === 'CONFIGURABLE' ? [
+                                ['IRSA', rubric.soumisIrsa ? 'Dans l’assiette' : 'Hors assiette'],
+                                ['CNaPS', rubric.soumisCnaps ? 'Dans l’assiette' : 'Hors assiette'],
+                                ['Santé', rubric.soumisSante ? 'Dans l’assiette' : 'Hors assiette'],
+                                ['FMFP', (rubric.soumisFmfp ?? rubric.soumisCnaps) ? 'Dans l’assiette' : 'Hors assiette'],
+                            ] : []),
+                        ].filter(([, value]) => value).map(([label, value]) => <div key={label} className="flex justify-between gap-4 py-2"><dt className="text-[var(--color-fg-muted)]">{label}</dt><dd className="text-right font-medium">{value}</dd></div>)}
+                    </dl>}
+                    {rubric?.referenceReglementaire && <p className="mt-4 text-xs text-[var(--color-fg-muted)]">Référence : {rubric.referenceReglementaire}</p>}
+                    {rubric?.dateDebutEffet && <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Effet depuis le {rubric.dateDebutEffet}</p>}
+                </>}
+            </section>
+        </div>
+    </div>;
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Moon, Clock, UserX, FastForward } from 'lucide-react';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
+import { Table, Thead, Th, Tbody, Tr, Td, TableEmpty } from '@/components/ui/data-display/Table';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import TimeInput from '@/components/ui/forms/TimeInput';
 import Button from '@/components/ui/forms/Button';
@@ -124,7 +124,7 @@ export default function PointageGridTable({
                                 className={`
                                     px-2.5 py-1 text-[11px] transition-all cursor-pointer border h-[26px] whitespace-nowrap flex items-center shrink-0
                                     ${isActive
-                                        ? 'bg-brand-600 border-brand-600 text-[var(--color-on-color)] font-bold'
+                                        ? 'bg-[var(--color-brand-600)] border-[var(--color-brand-600)] text-[var(--color-on-color)] font-bold'
                                         : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)]'
                                     }
                                 `}
@@ -159,7 +159,7 @@ export default function PointageGridTable({
                                     ref={el => { if (el) el.indeterminate = isSomeSelected; }}
                                     onChange={toggleSelectAll}
                                     disabled={isReadOnly}
-                                    className="w-3.5 h-3.5 rounded accent-brand-600 cursor-pointer align-middle"
+                                    className="w-3.5 h-3.5 rounded accent-[var(--color-brand-600)] cursor-pointer align-middle"
                                     title={isAllSelected ? "Tout désélectionner" : "Sélectionner tous les employés de la page"}
                                 />
                             </Th>
@@ -205,8 +205,15 @@ export default function PointageGridTable({
                         </Tr>
                     </Thead>
                     <Tbody>
-                        {paginatedData.map((row) => {
-                            const isCongeFull = Boolean(row.congeFull ?? (row.typeCongeJour === 'FULL_DAY' || row.conge));
+                        {paginatedData.length === 0 ? (
+                            <TableEmpty
+                                colSpan={9 + siteIndemnites.length}
+                                title="Aucun collaborateur trouvé"
+                                description="Aucun collaborateur ne correspond aux filtres ou à la recherche sur cette journée."
+                            />
+                        ) : (
+                            paginatedData.map((row) => {
+                                const isCongeFull = Boolean(row.congeFull ?? (row.typeCongeJour === 'FULL_DAY' || row.conge));
                             const isCongeMatin = Boolean(row.congeMatin ?? (row.typeCongeJour === 'MATIN'));
                             const isCongeAm = Boolean(row.congeAm ?? (row.typeCongeJour === 'APRES_MIDI'));
                             const _isFerieChome = Boolean(row.ferieChome);
@@ -215,8 +222,8 @@ export default function PointageGridTable({
                             const isNonSaisi = Boolean(row.nonSaisi);
 
                             let rowBorderCue = 'border-l-2 border-l-transparent';
-                            if (isNonSaisi) rowBorderCue = 'border-l-2 border-l-amber-500';
-                            else if (row.totalHeures > 0) rowBorderCue = 'border-l-2 border-l-emerald-500';
+                            if (isNonSaisi) rowBorderCue = 'border-l-2 border-l-[var(--color-warning-500)]';
+                            else if (row.totalHeures > 0) rowBorderCue = 'border-l-2 border-l-[var(--color-success-500)]';
 
 
                             return (
@@ -228,7 +235,7 @@ export default function PointageGridTable({
                                             checked={selectedEmpIds.has(row.idEmploye)}
                                             onChange={() => toggleSelectRow(row.idEmploye)}
                                             disabled={isReadOnlyForUser}
-                                            className="w-3.5 h-3.5 rounded accent-brand-600 cursor-pointer align-middle"
+                                            className="w-3.5 h-3.5 rounded accent-[var(--color-brand-600)] cursor-pointer align-middle"
                                             aria-label={`Sélectionner ${row.nom}`}
                                         />
                                     </Td>
@@ -246,7 +253,7 @@ export default function PointageGridTable({
                                                 <p className="font-semibold text-[var(--color-fg)] leading-tight truncate">
                                                     <Link
                                                         to={`/employes/${row.idEmploye}?tab=pointage`}
-                                                        className="hover:text-brand-600 hover:underline"
+                                                        className="hover:text-[var(--color-brand-600)] hover:underline"
                                                         title={`${row.nom} ${row.prenom}`}
                                                     >
                                                         {row.nom} {row.prenom}
@@ -258,7 +265,7 @@ export default function PointageGridTable({
                                                         <span
                                                             className={`text-[9px] font-bold px-1 py-0.2 tracking-wide shrink-0 ${row.badgeProfilVariant === 'purple'
                                                                     ? 'bg-[var(--color-info-500)]/10 text-[var(--color-info-700)] dark:text-[var(--color-info-300)]'
-                                                                    : 'bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                                                                    : 'bg-[var(--color-brand-500)]/15 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]'
                                                                 }`}
                                                             title={row.badgeProfilTooltip || row.badgeProfilLabel}
                                                         >
@@ -312,7 +319,7 @@ export default function PointageGridTable({
                                                     <button
                                                         type="button"
                                                         onClick={() => onToggleHoraireContinu?.(row.idEmploye)}
-                                                        className="text-[10px] text-[var(--color-fg-muted)] hover:text-danger-600 underline cursor-pointer ml-1"
+                                                        className="text-[10px] text-[var(--color-fg-muted)] hover:text-[var(--color-danger-600)] underline cursor-pointer ml-1"
                                                         title="Rétablir la saisie de pause déjeuner"
                                                     >
                                                         Modifier
@@ -377,7 +384,7 @@ export default function PointageGridTable({
                                                     ({formatHeuresDecimal(row.totalHeures)})
                                                 </span>
                                             )}
-                                            {row._previewError && <span className="text-[9px] text-danger-600" title={row._previewError}>Prévisualisation indisponible</span>}
+                                            {row._previewError && <span className="text-[9px] text-[var(--color-danger-600)]" title={row._previewError}>Prévisualisation indisponible</span>}
                                             {row.heuresNuit > 0 && (
                                                 <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] bg-[var(--color-purple-500)]/10 px-1 mt-0.5">
                                                     <Moon size={9} /> nuit
@@ -389,7 +396,7 @@ export default function PointageGridTable({
                                     {/* 7. Retard */}
                                     <Td className="px-3 py-1.5 text-center font-mono font-semibold">
                                         {row.minutesRetard > 0 ? (
-                                            <span className="text-danger-600 dark:text-danger-400">
+                                            <span className="text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
                                                 +{row.minutesRetard} min
                                             </span>
                                         ) : (
@@ -409,7 +416,7 @@ export default function PointageGridTable({
                                             disabled={isReadOnlyForUser || Boolean(row.ferieChome) || Boolean(row.conge)}
                                         />
                                         {row.validationMessages?.length > 0 && (
-                                            <div className="mt-1 text-[10px] text-danger-600 dark:text-danger-400 text-left" role="alert">
+                                            <div className="mt-1 text-[10px] text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] text-left" role="alert">
                                                 {row.validationMessages.map((message, index) => <div key={index}>{message}</div>)}
                                             </div>
                                         )}
@@ -453,7 +460,7 @@ export default function PointageGridTable({
                                                                     onChange={(e) => {
                                                                         onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked, 'MATIN');
                                                                     }}
-                                                                    className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
+                                                                    className="w-3.5 h-3.5 cursor-pointer accent-[var(--color-brand-600)]"
                                                                 />
                                                                 <span className={matVal ? 'text-[var(--color-fg)] font-bold' : 'text-[var(--color-fg-muted)]'}>Aller</span>
                                                             </label>
@@ -466,7 +473,7 @@ export default function PointageGridTable({
                                                                     onChange={(e) => {
                                                                         onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked, 'APRES_MIDI');
                                                                     }}
-                                                                    className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
+                                                                    className="w-3.5 h-3.5 cursor-pointer accent-[var(--color-brand-600)]"
                                                                 />
                                                                 <span className={amVal ? 'text-[var(--color-fg)] font-bold' : 'text-[var(--color-fg-muted)]'}>Retour</span>
                                                             </label>
@@ -520,7 +527,7 @@ export default function PointageGridTable({
                                                                 onChange={(e) => {
                                                                     onUpdateDynamicIndemnite?.(row.idEmploye, ind.idIndemnite, e.target.checked);
                                                                 }}
-                                                                className="w-3.5 h-3.5 cursor-pointer accent-brand-600"
+                                                                className="w-3.5 h-3.5 cursor-pointer accent-[var(--color-brand-600)]"
                                                             />
                                                             <span className={checked
                                                                 ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-bold'
@@ -545,7 +552,8 @@ export default function PointageGridTable({
                                     })}
                                 </Tr>
                             );
-                        })}
+                        })
+                    )}
                     </Tbody>
                 </Table>
             </div>
@@ -564,7 +572,7 @@ export default function PointageGridTable({
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-[var(--color-surface)] border border-[var(--color-border)] shadow-2xl px-5 py-2.5 flex items-center gap-4 animate-in slide-in-from-bottom-3 duration-200">
                     {/* 1. Compteur & Désélection */}
                     <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                        <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">
                             {selectedEmpIds.size} sélectionné{selectedEmpIds.size > 1 ? 's' : ''}
                         </span>
                         <button
@@ -654,7 +662,7 @@ export default function PointageGridTable({
                             value={collectiveMotif}
                             onChange={(e) => setCollectiveMotif(e.target.value)}
                             placeholder="Ex: Intempéries, coupure générale, formation..."
-                            className="w-full px-3 py-2 text-xs border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-brand-500"
+                            className="w-full px-3 py-2 text-xs border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-500)]"
                         />
                     </div>
 

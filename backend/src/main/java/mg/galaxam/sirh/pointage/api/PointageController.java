@@ -224,8 +224,22 @@ public class PointageController {
             @RequestParam(required = false) Integer idPeriodePaie,
             @RequestParam(required = false) String datePointage,
             @RequestParam(required = false) String search) throws SQLException {
-        Integer per = (idPeriode != null && idPeriode > 0) ? idPeriode : idPeriodePaie;
-        return ResponseEntity.ok(pointageAnomalieService.getAnomalies(idSite, per, datePointage, search));
+        Integer site = (idSite != null && idSite > 0) ? idSite : null;
+        Integer per = (idPeriode != null && idPeriode > 0) ? idPeriode : ((idPeriodePaie != null && idPeriodePaie > 0) ? idPeriodePaie : null);
+        String date = (datePointage != null && !datePointage.trim().isEmpty()) ? datePointage.trim() : null;
+        String q = (search != null && !search.trim().isEmpty()) ? search.trim() : null;
+
+        if (per == null && date == null) {
+            Map<String, Object> emptyResp = new HashMap<>();
+            emptyResp.put("anomalies", java.util.Collections.emptyList());
+            Map<String, Integer> emptyStats = new HashMap<>();
+            emptyStats.put("total", 0);
+            emptyResp.put("stats", emptyStats);
+            emptyResp.put("semaines", java.util.Collections.emptyList());
+            return ResponseEntity.ok(emptyResp);
+        }
+
+        return ResponseEntity.ok(pointageAnomalieService.getAnomalies(site, per, date, q));
     }
 
     @PutMapping("/anomalies/{idPointage}/regulariser")

@@ -787,7 +787,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                     {viewMode === 'synthese' && (
                         loading ? (
                             <div className="flex items-center justify-center gap-2 py-12 text-xs text-[var(--color-fg-muted)]">
-                                <Clock size={14} className="animate-spin text-brand-500" />Chargement de la synthese...
+                                <Clock size={14} className="animate-spin text-[var(--color-brand-500)]" />Chargement de la synthese...
                             </div>
                         ) : !selectedPeriode ? (
                             <div className="flex flex-col items-center justify-center gap-2 py-12 text-xs text-[var(--color-fg-muted)]">
@@ -1051,19 +1051,24 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     </Td>
                                                     {/* Actions : Voir détail & Ajuster */}
                                                     <Td className="text-center">
-                                                        <div className="flex items-center justify-center gap-1">
-                                                            <button type="button" onClick={() => setSelectedEmployeForSolde(row)}
-                                                                className="inline-flex items-center justify-center w-7 h-7 border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] transition-all cursor-pointer"
-                                                                title="Voir le solde horaire de période et les ajustements">
-                                                                <Scale size={13} />
+                                                        <div className="flex items-center justify-center gap-1.5">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSelectedEmployeForSolde(row)}
+                                                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] transition-all cursor-pointer"
+                                                                title="Voir le solde horaire de période et les ajustements"
+                                                                aria-label={`Voir le solde horaire de période de ${row.prenom || ''} ${row.nom || ''}`.trim()}
+                                                            >
+                                                                <Scale size={15} />
                                                             </button>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setSelectedEmployeForDetail(row)}
-                                                                className="inline-flex items-center justify-center w-7 h-7 border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] transition-all cursor-pointer"
+                                                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] transition-all cursor-pointer"
                                                                 title="Voir le détail des pointages & la compensation hebdomadaire"
+                                                                aria-label={`Voir le détail des pointages de ${row.prenom || ''} ${row.nom || ''}`.trim()}
                                                             >
-                                                                <Eye size={13} />
+                                                                <Eye size={15} />
                                                             </button>
                                                             {isDaf && (
                                                                 <button
@@ -1081,10 +1086,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                                         setAdjustInitialDate(null);
                                                                         setSelectedEmployeToAdjust(row);
                                                                     }}
-                                                                    className={`inline-flex items-center justify-center w-7 h-7 border border-[var(--color-border-subtle)] ${isPeriodLocked ? 'opacity-40 cursor-not-allowed' : 'hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] cursor-pointer'} transition-all`}
+                                                                    className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center border border-[var(--color-border-subtle)] ${isPeriodLocked ? 'opacity-40 cursor-not-allowed' : 'hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] cursor-pointer'} transition-all`}
                                                                     title={isPeriodLocked ? "Période validée/clôturée : modifications impossibles" : "Ajuster le pointage de ce collaborateur"}
+                                                                    aria-label={`Ajuster le pointage de ${row.prenom || ''} ${row.nom || ''}`.trim()}
                                                                 >
-                                                                    <Edit3 size={13} />
+                                                                    <Edit3 size={15} />
                                                                 </button>
                                                             )}
                                                         </div>

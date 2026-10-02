@@ -7,6 +7,8 @@ async function exportDocument(idEmploye, format, params) {
     return { blob: response.data, filename };
 }
 
+const cleanSite = (site) => (Number(site) > 0 ? Number(site) : undefined);
+
 /** Tous les appels Pointage et son contrat de période, regroupés par intention. */
 const attendanceApi = {
     daily: {
@@ -21,7 +23,19 @@ const attendanceApi = {
         saveBatch: async (pointages) => (await apiClient.post('/pointages/saisie/batch', pointages)).data
     },
     anomalies: {
-        list: async (params, options = {}) => (await apiClient.get('/pointages/anomalies', { params, signal: options?.signal })).data,
+        list: async (params = {}, options = {}) => {
+            const cleanParams = { ...params };
+            if (cleanParams.idSite != null && Number(cleanParams.idSite) <= 0) {
+                delete cleanParams.idSite;
+            }
+            if (cleanParams.datePointage === '' || cleanParams.datePointage == null) {
+                delete cleanParams.datePointage;
+            }
+            if (cleanParams.search === '' || cleanParams.search == null) {
+                delete cleanParams.search;
+            }
+            return (await apiClient.get('/pointages/anomalies', { params: cleanParams, signal: options?.signal })).data;
+        },
         regularize: async (idPointage, payload) => (await apiClient.put(`/pointages/anomalies/${idPointage}/regulariser`, payload)).data
     },
     employees: {
@@ -30,9 +44,9 @@ const attendanceApi = {
         exportPdf: (idEmploye, params = {}) => exportDocument(idEmploye, 'pdf', params)
     },
     summary: {
-        getPeriod: async ({ idPeriodePaie, idSite, search, filtre, page = 1, size = 25 }) => (await apiClient.get('/pointages/synthese', { params: { idPeriodePaie, idSite, search, filtre, page, size } })).data,
-        getWeeks: async ({ idPeriodePaie, idSite }) => (await apiClient.get('/pointages/synthese/semaines', { params: { idPeriodePaie, idSite } })).data,
-        getWeekDetail: async ({ idPeriodePaie, dateDebut, dateFin, idSite }) => (await apiClient.get('/pointages/synthese/semaine-detail', { params: { idPeriodePaie, dateDebut, dateFin, idSite } })).data,
+        getPeriod: async ({ idPeriodePaie, idSite, search, filtre, page = 1, size = 25 }) => (await apiClient.get('/pointages/synthese', { params: { idPeriodePaie, idSite: cleanSite(idSite), search, filtre, page, size } })).data,
+        getWeeks: async ({ idPeriodePaie, idSite }) => (await apiClient.get('/pointages/synthese/semaines', { params: { idPeriodePaie, idSite: cleanSite(idSite) } })).data,
+        getWeekDetail: async ({ idPeriodePaie, dateDebut, dateFin, idSite }) => (await apiClient.get('/pointages/synthese/semaine-detail', { params: { idPeriodePaie, dateDebut, dateFin, idSite: cleanSite(idSite) } })).data,
         getPreflight: async ({ idPeriodePaie }) => {
             const data = (await apiClient.get('/pointages/synthese/preflight', { params: { idPeriodePaie } })).data;
             if (data && data.pret === undefined) {
@@ -45,7 +59,7 @@ const attendanceApi = {
         cancelAdjustment: async ({ idPeriodePaie, idEmploye, idAjustement, motif }) => (await apiClient.post(`/pointages/synthese/ajustements/${idAjustement}/annuler`, { motif }, { params: { idPeriodePaie, idEmploye } })).data,
         recalculateWeeks: async ({ idPeriodePaie, idSite }) => (await apiClient.post('/pointages/synthese/calculer-tout', {
             idPeriodePaie: Number(idPeriodePaie),
-            idSite: idSite != null && idSite !== '' ? Number(idSite) : undefined
+            idSite: cleanSite(idSite)
         })).data
     },
     period: {

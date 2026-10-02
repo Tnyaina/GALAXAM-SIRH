@@ -161,7 +161,10 @@ public class RefTypeMouvementPaieController {
         var all = "types".equals(domaine) ? types : rubriques;
         String q = java.text.Normalizer.normalize(recherche.trim().toLowerCase(java.util.Locale.ROOT), java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "");
         var filtered = all.stream().filter(item -> {
-            String hay = java.text.Normalizer.normalize((item.get("code")+" "+item.get("libelle")+" "+Objects.toString(item.get("description"),"")).toLowerCase(java.util.Locale.ROOT),java.text.Normalizer.Form.NFD).replaceAll("\\p{M}","");
+            Object linked = item.get("rubrique");
+            String linkedText = linked instanceof Map<?,?> rule
+                    ? Objects.toString(rule.get("code"), "") + " " + Objects.toString(rule.get("libelle"), "") : "";
+            String hay = java.text.Normalizer.normalize((item.get("code")+" "+item.get("libelle")+" "+Objects.toString(item.get("description"),"")+" "+linkedText).toLowerCase(java.util.Locale.ROOT),java.text.Normalizer.Form.NFD).replaceAll("\\p{M}","");
             return hay.contains(q) && (sens.isBlank() || sens.equals(item.get("sens")))
                 && (niveau.isBlank() || niveau.equals(item.get("niveauConfiguration")))
                 && (statut.isBlank() || ("actif".equals(statut) == Boolean.TRUE.equals(item.get("estActif"))));

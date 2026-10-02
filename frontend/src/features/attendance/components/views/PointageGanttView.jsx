@@ -140,7 +140,7 @@ export default function PointageGanttView({
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-x-auto">
                 {loadingGantt ? (
                     <div className="flex items-center justify-center gap-2 py-16 text-xs text-[var(--color-fg-muted)]">
-                        <Clock size={14} className="animate-spin text-brand-500" />
+                        <Clock size={14} className="animate-spin text-[var(--color-brand-500)]" />
                         Chargement de la semaine en cours…
                     </div>
                 ) : !selectedSemaine ? (
@@ -165,7 +165,7 @@ export default function PointageGanttView({
                                         <th
                                             key={day.date}
                                             className={`px-1 py-2 text-center font-semibold text-[10px] border-r border-[var(--color-border-subtle)] min-w-[90px] ${isToday
-                                                    ? 'bg-brand-500/10 text-brand-600 dark:text-brand-400 font-bold border-brand-500/30'
+                                                    ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] font-bold border-[var(--color-brand-500)]/30'
                                                     : isFuture
                                                         ? 'bg-[var(--color-bg-subtle)]/30 text-[var(--color-fg-muted)] opacity-60'
                                                         : day.isWeekend
@@ -175,7 +175,7 @@ export default function PointageGanttView({
                                         >
                                             <div className="font-bold flex items-center justify-center gap-1">
                                                 {day.label}
-                                                {isToday && <span className="w-1.5 h-1.5 rounded-full bg-brand-500 inline-block" title="Aujourd'hui" />}
+                                                {isToday && <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-brand-500)] inline-block" title="Aujourd'hui" />}
                                             </div>
                                             <div className="font-mono text-[9px] text-[var(--color-fg-muted)] mt-0.5">{day.dateShort}</div>
                                             {isFuture && <div className="text-[8px] font-normal uppercase tracking-wider text-[var(--color-fg-muted)]/70">Non échu</div>}

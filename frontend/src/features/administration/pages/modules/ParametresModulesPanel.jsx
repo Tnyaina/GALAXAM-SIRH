@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
-import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, FileText, Scale, Settings2, CreditCard } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { Wrench, ShieldCheck, Gift, Clock, Sliders, Calendar, FileText, Scale, CreditCard } from 'lucide-react';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import AdministrationSettingsView from '@/features/administration/components/navigation/AdministrationSettingsView';
 import PageHeader from '@/components/ui/navigation/PageHeader';
@@ -12,8 +12,6 @@ const CalendrierFerieTab = lazy(() => import('@/features/administration/componen
 const CotisationsIrsaTab = lazy(() => import('@/features/administration/components/payroll/CotisationsIrsaTab'));
 const IndemnitesSitesTab = lazy(() => import('@/features/administration/components/payroll/IndemnitesSitesTab'));
 const ReglementationFiscaleTab = lazy(() => import('@/features/administration/components/payroll/ReglementationFiscaleTab'));
-const PayrollConfigurationTab = lazy(() => import('@/features/payroll/components/tabs/PayrollConfigurationTab.jsx'));
-const PayrollRulesReadOnly = lazy(() => import('@/features/payroll/components/tabs/PayrollRulesReadOnly.jsx'));
 const ModesPaiementTab = lazy(() => import('@/features/administration/components/payroll/ModesPaiementTab'));
 
 const MODULES = [
@@ -60,11 +58,6 @@ export default function ParametresModulesPanel() {
     };
 
     const paieGroups = [
-        { id: 'calcul', label: 'Rubriques & variables', items: [
-            { id: 'rubriques_variables', label: 'Rubriques de calcul', icon: <Settings2 size={16} /> },
-            { id: 'types_variables', label: 'Types de variables', icon: <Settings2 size={16} /> },
-            { id: 'regles_calcul', label: 'Règles appliquées', icon: <Scale size={16} /> },
-        ] },
         { id: 'fiscalite', label: 'Fiscalité & cotisations', items: [
             { id: 'reglementation_fiscale', label: 'Cadre réglementaire & IRSA', icon: <Scale size={16} /> },
             { id: 'cotisations_irsa', label: 'Cotisations & organismes', icon: <ShieldCheck size={16} /> },
@@ -105,6 +98,15 @@ export default function ParametresModulesPanel() {
 
     const canonicalTab = { majorations: 'reglementation_fiscale', majorations_params: 'reglementation_fiscale', parametres_globaux: 'parametres_globaux_paie', tolerance_pointage: 'parametres_globaux_pointage' }[requestedTab] || requestedTab;
     const activeTab = currentTabs.some(tab => tab.id === canonicalTab) ? canonicalTab : currentTabs[0].id;
+
+    const legacyConfigurationTab = {
+        rubriques_variables: 'rubriques', types_variables: 'types', regles_calcul: 'regles',
+    }[requestedTab];
+    if (activeModule === 'paie' && legacyConfigurationTab) {
+        const next = new URLSearchParams(searchParams);
+        next.delete('module'); next.delete('tab'); next.set('vue', legacyConfigurationTab);
+        return <Navigate to={`/paie/configuration?${next.toString()}`} replace />;
+    }
 
     return (
         <div className="flex-1 min-h-0 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full flex flex-col overflow-hidden">
@@ -148,9 +150,6 @@ export default function ParametresModulesPanel() {
                                 {(activeTab === 'parametres_globaux_paie' || activeTab === 'parametres_globaux') && (
                                     <ParametresGlobauxTab fixedCategory="PAIE" />
                                 )}
-                                {activeTab === 'types_variables' && <PayrollConfigurationTab key="types" domaine="types" />}
-                                {activeTab === 'rubriques_variables' && <PayrollConfigurationTab key="rubriques" domaine="rubriques" />}
-                                {activeTab === 'regles_calcul' && <PayrollRulesReadOnly />}
                                 {activeTab === 'modes_paiement' && <ModesPaiementTab />}
                                 {activeTab === 'calendrier' && <CalendrierFerieTab />}
                                 {activeTab === 'cotisations_irsa' && <CotisationsIrsaTab />}

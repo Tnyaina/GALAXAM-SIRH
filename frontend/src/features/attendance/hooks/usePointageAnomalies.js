@@ -29,10 +29,19 @@ export function usePointageAnomalies(initialFilters = {}) {
         setLoading(true);
         setError(null);
         try {
-            const queryParams = {
-                ...filters,
-                search: debouncedSearch
-            };
+            const queryParams = {};
+            if (Number(filters.idPeriodePaie) > 0) {
+                queryParams.idPeriodePaie = Number(filters.idPeriodePaie);
+            }
+            if (Number(filters.idSite) > 0) {
+                queryParams.idSite = Number(filters.idSite);
+            }
+            if (filters.datePointage && String(filters.datePointage).trim()) {
+                queryParams.datePointage = String(filters.datePointage).trim();
+            }
+            if (debouncedSearch && String(debouncedSearch).trim()) {
+                queryParams.search = String(debouncedSearch).trim();
+            }
             const data = await attendanceService.getAnomalies(queryParams, { signal });
             if (data) {
                 setAnomalies(data.anomalies || []);

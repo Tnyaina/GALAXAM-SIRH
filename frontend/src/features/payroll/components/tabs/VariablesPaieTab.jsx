@@ -492,7 +492,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                     </div>
                 </div>
 
-                {canConfigure && <Button variant="ghost" size="sm" onClick={() => navigate('/admin/parametres?module=paie&tab=types_variables', { state: { from: location.pathname + location.search } })} iconLeft={<SlidersHorizontal size={14} />}>
+                {canConfigure && <Button variant="ghost" size="sm" onClick={() => navigate('/paie/configuration?vue=types', { state: { from: location.pathname + location.search } })} iconLeft={<SlidersHorizontal size={14} />}>
                     Catalogue des types
                 </Button>}
                 {cancelledCount > 0 && <Button variant="ghost" size="sm" onClick={() => { setShowCancelled(value => !value); setCurrentPage(1); }}>

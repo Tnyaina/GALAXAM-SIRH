@@ -552,15 +552,15 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                         }
                                     }}
                                     className={`p-3.5 transition-all cursor-pointer relative group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-focus-ring)] ${
-                                        sem.isCurrent ? 'bg-brand-50/20 dark:bg-brand-950/10' : ''
-                                    } ${isSelected ? 'bg-brand-50/50 dark:bg-brand-950/30 border-l-4 border-l-[var(--color-brand-500)]' : 'hover:bg-[var(--color-bg-subtle)]'}`}
+                                        sem.isCurrent ? 'bg-[var(--color-brand-50)]/20 dark:bg-[var(--color-brand-950)]/10' : ''
+                                    } ${isSelected ? 'bg-[var(--color-brand-50)]/50 dark:bg-[var(--color-brand-950)]/30 border-l-4 border-l-[var(--color-brand-500)]' : 'hover:bg-[var(--color-bg-subtle)]'}`}
                                 >
                                     <div className="flex items-center justify-between">
                                         <span className="font-bold text-xs text-[var(--color-fg)]">
                                             {sem.titre}
                                         </span>
                                         {sem.isCurrent && (
-                                            <span className="text-[10px] font-bold text-[var(--color-brand-500)] uppercase bg-brand-50 dark:bg-brand-950/40 px-1.5 py-0.5 border border-[var(--color-brand-500)]/30">
+                                            <span className="text-[10px] font-bold text-[var(--color-brand-500)] uppercase bg-[var(--color-brand-50)] dark:bg-[var(--color-brand-950)]/40 px-1.5 py-0.5 border border-[var(--color-brand-500)]/30">
                                                 En cours
                                             </span>
                                         )}
@@ -847,7 +847,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                                         <div className="font-bold text-[12px] text-[var(--color-fg)]">
                                                             <Link
                                                                 to={`/employes/${ano.idEmploye}?tab=pointage`}
-                                                                className="hover:text-brand-600 hover:underline transition-colors"
+                                                                className="hover:text-[var(--color-brand-600)] hover:underline transition-colors"
                                                                 title={`Consulter le détail pointage de ${ano.nom} ${ano.prenom}`}
                                                             >
                                                                 {ano.nom} {ano.prenom}
@@ -916,10 +916,11 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                             <Td className="text-right">
                                                 <Button
                                                     variant={isDone ? 'ghost' : 'outline'}
-                                                    size="xs"
+                                                    size="sm"
                                                     onClick={() => handleOpenRegularisation(ano)}
                                                     disabled={isLocked}
-                                                    className="font-bold text-[11px] h-[28px]"
+                                                    className="font-bold text-xs min-h-[44px] inline-flex items-center justify-center"
+                                                    aria-label={`${isDone ? 'Modifier la régularisation de' : 'Régulariser l\'anomalie de'} ${ano.nomComplet || `${ano.nom || ''} ${ano.prenom || ''}`.trim() || 'ce collaborateur'} du ${ano.datePointage || ano.date || ''}`.trim()}
                                                 >
                                                     {isDone ? 'Modifier' : ano.typeAnomalie === 'RETARD' || ano.statutCode === 'ABSENCE_JUSTIFIEE'
                                                         ? 'Vérifier' : 'Régulariser'}

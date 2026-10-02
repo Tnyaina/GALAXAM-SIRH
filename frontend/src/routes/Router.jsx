@@ -39,6 +39,7 @@ const SortiesStepPage      = lazy(() => import("@/features/payroll/pages/Sorties
 // Sprint UX 2 — Espaces dédiés Paie V1 Full V3
 const AcomptesAvancesPage       = lazy(() => import("@/features/payroll/pages/AcomptesAvancesPage"));
 const DeclarationsSortiesPage   = lazy(() => import("@/features/payroll/pages/DeclarationsSortiesPage"));
+const PayrollConfigurationPage  = lazy(() => import("@/features/payroll/pages/PayrollConfigurationPage"));
 
 // Module Employés
 const EmployeList = lazy(() => import("@/features/employees/pages/EmployeListPage"));
@@ -174,6 +175,7 @@ export default function Router() {
                         <Route path="/paie/periodes" element={<ActiveCampaignRedirect />} />
                         <Route path="/paie/acomptes-avances" element={<AcomptesAvancesPage />} />
                         <Route path="/paie/declarations" element={<DeclarationsSortiesPage />} />
+                        <Route path="/paie/configuration" element={<PayrollConfigurationPage />} />
                         <Route path="/paie/sorties" element={<DeclarationsSortiesPage />} />
                         {/* L'historique est une vue du registre unique des cycles, pas une seconde source de vérité. */}
                         <Route path="/paie/historique" element={<Navigate to="/paie?tab=periodes" replace />} />

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, GitBranch, Plus, RefreshCw, Search, Settings2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Filter, GitBranch, Plus, RefreshCw, Search, Settings2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea } from '@/components/ui/forms/Input';
@@ -8,7 +8,6 @@ import Select from '@/components/ui/forms/Select';
 import FieldError from '@/components/ui/forms/FieldError';
 import Badge from '@/components/ui/data-display/Badge';
 import EmptyState from '@/components/ui/data-display/EmptyState';
-import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Alert from '@/components/ui/feedback/Alert';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
@@ -20,7 +19,7 @@ import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 import { fmtDate } from '@/utils/dateUtils';
 
-export default function PayrollConfigurationTab({ domaine = 'rubriques' }) {
+export default function PayrollConfigurationTab({ domaine = 'rubriques', embedded = false }) {
     const [params, setParams] = useSearchParams();
     const navigate = useNavigate();
     const location = useLocation();
@@ -74,6 +73,14 @@ export default function PayrollConfigurationTab({ domaine = 'rubriques' }) {
     const chosenStage = options.etapes?.find(option => option.value === form.etapeCalcul);
     const selectedRubrique = data?.rubriquesCompatibles?.find(r => Number(r.id) === Number(form.idRubrique)) || selected?.rubrique;
     const returnTo = location.state?.from?.startsWith('/paie/') ? location.state.from : null;
+
+    useEffect(() => {
+        if (!isTypes || !data || params.get('vt_creer') !== '1') return;
+        setForm({ code: '', libelle: '', description: '',
+            ...data.defautsType, idRubrique: params.get('vt_rubrique') || '' });
+        setEditor({ item: null, version: false }); setErrors({}); setFormError('');
+        setParams(previous => { const next = new URLSearchParams(previous); next.delete('vt_creer'); return next; }, { replace: true });
+    }, [data, isTypes, params, setParams]);
 
     function handleFilter(key, value) {
         setParams(previous => {
@@ -134,6 +141,9 @@ export default function PayrollConfigurationTab({ domaine = 'rubriques' }) {
             if (savedId) handleFilter('selection', savedId);
             setEditor(null); refresh();
             toast.success(editor.version ? 'Nouvelle version enregistrée.' : 'Configuration enregistrée.');
+            if (!isTypes && !editor.item && savedId && location.pathname === '/paie/configuration') {
+                navigate(`/paie/configuration?vue=types&vt_creer=1&vt_rubrique=${savedId}`);
+            }
         } catch (cause) {
             setFormError(getErrorMessage(cause, 'L’enregistrement n’a pas abouti. Vos saisies sont conservées ; vérifiez les champs puis réessayez.'));
         } finally { submitLock.current = false; setSaving(false); }
@@ -144,39 +154,56 @@ export default function PayrollConfigurationTab({ domaine = 'rubriques' }) {
 
     return <div className="space-y-5 text-[var(--color-fg)]">
         {returnTo && <Button variant="ghost" className="min-h-[44px]" iconLeft={<ArrowLeft size={16} />} onClick={() => navigate(returnTo)}>Retour à la campagne</Button>}
-        <header className="flex flex-wrap items-start justify-between gap-4">
+        {!embedded && <header className="flex flex-wrap items-start justify-between gap-4">
             <div><h2 className="text-xl font-semibold">{isTypes ? 'Types de variables' : 'Rubriques et règles de calcul'}</h2>
                 <p className="text-sm text-[var(--color-fg-muted)] mt-1 max-w-3xl">{isTypes ? 'Définissez les éléments saisissables et associez chacun à sa règle de calcul.' : 'Consultez les traitements, leurs assiettes et leurs versions avant de modifier une règle.'}</p></div>
             <Button variant="ghost" className="min-h-[44px]" loading={refreshing && !loading} iconLeft={<RefreshCw size={16} />} onClick={refresh}>Actualiser</Button>
-        </header>
-        <div className="border-l-2 border-[var(--color-brand-500)] pl-4 py-1 text-sm text-[var(--color-fg-muted)]">
+        </header>}
+        {!embedded && <div className="border-l-2 border-[var(--color-brand-500)] pl-4 py-1 text-sm text-[var(--color-fg-muted)]">
             {isTypes ? 'Le type définit la saisie. La rubrique associée définit le calcul et le traitement fiscal et social.' : 'Les règles manuelles sont configurables ici. Les calculateurs dédiés utilisent les paramètres de leur domaine.'}
-        </div>
+        </div>}
+        {embedded && <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--color-fg-muted)]">
+            <p>{isTypes ? 'Le type rend une variable saisissable ; la rubrique liée pilote son traitement.' : 'Les rubriques manuelles définissent le calcul et les assiettes. Les circuits dédiés restent consultables.'}</p>
+            <Button variant="ghost" className="min-h-[44px]" loading={refreshing && !loading} iconLeft={<RefreshCw size={16} />} onClick={refresh}>Actualiser</Button>
+        </div>}
         {error && <Alert type="error" title="Catalogue indisponible" message={error} />}
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,1fr)] gap-5 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(330px,0.84fr)_minmax(0,1.6fr)] gap-5 items-start">
             <section aria-label="Catalogue" aria-busy={loading || refreshing} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] min-w-0">
-                <div className="p-4 space-y-4">
-                    <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">Catalogue <span className="text-sm font-normal text-[var(--color-fg-muted)]">{data ? `· ${data.totalElements}` : ''}</span></h3>
-                        {canWrite && items.length > 0 && <Button disabled={refreshing} className="min-h-[44px]" iconLeft={<Plus size={16} />} onClick={() => handleOpen()}>Nouveau</Button>}</div>
-                    <Input aria-label="Rechercher dans le catalogue" placeholder="Rechercher un code ou un libellé…" iconLeft={<Search size={16} />} value={query} onChange={e => handleFilter('q',e.target.value)} className="min-h-[44px]" />
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        <Select aria-label="Filtrer par sens" value={read('sens')} onChange={v => handleFilter('sens',v)} options={[{value:'',label:'Gains et retenues'},...(options.sens || [])]} className="min-h-[44px]" />
-                        <Select aria-label="Filtrer par statut" value={read('statut')} onChange={v => handleFilter('statut',v)} options={[{value:'',label:'Tous les statuts'},...(options.statuts || [])]} className="min-h-[44px]" />
-                        {!isTypes && <Select aria-label="Filtrer par niveau de configuration" value={read('niveau')} onChange={v => handleFilter('niveau',v)} options={[{value:'',label:'Tous les niveaux'},...(options.niveaux || [])]} className="min-h-[44px]" />}
-                    </div>
-                    <Select label="Trier par" value={read('tri','ordre')} onChange={v => handleFilter('tri',v)} options={options.tris || []} className="min-h-[44px]" />
+                <div className="p-4 sm:p-5 border-b border-[var(--color-border-subtle)] space-y-4">
+                    <div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold">{isTypes ? 'Types disponibles' : 'Rubriques disponibles'}</h3>
+                        <p className="text-xs text-[var(--color-fg-muted)] mt-1">{data ? `${data.totalElements} élément${data.totalElements > 1 ? 's' : ''} dans le catalogue` : 'Chargement du catalogue'}</p></div>
+                        {canWrite && <Button disabled={refreshing || !data} className="min-h-[44px]" iconLeft={<Plus size={16} />} onClick={() => handleOpen()}>Nouveau</Button>}</div>
+                    <Input aria-label="Rechercher dans le catalogue" placeholder="Code ou libellé…" iconLeft={<Search size={16} />} value={query} onChange={e => handleFilter('q',e.target.value)} className="min-h-[44px]" />
+                    <details className="group border border-[var(--color-border-subtle)]">
+                        <summary className="flex items-center gap-2 cursor-pointer min-h-[44px] px-3 text-sm font-medium list-none"><Filter size={15} />Filtres et tri
+                            {(read('sens') || read('statut') || read('niveau')) && <span className="ml-auto text-xs text-[var(--color-brand-500)]">Actifs</span>}</summary>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 border-t border-[var(--color-border-subtle)]">
+                            <Select aria-label="Filtrer par sens" value={read('sens')} onChange={v => handleFilter('sens',v)} options={[{value:'',label:'Gains et retenues'},...(options.sens || [])]} className="min-h-[44px]" />
+                            <Select aria-label="Filtrer par statut" value={read('statut')} onChange={v => handleFilter('statut',v)} options={[{value:'',label:'Tous les statuts'},...(options.statuts || [])]} className="min-h-[44px]" />
+                            {!isTypes && <Select aria-label="Filtrer par niveau de configuration" value={read('niveau')} onChange={v => handleFilter('niveau',v)} options={[{value:'',label:'Tous les niveaux'},...(options.niveaux || [])]} className="min-h-[44px]" />}
+                            <Select label="Trier par" value={read('tri','ordre')} onChange={v => handleFilter('tri',v)} options={options.tris || []} className="min-h-[44px]" />
+                        </div>
+                    </details>
                 </div>
-                {loading ? <SkeletonTable rows={5} columns={3} bordered={false} /> : error && !data ? <p className="p-5 text-sm text-[var(--color-fg-muted)]">Le catalogue n’a pas été chargé. Utilisez Actualiser pour réessayer.</p> : items.length === 0 ? <EmptyState bordered={false} icon={Settings2} title="Aucun résultat" description="Aucun élément ne correspond à cette sélection." actionLabel={query || read('sens') || read('niveau') || read('statut') ? 'Effacer les filtres' : canWrite ? 'Créer un élément' : undefined} onAction={query || read('sens') || read('niveau') || read('statut') ? clearFilters : () => handleOpen()} /> : <>
-                    <Table bordered={false} aria-label={isTypes ? 'Types de variables' : 'Rubriques de paie'}><Thead><Th>Libellé et code</Th><Th>Traitement</Th><Th>Statut</Th></Thead><Tbody>{items.map(item => <Tr key={item.id} className={selectedId === item.id ? 'bg-[var(--color-bg-subtle)]' : ''}>
-                        <Td><Button variant="ghost" className="min-h-[44px] !justify-start !normal-case !tracking-normal !text-sm !whitespace-normal text-left" aria-pressed={selectedId === item.id} onClick={() => handleFilter('selection',item.id)}><span><span className="block font-semibold">{item.libelle}</span><span className="block text-xs font-data text-[var(--color-fg-muted)] mt-1">{item.code}</span></span></Button></Td>
-                        <Td><span className="block text-sm">{isTypes ? item.rubrique?.etapeLibelle || 'Circuit dédié' : item.etapeLibelle}</span><span className="block text-xs text-[var(--color-fg-muted)] mt-1">{item.niveauLibelle}</span></Td>
-                        <Td><Badge variant={item.estActif ? 'success' : 'neutral'}>{item.estActif ? 'Actif' : 'Inactif'}</Badge></Td>
-                    </Tr>)}</Tbody></Table>
+                {loading ? <SkeletonTable rows={5} columns={2} bordered={false} /> : error && !data ? <p className="p-5 text-sm text-[var(--color-fg-muted)]">Le catalogue n’a pas été chargé. Utilisez Actualiser pour réessayer.</p> : items.length === 0 ? <EmptyState bordered={false} icon={Settings2} title="Aucun résultat" description="Aucun élément ne correspond à cette sélection." actionLabel={query || read('sens') || read('niveau') || read('statut') ? 'Effacer les filtres' : canWrite ? 'Créer un élément' : undefined} onAction={query || read('sens') || read('niveau') || read('statut') ? clearFilters : () => handleOpen()} /> : <>
+                    <ul aria-label={isTypes ? 'Types de variables' : 'Rubriques de paie'} className="divide-y divide-[var(--color-border-subtle)]">
+                        {items.map(item => <li key={item.id}><button type="button" aria-pressed={selectedId === item.id} onClick={() => handleFilter('selection',item.id)}
+                            className={`w-full min-h-[70px] text-left px-4 py-3 flex items-center gap-3 border-l-[3px] focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] ${selectedId === item.id ? 'border-[var(--color-brand-500)] bg-[var(--color-bg-subtle)]' : 'border-transparent hover:bg-[var(--color-bg-subtle)]'}`}>
+                            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold leading-snug">{item.libelle}</span>
+                                <span className="block text-xs font-data text-[var(--color-fg-muted)] mt-1">{item.code} · {isTypes ? item.rubrique?.etapeLibelle || item.niveauLibelle : item.etapeLibelle}</span></span>
+                            <span className="shrink-0"><Badge variant={item.estActif ? 'success' : 'neutral'}>{item.estActif ? 'Actif' : 'Inactif'}</Badge></span>
+                        </button></li>)}
+                    </ul>
                     <Pagination currentPage={data.page} totalElements={data.totalElements} pageSize={data.taille} pageSizeOptions={[10,25,50]} onPageChange={v => handleFilter('page',v)} onPageSizeChange={v => handleFilter('taille',v)} className="[&_button]:!min-h-[44px] [&_button]:!min-w-[44px] [&_select]:min-h-[44px]" />
                 </>}
             </section>
             <section ref={detailRef} aria-label="Fiche de configuration" className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 sm:p-6 min-w-0 xl:sticky xl:top-4">
-                {!selected ? <EmptyState bordered={false} icon={Settings2} title="Choisissez un élément" description="Sélectionnez une ligne du catalogue pour consulter son traitement et ses paramètres." /> : <>
+                {!selected ? <div className="min-h-[320px] flex flex-col justify-center max-w-lg mx-auto"><span className="w-12 h-12 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center justify-center text-[var(--color-brand-500)]"><Settings2 size={22} /></span>
+                    <p className="text-xs font-semibold tracking-wider text-[var(--color-brand-500)] mt-6">{isTypes ? 'ÉTAPE 02 · SAISIE' : 'ÉTAPE 01 · TRAITEMENT'}</p>
+                    <h3 className="text-xl font-semibold mt-2">{isTypes ? 'Relier un type à une rubrique' : 'Examiner une rubrique de calcul'}</h3>
+                    <p className="text-sm text-[var(--color-fg-muted)] leading-relaxed mt-2">{isTypes ? 'Choisissez un type pour vérifier la rubrique liée et son traitement, ou créez un nouveau type.' : 'Choisissez une rubrique pour lire son intervention, ses assiettes et ses versions, ou créez une nouvelle règle.'}</p>
+                    {canWrite && <Button className="mt-6 self-start min-h-[44px]" iconLeft={<Plus size={16} />} disabled={!data || refreshing} onClick={() => handleOpen()}>{isTypes ? 'Créer un type' : 'Créer une rubrique'}</Button>}
+                </div> : <>
                     <div className="space-y-2"><Badge variant="neutral">{selected.niveauLibelle}</Badge><h3 className="text-xl font-semibold break-words">{selected.libelle}</h3><p className="text-xs font-data text-[var(--color-fg-muted)]">{selected.code}</p></div>
                     {selected.description && <p className="text-sm leading-relaxed text-[var(--color-fg-muted)] mt-4">{selected.description}</p>}
                     <ConfigurationDetailsView rubrique={associated} assiettes={options.assiettes} />
@@ -188,6 +215,8 @@ export default function PayrollConfigurationTab({ domaine = 'rubriques' }) {
                         {canWrite && selected.peutModifier && <Button disabled={refreshing} variant="outline" className="min-h-[44px]" onClick={() => handleOpen(selected)}>Modifier</Button>}
                         {canWrite && selected.peutVersionner && <Button disabled={refreshing} className="min-h-[44px]" iconLeft={<GitBranch size={16} />} onClick={() => handleOpen(selected,true)}>Nouvelle version</Button>}
                         {!isTypes && !selected.peutModifier && selected.parametrageUrl && <Button variant="outline" className="min-h-[44px]" iconRight={<ArrowRight size={16} />} onClick={() => navigate(selected.parametrageUrl)}>Ouvrir le paramétrage dédié</Button>}
+                        {!isTypes && canWrite && selected.niveauConfiguration === 'CONFIGURABLE' && <Button variant="outline" className="min-h-[44px]" iconRight={<ArrowRight size={16} />} onClick={() => navigate(`/paie/configuration?vue=types&vt_creer=1&vt_rubrique=${selected.id}`)}>Créer un type lié</Button>}
+                        {isTypes && selected.rubrique?.id && <Button variant="outline" className="min-h-[44px]" iconRight={<ArrowRight size={16} />} onClick={() => navigate(`/paie/configuration?vue=rubriques&rb_selection=${selected.rubrique.id}`)}>Voir la rubrique</Button>}
                     </div>
                 </>}
             </section>

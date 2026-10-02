@@ -3,7 +3,6 @@ package mg.galaxam.sirh.conge;
 import mg.galaxam.sirh.conge.application.CongeService;
 import mg.galaxam.sirh.conge.domain.CongeCalculateurEngine;
 import mg.galaxam.sirh.conge.persistence.DemandeConge;
-import mg.galaxam.sirh.conge.persistence.RefStatutDemandeConge;
 import mg.galaxam.sirh.conge.persistence.VSoldeCongeEmploye;
 import mg.galaxam.sirh.conge.testutils.CongeTestFixtureHelper;
 import org.junit.jupiter.api.BeforeEach;

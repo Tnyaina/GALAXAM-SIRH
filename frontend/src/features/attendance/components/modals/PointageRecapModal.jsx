@@ -111,8 +111,8 @@ export default function PointageRecapModal({
                 {/* 1. En-tête Contextuel */}
                 <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
                     <div className="flex items-center gap-2 text-xs font-bold text-[var(--color-fg)]">
-                        <Calendar size={15} className="text-brand-500" />
-                        <span>Date de pointage : <strong className="font-mono text-brand-700 dark:text-brand-300">{selectedDate}</strong></span>
+                        <Calendar size={15} className="text-[var(--color-brand-500)]" />
+                        <span>Date de pointage : <strong className="font-mono text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]">{selectedDate}</strong></span>
                     </div>
                     <div className="text-xs text-[var(--color-fg-muted)]">
                         Site ciblé : <span className="font-bold text-[var(--color-fg)]">{siteLabel}</span>
@@ -123,7 +123,7 @@ export default function PointageRecapModal({
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
                     <div className="p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xs">
                         <p className="text-[11px] font-bold uppercase text-[var(--color-fg-muted)] flex items-center gap-1.5 tracking-wider">
-                            <Users size={14} className="text-brand-500" /> Présence
+                            <Users size={14} className="text-[var(--color-brand-500)]" /> Présence
                         </p>
                         <p className="text-xl font-bold font-mono text-[var(--color-fg)] mt-1.5">
                             {presents.length} <span className="text-xs font-normal text-[var(--color-fg-muted)] font-sans">/ {totalInscrits}</span>
@@ -152,7 +152,7 @@ export default function PointageRecapModal({
                     {previewErrors.length > 0 && ` · ${previewErrors.length} calcul(s) échoué(s)`}
                 </p>
                 {previewErrors.length > 0 && (
-                    <div role="alert" className="p-3 text-xs text-danger-600 border border-danger-500">
+                    <div role="alert" className="p-3 text-xs text-[var(--color-danger-600)] border border-[var(--color-danger-500)] bg-[var(--color-danger-500)]/10">
                         Corrigez ou relancez la saisie des lignes dont la prévisualisation a échoué avant de confirmer.
                         {previewErrors.map(row => <div key={row.idEmploye}>{row.nom} {row.prenom} : {row._previewError}</div>)}
                     </div>
@@ -160,7 +160,7 @@ export default function PointageRecapModal({
 
                 {/* 3. Alerte Anomalies si présentes */}
                 {anomalies.length > 0 && (
-                    <div className="p-3.5 bg-[var(--color-warning-500)]/10 border-l-4 border-l-amber-500 flex items-start gap-2.5 text-xs text-[var(--color-warning-900)] dark:text-[var(--color-warning-200)]">
+                    <div className="p-3.5 bg-[var(--color-warning-500)]/10 border-l-4 border-l-[var(--color-warning-500)] flex items-start gap-2.5 text-xs text-[var(--color-warning-900)] dark:text-[var(--color-warning-200)]">
                         <AlertTriangle size={17} className="text-[var(--color-warning-600)] shrink-0 mt-0.5" />
                         <div>
                             <p className="font-bold">{anomalies.length} anomalie(s) de saisie constatée(s) :</p>
@@ -216,7 +216,7 @@ export default function PointageRecapModal({
                                         </Td>
                                         <Td className="py-2.5 px-3 text-center font-mono">
                                             {row.minutesRetard > 0 ? (
-                                                <span className="text-danger-600 font-bold">+{row.minutesRetard}m</span>
+                                                <span className="text-[var(--color-danger-600)] font-bold">+{row.minutesRetard}m</span>
                                             ) : (
                                                 <span className="text-[var(--color-success-600)] font-medium">0m</span>
                                             )}

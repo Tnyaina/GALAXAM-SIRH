@@ -232,7 +232,7 @@ export default function DafAjustementPointageModal({
             isOpen={isOpen}
             onClose={onClose}
             title={`Ajustement du pointage — ${employeNomEffective} (${matriculeEffective})`}
-            icon={<UserCheck className="w-5 h-5 text-brand-500" />}
+            icon={<UserCheck className="w-5 h-5 text-[var(--color-brand-500)]" />}
             size="4xl"
             className="max-w-6xl w-full"
         >
@@ -250,7 +250,7 @@ export default function DafAjustementPointageModal({
                             <button
                                 type="button"
                                 onClick={() => setSelectedJour(null)}
-                                className="flex items-center gap-1 text-xs text-brand-600 hover:underline font-semibold cursor-pointer"
+                                className="flex items-center gap-1 text-xs text-[var(--color-brand-600)] hover:underline font-semibold cursor-pointer"
                             >
                                 <ArrowLeft size={14} /> Retour à la liste des jours
                             </button>
@@ -297,7 +297,7 @@ export default function DafAjustementPointageModal({
                                                 heureEntreeAm: checked ? '' : prev.heureEntreeAm
                                             }));
                                         }}
-                                        className="w-4 h-4 rounded-none accent-brand-600 cursor-pointer"
+                                        className="w-4 h-4 rounded-none accent-[var(--color-brand-600)] cursor-pointer"
                                     />
                                 </label>
                             </div>
@@ -418,7 +418,7 @@ export default function DafAjustementPointageModal({
                             {/* Motif obligatoire DAF */}
                             <div className="sm:col-span-2 pt-1">
                                 <label className="block text-[11px] font-bold text-[var(--color-fg)] mb-1">
-                                    Motif de la rectification <span className="text-danger-500">*</span>
+                                    Motif de la rectification <span className="text-[var(--color-danger-500)]">*</span>
                                 </label>
                                 <Input
                                     placeholder="Ex: Rectifié suite justificatif mission signé par la direction"
@@ -587,11 +587,12 @@ export default function DafAjustementPointageModal({
                                                         <Button
                                                             type="button"
                                                             variant="outline"
-                                                            size="xs"
+                                                            size="sm"
                                                             disabled={!ptg.canCorrect}
                                                             onClick={() => handleSelectJour(ptg)}
-                                                            icon={<Edit3 size={11} />}
-                                                            className="h-6 px-2 text-[11px] font-semibold"
+                                                            icon={<Edit3 size={13} />}
+                                                            className="min-h-[44px] inline-flex items-center justify-center text-xs font-semibold px-3"
+                                                            aria-label={`Rectifier la journée du ${dateFormatted}`}
                                                         >
                                                             Rectifier
                                                         </Button>

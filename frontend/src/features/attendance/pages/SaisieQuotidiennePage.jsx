@@ -462,7 +462,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                 {/* 5. Table de Saisie DOMINANTE (scroll interne) */}
                 {loading ? (
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-12 text-center text-xs font-bold text-[var(--color-fg-muted)] flex items-center justify-center gap-2" style={{ minHeight: 'calc(100vh - 260px)' }}>
-                        <Clock size={16} className="animate-spin text-brand-500" />
+                        <Clock size={16} className="animate-spin text-[var(--color-brand-500)]" />
                         Chargement des pointages…
                     </div>
                 ) : error ? (

@@ -13,7 +13,7 @@
    ============================================================================ */
 @theme {
   /* ---- Typographie ---------------------------------------------------- */
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Inter Variable", system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   /* ---- Marque — Sauge (#5C7A52) ----------------------------------------

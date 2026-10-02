@@ -249,7 +249,7 @@ export default function StatusPickerPopover({
                                     }}
                                     className={`w-full flex items-start gap-2.5 p-2 rounded text-left transition-colors cursor-pointer border ${
                                         isSelected
-                                            ? 'border-brand-500/40 bg-brand-500/10'
+                                            ? 'border-[var(--color-brand-500)]/40 bg-[var(--color-brand-500)]/10'
                                             : `border-transparent ${opt.bgHover}`
                                     }`}
                                 >
@@ -260,7 +260,7 @@ export default function StatusPickerPopover({
                                                 {opt.label}
                                             </span>
                                             {isSelected && (
-                                                <Check size={13} className="text-brand-600 shrink-0" />
+                                                <Check size={13} className="text-[var(--color-brand-600)] shrink-0" />
                                             )}
                                         </div>
                                         <p className="text-[10px] text-[var(--color-fg-muted)] leading-tight mt-0.5">
@@ -284,7 +284,7 @@ export default function StatusPickerPopover({
                                 onChange={(e) => setMotif(e.target.value)}
                                 placeholder="Ex: Certificat médical, mission, urgence..."
                                 autoFocus
-                                className="w-full px-2.5 py-1.5 text-xs bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded focus:outline-none focus:border-brand-500 text-[var(--color-fg)]"
+                                className="w-full px-2.5 py-1.5 text-xs bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded focus:outline-none focus:border-[var(--color-brand-500)] text-[var(--color-fg)]"
                             />
                             {/* Suggestions rapides */}
                             <div className="flex flex-wrap gap-1">
@@ -293,7 +293,7 @@ export default function StatusPickerPopover({
                                         key={sug}
                                         type="button"
                                         onClick={() => setMotif(sug)}
-                                        className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-surface-hover)] border border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-brand-400 cursor-pointer"
+                                        className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-surface-hover)] border border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-brand-400)] cursor-pointer"
                                     >
                                         + {sug}
                                     </button>
@@ -320,7 +320,7 @@ export default function StatusPickerPopover({
                             className={`inline-flex items-center gap-1 px-3 py-1 text-[11px] font-bold rounded shadow-xs cursor-pointer ${
                                 !isMotifValid
                                     ? 'bg-[var(--color-fg-subtle)] dark:bg-[var(--color-bg-subtle)] text-[var(--color-on-color)] cursor-not-allowed opacity-60'
-                                    : 'bg-brand-600 hover:bg-brand-700 text-[var(--color-on-color)]'
+                                    : 'bg-[var(--color-brand-600)] hover:bg-[var(--color-brand-700)] text-[var(--color-on-color)]'
                             }`}
                         >
                             <Check size={12} />

@@ -71,7 +71,7 @@ describe('Paramétrage paie',()=>{
     it('annule la requête précédente lorsque la sélection change',async()=>{
         await render();const firstSignal=paieService.getConfigurationCatalogue.mock.calls.at(-1)[1];
         paieService.getConfigurationCatalogue.mockResolvedValue({...catalogue,selection:rubrique});
-        await click('Prime de recettePRIME_TEST');
+        await act(async()=>host.querySelector('ul[aria-label="Rubriques de paie"] button').click());
         expect(firstSignal.aborted).toBe(true);
         expect(paieService.getConfigurationCatalogue.mock.calls.at(-1)[0].selection).toBe(1);
     });

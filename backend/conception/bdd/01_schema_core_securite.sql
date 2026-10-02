@@ -211,6 +211,7 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 ('PAIE_CENTRE',       'Centre de paie',          'LayoutDashboard',   '/paie',                           1, 2, 'PAIE_MODULE'),
 ('PAIE_CAMPAGNE',     'Cycles de paie',          'CalendarRange',     '/paie?tab=periodes',              2, 2, 'PAIE_MODULE'),
 ('PAIE_ACOMPTES',     'Acomptes & avances',      'SlidersHorizontal', '/paie/acomptes-avances',           3, 2, 'PAIE_MODULE'),
+('PAIE_CONFIGURATION','Configuration de paie',  'Settings2',         '/paie/configuration',             4, 2, 'PAIE_MODULE'),
 ('PAIE_DECLARATIONS', 'Déclarations & sorties',  'FileText',          '/paie/declarations',              5, 2, 'PAIE_MODULE');
 -- Habilitations Menus (Role x Menu) (Archives Finales Sprint 11)
 -- ROLE_ADMIN (id_role = 1) : Accès complet
@@ -230,6 +231,7 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 (1, 'PAIE_CENTRE'),
 (1, 'PAIE_CAMPAGNE'),
 (1, 'PAIE_ACOMPTES'),
+(1, 'PAIE_CONFIGURATION'),
 (1, 'PAIE_DECLARATIONS'),
 (1, 'ADMIN_MODULE'),
 (1, 'ADMIN_SECURITE'),
@@ -286,4 +288,3 @@ INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, d
 (42, 'MONTANT_PRIME_ASSIDUITE', 'PAIE', '50000', 'Montant forfaitaire mensuel de la prime d assiduité (accordé si retards < seuil)', '2001-07-01', NULL, TRUE, TRUE)
 ON CONFLICT (code_parametre, date_debut) DO UPDATE SET valeur = EXCLUDED.valeur, description = EXCLUDED.description, est_actif = EXCLUDED.est_actif, est_desactivable = EXCLUDED.est_desactivable;
 SELECT setval('parametre_global_id_parametre_seq', (SELECT GREATEST(MAX(id_parametre), 42) FROM parametre_global));
-
