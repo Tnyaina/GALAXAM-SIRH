@@ -165,7 +165,7 @@ export default function FilialesSitesTab() {
         if (!filialeFormData.raisonSociale.trim()) {
             errors.raisonSociale = "La raison sociale est obligatoire.";
         }
-        if (filialeFormData.nif && !/^\d{10}$/.test(filialeFormData.nif.trim())) {
+        if (filialeFormData.nif && !/^\d{10}$/.test(filialeFormData.nif.replace(/\s/g, ''))) {
             errors.nif = "Le NIF doit comporter exactement 10 chiffres.";
         }
 

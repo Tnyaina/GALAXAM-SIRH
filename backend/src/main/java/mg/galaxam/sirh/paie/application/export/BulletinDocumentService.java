@@ -69,7 +69,9 @@ public class BulletinDocumentService {
             BigDecimal taux = l.getTauxSalarial();
             // Les rubriques non proportionnelles utilisent parfois ce champ pour une valeur monétaire.
             if (taux != null && taux.abs().compareTo(BigDecimal.valueOf(100)) > 0) taux = null;
-            result.add(new Rubrique(n(l.getLibelleRubrique()),
+            String libelle = n(l.getLibelleRubrique());
+            if ("GAIN_NET".equals(l.getEtapeCalcul())) libelle = "Ajout au net : " + libelle;
+            result.add(new Rubrique(libelle,
                     l.getBaseCalcul() != null ? l.getBaseCalcul() : l.getQuantite(), taux,
                     "GAIN".equals(l.getSens()) ? l.getMontantSalarial() : null,
                     "RETENUE".equals(l.getSens()) ? l.getMontantSalarial() : null));
@@ -135,6 +137,7 @@ public class BulletinDocumentService {
             cell(sheet, r, 0, "Cotisations salariales", label); numeric(sheet, r++, 4, b.getTotalCotisationsSalariales(), total);
             cell(sheet, r, 0, "Net imposable", label); numeric(sheet, r++, 3, b.getRevenuNetImposable(), total);
             cell(sheet, r, 0, "IRSA / ISI", label); numeric(sheet, r++, 4, impot(b), total);
+            cell(sheet, r, 0, "Ajouts au net", label); numeric(sheet, r++, 3, b.getTotalIndemnitesNonImposables(), total);
             cell(sheet, r, 0, "Avances et prêts", label); numeric(sheet, r++, 4, b.getTotalRetenuesAcomptePret(), total);
             r++;
             cell(sheet, r, 0, "NET À PAYER", netLabel);
@@ -250,6 +253,7 @@ public class BulletinDocumentService {
             summary("Cotisations salariales", b.getTotalCotisationsSalariales());
             summary("Net imposable", b.getRevenuNetImposable());
             summary("IRSA / ISI", impot(b));
+            summary("Ajouts au net", b.getTotalIndemnitesNonImposables());
             summary("Avances et prêts", b.getTotalRetenuesAcomptePret());
             y -= 7;
             fill(LEFT, y + 12, RIGHT - LEFT, 36, DARK);

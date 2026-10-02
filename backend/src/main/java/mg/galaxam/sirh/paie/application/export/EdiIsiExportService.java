@@ -29,15 +29,12 @@ public class EdiIsiExportService {
      * stockée en base, jamais la date courante, pour garantir la cohérence des exports historiques.
      */
     public String exporterEdiXml(Integer idPeriode, Connection c) throws Exception {
-        // 1. Informations de la période et du déclarant (GALAXAM LOGISTICS)
+        // 1. Informations de la période et du déclarant
         // La date de fin provient exclusivement de la période de paie — pas de fallback LocalDate.now()
-        String sqlPeriode = "SELECT pp.date_fin, rf.nif " +
-                "FROM periode_paie pp " +
-                "LEFT JOIN ref_filiale rf ON rf.id_filiale = 1 " +
-                "WHERE pp.id_periode_paie = ?";
+        String sqlPeriode = "SELECT date_fin FROM periode_paie WHERE id_periode_paie = ?";
 
         LocalDate dateFin;
-        String nifContribuable = "3000019434";
+        String nifContribuable = PayrollExportCompanyResolver.forPeriod(idPeriode, c).nifCompact();
 
         try (PreparedStatement ps = c.prepareStatement(sqlPeriode)) {
             ps.setInt(1, idPeriode);
@@ -48,9 +45,6 @@ public class EdiIsiExportService {
                             "Période de paie introuvable ou date de fin manquante pour l'export EDI ISI (id=" + idPeriode + ").");
                 }
                 dateFin = rs.getDate("date_fin").toLocalDate();
-                if (rs.getString("nif") != null) {
-                    nifContribuable = rs.getString("nif");
-                }
             }
         }
 

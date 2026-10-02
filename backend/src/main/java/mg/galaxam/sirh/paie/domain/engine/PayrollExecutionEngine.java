@@ -21,7 +21,7 @@ import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
  * 
  * Décomposé en méthodes spécialisées pour chaque palier de calcul :
  * 1. Salaire brut & gains (Salaire de base, absences, congés, HS, primes)
- * 2. Cotisations sociales (CNaPS plafonnée à 8x SME, Santé OSTIE/OMSI, FMFP)
+ * 2. Cotisations sociales (plafond légal daté pour CNaPS et santé selon organisme, FMFP)
  * 3. Net imposable
  * 4. Fiscalité (Barème progressif IRSA 6 tranches, déductions familiales, minimum 3000 Ar, ou ISI 5%)
  * 5. Remboursements et indemnités réellement non imposables
@@ -31,11 +31,8 @@ import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
 @Component
 public class PayrollExecutionEngine {
 
-    public static final BigDecimal PLAFOND_QUOTITE_CESSIBLE = new BigDecimal("0.33333333"); // 1/3 légal (Saisies-arrêts et prêts Art. 72)
-    public static final BigDecimal PLAFOND_AVANCE_EMPLOYEUR_DIXIEME = new BigDecimal("0.10"); // 1/10 légal (Avances employeur Art. 68)
     public static final BigDecimal DIVISEUR_HEURES_MENSUELLES = new BigDecimal("173.33");
     public static final BigDecimal DIVISEUR_JOURS_TRENTIEME = new BigDecimal("30.0");
-    public static final BigDecimal MULTIPLICATEUR_PLAFOND_CNAPS = new BigDecimal("8.0");
 
     public record CotisationsResult(BigDecimal totalCotisationsSalariales, BigDecimal totalCotisationsPatronales) {}
     public record FiscaliteResult(BigDecimal irsaNet, BigDecimal retenueIsi, IrsaCalculator.Result detailIrsa) {}
@@ -574,35 +571,35 @@ public class PayrollExecutionEngine {
         assietteSociale = assietteSociale.max(BigDecimal.ZERO);
         assietteSanteVariables = assietteSanteVariables.max(BigDecimal.ZERO);
 
-        BigDecimal sme = zeroIfNull(input.getSmeNational());
+        BigDecimal plafondCotisation = input.getPlafondCotisationMensuel();
         SocialContributionCalculator socialCalculator = new SocialContributionCalculator();
         SocialContributionCalculator.Result social = socialCalculator.calculate(assietteSociale, assietteSanteVariables, assietteFmfp,
                 new SocialContributionCalculator.Rules(input.getTauxCnapsSalarialDecimal(), input.getTauxCnapsPatronalDecimal(),
-                        input.getTauxSanteSalarialDecimal(), input.getTauxSantePatronalDecimal(), input.getTauxFmfpPatronalDecimal(), sme, input.isEstPlafonneSante()));
+                        input.getTauxSanteSalarialDecimal(), input.getTauxSantePatronalDecimal(), input.getTauxFmfpPatronalDecimal(), plafondCotisation, input.isEstPlafonneSante()));
 
-        // 2.1 CNaPS (plafonnée à 8x SME) & FMFP Patronale (1% sur brut total)
+        // 2.1 CNaPS et FMFP : taux et plafond résolus à la date de la période.
         if (input.isSoumisCnaps()) {
             SocialContributionCalculator.Contribution resCnaps = social.cnaps();
             BigDecimal assietteCnaps = resCnaps.assiette();
             BigDecimal cnapsSal = resCnaps.partSalariale();
             BigDecimal cnapsPat = resCnaps.partPatronale();
 
-            lignes.add(creerLigne(bp, "COTISATION_CNAPS_SAL", "Cotisation CNaPS Salariale (1%)", "RETENUE", "COTISATION_SALARIALE",
+            lignes.add(creerLigne(bp, "COTISATION_CNAPS_SAL", "Cotisation CNaPS Salariale (" + percent(input.getTauxCnapsSalarialDecimal()) + "%)", "RETENUE", "COTISATION_SALARIALE",
                     assietteCnaps, input.getTauxCnapsSalarialDecimal().movePointRight(2), cnapsSal, null, 200));
-            lignes.add(creerLigne(bp, "COTISATION_CNAPS_PAT", "Cotisation CNaPS Patronale (13%)", "PATRONAL", "COTISATION_PATRONALE",
+            lignes.add(creerLigne(bp, "COTISATION_CNAPS_PAT", "Cotisation CNaPS Patronale (" + percent(input.getTauxCnapsPatronalDecimal()) + "%)", "PATRONAL", "COTISATION_PATRONALE",
                     assietteCnaps, input.getTauxCnapsPatronalDecimal().movePointRight(2), null, cnapsPat, 300));
 
             totalCotisSalariales = totalCotisSalariales.add(cnapsSal);
             totalCotisPatronales = totalCotisPatronales.add(cnapsPat);
 
-            // 2.3 FMFP Patronale (1% sur brut total)
+            // 2.3 FMFP patronale sur sa propre assiette.
             BigDecimal fmfpPat = MoneyRoundingPolicy.contribution(social.fmfp());
-            lignes.add(creerLigne(bp, "COTISATION_FMFP_PAT", "Cotisation FMFP Patronale (1%)", "PATRONAL", "COTISATION_PATRONALE",
+            lignes.add(creerLigne(bp, "COTISATION_FMFP_PAT", "Cotisation FMFP Patronale (" + percent(input.getTauxFmfpPatronalDecimal()) + "%)", "PATRONAL", "COTISATION_PATRONALE",
                     assietteFmfp.max(BigDecimal.ZERO), input.getTauxFmfpPatronalDecimal().movePointRight(2), null, fmfpPat, 330));
             totalCotisPatronales = totalCotisPatronales.add(fmfpPat);
         }
 
-        // 2.2 Santé (OSTIE ou OMSI - Plafonnement à 8x SME si activé)
+        // 2.2 Santé (OSTIE ou OMSI, plafond légal si activé).
         if (input.isSoumisSante()) {
             String organe = input.getCodeSanteOrgane() != null ? input.getCodeSanteOrgane().toUpperCase() : "OSTIE";
             boolean estOmsi = "OMSI".equals(organe);
@@ -610,11 +607,11 @@ public class PayrollExecutionEngine {
 
             String codeSanteSal = estOmsi ? "COTISATION_OMSI_SAL" : (estOstie ? "COTISATION_OSTIE_SAL" : "COTISATION_" + organe + "_SAL");
             String salRateStr = input.getTauxSanteSalarialDecimal() != null ? input.getTauxSanteSalarialDecimal().movePointRight(2).stripTrailingZeros().toPlainString() : "0";
-            String libelleSanteSal = estOmsi ? "Cotisation OMSI Salariale (1.5%)" : (estOstie ? "Cotisation OSTIE Salariale (1%)" : "Cotisation Santé " + organe + " Salariale (" + salRateStr + "%)");
+            String libelleSanteSal = "Cotisation " + organe + " Salariale (" + salRateStr + "%)";
 
             String codeSantePat = estOmsi ? "COTISATION_OMSI_PAT" : (estOstie ? "COTISATION_OSTIE_PAT" : "COTISATION_" + organe + "_PAT");
             String patRateStr = input.getTauxSantePatronalDecimal() != null ? input.getTauxSantePatronalDecimal().movePointRight(2).stripTrailingZeros().toPlainString() : "0";
-            String libelleSantePat = estOmsi ? "Cotisation OMSI Patronale (5.5%)" : (estOstie ? "Cotisation OSTIE Patronale (5%)" : "Cotisation Santé " + organe + " Patronale (" + patRateStr + "%)");
+            String libelleSantePat = "Cotisation " + organe + " Patronale (" + patRateStr + "%)";
 
             BigDecimal assietteSante = social.health().assiette();
 
@@ -733,16 +730,20 @@ public class PayrollExecutionEngine {
         // 6.1 Extra déplacement
         BigDecimal extraDepl = zeroIfNull(input.getExtraDeplacement());
         if (extraDepl.compareTo(BigDecimal.ZERO) > 0) {
-            lignes.add(creerLigne(bp, "EXTRA_DEPLACEMENT", "Indemnité Extra Déplacement", "GAIN", "INDEMNITE_NON_IMPOSABLE",
-                    extraDepl, null, extraDepl, null, 505));
+            BulletinPaieLigne ligne = creerLigne(bp, "EXTRA_DEPLACEMENT", "Indemnité Extra Déplacement", "GAIN", "INDEMNITE_NON_IMPOSABLE",
+                    extraDepl, null, extraDepl, null, 505);
+            ligne.setEtapeCalcul("GAIN_NET");
+            lignes.add(ligne);
             totalIndemnitesNet = totalIndemnitesNet.add(extraDepl);
         }
 
         // 6.4 Notes de frais remboursées
         BigDecimal notesFrais = zeroIfNull(input.getRemboursementNotesFrais());
         if (notesFrais.compareTo(BigDecimal.ZERO) > 0) {
-            lignes.add(creerLigne(bp, "REMBOURSEMENT_NOTE_FRAIS", "Remboursement Notes de Frais Validées", "GAIN", "INDEMNITE_NON_IMPOSABLE",
-                    notesFrais, null, notesFrais, null, 520));
+            BulletinPaieLigne ligne = creerLigne(bp, "REMBOURSEMENT_NOTE_FRAIS", "Remboursement Notes de Frais Validées", "GAIN", "INDEMNITE_NON_IMPOSABLE",
+                    notesFrais, null, notesFrais, null, 520);
+            ligne.setEtapeCalcul("GAIN_NET");
+            lignes.add(ligne);
             totalIndemnitesNet = totalIndemnitesNet.add(notesFrais);
         }
 
@@ -809,7 +810,7 @@ public class PayrollExecutionEngine {
         BigDecimal netApresAcompte = netAvantTresorerie.subtract(totalAcomptesQuinzaine).max(BigDecimal.ZERO);
 
         // Plafond Art. 68 : Remboursement d'avances consenti par l'employeur max 1/10e (10%)
-        BigDecimal plafondDixiemeAvances = MoneyRoundingPolicy.amount(netApresAcompte.multiply(PLAFOND_AVANCE_EMPLOYEUR_DIXIEME));
+        BigDecimal plafondDixiemeAvances = MoneyRoundingPolicy.amount(netApresAcompte.multiply(input.getPlafondAvanceEmployeur()));
 
         if (input.getAvancesAcomptes() != null) {
             for (PaieAvanceAcompte a : input.getAvancesAcomptes()) {
@@ -839,7 +840,7 @@ public class PayrollExecutionEngine {
         }
 
         // Plafond global de quotité cessible (1/3 du net après acompte Art. 72)
-        BigDecimal plafondTiers = MoneyRoundingPolicy.amount(netApresAcompte.multiply(PLAFOND_QUOTITE_CESSIBLE));
+        BigDecimal plafondTiers = MoneyRoundingPolicy.amount(netApresAcompte.multiply(input.getQuotiteCessible()));
         BigDecimal capaciteRestantePret = plafondTiers.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
 
         ImpactPret impactPret = null;
@@ -1016,6 +1017,9 @@ public class PayrollExecutionEngine {
 
     private BigDecimal zeroIfNull(BigDecimal val) {
         return val != null ? val : BigDecimal.ZERO;
+    }
+    private static String percent(BigDecimal decimalRate) {
+        return decimalRate.movePointRight(2).stripTrailingZeros().toPlainString();
     }
     private static String dafOvertimeLabel(PayrollCalculationInput input, boolean firstTier) {
         var attendance = input.getAttendanceInput();

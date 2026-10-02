@@ -91,7 +91,7 @@ public class VirementBancaireExportService {
 
     public String exporterVirementCsv(Integer idPeriode, Connection c) throws Exception {
         List<VirementRowDto> data = genererDonneesVirement(idPeriode, c);
-
+        var company = PayrollExportCompanyResolver.forPeriod(idPeriode, c);
         String sqlPeriode = "SELECT code, libelle FROM periode_paie WHERE id_periode_paie = ?";
         String codePeriode = "";
         String libellePeriode = "";
@@ -110,7 +110,7 @@ public class VirementBancaireExportService {
         sb.append('\ufeff'); // BOM UTF-8
 
         sb.append("ORDRE DE VIREMENT DE SALAIRES INTERBANCAIRE\n");
-        sb.append("EMETTEUR :;GALAXAM LOGISTICS;COMPTE DEBIT :;00004 00100 09876543210 33\n");
+        sb.append("EMETTEUR :;").append(escape(company.name())).append("\n");
         sb.append("PERIODE :;").append(libellePeriode != null ? libellePeriode : codePeriode).append("\n\n");
 
         sb.append("N° Ordre;Matricule;Beneficiaire;Banque;Code Banque;Code Guichet;Numero Compte;Cle RIB;RIB Complet;Net a Payer;Devise;Reference;Motif\n");

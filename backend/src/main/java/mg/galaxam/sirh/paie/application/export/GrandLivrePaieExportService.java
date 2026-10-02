@@ -143,21 +143,34 @@ public class GrandLivrePaieExportService {
     }
     static BigDecimal[] summaryValues(BulletinPaie b, List<BulletinPaieLigne> lines) {
         BigDecimal absenceHours = quantity(lines, "RETENUE_ABSENCE");
-        BigDecimal congéGain = sum(lines, l -> "GAIN".equals(l.getSens()) && code(l).contains("CONGE"));
-        BigDecimal hsGain = sum(lines, l -> "GAIN".equals(l.getSens()) && code(l).contains("HS"));
-        BigDecimal otherGains = sum(lines, l -> "GAIN".equals(l.getSens()) && !"SALAIRE_BASE".equals(code(l)) && !code(l).contains("CONGE") && !code(l).contains("HS"));
-        BigDecimal cnaps = sum(lines, l -> "RETENUE".equals(l.getSens()) && code(l).contains("CNAPS"));
-        BigDecimal health = sum(lines, l -> "RETENUE".equals(l.getSens()) && (code(l).contains("OSTIE") || code(l).contains("OMSI") || code(l).contains("SANTE")));
-        BigDecimal advances = sum(lines, l -> "RETENUE".equals(l.getSens()) && (code(l).contains("AVANCE") || code(l).contains("ACOMPTE")));
-        BigDecimal loans = sum(lines, l -> "RETENUE".equals(l.getSens()) && code(l).contains("PRET"));
-        BigDecimal others = sum(lines, l -> "RETENUE".equals(l.getSens()) && !code(l).contains("ABSENCE") && !code(l).contains("CONGE")
-                && !code(l).contains("CNAPS") && !code(l).contains("OSTIE") && !code(l).contains("OMSI") && !code(l).contains("SANTE")
-                && !code(l).contains("IRSA") && !code(l).contains("ISI") && !code(l).contains("AVANCE") && !code(l).contains("ACOMPTE") && !code(l).contains("PRET"));
+        BigDecimal congéGain = sum(lines, l -> "GAIN".equals(l.getSens()) && isLeaveGain(l));
+        BigDecimal hsGain = sum(lines, l -> "GAIN".equals(l.getSens()) && "HEURES_SUP".equals(l.getCategorie()));
+        BigDecimal otherGains = sum(lines, l -> "GAIN".equals(l.getSens()) && !"SALAIRE_BASE".equals(l.getCategorie())
+                && !isLeaveGain(l) && !"HEURES_SUP".equals(l.getCategorie()));
+        BigDecimal cnaps = sum(lines, l -> "RETENUE".equals(l.getSens()) && isCnaps(l));
+        BigDecimal health = sum(lines, l -> "RETENUE".equals(l.getSens()) && isHealth(l));
+        BigDecimal advances = sum(lines, l -> "RETENUE".equals(l.getSens()) && "ACOMPTE_AVANCE".equals(l.getCategorie()) && !isLoan(l));
+        BigDecimal loans = sum(lines, l -> "RETENUE".equals(l.getSens()) && isLoan(l));
+        BigDecimal others = sum(lines, l -> "RETENUE".equals(l.getSens()) && !"SALAIRE_BASE".equals(l.getCategorie())
+                && !isCnaps(l) && !isHealth(l) && !isLoan(l) && !"ACOMPTE_AVANCE".equals(l.getCategorie())
+                && !"IMPOT".equals(l.getCategorie()) && !"RETENUE_ABSENCE".equals(code(l)));
         BigDecimal[] values = {b.getSalaireBase(), absenceHours, amount(lines, "RETENUE_ABSENCE"), b.getJoursConges(), congéGain,
                 zero(b.getHeuresHs30()).add(zero(b.getHeuresHs50())), otherGains.add(hsGain), b.getTotalGainsBruts(), cnaps, health,
                 b.getRevenuNetImposable(), zero(b.getIrsaNet()).add(zero(b.getRetenueIsi5())), advances, loans, others,
                 b.getNetAPayer(), b.getTotalCotisationsPatronales(), b.getCoutGlobalEmployeur()};
         return values;
+    }
+    private static boolean isLeaveGain(BulletinPaieLigne line) {
+        return java.util.Set.of("INDEMNITE_CONGE", "INDEMNITE_CONGE_PAYE", "INDEMNITE_COMPENSATRICE_CONGE")
+                .contains(code(line));
+    }
+    private static boolean isCnaps(BulletinPaieLigne line) { return code(line).startsWith("COTISATION_CNAPS"); }
+    private static boolean isHealth(BulletinPaieLigne line) {
+        return java.util.Set.of("COTISATION_SANTE_SAL", "COTISATION_SANTE_PAT", "COTISATION_OSTIE_SAL",
+                "COTISATION_OSTIE_PAT", "COTISATION_OMSI_SAL", "COTISATION_OMSI_PAT").contains(code(line));
+    }
+    private static boolean isLoan(BulletinPaieLigne line) {
+        return java.util.Set.of("RETENUE_PRET", "RETENUE_ECHEANCE_PRET").contains(code(line));
     }
     private static void writeDetail(Sheet sheet, int rowIndex, BulletinPaie b, BulletinPaieLigne l, Styles s) {
         String[] fields = {b.getReferenceBulletin(), b.getMatricule(), b.getNomPrenom(), l.getCodeRubrique(),

@@ -82,7 +82,7 @@ const MAJORATION_ORDER = { 'HS_30': 1, 'HS_50': 2, 'NUIT': 3, 'DIMANCHE': 4, 'FE
 
 const EMPTY_FORM = {
     codeVersion: '', libelle: '', dateDebut: '', dateFin: '',
-    smeNational: '', smeAgricole: '', plafondCotisationNbSme: '',
+    smeNational: '', smeAgricole: '', plafondCotisationNbSme: '', plafondAvanceEmployeurPct: '10', quotiteCessiblePct: '33.333333',
     seuilExonerationIrsa: '', minimumPerceptionIrsa: '', deductionChargeFamille: '',
     arrondiBaseIrsa: '',
     dureeHebdoLegale: '', diviseurMensuelHeures: '', seuilHsTranche1: '', plafondHsHebdo: '',
@@ -489,6 +489,13 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                         hint="Facteur légal pour le plafond CNaPS / Santé (défaut : 8 × SME)"
                                     />
                                 </div>
+                                <div className="sm:col-span-2 border-t border-[var(--color-border-subtle)] pt-3">
+                                    <p className="text-xs font-semibold text-[var(--color-fg)] mb-2">Plafonds légaux de retenue sur salaire</p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <Input label="Avances employeur (%)" type="number" min="0" max="100" step="0.000001" required={!isReadOnly} disabled={isReadOnly} value={formData.plafondAvanceEmployeurPct} onChange={e => upd('plafondAvanceEmployeurPct', e.target.value)} hint="Plafond applicable aux avances employeur." />
+                                        <Input label="Quotité cessible (%)" type="number" min="0" max="100" step="0.000001" required={!isReadOnly} disabled={isReadOnly} value={formData.quotiteCessiblePct} onChange={e => upd('quotiteCessiblePct', e.target.value)} hint="Plafond applicable aux prêts et saisies." />
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -499,7 +506,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 <span className="font-bold text-sm text-[var(--color-success-600)]">{plafondCalc}</span>
                             </div>
                             <p className="text-[11px]">
-                                Soit {fmtAr(parseSafe(formData.smeNational))} × {formData.plafondCotisationNbSme || 0}. Base maximale retenue pour CNaPS (1%), Santé (1%) et FMFP.
+                                Soit {fmtAr(parseSafe(formData.smeNational))} × {formData.plafondCotisationNbSme || 0}. Base maximale CNaPS et, selon l’organisme, santé. La FMFP utilise sa propre assiette.
                             </p>
                         </div>
                     </div>
@@ -817,6 +824,8 @@ export default function ReglementationFiscaleTab() {
             smeNational: String(activeConfig.smeNational ?? ''),
             smeAgricole: String(activeConfig.smeAgricole ?? ''),
             plafondCotisationNbSme: String(activeConfig.plafondCotisationNbSme ?? ''),
+            plafondAvanceEmployeurPct: String(activeConfig.plafondAvanceEmployeurPct ?? '10'),
+            quotiteCessiblePct: String(activeConfig.quotiteCessiblePct ?? '33.333333'),
             seuilExonerationIrsa: String(activeConfig.seuilExonerationIrsa ?? ''),
             minimumPerceptionIrsa: String(activeConfig.minimumPerceptionIrsa ?? ''),
             deductionChargeFamille: String(activeConfig.deductionChargeFamille ?? ''),
@@ -851,6 +860,8 @@ export default function ReglementationFiscaleTab() {
             smeNational: String(config.smeNational ?? ''),
             smeAgricole: String(config.smeAgricole ?? ''),
             plafondCotisationNbSme: String(config.plafondCotisationNbSme ?? ''),
+            plafondAvanceEmployeurPct: String(config.plafondAvanceEmployeurPct ?? '10'),
+            quotiteCessiblePct: String(config.quotiteCessiblePct ?? '33.333333'),
             seuilExonerationIrsa: String(config.seuilExonerationIrsa ?? ''),
             minimumPerceptionIrsa: String(config.minimumPerceptionIrsa ?? ''),
             deductionChargeFamille: String(config.deductionChargeFamille ?? ''),
@@ -908,6 +919,8 @@ export default function ReglementationFiscaleTab() {
             smeNational: String(config.smeNational ?? ''),
             smeAgricole: String(config.smeAgricole ?? ''),
             plafondCotisationNbSme: String(config.plafondCotisationNbSme ?? ''),
+            plafondAvanceEmployeurPct: String(config.plafondAvanceEmployeurPct ?? '10'),
+            quotiteCessiblePct: String(config.quotiteCessiblePct ?? '33.333333'),
             seuilExonerationIrsa: String(config.seuilExonerationIrsa ?? ''),
             minimumPerceptionIrsa: String(config.minimumPerceptionIrsa ?? ''),
             deductionChargeFamille: String(config.deductionChargeFamille ?? ''),
@@ -957,6 +970,8 @@ export default function ReglementationFiscaleTab() {
         smeNational: parseSafe(formData.smeNational),
         smeAgricole: parseSafe(formData.smeAgricole),
         plafondCotisationNbSme: parseSafe(formData.plafondCotisationNbSme, 8),
+        plafondAvanceEmployeurPct: parseSafe(formData.plafondAvanceEmployeurPct, 10),
+        quotiteCessiblePct: parseSafe(formData.quotiteCessiblePct, 33.333333),
         seuilExonerationIrsa: parseSafe(formData.seuilExonerationIrsa),
         minimumPerceptionIrsa: parseSafe(formData.minimumPerceptionIrsa),
         deductionChargeFamille: parseSafe(formData.deductionChargeFamille),
@@ -1033,6 +1048,7 @@ export default function ReglementationFiscaleTab() {
                                 <strong> {fmtNb(activeConfig.acquisitionCongeMensuelJours, 2)} j</strong>/mois,
                                 décompte calendaire ÷&nbsp;<strong>{activeConfig.diviseurValorisationCongeJours}</strong>
                             </p>
+                            <p>• <strong>Retenues sur salaire</strong> : avance employeur&nbsp;<strong>{fmtNb(activeConfig.plafondAvanceEmployeurPct, 4)}%</strong>, quotité cessible&nbsp;<strong>{fmtNb(activeConfig.quotiteCessiblePct, 4)}%</strong>.</p>
                         </>
                     ) : (
                         <p className=" text-[var(--color-warning-600)]">Aucun exercice fiscal actif — initialisez le premier exercice ci-dessous.</p>
@@ -1069,7 +1085,7 @@ export default function ReglementationFiscaleTab() {
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 <KpiField label="SME National" value={fmtAr(activeConfig.smeNational)} sub="Secteur non agricole" />
                                 <KpiField label="SME Agricole" value={fmtAr(activeConfig.smeAgricole)} sub="Secteur agricole" />
-                                <KpiField label="Multiplicateur Plafond Social" value={`× ${fmtNb(activeConfig.plafondCotisationNbSme, 0)} SME`} sub="= Plafond CNaPS / OSTIE / FMFP" />
+                                <KpiField label="Multiplicateur Plafond Social" value={`× ${fmtNb(activeConfig.plafondCotisationNbSme, 0)} SME`} sub="Plafond CNaPS et santé si applicable" />
                                 <KpiField label="Plafond Mensuel Calculé" value={fmtAr(activeConfig.plafondCotisationMensuel)} sub="Base maximale soumise aux cotisations" />
                             </div>
                         </div>
@@ -1109,6 +1125,14 @@ export default function ReglementationFiscaleTab() {
                                     </Table>
                                 </div>
                             )}
+                        </div>
+
+                        <div>
+                            <SectionTitle icon={Scale} label="Plafonds de retenues" color="var(--color-brand-600)" />
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                <KpiField label="Avances employeur" value={`${fmtNb(activeConfig.plafondAvanceEmployeurPct, 4)}%`} sub="Plafond de remboursement" />
+                                <KpiField label="Quotité cessible" value={`${fmtNb(activeConfig.quotiteCessiblePct, 4)}%`} sub="Prêts et saisies" />
+                            </div>
                         </div>
 
                         <div>

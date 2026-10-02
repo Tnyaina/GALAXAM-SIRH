@@ -66,40 +66,19 @@ public class SafiOdsExportService {
         // 1. Récupération des 25 colonnes réglementaires calculées
         List<SafiRowDto> donnees = safiExportService.genererDonneesSafi(idPeriode, c);
 
-        String sqlEntete = "SELECT pp.code AS code_periode, pp.libelle AS libelle_periode, " +
-                "COALESCE(rf.raison_sociale, rf_def.raison_sociale) AS raison_sociale, " +
-                "COALESCE(rf.nif, rf_def.nif) AS nif " +
-                "FROM periode_paie pp " +
-                "LEFT JOIN LATERAL ( " +
-                "    SELECT rf1.raison_sociale, rf1.nif " +
-                "    FROM bulletin_paie bp " +
-                "    JOIN employe_affectation_carriere eac ON bp.id_employe = eac.id_employe " +
-                "    JOIN ref_site s ON eac.id_site = s.id_site " +
-                "    JOIN ref_filiale rf1 ON s.id_filiale_rattachement = rf1.id_filiale " +
-                "    WHERE bp.id_periode_paie = pp.id_periode_paie " +
-                "    LIMIT 1 " +
-                ") rf ON TRUE " +
-                "LEFT JOIN LATERAL ( " +
-                "    SELECT rf2.raison_sociale, rf2.nif " +
-                "    FROM ref_filiale rf2 " +
-                "    WHERE rf2.est_actif = TRUE " +
-                "    ORDER BY rf2.id_filiale ASC " +
-                "    LIMIT 1 " +
-                ") rf_def ON TRUE " +
-                "WHERE pp.id_periode_paie = ?";
+        String sqlEntete = "SELECT libelle AS libelle_periode FROM periode_paie WHERE id_periode_paie = ?";
 
         String libellePeriode = "PÉRIODE";
-        String raisonSociale = "GALAXAM LOGISTICS";
-        String nif = "3000019434";
-        String adresse = "TOUR FORELLO TANJOMBATO 3È ETAGE (BUREAU)";
+        var company = PayrollExportCompanyResolver.forPeriod(idPeriode, c);
+        String raisonSociale = company.name();
+        String nif = company.nifCompact();
+        String adresse = company.address() == null ? "" : company.address();
 
         try (PreparedStatement ps = c.prepareStatement(sqlEntete)) {
             ps.setInt(1, idPeriode);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     if (rs.getString("libelle_periode") != null) libellePeriode = rs.getString("libelle_periode");
-                    if (rs.getString("raison_sociale") != null) raisonSociale = rs.getString("raison_sociale");
-                    if (rs.getString("nif") != null) nif = rs.getString("nif");
                 }
             }
         }

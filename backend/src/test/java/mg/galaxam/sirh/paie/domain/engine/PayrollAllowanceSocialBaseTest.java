@@ -14,6 +14,7 @@ class PayrollAllowanceSocialBaseTest {
     private static PayrollCalculationInput input(boolean taxable, boolean social) {
         PayrollCalculationInput input = new PayrollCalculationInput();
         input.setSmeNational(new BigDecimal("100000"));
+        input.setPlafondCotisationMensuel(new BigDecimal("800000"));
         input.setTauxCnapsSalarial(new BigDecimal("0.01"));
         input.setTauxCnapsPatronal(new BigDecimal("0.13"));
         input.setTauxSanteSalarial(BigDecimal.ZERO);

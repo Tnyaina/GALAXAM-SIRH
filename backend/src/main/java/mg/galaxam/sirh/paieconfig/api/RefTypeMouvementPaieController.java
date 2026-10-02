@@ -159,10 +159,16 @@ public class RefTypeMouvementPaieController {
                 r.put("methodeLibelle", manual ? label(methodes(), r.get("methodeCalcul")) : r.get("sourceCalcul"));
                 r.put("arrondiLibelle", manual ? label(arrondis(), r.get("politiqueArrondi")) : r.get("arrondiCalculateur"));
                 r.put("conditionLibelle", label(conditions(), r.get("conditionApplication")));
-                r.put("niveauLibelle", label(niveaux(), r.get("niveauConfiguration")));
+                r.put("niveauLibelle", "NOTES_DE_FRAIS".equals(r.get("calculateur")) ? "Circuit dédié" : label(niveaux(), r.get("niveauConfiguration")));
                 String calculator=Objects.toString(r.get("calculateur"),"");
+                String code=Objects.toString(r.get("code"),"");
                 String target=switch(calculator) {
-                    case "CONGES_ET_RUPTURE" -> "/admin/parametres?module=conges&tab=regles_acquisition";
+                    case "CONGES_ET_RUPTURE" -> {
+                        if ("RETENUE_CONGE".equals(code) || "INDEMNITE_CONGE".equals(code) || "DEDUCTION_CONGE_BASE".equals(code) || "INDEMNITE_CONGE_PAYE".equals(code)) {
+                            yield "/admin/parametres?module=paie&tab=parametres_globaux_paie";
+                        }
+                        yield "/admin/parametres?module=conges&tab=regles_acquisition";
+                    }
                     case "PRIMES_METIER" -> "/admin/parametres?module=paie&tab=parametres_globaux_paie";
                     case "COTISATIONS" -> "/admin/parametres?module=paie&tab=cotisations_irsa";
                     case "FISCALITE", "HEURES_MAJOREES" -> "/admin/parametres?module=paie&tab=reglementation_fiscale";
@@ -202,7 +208,7 @@ public class RefTypeMouvementPaieController {
         result.put("totalElements",filtered.size()); result.put("page",actualPage); result.put("taille",taille);
         result.put("selection", all.stream().filter(r -> Objects.equals(r.get("id"),selection)).findFirst().orElse(null));
         result.put("options",Map.of("categories",categories(),"etapes",etapes(),"methodes",methodes(),"arrondis",arrondis(),"conditions",conditions(),"niveaux",niveaux(),"sens",List.of(Map.of("value","GAIN","label","Gain","categorieType","PRIME"),Map.of("value","RETENUE","label","Retenue","categorieType","RETENUE_DIVERSE")),"statuts",choix("actif","Actifs","inactif","Inactifs"),"tris",choix("ordre","Ordre du catalogue","libelle","Libellé","code","Code"),"assiettes",List.of(Map.of("key","soumisIrsa","label","IRSA"),Map.of("key","soumisCnaps","label","CNaPS"),Map.of("key","soumisSante","label","Santé"),Map.of("key","soumisFmfp","label","FMFP","heriteDe","soumisCnaps"))));
-        result.put("rubriquesCompatibles",rubriques.stream().filter(r -> Boolean.TRUE.equals(r.get("estActif")) && !Boolean.TRUE.equals(r.get("estFixe")) && "MONTANT".equals(r.get("typeValeur"))).toList());
+        result.put("rubriquesCompatibles",rubriques.stream().filter(r -> Boolean.TRUE.equals(r.get("estActif")) && "CONFIGURABLE".equals(r.get("niveauConfiguration")) && "MONTANT".equals(r.get("typeValeur"))).toList());
         result.put("defautsRubrique",Map.ofEntries(Map.entry("categorie","PRIME"),Map.entry("sens","GAIN"),Map.entry("typeValeur","MONTANT"),Map.entry("etapeCalcul","BRUT"),Map.entry("methodeCalcul","MONTANT"),Map.entry("politiqueArrondi","CENTIME"),Map.entry("conditionApplication","TOUS"),Map.entry("soumisIrsa",true),Map.entry("soumisCnaps",true),Map.entry("soumisSante",true),Map.entry("soumisFmfp",true),Map.entry("estActif",true),Map.entry("estFixe",false),Map.entry("ordreAffichage",10)));
         result.put("defautsType",Map.of("sens","GAIN","categorie","PRIME","estActif",true,"ordreAffichage",100,"estProratise",false,"estPlafonneDixieme",false));
         result.put("validation", Map.of("codePattern","[A-Z][A-Z0-9_]{2,39}","codeMessage","Utilisez 3 à 40 caractères : lettres majuscules, chiffres ou tirets bas ; commencez par une lettre."));
@@ -362,15 +368,15 @@ public class RefTypeMouvementPaieController {
         if (current == null && RefTypeMouvementPaie.trouverParCode(req.getCode(), c) != null) {
             throw new IllegalArgumentException("Ce code de variable existe déjà.");
         }
-        if (current == null && !List.of("PRIME", "RETENUE_DIVERSE").contains(req.getCategorie())) {
-            throw new IllegalArgumentException("Un nouveau type manuel doit être une prime ou une retenue diverse.");
+        if (current == null && !List.of("PRIME", "INDEMNITE_IMPOSABLE", "INDEMNITE_NON_IMPOSABLE", "RETENUE_DIVERSE").contains(req.getCategorie())) {
+            throw new IllegalArgumentException("La catégorie du type de variable n’est pas prise en charge.");
         }
-        if (current == null && !("GAIN".equals(req.getSens()) && "PRIME".equals(req.getCategorie())
+        if (current == null && !("GAIN".equals(req.getSens()) && List.of("PRIME", "INDEMNITE_IMPOSABLE", "INDEMNITE_NON_IMPOSABLE").contains(req.getCategorie())
                 || "RETENUE".equals(req.getSens()) && "RETENUE_DIVERSE".equals(req.getCategorie()))) {
             throw new IllegalArgumentException("La catégorie doit correspondre au sens du nouveau type.");
         }
         boolean rubriqueChanged = current == null || !Objects.equals(current.getIdRubrique(), req.getIdRubrique());
-        try (PreparedStatement ps = c.prepareStatement("SELECT sens, est_actif, est_fixe, type_valeur FROM paie_rubrique WHERE id_rubrique = ?")) {
+        try (PreparedStatement ps = c.prepareStatement("SELECT code, categorie, sens, etape_calcul, est_actif, est_fixe, type_valeur FROM paie_rubrique WHERE id_rubrique = ?")) {
             ps.setInt(1, req.getIdRubrique());
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next() || (!req.getSens().equals(rs.getString("sens"))
@@ -378,6 +384,12 @@ public class RefTypeMouvementPaieController {
                         || (rubriqueChanged && (!rs.getBoolean("est_actif") || rs.getBoolean("est_fixe")
                         || !"MONTANT".equals(rs.getString("type_valeur"))))) {
                     throw new IllegalArgumentException("La rubrique doit être active et avoir le même sens que la variable.");
+                }
+                if (current == null && (!req.getCategorie().equals(rs.getString("categorie"))
+                        || !"CONFIGURABLE".equals(mg.galaxam.sirh.paie.domain.engine.PayrollCalculatorRegistry.describe(rs.getString("code"), rs.getString("categorie"), rs.getBoolean("est_fixe"), rs.getString("etape_calcul")).niveau())
+                        || ("INDEMNITE_NON_IMPOSABLE".equals(req.getCategorie())
+                            && !"GAIN_NET".equals(rs.getString("etape_calcul"))))) {
+                    throw new IllegalArgumentException("Choisissez une rubrique compatible avec la catégorie et le circuit de cette variable.");
                 }
             }
         }

@@ -70,6 +70,7 @@ class PayrollExcelReferenceReconciliationTest {
         input.setIndemniteTransport(new BigDecimal("28363.60"));
         input.setIndemniteRepas(new BigDecimal("44000"));
         input.setSmeNational(new BigDecimal("250000"));
+        input.setPlafondCotisationMensuel(new BigDecimal("2000000"));
         input.setTauxCnapsSalarial(new BigDecimal("0.01"));
         input.setTauxCnapsPatronal(new BigDecimal("0.13"));
         input.setTauxSanteSalarial(new BigDecimal("0.01"));

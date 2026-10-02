@@ -29,11 +29,13 @@ import mg.galaxam.sirh.paieconfig.persistence.RefTypeMouvementPaie;
 import mg.galaxam.sirh.securite.AuditLog;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Contrôleur REST pour la saisie et la gestion des variables de paie, acomptes,
@@ -86,11 +88,13 @@ public class PaieAjustementController {
                             "rtmp.categorie AS type_categorie, rtmp.nature AS type_nature, pr.soumis_irsa AS type_imposable, "
                             +
                             "pr.soumis_cnaps AS type_cotisable " +
+                            ", pj.nom_fichier AS justificatif_nom " +
                             "FROM paie_avance_acompte paa " +
                             "JOIN employe e ON paa.id_employe = e.id_employe " +
                             "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement "
                             +
                             "LEFT JOIN paie_rubrique pr ON pr.id_rubrique = rtmp.id_rubrique " +
+                            "LEFT JOIN paie_mouvement_justificatif pj ON pj.id_avance = paa.id_avance " +
                             "WHERE 1=1 ");
 
             List<Object> params = new ArrayList<>();
@@ -142,6 +146,8 @@ public class PaieAjustementController {
                         map.put("referenceVersement", rs.getString("reference_versement"));
                         map.put("dateAccord", rs.getDate("date_accord"));
                         map.put("motif", rs.getString("motif"));
+                        map.put("justificatifNom", rs.getString("justificatif_nom"));
+                        map.put("justificatifPresent", rs.getString("justificatif_nom") != null);
                         map.put("statut", rs.getString("statut"));
                         Timestamp uAt = rs.getTimestamp("updated_at");
                         map.put("updatedAt", uAt);
@@ -604,6 +610,91 @@ public class PaieAjustementController {
             } catch (Exception ex) {
                 c.rollback();
                 throw ex;
+            }
+        }
+    }
+
+    @PostMapping(value = "/{id}/justificatif-frais", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> deposerJustificatifFrais(@PathVariable("id") int id,
+            @RequestParam("file") MultipartFile file, Authentication authentication) throws Exception {
+        if (file == null || file.isEmpty() || file.getSize() > 5L * 1024 * 1024) {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                    "Le justificatif doit être un fichier non vide de 5 Mo maximum.");
+        }
+        byte[] bytes = file.getBytes();
+        String mime;
+        if (bytes.length >= 5 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F' && bytes[4] == '-') {
+            mime = "application/pdf";
+        } else if (bytes.length >= 8 && (bytes[0] & 0xff) == 0x89 && bytes[1] == 'P' && bytes[2] == 'N' && bytes[3] == 'G') {
+            mime = "image/png";
+        } else if (bytes.length >= 3 && (bytes[0] & 0xff) == 0xff && (bytes[1] & 0xff) == 0xd8 && (bytes[2] & 0xff) == 0xff) {
+            mime = "image/jpeg";
+        } else {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                    "Utilisez un justificatif PDF, PNG ou JPEG.");
+        }
+        String name = file.getOriginalFilename() == null ? "justificatif" : file.getOriginalFilename();
+        name = name.replaceAll("[\\r\\n\\\\/]", "_").trim();
+        if (name.isBlank()) name = "justificatif";
+        if (name.length() > 255) name = name.substring(0, 255);
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT a.statut, a.id_periode_paie, t.code FROM paie_avance_acompte a JOIN ref_type_mouvement_paie t "
+                                + "ON t.id_type_mouvement=a.id_type_mouvement WHERE a.id_avance=? FOR UPDATE OF a")) {
+                    ps.setInt(1, id);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next() || !"NOTE_DE_FRAIS".equals(rs.getString("code"))
+                                || !"EN_ATTENTE".equals(rs.getString("statut"))) {
+                            throw new SirhBusinessException(SirhErrorCode.STATE_CONFLICT,
+                                    "Le justificatif ne peut être déposé que sur une note de frais en attente.");
+                        }
+                        periodWorkflowService.requirePayrollAction(rs.getInt("id_periode_paie"),
+                                PayrollAction.ADD_VARIABLE, PayrollPeriodUserContext.from(authentication));
+                    }
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "INSERT INTO paie_mouvement_justificatif "
+                                + "(id_avance,nom_fichier,type_mime,contenu,taille_octets,depose_par) "
+                                + "VALUES (?,?,?,?,?,?) ON CONFLICT (id_avance) DO UPDATE SET "
+                                + "nom_fichier=EXCLUDED.nom_fichier,type_mime=EXCLUDED.type_mime,"
+                                + "contenu=EXCLUDED.contenu,taille_octets=EXCLUDED.taille_octets,"
+                                + "depose_par=EXCLUDED.depose_par,created_at=CURRENT_TIMESTAMP")) {
+                    ps.setInt(1, id); ps.setString(2, name); ps.setString(3, mime);
+                    ps.setBytes(4, bytes); ps.setLong(5, bytes.length);
+                    Integer userId = getCurrentUserId();
+                    if (userId == null) ps.setNull(6, java.sql.Types.INTEGER); else ps.setInt(6, userId);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE paie_avance_acompte SET updated_at=CURRENT_TIMESTAMP WHERE id_avance=?")) {
+                    ps.setInt(1, id); ps.executeUpdate();
+                }
+                AuditLog.audit(c, "DEPOT_JUSTIFICATIF", "paie_avance_acompte", String.valueOf(id), null, name);
+                c.commit();
+                return ResponseEntity.ok(Map.of("idAvance", id, "justificatifNom", name));
+            } catch (Exception ex) { c.rollback(); throw ex; }
+        }
+    }
+
+    @GetMapping("/{id}/justificatif-frais")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> telechargerJustificatifFrais(@PathVariable("id") int id) throws Exception {
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
+                "SELECT j.nom_fichier,j.type_mime,j.contenu FROM paie_mouvement_justificatif j "
+                        + "JOIN paie_avance_acompte a ON a.id_avance=j.id_avance "
+                        + "JOIN ref_type_mouvement_paie t ON t.id_type_mouvement=a.id_type_mouvement "
+                        + "WHERE j.id_avance=? AND t.code='NOTE_DE_FRAIS'")) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
+                        "Justificatif de frais introuvable.");
+                return ResponseEntity.ok().contentType(MediaType.parseMediaType(rs.getString("type_mime")))
+                        .header("Content-Disposition", "attachment; filename=\"" + rs.getString("nom_fichier").replace("\"", "_") + "\"")
+                        .header("Cache-Control", "private, no-store")
+                        .body(rs.getBytes("contenu"));
             }
         }
     }

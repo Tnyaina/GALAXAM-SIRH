@@ -168,6 +168,17 @@ export const paieService = {
         const response = await apiClient.post('paie/ajustements', payload);
         return response.data;
     },
+    deposerJustificatifFrais: async (id, file) => {
+        const data = new FormData();
+        data.append('file', file);
+        return (await apiClient.post(`paie/ajustements/${id}/justificatif-frais`, data, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        })).data;
+    },
+    telechargerJustificatifFrais: async (id) => {
+        const response = await apiClient.get(`paie/ajustements/${id}/justificatif-frais`, { responseType: 'blob' });
+        return response.data;
+    },
     syntheseAcomptesAvances: async () => (await apiClient.get('paie/ajustements/acomptes-avances/synthese')).data,
     listerImputationsAcompteAvance: async (id) => (await apiClient.get(`paie/ajustements/${id}/imputations`)).data,
     listerModesReglement: async () => (await apiClient.get('paie/ajustements/modes-reglement')).data,

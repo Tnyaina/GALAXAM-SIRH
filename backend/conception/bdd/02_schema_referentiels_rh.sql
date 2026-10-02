@@ -214,6 +214,8 @@ CREATE TABLE paie_config_legale (
     sme_national NUMERIC(20,2) NOT NULL,
     sme_agricole NUMERIC(20,2) NOT NULL,
     plafond_cotisation_nb_sme NUMERIC(4,2) NOT NULL DEFAULT 8.00,
+    plafond_avance_employeur_pct NUMERIC(9,6) NOT NULL DEFAULT 10.000000,
+    quotite_cessible_pct NUMERIC(9,6) NOT NULL DEFAULT 33.33,
     seuil_exoneration_irsa NUMERIC(20,2) NOT NULL,
     minimum_perception_irsa NUMERIC(20,2) NOT NULL,
     deduction_charge_famille NUMERIC(20,2) NOT NULL,
@@ -232,7 +234,9 @@ CREATE TABLE paie_config_legale (
     publication_date DATE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_dates_config CHECK (date_fin IS NULL OR date_fin > date_debut)
+    CONSTRAINT chk_dates_config CHECK (date_fin IS NULL OR date_fin > date_debut),
+    CONSTRAINT chk_plafond_avance_pct CHECK (plafond_avance_employeur_pct BETWEEN 0 AND 100),
+    CONSTRAINT chk_quotite_cessible_pct CHECK (quotite_cessible_pct BETWEEN 0 AND 100)
 );
 
 CREATE INDEX idx_config_legale_actif ON paie_config_legale(date_debut, date_fin) WHERE date_fin IS NULL;

@@ -88,6 +88,22 @@ public class PayrollAdjustmentWorkflowService {
                 if (transition.blocked()) {
                     throw new SirhBusinessException(transition.errorCode(), transition.blockingMessage());
                 }
+                if (command == PayrollAdjustmentCommand.APPROVE) {
+                    try (PreparedStatement ps = c.prepareStatement(
+                            "SELECT t.code, EXISTS(SELECT 1 FROM paie_mouvement_justificatif j "
+                                    + "WHERE j.id_avance=a.id_avance) AS justificatif_present "
+                                    + "FROM paie_avance_acompte a JOIN ref_type_mouvement_paie t "
+                                    + "ON t.id_type_mouvement=a.id_type_mouvement WHERE a.id_avance=?")) {
+                        ps.setInt(1, adjustmentId);
+                        try (ResultSet rs = ps.executeQuery()) {
+                            if (rs.next() && "NOTE_DE_FRAIS".equals(rs.getString("code"))
+                                    && !rs.getBoolean("justificatif_present")) {
+                                throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                        "Ajoutez un justificatif avant d’approuver la note de frais.");
+                            }
+                        }
+                    }
+                }
                 if (command == PayrollAdjustmentCommand.CANCEL && entity.getVersementConfirmeAt() != null) {
                     throw new SirhBusinessException(SirhErrorCode.STATE_CONFLICT,
                             "Un acompte ou une avance déjà versé ne peut pas être annulé par cette commande.");

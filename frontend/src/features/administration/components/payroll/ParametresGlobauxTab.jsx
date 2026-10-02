@@ -486,7 +486,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
     const requestController = useRef(null);
     const [details, setDetails] = useState(null);
     const [detailsError, setDetailsError] = useState('');
-    const [collapsedBlocks, setCollapsedBlocks] = useState(() => new Set());
+    const [collapsedBlocks, setCollapsedBlocks] = useState(() => new Set(THEMATIC_BLOCKS.map(b => b.id)));
     const [showFilters, setShowFilters] = useState(false);
     const [urlParams, setUrlParams] = useSearchParams();
     const filterPrefix = `pg_${fixedCategory || 'all'}_`;

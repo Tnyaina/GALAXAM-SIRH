@@ -24,6 +24,7 @@ public final class PayrollCalculatorRegistry {
                 new Phase("NET_FINAL", "Net à payer", "Résultat final et arrondi monétaire"));
     }
     public static Capability describe(String code, String category, boolean fixed, String stage) {
+        if("REMBOURSEMENT_NOTE_FRAIS".equals(code)) return new Capability("SEMI_CONFIGURABLE","NOTES_DE_FRAIS","GAIN_NET","Notes de frais approuvées avec justificatif","Deux décimales");
         if(LEAVE.contains(code)) return new Capability("SYSTEM","CONGES_ET_RUPTURE","BRUT","Congés validés, taux historique et contrat","Calculateur métier");
         if(PREMIUM.contains(code)) return new Capability("SEMI_CONFIGURABLE","PRIMES_METIER","BRUT","Forfaits et paramètres dédiés","Calculateur métier");
         if(CASH.contains(code)) return new Capability("SYSTEM","TRESORERIE","RETENUE_NET","Mouvements approuvés et échéances","Deux décimales et plafonds dédiés");

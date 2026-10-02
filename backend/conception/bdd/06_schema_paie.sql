@@ -374,6 +374,15 @@ CREATE TABLE paie_mouvement_imputation (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uk_mouvement_imputation_bulletin UNIQUE (id_avance, id_bulletin)
 );
+CREATE TABLE paie_mouvement_justificatif (
+    id_avance INT PRIMARY KEY REFERENCES paie_avance_acompte(id_avance) ON DELETE CASCADE,
+    nom_fichier VARCHAR(255) NOT NULL,
+    type_mime VARCHAR(60) NOT NULL,
+    contenu BYTEA NOT NULL,
+    taille_octets BIGINT NOT NULL CHECK (taille_octets > 0 AND taille_octets <= 5242880),
+    depose_par INT REFERENCES utilisateur(id_utilisateur),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 CREATE INDEX idx_mouvement_imputation_bulletin ON paie_mouvement_imputation(id_bulletin);
 
 CREATE OR REPLACE FUNCTION initialize_paie_avance_imputation()
@@ -746,7 +755,7 @@ INSERT INTO ref_type_mouvement_paie (id_type_mouvement, code, libelle, sens, cat
 (7, 'PRIME_EXCEPTIONNELLE', 'Prime exceptionnelle', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'PRIME_EXCEPTIONNELLE'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 70, 'Gratification ponctuelle décidée par la direction'),
 (8, 'AUTIMP', 'Autre gain imposable', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'AUTIMP'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 80, 'Compatibilité historique pour un gain imposable qualifié'),
 (9, 'EXTRA_DEPLACEMENT', 'Déplacement exceptionnel', 'GAIN', 'EXTRA', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'EXTRA_DEPLACEMENT'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 90, 'Exception motivée, distincte du déplacement ordinaire automatique'),
-(10, 'NOTE_DE_FRAIS', 'Remboursement de frais historique', 'GAIN', 'NOTE_DE_FRAIS', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REMBOURSEMENT_NOTE_FRAIS'), FALSE, FALSE, 'DOMAINE_FUTUR', 'FRAIS', FALSE, TRUE, TRUE, 'IMPORT', TRUE, 100, 'Compatibilité historique uniquement, sans création manuelle ordinaire'),
+(10, 'NOTE_DE_FRAIS', 'Remboursement de frais validés', 'GAIN', 'NOTE_DE_FRAIS', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REMBOURSEMENT_NOTE_FRAIS'), FALSE, FALSE, 'NOTE_DE_FRAIS', 'DAF_PAIE', TRUE, TRUE, TRUE, 'NOTE_DE_FRAIS', TRUE, 100, 'Remboursement hors brut avec justificatif obligatoire avant approbation'),
 (11, 'REGULARISATION_CONGE', 'Régularisation de congé antérieur', 'GAIN', 'REGULARISATION', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REGULARISATION_PAIE'), FALSE, FALSE, 'REGULARISATION', 'CONGE_PAIE', TRUE, TRUE, TRUE, 'CONGE', TRUE, 110, 'Motif obligatoire avec référence à la période ou correction concernée');
 
 SELECT setval('ref_type_mouvement_paie_id_type_mouvement_seq', (SELECT GREATEST(MAX(id_type_mouvement), 11) FROM ref_type_mouvement_paie));

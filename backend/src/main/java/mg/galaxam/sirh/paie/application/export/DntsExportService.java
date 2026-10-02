@@ -37,6 +37,35 @@ public class DntsExportService {
         DFS.setDecimalSeparator(',');
     }
 
+    private record Rates(BigDecimal cnapsEmployee, BigDecimal cnapsEmployer, BigDecimal fmfpEmployer) {}
+
+    private static BigDecimal rateAt(String code, String column, LocalDate date, Connection connection) throws Exception {
+        String sql = "SELECT " + column + " FROM ref_type_cotisation WHERE code=? AND est_actif=TRUE " +
+                "AND date_debut<=? AND (date_fin IS NULL OR date_fin>=?)";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, code);
+            ps.setDate(2, Date.valueOf(date));
+            ps.setDate(3, Date.valueOf(date));
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next() || rs.getBigDecimal(1) == null)
+                    throw new IllegalStateException("Taux " + code + " manquant au " + date + ".");
+                BigDecimal result = rs.getBigDecimal(1);
+                if (rs.next()) throw new IllegalStateException("Plusieurs taux " + code + " applicables au " + date + ".");
+                return result;
+            }
+        }
+    }
+
+    private static Rates ratesAt(LocalDate date, Connection connection) throws Exception {
+        return new Rates(rateAt("CNAPS", "taux_salarial", date, connection),
+                rateAt("CNAPS", "taux_patronal", date, connection),
+                rateAt("FMFP", "taux_patronal", date, connection));
+    }
+
+    private static String rateLabel(BigDecimal percentage) {
+        return percentage.stripTrailingZeros().toPlainString() + "%";
+    }
+
     public List<DntsRowDto> genererDonneesDnts(Integer idPeriode, Connection c) throws Exception {
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriode, c);
         List<DntsRowDto> rows = new ArrayList<>();
@@ -138,10 +167,12 @@ public class DntsExportService {
 
     public String exporterDntsCsv(Integer idPeriode, Connection c) throws Exception {
         List<DntsRowDto> data = genererDonneesDnts(idPeriode, c);
+        var company = PayrollExportCompanyResolver.forPeriod(idPeriode, c);
 
-        String sqlPeriode = "SELECT code, libelle FROM periode_paie WHERE id_periode_paie = ?";
+        String sqlPeriode = "SELECT code, libelle, date_fin FROM periode_paie WHERE id_periode_paie = ?";
         String codePeriode = "";
         String libellePeriode = "";
+        LocalDate dateFinPeriode = null;
 
         try (PreparedStatement ps = c.prepareStatement(sqlPeriode)) {
             ps.setInt(1, idPeriode);
@@ -149,19 +180,22 @@ public class DntsExportService {
                 if (rs.next()) {
                     codePeriode = rs.getString("code");
                     libellePeriode = rs.getString("libelle");
+                    dateFinPeriode = rs.getDate("date_fin").toLocalDate();
                 }
             }
         }
+        if (dateFinPeriode == null) throw new IllegalStateException("Période de paie introuvable pour la DNTS.");
+        Rates rates = ratesAt(dateFinPeriode, c);
 
         StringBuilder sb = new StringBuilder();
         sb.append('\ufeff'); // BOM UTF-8
 
         sb.append("CNAPS - CAISSE NATIONALE DE PREVOYANCE SOCIALE & FMFP\n");
         sb.append("DECLARATION NOMINATIVE DES SALAIRES ET DES COTISATIONS\n");
-        sb.append("EMPLOYEUR :;GALAXAM LOGISTICS;NIF :;3000019434;PERIODE :;").append(libellePeriode != null ? libellePeriode : codePeriode).append("\n\n");
+        sb.append("EMPLOYEUR :;").append(escape(company.name())).append(";NIF :;").append(company.nifCompact()).append(";PERIODE :;").append(libellePeriode != null ? libellePeriode : codePeriode).append("\n\n");
 
         sb.append("N° Ordre;Matricule;N° CNaPS;Nom et Prenom;CIN;Date Embauche;Date Debauchage;")
-          .append("Salaire Brut Reel;Assiette Plafonnee CNaPS;CNaPS Salarial (1%);CNaPS Patronal (13%);FMFP Patronal (1%);")
+          .append("Salaire Brut Reel;Assiette Plafonnee CNaPS;CNaPS Salarial (").append(rateLabel(rates.cnapsEmployee())).append(");CNaPS Patronal (").append(rateLabel(rates.cnapsEmployer())).append(");FMFP Patronal (").append(rateLabel(rates.fmfpEmployer())).append(");")
           .append("Sante Salarial;Sante Patronal;Total Cotisations\n");
 
         DecimalFormat df = new DecimalFormat("0.00", DFS);
@@ -247,12 +281,19 @@ public class DntsExportService {
         // Configuration légale pour les taux et le plafond CNaPS du trimestre
         LocalDate dateDebutTrimestre = LocalDate.of(annee, moisDebut, 1);
         PaieConfigLegale config = PaieConfigLegale.findActiveAt(c, dateDebutTrimestre);
-        BigDecimal plafondMensuel = (config != null && config.getPlafondCotisationMensuel() != null)
-                ? config.getPlafondCotisationMensuel()
-                : new BigDecimal("2101440.00");
-        BigDecimal tauxCnapsSal = new BigDecimal("0.01");
-        BigDecimal tauxCnapsPat = new BigDecimal("0.13");
-        BigDecimal tauxFmfpPat = new BigDecimal("0.01");
+        if (config == null || config.getPlafondCotisationMensuel() == null || config.getPlafondCotisationMensuel().signum() <= 0)
+            throw new IllegalStateException("Plafond CNaPS légal manquant pour le trimestre " + annee + " T" + trimestre + ".");
+        BigDecimal plafondMensuel = config.getPlafondCotisationMensuel();
+        Rates rates = ratesAt(dateDebutTrimestre, c);
+        for (int month = moisDebut + 1; month <= moisFin; month++) {
+            LocalDate date = LocalDate.of(annee, month, 1);
+            PaieConfigLegale monthConfig = PaieConfigLegale.findActiveAt(c, date);
+            if (monthConfig == null || !plafondMensuel.equals(monthConfig.getPlafondCotisationMensuel()) || !rates.equals(ratesAt(date, c)))
+                throw new IllegalStateException("Plafond ou taux sociaux modifiés dans le trimestre : export DNTS à vérifier par période.");
+        }
+        BigDecimal tauxCnapsSal = rates.cnapsEmployee().movePointLeft(2);
+        BigDecimal tauxCnapsPat = rates.cnapsEmployer().movePointLeft(2);
+        BigDecimal tauxFmfpPat = rates.fmfpEmployer().movePointLeft(2);
 
         // Agréger par matricule sur l'ensemble du trimestre
         Map<String, DntsRowDto> mapSalaries = new LinkedHashMap<>();
@@ -325,16 +366,18 @@ public class DntsExportService {
 
     public String exporterDntsTrimestreCsv(int annee, int trimestre, Connection c) throws Exception {
         List<DntsRowDto> data = genererDonneesDntsTrimestre(annee, trimestre, c);
+        var company = PayrollExportCompanyResolver.forQuarter(annee, trimestre, c);
+        Rates rates = ratesAt(LocalDate.of(annee, (trimestre - 1) * 3 + 1, 1), c);
 
         StringBuilder sb = new StringBuilder();
         sb.append('\ufeff'); // BOM UTF-8
 
         sb.append("CNAPS - CAISSE NATIONALE DE PREVOYANCE SOCIALE & FMFP\n");
         sb.append("DECLARATION NOMINATIVE TRIMESTRIELLE DES SALAIRES ET DES COTISATIONS (DNTS)\n");
-        sb.append("EMPLOYEUR :;GALAXAM LOGISTICS;NIF :;3000019434;TRIMESTRE :;T").append(trimestre).append(" ").append(annee).append("\n\n");
+        sb.append("EMPLOYEUR :;").append(escape(company.name())).append(";NIF :;").append(company.nifCompact()).append(";TRIMESTRE :;T").append(trimestre).append(" ").append(annee).append("\n\n");
 
         sb.append("N° Ordre;Matricule;N° CNaPS;Nom et Prenom;CIN;Date Embauche;Date Debauchage;")
-          .append("Salaire Brut Reel;Assiette Plafonnee CNaPS;CNaPS Salarial (1%);CNaPS Patronal (13%);FMFP Patronal (1%);")
+          .append("Salaire Brut Reel;Assiette Plafonnee CNaPS;CNaPS Salarial (").append(rateLabel(rates.cnapsEmployee())).append(");CNaPS Patronal (").append(rateLabel(rates.cnapsEmployer())).append(");FMFP Patronal (").append(rateLabel(rates.fmfpEmployer())).append(");")
           .append("Sante Salarial;Sante Patronal;Total Cotisations\n");
 
         DecimalFormat df = new DecimalFormat("0.00", DFS);

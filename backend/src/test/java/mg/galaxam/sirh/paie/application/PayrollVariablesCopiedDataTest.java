@@ -35,11 +35,101 @@ class PayrollVariablesCopiedDataTest {
     @MockitoBean(name = "org.springframework.context.annotation.internalScheduledAnnotationProcessor")
     ScheduledAnnotationBeanPostProcessor scheduling;
     @Autowired mg.galaxam.sirh.paie.api.PaieAjustementController adjustments;
+    @Autowired mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentWorkflowService adjustmentWorkflow;
+    @Autowired mg.galaxam.sirh.paie.application.export.BulletinDocumentService bulletinDocuments;
     @Autowired DataSource dataSource;
     @Autowired PayrollService payroll;
     @Autowired PaieRubriqueController rubriques;
     @Autowired RefTypeMouvementPaieController types;
     @Autowired mg.galaxam.sirh.paie.application.export.SafiExportService safi;
+    @Autowired mg.galaxam.sirh.paie.application.export.DntsExportService dnts;
+
+    @Test
+    void exportsUtilisentIdentiteEtTauxDeLaBase() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            assertEquals("sirh_galaxam_recette_variables_20261001", scalar(c, "SELECT current_database()"));
+            String company = scalar(c, "SELECT raison_sociale FROM ref_filiale WHERE id_filiale=1");
+            String nif = scalar(c, "SELECT regexp_replace(nif,'\\s','','g') FROM ref_filiale WHERE id_filiale=1");
+            String safiCsv = safi.exporterSafiCsv(1, c);
+            String dntsCsv = dnts.exporterDntsCsv(1, c);
+            assertTrue(safiCsv.contains(company));
+            assertTrue(safiCsv.contains(nif));
+            assertTrue(dntsCsv.contains(company));
+            assertTrue(dntsCsv.contains(nif));
+        }
+    }
+
+    @Test
+    void noteDeFraisExigeUnePieceEtApparaitDansLeBulletin() throws Exception {
+        var authentication = new UsernamePasswordAuthenticationToken("recette", "",
+                AuthorityUtils.createAuthorityList("ROLE_ADMIN", "PAIE_WRITE", "PAIE_READ"));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        try (Connection c = dataSource.getConnection()) {
+            assertEquals("sirh_galaxam_recette_variables_20261001", scalar(c, "SELECT current_database()"));
+        }
+        var baseline = calculate(true).getBulletin();
+        var request = new mg.galaxam.sirh.paie.api.dto.PaieAjustementRequest();
+        request.setIdEmploye(3); request.setIdPeriodePaie(1);
+        request.setTypeMouvement("NOTE_DE_FRAIS"); request.setMontant(new BigDecimal("10000"));
+        request.setMotif("Facture de mission de recette");
+        int id = -1;
+        try {
+            var created = (java.util.Map<?, ?>) adjustments.creerAjustement(request, authentication).getBody();
+            id = ((Number) created.get("idAvance")).intValue();
+            final int expenseId = id;
+            final int initialVersion = ((Number) created.get("version")).intValue();
+            assertThrows(SirhBusinessException.class, () -> adjustmentWorkflow.execute(expenseId,
+                    mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentCommand.APPROVE,
+                    null, null, initialVersion));
+            byte[] pdf = "%PDF-1.4\njustificatif de recette".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+            adjustments.deposerJustificatifFrais(id,
+                    new org.springframework.mock.web.MockMultipartFile("file", "facture.pdf", "application/pdf", pdf), authentication);
+            int updatedVersion;
+            try (Connection c = dataSource.getConnection(); var ps = c.prepareStatement(
+                    "SELECT updated_at FROM paie_avance_acompte WHERE id_avance=?")) {
+                ps.setInt(1, id);
+                try (var rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    updatedVersion = (int) (rs.getTimestamp(1).getTime() % Integer.MAX_VALUE);
+                }
+            }
+            adjustmentWorkflow.execute(id,
+                    mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentCommand.APPROVE,
+                    null, null, updatedVersion);
+            var result = calculate(true);
+            var bulletin = result.getBulletin();
+            money("10000", bulletin.getNetAvantArrondi().subtract(baseline.getNetAvantArrondi()));
+            money("0", bulletin.getTotalGainsBruts().subtract(baseline.getTotalGainsBruts()));
+            money("0", bulletin.getTotalCotisationsSalariales().subtract(baseline.getTotalCotisationsSalariales()));
+            money("0", bulletin.getIrsaNet().subtract(baseline.getIrsaNet()));
+            assertTrue(result.getLignes().stream().anyMatch(l ->
+                    "REMBOURSEMENT_NOTE_FRAIS".equals(l.getCodeRubrique())
+                            && l.getMontantSalarial().compareTo(new BigDecimal("10000")) == 0));
+            var context = new mg.galaxam.sirh.paie.application.export.BulletinDocumentService.Context(
+                    "2026-08", "26/07/2026 au 25/08/2026", "Galaxam", "", "", "");
+            byte[] xlsx = bulletinDocuments.excel(result, context);
+            try (var workbook = org.apache.poi.ss.usermodel.WorkbookFactory.create(new java.io.ByteArrayInputStream(xlsx))) {
+                boolean found = false;
+                for (var row : workbook.getSheetAt(0)) {
+                    var cell = row.getCell(0);
+                    if (cell != null && cell.getCellType() == org.apache.poi.ss.usermodel.CellType.STRING
+                            && cell.getStringCellValue().contains("Ajout au net : Remboursement Notes de Frais")) found = true;
+                }
+                assertTrue(found, "Le bulletin Excel doit présenter la ligne de remboursement.");
+            }
+            try (var pdfDocument = org.apache.pdfbox.Loader.loadPDF(bulletinDocuments.pdf(result, context))) {
+                String pdfText = new org.apache.pdfbox.text.PDFTextStripper().getText(pdfDocument);
+                assertTrue(pdfText.contains("Ajout au net"));
+                assertTrue(pdfText.contains("Remboursement Notes de Frais"));
+            }
+        } finally {
+            if (id > 0) try (Connection c = dataSource.getConnection(); var ps = c.prepareStatement(
+                    "DELETE FROM paie_avance_acompte WHERE id_avance=?")) {
+                ps.setInt(1, id); ps.executeUpdate();
+            }
+            SecurityContextHolder.clearContext();
+        }
+    }
 
     @Test
     @SuppressWarnings("unchecked")
@@ -111,7 +201,7 @@ class PayrollVariablesCopiedDataTest {
                 typeReq.setCode("V_" + scenario + "_" + suffix);
                 typeReq.setLibelle("Recette " + scenario);
                 typeReq.setSens(retention ? "RETENUE" : "GAIN");
-                typeReq.setCategorie(retention ? "RETENUE_DIVERSE" : "PRIME");
+                typeReq.setCategorie(req.getCategorie());
                 typeReq.setIdRubrique(rubrique.getIdRubrique());
                 var type = (RefTypeMouvementPaie) types.creerTypeMouvement(typeReq).getBody();
                 assertNotNull(type);

@@ -25,11 +25,32 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.clearAllMocks(); });
 
-it('place les données du serveur dans leur phase et relie type et rubrique', async () => {
+it('place les données du serveur dans leur phase et relie type et rubrique selon le wireframe', async () => {
     await act(async () => root.render(<MemoryRouter initialEntries={['/paie/configuration']}><PayrollEngineMap /></MemoryRouter>));
     expect(host.querySelector('section[aria-label="Étapes du moteur"]').textContent).toContain('Brut et gains');
-    expect(host.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Montant saisi');
     expect(host.querySelector('section[aria-label="Étapes du moteur"]').textContent).toContain('PRIME_EXCEPTIONNELLE');
-    await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === 'Par type de variable').click());
+
+    // Au clic sur la ligne ou la flèche, la fiche détaillée de la rubrique s'ouvre
+    const openRubriqueBtn = host.querySelector('button[aria-label="Ouvrir le détail de Prime exceptionnelle"]');
+    await act(async () => openRubriqueBtn.click());
+    expect(host.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Montant saisi');
+
+    // Bascule vers l'onglet Types de variable
+    const typeTabBtn = [...host.querySelectorAll('button')].find(button => button.textContent.includes('Types de variable'));
+    await act(async () => typeTabBtn.click());
+
+    // Au clic sur la flèche du type, sa fiche détaillée s'ouvre avec la mention de saisie
+    const openTypeBtn = host.querySelector('button[aria-label="Ouvrir le détail de Prime exceptionnelle"]');
+    await act(async () => openTypeBtn.click());
     expect(host.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Saisie manuelle autorisée');
+    expect(host.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Rubrique alimentée');
+
+    // Au clic sur [Ouvrir la rubrique], on bascule vers la rubrique associée
+    const openLinkedRubriqueBtn = [...host.querySelectorAll('button')].find(b => b.textContent.includes('Ouvrir la rubrique'));
+    expect(openLinkedRubriqueBtn).toBeTruthy();
+    await act(async () => openLinkedRubriqueBtn.click());
+    expect(host.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('RUBRIQUE DE CALCUL');
+    expect(host.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Prime exceptionnelle');
 });
+
+

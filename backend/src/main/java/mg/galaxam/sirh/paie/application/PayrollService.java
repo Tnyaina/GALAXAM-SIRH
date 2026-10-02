@@ -1055,6 +1055,15 @@ public class PayrollService {
                         } else if ("PRIME_ASSIDUITE".equalsIgnoreCase(codeType)) {
                             in.setPrimeAssiduiteForfait(in.getPrimeAssiduiteForfait().add(montant));
                         } else if ("NOTE_DE_FRAIS".equalsIgnoreCase(codeType) || "REMBOURSEMENT_NOTE_FRAIS".equalsIgnoreCase(codeType)) {
+                            try (var evidence = c.prepareStatement(
+                                    "SELECT 1 FROM paie_mouvement_justificatif WHERE id_avance=?")) {
+                                evidence.setInt(1, idAvance);
+                                try (var proof = evidence.executeQuery()) {
+                                    if (!proof.next()) throw new SirhBusinessException(
+                                            SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
+                                            "La note de frais " + idAvance + " est approuvée sans justificatif.");
+                                }
+                            }
                             in.setRemboursementNotesFrais(in.getRemboursementNotesFrais().add(montant));
                         } else if ("REGULARISATION_CONGE".equalsIgnoreCase(codeType) || "REGULARISATION_PAIE".equalsIgnoreCase(codeType)) {
                             in.setRegularisationPaie(in.getRegularisationPaie().add(montant));

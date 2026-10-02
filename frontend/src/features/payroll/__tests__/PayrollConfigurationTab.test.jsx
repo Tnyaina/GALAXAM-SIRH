@@ -32,6 +32,8 @@ afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
 describe('Paramétrage paie',()=>{
     it('consulte d’abord le catalogue et envoie la pagination au backend en conservant le contexte',async()=>{
         await render();expect(host.querySelector('[role="dialog"]')).toBeNull();
+        expect(host.textContent).toContain('Cas exceptionnel :');
+        expect(host.textContent).toContain('Cas courant');
         expect(host.querySelector('section[aria-label="Fiche de configuration"]').textContent).toContain('Prime de recette');
         const next=host.querySelector('button[aria-label="Page suivante"]');
         await act(async()=>next.click());
@@ -68,6 +70,15 @@ describe('Paramétrage paie',()=>{
         expect(dialog.querySelector('input').disabled).toBe(true);
         expect([...dialog.querySelectorAll('select')].every(select=>select.disabled)).toBe(true);
         expect([...dialog.querySelectorAll('input')].some(input=>input.value==='Prime utilisée'&&!input.disabled)).toBe(true);
+    });
+    it('guide la création d’un type vers une rubrique manuelle recherchable',async()=>{
+        paieService.getConfigurationCatalogue.mockResolvedValue({...catalogue,items:[],rubriquesCompatibles:[rubrique]});
+        await render('/paie/configuration?vue=types','types');
+        await click('Nouveau type');
+        const dialog=document.querySelector('[role="dialog"]');
+        expect(dialog.textContent).toContain('Le montant saisi suivra la rubrique associée');
+        await act(async()=>[...dialog.querySelectorAll('button')].find(button=>button.textContent.includes('Rechercher une rubrique manuelle')).click());
+        expect(dialog.textContent).toContain('Prime de recette');
     });
     it('annule la requête précédente lorsque la sélection change',async()=>{
         await render();const firstSignal=paieService.getConfigurationCatalogue.mock.calls.at(-1)[1];

@@ -37,6 +37,11 @@ public class PayrollLegalContextResolver {
 
         int configId = config.getIdConfigLegale();
         input.setSmeNational(config.getSmeNational());
+        if (config.getPlafondCotisationMensuel() == null || config.getPlafondCotisationMensuel().signum() <= 0)
+            throw PayrollConfigurationGuard.missing("PLAFOND_COTISATION_MENSUEL", input.getIdEmploye(), targetDate.toString());
+        input.setPlafondCotisationMensuel(config.getPlafondCotisationMensuel());
+        input.setPlafondAvanceEmployeur(config.getPlafondAvanceEmployeurPct().movePointLeft(2));
+        input.setQuotiteCessible(config.getQuotiteCessiblePct().movePointLeft(2));
         input.setMinimumPerceptionIrsa(config.getMinimumPerceptionIrsa());
         input.setDeductionParEnfant(config.getDeductionChargeFamille());
         if (config.getDiviseurMensuelHeures() != null

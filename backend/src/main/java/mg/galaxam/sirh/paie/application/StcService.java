@@ -383,7 +383,9 @@ public class StcService {
                     "Aucun barème réglementaire (SME/SMIG) n'est configuré pour la date du "
                     + req.getDateDepart() + ". Veuillez renseigner l'exercice réglementaire correspondant dans les Paramètres de Paie (LEGAL_REVIEW_REQUIRED).");
         }
-        BigDecimal smigRef = configLegale.getSmeNational();
+        BigDecimal plafondCotisation = configLegale.getPlafondCotisationMensuel();
+        if (plafondCotisation == null || plafondCotisation.signum() <= 0)
+            throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: plafond de cotisation mensuel au départ");
 
         // CNaPS : taux valides à la date de départ (P1-03 : filtre de date historique)
         BigDecimal tauxCnapsSal = null;
@@ -416,13 +418,13 @@ public class StcService {
         if (tauxFmfp == null) throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: FMFP pour date=" + req.getDateDepart());
         SocialContributionCalculator.Result socialResult = new SocialContributionCalculator().calculate(
                 assietteSociale, new SocialContributionCalculator.Rules(tauxCnapsSal, tauxCnapsPat,
-                        BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ONE, smigRef, true));
+                        BigDecimal.ZERO, BigDecimal.ZERO, tauxFmfp, plafondCotisation, true));
         var resCnaps = socialResult.cnaps();
         BigDecimal baseCnaps = resCnaps.assiette();
         BigDecimal cnapsSal = resCnaps.partSalariale();
         res.setCotisationCnaps(cnapsSal);
         if (cnapsSal.compareTo(BigDecimal.ZERO) > 0) {
-            res.ajouterLigne("COTISATION_CNAPS_SAL", "Cotisation CNaPS Salariale (1%)", "RETENUE", baseCnaps, new BigDecimal("1.00"), cnapsSal);
+            res.ajouterLigne("COTISATION_CNAPS_SAL", "Cotisation CNaPS Salariale (" + tauxCnapsSal.movePointRight(2).stripTrailingZeros().toPlainString() + "%)", "RETENUE", baseCnaps, tauxCnapsSal.movePointRight(2), cnapsSal);
         }
 
         // Santé : Organisme et taux récupérés dynamiquement selon le site du collaborateur
@@ -443,12 +445,12 @@ public class StcService {
 
         var resSante = new SocialContributionCalculator().calculate(assietteSociale,
                 new SocialContributionCalculator.Rules(tauxCnapsSal, tauxCnapsPat,
-                        tauxSanteSal, tauxSantePat, tauxFmfp, smigRef, true)).health();
+                        tauxSanteSal, tauxSantePat, tauxFmfp, plafondCotisation, true)).health();
         BigDecimal santeSal = resSante.partSalariale();
         res.setCotisationSante(santeSal);
         if (santeSal.compareTo(BigDecimal.ZERO) > 0) {
             String libelleSante = "Cotisation " + codeSante + " Salariale (" + tauxSanteSal.movePointRight(2) + "%)";
-            res.ajouterLigne("COTISATION_SANTE_SAL", libelleSante, "RETENUE", assietteSociale, tauxSanteSal.movePointRight(2), santeSal);
+            res.ajouterLigne("COTISATION_SANTE_SAL", libelleSante, "RETENUE", resSante.assiette(), tauxSanteSal.movePointRight(2), santeSal);
         }
 
         BigDecimal totalCotis = cnapsSal.add(santeSal);
@@ -462,14 +464,14 @@ public class StcService {
         res.setTotalCotisationsPatronales(totalCotisPat);
 
         if (cnapsPat.compareTo(BigDecimal.ZERO) > 0) {
-            res.ajouterLigne("COTISATION_CNAPS_PAT", "Cotisation CNaPS Patronale (13%)", "PATRONAL", baseCnaps, new BigDecimal("13.00"), cnapsPat);
+            res.ajouterLigne("COTISATION_CNAPS_PAT", "Cotisation CNaPS Patronale (" + tauxCnapsPat.movePointRight(2).stripTrailingZeros().toPlainString() + "%)", "PATRONAL", baseCnaps, tauxCnapsPat.movePointRight(2), cnapsPat);
         }
         if (santePat.compareTo(BigDecimal.ZERO) > 0) {
             String libelleSantePat = "Cotisation " + codeSante + " Patronale (" + tauxSantePat.movePointRight(2) + "%)";
-            res.ajouterLigne("COTISATION_SANTE_PAT", libelleSantePat, "PATRONAL", assietteSociale, tauxSantePat.movePointRight(2), santePat);
+            res.ajouterLigne("COTISATION_SANTE_PAT", libelleSantePat, "PATRONAL", resSante.assiette(), tauxSantePat.movePointRight(2), santePat);
         }
         if (fmfpPat.compareTo(BigDecimal.ZERO) > 0) {
-            res.ajouterLigne("COTISATION_FMFP_PAT", "Cotisation FMFP Patronale (1%)", "PATRONAL", assietteSociale, new BigDecimal("1.00"), fmfpPat);
+            res.ajouterLigne("COTISATION_FMFP_PAT", "Cotisation FMFP Patronale (" + tauxFmfp.movePointRight(2).stripTrailingZeros().toPlainString() + "%)", "PATRONAL", assietteSociale, tauxFmfp.movePointRight(2), fmfpPat);
         }
 
         // Assiette IRSA

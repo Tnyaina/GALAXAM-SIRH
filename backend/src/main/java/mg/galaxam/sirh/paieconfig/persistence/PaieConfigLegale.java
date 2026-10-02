@@ -29,6 +29,8 @@ public class PaieConfigLegale extends ClassMere {
     private BigDecimal smeNational;
     private BigDecimal smeAgricole;
     private BigDecimal plafondCotisationNbSme;  // Ex: 8.0 → plafond = 8 × SME
+    private BigDecimal plafondAvanceEmployeurPct;
+    private BigDecimal quotiteCessiblePct;
 
     // Règles Fiscales IRSA
     private BigDecimal seuilExonerationIrsa;
@@ -74,8 +76,8 @@ public class PaieConfigLegale extends ClassMere {
                 "seuil_exoneration_irsa, minimum_perception_irsa, deduction_charge_famille, arrondi_base_irsa, " +
                 "duree_hebdo_legale, diviseur_mensuel_heures, seuil_hs_tranche1, plafond_hs_hebdo, " +
                 "acquisition_conge_mensuel_jours, diviseur_valorisation_conge_jours, " +
-                "exoneration_hs_irsa_active, plafond_mensuel_hs_exonerees) " +
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id_config_legale";
+                "exoneration_hs_irsa_active, plafond_mensuel_hs_exonerees, plafond_avance_employeur_pct, quotite_cessible_pct) " +
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id_config_legale";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, codeVersion);
             ps.setString(2, libelle);
@@ -96,6 +98,8 @@ public class PaieConfigLegale extends ClassMere {
             ps.setInt(17, diviseurValorisationCongeJours != null ? diviseurValorisationCongeJours : 30);
             ps.setBoolean(18, Boolean.TRUE.equals(exonerationHsIrsaActive));
             ps.setBigDecimal(19, Boolean.TRUE.equals(exonerationHsIrsaActive) && plafondMensuelHsExonerees != null ? plafondMensuelHsExonerees : BigDecimal.ZERO);
+            ps.setBigDecimal(20, plafondAvanceEmployeurPct);
+            ps.setBigDecimal(21, quotiteCessiblePct);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) this.idConfigLegale = rs.getInt(1);
             }
@@ -110,7 +114,7 @@ public class PaieConfigLegale extends ClassMere {
                 "seuil_exoneration_irsa=?, minimum_perception_irsa=?, deduction_charge_famille=?, arrondi_base_irsa=?, " +
                 "duree_hebdo_legale=?, diviseur_mensuel_heures=?, seuil_hs_tranche1=?, plafond_hs_hebdo=?, " +
                 "acquisition_conge_mensuel_jours=?, diviseur_valorisation_conge_jours=?, " +
-                "exoneration_hs_irsa_active=?, plafond_mensuel_hs_exonerees=?, updated_at=NOW() " +
+                "exoneration_hs_irsa_active=?, plafond_mensuel_hs_exonerees=?, plafond_avance_employeur_pct=?, quotite_cessible_pct=?, updated_at=NOW() " +
                 "WHERE id_config_legale=?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, codeVersion);
@@ -132,8 +136,10 @@ public class PaieConfigLegale extends ClassMere {
             ps.setInt(17, diviseurValorisationCongeJours != null ? diviseurValorisationCongeJours : 30);
             ps.setBoolean(18, Boolean.TRUE.equals(exonerationHsIrsaActive));
             ps.setBigDecimal(19, Boolean.TRUE.equals(exonerationHsIrsaActive) && plafondMensuelHsExonerees != null ? plafondMensuelHsExonerees : BigDecimal.ZERO);
+            ps.setBigDecimal(20, plafondAvanceEmployeurPct);
+            ps.setBigDecimal(21, quotiteCessiblePct);
             if (idConfigLegale != null) {
-                ps.setInt(20, idConfigLegale);
+                ps.setInt(22, idConfigLegale);
             } else {
                 throw new IllegalArgumentException("L'identifiant de la configuration légale est requis pour la modification.");
             }
@@ -279,6 +285,12 @@ public class PaieConfigLegale extends ClassMere {
         p.smeNational = rs.getBigDecimal("sme_national");
         p.smeAgricole = rs.getBigDecimal("sme_agricole");
         p.plafondCotisationNbSme = rs.getBigDecimal("plafond_cotisation_nb_sme");
+        try { p.plafondAvanceEmployeurPct = rs.getBigDecimal("plafond_avance_employeur_pct"); }
+        catch (Exception ignored) { p.plafondAvanceEmployeurPct = new BigDecimal("10.000000"); }
+        try { p.quotiteCessiblePct = rs.getBigDecimal("quotite_cessible_pct"); }
+        catch (Exception ignored) { p.quotiteCessiblePct = new BigDecimal("33.333333"); }
+        if (p.plafondAvanceEmployeurPct == null) p.plafondAvanceEmployeurPct = new BigDecimal("10.000000");
+        if (p.quotiteCessiblePct == null) p.quotiteCessiblePct = new BigDecimal("33.333333");
         p.seuilExonerationIrsa = rs.getBigDecimal("seuil_exoneration_irsa");
         p.minimumPerceptionIrsa = rs.getBigDecimal("minimum_perception_irsa");
         p.deductionChargeFamille = rs.getBigDecimal("deduction_charge_famille");
@@ -328,6 +340,10 @@ public class PaieConfigLegale extends ClassMere {
     public void setSmeAgricole(BigDecimal v) { this.smeAgricole = v; }
     public BigDecimal getPlafondCotisationNbSme() { return plafondCotisationNbSme; }
     public void setPlafondCotisationNbSme(BigDecimal v) { this.plafondCotisationNbSme = v; }
+    public BigDecimal getPlafondAvanceEmployeurPct() { return plafondAvanceEmployeurPct; }
+    public void setPlafondAvanceEmployeurPct(BigDecimal v) { this.plafondAvanceEmployeurPct = v; }
+    public BigDecimal getQuotiteCessiblePct() { return quotiteCessiblePct; }
+    public void setQuotiteCessiblePct(BigDecimal v) { this.quotiteCessiblePct = v; }
     public BigDecimal getSeuilExonerationIrsa() { return seuilExonerationIrsa; }
     public void setSeuilExonerationIrsa(BigDecimal v) { this.seuilExonerationIrsa = v; }
     public BigDecimal getMinimumPerceptionIrsa() { return minimumPerceptionIrsa; }

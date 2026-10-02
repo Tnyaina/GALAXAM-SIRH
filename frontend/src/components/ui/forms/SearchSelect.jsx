@@ -13,6 +13,7 @@ export default function SearchSelect({
   error = null,
   className = '',
   disabled = false,
+  hint = null,
 }) {
   // État local et référence DOM.
   const [searchQuery, setSearchQuery] = useState('');
@@ -174,6 +175,7 @@ export default function SearchSelect({
       </div>
 
       {error && <FieldError id={feedbackId}>{error}</FieldError>}
+      {hint && !error && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{hint}</p>}
     </div>
   );
 }

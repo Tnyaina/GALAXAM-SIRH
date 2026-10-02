@@ -251,17 +251,13 @@ public class SafiExportService {
         List<SafiRowDto> data = genererDonneesSafi(idPeriode, c);
 
         // Informations d'en-tête de la société
-        String sqlEntete = "SELECT pp.code AS code_periode, pp.libelle AS libelle_periode, " +
-                "pp.date_debut, pp.date_fin, " +
-                "rf.raison_sociale, rf.nif, rf.stat " +
-                "FROM periode_paie pp " +
-                "LEFT JOIN ref_filiale rf ON rf.id_filiale = 1 " +
-                "WHERE pp.id_periode_paie = ?";
+        String sqlEntete = "SELECT code AS code_periode, libelle AS libelle_periode FROM periode_paie WHERE id_periode_paie = ?";
 
         String codePeriode = "";
         String libellePeriode = "";
-        String raisonSociale = "GALAXAM LOGISTICS";
-        String nif = "3000019434";
+        var company = PayrollExportCompanyResolver.forPeriod(idPeriode, c);
+        String raisonSociale = company.name();
+        String nif = company.nifCompact();
 
         try (PreparedStatement ps = c.prepareStatement(sqlEntete)) {
             ps.setInt(1, idPeriode);
@@ -269,8 +265,6 @@ public class SafiExportService {
                 if (rs.next()) {
                     codePeriode = rs.getString("code_periode");
                     libellePeriode = rs.getString("libelle_periode");
-                    if (rs.getString("raison_sociale") != null) raisonSociale = rs.getString("raison_sociale");
-                    if (rs.getString("nif") != null) nif = rs.getString("nif");
                 }
             }
         }

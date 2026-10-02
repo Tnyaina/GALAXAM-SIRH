@@ -81,6 +81,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [formError, setFormError] = useState('');
+    const [justificatifFrais, setJustificatifFrais] = useState(null);
     const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(false);
     const [bulletinPreview, setBulletinPreview] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
@@ -149,6 +150,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
 
     useEffect(() => {
         setIsModalOpen(false);
+        setJustificatifFrais(null);
         setForm(previous => ({ ...previous, idEmploye: '' }));
     }, [idPeriodeActive]);
 
@@ -202,6 +204,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         if (field === 'idEmploye' || field === 'typeMouvement' || field === 'sens') {
             setDuplicateAcknowledged(false);
         }
+        if (field === 'typeMouvement' && val !== 'NOTE_DE_FRAIS') setJustificatifFrais(null);
         setForm(prev => {
             const next = { ...prev, [field]: val };
             if (field === 'sens') {
@@ -240,6 +243,10 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             setFormError('Ajoutez une justification précise (au moins 8 caractères) pour conserver la trace de cette variable.');
             return;
         }
+        if (selectedType?.code === 'NOTE_DE_FRAIS' && !justificatifFrais) {
+            setFormError('Joignez une facture ou un reçu avant d’enregistrer la note de frais.');
+            return;
+        }
         if (possibleDuplicate && !duplicateAcknowledged) {
             setFormError('Une variable similaire existe déjà. Confirmez qu’il s’agit d’un élément distinct.');
             return;
@@ -247,7 +254,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
 
         setSubmitting(true);
         try {
-            await paieService.creerAjustement({
+            const created = await paieService.creerAjustement({
                 idEmploye: Number(form.idEmploye),
                 idPeriodePaie: idPeriodeActive || null,
                 typeMouvement: form.typeMouvement,
@@ -255,6 +262,16 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 ...valuePayload,
                 motif: form.motif || 'Variable de paie'
             });
+            if (selectedType?.code === 'NOTE_DE_FRAIS') {
+                try {
+                    await paieService.deposerJustificatifFrais(created.idAvance, justificatifFrais);
+                    setJustificatifFrais(null);
+                } catch (uploadError) {
+                    await chargerDonnees({ silent: true });
+                    setFormError(`La note de frais est enregistrée en attente, mais la pièce n’a pas été jointe : ${getErrorMessage(uploadError, 'Réessayez depuis la liste.')}`);
+                    return;
+                }
+            }
 
             if (keepOpen) {
                 setForm(previous => ({ ...previous, montant: '', motif: '' }));
@@ -263,6 +280,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 setPreviewRevision(revision => revision + 1);
             } else {
                 setIsModalOpen(false);
+                setJustificatifFrais(null);
                 setForm({ idEmploye: '', typeMouvement: typesMouvements[0]?.code || '', sens: typesMouvements[0]?.sens || '', montant: '', motif: '' });
             }
             await chargerDonnees({ silent: true });
@@ -272,6 +290,33 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             setFormError(getErrorMessage(err, 'Erreur lors de la création de la variable.'));
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleJustificatifFrais = async (variable, file) => {
+        if (!file) return;
+        try {
+            await paieService.deposerJustificatifFrais(variable.idAvance, file);
+            await chargerDonnees({ silent: true });
+            toast.success('Justificatif ajouté. La note de frais peut être approuvée.');
+        } catch (error) {
+            setFeedbackMsg({ type: 'error', text: getErrorMessage(error, 'Impossible de déposer le justificatif.') });
+        }
+    };
+
+    const handleVoirJustificatifFrais = async (variable) => {
+        try {
+            const blob = await paieService.telechargerJustificatifFrais(variable.idAvance);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = variable.justificatifNom || 'justificatif';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+        } catch (error) {
+            setFeedbackMsg({ type: 'error', text: getErrorMessage(error, 'Impossible de télécharger le justificatif.') });
         }
     };
 
@@ -590,6 +635,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                     </Td>
                                     <Td className="text-[var(--color-fg-muted)] max-w-xs whitespace-normal">
                                         <span className="block">{v.motif || '—'}</span>
+                                        {v.typeMouvement === 'NOTE_DE_FRAIS' && <span className="block text-[11px]">{v.justificatifPresent ? `Pièce : ${v.justificatifNom}` : 'Pièce à joindre avant approbation'}</span>}
                                         {(v.dateDemande || v.date_demande) && <span className="block text-[11px] text-[var(--color-fg-subtle)]">Saisie le {fmtDate(v.dateDemande || v.date_demande)}</span>}
                                     </Td>
                                     <Td>
@@ -605,11 +651,14 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                                                     size="xs"
                                                     iconLeft={<CheckCircle2 size={13} className="text-[var(--color-brand-600)]" />}
                                                     onClick={() => setApprovingVariable(v)}
+                                                    disabled={v.typeMouvement === 'NOTE_DE_FRAIS' && !v.justificatifPresent}
                                                     className="text-[var(--color-brand-600)] border-[var(--color-brand-300)] hover:bg-[var(--color-brand-50)] dark:border-[var(--color-brand-700)] dark:hover:bg-[var(--color-brand-900)]/30"
                                                 >
                                                     Approuver
                                                 </Button>
                                             )}
+                                            {v.typeMouvement === 'NOTE_DE_FRAIS' && v.justificatifPresent && idAvance && <Button variant="outline" size="xs" onClick={() => handleVoirJustificatifFrais(v)}>Voir la pièce</Button>}
+                                            {canMutate && v.typeMouvement === 'NOTE_DE_FRAIS' && v.statut === 'EN_ATTENTE' && idAvance && <label className="cursor-pointer text-xs font-semibold text-[var(--color-brand-600)]">{v.justificatifPresent ? 'Remplacer la pièce' : 'Joindre une pièce'}<input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" className="sr-only" onChange={event => { handleJustificatifFrais(v, event.target.files?.[0]); event.target.value = ''; }} /></label>}
                                             {canMutate && v.statut === 'EN_ATTENTE' && isManualPayrollVariable(v) && idAvance && (
                                                 <Button
                                                     variant="ghost"
@@ -642,7 +691,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             {/* Modale d'ajout de variable */}
             <Modal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => { setIsModalOpen(false); setJustificatifFrais(null); }}
                 title="Ajouter une variable de paie"
                 size="4xl"
                 className="max-h-[92vh]"
@@ -652,7 +701,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setIsModalOpen(false)}
+                            onClick={() => { setIsModalOpen(false); setJustificatifFrais(null); }}
                             disabled={submitting}
                         >
                             Annuler
@@ -735,6 +784,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                         {selectedType.description && <p className="text-[var(--color-fg-muted)]">{selectedType.description}</p>}
                         <p className="text-[var(--color-fg-muted)]">Traitement : {regimeLabel(selectedType.sens, selectedType.imposable, selectedType.cotisable)}</p>
                         </div>}
+                        {selectedType?.code === 'NOTE_DE_FRAIS' && <div className="space-y-2 border border-[var(--color-border-subtle)] p-3"><label htmlFor="note-frais-file" className="block font-semibold text-[var(--color-fg)]">Justificatif de frais obligatoire</label><input id="note-frais-file" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={event => setJustificatifFrais(event.target.files?.[0] || null)} className="block w-full text-xs" /><p className="text-[var(--color-fg-muted)]">Facture ou reçu PDF, PNG ou JPEG, 5 Mo maximum. La note reste en attente jusqu’à son approbation.</p></div>}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <ManualVariableValueFields type={selectedType} form={form} onChange={handleFormChange} />

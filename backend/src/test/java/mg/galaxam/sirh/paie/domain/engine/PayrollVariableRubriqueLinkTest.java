@@ -11,6 +11,25 @@ import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
 import org.junit.jupiter.api.Test;
 
 class PayrollVariableRubriqueLinkTest {
+    @Test
+    void cotisationUtiliseLePlafondLegalFourniEtNonHuitFoisLeSme() {
+        var rules = new SocialContributionCalculator.Rules(
+                new BigDecimal("0.01"), new BigDecimal("0.13"), BigDecimal.ZERO,
+                BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("500000"), true);
+        var result = new SocialContributionCalculator().calculate(new BigDecimal("900000"), rules);
+        assertEquals(0, new BigDecimal("500000").compareTo(result.cnaps().assiette()));
+        assertEquals(0, new BigDecimal("5000").compareTo(result.cnaps().partSalariale()));
+    }
+
+    @Test
+    void remboursementDeFraisResteUnCircuitDedie() {
+        var frais = PayrollCalculatorRegistry.describe("REMBOURSEMENT_NOTE_FRAIS", "INDEMNITE_NON_IMPOSABLE", false, "GAIN_NET");
+        var manuel = PayrollCalculatorRegistry.describe("INDEMNITE_MANUELLE", "INDEMNITE_NON_IMPOSABLE", false, "GAIN_NET");
+        assertEquals("SEMI_CONFIGURABLE", frais.niveau());
+        assertEquals("NOTES_DE_FRAIS", frais.calculateur());
+        assertEquals("CONFIGURABLE", manuel.niveau());
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
         "true,true,110000,110000,3300",
@@ -22,6 +41,7 @@ class PayrollVariableRubriqueLinkTest {
             String cnapsBase, String healthBase, String deductions) {
         var input = new PayrollCalculationInput();
         input.setSmeNational(new BigDecimal("100000"));
+        input.setPlafondCotisationMensuel(new BigDecimal("800000"));
         input.setSoumisCnaps(true); input.setSoumisSante(true);
         input.setTauxCnapsSalarial(new BigDecimal("0.01"));
         input.setTauxCnapsPatronal(new BigDecimal("0.13"));
@@ -58,6 +78,7 @@ class PayrollVariableRubriqueLinkTest {
         var input = new PayrollCalculationInput();
         input.setSalaireBaseContractuel(new BigDecimal("100000"));
         input.setSmeNational(new BigDecimal("100000"));
+        input.setPlafondCotisationMensuel(new BigDecimal("800000"));
         input.setTauxCnapsSalarial(new BigDecimal("0.01"));
         input.setTauxCnapsPatronal(BigDecimal.ZERO);
         input.setTauxFmfpPatronal(BigDecimal.ZERO);
@@ -97,6 +118,48 @@ class PayrollVariableRubriqueLinkTest {
         assertEquals(taxable, ligne.isImposable());
         assertEquals(taxable, ligne.isSoumisCotisation());
         assertFalse(lignes.stream().anyMatch(l -> "TYPE_MISSION".equals(l.getCodeRubrique())));
+    }
+
+    @Test
+    void gainHorsBrutConfigureAjouteAuNetSansModifierBrutNiAssiettes() {
+        var engine = new PayrollExecutionEngine();
+        var base = new PayrollCalculationInput();
+        base.setSalaireBaseContractuel(new BigDecimal("350000"));
+        configurerTauxNeutres(base);
+        var bulletinSansGain = engine.calculer(base).getBulletin();
+
+        var avecGain = new PayrollCalculationInput();
+        avecGain.setSalaireBaseContractuel(new BigDecimal("350000"));
+        configurerTauxNeutres(avecGain);
+        var gain = new PayrollCalculationInput.GainVariable(1, "TYPE_MISSION", "Mission ponctuelle",
+                new BigDecimal("10000"), "INDEMNITE_NON_IMPOSABLE", false, false);
+        gain.setCodeRubrique("EXTRA_DEPLACEMENT");
+        gain.setEtapeCalcul("GAIN_NET");
+        avecGain.ajouterGainVariable(gain);
+        var resultat = engine.calculer(avecGain);
+        var bulletin = resultat.getBulletin();
+
+        assertEquals(0, bulletinSansGain.getTotalGainsBruts().compareTo(bulletin.getTotalGainsBruts()));
+        assertEquals(0, bulletinSansGain.getTotalCotisationsSalariales().compareTo(bulletin.getTotalCotisationsSalariales()));
+        assertEquals(0, bulletinSansGain.getIrsaNet().compareTo(bulletin.getIrsaNet()));
+        assertEquals(0, new BigDecimal("10000").compareTo(bulletin.getNetAvantArrondi().subtract(bulletinSansGain.getNetAvantArrondi())));
+        var ligne = resultat.getLignes().stream().filter(l -> "EXTRA_DEPLACEMENT".equals(l.getCodeRubrique())).findFirst().orElseThrow();
+        assertEquals("GAIN_NET", ligne.getEtapeCalcul());
+        assertFalse(ligne.isImposable());
+        assertFalse(ligne.isSoumisCotisation());
+    }
+
+    private void configurerTauxNeutres(PayrollCalculationInput input) {
+        input.setSmeNational(new BigDecimal("100000"));
+        input.setPlafondCotisationMensuel(new BigDecimal("800000"));
+        input.setTauxCnapsSalarial(BigDecimal.ZERO);
+        input.setTauxCnapsPatronal(BigDecimal.ZERO);
+        input.setTauxSanteSalarial(BigDecimal.ZERO);
+        input.setTauxSantePatronal(BigDecimal.ZERO);
+        input.setTauxFmfpPatronal(BigDecimal.ZERO);
+        input.setMinimumPerceptionIrsa(BigDecimal.ZERO);
+        input.setDeductionParEnfant(BigDecimal.ZERO);
+        input.setTranchesIrsa(List.of(new IrsaCalculator.Tranche(BigDecimal.ZERO, null, BigDecimal.ZERO)));
     }
 
     @Test

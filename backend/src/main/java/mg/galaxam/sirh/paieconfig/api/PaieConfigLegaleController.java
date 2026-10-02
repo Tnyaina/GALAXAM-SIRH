@@ -339,6 +339,13 @@ public class PaieConfigLegaleController {
         p.setSmeNational(r.getSmeNational());
         p.setSmeAgricole(r.getSmeAgricole());
         p.setPlafondCotisationNbSme(r.getPlafondCotisationNbSme() != null ? r.getPlafondCotisationNbSme() : new BigDecimal("8.00"));
+        BigDecimal avancePct = r.getPlafondAvanceEmployeurPct() != null ? r.getPlafondAvanceEmployeurPct() : new BigDecimal("10.000000");
+        BigDecimal quotitePct = r.getQuotiteCessiblePct() != null ? r.getQuotiteCessiblePct() : new BigDecimal("33.333333");
+        if (avancePct.signum() < 0 || avancePct.compareTo(new BigDecimal("100")) > 0
+                || quotitePct.signum() < 0 || quotitePct.compareTo(new BigDecimal("100")) > 0)
+            throw new IllegalArgumentException("Les quotités de retenue doivent être comprises entre 0 et 100 %.");
+        p.setPlafondAvanceEmployeurPct(avancePct);
+        p.setQuotiteCessiblePct(quotitePct);
         p.setSeuilExonerationIrsa(r.getSeuilExonerationIrsa());
         p.setMinimumPerceptionIrsa(r.getMinimumPerceptionIrsa());
         p.setDeductionChargeFamille(r.getDeductionChargeFamille());
