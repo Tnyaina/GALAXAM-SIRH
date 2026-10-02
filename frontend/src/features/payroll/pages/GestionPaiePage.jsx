@@ -465,7 +465,7 @@ export default function GestionPaiePage() {
                             <ChevronRight size={16} className="text-[var(--color-fg-subtle)] group-hover:translate-x-0.5 transition-transform" />
                         </div>
                         <p className="text-xs text-[var(--color-fg-muted)] mt-2 leading-relaxed">
-                            Bulletins disponibles et catalogue des états mensuels, trimestriels et annuels à construire.
+                            Bulletins et états de paie mensuels, trimestriels et annuels à consulter ou télécharger.
                         </p>
                     </button>
                 </div>

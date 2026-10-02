@@ -443,7 +443,7 @@ export default function SoldesGantt({
                         title={dateObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                         className={`flex-1 min-w-[24px] text-center py-1 text-xs font-data border-r border-[var(--color-border-subtle)] last:border-0 ${
                           isToday
-                            ? 'bg-brand-500/15 text-brand-800 dark:text-brand-200 font-bold border-b-2 border-b-brand-600'
+                            ? 'bg-[var(--color-brand-500)]/15 text-[var(--color-brand-800)] dark:text-[var(--color-brand-200)] font-bold border-b-2 border-b-[var(--color-brand-600)]'
                             : isWeekend
                               ? 'bg-[var(--color-bg-subtle)]/80 text-[var(--color-fg-subtle)]'
                               : 'text-[var(--color-fg)]'
@@ -463,7 +463,7 @@ export default function SoldesGantt({
                       key={idx}
                       className={`flex-1 min-w-[90px] text-center py-2 px-1 border-r border-[var(--color-border-subtle)] last:border-0 ${
                         dayObj.isToday
-                          ? 'bg-brand-500/15 text-brand-800 dark:text-brand-200 font-bold border-b-2 border-b-brand-600'
+                          ? 'bg-[var(--color-brand-500)]/15 text-[var(--color-brand-800)] dark:text-[var(--color-brand-200)] font-bold border-b-2 border-b-[var(--color-brand-600)]'
                           : dayObj.isWeekend
                             ? 'bg-[var(--color-bg-subtle)]/80 text-[var(--color-fg-subtle)]'
                             : 'text-[var(--color-fg)]'
@@ -503,7 +503,7 @@ export default function SoldesGantt({
                         {canViewEmploye ? (
                           <Link
                             to={`/employes/${row.idEmploye}?tab=conges`}
-                            className="font-bold text-xs text-[var(--color-fg)] hover:text-brand-600 truncate block transition-colors leading-snug"
+                            className="font-bold text-xs text-[var(--color-fg)] hover:text-[var(--color-brand-600)] truncate block transition-colors leading-snug"
                             title={`Dossier de ${row.employe}`}
                           >
                             {row.employe}
@@ -562,17 +562,17 @@ export default function SoldesGantt({
                               }}
                               className={`flex-1 min-w-[24px] border-r border-[var(--color-border-subtle)]/40 last:border-0 relative ${hasLeave || !onCellClick ? 'cursor-default' : 'cursor-pointer'} group/cell transition-colors ${
                                 isCellInDrag
-                                  ? 'bg-brand-500/30 border-y-2 border-brand-600 z-10'
+                                  ? 'bg-[var(--color-brand-500)]/30 border-y-2 border-[var(--color-brand-600)] z-10'
                                   : isWeekend
-                                    ? 'bg-[var(--color-bg-subtle)]/30 hover:bg-brand-500/15'
+                                    ? 'bg-[var(--color-bg-subtle)]/30 hover:bg-[var(--color-brand-500)]/15'
                                     : isToday
-                                      ? 'bg-brand-500/5 hover:bg-brand-500/20'
-                                      : 'hover:bg-brand-500/15'
+                                      ? 'bg-[var(--color-brand-500)]/5 hover:bg-[var(--color-brand-500)]/20'
+                                      : 'hover:bg-[var(--color-brand-500)]/15'
                               }`}
                               title={cellTitle}
                             >
                               {!hasLeave && !isCellInDrag && (
-                                <span className="hidden group-hover/cell:flex absolute inset-0 items-center justify-center text-[10px] text-brand-600 font-bold">
+                                <span className="hidden group-hover/cell:flex absolute inset-0 items-center justify-center text-[10px] text-[var(--color-brand-600)] font-bold">
                                   +
                                 </span>
                               )}
@@ -611,18 +611,18 @@ export default function SoldesGantt({
                               }}
                               className={`flex-1 min-w-[90px] border-r border-[var(--color-border-subtle)]/40 last:border-0 relative ${hasLeave || !onCellClick ? 'cursor-default' : 'cursor-pointer'} group/cell transition-colors flex flex-col justify-end p-1.5 ${
                                 isCellInDrag
-                                  ? 'bg-brand-500/30 border-y-2 border-brand-600 z-10'
+                                  ? 'bg-[var(--color-brand-500)]/30 border-y-2 border-[var(--color-brand-600)] z-10'
                                   : dayObj.isWeekend
-                                    ? 'bg-[var(--color-bg-subtle)]/30 hover:bg-brand-500/15'
+                                    ? 'bg-[var(--color-bg-subtle)]/30 hover:bg-[var(--color-brand-500)]/15'
                                     : dayObj.isToday
-                                      ? 'bg-brand-500/5 hover:bg-brand-500/20'
-                                      : 'hover:bg-brand-500/15'
+                                      ? 'bg-[var(--color-brand-500)]/5 hover:bg-[var(--color-brand-500)]/20'
+                                      : 'hover:bg-[var(--color-brand-500)]/15'
                               }`}
                               title={cellTitle}
                             >
                               {!hasLeave && !isCellInDrag && (
-                                <span className="hidden group-hover/cell:flex items-center justify-center gap-1 text-[10px] text-brand-700 font-semibold bg-[var(--color-surface)] dark:bg-[var(--color-overlay)]/60 py-0.5 border border-brand-300 shadow-2xs">
-                                  <Plus className="w-3 h-3 text-brand-600" /> Poser
+                                <span className="hidden group-hover/cell:flex items-center justify-center gap-1 text-[10px] text-[var(--color-brand-700)] font-semibold bg-[var(--color-surface)] dark:bg-[var(--color-overlay)]/60 py-0.5 border border-[var(--color-brand-300)] shadow-2xs">
+                                  <Plus className="w-3 h-3 text-[var(--color-brand-600)]" /> Poser
                                 </span>
                               )}
                             </div>

@@ -9,7 +9,8 @@ import { getTransitionedContractIds } from '@/features/employees/utils/carriereW
 import HasPermission from '@/features/auth/components/HasPermission';
 
 export default function HistoriqueContratsTable({
-    displayContrats = [],
+    displayContrats: propDisplayContrats,
+    contratsList,
     contratActif = null,
     workflowsList = [],
     onOpenCertificat,
@@ -17,6 +18,10 @@ export default function HistoriqueContratsTable({
     onOpenContrat,
     onOpenStc,
 }) {
+    const displayContrats = useMemo(
+        () => propDisplayContrats || contratsList || [],
+        [propDisplayContrats, contratsList]
+    );
     // Données dérivées stables
     const today = new Date().setHours(0, 0, 0, 0);
     const hasContratActif = Boolean(contratActif) || displayContrats.some(ct => Boolean(ct.isActif) && !ct.isAnnule);
@@ -215,7 +220,9 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenAttestation(ct)}
                                                         variant="outline"
                                                         size="xs"
-                                                        iconLeft={<FileCheck size={13} />}
+                                                        className="min-h-[44px] inline-flex items-center justify-center"
+                                                        iconLeft={<FileCheck size={14} />}
+                                                        aria-label={`Générer l'attestation de travail pour le contrat ${ct.numeroContrat || ''}`}
                                                     >
                                                         Attestation
                                                     </Button>
@@ -225,7 +232,9 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenContrat(ct)}
                                                         variant="ghost"
                                                         size="xs"
-                                                        iconLeft={<FileText size={13} />}
+                                                        className="min-h-[44px] inline-flex items-center justify-center"
+                                                        iconLeft={<FileText size={14} />}
+                                                        aria-label={`Consulter le contrat ${ct.numeroContrat || ''}`}
                                                     >
                                                         Consulter
                                                     </Button>
@@ -241,7 +250,9 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenContrat(ct)}
                                                         variant="outline"
                                                         size="xs"
-                                                        iconLeft={<FileText size={13} />}
+                                                        className="min-h-[44px] inline-flex items-center justify-center"
+                                                        iconLeft={<FileText size={14} />}
+                                                        aria-label={`Consulter l'ancien contrat ${ct.numeroContrat || ''}`}
                                                     >
                                                         Consulter
                                                     </Button>
@@ -258,7 +269,9 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenContrat(ct)}
                                                         variant="outline"
                                                         size="xs"
-                                                        iconLeft={<FileText size={13} />}
+                                                        className="min-h-[44px] inline-flex items-center justify-center"
+                                                        iconLeft={<FileText size={14} />}
+                                                        aria-label={`Consulter le contrat transitionné ${ct.numeroContrat || ''}`}
                                                     >
                                                         Consulter
                                                     </Button>
@@ -272,8 +285,9 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenStc(ct)}
                                                         variant="outline"
                                                         size="xs"
-                                                        iconLeft={<Calculator size={13} />}
-                                                        className="border-[var(--color-brand-600)] text-[var(--color-brand-600)] hover:bg-[var(--color-brand-100)]/40"
+                                                        iconLeft={<Calculator size={14} />}
+                                                        className="min-h-[44px] inline-flex items-center justify-center border-[var(--color-brand-600)] text-[var(--color-brand-600)] hover:bg-[var(--color-brand-100)]/40"
+                                                        aria-label={`Calculer le solde de tout compte (STC) pour le contrat ${ct.numeroContrat || ''}`}
                                                     >
                                                         STC
                                                     </Button>
@@ -283,7 +297,9 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenCertificat(ct)}
                                                         variant="outline"
                                                         size="xs"
-                                                        iconLeft={<Award size={13} />}
+                                                        className="min-h-[44px] inline-flex items-center justify-center"
+                                                        iconLeft={<Award size={14} />}
+                                                        aria-label={`Générer le certificat de travail pour le contrat ${ct.numeroContrat || ''}`}
                                                     >
                                                         Certificat
                                                     </Button>

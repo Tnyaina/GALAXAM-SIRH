@@ -57,8 +57,15 @@ export default function ValidationTable({
               </div>
               <p className="text-xs text-[var(--color-fg)]">{d.libelleTypeConge || d.codeTypeConge} · {formatDate(d.dateDebut)} → {formatDate(d.dateFin)}</p>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-[var(--color-fg-muted)]">{d.nbJoursDecomptes} jour{Number(d.nbJoursDecomptes) > 1 ? 's' : ''} décompté{Number(d.nbJoursDecomptes) > 1 ? 's' : ''}</span>
-                <Button variant={aDecider ? 'primary' : 'outline'} size="xs" onClick={() => onOpenDetail(d)}>{aDecider ? 'Examiner' : 'Détails'}</Button>
+                <Button
+                  variant={aDecider ? 'primary' : 'outline'}
+                  size="sm"
+                  className="min-h-[44px] inline-flex items-center justify-center"
+                  onClick={() => onOpenDetail(d)}
+                  aria-label={`${aDecider ? 'Examiner' : 'Voir les détails de'} la demande #${d.idDemandeConge} de ${employeName}`}
+                >
+                  {aDecider ? 'Examiner' : 'Détails'}
+                </Button>
               </div>
             </article>;
           })}
@@ -153,10 +160,12 @@ export default function ValidationTable({
                       <div className="flex items-center justify-end gap-1.5">
                         <Button
                           variant={canValidate && d.availableActions?.APPROVE?.allowed === true ? 'primary' : 'outline'}
-                          size="xs"
-                          iconLeft={<Eye size={13} />}
+                          size="sm"
+                          className="min-h-[44px] inline-flex items-center justify-center"
+                          iconLeft={<Eye size={14} />}
                           onClick={() => onOpenDetail(d)}
                           title="Consulter la demande et ses actions disponibles"
+                          aria-label={`${canValidate && d.availableActions?.APPROVE?.allowed === true ? 'Examiner' : 'Voir les détails de'} la demande #${d.idDemandeConge} de ${employeName}`}
                         >
                           {canValidate && d.availableActions?.APPROVE?.allowed === true ? 'Examiner' : 'Détails'}
                         </Button>

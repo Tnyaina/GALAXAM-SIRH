@@ -84,34 +84,36 @@ export default function CarriereTimeline({
                         Historique de carrière et contrats
                     </h3>
 
-                    <div className="inline-flex border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-0.5">
+                    <div className="inline-flex border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-0.5" role="group" aria-label="Mode d'affichage de l'historique">
                         <button
                             type="button"
                             onClick={() => setModeAffichage('parcours')}
+                            aria-pressed={modeAffichage === 'parcours'}
                             className={`
-                                flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150
+                                min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150
                                 ${modeAffichage === 'parcours'
                                     ? 'bg-[var(--color-surface)] text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shadow-sm border border-[var(--color-border-subtle)]'
                                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                                 }
                             `}
                         >
-                            <GitCommit size={13} />
+                            <GitCommit size={14} />
                             <span>Parcours chronologique</span>
                         </button>
 
                         <button
                             type="button"
                             onClick={() => setModeAffichage('tables')}
+                            aria-pressed={modeAffichage === 'tables'}
                             className={`
-                                flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150
+                                min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150
                                 ${modeAffichage === 'tables'
                                     ? 'bg-[var(--color-surface)] text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shadow-sm border border-[var(--color-border-subtle)]'
                                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                                 }
                             `}
                         >
-                            <Table size={13} />
+                            <Table size={14} />
                             <span>Tableaux détaillés</span>
                         </button>
                     </div>

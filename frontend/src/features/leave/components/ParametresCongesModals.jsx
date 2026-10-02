@@ -199,10 +199,10 @@ export function TypeCongeModal({ isOpen, onClose, onSuccess, initialData = null 
         </div>
 
         {dureeEtPlafondEnConflit && (
-          <div className="flex gap-2.5 items-start pl-3 border-l-2 border-warning-500 py-1">
-            <AlertTriangle className="w-4 h-4 text-warning-500 shrink-0 mt-0.5" />
+          <div className="flex gap-2.5 items-start pl-3 border-l-2 border-[var(--color-warning-500)] py-1">
+            <AlertTriangle className="w-4 h-4 text-[var(--color-warning-500)] shrink-0 mt-0.5" />
             <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
-              <strong className="text-warning-600 dark:text-warning-500">Configuration inhabituelle :</strong> une
+              <strong className="text-[var(--color-warning-600)] dark:text-[var(--color-warning-500)]">Configuration inhabituelle :</strong> une
               {' '}<strong>durée fixe légale</strong> et un <strong>plafond par demande</strong> sont renseignés en même temps.
             </p>
           </div>

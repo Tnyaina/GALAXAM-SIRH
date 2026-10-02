@@ -21,6 +21,7 @@ import mg.galaxam.sirh.paie.application.export.IrsaExcelExportService;
 import mg.galaxam.sirh.paie.application.export.EtatSocialMensuelExportService;
 import mg.galaxam.sirh.paie.application.export.QuarterlySocialDataService;
 import mg.galaxam.sirh.paie.application.export.QuarterlySocialWorkbookService;
+import mg.galaxam.sirh.paie.application.export.AnnualPayrollExportService;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -55,6 +56,7 @@ public class PaieController {
     private final EtatSocialMensuelExportService etatSocialMensuelExportService;
     private final QuarterlySocialDataService quarterlySocialDataService;
     private final QuarterlySocialWorkbookService quarterlySocialWorkbookService;
+    private final AnnualPayrollExportService annualPayrollExportService;
     private final PayrollPeriodWorkflowService payrollPeriodWorkflowService;
 
     public PaieController(DataSource dataSource,
@@ -66,6 +68,7 @@ public class PaieController {
                           EtatSocialMensuelExportService etatSocialMensuelExportService,
                           QuarterlySocialDataService quarterlySocialDataService,
                           QuarterlySocialWorkbookService quarterlySocialWorkbookService,
+                          AnnualPayrollExportService annualPayrollExportService,
                           PayrollPeriodWorkflowService payrollPeriodWorkflowService) {
         this.dataSource = dataSource;
         this.payrollService = payrollService;
@@ -76,6 +79,7 @@ public class PaieController {
         this.etatSocialMensuelExportService = etatSocialMensuelExportService;
         this.quarterlySocialDataService = quarterlySocialDataService;
         this.quarterlySocialWorkbookService = quarterlySocialWorkbookService;
+        this.annualPayrollExportService = annualPayrollExportService;
         this.payrollPeriodWorkflowService = payrollPeriodWorkflowService;
     }
 
@@ -298,6 +302,22 @@ public class PaieController {
                             "attachment; filename=\"Etat_Social_Mensuel_" + periodCode + ".xlsx\"")
                     .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                     .body(result.bytes());
+        }
+    }
+
+    @GetMapping("/annee/{annee}/export/recap-paie")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> telechargerRecapAnnuelPaie(@PathVariable int annee) throws Exception {
+        try (Connection connection = dataSource.getConnection()) {
+            var result = annualPayrollExportService.export(annee, connection);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"Recap_Annuel_Paie_" + annee + ".xlsx\"")
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(result.bytes());
+        } catch (IllegalStateException error) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT, error.getMessage(), error);
         }
     }
 

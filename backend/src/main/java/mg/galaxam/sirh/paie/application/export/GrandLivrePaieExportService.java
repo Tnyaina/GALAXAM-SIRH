@@ -111,7 +111,7 @@ public class GrandLivrePaieExportService {
             }
         }
     }
-    private static Map<Integer, String> loadFiliales(Integer periodId, Connection connection) throws Exception {
+    static Map<Integer, String> loadFiliales(Integer periodId, Connection connection) throws Exception {
         Map<Integer, String> result = new HashMap<>();
         String sql = "SELECT b.id_bulletin, f.raison_sociale FROM bulletin_paie b " +
                 "JOIN periode_paie p ON p.id_periode_paie = b.id_periode_paie " +
@@ -130,8 +130,18 @@ public class GrandLivrePaieExportService {
     }
     private static void writeSummary(Sheet sheet, int rowIndex, BulletinPaie b, List<BulletinPaieLigne> lines,
                                      String filiale, Styles s) {
-        String[] identity = {b.getMatricule(), b.getNomPrenom(), filiale, b.getNomSite(), b.getIntitulePoste(), b.getRegimeIntervenant()};
+        String[] identity = summaryIdentity(b, filiale);
         for (int col = 0; col < identity.length; col++) cell(sheet, rowIndex, col, s.text).setCellValue(n(identity[col]));
+        BigDecimal[] values = summaryValues(b, lines);
+        for (int i = 0; i < values.length; i++) {
+            Cell c = cell(sheet, rowIndex, 6 + i, s.money);
+            if (values[i] != null) c.setCellValue(values[i].doubleValue());
+        }
+    }
+    static String[] summaryIdentity(BulletinPaie b, String filiale) {
+        return new String[]{b.getMatricule(), b.getNomPrenom(), filiale, b.getNomSite(), b.getIntitulePoste(), b.getRegimeIntervenant()};
+    }
+    static BigDecimal[] summaryValues(BulletinPaie b, List<BulletinPaieLigne> lines) {
         BigDecimal absenceHours = quantity(lines, "RETENUE_ABSENCE");
         BigDecimal congéGain = sum(lines, l -> "GAIN".equals(l.getSens()) && code(l).contains("CONGE"));
         BigDecimal hsGain = sum(lines, l -> "GAIN".equals(l.getSens()) && code(l).contains("HS"));
@@ -147,10 +157,7 @@ public class GrandLivrePaieExportService {
                 zero(b.getHeuresHs30()).add(zero(b.getHeuresHs50())), otherGains.add(hsGain), b.getTotalGainsBruts(), cnaps, health,
                 b.getRevenuNetImposable(), zero(b.getIrsaNet()).add(zero(b.getRetenueIsi5())), advances, loans, others,
                 b.getNetAPayer(), b.getTotalCotisationsPatronales(), b.getCoutGlobalEmployeur()};
-        for (int i = 0; i < values.length; i++) {
-            Cell c = cell(sheet, rowIndex, 6 + i, s.money);
-            if (values[i] != null) c.setCellValue(values[i].doubleValue());
-        }
+        return values;
     }
     private static void writeDetail(Sheet sheet, int rowIndex, BulletinPaie b, BulletinPaieLigne l, Styles s) {
         String[] fields = {b.getReferenceBulletin(), b.getMatricule(), b.getNomPrenom(), l.getCodeRubrique(),

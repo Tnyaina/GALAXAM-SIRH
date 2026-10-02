@@ -210,7 +210,7 @@ export default function DatesCongeSection({
               </div>
               <div className="px-4 py-2.5 text-center">
                 <div className="text-[11px] text-[var(--color-fg-subtle)] uppercase tracking-wide">Week-ends inclus</div>
-                <div className="text-base font-bold text-warning-600 dark:text-warning-500 font-data">{nbJoursWeekEnd}</div>
+                <div className="text-base font-bold text-[var(--color-warning-600)] dark:text-[var(--color-warning-500)] font-data">{nbJoursWeekEnd}</div>
               </div>
             </div>
             <p className="px-4 py-2 text-xs text-[var(--color-fg-subtle)] flex items-start gap-1.5 border-t border-info-500/20">
@@ -224,7 +224,7 @@ export default function DatesCongeSection({
         {selectedType?.decompteSoldeAcquis && simulationReport?.soldeAvant !== undefined && (
           <div className={`mt-3 p-3 border ${
             isSoldeInsuffisant
-              ? 'border-warning-500/40 bg-warning-500/10'
+              ? 'border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10'
               : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]'
           }`}>
             <div className="flex items-center justify-between text-xs">
@@ -233,7 +233,7 @@ export default function DatesCongeSection({
               </span>
               <span className={`font-data font-bold ${
                 isSoldeInsuffisant
-                  ? 'text-warning-600 dark:text-warning-400'
+                  ? 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]'
                   : 'text-success-600 dark:text-success-400'
               }`}>
                 {soldeNum.toFixed(2)} jour(s)
@@ -241,9 +241,9 @@ export default function DatesCongeSection({
             </div>
 
             {isSoldeInsuffisant && (
-              <div className="mt-2 pt-2 border-t border-warning-500/20 space-y-2">
-                <div className="flex items-start gap-1.5 text-xs text-warning-700 dark:text-warning-300 font-medium">
-                  <AlertTriangle className="w-4 h-4 text-warning-500 shrink-0 mt-0.5" />
+              <div className="mt-2 pt-2 border-t border-[var(--color-warning-500)]/20 space-y-2">
+                <div className="flex items-start gap-1.5 text-xs text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-medium">
+                  <AlertTriangle className="w-4 h-4 text-[var(--color-warning-500)] shrink-0 mt-0.5" />
                   <span>
                     Solde insuffisant pour couvrir cette demande ({soldeNum.toFixed(2)} j disponibles pour {nbJoursDecomptes} j demandés).
                   </span>
@@ -282,8 +282,8 @@ export default function DatesCongeSection({
 
       {/* Banner d'information : bascule maladie > 30j */}
       {selectedType && selectedType.code === 'MALADIE' && nbJoursDecomptes > 30 && (
-        <div className="pl-3 border-l-2 border-warning-500 py-1 mt-4 space-y-1">
-          <div className="flex items-center gap-1.5 text-warning-600 dark:text-warning-500 font-semibold text-sm">
+        <div className="pl-3 border-l-2 border-[var(--color-warning-500)] py-1 mt-4 space-y-1">
+          <div className="flex items-center gap-1.5 text-[var(--color-warning-600)] dark:text-[var(--color-warning-500)] font-semibold text-sm">
             <ShieldAlert className="w-4 h-4 shrink-0" />
             Bascule automatique (arrêt maladie &gt; 30 jours)
           </div>

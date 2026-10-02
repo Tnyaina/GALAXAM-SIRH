@@ -354,7 +354,7 @@ export function FamilleFormStep({
                 <Card padding className="bg-[var(--color-bg-subtle)]/60">
                     <div className="pb-2 mb-3 border-b border-[var(--color-border-subtle)]">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                            <Users size={14} className="text-brand-500" />
+                            <Users size={14} className="text-[var(--color-brand-500)]" />
                             Conjoint
                         </h3>
                     </div>
@@ -435,10 +435,10 @@ export function FamilleFormStep({
                                             type="button"
                                             onClick={() => removeEnfant(idx)}
                                             variant="ghost"
-                                            size="xs"
-                                            className="absolute top-3 right-3 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 !p-1 !min-h-0 !h-7 !w-7"
-                                            aria-label="Supprimer l'enfant"
-                                            icon={<Trash2 size={14} />}
+                                            size="sm"
+                                            className="absolute top-2 right-2 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+                                            aria-label={`Supprimer l'enfant ${idx + 1}`}
+                                            icon={<Trash2 size={16} />}
                                         />
                                     </div>
 
@@ -571,10 +571,10 @@ export function UrgenceFormStep({
                                         type="button"
                                         onClick={() => removeContact(idx)}
                                         variant="ghost"
-                                        size="xs"
-                                        className="absolute top-3 right-3 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 !p-1 !min-h-0 !h-7 !w-7"
-                                        aria-label="Supprimer le contact"
-                                        icon={<Trash2 size={14} />}
+                                        size="sm"
+                                        className="absolute top-2 right-2 text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+                                        aria-label={`Supprimer le contact d'urgence ${idx + 1}`}
+                                        icon={<Trash2 size={16} />}
                                     />
                                 )}
                             </div>

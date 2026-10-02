@@ -318,7 +318,7 @@ export default function EmployeListPage() {
                         >
                             Actualiser
                         </Button>
-                        {canWrite && (
+                        {canWrite && displayTotal > 0 && (
                             <Button
                                 onClick={handleOpenCreate}
                                 variant="primary"

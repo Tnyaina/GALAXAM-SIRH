@@ -66,6 +66,7 @@ function ContractActionMenu({ label, icon, children }) {
         <Button
             variant="outline"
             size="sm"
+            className="min-h-[44px] inline-flex items-center"
             aria-label={label}
             title={label}
             aria-expanded={open}
@@ -142,13 +143,13 @@ export default function ContratActifSection({
                     {etatEssai?.isEssaiActif && <Badge variant="warning" size="xs" icon={<Clock size={11} />}>Essai jusqu’au {fmtDate(etatEssai.dateFinEssaiStr)}</Badge>}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                    {canWrite && !brouillonWf && !workflowPlanifieFutur && <Button onClick={onOpenTransition} variant="primary" size="sm" iconLeft={<RefreshCw size={14} />}>Faire évoluer la situation</Button>}
+                    {canWrite && !brouillonWf && !workflowPlanifieFutur && <Button onClick={onOpenTransition} variant="primary" size="sm" className="min-h-[44px] inline-flex items-center" iconLeft={<RefreshCw size={14} />}>Faire évoluer la situation</Button>}
                     {(onOpenContrat || onOpenAttestation) && <ContractActionMenu label="Documents" icon={<FileText size={14} />}>
-                        {onOpenContrat && <Button variant="ghost" size="sm" className="justify-start !normal-case !tracking-normal" onClick={() => onOpenContrat(contratActif)}>Contrat et signature</Button>}
-                        {onOpenAttestation && <Button variant="ghost" size="sm" className="justify-start !normal-case !tracking-normal" iconLeft={<FileCheck size={14} />} onClick={() => onOpenAttestation(contratActif)}>Attestation de travail</Button>}
+                        {onOpenContrat && <Button variant="ghost" size="sm" className="min-h-[44px] justify-start !normal-case !tracking-normal" onClick={() => onOpenContrat(contratActif)}>Contrat et signature</Button>}
+                        {onOpenAttestation && <Button variant="ghost" size="sm" className="min-h-[44px] justify-start !normal-case !tracking-normal" iconLeft={<FileCheck size={14} />} onClick={() => onOpenAttestation(contratActif)}>Attestation de travail</Button>}
                     </ContractActionMenu>}
                     {canWrite && !brouillonWf && !workflowPlanifieFutur && <ContractActionMenu label="Autres actions" icon={<MoreHorizontal size={16} />}>
-                        <Button variant="ghost" size="sm" className="justify-start !normal-case !tracking-normal text-[var(--color-danger-500)]" iconLeft={<UserMinus size={14} />} onClick={onOpenRupture}>Mettre fin au contrat</Button>
+                        <Button variant="ghost" size="sm" className="min-h-[44px] justify-start !normal-case !tracking-normal text-[var(--color-danger-500)]" iconLeft={<UserMinus size={14} />} onClick={onOpenRupture}>Mettre fin au contrat</Button>
                     </ContractActionMenu>}
                 </div>
             </div>

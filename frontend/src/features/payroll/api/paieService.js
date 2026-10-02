@@ -104,6 +104,15 @@ export const paieService = {
         };
     },
 
+    getAnnualPayrollRecap: async (year) => {
+        const response = await apiClient.get(`paie/annee/${year}/export/recap-paie`, { responseType: 'blob' });
+        const disposition = response.headers?.['content-disposition'] || '';
+        return {
+            blob: response.data,
+            filename: disposition.match(/filename="([^"]+)"/)?.[1] || `Recap_Annuel_Paie_${year}.xlsx`,
+        };
+    },
+
     getBulletinCorrectionStatus: async (idBulletin) => {
         const response = await apiClient.get(`paie/bulletin/${idBulletin}/correction-status`);
         return response.data;

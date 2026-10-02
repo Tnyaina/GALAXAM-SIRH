@@ -26,7 +26,7 @@ const QUARTERLY = [
     { id: 'omsi', name: 'OMSI', detail: 'Modèle nominatif et récapitulatif trimestriel à vérifier.', format: 'Excel (.xlsx)' },
 ];
 const YEARLY = [
-    { name: 'Récapitulatif annuel de paie', detail: 'Cumuls par salarié et détail mensuel à partir des périodes retenues.' },
+    { id: 'recap-paie', name: 'Récapitulatif annuel de paie', detail: 'Cumuls par salarié, synthèse des 12 mois et détail mensuel des bulletins validés.', format: 'Excel (.xlsx)' },
 ];
 const TABS = [
     { id: 'mensuel', label: 'Mensuel' },
@@ -134,6 +134,19 @@ export default function DeclarationsSortiesPage() {
             setDownloadError(getErrorMessage(error, `Impossible de générer le fichier ${type.toUpperCase()}.`));
         } finally { setDownloading(null); }
     };
+    const downloadAnnual = async () => {
+        if (validatedMonthCount === 0) return;
+        setDownloading('recap-paie'); setDownloadError('');
+        try {
+            const { blob, filename } = await paieService.getAnnualPayrollRecap(Number(selectedYear));
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url; link.download = filename; link.click();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (error) {
+            setDownloadError(getErrorMessage(error, 'Impossible de générer le récapitulatif annuel.'));
+        } finally { setDownloading(null); }
+    };
 
     return (
         <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto w-full space-y-5 pb-8">
@@ -195,26 +208,27 @@ export default function DeclarationsSortiesPage() {
                 <div className="divide-y divide-[var(--color-border-subtle)]">
                     {list.map(item => {
                         const needsValidation = item.id === 'grand-livre' || item.id === 'irsa' || item.id === 'social';
-                        const available = activeTab === 'trimestriel' ? validatedMonthCount === 3 && Number(quarterStatus?.[item.id]) > 0 : item.ready && Boolean(periodId) && (!needsValidation || canExport);
-                        const status = activeTab === 'trimestriel' ? validatedMonthCount !== 3 ? '3 mois requis' : quarterStatus == null ? 'Vérification' : available ? 'À contrôler' : 'Aucune cotisation' : needsValidation && !available ? 'À valider' : available ? 'Disponible' : 'À construire';
+                        const available = activeTab === 'trimestriel' ? validatedMonthCount === 3 && Number(quarterStatus?.[item.id]) > 0 : activeTab === 'annuel' ? validatedMonthCount > 0 : item.ready && Boolean(periodId) && (!needsValidation || canExport);
+                        const status = activeTab === 'trimestriel' ? validatedMonthCount !== 3 ? '3 mois requis' : quarterStatus == null ? 'Vérification' : available ? 'À contrôler' : 'Aucune cotisation' : activeTab === 'annuel' ? validatedMonthCount === 12 ? 'Année complète' : available ? `Partiel · ${validatedMonthCount}/12` : 'Aucune paie validée' : needsValidation && !available ? 'À valider' : available ? 'Disponible' : 'À construire';
                         const Icon = activeTab === 'mensuel' ? item.id === 'bulletins' ? FileText : FileSpreadsheet : activeTab === 'trimestriel' ? CalendarDays : Archive;
                         return <div key={item.id || item.name} className="px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-start gap-3 min-w-0">
                                 <Icon size={19} className="mt-0.5 shrink-0 text-[var(--color-brand-600)]" />
                                 <div><div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold text-[var(--color-fg)]">{item.name}</h3><Badge variant={available ? 'success' : 'secondary'} size="xs">{status}</Badge></div>
                                     <p className="mt-1 text-xs text-[var(--color-fg-muted)]">{item.detail}</p>
-                                    {item.format && <p className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">{item.ready || activeTab === 'trimestriel' ? 'Format' : 'Format prévu'} : {item.format}</p>}
+                                    {item.format && <p className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">{item.ready || activeTab !== 'mensuel' ? 'Format' : 'Format prévu'} : {item.format}</p>}
                                 </div>
                             </div>
                             {available && item.id === 'bulletins' && <Button variant="outline" size="sm" iconRight={<ArrowRight size={14} />} onClick={() => navigate(`/paie/periodes/${periodId}/controle`)}>Choisir un salarié</Button>}
                             {available && needsValidation && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={() => downloadExcel(item.id)}>Télécharger Excel</Button>}
                             {activeTab === 'trimestriel' && available && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={() => downloadQuarterly(item.id)}>Télécharger le modèle</Button>}
+                            {activeTab === 'annuel' && available && <Button variant="outline" size="sm" iconLeft={<Download size={14} />} loading={downloading === item.id} onClick={downloadAnnual}>Télécharger Excel</Button>}
                         </div>;
                     })}
                 </div>
             </Card>
             {activeTab === 'trimestriel' && <p className="text-xs text-[var(--color-fg-muted)]">Ces modèles sont des brouillons à revoir par la DAF. Les identifiants préremplis du modèle sont conservés ; les champs d’adhésion vides restent à compléter. L’acceptation sur les portails officiels n’a pas été vérifiée.</p>}
-            {activeTab === 'annuel' && <p className="text-xs text-[var(--color-fg-muted)]">Le récapitulatif annuel sera alimenté par les campagnes vérifiées ; aucun export annuel n’est disponible actuellement.</p>}
+            {activeTab === 'annuel' && <p className="text-xs text-[var(--color-fg-muted)]">Le récapitulatif utilise uniquement les campagnes de paie validées. Si l’année est incomplète, les mois inclus sont indiqués dans le classeur ; les mois absents ou non validés n’y figurent pas.</p>}
         </div>
     );
 }

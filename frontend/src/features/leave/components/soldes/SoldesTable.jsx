@@ -28,8 +28,8 @@ export default function SoldesTable({
   const renderSortIcon = (field) => {
     if (tableSortField !== field) return <ArrowUpDown size={12} className="text-[var(--color-fg-subtle)] opacity-40 ml-1 inline-block" />;
     return tableSortOrder === 'asc'
-      ? <ArrowUp size={12} className="text-brand-600 ml-1 inline-block font-bold" />
-      : <ArrowDown size={12} className="text-brand-600 ml-1 inline-block font-bold" />;
+      ? <ArrowUp size={12} className="text-[var(--color-brand-600)] ml-1 inline-block font-bold" />
+      : <ArrowDown size={12} className="text-[var(--color-brand-600)] ml-1 inline-block font-bold" />;
   };
 
   return (
@@ -45,22 +45,22 @@ export default function SoldesTable({
         <Table>
           <Thead>
             <Tr>
-              <Th className="cursor-pointer select-none hover:text-brand-600" onClick={() => handleTableSort('employe')}>
+              <Th className="cursor-pointer select-none hover:text-[var(--color-brand-600)]" onClick={() => handleTableSort('employe')}>
                 Collaborateur {renderSortIcon('employe')}
               </Th>
-              <Th className="cursor-pointer select-none hover:text-brand-600" onClick={() => handleTableSort('type')}>
+              <Th className="cursor-pointer select-none hover:text-[var(--color-brand-600)]" onClick={() => handleTableSort('type')}>
                 Type d'absence {renderSortIcon('type')}
               </Th>
-              <Th className="cursor-pointer select-none hover:text-brand-600" onClick={() => handleTableSort('originalStart')}>
+              <Th className="cursor-pointer select-none hover:text-[var(--color-brand-600)]" onClick={() => handleTableSort('originalStart')}>
                 Date Début {renderSortIcon('originalStart')}
               </Th>
-              <Th className="cursor-pointer select-none hover:text-brand-600" onClick={() => handleTableSort('originalEnd')}>
+              <Th className="cursor-pointer select-none hover:text-[var(--color-brand-600)]" onClick={() => handleTableSort('originalEnd')}>
                 Date Fin {renderSortIcon('originalEnd')}
               </Th>
-              <Th className="cursor-pointer select-none hover:text-brand-600" onClick={() => handleTableSort('dureeJours')}>
+              <Th className="cursor-pointer select-none hover:text-[var(--color-brand-600)]" onClick={() => handleTableSort('dureeJours')}>
                 Jours Décomptés {renderSortIcon('dureeJours')}
               </Th>
-              <Th className="cursor-pointer select-none hover:text-brand-600" onClick={() => handleTableSort('statut')}>
+              <Th className="cursor-pointer select-none hover:text-[var(--color-brand-600)]" onClick={() => handleTableSort('statut')}>
                 Statut {renderSortIcon('statut')}
               </Th>
             </Tr>
@@ -72,11 +72,11 @@ export default function SoldesTable({
                   {item.idEmploye && canViewEmploye ? (
                     <Link
                       to={`/employes/${item.idEmploye}?tab=conges`}
-                      className="hover:text-brand-600 hover:underline inline-flex items-center gap-1.5 text-[var(--color-fg)]"
+                      className="hover:text-[var(--color-brand-600)] hover:underline inline-flex items-center gap-1.5 text-[var(--color-fg)]"
                       title={`Consulter le dossier congé de ${item.employe}`}
                     >
                       {item.employe}
-                      <ExternalLink size={12} className="text-[var(--color-fg-subtle)] hover:text-brand-600" />
+                      <ExternalLink size={12} className="text-[var(--color-fg-subtle)] hover:text-[var(--color-brand-600)]" />
                     </Link>
                   ) : (
                     item.employe

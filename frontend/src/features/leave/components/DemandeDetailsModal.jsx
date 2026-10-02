@@ -251,7 +251,7 @@ export default function DemandeDetailsModal({
 
         {/* Motif familial */}
         {targetDemande.libelleMotifEvenement && (
-          <div className="p-3 border border-warning-500/30 bg-warning-500/5 text-xs text-warning-600 dark:text-warning-400 font-semibold">
+          <div className="p-3 border border-[var(--color-warning-500)]/30 bg-[var(--color-warning-500)]/5 text-xs text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] font-semibold">
             Motif d'événement familial : {targetDemande.libelleMotifEvenement}
           </div>
         )}
