@@ -97,7 +97,7 @@ export default function ControleStepPage() {
                 icon: <ArrowRight size={14} />,
             }}
         >
-            <SEO title="Contrôle des bulletins | GALAXAM SIRH" description="Revue nominative des bulletins de paie." />
+            <SEO title="Contrôle des bulletins | GALAXAM GRH" description="Revue nominative des bulletins de paie." />
 
             <div className="space-y-4">
                 {error && <Alert type="error" message={error} onClose={() => setError(null)} />}

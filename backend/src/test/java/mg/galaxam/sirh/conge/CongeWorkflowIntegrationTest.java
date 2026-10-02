@@ -316,68 +316,77 @@ class CongeWorkflowIntegrationTest {
     @DisplayName("L. Solde négatif : sans dérogation vs sous dérogation (-10j max)")
     void testSoldeNegatifEtDerogation() throws Exception {
         try (Connection c = dataSource.getConnection()) {
-            CongeTestFixtureHelper.crediterSolde(c, employeId, 2.0, "Solde 2j");
+            try (Statement st = c.createStatement()) {
+                st.executeUpdate("UPDATE parametre_global SET est_actif = true WHERE code_parametre = 'PLAFOND_SOLDE_CONGE_NEGATIF'");
+            }
+            try {
+                CongeTestFixtureHelper.crediterSolde(c, employeId, 2.0, "Solde 2j");
 
-            LocalDate debut = LocalDate.of(2026, 11, 2);
-            LocalDate fin = LocalDate.of(2026, 11, 6); // 5 jours -> solde projeté = 2 - 5 = -3j
+                LocalDate debut = LocalDate.of(2026, 11, 2);
+                LocalDate fin = LocalDate.of(2026, 11, 6); // 5 jours -> solde projeté = 2 - 5 = -3j
 
-            // Simulation sans dérogation
-            CongeCalculateurEngine.SimulationResult simSans = congeService.simulerDemande(
-                    employeId, typeAnnuelId, null, Date.valueOf(debut), Date.valueOf(fin),
-                    false, false, false, false, c);
-            assertFalse(simSans.canSubmit());
-            assertTrue(simSans.violations().contains("LEAVE_BALANCE_INSUFFICIENT"));
+                // Simulation sans dérogation
+                CongeCalculateurEngine.SimulationResult simSans = congeService.simulerDemande(
+                        employeId, typeAnnuelId, null, Date.valueOf(debut), Date.valueOf(fin),
+                        false, false, false, false, c);
+                assertFalse(simSans.canSubmit());
+                assertTrue(simSans.violations().contains("LEAVE_BALANCE_INSUFFICIENT"));
 
-            // Simulation avec dérogation
-            CongeCalculateurEngine.SimulationResult simAvec = congeService.simulerDemande(
-                    employeId, typeAnnuelId, null, Date.valueOf(debut), Date.valueOf(fin),
-                    false, true, false, false, c);
-            assertTrue(simAvec.canSubmit());
-            assertTrue(simAvec.warnings().contains("LEAVE_BALANCE_INSUFFICIENT"));
+                // Simulation avec dérogation
+                CongeCalculateurEngine.SimulationResult simAvec = congeService.simulerDemande(
+                        employeId, typeAnnuelId, null, Date.valueOf(debut), Date.valueOf(fin),
+                        false, true, false, false, c);
+                assertTrue(simAvec.canSubmit());
+                assertTrue(simAvec.warnings().contains("LEAVE_BALANCE_INSUFFICIENT"));
 
-            // Tentative de création sans dérogation -> bloquée immédiatement par controler()
-            DemandeConge dSans = new DemandeConge();
-            dSans.setIdEmploye(employeId);
-            dSans.setIdTypeConge(typeAnnuelId);
-            dSans.setDateDebut(Date.valueOf(debut));
-            dSans.setDateFin(Date.valueOf(fin));
-            dSans.setDerogationDelaiPreavis(true); // neutraliser préavis pour tester solde
+                // Tentative de création sans dérogation -> bloquée immédiatement par controler()
+                DemandeConge dSans = new DemandeConge();
+                dSans.setIdEmploye(employeId);
+                dSans.setIdTypeConge(typeAnnuelId);
+                dSans.setDateDebut(Date.valueOf(debut));
+                dSans.setDateFin(Date.valueOf(fin));
+                dSans.setDerogationDelaiPreavis(true); // neutraliser préavis pour tester solde
 
-            IllegalArgumentException exSans = assertThrows(IllegalArgumentException.class, () -> {
-                congeService.creerDemande(dSans, adminUserId, c);
-            });
-            assertTrue(exSans.getMessage().contains("Solde de congé insuffisant"));
+                IllegalArgumentException exSans = assertThrows(IllegalArgumentException.class, () -> {
+                    congeService.creerDemande(dSans, adminUserId, c);
+                });
+                assertTrue(exSans.getMessage().contains("Solde de congé insuffisant"));
 
-            // Création avec dérogation solde négatif activée
-            DemandeConge dAvec = new DemandeConge();
-            dAvec.setIdEmploye(employeId);
-            dAvec.setIdTypeConge(typeAnnuelId);
-            dAvec.setDateDebut(Date.valueOf(debut));
-            dAvec.setDateFin(Date.valueOf(fin));
-            dAvec.setDerogationSoldeNegatif(true);
-            dAvec.setDerogationDelaiPreavis(true);
+                // Création avec dérogation solde négatif activée
+                DemandeConge dAvec = new DemandeConge();
+                dAvec.setIdEmploye(employeId);
+                dAvec.setIdTypeConge(typeAnnuelId);
+                dAvec.setDateDebut(Date.valueOf(debut));
+                dAvec.setDateFin(Date.valueOf(fin));
+                dAvec.setDerogationSoldeNegatif(true);
+                dAvec.setDerogationDelaiPreavis(true);
 
-            DemandeConge c1 = congeService.creerDemande(dAvec, adminUserId, c);
-            DemandeConge v1 = congeService.validerDemande(c1.getIdDemandeConge(), adminUserId, "Validation avec dérogation", c);
-            assertEquals("VALIDE", v1.getStatutCode(c));
+                DemandeConge c1 = congeService.creerDemande(dAvec, adminUserId, c);
+                DemandeConge v1 = congeService.validerDemande(c1.getIdDemandeConge(), adminUserId, "Validation avec dérogation", c);
+                assertEquals("VALIDE", v1.getStatutCode(c));
 
-            VSoldeCongeEmploye soldeNeg = VSoldeCongeEmploye.rechercherParEmploye(employeId, c);
-            assertEquals(0, new BigDecimal("-3.0").compareTo(soldeNeg.getSoldeActuel()));
+                VSoldeCongeEmploye soldeNeg = VSoldeCongeEmploye.rechercherParEmploye(employeId, c);
+                assertEquals(0, new BigDecimal("-3.0").compareTo(soldeNeg.getSoldeActuel()));
 
-            // Demande supplémentaire dépassant le plafond légal de -10j (ex: 15j supplémentaires -> solde projeté -18j)
-            DemandeConge dTrop = new DemandeConge();
-            dTrop.setIdEmploye(employeId);
-            dTrop.setIdTypeConge(typeAnnuelId);
-            dTrop.setDateDebut(Date.valueOf(LocalDate.of(2026, 12, 1)));
-            dTrop.setDateFin(Date.valueOf(LocalDate.of(2026, 12, 15)));
-            dTrop.setDerogationSoldeNegatif(true);
-            dTrop.setDerogationDelaiPreavis(true);
-            DemandeConge cTrop = congeService.creerDemande(dTrop, adminUserId, c);
+                // Demande supplémentaire dépassant le plafond légal de -10j (ex: 15j supplémentaires -> solde projeté -18j)
+                DemandeConge dTrop = new DemandeConge();
+                dTrop.setIdEmploye(employeId);
+                dTrop.setIdTypeConge(typeAnnuelId);
+                dTrop.setDateDebut(Date.valueOf(LocalDate.of(2026, 12, 1)));
+                dTrop.setDateFin(Date.valueOf(LocalDate.of(2026, 12, 15)));
+                dTrop.setDerogationSoldeNegatif(true);
+                dTrop.setDerogationDelaiPreavis(true);
+                DemandeConge cTrop = congeService.creerDemande(dTrop, adminUserId, c);
 
-            IllegalArgumentException exPlafond = assertThrows(IllegalArgumentException.class, () -> {
-                congeService.validerDemande(cTrop.getIdDemandeConge(), adminUserId, "Tentative dépassement plafond négatif", c);
-            });
-            assertTrue(exPlafond.getMessage().contains("plafond de solde négatif autorisé est dépassé"));
+                IllegalArgumentException exPlafond = assertThrows(IllegalArgumentException.class, () -> {
+                    congeService.validerDemande(cTrop.getIdDemandeConge(), adminUserId, "Tentative dépassement plafond négatif", c);
+                });
+                assertTrue(exPlafond.getMessage().contains("plafond de solde négatif autorisé est dépassé"));
+            } finally {
+                try (Statement st = c.createStatement()) {
+                    st.executeUpdate("UPDATE parametre_global SET est_actif = false WHERE code_parametre = 'PLAFOND_SOLDE_CONGE_NEGATIF'");
+                }
+            }
         }
     }
 

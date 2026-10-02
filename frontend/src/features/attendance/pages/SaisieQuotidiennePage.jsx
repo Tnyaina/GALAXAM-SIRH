@@ -352,7 +352,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     return (
         <>
             <SEO
-                title="Pointage & Présence Quotidienne | GALAXAM SIRH"
+                title="Pointage & Présence Quotidienne | GALAXAM GRH"
                 description="Saisie opérationnelle, suivi des retards, heures de nuit et indemnités journalières."
             />
 
@@ -386,7 +386,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                             <AlertCircle size={16} className="shrink-0 text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]" />
                             <div>
                                 <span className="font-bold">Date future ({selectedDate})</span>
-                                <span className="ml-2 text-[11px] opacity-85">— Conformément aux règles d'intégrité temporelle du SIRH, la saisie et la modification des pointages sont strictement désactivées pour les dates non échues.</span>
+                                <span className="ml-2 text-[11px] opacity-85">— Conformément aux règles d'intégrité temporelle du GRH, la saisie et la modification des pointages sont strictement désactivées pour les dates non échues.</span>
                             </div>
                         </div>
                         <button

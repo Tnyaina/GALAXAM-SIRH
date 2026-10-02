@@ -1,418 +1,122 @@
-import { useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import {
-    FileText, Download, Lock,
-    Users, CreditCard, BookOpen, Receipt, Building2,
-    Calculator, Shield
-} from 'lucide-react';
-import SEO from '@/components/system/SEO';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Archive, ArrowRight, BookOpen, CheckCircle2, FileText, LockKeyhole, ShieldCheck } from 'lucide-react';
 import PayrollCampaignShell from '@/features/payroll/components/workflow/PayrollCampaignShell';
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/data-display/Card';
+import StatCard from '@/components/ui/data-display/StatCard';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
-import Badge from '@/components/ui/data-display/Badge';
 import Modal from '@/components/ui/overlays/Modal';
-import { Card } from '@/components/ui/data-display/Card';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
-import paieService from '@/features/payroll/api/paieService';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
+import paieService from '@/features/payroll/api/paieService';
+import { formatMoneyAr } from '@/utils/moneyUtils';
 import { getErrorMessage } from '@/api/apiClient';
 
-/**
- * SortiesStepPage — Étape 7 : Sorties de campagne & Clôture (Maquette V1 Full V3).
- *
- * Organisation par domaines logiques :
- * - SALARIÉS : Bulletins individuels et consolidés
- * - PAIEMENT : État de virement bancaire
- * - PAIE : Journal de paie & état nominatif
- * - FISCAL : Sorties mensuelles IRSA & ISI
- * - SOCIAL : Données mensuelles pour consolidations CNaPS / Santé
- * - COMPTABILITÉ : Export OD et écritures comptables
- * - AUDIT : Dossier de campagne et scellement
- *
- * Action de clôture uniquement si le backend l'autorise (CLOSE.allowed).
- */
+/** Dernière étape : contrôle des sorties disponibles et clôture de la période. */
 export default function SortiesStepPage() {
-    // Contexte et hook métier
     const { periodId } = useParams();
     const navigate = useNavigate();
-    const numericPeriodId = Number(periodId) || null;
-    const { periodes, context, loading: ctxLoading, refresh } = usePayrollCampaign(numericPeriodId);
-
-    // État local
-    const [actionLoading, setActionLoading] = useState(false);
-    const [confirmCloseModal, setConfirmCloseModal] = useState(false);
-    const [downloadingType, setDownloadingType] = useState(null);
+    const id = Number(periodId) || null;
+    const { periodes, context, loading, refreshSilent } = usePayrollCampaign(id);
+    const [cockpit, setCockpit] = useState(null);
+    const [cockpitError, setCockpitError] = useState('');
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [closing, setClosing] = useState(false);
     const [feedback, setFeedback] = useState(null);
+    const period = context?.selectedPeriod || context?.currentPeriod;
+    const status = period?.workflowStatuses?.paie?.code || period?.state;
+    const closed = status === 'CLOTUREE';
+    const validated = ['VALIDEE', 'PAIE_VALIDEE', 'CLOTUREE'].includes(status);
+    const canClose = context?.availableActions?.CLOSE?.allowed === true;
+    const periodCode = period?.code || `Période ${periodId}`;
 
-    // Données dérivées
-    const actions = context?.availableActions || {};
-    const canClose = actions?.CLOSE?.allowed === true;
-    // CAPABILITY : seule source pour autoriser un export. Ce n'est pas un état métier.
-    const canGenerateOutput = actions?.GENERATE_OUTPUT?.allowed === true;
-    const periode = context?.selectedPeriod || context?.currentPeriod;
-    const isCloturee = periode?.state === 'CLOTUREE';
-    const isValidee = ['PAIE_VALIDEE', 'CLOTUREE'].includes(periode?.state);
-    const codePeriode = periode?.code || `Période #${numericPeriodId}`;
+    useEffect(() => {
+        let active = true;
+        if (!id) return undefined;
+        paieService.getCockpitPeriode(id, { page: 1, size: 1 })
+            .then(data => { if (active) setCockpit(data); })
+            .catch(error => { if (active) setCockpitError(getErrorMessage(error, 'Totaux indisponibles.')); });
+        return () => { active = false; };
+    }, [id]);
 
-    // Actions
-    const handleCloturer = useCallback(async () => {
-        if (!numericPeriodId) return;
-        setActionLoading(true);
+    const closePeriod = useCallback(async () => {
+        if (!id || !canClose) return;
+        setClosing(true);
         setFeedback(null);
         try {
-            await periodePaieService.executeCommand(numericPeriodId, 'CLOSE', { version: periode?.version });
-            setFeedback({ type: 'success', text: 'Campagne définitivement clôturée. Les données sont immuables.' });
-            setConfirmCloseModal(false);
-            await refresh();
-        } catch (err) {
-            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la clôture.') });
+            await periodePaieService.executeCommand(id, 'CLOSE', { version: period?.version });
+            setConfirmOpen(false);
+            setFeedback({ type: 'success', message: 'Période clôturée. Les documents restent consultables.' });
+            await refreshSilent();
+        } catch (error) {
+            setFeedback({ type: 'error', message: getErrorMessage(error, 'La clôture a échoué.') });
         } finally {
-            setActionLoading(false);
+            setClosing(false);
         }
-    }, [numericPeriodId, periode, refresh]);
+    }, [id, canClose, period, refreshSilent]);
 
-    const handleDownload = async (type, label) => {
-        if (!numericPeriodId) return;
-        setDownloadingType(type);
-        try {
-            let res;
-            if (type === 'VIREMENT') {
-                res = await paieService.exporterFichierVirement(numericPeriodId);
-            } else if (type === 'SAFI') {
-                res = await paieService.genererExportSafi(numericPeriodId);
-            } else if (type === 'DNTS') {
-                res = await paieService.genererExportDntsCnaps(numericPeriodId);
-            } else if (type === 'ISI') {
-                res = await paieService.genererExportEdiIsi(numericPeriodId);
-            }
-
-            if (res?.data) {
-                const blob = new Blob([res.data], { type: 'application/octet-stream' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${type.toLowerCase()}_${codePeriode}.txt`;
-                a.click();
-                URL.revokeObjectURL(url);
-                setFeedback({ type: 'success', text: `Document ${label} téléchargé avec succès.` });
-            } else {
-                setFeedback({ type: 'info', text: `Génération du document ${label} transmise.` });
-            }
-        } catch (err) {
-            setFeedback({ type: 'error', text: getErrorMessage(err, `Erreur de génération du document ${label}.`) });
-        } finally {
-            setDownloadingType(null);
-        }
-    };
-
-    // Rendu
+    const kpis = cockpit?.kpis || {};
     return (
-        <PayrollCampaignShell
-            context={context}
-            periodes={periodes}
-            activeStep="OUTPUTS"
-            loading={ctxLoading}
-            onRefresh={refresh}
-            title={`Sorties de ${codePeriode}`}
-            description="Documents officiels de la campagne, états financiers et archivage légal scellé."
-            primaryAction={!isCloturee && canClose ? {
-                label: 'Clôturer la campagne',
-                onClick: () => setConfirmCloseModal(true),
-                loading: actionLoading,
-                icon: <Lock size={14} />
-            } : null}
-        >
-            <SEO
-                title={`Sorties de ${codePeriode} | GALAXAM SIRH`}
-                description="Bulletins, virements, déclarations et sorties réglementaires."
-            />
+        <PayrollCampaignShell context={context} periodes={periodes} activeStep="OUTPUTS" loading={loading}
+            title="Sorties et clôture" subtitle="Vérifiez la campagne, accédez aux documents disponibles et clôturez la période."
+            prevStep={{ label: 'Validation', destination: `/paie/periodes/${id}/validation` }}
+            primaryAction={!closed ? {
+                label: 'Clôturer la période', icon: <LockKeyhole size={14} />,
+                onClick: () => setConfirmOpen(true), disabled: !canClose || closing,
+                disabledReason: 'La clôture doit être autorisée par le contrôle de la campagne.',
+            } : undefined}
+            footerCenter={closed ? 'Période clôturée · consultation des documents maintenue' : undefined}>
+            <div className="space-y-4">
+                {feedback && <Alert type={feedback.type} message={feedback.message} onClose={() => setFeedback(null)} />}
+                {cockpitError && <Alert type="warning" message={cockpitError} />}
+                {!validated && <Alert type="warning" title="Validation requise" message="Validez la paie avant la clôture et l’accès aux documents de la période." />}
+                {closed && <Alert type="success" title="Période clôturée" message="La période est en lecture seule. Les bulletins individuels restent accessibles." />}
 
-            <div className="space-y-6">
-                {feedback && (
-                    <Alert
-                        type={feedback.type}
-                        title={feedback.type === 'error' ? 'Erreur' : 'Information'}
-                        message={feedback.text}
-                        onClose={() => setFeedback(null)}
-                    />
-                )}
-
-                {/* Bannière d'état */}
-                {isCloturee ? (
-                    <div className="p-4 bg-[var(--color-surface)] border-2 border-[var(--color-border-subtle)] rounded-none flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] rounded-full flex items-center justify-center">
-                                <Lock size={18} />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <h3 className="text-sm font-bold text-[var(--color-fg)]">
-                                        Campagne archivée & clôturée
-                                    </h3>
-                                    <Badge variant="secondary" size="xs">READ ONLY</Badge>
-                                </div>
-                                <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-                                    Les données de paie de cette période sont définitivement immuables. Tous les documents ci-dessous restent téléchargeables.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                ) : !isValidee ? (
-                    <Alert
-                        type="warning"
-                        title="Validation requise"
-                        message="La campagne de paie doit d'abord être validée avant que les sorties et fichiers de virement officiels ne soient débloqués."
-                        action={
-                            <Button
-                                variant="outline"
-                                size="xs"
-                                onClick={() => navigate(`/paie/periodes/${numericPeriodId}/validation`)}
-                            >
-                                Aller à la validation
-                            </Button>
-                        }
-                    />
-                ) : null}
-
-                {/* Grille des 7 domaines de sorties */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-
-                    {/* 1. SALARIÉS */}
-                    <Card className="p-4 border border-[var(--color-border-subtle)] space-y-3 flex flex-col justify-between">
-                        <div>
-                            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <Users size={14} className="text-[var(--color-brand-600)]" />
-                                    Salariés
-                                </span>
-                                <Badge variant="success" size="xs">Disponibles</Badge>
-                            </div>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-2">
-                                Bulletins de paie individuels au format officiel certifié.
-                            </p>
-                        </div>
-                        <div className="pt-2">
-                            <Button
-                                variant="secondary"
-                                size="xs"
-                                className="w-full"
-                                onClick={() => navigate(`/paie/periodes/${numericPeriodId}/controle`)}
-                                iconLeft={<FileText size={13} />}
-                            >
-                                Consulter les bulletins
-                            </Button>
-                        </div>
-                    </Card>
-
-                    {/* 2. PAIEMENT */}
-                    <Card className="p-4 border border-[var(--color-border-subtle)] space-y-3 flex flex-col justify-between">
-                        <div>
-                            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <CreditCard size={14} className="text-[var(--color-sky-600)]" />
-                                    Paiement
-                                </span>
-                                <Badge variant={isValidee ? 'success' : 'default'} size="xs">
-                                    {isValidee ? 'Prêt' : 'En attente'}
-                                </Badge>
-                            </div>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-2">
-                                Fichier d'ordre de virement bancaire collectif pour la trésorerie.
-                            </p>
-                        </div>
-                        <div className="pt-2">
-                            <Button
-                                variant="primary"
-                                size="xs"
-                                className="w-full"
-                                disabled={!canGenerateOutput || downloadingType === 'VIREMENT'}
-                                loading={downloadingType === 'VIREMENT'}
-                                onClick={() => handleDownload('VIREMENT', 'Ordre de virement')}
-                                iconLeft={<Download size={13} />}
-                            >
-                                Télécharger fichier virement
-                            </Button>
-                        </div>
-                    </Card>
-
-                    {/* 3. PAIE */}
-                    <Card className="p-4 border border-[var(--color-border-subtle)] space-y-3 flex flex-col justify-between">
-                        <div>
-                            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <BookOpen size={14} className="text-[var(--color-success-600)]" />
-                                    Paie
-                                </span>
-                                <Badge variant="default" size="xs">Consultation</Badge>
-                            </div>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-2">
-                                Journal de paie mensuel et état nominatif de contrôle complet.
-                            </p>
-                        </div>
-                        <div className="pt-2">
-                            <Button
-                                variant="secondary"
-                                size="xs"
-                                className="w-full"
-                                onClick={() => navigate(`/paie/periodes/${numericPeriodId}/controle`)}
-                                iconLeft={<BookOpen size={13} />}
-                            >
-                                État nominatif & Journal
-                            </Button>
-                        </div>
-                    </Card>
-
-                    {/* 4. FISCAL */}
-                    <Card className="p-4 border border-[var(--color-border-subtle)] space-y-3 flex flex-col justify-between">
-                        <div>
-                            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <Receipt size={14} className="text-[var(--color-warning-600)]" />
-                                    Fiscal
-                                </span>
-                                <Badge variant={isValidee ? 'success' : 'default'} size="xs">
-                                    {isValidee ? 'Calculé' : 'En attente'}
-                                </Badge>
-                            </div>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-2">
-                                Déclarations mensuelles IRSA retenue à la source et EDI-ISI.
-                            </p>
-                        </div>
-                        <div className="pt-2 flex gap-2">
-                            <Button
-                                variant="secondary"
-                                size="xs"
-                                className="flex-1"
-                                disabled={!canGenerateOutput || downloadingType === 'SAFI'}
-                                loading={downloadingType === 'SAFI'}
-                                onClick={() => handleDownload('SAFI', 'Bordereau IRSA')}
-                                iconLeft={<Download size={13} />}
-                            >
-                                IRSA
-                            </Button>
-                            <Button
-                                variant="secondary"
-                                size="xs"
-                                className="flex-1"
-                                disabled={!canGenerateOutput || downloadingType === 'ISI'}
-                                loading={downloadingType === 'ISI'}
-                                onClick={() => handleDownload('ISI', 'EDI-ISI')}
-                                iconLeft={<Download size={13} />}
-                            >
-                                EDI-ISI
-                            </Button>
-                        </div>
-                    </Card>
-
-                    {/* 5. SOCIAL */}
-                    <Card className="p-4 border border-[var(--color-border-subtle)] space-y-3 flex flex-col justify-between">
-                        <div>
-                            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <Building2 size={14} className="text-[var(--color-purple-600)]" />
-                                    Social
-                                </span>
-                                <Badge variant="info" size="xs">Consolidable</Badge>
-                            </div>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-2">
-                                Données mensuelles prêtes pour consolidation trimestrielle DNS CNaPS & Santé.
-                            </p>
-                        </div>
-                        <div className="pt-2">
-                            <Button
-                                variant="secondary"
-                                size="xs"
-                                className="w-full"
-                                onClick={() => navigate('/paie/declarations')}
-                                iconLeft={<Building2 size={13} />}
-                            >
-                                Voir Déclarations trimestrielles
-                            </Button>
-                        </div>
-                    </Card>
-
-                    {/* 6. COMPTABILITÉ */}
-                    <Card className="p-4 border border-[var(--color-border-subtle)] space-y-3 flex flex-col justify-between">
-                        <div>
-                            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <Calculator size={14} className="text-[var(--color-brand-600)]" />
-                                    Comptabilité
-                                </span>
-                                <Badge variant="default" size="xs">
-                                    Indisponible
-                                </Badge>
-                            </div>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-2">
-                                Export des écritures d'OD de paie (comptes 64, 42, 43, 44).
-                            </p>
-                        </div>
-                        <div className="pt-2">
-                            <Button
-                                variant="secondary"
-                                size="xs"
-                                className="w-full"
-                                disabled
-                                title="L'export OD n'est pas encore disponible côté backend."
-                                iconLeft={<Download size={13} />}
-                            >
-                                Export OD comptables
-                            </Button>
-                        </div>
-                    </Card>
-
-                    {/* 7. AUDIT */}
-                    <Card className="p-4 border border-[var(--color-border-subtle)] space-y-3 flex flex-col justify-between">
-                        <div>
-                            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
-                                <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
-                                    <Shield size={14} className="text-[var(--color-success-600)]" />
-                                    Audit
-                                </span>
-                                <Badge variant="default" size="xs">Indisponible</Badge>
-                            </div>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-2">
-                                Dossier de scellement de campagne et empreintes d'intégrité.
-                            </p>
-                        </div>
-                        <div className="pt-2">
-                            <Button
-                                variant="secondary"
-                                size="xs"
-                                className="w-full"
-                                disabled
-                                title="Aucun endpoint de certificat d'intégrité n'est disponible."
-                                iconLeft={<Shield size={13} />}
-                            >
-                                Certificat d'intégrité
-                            </Button>
-                        </div>
-                    </Card>
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                    <StatCard title="Période" value={periodCode} color="neutral" />
+                    <StatCard title="Bulletins calculés" value={kpis.effectifCalcule ?? '—'} color="neutral" />
+                    <StatCard title="Brut total" value={kpis.totalGainsBruts == null ? '—' : formatMoneyAr(kpis.totalGainsBruts)} color="neutral" />
+                    <StatCard title="Net à payer" value={kpis.totalNetAPayer == null ? '—' : formatMoneyAr(kpis.totalNetAPayer)} color="brand" />
                 </div>
+
+                <Card shadow="none">
+                    <CardHeader><CardTitle size="sm">Documents de la période</CardTitle></CardHeader>
+                    <CardBody className="space-y-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 border-b border-[var(--color-border-subtle)]">
+                            <div className="flex items-start gap-3">
+                                <FileText size={18} className="mt-0.5 text-[var(--color-brand-600)] shrink-0" />
+                                <div><p className="text-sm font-semibold">Bulletins individuels</p><p className="text-xs text-[var(--color-fg-muted)]">PDF et Excel par salarié, depuis la liste de contrôle.</p></div>
+                            </div>
+                            <Button variant="outline" size="sm" iconRight={<ArrowRight size={14} />} onClick={() => navigate(`/paie/periodes/${id}/controle`)}>Consulter</Button>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3">
+                            <div className="flex items-start gap-3">
+                                <BookOpen size={18} className="mt-0.5 text-[var(--color-fg-muted)] shrink-0" />
+                                <div><p className="text-sm font-semibold">Grand livre et états mensuels</p><p className="text-xs text-[var(--color-fg-muted)]">Catalogue et disponibilité des exports de paie.</p></div>
+                            </div>
+                            <Button variant="outline" size="sm" iconRight={<ArrowRight size={14} />} onClick={() => navigate(`/paie/declarations?periodId=${id}`)}>Voir les exports</Button>
+                        </div>
+                    </CardBody>
+                </Card>
+
+                <Card shadow="none">
+                    <CardHeader><CardTitle size="sm">Clôture de la campagne</CardTitle></CardHeader>
+                    <CardBody>
+                        <div className="grid gap-3 md:grid-cols-3 text-sm">
+                            <div className="flex items-start gap-2"><ShieldCheck size={17} className="text-[var(--color-brand-600)] shrink-0" /><span>Paie validée et contrôles terminés</span></div>
+                            <div className="flex items-start gap-2"><CheckCircle2 size={17} className="text-[var(--color-brand-600)] shrink-0" /><span>Bulletins conservés pour consultation</span></div>
+                            <div className="flex items-start gap-2"><Archive size={17} className="text-[var(--color-brand-600)] shrink-0" /><span>Statut de période verrouillé après clôture</span></div>
+                        </div>
+                        <p className="mt-3 text-xs text-[var(--color-fg-muted)]">Les futurs exports mensuels et trimestriels ne conditionnent pas la clôture de cette période.</p>
+                    </CardBody>
+                </Card>
             </div>
 
-            {/* Modal de confirmation de clôture définitive */}
-            <Modal
-                isOpen={confirmCloseModal}
-                onClose={() => setConfirmCloseModal(false)}
-                title="Clôture définitive de la campagne"
-                size="md"
-            >
-                <div className="space-y-4 text-xs">
-                    <p className="text-[var(--color-fg)]">
-                        La clôture est une action définitive qui verrouille l’ensemble de la période <strong>{codePeriode}</strong> en lecture seule stricte.
-                    </p>
-                    <div className="p-3 bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/30 rounded text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]">
-                        Aucun recalcul, ajustement ou ajout de variable ne sera plus possible.
-                    </div>
-                    <div className="flex justify-end gap-2 pt-2">
-                        <Button variant="secondary" size="sm" onClick={() => setConfirmCloseModal(false)}>
-                            Annuler
-                        </Button>
-                        <Button variant="danger" size="sm" onClick={handleCloturer} loading={actionLoading}>
-                            Confirmer la clôture
-                        </Button>
-                    </div>
+            <Modal isOpen={confirmOpen} onClose={() => setConfirmOpen(false)} title="Clôturer la période" size="md">
+                <div className="space-y-4 text-sm">
+                    <p>La période <strong>{periodCode}</strong> passera en lecture seule. Vérifiez la validation de la paie avant de poursuivre.</p>
+                    <div className="flex justify-end gap-2"><Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>Annuler</Button><Button variant="primary" size="sm" loading={closing} onClick={closePeriod}>Confirmer la clôture</Button></div>
                 </div>
             </Modal>
         </PayrollCampaignShell>

@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     FileText,
-    Printer,
+    FileDown,
+    FileSpreadsheet,
+    ChevronDown,
     ExternalLink,
 } from 'lucide-react';
 import SlideOver from '@/components/ui/overlays/SlideOver';
@@ -13,7 +15,6 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 import { formatMoneyAr } from '@/utils/moneyUtils';
-import BulletinPaiePrintView from './BulletinPaiePrintView';
 import BulletinVariableCorrection from './BulletinVariableCorrection';
 
 /** Consultation du bulletin calculé. */
@@ -21,7 +22,36 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
     const [loading, setLoading]           = useState(false);
     const [data, setData]                 = useState(null);
     const [error, setError]               = useState(null);
-    const [showPrintModal, setShowPrintModal] = useState(false);
+    const [documentLoading, setDocumentLoading] = useState(false);
+    const [exportOpen, setExportOpen] = useState(false);
+    const exportRef = useRef(null);
+
+    useEffect(() => {
+        const close = event => { if (!exportRef.current?.contains(event.target)) setExportOpen(false); };
+        const escape = event => { if (event.key === 'Escape') setExportOpen(false); };
+        document.addEventListener('pointerdown', close);
+        document.addEventListener('keydown', escape);
+        return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', escape); };
+    }, []);
+
+    const openDocument = async (format) => {
+        setExportOpen(false);
+        setDocumentLoading(true);
+        setError(null);
+        try {
+            const { blob, filename } = await paieService.getBulletinDocument(idBulletin, format);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (cause) {
+            setError(getErrorMessage(cause, 'Impossible de générer le document.'));
+        } finally {
+            setDocumentLoading(false);
+        }
+    };
 
     // Référence vers la zone de scroll du body du drawer pour revenir en haut.
     const bodyRef = useRef(null);
@@ -105,15 +135,25 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                 footer={
                     bulletin && (
                         <div className="flex flex-wrap items-center justify-between gap-2 w-full">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setShowPrintModal(true)}
-                                className="flex items-center gap-1.5"
-                            >
-                                <Printer size={15} />
-                                Imprimer ou exporter
-                            </Button>
+                            <div className="relative" ref={exportRef}>
+                                <Button variant="primary" size="sm" onClick={() => setExportOpen(open => !open)}
+                                    disabled={documentLoading} aria-expanded={exportOpen} aria-haspopup="menu"
+                                    className="flex items-center gap-2 font-semibold">
+                                    <FileDown size={15} /> Exporter <ChevronDown size={14} />
+                                </Button>
+                                {exportOpen && <div role="menu" className="absolute bottom-full left-0 mb-2 w-64 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xl z-50">
+                                    <button type="button" role="menuitem" onClick={() => openDocument('xlsx')}
+                                        className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-[var(--color-bg-subtle)]">
+                                        <FileSpreadsheet size={19} className="text-[var(--color-success-600)]" />
+                                        <span><strong className="block text-sm">Format Excel (.xlsx)</strong><span className="block text-xs text-[var(--color-fg-muted)]">Bulletin détaillé et montants</span></span>
+                                    </button>
+                                    <button type="button" role="menuitem" onClick={() => openDocument('pdf')}
+                                        className="w-full px-4 py-3 flex items-center gap-3 text-left border-t border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]">
+                                        <FileText size={19} className="text-[var(--color-danger-600)]" />
+                                        <span><strong className="block text-sm">Bulletin PDF</strong><span className="block text-xs text-[var(--color-fg-muted)]">Télécharger au format A4</span></span>
+                                    </button>
+                                </div>}
+                            </div>
                             <div className="flex items-center gap-2">
                                 <Button variant="secondary" size="sm" onClick={onClose}>
                                     Fermer
@@ -543,13 +583,6 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                 </div>
             </SlideOver>
 
-            {/* Modal d'impression A4 */}
-            {showPrintModal && data && (
-                <BulletinPaiePrintView
-                    bulletinComplet={data}
-                    onClose={() => setShowPrintModal(false)}
-                />
-            )}
         </>
     );
 }

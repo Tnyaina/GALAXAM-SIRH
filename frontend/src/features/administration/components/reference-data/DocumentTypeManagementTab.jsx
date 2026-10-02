@@ -22,7 +22,8 @@ export default function DocumentTypeManagementTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [modalError, setModalError] = useState('');
-    const toast = useToast();
+    const [fieldErrors, setFieldErrors] = useState({});
+    const { toast } = useToast();
 
     const [showModal, setShowModal] = useState(false);
     const [selectedType, setSelectedType] = useState(null);
@@ -68,6 +69,7 @@ export default function DocumentTypeManagementTab() {
         setSelectedType(null);
         setFormData({ ...emptyForm });
         setModalError('');
+        setFieldErrors({});
         setShowModal(true);
     };
 
@@ -83,6 +85,7 @@ export default function DocumentTypeManagementTab() {
             actif: t.actif !== undefined ? t.actif : true
         });
         setModalError('');
+        setFieldErrors({});
         setShowModal(true);
     };
 
@@ -90,10 +93,17 @@ export default function DocumentTypeManagementTab() {
         e.preventDefault();
         if (submitting) return;
         setModalError('');
+
+        const errors = {};
         if (!formData.libelle.trim()) {
-            setModalError('Le libellé est obligatoire.');
+            errors.libelle = 'Le libellé du document est obligatoire.';
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
             return;
         }
+        setFieldErrors({});
 
         setSubmitting(true);
         try {
@@ -161,14 +171,16 @@ export default function DocumentTypeManagementTab() {
                     </h2>
                     <p className="text-xs text-[var(--color-fg-muted)]">Définissez la nomenclature des pièces justificatives exigées ou acceptées</p>
                 </div>
-                <Button
-                    onClick={handleOpenCreate}
-                    variant="primary"
-                    size="sm"
-                    iconLeft={<Plus size={16} />}
-                >
-                    Nouveau Type
-                </Button>
+                {types.length > 0 && (
+                    <Button
+                        onClick={handleOpenCreate}
+                        variant="primary"
+                        size="sm"
+                        iconLeft={<Plus size={16} />}
+                    >
+                        Nouveau Type
+                    </Button>
+                )}
             </div>
 
             {/* Tableau */}
@@ -224,7 +236,7 @@ export default function DocumentTypeManagementTab() {
                                     <div className="flex justify-end items-center gap-1.5">
                                         <button
                                             onClick={() => handleOpenEdit(t)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                             title="Modifier le type"
                                             aria-label={`Modifier ${t.libelle}`}
                                         >
@@ -232,7 +244,7 @@ export default function DocumentTypeManagementTab() {
                                         </button>
                                         <button
                                             onClick={() => requestToggleActif(t)}
-                                            className={`p-1.5 rounded-none cursor-pointer transition-colors ${
+                                            className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 rounded-none cursor-pointer transition-colors ${
                                                 t.actif
                                                     ? 'text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10'
                                                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-success-500)] hover:bg-[var(--color-success-500)]/10'
@@ -274,7 +286,11 @@ export default function DocumentTypeManagementTab() {
                         label="Libellé du document"
                         required
                         value={formData.libelle}
-                        onChange={e => setFormData({ ...formData, libelle: e.target.value })}
+                        error={fieldErrors.libelle}
+                        onChange={e => {
+                            setFormData({ ...formData, libelle: e.target.value });
+                            if (fieldErrors.libelle) setFieldErrors(prev => ({ ...prev, libelle: undefined }));
+                        }}
                         placeholder="Ex: Extrait de Casier Judiciaire (Bulletin n°3)"
                     />
                     <Select

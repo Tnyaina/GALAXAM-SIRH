@@ -21,7 +21,7 @@ import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import StatCard from '@/components/ui/data-display/StatCard';
 import { Card } from '@/components/ui/data-display/Card';
 import Input from '@/components/ui/forms/Input';
-import Select from '@/components/ui/forms/Select';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Pagination from '@/components/ui/navigation/Pagination';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { fmtDate } from '@/utils/dateUtils';
@@ -259,14 +259,26 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                 onChange={(event) => setBulletinQuery(event.target.value)}
                                 iconLeft={<Search size={14} />}
                             />
-                            <Select aria-label="Filtrer par statut de bulletin" value={bulletinStatus} onChange={setBulletinStatus} options={[
-                                { value: 'ALL', label: 'Tous les statuts' },
-                                ...bulletinStatuses.map((status) => ({ value: status, label: status })),
-                            ]} />
-                            <Select aria-label="Filtrer par type de bulletin" value={bulletinType} onChange={setBulletinType} options={[
-                                { value: 'ALL', label: 'Tous les types' },
-                                ...bulletinTypes.map((type) => ({ value: type, label: type })),
-                            ]} />
+                            <SearchSelect
+                                aria-label="Filtrer par statut de bulletin"
+                                value={bulletinStatus}
+                                onChange={(val) => setBulletinStatus(val || 'ALL')}
+                                placeholder="Tous les statuts"
+                                options={[
+                                    { value: 'ALL', label: 'Tous les statuts' },
+                                    ...bulletinStatuses.map((status) => ({ value: status, label: status })),
+                                ]}
+                            />
+                            <SearchSelect
+                                aria-label="Filtrer par type de bulletin"
+                                value={bulletinType}
+                                onChange={(val) => setBulletinType(val || 'ALL')}
+                                placeholder="Tous les types"
+                                options={[
+                                    { value: 'ALL', label: 'Tous les types' },
+                                    ...bulletinTypes.map((type) => ({ value: type, label: type })),
+                                ]}
+                            />
                         </div>
                         {filteredBulletins.length === 0 ? (
                             <EmptyState title="Aucun bulletin correspondant" description="Modifiez la période, le statut ou le type sélectionné." />
@@ -344,16 +356,28 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                 onChange={(event) => setMovementQuery(event.target.value)}
                                 iconLeft={<Search size={14} />}
                             />
-                            <Select aria-label="Filtrer par nature de mouvement" value={movementCategory} onChange={setMovementCategory} options={[
-                                { value: 'ALL', label: 'Toutes les natures' },
-                                { value: 'ACOMPTE', label: `Acomptes (${acompteCount})` },
-                                { value: 'AVANCE', label: `Avances (${avanceCount})` },
-                                { value: 'AUTRE', label: 'Autres mouvements' },
-                            ]} />
-                            <Select aria-label="Filtrer par statut de mouvement" value={movementStatus} onChange={setMovementStatus} options={[
-                                { value: 'ALL', label: 'Tous les statuts' },
-                                ...movementStatuses.map((status) => ({ value: status, label: status })),
-                            ]} />
+                            <SearchSelect
+                                aria-label="Filtrer par nature de mouvement"
+                                value={movementCategory}
+                                onChange={(val) => setMovementCategory(val || 'ALL')}
+                                placeholder="Toutes les natures"
+                                options={[
+                                    { value: 'ALL', label: 'Toutes les natures' },
+                                    { value: 'ACOMPTE', label: `ACOMPTE — Acomptes (${acompteCount})` },
+                                    { value: 'AVANCE', label: `AVANCE — Avances (${avanceCount})` },
+                                    { value: 'AUTRE', label: 'AUTRE — Autres mouvements' },
+                                ]}
+                            />
+                            <SearchSelect
+                                aria-label="Filtrer par statut de mouvement"
+                                value={movementStatus}
+                                onChange={(val) => setMovementStatus(val || 'ALL')}
+                                placeholder="Tous les statuts"
+                                options={[
+                                    { value: 'ALL', label: 'Tous les statuts' },
+                                    ...movementStatuses.map((status) => ({ value: status, label: status })),
+                                ]}
+                            />
                         </div>
                         {filteredMovements.length === 0 ? (
                             <EmptyState title="Aucun mouvement correspondant" description="Modifiez les filtres ou la recherche." />

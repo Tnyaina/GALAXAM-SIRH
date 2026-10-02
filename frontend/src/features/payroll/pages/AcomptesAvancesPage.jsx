@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Banknote, RefreshCw, Plus, SlidersHorizontal, AlertCircle } from 'lucide-react';
+import { Banknote, RefreshCw, Plus, SlidersHorizontal, AlertCircle, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import SEO from '@/components/system/SEO';
 import PageHeader from '@/components/ui/navigation/PageHeader';
@@ -7,6 +7,7 @@ import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import MoneyInput from '@/components/ui/forms/MoneyInput';
 import Select from '@/components/ui/forms/Select';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Badge from '@/components/ui/data-display/Badge';
 import StatCard from '@/components/ui/data-display/StatCard';
 import Alert from '@/components/ui/feedback/Alert';
@@ -237,7 +238,7 @@ export default function AcomptesAvancesPage() {
     };
 
     return <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-12 px-2 sm:px-4">
-        <SEO title="Acomptes et avances | GALAXAM SIRH" description="Décisions, versements et remboursements des salariés." />
+        <SEO title="Acomptes et avances | GALAXAM GRH" description="Décisions, versements et remboursements des salariés." />
         <PageHeader title="Acomptes et avances" subtitle="Demande → approbation → versement confirmé → retenues sur bulletin → solde"
             icon={Banknote} breadcrumbs={[{ label: 'Paie', href: '/paie' }, { label: 'Acomptes et avances' }]} />
         {feedback && <Alert type={feedback.type} message={feedback.message} onClose={() => setFeedback(null)} />}
@@ -276,11 +277,32 @@ export default function AcomptesAvancesPage() {
             <StatCard title="Encours versé" value={formatMoneyAr(synthese.encoursVerse)} color="neutral" />
         </div>}
         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 space-y-3">
-            <div className="flex flex-wrap gap-2 items-center justify-between">
+            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-between">
                 <h2 className="text-sm font-bold text-[var(--color-fg)]">Dossiers</h2>
-                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                    <Input aria-label="Rechercher un dossier" placeholder="Nom, matricule ou référence…" value={search} onChange={event => setSearch(event.target.value)} />
-                    <Select aria-label="Filtrer les dossiers" value={filter} onChange={setFilter} options={[{ value: 'TOUS', label: 'Tous les états' }, ...Object.entries(ETATS).map(([value, meta]) => ({ value, label: meta.label }))]} containerClassName="min-w-44" />
+                <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
+                    <div className="w-full sm:w-64">
+                        <Input
+                            placeholder="Rechercher salarié, matricule..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            iconLeft={<Search size={14} />}
+                            className="text-xs"
+                        />
+                    </div>
+                    <SearchSelect
+                        aria-label="Filtrer les dossiers"
+                        value={filter}
+                        onChange={(val) => setFilter(val || 'TOUS')}
+                        placeholder="Tous les états"
+                        options={[
+                            { value: 'TOUS', label: 'Tous les états' },
+                            ...Object.entries(ETATS).map(([value, meta]) => ({
+                                value,
+                                label: `${value} — ${meta.label}`
+                            }))
+                        ]}
+                        className="min-w-52 text-xs"
+                    />
                 </div>
             </div>
             {loading ? <p className="text-xs text-[var(--color-fg-muted)] py-6">Chargement des dossiers…</p>
@@ -357,14 +379,15 @@ export default function AcomptesAvancesPage() {
                         }))}
                     />
                     <div>
-                        <Select
+                        <SearchSelect
                             label="Période de rattachement"
                             required
                             value={demandeForm.idPeriodePaie}
-                            onChange={(val) => setDemandeForm(prev => ({ ...prev, idPeriodePaie: val }))}
+                            onChange={(val) => setDemandeForm(prev => ({ ...prev, idPeriodePaie: val || '' }))}
                             options={periodes.map(p => ({
                                 value: String(p.id ?? p.idPeriodePaie),
-                                label: p.label || `${p.code || p.codePeriode || 'Période'} (${p.statutLibelle || p.statutCode || p.statut || ''})`
+                                label: [p.code || p.codePeriode, p.libelle].filter(Boolean).join(' — ') || p.label || 'Période',
+                                sublabel: p.statutLibelle || p.statutCode || p.statut || undefined
                             }))}
                             placeholder={periodes.length === 0 ? "Chargement des périodes…" : "Choisir une période…"}
                         />

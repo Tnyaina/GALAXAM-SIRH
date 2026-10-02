@@ -76,7 +76,7 @@ export default function PeriodeChomeeList({ periodes, sites, onOpenCreate, onOpe
                                         {p.dateFin ? (
                                             <>Au <strong>{fmtDate(p.dateFin)}</strong></>
                                         ) : (
-                                            <span className="text-warning-500 font-semibold">Jusqu'à nouvel ordre</span>
+                                            <span className="text-[var(--color-warning-500)] font-semibold">Jusqu'à nouvel ordre</span>
                                         )}
                                     </Td>
                                     <Td>
@@ -96,11 +96,12 @@ export default function PeriodeChomeeList({ periodes, sites, onOpenCreate, onOpe
                                         </div>
                                     </Td>
                                     <Td>
-                                        <div className="flex items-center justify-end gap-2">
+                                        <div className="flex items-center justify-end gap-1.5">
                                             <button
                                                 onClick={() => onOpenEdit(p)}
-                                                className="text-[var(--color-brand-500)] hover:text-[var(--color-brand-600)]"
+                                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                                 title="Modifier"
+                                                aria-label={`Modifier période ${p.libelle}`}
                                             >
                                                 <Edit2 size={16} />
                                             </button>
@@ -110,8 +111,9 @@ export default function PeriodeChomeeList({ periodes, sites, onOpenCreate, onOpe
                                                         onDelete(p.idPeriode);
                                                     }
                                                 }}
-                                                className="text-danger-500 hover:text-danger-600"
+                                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
                                                 title="Supprimer"
+                                                aria-label={`Supprimer période ${p.libelle}`}
                                             >
                                                 <Trash2 size={16} />
                                             </button>

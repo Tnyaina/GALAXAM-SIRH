@@ -195,7 +195,7 @@ export default function DashboardHeader({
                                     ? ` ${demandesCongeAValiderCount} demande(s) de congé en attente de validation.`
                                     : totalAlertesContrats > 0
                                         ? ` ${totalAlertesContrats} alerte(s) de contrat nécessitent votre attention.`
-                                        : 'Tout est à jour dans l\'application SIRH.'}
+                                        : 'Tout est à jour dans l\'application GRH.'}
                             </p>
                         )}
 

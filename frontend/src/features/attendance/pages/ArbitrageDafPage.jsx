@@ -10,7 +10,6 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Card, CardBody, CardFooter, CardHeader, CardSubtitle, CardTitle } from '@/components/ui/data-display/Card';
-import Select from '@/components/ui/forms/Select';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Input, { Textarea } from '@/components/ui/forms/Input';
 import Pagination from '@/components/ui/navigation/Pagination';
@@ -462,12 +461,12 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         <div className="h-5 w-px bg-[var(--color-border-subtle)] hidden sm:block shrink-0" />
 
                         {/* Site */}
-                        <div className="flex items-center gap-1.5 min-w-[170px]">
+                        <div className="flex items-center gap-1.5 min-w-[200px]">
                             <Building2 size={14} className="text-[var(--color-fg-muted)] shrink-0" />
-                            <Select
+                            <SearchSelect
                                 value={String(selectedSite)}
                                 onChange={(val) => {
-                                    const sId = Number(val);
+                                    const sId = Number(val || 0);
                                     setSelectedSite(sId);
                                     setCurrentPage(1);
                                     setSearchParams(prev => {
@@ -479,9 +478,17 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 }}
                                 options={[
                                     { value: '0', label: 'Tous les sites' },
-                                    ...sites.map(s => ({ value: String(s.idSite || s.id), label: s.libelle || s.nom }))
+                                    ...sites.map(s => {
+                                        const code = s.codeSite || s.code;
+                                        const libelle = s.libelle || s.nom || s.nomSite || '';
+                                        return {
+                                            value: String(s.idSite || s.id),
+                                            label: code ? `${code} — ${libelle}` : libelle
+                                        };
+                                    })
                                 ]}
-                                className="text-xs h-[32px]"
+                                placeholder="Tous les sites"
+                                className="text-xs min-w-[180px]"
                             />
                         </div>
                     </div>

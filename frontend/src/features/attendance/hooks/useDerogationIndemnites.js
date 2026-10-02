@@ -30,9 +30,11 @@ export function useDerogationIndemnites() {
         dateDebut: todayStr,
         dateFin: ''
     });
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [actionError, setActionError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
-    const toast = useToast();
+    const { toast } = useToast();
 
     // Chargement et actions exposées au composant propriétaire.
     const loadData = useCallback(async () => {
@@ -72,6 +74,8 @@ export function useDerogationIndemnites() {
 
     const openModal = (derogation = null) => {
         setEditingDerogation(derogation);
+        setFieldErrors({});
+        setActionError(null);
         if (derogation) {
             setFormData({
                 idEmploye: String(derogation.idEmploye),
@@ -97,14 +101,30 @@ export function useDerogationIndemnites() {
     const closeModal = () => {
         setShowModal(false);
         setEditingDerogation(null);
+        setFieldErrors({});
+        setActionError(null);
     };
 
     const saveDerogation = async (e) => {
         e.preventDefault();
-        if (!formData.idEmploye || !formData.idIndemnite || !formData.dateDebut) {
-            toast.error("Veuillez remplir les champs obligatoires (Employé, Indemnité, Date de début).");
+        setActionError(null);
+
+        const errors = {};
+        if (!formData.idEmploye) {
+            errors.idEmploye = "Veuillez sélectionner un employé.";
+        }
+        if (!formData.idIndemnite) {
+            errors.idIndemnite = "Veuillez sélectionner une indemnité.";
+        }
+        if (!formData.dateDebut) {
+            errors.dateDebut = "La date de début est obligatoire.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
             return;
         }
+        setFieldErrors({});
 
         setSubmitting(true);
         try {
@@ -119,16 +139,16 @@ export function useDerogationIndemnites() {
 
             if (editingDerogation) {
                 await pointageParametreService.updateDerogation(editingDerogation.idDerogation, payload);
-                toast({ type: 'success', message: "Dérogation modifiée avec succès." });
+                toast({ title: 'Succès', message: "Dérogation modifiée avec succès.", type: 'success' });
             } else {
                 await pointageParametreService.createDerogation(payload);
-                toast({ type: 'success', message: "Dérogation créée avec succès." });
+                toast({ title: 'Succès', message: "Dérogation créée avec succès.", type: 'success' });
             }
 
             closeModal();
             await loadData();
         } catch (err) {
-            toast({ type: 'error', message: getErrorMessage(err, "Erreur lors de l'enregistrement de la dérogation.") });
+            setActionError(getErrorMessage(err, "Erreur lors de l'enregistrement de la dérogation."));
         } finally {
             setSubmitting(false);
         }
@@ -162,6 +182,10 @@ export function useDerogationIndemnites() {
         formData,
         setFormData,
         submitting,
+        fieldErrors,
+        setFieldErrors,
+        actionError,
+        setActionError,
         openModal,
         closeModal,
         saveDerogation,

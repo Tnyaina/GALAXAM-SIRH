@@ -13,7 +13,7 @@ import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 
 export default function ModesPaiementTab() {
-    const toast = useToast();
+    const { toast } = useToast();
     const [modes, setModes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -28,6 +28,7 @@ export default function ModesPaiementTab() {
     });
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState(null);
+    const [fieldErrors, setFieldErrors] = useState({});
 
     const chargerModes = useCallback(async () => {
         setLoading(true);
@@ -55,6 +56,7 @@ export default function ModesPaiementTab() {
             inclusFichierVirement: Boolean(mode.inclusFichierVirement),
         });
         setSaveError(null);
+        setFieldErrors({});
     };
 
     const handleToggleActif = async (mode) => {
@@ -65,21 +67,32 @@ export default function ModesPaiementTab() {
                 inclusFichierVirement: mode.inclusFichierVirement,
                 actif: !mode.actif,
             });
-            toast.success(`Mode de paiement « ${mode.libelle} » ${!mode.actif ? 'activé' : 'désactivé'}.`);
+            toast({ title: 'Succès', message: `Mode de paiement « ${mode.libelle} » ${!mode.actif ? 'activé' : 'désactivé'}.`, type: 'success' });
             chargerModes();
         } catch (err) {
-            toast.error(getErrorMessage(err, 'Erreur lors du changement de statut.'));
+            toast({ title: 'Erreur', message: getErrorMessage(err, 'Erreur lors du changement de statut.'), type: 'error' });
         }
     };
 
     const handleSave = async (e) => {
         e.preventDefault();
         if (!editingMode) return;
+
+        const errors = {};
+        if (!formData.libelle.trim()) {
+            errors.libelle = "Le libellé affiché est obligatoire.";
+        }
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
+            return;
+        }
+        setFieldErrors({});
+
         setSaving(true);
         setSaveError(null);
         try {
             await paieService.modifierModePaiement(editingMode.idModePaiement, formData);
-            toast.success(`Mode de paiement « ${formData.libelle} » mis à jour.`);
+            toast({ title: 'Succès', message: `Mode de paiement « ${formData.libelle} » mis à jour.`, type: 'success' });
             setEditingMode(null);
             chargerModes();
         } catch (err) {
@@ -142,7 +155,7 @@ export default function ModesPaiementTab() {
                                         <div className="flex items-center justify-end gap-1">
                                             <button
                                                 onClick={() => handleEdit(m)}
-                                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                                 title="Modifier le mode de paiement"
                                                 aria-label={`Modifier ${m.libelle}`}
                                             >
@@ -150,7 +163,7 @@ export default function ModesPaiementTab() {
                                             </button>
                                             <button
                                                 onClick={() => handleToggleActif(m)}
-                                                className={`p-1.5 ${isActif ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-600)] hover:bg-[var(--color-success-500)]/10'} rounded-none cursor-pointer transition-colors`}
+                                                className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 ${isActif ? 'text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10' : 'text-[var(--color-success-600)] hover:bg-[var(--color-success-500)]/10'} rounded-none cursor-pointer transition-colors`}
                                                 title={isActif ? "Désactiver ce mode" : "Activer ce mode"}
                                                 aria-label={isActif ? `Désactiver ${m.libelle}` : `Activer ${m.libelle}`}
                                             >
@@ -211,7 +224,11 @@ export default function ModesPaiementTab() {
                             label="Libellé affiché"
                             required
                             value={formData.libelle}
-                            onChange={(e) => setFormData(d => ({ ...d, libelle: e.target.value }))}
+                            error={fieldErrors.libelle}
+                            onChange={(e) => {
+                                setFormData(d => ({ ...d, libelle: e.target.value }));
+                                if (fieldErrors.libelle) setFieldErrors(prev => ({ ...prev, libelle: undefined }));
+                            }}
                             placeholder="Ex. Virement Bancaire"
                         />
 

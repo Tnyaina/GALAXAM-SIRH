@@ -57,6 +57,53 @@ export const paieService = {
         return response.data;
     },
 
+    getBulletinDocument: async (idBulletin, format) => {
+        const response = await apiClient.get(`paie/bulletin/${idBulletin}/document/${format}`, { responseType: 'blob' });
+        const disposition = response.headers?.['content-disposition'] || '';
+        const filename = disposition.match(/filename="([^"]+)"/)?.[1] || `Bulletin_${idBulletin}.${format}`;
+        return { blob: response.data, filename };
+    },
+
+    getGrandLivre: async (idPeriode) => {
+        const response = await apiClient.get(`paie/periode/${idPeriode}/export/grand-livre`, { responseType: 'blob' });
+        const disposition = response.headers?.['content-disposition'] || '';
+        return {
+            blob: response.data,
+            filename: disposition.match(/filename="([^"]+)"/)?.[1] || `Grand_Livre_Paie_${idPeriode}.xlsx`,
+        };
+    },
+
+    getIrsaExcel: async (idPeriode) => {
+        const response = await apiClient.get(`paie/periode/${idPeriode}/export/irsa-excel`, { responseType: 'blob' });
+        const disposition = response.headers?.['content-disposition'] || '';
+        return {
+            blob: response.data,
+            filename: disposition.match(/filename="([^"]+)"/)?.[1] || `Etat_IRSA_${idPeriode}.xls`,
+        };
+    },
+
+    getEtatSocialMensuel: async (idPeriode) => {
+        const response = await apiClient.get(`paie/periode/${idPeriode}/export/etat-social`, { responseType: 'blob' });
+        const disposition = response.headers?.['content-disposition'] || '';
+        return {
+            blob: response.data,
+            filename: disposition.match(/filename="([^"]+)"/)?.[1] || `Etat_Social_Mensuel_${idPeriode}.xlsx`,
+        };
+    },
+
+    getQuarterlyExportStatus: async (year, quarter) =>
+        (await apiClient.get(`paie/trimestre/${year}/${quarter}/exports/status`)).data,
+
+    getQuarterlyExport: async (year, quarter, type) => {
+        const response = await apiClient.get(`paie/trimestre/${year}/${quarter}/export/${type}`, { responseType: 'blob' });
+        const disposition = response.headers?.['content-disposition'] || '';
+        const extension = type === 'fmfp' ? 'xls' : 'xlsx';
+        return {
+            blob: response.data,
+            filename: disposition.match(/filename="([^"]+)"/)?.[1] || `${type.toUpperCase()}_T${quarter}_${year}.${extension}`,
+        };
+    },
+
     getBulletinCorrectionStatus: async (idBulletin) => {
         const response = await apiClient.get(`paie/bulletin/${idBulletin}/correction-status`);
         return response.data;

@@ -163,7 +163,7 @@ export default function DemandeCongeModal({
                   .filter((type) => type.estActif !== false && type.actif !== false || String(type.idTypeConge) === String(idTypeConge))
                   .map((type) => ({
                     value: type.idTypeConge,
-                    label: type.libelle || type.libelleTypeConge || type.code || type.codeTypeConge,
+                    label: [type.code || type.codeTypeConge, type.libelle || type.libelleTypeConge].filter(Boolean).join(' — ') || String(type.idTypeConge),
                     sublabel: `${type.estPaye ? 'Rémunéré' : 'Sans solde'}${type.soumisDelaiPreavis ? ' · Préavis requis' : ''}`
                   }))}
                 placeholder="Sélectionner un type de congé…"

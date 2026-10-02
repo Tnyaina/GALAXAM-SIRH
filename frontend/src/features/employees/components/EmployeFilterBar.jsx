@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Search, RotateCcw, X } from 'lucide-react';
-import Select from '@/components/ui/forms/Select';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Input from '@/components/ui/forms/Input';
 import Button from '@/components/ui/forms/Button';
 
@@ -42,41 +42,53 @@ export default function EmployeFilterBar({
     const selectedDept = departements.find(d => String(d.idDepartement || d.id_departement) === String(departementFilter));
     const selectedService = services.find(srv => String(srv.idService || srv.id_service) === String(serviceFilter));
 
-    // Options pour les composants Select
+    // Options pour les composants SearchSelect avec code et libellé
     const statusOptions = useMemo(() => [
         { value: 'ALL', label: 'Statut : Tous' },
-        { value: 'ACTIVE', label: 'Actifs uniquement' },
-        { value: 'INACTIVE', label: 'Inactifs uniquement' },
+        { value: 'ACTIVE', label: 'ACTIF — Actifs uniquement' },
+        { value: 'INACTIVE', label: 'INACTIF — Inactifs uniquement' },
     ], []);
 
     const siteOptions = useMemo(() => [
         { value: '', label: 'Site : Tous les sites' },
         ...sites
             .filter(s => s.estActif !== false && s.actif !== false)
-            .map(s => ({
-                value: String(s.idSite || s.id_site),
-                label: s.nomSite || s.nom_site || s.libelle
-            }))
+            .map(s => {
+                const code = s.codeSite || s.code;
+                const libelle = s.nomSite || s.nom_site || s.libelle;
+                return {
+                    value: String(s.idSite || s.id_site),
+                    label: code ? `${code} — ${libelle}` : libelle
+                };
+            })
     ], [sites]);
 
     const deptOptions = useMemo(() => [
         { value: '', label: 'Département : Tous' },
         ...departements
             .filter(d => d.estActif !== false && d.actif !== false)
-            .map(d => ({
-                value: String(d.idDepartement || d.id_departement),
-                label: d.nomDepartement || d.nom_departement || d.libelle
-            }))
+            .map(d => {
+                const code = d.codeDepartement || d.code;
+                const libelle = d.nomDepartement || d.nom_departement || d.libelle;
+                return {
+                    value: String(d.idDepartement || d.id_departement),
+                    label: code ? `${code} — ${libelle}` : libelle
+                };
+            })
     ], [departements]);
 
     const serviceOptions = useMemo(() => [
         { value: '', label: 'Service : Tous' },
         ...filteredServices
             .filter(srv => srv.estActif !== false && srv.actif !== false)
-            .map(srv => ({
-                value: String(srv.idService || srv.id_service),
-                label: srv.nomService || srv.nom_service || srv.libelle
-            }))
+            .map(srv => {
+                const code = srv.codeService || srv.code;
+                const libelle = srv.nomService || srv.nom_service || srv.libelle;
+                return {
+                    value: String(srv.idService || srv.id_service),
+                    label: code ? `${code} — ${libelle}` : libelle
+                };
+            })
     ], [filteredServices]);
 
     // Rendu
@@ -110,45 +122,49 @@ export default function EmployeFilterBar({
                 {/* 2. Filtres déplacés vers la droite avec espacement */}
                 <div className="flex flex-1 flex-wrap items-center justify-start lg:justify-end gap-2.5">
                     {/* Filtre Statut */}
-                    <div className="w-full sm:w-auto min-w-[130px]">
-                        <Select
+                    <div className="w-full sm:w-auto min-w-[150px]">
+                        <SearchSelect
                             value={statusFilter}
-                            onChange={(val) => onStatusFilterChange(val)}
+                            onChange={(val) => onStatusFilterChange(val || 'ALL')}
                             options={statusOptions}
-                            className="py-1.5 text-xs w-full"
+                            placeholder="Statut : Tous"
+                            className="text-xs w-full"
                         />
                     </div>
 
                     {/* Filtre Site */}
-                    <div className="w-full sm:w-auto min-w-[150px]">
-                        <Select
+                    <div className="w-full sm:w-auto min-w-[180px]">
+                        <SearchSelect
                             value={siteFilter}
-                            onChange={(val) => onSiteFilterChange(val)}
+                            onChange={(val) => onSiteFilterChange(val || '')}
                             options={siteOptions}
-                            className="py-1.5 text-xs w-full"
+                            placeholder="Site : Tous les sites"
+                            className="text-xs w-full"
                         />
                     </div>
 
                     {/* Filtre Département */}
-                    <div className="w-full sm:w-auto min-w-[160px]">
-                        <Select
+                    <div className="w-full sm:w-auto min-w-[190px]">
+                        <SearchSelect
                             value={departementFilter}
                             onChange={(val) => {
-                                onDepartementFilterChange(val);
+                                onDepartementFilterChange(val || '');
                                 onServiceFilterChange('');
                             }}
                             options={deptOptions}
-                            className="py-1.5 text-xs w-full"
+                            placeholder="Département : Tous"
+                            className="text-xs w-full"
                         />
                     </div>
 
                     {/* Filtre Service */}
-                    <div className="w-full sm:w-auto min-w-[150px]">
-                        <Select
+                    <div className="w-full sm:w-auto min-w-[180px]">
+                        <SearchSelect
                             value={serviceFilter}
-                            onChange={(val) => onServiceFilterChange(val)}
+                            onChange={(val) => onServiceFilterChange(val || '')}
                             options={serviceOptions}
-                            className="py-1.5 text-xs w-full"
+                            placeholder="Service : Tous"
+                            className="text-xs w-full"
                         />
                     </div>
                 </div>

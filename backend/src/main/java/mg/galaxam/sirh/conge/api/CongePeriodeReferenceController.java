@@ -5,16 +5,19 @@ import java.sql.Connection;
 import java.time.LocalDate;
 import java.util.Map;
 import javax.sql.DataSource;
-import mg.galaxam.sirh.conge.domain.TcongeConfigurationDTO;
+import mg.galaxam.sirh.common.transaction.TransactionRunner;
+import mg.galaxam.sirh.conge.application.CongeAnnuelExcelExportService;
+import mg.galaxam.sirh.conge.application.CongeGrandRecapExcelExportService;
 import mg.galaxam.sirh.conge.application.CongeTauxApplicableService;
+import mg.galaxam.sirh.conge.domain.TcongeConfigurationDTO;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,49 +44,37 @@ public class CongePeriodeReferenceController {
     private CongeTauxApplicableService congeTauxApplicableService;
 
     @Autowired
-    private mg.galaxam.sirh.conge.application.CongeAnnuelExcelExportService congeAnnuelExcelExportService;
+    private CongeAnnuelExcelExportService congeAnnuelExcelExportService;
 
     @Autowired
-    private mg.galaxam.sirh.conge.application.CongeGrandRecapExcelExportService congeGrandRecapExcelExportService;
+    private CongeGrandRecapExcelExportService congeGrandRecapExcelExportService;
 
-    private Integer getUserId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof CustomUserDetails user) {
-            return user.getIdUtilisateur();
-        }
-        return 1;
-    }
+    @Autowired
+    private TransactionRunner transactionRunner;
 
     @PostMapping
     @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> creerPeriodeReference(@RequestBody CreerPeriodeReferenceRequest request) throws Exception {
+    public ResponseEntity<?> creerPeriodeReference(@RequestBody CreerPeriodeReferenceRequest request) {
         if (request == null || request.idEmploye() == null || request.dateDebut() == null || request.dateFin() == null) {
             throw new IllegalArgumentException("idEmploye, dateDebut et dateFin sont obligatoires.");
         }
 
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                int idRef = congeTauxApplicableService.creerPeriodeReference(
-                        request.idEmploye(),
-                        request.dateDebut(),
-                        request.dateFin(),
-                        getUserId(),
-                        c
-                );
-                c.commit();
-                return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                        "idPeriodeReference", idRef,
-                        "idEmploye", request.idEmploye(),
-                        "dateDebut", request.dateDebut(),
-                        "dateFin", request.dateFin(),
-                        "statut", "OUVERTE"
-                ));
-            } catch (Exception e) {
-                c.rollback();
-                throw e;
-            }
-        }
+        return transactionRunner.required(c -> {
+            int idRef = congeTauxApplicableService.creerPeriodeReference(
+                    request.idEmploye(),
+                    request.dateDebut(),
+                    request.dateFin(),
+                    CustomUserDetails.getCurrentUserId(),
+                    c
+            );
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                    "idPeriodeReference", idRef,
+                    "idEmploye", request.idEmploye(),
+                    "dateDebut", request.dateDebut(),
+                    "dateFin", request.dateFin(),
+                    "statut", "OUVERTE"
+            ));
+        });
     }
 
     @GetMapping("/employe/{idEmploye}")
@@ -108,54 +99,41 @@ public class CongePeriodeReferenceController {
 
     @PostMapping("/{idPeriodeReference}/cloturer")
     @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> cloturerPeriodeReference(@PathVariable int idPeriodeReference) throws Exception {
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                BigDecimal tauxCalcule = congeTauxApplicableService.cloturerPeriodeReference(idPeriodeReference, getUserId(), c);
-                c.commit();
-                return ResponseEntity.ok(Map.of(
-                        "idPeriodeReference", idPeriodeReference,
-                        "statut", "CLOTUREE",
-                        "tauxCalculeCloture", tauxCalcule
-                ));
-            } catch (Exception e) {
-                c.rollback();
-                throw e;
-            }
-        }
+    public ResponseEntity<?> cloturerPeriodeReference(@PathVariable int idPeriodeReference) {
+        return transactionRunner.required(c -> {
+            BigDecimal tauxCalcule = congeTauxApplicableService.cloturerPeriodeReference(
+                    idPeriodeReference, CustomUserDetails.getCurrentUserId(), c);
+            return ResponseEntity.ok(Map.of(
+                    "idPeriodeReference", idPeriodeReference,
+                    "statut", "CLOTUREE",
+                    "tauxCalculeCloture", tauxCalcule
+            ));
+        });
     }
 
     @PostMapping("/{idPeriodeReference}/activer-taux")
     @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> activerTauxCalcule(
             @PathVariable int idPeriodeReference,
-            @RequestBody ActiverTauxCalculeRequest request) throws Exception {
+            @RequestBody ActiverTauxCalculeRequest request) {
         if (request == null || request.dateEffet() == null) {
             throw new IllegalArgumentException("dateEffet est obligatoire pour activer le taux.");
         }
 
-        try (Connection c = dataSource.getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                int idTaux = congeTauxApplicableService.activerTauxCalcule(
-                        idPeriodeReference,
-                        request.dateEffet(),
-                        getUserId(),
-                        c
-                );
-                c.commit();
-                return ResponseEntity.ok(Map.of(
-                        "idTauxApplicable", idTaux,
-                        "idPeriodeReference", idPeriodeReference,
-                        "dateEffet", request.dateEffet(),
-                        "sourceProvenance", "CALCUL_PERIODE_REFERENCE"
-                ));
-            } catch (Exception e) {
-                c.rollback();
-                throw e;
-            }
-        }
+        return transactionRunner.required(c -> {
+            int idTaux = congeTauxApplicableService.activerTauxCalcule(
+                    idPeriodeReference,
+                    request.dateEffet(),
+                    CustomUserDetails.getCurrentUserId(),
+                    c
+            );
+            return ResponseEntity.ok(Map.of(
+                    "idTauxApplicable", idTaux,
+                    "idPeriodeReference", idPeriodeReference,
+                    "dateEffet", request.dateEffet(),
+                    "sourceProvenance", "CALCUL_PERIODE_REFERENCE"
+            ));
+        });
     }
 
     @GetMapping("/employe/{idEmploye}/export-excel")
@@ -166,8 +144,8 @@ public class CongePeriodeReferenceController {
         byte[] bytes = congeAnnuelExcelExportService.genererEtatCongesIndividuel(idEmploye, idPeriodeReference);
         String filename = congeAnnuelExcelExportService.obtenirNomFichierExport(idEmploye, idPeriodeReference);
         return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(bytes);
     }
 
@@ -178,9 +156,9 @@ public class CongePeriodeReferenceController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFin) throws Exception {
         byte[] bytes = congeGrandRecapExcelExportService.generer(dateDebut, dateFin);
         return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"GRAND_RECAP_CONGES_" + dateDebut + "_" + dateFin + ".xlsx\"")
-                .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(bytes);
     }
 
@@ -192,8 +170,8 @@ public class CongePeriodeReferenceController {
         byte[] bytes = congeAnnuelExcelExportService.genererEtatCongesIndividuel(idEmploye, idPeriodeReference);
         String filename = congeAnnuelExcelExportService.obtenirNomFichierExport(idEmploye, idPeriodeReference);
         return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(bytes);
     }
 }

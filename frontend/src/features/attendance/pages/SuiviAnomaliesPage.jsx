@@ -392,7 +392,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     return (
         <div className="space-y-4 font-sans animate-in fade-in duration-300">
             <SEO
-                title="Suivi &amp; Anomalies — Pointage | GALAXAM SIRH"
+                title="Suivi &amp; Anomalies — Pointage | GALAXAM GRH"
                 description="Suivi de la progression hebdomadaire, détection proactive et régularisation d'anomalies de pointage."
             />
 
@@ -432,10 +432,10 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                     {/* Site */}
                     <div className="flex items-center gap-1.5 min-w-[200px]">
                         <Building2 size={14} className="text-[var(--color-brand-500)] shrink-0" />
-                        <Select
+                        <SearchSelect
                             value={String(selectedSiteId)}
                             onChange={(val) => {
-                                const sid = Number(val);
+                                const sid = Number(val || 0);
                                 setSelectedSiteId(sid);
                                 setCurrentPage(1);
                                 setSearchParams(prev => {
@@ -449,14 +449,15 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 { value: '0', label: 'Tous les sites (Global)' },
                                 ...sites.map(s => {
                                     const code = s.codeSite || s.code;
-                                    const name = s.libelle || s.nom || '';
+                                    const name = s.libelle || s.nom || s.nomSite || '';
                                     return {
                                         value: String(s.idSite || s.id),
                                         label: code ? `${code} — ${name}` : name
                                     };
                                 })
                             ]}
-                            className="text-xs h-[32px]"
+                            placeholder="Tous les sites (Global)"
+                            className="text-xs min-w-[200px]"
                         />
                     </div>
                 </div>
@@ -654,17 +655,18 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 className="text-xs"
                             />
                         </div>
-                        <Select
+                        <SearchSelect
                             aria-label="Filtrer les anomalies par traitement"
                             value={filterStatutTraitement}
                             onChange={(val) => {
-                                setFilterStatutTraitement(val);
+                                setFilterStatutTraitement(val || 'ALL');
                                 setCurrentPage(1);
                             }}
+                            placeholder="Tous les statuts"
                             options={[
                                 { value: 'ALL', label: 'Tous les statuts' },
-                                { value: 'TODO', label: 'À vérifier / régulariser' },
-                                { value: 'DONE', label: 'Déjà régularisés' },
+                                { value: 'TODO', label: 'TODO — À vérifier / régulariser' },
+                                { value: 'DONE', label: 'DONE — Déjà régularisés' },
                             ]}
                             className="text-xs w-full"
                         />
@@ -684,28 +686,30 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                     {showAdvancedFilters && (
                         <>
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 border-t border-[var(--color-border-subtle)] pt-3">
-                            <Select
+                            <SearchSelect
                                 aria-label="Filtrer par type d'anomalie"
                                 value={filterType}
-                                onChange={(val) => { setFilterType(val); setCurrentPage(1); }}
+                                onChange={(val) => { setFilterType(val || 'ALL'); setCurrentPage(1); }}
+                                placeholder="Tous les types"
                                 options={[
                                     { value: 'ALL', label: 'Tous les types' },
-                                    { value: 'ABSENCE', label: 'Absence non justifiée' },
-                                    { value: 'INCOMPLET', label: 'Pointage incomplet' },
-                                    { value: 'RETARD', label: 'Retards' },
+                                    { value: 'ABSENCE', label: 'ABSENCE — Absence non justifiée' },
+                                    { value: 'INCOMPLET', label: 'INCOMPLET — Pointage incomplet' },
+                                    { value: 'RETARD', label: 'RETARD — Retards' },
                                 ]}
                                 className="text-xs w-full"
                             />
-                            <Select
+                            <SearchSelect
                                 aria-label="Filtrer par sévérité"
                                 value={filterSeverite}
-                                onChange={(val) => { setFilterSeverite(val); setCurrentPage(1); }}
+                                onChange={(val) => { setFilterSeverite(val || 'ALL'); setCurrentPage(1); }}
+                                placeholder="Toutes les sévérités"
                                 options={[
                                     { value: 'ALL', label: 'Toutes les sévérités' },
-                                    { value: 'CRITIQUE', label: 'Critique · bloquante' },
-                                    { value: 'HAUTE', label: 'Élevée' },
-                                    { value: 'MOYENNE', label: 'Moyenne' },
-                                    { value: 'FAIBLE', label: 'Faible' },
+                                    { value: 'CRITIQUE', label: 'CRITIQUE — Critique · bloquante' },
+                                    { value: 'HAUTE', label: 'HAUTE — Élevée' },
+                                    { value: 'MOYENNE', label: 'MOYENNE — Moyenne' },
+                                    { value: 'FAIBLE', label: 'FAIBLE — Faible' },
                                 ]}
                                 className="text-xs w-full"
                             />

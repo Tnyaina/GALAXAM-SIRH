@@ -12,6 +12,8 @@ export default function SiteFerieFormModal({
     sites = [],
     feries = [],
     actionError,
+    fieldErrors = {},
+    setFieldErrors,
     submitting = false,
 }) {
     return (
@@ -31,7 +33,13 @@ export default function SiteFerieFormModal({
                     label="Site d'Exploitation"
                     required
                     value={formData.idSite}
-                    onChange={(e) => setFormData({ ...formData, idSite: e.target.value })}
+                    onChange={(e) => {
+                        setFormData({ ...formData, idSite: e.target.value });
+                        if (fieldErrors.idSite && setFieldErrors) {
+                            setFieldErrors(prev => ({ ...prev, idSite: undefined }));
+                        }
+                    }}
+                    error={fieldErrors.idSite}
                 >
                     <option value="">-- Choisir un site --</option>
                     {sites
@@ -47,7 +55,13 @@ export default function SiteFerieFormModal({
                     label="Jour Férié Régional / Local"
                     required
                     value={formData.idFerie}
-                    onChange={(e) => setFormData({ ...formData, idFerie: e.target.value })}
+                    onChange={(e) => {
+                        setFormData({ ...formData, idFerie: e.target.value });
+                        if (fieldErrors.idFerie && setFieldErrors) {
+                            setFieldErrors(prev => ({ ...prev, idFerie: undefined }));
+                        }
+                    }}
+                    error={fieldErrors.idFerie}
                 >
                     <option value="">-- Choisir un jour férié --</option>
                     {feries

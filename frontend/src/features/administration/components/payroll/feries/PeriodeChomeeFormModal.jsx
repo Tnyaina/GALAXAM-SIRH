@@ -15,6 +15,8 @@ export default function PeriodeChomeeFormModal({
     setFormData,
     sites,
     actionError,
+    fieldErrors = {},
+    setFieldErrors,
     submitting = false
 }) {
     // Effet : garde l'initialisation au niveau du parent du formulaire.
@@ -30,6 +32,9 @@ export default function PeriodeChomeeFormModal({
     // Actions utilisateur
     const handleChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
+        if (fieldErrors[field] && setFieldErrors) {
+            setFieldErrors(prev => ({ ...prev, [field]: undefined }));
+        }
     };
 
     // Rendu
@@ -56,6 +61,7 @@ export default function PeriodeChomeeFormModal({
                     placeholder="Ex : Cyclone XYZ, Inondation, Alerte météorologique..."
                     value={formData.libelle}
                     onChange={(e) => handleChange('libelle', e.target.value)}
+                    error={fieldErrors.libelle}
                     required
                 />
 
@@ -65,6 +71,7 @@ export default function PeriodeChomeeFormModal({
                         type="date"
                         value={formData.dateDebut}
                         onChange={(e) => handleChange('dateDebut', e.target.value)}
+                        error={fieldErrors.dateDebut}
                         required
                     />
                     <Input

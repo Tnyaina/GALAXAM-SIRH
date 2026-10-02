@@ -259,7 +259,7 @@ export default function CarrieresSupervisionPage() {
     return (
         <div className="space-y-3.5 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full font-sans pb-16">
             <SEO
-                title="Supervision Contrats & Carrières | GALAXAM SIRH"
+                title="Supervision Contrats & Carrières | GALAXAM GRH"
                 description="Pilotage centralisé des contrats, périodes d'essai, mouvements et évolutions de carrière."
             />
 

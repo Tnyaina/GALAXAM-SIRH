@@ -335,7 +335,7 @@ export default function AnomalieRegularisationModal({
                 <div className="flex items-center justify-between w-full">
                     <div className="text-xs text-[var(--color-fg-muted)] flex items-center gap-1.5">
                         <Shield className="w-4 h-4 text-[var(--color-fg-muted)]" />
-                        <span>Traçabilité SIRH &amp; conformité</span>
+                        <span>Traçabilité GRH &amp; conformité</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <Button 

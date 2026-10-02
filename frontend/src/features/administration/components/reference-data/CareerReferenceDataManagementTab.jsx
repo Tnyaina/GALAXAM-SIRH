@@ -24,7 +24,8 @@ export default function CareerReferenceDataManagementTab({ section = 'categories
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [modalError, setModalError] = useState('');
-    const toast = useToast();
+    const [fieldErrors, setFieldErrors] = useState({});
+    const { toast } = useToast();
     const submitLock = useRef(false);
 
     const [showModalCp, setShowModalCp] = useState(false);
@@ -64,6 +65,7 @@ export default function CareerReferenceDataManagementTab({ section = 'categories
             actif: cp.actif !== undefined ? cp.actif : true
         });
         setModalError('');
+        setFieldErrors({});
         setShowModalCp(true);
     };
 
@@ -72,10 +74,19 @@ export default function CareerReferenceDataManagementTab({ section = 'categories
         if (submitLock.current || submitting) return;
         setModalError(null);
 
-        if (!formDataCp.code.trim() || !formDataCp.libelle.trim()) {
-            setModalError('Le code et le libellé sont obligatoires.');
+        const errors = {};
+        if (!formDataCp.code.trim()) {
+            errors.code = "Le code de la catégorie est obligatoire.";
+        }
+        if (!formDataCp.libelle.trim()) {
+            errors.libelle = "L'intitulé est obligatoire.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
             return;
         }
+        setFieldErrors({});
 
         if (!selectedCp) return;
 
@@ -83,7 +94,7 @@ export default function CareerReferenceDataManagementTab({ section = 'categories
         setSubmitting(true);
         try {
             await contratService.updateCategoriePro(selectedCp.idCategorieProfessionnelle, formDataCp);
-            toast.success(`Catégorie "${formDataCp.libelle}" modifiée avec succès.`);
+            toast({ title: 'Succès', message: `Catégorie "${formDataCp.libelle}" modifiée avec succès.`, type: 'success' });
             setShowModalCp(false);
             loadData();
         } catch (err) {
@@ -157,7 +168,7 @@ export default function CareerReferenceDataManagementTab({ section = 'categories
                                         </Badge>
                                     </Td>
                                     <Td className="text-right">
-                                        <Button variant="ghost" className="min-h-[44px] min-w-[44px]"
+                                        <Button variant="ghost" className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
                                             onClick={() => handleOpenEditCp(cp)}
                                             title="Modifier la catégorie"
                                             aria-label={`Modifier ${cp.libelle}`}
@@ -256,14 +267,22 @@ export default function CareerReferenceDataManagementTab({ section = 'categories
                         required
                         disabled
                         value={formDataCp.code}
-                        onChange={e => setFormDataCp({ ...formDataCp, code: e.target.value.toUpperCase() })}
+                        error={fieldErrors.code}
+                        onChange={e => {
+                            setFormDataCp({ ...formDataCp, code: e.target.value.toUpperCase() });
+                            if (fieldErrors.code) setFieldErrors(prev => ({ ...prev, code: undefined }));
+                        }}
                         placeholder="Ex: CADRE, AM, EMP, OUV"
                     />
                     <Input
                         label="Intitulé / Libellé"
                         required
                         value={formDataCp.libelle}
-                        onChange={e => setFormDataCp({ ...formDataCp, libelle: e.target.value })}
+                        error={fieldErrors.libelle}
+                        onChange={e => {
+                            setFormDataCp({ ...formDataCp, libelle: e.target.value });
+                            if (fieldErrors.libelle) setFieldErrors(prev => ({ ...prev, libelle: undefined }));
+                        }}
                         placeholder="Ex: Cadre Supérieur, Agent de Maîtrise..."
                     />
                     <Textarea

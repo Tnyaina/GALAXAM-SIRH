@@ -53,7 +53,7 @@ export default function PayrollCampaignShell({
     return (
         <div className="flex-1 flex flex-col min-h-full max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-6">
             <SEO
-                title={`${title || 'Campagne de Paie'} | GALAXAM SIRH`}
+                title={`${title || 'Campagne de Paie'} | GALAXAM GRH`}
                 description="Workflow de campagne de paie strict et guidé par le backend."
             />
 
@@ -125,7 +125,7 @@ export default function PayrollCampaignShell({
                                         navigate(`/paie/periodes/${newId}/${stepSegment}`);
                                     }
                                 }}
-                                className="w-56"
+                                className="w-64 sm:w-72 min-w-[260px]"
                                 options={periodes.map(p => {
                                     const pId = p.idPeriodePaie || p.id_periode_paie || p.id;
                                     return {

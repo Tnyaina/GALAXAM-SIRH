@@ -4,7 +4,7 @@ import { getErrorMessage } from '@/api/apiClient';
 import { 
   formatDateForInput, 
   isDateAnterieure
-} from '@/features/leave/utils/congeBusinessRules';
+} from '@/utils/dateUtils';
 
 export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDateDebut, initialDateFin, referentiels, isOpen, onClose, onSuccess }) {
   // État local : formulaire, dérogations, simulation et validation.

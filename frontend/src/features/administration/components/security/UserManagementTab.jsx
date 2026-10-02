@@ -26,8 +26,9 @@ export default function UserManagementTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [modalError, setModalError] = useState(null);
+    const [fieldErrors, setFieldErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
-    const toast = useToast();
+    const { toast } = useToast();
 
     // États pour les modales
     const [showUserModal, setShowUserModal] = useState(false);
@@ -89,6 +90,7 @@ export default function UserManagementTab() {
         });
         setShowPassword(false);
         setModalError(null);
+        setFieldErrors({});
         setShowUserModal(true);
     };
 
@@ -102,6 +104,7 @@ export default function UserManagementTab() {
         });
         setShowPassword(false);
         setModalError(null);
+        setFieldErrors({});
         setShowUserModal(true);
     };
 
@@ -109,6 +112,7 @@ export default function UserManagementTab() {
         setSelectedUser(user);
         setDeactivateMotif('');
         setModalError(null);
+        setFieldErrors({});
         setShowDeactivateModal(true);
     };
 
@@ -117,31 +121,32 @@ export default function UserManagementTab() {
         if (submitting) return;
         setModalError(null);
 
+        const errors = {};
         if (!formData.identifiant.trim()) {
-            setModalError("L'identifiant est obligatoire.");
-            return;
+            errors.identifiant = "L'identifiant est obligatoire.";
         }
 
         if (!selectedUser) {
             if (!formData.motDePasse) {
-                setModalError("Le mot de passe est obligatoire pour la création.");
-                return;
-            }
-            if (formData.motDePasse !== formData.confirmPassword) {
-                setModalError("La confirmation du mot de passe ne correspond pas.");
-                return;
+                errors.motDePasse = "Le mot de passe est obligatoire pour la création.";
+            } else if (formData.motDePasse !== formData.confirmPassword) {
+                errors.confirmPassword = "La confirmation du mot de passe ne correspond pas.";
             }
         } else {
             if (formData.motDePasse && formData.motDePasse !== formData.confirmPassword) {
-                setModalError("La confirmation du mot de passe ne correspond pas.");
-                return;
+                errors.confirmPassword = "La confirmation du mot de passe ne correspond pas.";
             }
         }
 
         if (!formData.idRole) {
-            setModalError("Veuillez sélectionner un rôle.");
+            errors.idRole = "Veuillez sélectionner un rôle.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
             return;
         }
+        setFieldErrors({});
 
         setSubmitting(true);
         try {
@@ -200,7 +205,7 @@ export default function UserManagementTab() {
         setConfirmState({
             isOpen: true,
             title: `Réactiver l'utilisateur "${user.identifiant}" ?`,
-            message: `Le collaborateur pourra de nouveau se connecter au portail SIRH avec ses identifiants habituels.`,
+            message: `Le collaborateur pourra de nouveau se connecter au portail GRH avec ses identifiants habituels.`,
             confirmLabel: "Réactiver le compte",
             variant: "primary",
             loading: false,
@@ -358,7 +363,11 @@ export default function UserManagementTab() {
                         disabled={!!selectedUser}
                         autoComplete="username"
                         value={formData.identifiant}
-                        onChange={(e) => setFormData({ ...formData, identifiant: e.target.value })}
+                        error={fieldErrors.identifiant}
+                        onChange={(e) => {
+                            setFormData({ ...formData, identifiant: e.target.value });
+                            if (fieldErrors.identifiant) setFieldErrors(prev => ({ ...prev, identifiant: undefined }));
+                        }}
                         placeholder="Ex: prenom.nom"
                     />
                     <div className="space-y-1">
@@ -368,7 +377,11 @@ export default function UserManagementTab() {
                             autoComplete="new-password"
                             required={!selectedUser}
                             value={formData.motDePasse}
-                            onChange={(e) => setFormData({ ...formData, motDePasse: e.target.value })}
+                            error={fieldErrors.motDePasse}
+                            onChange={(e) => {
+                                setFormData({ ...formData, motDePasse: e.target.value });
+                                if (fieldErrors.motDePasse) setFieldErrors(prev => ({ ...prev, motDePasse: undefined }));
+                            }}
                             placeholder="Mot de passe confidentiel"
                             iconRight={
                                 <button
@@ -387,14 +400,22 @@ export default function UserManagementTab() {
                         autoComplete="new-password"
                         required={!selectedUser && !!formData.motDePasse}
                         value={formData.confirmPassword}
-                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                        error={fieldErrors.confirmPassword}
+                        onChange={(e) => {
+                            setFormData({ ...formData, confirmPassword: e.target.value });
+                            if (fieldErrors.confirmPassword) setFieldErrors(prev => ({ ...prev, confirmPassword: undefined }));
+                        }}
                         placeholder="Répétez le mot de passe"
                     />
                     <Select
                         label="Rôle et Habilitations"
                         required
                         value={formData.idRole}
-                        onChange={(e) => setFormData({ ...formData, idRole: e.target.value })}
+                        error={fieldErrors.idRole}
+                        onChange={(e) => {
+                            setFormData({ ...formData, idRole: e.target.value });
+                            if (fieldErrors.idRole) setFieldErrors(prev => ({ ...prev, idRole: undefined }));
+                        }}
                     >
                         <option value="">-- Sélectionner un rôle --</option>
                         {roles.map((role) => (
@@ -428,7 +449,7 @@ export default function UserManagementTab() {
                     {modalError && <FormError message={modalError} />}
                     <p className="text-sm text-[var(--color-fg-muted)]">
                         Vous vous apprêtez à désactiver le compte de <strong className="text-[var(--color-fg)]">{selectedUser?.identifiant}</strong>. 
-                        L'utilisateur ne pourra plus s'authentifier sur le SIRH.
+                        L'utilisateur ne pourra plus s'authentifier sur le GRH.
                     </p>
                     <Textarea
                         label="Motif de la désactivation (Obligatoire pour audit)"

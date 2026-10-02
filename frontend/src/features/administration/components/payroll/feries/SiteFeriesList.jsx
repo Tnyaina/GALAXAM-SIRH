@@ -23,9 +23,11 @@ export default function SiteFeriesList({
                         Jours fériés spécifiques aux fêtes patronales ou régionales par site d'exploitation
                     </p>
                 </div>
-                <Button onClick={onOpenCreate} variant="primary" size="sm" iconLeft={<Plus size={16} />}>
-                    Affecter Férié à un Site
-                </Button>
+                {siteFeries.length > 0 && (
+                    <Button onClick={onOpenCreate} variant="primary" size="sm" iconLeft={<Plus size={16} />}>
+                        Affecter Férié à un Site
+                    </Button>
+                )}
             </div>
 
             {siteFeries.length === 0 ? (
@@ -68,8 +70,9 @@ export default function SiteFeriesList({
                                 <Td className="text-right">
                                     <button
                                         onClick={() => onDelete(sf.idSiteFerie)}
-                                        className="p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer"
+                                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
                                         title="Supprimer l'association"
+                                        aria-label={`Supprimer association ${sf.siteLibelle || sf.idSite} et ${sf.ferieLibelle || sf.ferieDate}`}
                                     >
                                         <Trash2 size={15} />
                                     </button>

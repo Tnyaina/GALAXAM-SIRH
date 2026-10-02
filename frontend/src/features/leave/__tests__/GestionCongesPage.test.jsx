@@ -100,6 +100,9 @@ describe('Supervision des congés', () => {
       onRefresh={vi.fn()} onNewDemande={vi.fn()} />));
     expect(host.textContent).toContain('À décider');
     expect(host.textContent).toContain('Approuvée');
-    expect(host.querySelector('option[value="9"]')?.textContent).toBe('Congé spécial');
+    const trigger = [...host.querySelectorAll('button')].find(b => b.textContent.includes("Tous les types d'absence"));
+    expect(trigger).toBeTruthy();
+    await act(async () => trigger.click());
+    expect(host.textContent).toContain('Congé spécial');
   });
 });

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
-import ReferentielsRhTab from '../components/structure/ReferentielsRhTab';
+import ReferentielsRhTab from '../components/tabs/ReferentielsRhTab';
 import organisationService from '../api/organisationService';
 
 vi.mock('../api/organisationService', () => ({

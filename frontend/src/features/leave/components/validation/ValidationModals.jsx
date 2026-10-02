@@ -1,17 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Check, X, FileText, XSquare, Pencil, AlertTriangle, Calculator, Minus, Equal } from 'lucide-react';
-import Badge from '@/components/ui/data-display/Badge';
-import StatusBadge from '@/components/ui/data-display/StatusBadge';
+import { XSquare, AlertTriangle, Calculator } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
 import { Textarea, Checkbox } from '@/components/ui/forms/Input';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Modal from '@/components/ui/overlays/Modal';
-import { fmtDate } from '@/utils/dateUtils';
 import congeService from '@/features/leave/api/congeService';
-
-const formatDate = (ts) => fmtDate(ts);
+import DemandeDetailsModal from '@/features/leave/components/DemandeDetailsModal';
 
 export default function ValidationModals({
   selectedDemande,
@@ -101,200 +97,21 @@ export default function ValidationModals({
   const soldeAvant = soldeEmploye?.soldeRestant ?? soldeEmploye?.soldeActuel ?? selectedDemande?.soldeRestant ?? selectedDemande?.soldeActuel ?? null;
   const joursDebites = simulation?.joursDebites ?? null;
   const soldeApres = simulation?.soldeApres ?? null;
-  const prefixeRegularisation = '[REGULARISATION_POINTAGE]';
-  const estRegularisationPointage = selectedDemande?.commentaire?.startsWith(prefixeRegularisation) || false;
-  const commentaireAffiche = selectedDemande?.commentaire
-    ?.replace(/^\[REGULARISATION_POINTAGE\]\s*/i, '')
-    .trim();
 
   // Rendu
   return (
     <>
-      {/* ── Modal : Detail demande ─────────────────────────────────────────── */}
-      <Modal
-        isOpen={showDetailModal && !!selectedDemande}
+      {/* ── Modal : Detail demande (Délégué au composant unifié) ─────────── */}
+      <DemandeDetailsModal
+        isOpen={Boolean(showDetailModal && selectedDemande)}
         onClose={onCloseDetail}
-        title={`Demande de congé #${selectedDemande?.idDemandeConge || ''}`}
-        icon={<FileText size={20} />}
-        size="xl"
-        footer={
-          selectedDemande ? (
-            <div className="flex w-full flex-wrap items-center justify-end gap-2">
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                {selectedDemande.availableActions?.CANCEL?.allowed === true && onOpenAnnuler && (
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    iconLeft={<X size={14} />}
-                    onClick={() => {
-                      onCloseDetail();
-                      onOpenAnnuler(selectedDemande);
-                    }}
-                  >
-                    Annuler ce congé
-                  </Button>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {selectedDemande?.availableActions?.MODIFY_DATES?.allowed === true && onOpenModifier && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    iconLeft={<Pencil size={14} />}
-                    onClick={() => {
-                      onCloseDetail();
-                      onOpenModifier(selectedDemande);
-                    }}
-                  >
-                    Modifier les dates
-                  </Button>
-                )}
+        selectedDemande={selectedDemande}
+        onOpenValider={onOpenValider}
+        onOpenRefus={onOpenRefus}
+        onOpenModifier={onOpenModifier}
+        onOpenAnnuler={onOpenAnnuler}
+      />
 
-                {selectedDemande?.availableActions?.APPROVE?.allowed === true && (
-                  <>
-                    {selectedDemande.availableActions?.EDIT?.allowed === true && <Button
-                      variant="outline"
-                      size="sm"
-                      iconLeft={<Pencil size={14} />}
-                      onClick={() => {
-                        onCloseDetail();
-                        if (onOpenModifier) onOpenModifier(selectedDemande);
-                      }}
-                    >
-                      Modifier
-                    </Button>}
-                    {selectedDemande.availableActions?.REJECT?.allowed === true && <Button
-                      variant="danger"
-                      size="sm"
-                      iconLeft={<X size={14} />}
-                      onClick={() => {
-                        onCloseDetail();
-                        if (onOpenRefus) onOpenRefus(selectedDemande);
-                      }}
-                    >
-                      Refuser
-                    </Button>}
-                    <Button
-                      variant="success"
-                      size="sm"
-                      iconLeft={<Check size={14} />}
-                      onClick={() => {
-                        onCloseDetail();
-                        if (onOpenValider) onOpenValider(selectedDemande);
-                      }}
-                    >
-                      Valider
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
-          ) : null
-        }
-      >
-        {selectedDemande && (
-          <div className="space-y-5">
-            {/* Identité + statut */}
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3">
-              <div className="min-w-0">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Collaborateur</span>
-                <h3 className="text-base font-bold text-[var(--color-fg)]">
-                  {`${selectedDemande.prenom || ''} ${selectedDemande.nom || ''}`.trim() || `Employé ${selectedDemande.idEmploye}`}
-                </h3>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  {selectedDemande.matricule && <span className="text-xs text-[var(--color-fg-subtle)] font-data">Matricule {selectedDemande.matricule}</span>}
-                  <span className="text-xs font-medium text-[var(--color-fg-muted)]">{selectedDemande.libelleTypeConge || selectedDemande.codeTypeConge}</span>
-                  {estRegularisationPointage && <Badge variant="warning" size="xs">Régularisation de pointage</Badge>}
-                </div>
-              </div>
-              <StatusBadge
-                status={selectedDemande.codeStatutDemande}
-                label={selectedDemande.libelleStatutDemande}
-                size="md"
-              />
-            </div>
-
-            {/* Grille dates */}
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-              {[
-                ['Date de début',      formatDate(selectedDemande.dateDebut)],
-                ['Date de fin',        formatDate(selectedDemande.dateFin)],
-                ['Jours décomptés', selectedDemande.estDemiJournee ? `0,5 jour (${selectedDemande.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'})` : `${selectedDemande.nbJoursDecomptes} jours`],
-                ['Date de soumission', formatDate(selectedDemande.dateDemande)],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">{label}</span>
-                  <p className="font-data text-sm font-semibold text-[var(--color-fg)] mt-0.5">{value}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Motif familial */}
-            {selectedDemande.libelleMotifEvenement && (
-              <div className="p-3 border border-warning-500/30 bg-warning-500/5 text-xs text-warning-600 dark:text-warning-400 font-semibold">
-                Motif d'événement familial : {selectedDemande.libelleMotifEvenement}
-              </div>
-            )}
-
-            {/* Commentaire */}
-            {commentaireAffiche && (
-              <div className="space-y-1 pt-2 border-t border-[var(--color-border-subtle)]">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Commentaire de l'employé</span>
-                <p className="text-xs text-[var(--color-fg)] bg-[var(--color-bg-subtle)] p-3 rounded-none border border-[var(--color-border-subtle)]">
-                  {commentaireAffiche}
-                </p>
-              </div>
-            )}
-
-            <section aria-label="Vérification du solde de congés payés" className="space-y-2 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 text-xs">
-              <h4 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                <Calculator size={13} className="text-[var(--color-brand-500)]" /> Vérification du solde
-              </h4>
-              <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
-                  <span className="block text-[10px] text-[var(--color-fg-muted)]">Solde avant</span>
-                  <span className="font-mono text-xs font-bold text-[var(--color-fg)]">{soldeAvant != null ? `${Number(soldeAvant).toFixed(2)} j` : 'Non calculé'}</span>
-                </div>
-                <Minus size={14} className="hidden text-[var(--color-fg-muted)] sm:block" aria-hidden="true" />
-                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
-                  <span className="block text-[10px] text-[var(--color-fg-muted)]">Jours débités</span>
-                  <span className="font-mono text-xs font-bold text-[var(--color-danger-600)]">{joursDebites != null ? `${Number(joursDebites).toFixed(2)} j` : 'Non calculé'}</span>
-                </div>
-                <Equal size={14} className="hidden text-[var(--color-fg-muted)] sm:block" aria-hidden="true" />
-                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
-                  <span className="block text-[10px] text-[var(--color-fg-muted)]">Solde après</span>
-                  <span className={`font-mono text-xs font-bold ${soldeApres != null && soldeApres < 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
-                    {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : 'Non calculé'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-[var(--color-border-subtle)] pt-2 text-[11px] text-[var(--color-fg-subtle)]">
-                <span>Jours demandés : <strong className="font-mono text-[var(--color-fg)]">{Number(joursDemandes).toFixed(2)} j</strong></span>
-                <span>Impact Paie : <strong>{estRemunere ? 'Congé Rémunéré (TCONGE valorisé)' : 'Sans Solde (Retenue absence)'}</strong></span>
-                {soldeEmploye?.tauxJournalierConge && (
-                  <span>TCONGE : <strong className="font-mono">{Number(soldeEmploye.tauxJournalierConge).toLocaleString('fr-FR')} Ar/j</strong></span>
-                )}
-              </div>
-            </section>
-
-            {/* Justificatif */}
-            <div className="flex items-center gap-2 pt-2 border-t border-[var(--color-border-subtle)]">
-              <span className="text-xs font-bold text-[var(--color-fg-muted)]">Justificatif fourni :</span>
-              <Badge variant={selectedDemande.justificatifFourni ? 'success' : 'neutral'} size="sm">
-                {selectedDemande.justificatifFourni ? 'Oui' : 'Non'}
-              </Badge>
-            </div>
-
-            {/* Motif de refus si refusé */}
-            {Boolean(selectedDemande.isRefuse ?? (selectedDemande.codeStatutDemande === 'REFUSE')) && selectedDemande.motifRefus && (
-              <div className="p-3 border border-danger-500/30 bg-danger-500/5 space-y-1">
-                <span className="text-xs font-bold text-danger-500 uppercase tracking-wider">Motif de refus</span>
-                <p className="text-xs text-danger-600 dark:text-danger-400 font-medium">{selectedDemande.motifRefus}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
 
       {/* ── Confirmation validation ────────────────────────────────────────── */}
       <ConfirmDialog

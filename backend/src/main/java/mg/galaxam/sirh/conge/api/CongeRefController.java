@@ -5,6 +5,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.common.exception.SirhBusinessException;
+import mg.galaxam.sirh.common.exception.SirhErrorCode;
+import mg.galaxam.sirh.common.exception.SirhExceptionTranslator;
 import mg.galaxam.sirh.conge.persistence.RefMotifEvenementFamilial;
 import mg.galaxam.sirh.conge.persistence.RefPoolCongeAnnuel;
 import mg.galaxam.sirh.conge.persistence.RefStatutDemandeConge;
@@ -16,10 +19,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,8 +46,7 @@ public class CongeRefController {
             result.put("parametresGlobal", ParametreGlobal.listByCategorie("CONGE", c));
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+            throw SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -55,8 +57,7 @@ public class CongeRefController {
             List<RefTypeConge> list = RefTypeConge.listAll(c, actifUniquement);
             return ResponseEntity.ok(list);
         } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+            throw SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -67,8 +68,7 @@ public class CongeRefController {
             List<RefMotifEvenementFamilial> list = RefMotifEvenementFamilial.listAll(c, actifUniquement);
             return ResponseEntity.ok(list);
         } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+            throw SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -79,8 +79,7 @@ public class CongeRefController {
             List<RefPoolCongeAnnuel> list = RefPoolCongeAnnuel.listAll(c);
             return ResponseEntity.ok(list);
         } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+            throw SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -91,8 +90,7 @@ public class CongeRefController {
             List<RefStatutDemandeConge> list = RefStatutDemandeConge.listAll(c);
             return ResponseEntity.ok(list);
         } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+            throw SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -108,10 +106,9 @@ public class CongeRefController {
             typeConge.save(c);
             return ResponseEntity.status(HttpStatus.CREATED).body(typeConge);
         } catch (IllegalArgumentException e) {
-            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, e.getMessage());
         } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+            throw SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -121,17 +118,16 @@ public class CongeRefController {
         try (Connection c = dataSource.getConnection()) {
             RefTypeConge existant = RefTypeConge.rechercherParId(id, c);
             if (existant == null) {
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Type de congé introuvable.");
+                throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "Type de congé introuvable.");
             }
             typeConge.setIdTypeConge(id);
             typeConge.controler(c);
             typeConge.update(c);
             return ResponseEntity.ok(typeConge);
         } catch (IllegalArgumentException e) {
-            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, e.getMessage());
         } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+            throw SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -147,14 +143,13 @@ public class CongeRefController {
         try (Connection c = dataSource.getConnection()) {
             RefTypeConge existant = RefTypeConge.rechercherParId(id, c);
             if (existant == null) {
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Type de congé introuvable.");
+                throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "Type de congé introuvable.");
             }
             existant.setEstActif(false);
-            existant.update(c); // On fait une désactivation logique (soft delete)
+            existant.update(c);
             return ResponseEntity.ok(existant);
         } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+            throw SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -164,14 +159,13 @@ public class CongeRefController {
         try (Connection c = dataSource.getConnection()) {
             RefTypeConge existant = RefTypeConge.rechercherParId(id, c);
             if (existant == null) {
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Type de congé introuvable.");
+                throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "Type de congé introuvable.");
             }
             existant.setEstActif(true);
             existant.update(c);
             return ResponseEntity.ok(existant);
         } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+            throw SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -187,10 +181,9 @@ public class CongeRefController {
             motif.save(c);
             return ResponseEntity.status(HttpStatus.CREATED).body(motif);
         } catch (IllegalArgumentException e) {
-            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, e.getMessage());
         } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+            throw SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -200,17 +193,16 @@ public class CongeRefController {
         try (Connection c = dataSource.getConnection()) {
             RefMotifEvenementFamilial existant = RefMotifEvenementFamilial.rechercherParId(id, c);
             if (existant == null) {
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Motif familial introuvable.");
+                throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "Motif familial introuvable.");
             }
             motif.setIdMotif(id);
             motif.controler(c);
             motif.update(c);
             return ResponseEntity.ok(motif);
         } catch (IllegalArgumentException e) {
-            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, e.getMessage());
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, e.getMessage());
         } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+            throw SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -226,14 +218,13 @@ public class CongeRefController {
         try (Connection c = dataSource.getConnection()) {
             RefMotifEvenementFamilial existant = RefMotifEvenementFamilial.rechercherParId(id, c);
             if (existant == null) {
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Motif familial introuvable.");
+                throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "Motif familial introuvable.");
             }
             existant.setEstActif(false);
-            existant.update(c); // Désactivation logique
+            existant.update(c);
             return ResponseEntity.ok(existant);
         } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+            throw SirhExceptionTranslator.propagate(e);
         }
     }
 
@@ -243,14 +234,13 @@ public class CongeRefController {
         try (Connection c = dataSource.getConnection()) {
             RefMotifEvenementFamilial existant = RefMotifEvenementFamilial.rechercherParId(id, c);
             if (existant == null) {
-                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Motif familial introuvable.");
+                throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND, "Motif familial introuvable.");
             }
             existant.setEstActif(true);
             existant.update(c);
             return ResponseEntity.ok(existant);
         } catch (Exception e) {
-            e.printStackTrace();
-            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+            throw SirhExceptionTranslator.propagate(e);
         }
     }
 }

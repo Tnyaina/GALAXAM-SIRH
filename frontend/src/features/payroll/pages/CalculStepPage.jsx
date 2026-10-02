@@ -202,7 +202,7 @@ export default function CalculStepPage() {
             subtitle="Vérifiez les autorisations de la campagne, lancez une simulation ou calculez les bulletins."
         >
             <SEO
-                title="Calcul de la paie | GALAXAM SIRH"
+                title="Calcul de la paie | GALAXAM GRH"
                 description="Calcul et simulation du moteur de paie GALAXAM."
             />
 

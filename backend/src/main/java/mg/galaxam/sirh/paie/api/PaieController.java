@@ -15,6 +15,12 @@ import mg.galaxam.sirh.paie.application.workflow.PayrollAction;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
 import mg.galaxam.sirh.paie.application.export.PaieExportService;
+import mg.galaxam.sirh.paie.application.export.BulletinDocumentService;
+import mg.galaxam.sirh.paie.application.export.GrandLivrePaieExportService;
+import mg.galaxam.sirh.paie.application.export.IrsaExcelExportService;
+import mg.galaxam.sirh.paie.application.export.EtatSocialMensuelExportService;
+import mg.galaxam.sirh.paie.application.export.QuarterlySocialDataService;
+import mg.galaxam.sirh.paie.application.export.QuarterlySocialWorkbookService;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -43,15 +49,33 @@ public class PaieController {
     private final DataSource dataSource;
     private final PayrollService payrollService;
     private final PaieExportService paieExportService;
+    private final BulletinDocumentService bulletinDocumentService;
+    private final GrandLivrePaieExportService grandLivrePaieExportService;
+    private final IrsaExcelExportService irsaExcelExportService;
+    private final EtatSocialMensuelExportService etatSocialMensuelExportService;
+    private final QuarterlySocialDataService quarterlySocialDataService;
+    private final QuarterlySocialWorkbookService quarterlySocialWorkbookService;
     private final PayrollPeriodWorkflowService payrollPeriodWorkflowService;
 
     public PaieController(DataSource dataSource,
                           PayrollService payrollService,
                           PaieExportService paieExportService,
+                          BulletinDocumentService bulletinDocumentService,
+                          GrandLivrePaieExportService grandLivrePaieExportService,
+                          IrsaExcelExportService irsaExcelExportService,
+                          EtatSocialMensuelExportService etatSocialMensuelExportService,
+                          QuarterlySocialDataService quarterlySocialDataService,
+                          QuarterlySocialWorkbookService quarterlySocialWorkbookService,
                           PayrollPeriodWorkflowService payrollPeriodWorkflowService) {
         this.dataSource = dataSource;
         this.payrollService = payrollService;
         this.paieExportService = paieExportService;
+        this.bulletinDocumentService = bulletinDocumentService;
+        this.grandLivrePaieExportService = grandLivrePaieExportService;
+        this.irsaExcelExportService = irsaExcelExportService;
+        this.etatSocialMensuelExportService = etatSocialMensuelExportService;
+        this.quarterlySocialDataService = quarterlySocialDataService;
+        this.quarterlySocialWorkbookService = quarterlySocialWorkbookService;
         this.payrollPeriodWorkflowService = payrollPeriodWorkflowService;
     }
 
@@ -111,6 +135,34 @@ public class PaieController {
                         "Bulletin de paie introuvable.");
             }
             return ResponseEntity.ok(bp);
+        }
+    }
+
+    @GetMapping("/bulletin/{id}/document/{format}")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> telechargerBulletin(@PathVariable("id") Integer idBulletin,
+                                                       @PathVariable String format) throws Exception {
+        if (!"pdf".equals(format) && !"xlsx".equals(format)) {
+            return ResponseEntity.badRequest().build();
+        }
+        try (Connection c = dataSource.getConnection()) {
+            BulletinPaieComplet complet = payrollService.obtenirBulletinComplet(idBulletin, c);
+            if (complet == null) {
+                throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_NOT_FOUND,
+                        "Bulletin de paie introuvable.");
+            }
+            var documentContext = bulletinDocumentService.context(complet, c);
+            byte[] bytes = "pdf".equals(format)
+                    ? bulletinDocumentService.pdf(complet, documentContext)
+                    : bulletinDocumentService.excel(complet, documentContext);
+            String filename = BulletinDocumentService.buildExportFilename(complet.getBulletin(), documentContext, format);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"" + filename + "\"")
+                    .contentType(MediaType.parseMediaType("pdf".equals(format)
+                            ? "application/pdf"
+                            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(bytes);
         }
     }
 
@@ -200,6 +252,98 @@ public class PaieController {
     // =========================================================================
     // RESTITUTIONS & EXPORTS OFFICIELS (SAFI 25 COL, EDI ISI XML, DNTS, VIREMENT)
     // =========================================================================
+
+    @GetMapping("/periode/{idPeriode}/export/grand-livre")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> telechargerGrandLivre(@PathVariable Integer idPeriode,
+                                                         Authentication authentication) throws Exception {
+        requireOutput(idPeriode, authentication);
+        try (Connection connection = dataSource.getConnection()) {
+            var result = grandLivrePaieExportService.export(idPeriode, connection);
+            String periodCode = result.periodCode().replaceAll("[^a-zA-Z0-9_-]", "_");
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"Grand_Livre_Paie_" + periodCode + ".xlsx\"")
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(result.bytes());
+        }
+    }
+
+    @GetMapping("/periode/{idPeriode}/export/irsa-excel")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> telechargerIrsaExcel(@PathVariable Integer idPeriode,
+                                                        Authentication authentication) throws Exception {
+        requireOutput(idPeriode, authentication);
+        try (Connection connection = dataSource.getConnection()) {
+            var result = irsaExcelExportService.export(idPeriode, connection);
+            String periodCode = result.periodCode().replaceAll("[^a-zA-Z0-9_-]", "_");
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"Etat_IRSA_" + periodCode + ".xls\"")
+                    .contentType(MediaType.parseMediaType("application/vnd.ms-excel"))
+                    .body(result.bytes());
+        }
+    }
+
+    @GetMapping("/periode/{idPeriode}/export/etat-social")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> telechargerEtatSocial(@PathVariable Integer idPeriode,
+                                                         Authentication authentication) throws Exception {
+        requireOutput(idPeriode, authentication);
+        try (Connection connection = dataSource.getConnection()) {
+            var result = etatSocialMensuelExportService.export(idPeriode, connection);
+            String periodCode = result.periodCode().replaceAll("[^a-zA-Z0-9_-]", "_");
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"Etat_Social_Mensuel_" + periodCode + ".xlsx\"")
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(result.bytes());
+        }
+    }
+
+    @GetMapping("/trimestre/{annee}/{trimestre}/export/{type}")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> telechargerEtatSocialTrimestriel(@PathVariable int annee,
+                                                                     @PathVariable int trimestre,
+                                                                     @PathVariable String type) throws Exception {
+        if (!List.of("consolidation", "cnaps", "fmfp", "ostie", "omsi").contains(type)) {
+            return ResponseEntity.badRequest().build();
+        }
+        try (Connection connection = dataSource.getConnection()) {
+            var data = quarterlySocialDataService.load(annee, trimestre, connection);
+            byte[] bytes = quarterlySocialWorkbookService.render(data, type);
+            String extension = "fmfp".equals(type) ? "xls" : "xlsx";
+            String filename = ("consolidation".equals(type) ? "Consolidation_Sociale" : "Modele_" + type.toUpperCase(java.util.Locale.ROOT))
+                    + "_T" + trimestre + "_" + annee + "." + extension;
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .contentType(MediaType.parseMediaType("xls".equals(extension)
+                            ? "application/vnd.ms-excel"
+                            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(bytes);
+        } catch (IllegalStateException error) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT, error.getMessage(), error);
+        }
+    }
+
+    @GetMapping("/trimestre/{annee}/{trimestre}/exports/status")
+    @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> etatExportsTrimestriels(@PathVariable int annee,
+                                                      @PathVariable int trimestre) throws Exception {
+        try (Connection connection = dataSource.getConnection()) {
+            var data = quarterlySocialDataService.load(annee, trimestre, connection);
+            return ResponseEntity.ok(Map.of(
+                    "consolidation", data.people().size(),
+                    "cnaps", data.cnaps().size(),
+                    "fmfp", data.people().stream().filter(p -> p.hasCnaps() || p.hasFmfp()).count(),
+                    "ostie", data.ostie().size(),
+                    "omsi", data.omsi().size()));
+        } catch (IllegalStateException error) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT, error.getMessage(), error);
+        }
+    }
 
     @GetMapping("/periode/{idPeriode}/export/safi")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")

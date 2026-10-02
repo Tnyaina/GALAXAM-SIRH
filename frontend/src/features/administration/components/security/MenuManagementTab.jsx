@@ -28,8 +28,9 @@ export default function MenuManagementTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [modalError, setModalError] = useState(null);
+    const [fieldErrors, setFieldErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
-    const toast = useToast();
+    const { toast } = useToast();
 
     // États pour les modales
     const [showMenuModal, setShowMenuModal] = useState(false);
@@ -84,6 +85,7 @@ export default function MenuManagementTab() {
             idPere: ''
         });
         setModalError(null);
+        setFieldErrors({});
         setShowMenuModal(true);
     };
 
@@ -99,6 +101,7 @@ export default function MenuManagementTab() {
             idPere: menu.idPere || ''
         });
         setModalError(null);
+        setFieldErrors({});
         setShowMenuModal(true);
     };
 
@@ -115,13 +118,12 @@ export default function MenuManagementTab() {
         if (submitting) return;
         setModalError(null);
 
+        const errors = {};
         if (!formData.idMenu.trim()) {
-            setModalError("L'identifiant du menu (Code) est obligatoire.");
-            return;
+            errors.idMenu = "L'identifiant du menu (Code) est obligatoire.";
         }
         if (!formData.libelle.trim()) {
-            setModalError("Le libellé du menu est obligatoire.");
-            return;
+            errors.libelle = "Le libellé du menu est obligatoire.";
         }
 
         const payload = {
@@ -137,9 +139,14 @@ export default function MenuManagementTab() {
         if (payload.niveau === 1) {
             payload.idPere = null;
         } else if (payload.niveau > 1 && !payload.idPere) {
-            setModalError("Un menu de sous-niveau doit obligatoirement avoir un menu père assigné.");
+            errors.idPere = "Un menu de sous-niveau doit obligatoirement avoir un menu père assigné.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
             return;
         }
+        setFieldErrors({});
 
         setSubmitting(true);
         try {
@@ -219,14 +226,16 @@ export default function MenuManagementTab() {
             <Card className="overflow-hidden p-0" shadow="none">
             <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center p-3.5 border-b border-[var(--color-border-subtle)]">
                 <div className="flex-1 max-w-md"><Input aria-label="Rechercher" placeholder="Rechercher par code ou libellé…" value={search} onChange={event => setSearch(event.target.value)} iconLeft={<Search size={16} />} className="min-h-[44px]" /></div>
-                <Button
-                    onClick={handleOpenCreateModal}
-                    variant="primary"
-                    size="sm"
-                    iconLeft={<Plus size={16} />}
-                >
-                    Nouveau Menu
-                </Button>
+                {menus.length > 0 && (
+                    <Button
+                        onClick={handleOpenCreateModal}
+                        variant="primary"
+                        size="sm"
+                        iconLeft={<Plus size={16} />}
+                    >
+                        Nouveau Menu
+                    </Button>
+                )}
             </div>
 
             {/* Tableau des menus */}
@@ -344,14 +353,22 @@ export default function MenuManagementTab() {
                         required
                         disabled={!!selectedMenu}
                         value={formData.idMenu}
-                        onChange={(e) => setFormData({ ...formData, idMenu: e.target.value.toUpperCase() })}
+                        error={fieldErrors.idMenu}
+                        onChange={(e) => {
+                            setFormData({ ...formData, idMenu: e.target.value.toUpperCase() });
+                            if (fieldErrors.idMenu) setFieldErrors(prev => ({ ...prev, idMenu: undefined }));
+                        }}
                         placeholder="Ex: EMPLOYES, CONGES_LIST"
                     />
                     <Input
                         label="Libellé"
                         required
                         value={formData.libelle}
-                        onChange={(e) => setFormData({ ...formData, libelle: e.target.value })}
+                        error={fieldErrors.libelle}
+                        onChange={(e) => {
+                            setFormData({ ...formData, libelle: e.target.value });
+                            if (fieldErrors.libelle) setFieldErrors(prev => ({ ...prev, libelle: undefined }));
+                        }}
                         placeholder="Ex: Gestion des congés"
                     />
                     <div className="grid grid-cols-2 gap-3">
@@ -377,7 +394,11 @@ export default function MenuManagementTab() {
                             label="Menu Père"
                             required
                             value={formData.idPere}
-                            onChange={(e) => setFormData({ ...formData, idPere: e.target.value })}
+                            error={fieldErrors.idPere}
+                            onChange={(e) => {
+                                setFormData({ ...formData, idPere: e.target.value });
+                                if (fieldErrors.idPere) setFieldErrors(prev => ({ ...prev, idPere: undefined }));
+                            }}
                         >
                             <option value="">-- Sélectionner un menu parent --</option>
                             {potentialParents.map((parent) => (

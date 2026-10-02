@@ -298,7 +298,7 @@ export default function MouvementsSoldeTable({
         <div className="p-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] flex items-center justify-between">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">
-              Solde net actuel
+              Solde actuel :
             </span>
             <span className="font-mono text-base font-bold text-[var(--color-fg)] mt-0.5 block">
               {soldeActuel != null ? `${Number(soldeActuel).toFixed(2)} j` : `${(statsMouvements.totalAcquis - statsMouvements.totalConsomme).toFixed(2)} j`}

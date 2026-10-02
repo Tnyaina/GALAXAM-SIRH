@@ -182,7 +182,7 @@ export default function GestionPaiePage() {
         return (
             <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-12 px-2 sm:px-4">
                 <SEO
-                    title="Variables de Paie | GALAXAM SIRH"
+                    title="Variables de Paie | GALAXAM GRH"
                     description="Gestion des primes, acomptes et retenues par salarié."
                 />
                 <PageHeader
@@ -208,7 +208,7 @@ export default function GestionPaiePage() {
     return (
         <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-12 px-2 sm:px-4">
             <SEO
-                title="Centre de Paie | GALAXAM SIRH"
+                title="Centre de Paie | GALAXAM GRH"
                 description="Tableau de bord opérationnel de gestion de la paie, campagnes actives et déclarations."
             />
 
@@ -450,7 +450,7 @@ export default function GestionPaiePage() {
                         </p>
                     </button>
 
-                    {/* Déclarations & Sorties */}
+                    {/* Documents et exports de paie */}
                     <button type="button"
                         onClick={() => navigate('/paie/declarations')}
                         className="w-full text-left bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 cursor-pointer hover:border-[var(--color-brand-500)] hover:shadow-xs focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)] transition-all group"
@@ -459,13 +459,13 @@ export default function GestionPaiePage() {
                             <div className="flex items-center gap-2.5 text-[var(--color-fg)]">
                                 <FileText size={18} className="text-[var(--color-brand-600)]" />
                                 <h4 className="text-sm font-bold group-hover:text-[var(--color-brand-600)] transition-colors">
-                                    Déclarations & Sorties
+                                    Documents et exports
                                 </h4>
                             </div>
                             <ChevronRight size={16} className="text-[var(--color-fg-subtle)] group-hover:translate-x-0.5 transition-transform" />
                         </div>
                         <p className="text-xs text-[var(--color-fg-muted)] mt-2 leading-relaxed">
-                            Édition des bulletins PDF, Grand-Livre, déclarations mensuelles (IRSA) et trimestrielles (CNaPS, FMFP, Santé).
+                            Bulletins disponibles et catalogue des états mensuels, trimestriels et annuels à construire.
                         </p>
                     </button>
                 </div>

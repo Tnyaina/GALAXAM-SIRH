@@ -216,7 +216,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
             link.download = filename;
             link.click();
             setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-            toast({ title: 'Document téléchargé', message: format === 'pdf' ? 'Ouvrez le PDF pour le consulter ou l’imprimer.' : 'Le fichier utilise les données calculées par le SIRH.', type: 'success' });
+            toast({ title: 'Document téléchargé', message: format === 'pdf' ? 'Ouvrez le PDF pour le consulter ou l’imprimer.' : 'Le fichier utilise les données calculées par le GRH.', type: 'success' });
         } catch (err) {
             let message = err.response?.data?.message;
             if (err.response?.data instanceof Blob) {
@@ -372,7 +372,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             )}
                                             {periodesList.map((p) => (
                                                 <option key={p.idPeriodePaie} value={p.idPeriodePaie} className="bg-[var(--color-surface)] text-[var(--color-fg)] font-medium">
-                                                    {p.libelle || p.code} ({p.dateDebut} au {p.dateFin})
+                                                    {[p.code, p.libelle].filter(Boolean).join(' — ') || p.idPeriodePaie} ({p.dateDebut} au {p.dateFin})
                                                 </option>
                                             ))}
                                         </>
@@ -455,7 +455,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     <FileSpreadsheet size={15} className="text-[var(--color-success-600)] dark:text-[var(--color-success-400)] shrink-0" />
                                     <div>
                                         <div className="font-semibold">Format Excel (.xlsx)</div>
-                                        <div className="text-[10px] text-[var(--color-fg-muted)]">Quantités, montants et bilan du SIRH</div>
+                                        <div className="text-[10px] text-[var(--color-fg-muted)]">Quantités, montants et bilan du GRH</div>
                                     </div>
                                 </button>
                                 <div className="my-1 border-t border-[var(--color-border-subtle)]" />

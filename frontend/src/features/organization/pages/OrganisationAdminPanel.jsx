@@ -6,9 +6,9 @@ import PageHeader from '@/components/ui/navigation/PageHeader';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
 
-const FilialesSitesTab = lazy(() => import('@/features/organization/components/structure/FilialesSitesTab'));
-const DepartementsServicesTab = lazy(() => import('@/features/organization/components/structure/DepartementsServicesTab'));
-const FonctionsTab = lazy(() => import('@/features/organization/components/structure/FonctionsTab'));
+const FilialesSitesTab = lazy(() => import('@/features/organization/components/tabs/FilialesSitesTab'));
+const DepartementsServicesTab = lazy(() => import('@/features/organization/components/tabs/DepartementsServicesTab'));
+const FonctionsTab = lazy(() => import('@/features/organization/components/tabs/FonctionsTab'));
 
 export default function OrganisationAdminPanel() {
     const [searchParams, setSearchParams] = useSearchParams();

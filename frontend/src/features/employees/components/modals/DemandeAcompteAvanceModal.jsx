@@ -198,6 +198,9 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
     return (
         <Modal isOpen onClose={onClose} title="Demande d’acompte ou d’avance sur salaire" size="2xl">
             <form onSubmit={submit} className="space-y-4 text-xs">
+                <p className="text-xs text-[var(--color-fg-muted)]">
+                    La demande sera enregistrée en attente d’approbation dans la campagne de paie sélectionnée.
+                </p>
                 {error && <FormError message={error} />}
                 {periodError && <Alert type="error" message={periodError} />}
                 {typesError && <Alert type="error" message={typesError} />}
@@ -469,7 +472,7 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
 
                     <Input
                         required
-                        placeholder="Ex. Acompte de quinzaine pour dépenses courantes"
+                        placeholder="Ex. Dépense imprévue à couvrir"
                         value={motif}
                         onChange={e => setMotif(e.target.value)}
                     />

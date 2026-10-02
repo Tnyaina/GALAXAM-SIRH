@@ -11,6 +11,7 @@ import EmptyState from '@/components/ui/data-display/EmptyState';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import FormError from '@/components/ui/feedback/FormError';
 import pointageParametreService from '@/features/administration/api/pointageParametreService';
 import { useToast } from '@/components/ui/feedback/Toast';
 
@@ -18,6 +19,7 @@ export default function DerogationIndemnitesTab() {
     // Contexte : hook métier centralisant données et actions de dérogation.
     const {
         derogations,
+        rawDerogationsCount,
         indemnites,
         loading,
         error,
@@ -30,13 +32,16 @@ export default function DerogationIndemnitesTab() {
         formData,
         setFormData,
         submitting,
+        fieldErrors,
+        setFieldErrors,
+        actionError,
         openModal,
         closeModal,
         saveDerogation,
         reload
     } = useDerogationIndemnites();
 
-    const toast = useToast();
+    const { toast } = useToast();
     // État local : confirmation de suppression uniquement.
     const [confirmDelete, setConfirmDelete] = useState({
         isOpen: false,
@@ -78,9 +83,11 @@ export default function DerogationIndemnitesTab() {
                     </div>
                 </div>
 
-                <Button variant="primary" iconLeft={<Plus size={16} />} className="shrink-0 whitespace-nowrap" onClick={() => openModal()}>
-                    Ajouter une exclusion
-                </Button>
+                {rawDerogationsCount > 0 && (
+                    <Button variant="primary" iconLeft={<Plus size={16} />} className="shrink-0 whitespace-nowrap" onClick={() => openModal()}>
+                        Ajouter une exclusion
+                    </Button>
+                )}
             </div>
 
             {error && <Alert type="error" message={error} />}
@@ -162,7 +169,7 @@ export default function DerogationIndemnitesTab() {
                                     <div className="flex justify-end gap-1.5">
                                         <button
                                             onClick={() => openModal(d)}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
                                             title="Modifier l'exclusion"
                                             aria-label={`Modifier exclusion ${d.nomPrenomEmploye}`}
                                         >
@@ -170,7 +177,7 @@ export default function DerogationIndemnitesTab() {
                                         </button>
                                         <button
                                             onClick={() => setConfirmDelete({ isOpen: true, derogation: d, loading: false })}
-                                            className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
+                                            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
                                             title="Supprimer l'exclusion"
                                             aria-label={`Supprimer exclusion ${d.nomPrenomEmploye}`}
                                         >
@@ -203,21 +210,41 @@ export default function DerogationIndemnitesTab() {
                 }
             >
                 <form id="derogation-form" onSubmit={saveDerogation} className="space-y-4">
-                    <EmployeSearchSelect
-                        label="Employé *"
-                        value={formData.idEmploye}
-                        onChange={(empId) => setFormData({ ...formData, idEmploye: empId })}
-                        required
-                    />
+                    {actionError && <FormError message={actionError} />}
+                    <div>
+                        <EmployeSearchSelect
+                            label="Employé *"
+                            value={formData.idEmploye}
+                            onChange={(empId) => {
+                                setFormData({ ...formData, idEmploye: empId });
+                                if (fieldErrors.idEmploye) {
+                                    setFieldErrors(prev => ({ ...prev, idEmploye: undefined }));
+                                }
+                            }}
+                            required
+                        />
+                        {fieldErrors.idEmploye && (
+                            <p className="mt-1 text-xs text-[var(--color-danger-500)] font-medium">
+                                {fieldErrors.idEmploye}
+                            </p>
+                        )}
+                    </div>
 
                     <Select
                         label="Indemnité *"
                         value={formData.idIndemnite}
-                        onChange={(e) => setFormData({ ...formData, idIndemnite: e.target.value })}
+                        onChange={(e) => {
+                            setFormData({ ...formData, idIndemnite: e.target.value });
+                            if (fieldErrors.idIndemnite) {
+                                setFieldErrors(prev => ({ ...prev, idIndemnite: undefined }));
+                            }
+                        }}
+                        error={fieldErrors.idIndemnite}
                         required
                     >
+                        <option value="">Sélectionner une indemnité</option>
                         {indemnites
-                            .filter(i => i.estActif !== false && i.actif !== false || String(i.idIndemnite) === String(formData.idIndemnite))
+                            .filter(i => (i.estActif !== false && i.actif !== false) || String(i.idIndemnite) === String(formData.idIndemnite))
                             .map(i => (
                                 <option key={i.idIndemnite} value={i.idIndemnite}>
                                     {i.code} — {i.libelle}
@@ -244,7 +271,13 @@ export default function DerogationIndemnitesTab() {
                             type="date"
                             label="Date de début *"
                             value={formData.dateDebut}
-                            onChange={(e) => setFormData({ ...formData, dateDebut: e.target.value })}
+                            onChange={(e) => {
+                                setFormData({ ...formData, dateDebut: e.target.value });
+                                if (fieldErrors.dateDebut) {
+                                    setFieldErrors(prev => ({ ...prev, dateDebut: undefined }));
+                                }
+                            }}
+                            error={fieldErrors.dateDebut}
                             required
                         />
                         <Input

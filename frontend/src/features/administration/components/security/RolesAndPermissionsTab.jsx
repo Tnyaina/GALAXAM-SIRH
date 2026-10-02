@@ -17,8 +17,49 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import { useMenu } from '@/hooks/useMenu';
 
 
-function RoleFormModal({ isOpen, onClose, onSubmit, editingRole, formData, setFormData, roleModalError, submitting = false }) {
-    return <Modal isOpen={isOpen} onClose={onClose} title={editingRole ? 'Modifier le Rôle' : 'Nouveau Rôle'} icon={<Shield size={18} />} size="md" footer={<><Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>Annuler</Button><Button type="submit" form="role-form" variant="primary" size="sm" loading={submitting}>{editingRole ? 'Mettre à jour' : 'Créer le rôle'}</Button></>}><form id="role-form" onSubmit={onSubmit} className="space-y-4">{roleModalError && <FormError message={roleModalError} />}<Input label="Code du rôle (ex: ADMIN_PAIE, SUPERVISEUR)" required disabled={!!editingRole} value={formData.codeRole} onChange={(event) => setFormData({ ...formData, codeRole: event.target.value.toUpperCase() })} placeholder="ADMIN_RH" /><Input label="Libellé complet" required value={formData.libelle} onChange={(event) => setFormData({ ...formData, libelle: event.target.value })} placeholder="Administrateur RH" /></form></Modal>;
+function RoleFormModal({ isOpen, onClose, onSubmit, editingRole, formData, setFormData, roleModalError, roleFieldErrors = {}, setRoleFieldErrors, submitting = false }) {
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={editingRole ? 'Modifier le Rôle' : 'Nouveau Rôle'}
+            icon={<Shield size={18} />}
+            size="md"
+            footer={
+                <>
+                    <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>Annuler</Button>
+                    <Button type="submit" form="role-form" variant="primary" size="sm" loading={submitting}>{editingRole ? 'Mettre à jour' : 'Créer le rôle'}</Button>
+                </>
+            }
+        >
+            <form id="role-form" onSubmit={onSubmit} className="space-y-4">
+                {roleModalError && <FormError message={roleModalError} />}
+                <Input
+                    label="Code du rôle (ex: ADMIN_PAIE, SUPERVISEUR)"
+                    required
+                    disabled={!!editingRole}
+                    value={formData.codeRole}
+                    error={roleFieldErrors.codeRole}
+                    onChange={(event) => {
+                        setFormData({ ...formData, codeRole: event.target.value.toUpperCase() });
+                        if (setRoleFieldErrors && roleFieldErrors.codeRole) setRoleFieldErrors(prev => ({ ...prev, codeRole: undefined }));
+                    }}
+                    placeholder="ADMIN_RH"
+                />
+                <Input
+                    label="Libellé complet"
+                    required
+                    value={formData.libelle}
+                    error={roleFieldErrors.libelle}
+                    onChange={(event) => {
+                        setFormData({ ...formData, libelle: event.target.value });
+                        if (setRoleFieldErrors && roleFieldErrors.libelle) setRoleFieldErrors(prev => ({ ...prev, libelle: undefined }));
+                    }}
+                    placeholder="Administrateur RH"
+                />
+            </form>
+        </Modal>
+    );
 }
 
 function RoleMenusTree({ selectedRole, menusTree = [], selectedMenuIds = [], handleToggleMenu, handleSaveMenus }) {
@@ -27,7 +68,66 @@ function RoleMenusTree({ selectedRole, menusTree = [], selectedMenuIds = [], han
 }
 
 function RolesList({ roles = [], selectedRole, showInactive = false, onToggleShowInactive, onSelectRole, onOpenCreateRole, onOpenEditRole, onToggleRoleStatus }) {
-    return <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-4 space-y-4"><div className="flex justify-between items-center pb-3 border-b border-[var(--color-border-subtle)]"><h3 className="font-bold text-[var(--color-fg)] text-base flex items-center gap-2"><Shield size={18} className="text-[var(--color-brand-500)]" />Rôles ({roles.length})</h3><div className="flex items-center gap-3"><label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer hover:text-[var(--color-fg)] px-1.5 py-0.5 rounded-none hover:bg-[var(--color-bg-subtle)]"><input type="checkbox" checked={showInactive} onChange={onToggleShowInactive} className="w-3.5 h-3.5 rounded-none accent-[var(--color-brand-500)]" /><Eye size={13} /><span className="hidden sm:inline">Afficher masqués</span></label><button onClick={onOpenCreateRole} className="p-1.5 hover:bg-[var(--color-bg-subtle)] rounded-none text-[var(--color-brand-500)] cursor-pointer" title="Créer un rôle"><Plus size={18} /></button></div></div><div className="space-y-1.5 max-h-[500px] overflow-y-auto pr-1">{roles.map((role) => <div key={role.idRole} onClick={() => onSelectRole(role)} className={`w-full flex items-center justify-between p-3 rounded-none border text-left cursor-pointer ${selectedRole?.idRole === role.idRole ? 'bg-[var(--color-brand-500)]/10 border-[var(--color-brand-500)] text-[var(--color-brand-500)] font-semibold' : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg)] hover:bg-[var(--color-surface-hover)]'}`}><div className="min-w-0 flex-1"><p className="text-sm truncate font-bold">{role.libelle}</p><p className="text-xs font-mono text-[var(--color-fg-muted)] truncate">{role.codeRole}</p></div><div className="flex items-center gap-2 pl-2 shrink-0"><button onClick={(event) => { event.stopPropagation(); onOpenEditRole(role, event); }} className="p-1 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer" title="Modifier"><Edit2 size={14} /></button><button onClick={(event) => { event.stopPropagation(); onToggleRoleStatus(role, event); }} className="cursor-pointer" title={role.estActif ? 'Désactiver logiquement' : 'Activer'}><Badge variant={role.estActif ? 'success' : 'default'} size="sm">{role.estActif ? 'Actif' : 'Inactif'}</Badge></button></div></div>)}</div></div>;
+    return (
+        <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-4 space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-[var(--color-border-subtle)]">
+                <h3 className="font-bold text-[var(--color-fg)] text-base flex items-center gap-2">
+                    <Shield size={18} className="text-[var(--color-brand-500)]" />Rôles ({roles.length})
+                </h3>
+                <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer hover:text-[var(--color-fg)] px-1.5 py-0.5 rounded-none hover:bg-[var(--color-bg-subtle)]">
+                        <input type="checkbox" checked={showInactive} onChange={onToggleShowInactive} className="w-3.5 h-3.5 rounded-none accent-[var(--color-brand-500)]" />
+                        <Eye size={13} />
+                        <span className="hidden sm:inline">Afficher masqués</span>
+                    </label>
+                    <button
+                        onClick={onOpenCreateRole}
+                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 hover:bg-[var(--color-bg-subtle)] rounded-none text-[var(--color-brand-500)] cursor-pointer transition-colors"
+                        title="Créer un rôle"
+                        aria-label="Créer un rôle"
+                    >
+                        <Plus size={18} />
+                    </button>
+                </div>
+            </div>
+            <div className="space-y-1.5 max-h-[500px] overflow-y-auto pr-1">
+                {roles.map((role) => (
+                    <div
+                        key={role.idRole}
+                        onClick={() => onSelectRole(role)}
+                        className={`w-full flex items-center justify-between p-3 rounded-none border text-left cursor-pointer transition-colors ${
+                            selectedRole?.idRole === role.idRole
+                                ? 'bg-[var(--color-brand-500)]/10 border-[var(--color-brand-500)] text-[var(--color-brand-500)] font-semibold'
+                                : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg)] hover:bg-[var(--color-surface-hover)]'
+                        }`}
+                    >
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm truncate font-bold">{role.libelle}</p>
+                            <p className="text-xs font-mono text-[var(--color-fg-muted)] truncate">{role.codeRole}</p>
+                        </div>
+                        <div className="flex items-center gap-1 pl-2 shrink-0">
+                            <button
+                                onClick={(event) => { event.stopPropagation(); onOpenEditRole(role, event); }}
+                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] rounded-none cursor-pointer transition-colors"
+                                title="Modifier le rôle"
+                                aria-label={`Modifier ${role.libelle}`}
+                            >
+                                <Edit2 size={15} />
+                            </button>
+                            <button
+                                onClick={(event) => { event.stopPropagation(); onToggleRoleStatus(role, event); }}
+                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 cursor-pointer rounded-none transition-colors"
+                                title={role.estActif ? 'Désactiver logiquement' : 'Activer'}
+                                aria-label={role.estActif ? `Désactiver ${role.libelle}` : `Activer ${role.libelle}`}
+                            >
+                                <Badge variant={role.estActif ? 'success' : 'default'} size="sm">{role.estActif ? 'Actif' : 'Inactif'}</Badge>
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
 }
 
 function RolePermissionsMatrix({ selectedRole, modules = [], getPermissionForModule, handleTogglePermission, handleToggleAllModulePermissions, handleToggleGlobalAllPermissions, handleSavePermissions }) {
@@ -61,7 +161,7 @@ export default function RolesAndPermissionsTab() {
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [error, setError] = useState(null);
     const [submittingRole, setSubmittingRole] = useState(false);
-    const toast = useToast();
+    const { toast } = useToast();
 
     const [rolePermissions, setRolePermissions] = useState([]);
     const [selectedMenuIds, setSelectedMenuIds] = useState([]);
@@ -70,6 +170,7 @@ export default function RolesAndPermissionsTab() {
     const [roleFormData, setRoleFormData] = useState({ codeRole: '', libelle: '' });
     const [editingRole, setEditingRole] = useState(null);
     const [roleModalError, setRoleModalError] = useState(null);
+    const [roleFieldErrors, setRoleFieldErrors] = useState({});
 
     // Confirmation dialog state
     const [confirmState, setConfirmState] = useState({
@@ -139,6 +240,7 @@ export default function RolesAndPermissionsTab() {
         setEditingRole(null);
         setRoleFormData({ codeRole: '', libelle: '' });
         setRoleModalError(null);
+        setRoleFieldErrors({});
         setShowRoleModal(true);
     };
 
@@ -147,12 +249,28 @@ export default function RolesAndPermissionsTab() {
         setEditingRole(role);
         setRoleFormData({ codeRole: role.codeRole, libelle: role.libelle });
         setRoleModalError(null);
+        setRoleFieldErrors({});
         setShowRoleModal(true);
     };
 
     const handleSaveRole = async (e) => {
         e.preventDefault();
         setRoleModalError(null);
+
+        const errors = {};
+        if (!editingRole && !roleFormData.codeRole.trim()) {
+            errors.codeRole = "Le code du rôle est obligatoire.";
+        }
+        if (!roleFormData.libelle.trim()) {
+            errors.libelle = "Le libellé complet est obligatoire.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setRoleFieldErrors(errors);
+            return;
+        }
+        setRoleFieldErrors({});
+
         setSubmittingRole(true);
         try {
             if (editingRole) {
@@ -427,6 +545,8 @@ export default function RolesAndPermissionsTab() {
                 formData={roleFormData}
                 setFormData={setRoleFormData}
                 roleModalError={roleModalError}
+                roleFieldErrors={roleFieldErrors}
+                setRoleFieldErrors={setRoleFieldErrors}
                 submitting={submittingRole}
             />
 

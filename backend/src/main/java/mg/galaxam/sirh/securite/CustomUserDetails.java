@@ -64,4 +64,14 @@ public class CustomUserDetails implements UserDetails {
     public boolean isEnabled() {
         return active;
     }
+
+    public static Integer getCurrentUserId() {
+        org.springframework.security.core.Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof CustomUserDetails user) {
+            return user.getIdUtilisateur();
+        }
+        return 1;
+    }
 }
+

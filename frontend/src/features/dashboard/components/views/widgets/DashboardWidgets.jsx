@@ -128,7 +128,12 @@ export function ActiviteRhWidget({ loading, activite = [] }) {
                     <ExpandableList
                         items={activite}
                         initialCount={5}
-                        renderItem={(ev, index) => <ActiviteRow key={ev.id || index} ev={ev} />}
+                        renderItem={(ev, index) => (
+                            <ActiviteRow
+                                key={ev.sourceType ? `${ev.sourceType}-${ev.id}` : (ev.id ?? index)}
+                                ev={ev}
+                            />
+                        )}
                     />
                 )}
             </CardBody>

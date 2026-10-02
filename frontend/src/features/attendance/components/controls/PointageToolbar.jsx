@@ -1,6 +1,6 @@
 import { Search, ClockCheck, Coffee, Save, CalendarOff } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
-import Select from '@/components/ui/forms/Select';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import PeriodNavigator from '@/components/ui/navigation/PeriodNavigator';
 
 export default function PointageToolbar({
@@ -35,13 +35,13 @@ export default function PointageToolbar({
                 <div className="flex items-center gap-2.5">
                     {/* Site */}
                     <div className="flex items-center gap-1 shrink-0">
-                        <Select
+                        <SearchSelect
                             options={siteOptions}
                             value={selectedSite ? String(selectedSite) : ''}
-                            onChange={(val) => onSiteChange(val)}
+                            onChange={(val) => onSiteChange(val || '')}
                             disabled={isReadOnly}
                             placeholder="Sélectionner un site..."
-                            className="text-xs h-[32px] w-[180px]"
+                            className="text-xs min-w-[200px]"
                         />
                     </div>
 

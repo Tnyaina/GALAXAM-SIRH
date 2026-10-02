@@ -1,0 +1,222 @@
+package mg.galaxam.sirh.paie.application.export;
+
+import mg.galaxam.sirh.paie.persistence.BulletinPaie;
+import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.stereotype.Service;
+
+import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+
+/** État interne mensuel des cotisations constatées sur les bulletins, sans format de dépôt officiel. */
+@Service
+public class EtatSocialMensuelExportService {
+    private static final String[] SUMMARY = {"Organisme", "Salariés concernés", "Part salariale (Ar)", "Part patronale (Ar)", "Total (Ar)"};
+    private static final String[] DETAIL = {"Filiale", "Site", "Matricule", "Nom et prénom", "N° CNaPS", "Organisme", "Part salariale (Ar)", "Part patronale (Ar)", "Total (Ar)"};
+
+    public record Result(byte[] bytes, String periodCode, int employeeCount, int lineCount) {}
+    private record DetailKey(Integer employeeId, String filiale, String site, String organisme) {}
+    private static final class DetailRow {
+        final BulletinPaie bulletin;
+        final DetailKey key;
+        BigDecimal employee = BigDecimal.ZERO;
+        BigDecimal employer = BigDecimal.ZERO;
+        DetailRow(BulletinPaie bulletin, DetailKey key) { this.bulletin = bulletin; this.key = key; }
+    }
+
+    public Result export(Integer periodId, Connection connection) throws Exception {
+        String periodCode = periodCode(periodId, connection);
+        List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(periodId, connection);
+        if (bulletins.isEmpty()) throw new IllegalStateException("Aucun bulletin pour cette période.");
+        if (bulletins.stream().anyMatch(b -> !"VALIDE".equals(b.getStatut()) && !"CLOTURE".equals(b.getStatut()))) {
+            throw new IllegalStateException("Tous les bulletins doivent être validés avant l'export social.");
+        }
+        Map<Integer, String> filiales = loadFiliales(periodId, connection);
+        Map<DetailKey, DetailRow> detailRows = new LinkedHashMap<>();
+        Map<String, Set<Integer>> people = new LinkedHashMap<>();
+        Map<String, BigDecimal[]> amounts = new LinkedHashMap<>();
+        for (BulletinPaie b : bulletins) {
+            for (BulletinPaieLigne line : BulletinPaieLigne.listerParBulletin(b.getIdBulletin(), connection)) {
+                if (!isSocial(line)) continue;
+                BigDecimal salariale = zero(line.getMontantSalarial());
+                BigDecimal patronale = zero(line.getMontantPatronal());
+                if (salariale.signum() == 0 && patronale.signum() == 0) continue;
+                String organisme = organisme(line);
+                DetailKey key = new DetailKey(b.getIdEmploye(), filiales.getOrDefault(b.getIdBulletin(), ""),
+                        n(b.getNomSite()), organisme);
+                DetailRow detailRow = detailRows.computeIfAbsent(key, ignored -> new DetailRow(b, key));
+                detailRow.employee = detailRow.employee.add(salariale);
+                detailRow.employer = detailRow.employer.add(patronale);
+                people.computeIfAbsent(organisme, ignored -> new TreeSet<>()).add(b.getIdEmploye());
+                BigDecimal[] sums = amounts.computeIfAbsent(organisme, ignored -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+                sums[0] = sums[0].add(salariale);
+                sums[1] = sums[1].add(patronale);
+            }
+        }
+        List<DetailRow> rows = detailRows.values().stream()
+                .sorted(Comparator.comparing((DetailRow d) -> d.key.organisme())
+                        .thenComparing(d -> n(d.bulletin.getMatricule())))
+                .toList();
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Styles styles = new Styles(workbook);
+            Sheet summary = workbook.createSheet("Synthèse sociale");
+            Sheet detail = workbook.createSheet("Détail nominatif");
+            summary.setDisplayGridlines(false); detail.setDisplayGridlines(false);
+            heading(summary, 0, "ÉTAT SOCIAL MENSUEL", styles.title);
+            heading(summary, 1, "Période " + periodCode + " · données des bulletins validés ou clôturés", styles.muted);
+            heading(summary, 2, "Document interne de contrôle · les déclarations par organisme sont préparées séparément", styles.muted);
+            header(summary, 4, SUMMARY, styles.header);
+            summary.setColumnWidth(0, 9000);
+            for (int i = 1; i < SUMMARY.length; i++) summary.setColumnWidth(i, 5700);
+            int sr = 5;
+            for (String organisme : amounts.keySet().stream().sorted().toList()) {
+                BigDecimal[] sums = amounts.get(organisme);
+                cell(summary, sr, 0, styles.text).setCellValue(organisme);
+                cell(summary, sr, 1, styles.integer).setCellValue(people.get(organisme).size());
+                cell(summary, sr, 2, styles.money).setCellValue(sums[0].doubleValue());
+                cell(summary, sr, 3, styles.money).setCellValue(sums[1].doubleValue());
+                cell(summary, sr, 4, styles.money).setCellValue(sums[0].add(sums[1]).doubleValue());
+                sr++;
+            }
+            cell(summary, sr, 0, styles.totalText).setCellValue("TOTAL DES COTISATIONS");
+            for (int col = 2; col <= 4; col++) {
+                String letter = org.apache.poi.ss.util.CellReference.convertNumToColString(col);
+                Cell total = cell(summary, sr, col, styles.totalMoney);
+                if (amounts.isEmpty()) total.setCellValue(0);
+                else total.setCellFormula("SUM(" + letter + "6:" + letter + sr + ")");
+            }
+            cell(summary, sr + 2, 0, styles.muted).setCellValue("Source : lignes de cotisation des bulletins de la période.");
+            cell(summary, sr + 3, 0, styles.muted).setCellValue("Un salarié présent dans plusieurs organismes est compté dans chacun d'eux.");
+            summary.createFreezePane(0, 5);
+
+            heading(detail, 0, "COTISATIONS PAR SALARIÉ", styles.title);
+            heading(detail, 1, "Période " + periodCode + " · une ligne par salarié et par organisme", styles.muted);
+            header(detail, 3, DETAIL, styles.header);
+            for (int i = 0; i < DETAIL.length; i++) detail.setColumnWidth(i, i == 0 || i == 3 ? 10500 : i >= 6 ? 5700 : 5200);
+            detail.setColumnWidth(2, 3300);
+            int dr = 4;
+            for (DetailRow entry : rows) {
+                BulletinPaie b = entry.bulletin;
+                String[] fields = {entry.key.filiale(), entry.key.site(), b.getMatricule(), b.getNomPrenom(),
+                        b.getNumeroCnaps(), entry.key.organisme()};
+                for (int i = 0; i < fields.length; i++) cell(detail, dr, i, styles.text).setCellValue(n(fields[i]));
+                BigDecimal[] values = {entry.employee, entry.employer, entry.employee.add(entry.employer)};
+                for (int i = 0; i < values.length; i++) {
+                    cell(detail, dr, 6 + i, styles.money).setCellValue(values[i].doubleValue());
+                }
+                dr++;
+            }
+            cell(detail, dr, 3, styles.totalText).setCellValue("TOTAL PÉRIODE");
+            for (int col = 6; col <= 8; col++) {
+                Cell total = cell(detail, dr, col, styles.totalMoney);
+                if (rows.isEmpty()) total.setCellValue(0);
+                else {
+                    String letter = org.apache.poi.ss.util.CellReference.convertNumToColString(col);
+                    total.setCellFormula("SUM(" + letter + "5:" + letter + dr + ")");
+                }
+            }
+            detail.createFreezePane(4, 4);
+            if (!rows.isEmpty()) detail.setAutoFilter(new CellRangeAddress(3, dr - 1, 0, DETAIL.length - 1));
+            for (Sheet sheet : List.of(summary, detail)) {
+                sheet.getPrintSetup().setLandscape(sheet == detail);
+                sheet.getPrintSetup().setPaperSize(PrintSetup.A4_PAPERSIZE);
+                sheet.setFitToPage(true);
+                sheet.getPrintSetup().setFitWidth((short) 1);
+                sheet.getPrintSetup().setFitHeight((short) 0);
+            }
+            workbook.getCreationHelper().createFormulaEvaluator().evaluateAll();
+            workbook.write(out);
+            Set<Integer> uniqueEmployees = new TreeSet<>();
+            people.values().forEach(uniqueEmployees::addAll);
+            return new Result(out.toByteArray(), periodCode, uniqueEmployees.size(), rows.size());
+        }
+    }
+
+    private static boolean isSocial(BulletinPaieLigne line) {
+        String code = n(line.getCodeRubrique()).toUpperCase(Locale.ROOT);
+        String category = n(line.getCategorie()).toUpperCase(Locale.ROOT);
+        return code.startsWith("COTISATION_") || category.startsWith("COTISATION_");
+    }
+    private static String organisme(BulletinPaieLigne line) {
+        String code = n(line.getCodeRubrique()).toUpperCase(Locale.ROOT);
+        if (code.contains("CNAPS")) return "CNaPS";
+        if (code.contains("FMFP")) return "FMFP";
+        if (code.contains("OSTIE")) return "OSTIE";
+        if (code.contains("OMSI")) return "OMSI";
+        if (code.contains("SMIE")) return "SMIE";
+        if (code.contains("AMIT")) return "AMIT";
+        return "Organisme à identifier";
+    }
+    private static String periodCode(Integer id, Connection c) throws Exception {
+        try (PreparedStatement ps = c.prepareStatement("SELECT code FROM periode_paie WHERE id_periode_paie = ?")) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new IllegalStateException("Période de paie introuvable.");
+                return rs.getString(1);
+            }
+        }
+    }
+    private static Map<Integer, String> loadFiliales(Integer id, Connection c) throws Exception {
+        String sql = "SELECT b.id_bulletin, f.raison_sociale FROM bulletin_paie b JOIN periode_paie p ON p.id_periode_paie = b.id_periode_paie " +
+                "LEFT JOIN LATERAL (SELECT rf.raison_sociale FROM contrat_travail ct JOIN ref_filiale rf ON rf.id_filiale = ct.id_filiale " +
+                "WHERE ct.id_employe = b.id_employe AND ct.date_debut <= p.date_fin " +
+                "ORDER BY ct.date_debut DESC, ct.id_contrat DESC LIMIT 1) f ON TRUE WHERE b.id_periode_paie = ?";
+        Map<Integer, String> result = new LinkedHashMap<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) result.put(rs.getInt(1), n(rs.getString(2)));
+            }
+        }
+        return result;
+    }
+    private static void heading(Sheet sheet, int row, String value, CellStyle style) { cell(sheet, row, 0, style).setCellValue(value); }
+    private static void header(Sheet sheet, int row, String[] values, CellStyle style) {
+        for (int col = 0; col < values.length; col++) cell(sheet, row, col, style).setCellValue(values[col]);
+        sheet.getRow(row).setHeightInPoints(30);
+    }
+    private static Cell cell(Sheet sheet, int row, int col, CellStyle style) {
+        Row r = sheet.getRow(row); if (r == null) r = sheet.createRow(row);
+        Cell c = r.getCell(col); if (c == null) c = r.createCell(col);
+        c.setCellStyle(style); return c;
+    }
+    private static BigDecimal zero(BigDecimal value) { return value == null ? BigDecimal.ZERO : value; }
+    private static String n(String value) { return value == null ? "" : value; }
+
+    private static final class Styles {
+        final CellStyle title, muted, header, text, integer, money, totalText, totalMoney;
+        Styles(Workbook workbook) {
+            Font titleFont = workbook.createFont(); titleFont.setBold(true); titleFont.setFontHeightInPoints((short) 16); titleFont.setColor(IndexedColors.DARK_GREEN.getIndex());
+            Font headerFont = workbook.createFont(); headerFont.setBold(true); headerFont.setColor(IndexedColors.WHITE.getIndex());
+            Font totalFont = workbook.createFont(); totalFont.setBold(true); totalFont.setColor(IndexedColors.DARK_GREEN.getIndex());
+            title = workbook.createCellStyle(); title.setFont(titleFont);
+            muted = workbook.createCellStyle(); muted.setFont(workbook.createFont());
+            header = workbook.createCellStyle(); header.setFont(headerFont); header.setFillForegroundColor(IndexedColors.DARK_GREEN.getIndex()); header.setFillPattern(FillPatternType.SOLID_FOREGROUND); header.setWrapText(true); border(header);
+            text = workbook.createCellStyle(); border(text);
+            integer = workbook.createCellStyle(); integer.setDataFormat(workbook.createDataFormat().getFormat("#,##0")); border(integer);
+            money = workbook.createCellStyle(); money.setDataFormat(workbook.createDataFormat().getFormat("#,##0.00")); border(money);
+            totalText = workbook.createCellStyle(); totalText.setFont(totalFont); totalText.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex()); totalText.setFillPattern(FillPatternType.SOLID_FOREGROUND); border(totalText);
+            totalMoney = workbook.createCellStyle(); totalMoney.cloneStyleFrom(totalText); totalMoney.setDataFormat(workbook.createDataFormat().getFormat("#,##0.00"));
+        }
+        private static void border(CellStyle style) {
+            style.setBorderBottom(BorderStyle.THIN); style.setBorderLeft(BorderStyle.THIN);
+            style.setBorderRight(BorderStyle.THIN); style.setBorderTop(BorderStyle.THIN);
+            style.setBottomBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            style.setLeftBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            style.setRightBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            style.setTopBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        }
+    }
+}

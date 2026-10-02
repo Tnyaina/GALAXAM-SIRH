@@ -195,12 +195,12 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                         onClick={onClose}
                         className="flex items-center gap-2.5 min-w-0"
                     >
-                        <Avatar name="Galaxam SIRH" size="xs" shape="square" />
+                        <Avatar name="Galaxam GRH" size="xs" shape="square" />
                         <span
                             style={{ color: 'var(--color-sidebar-fg-active)' }}
                             className={`text-sm font-bold tracking-tight truncate ${collapsed ? 'lg:hidden' : ''}`}
                         >
-                            Galaxam SIRH
+                            Galaxam GRH
                         </span>
                     </NavLink>
                     <Button

@@ -19,8 +19,53 @@ import SiteFerieFormModal from './feries/SiteFerieFormModal';
 import PeriodeChomeeList from './feries/PeriodeChomeeList';
 import PeriodeChomeeFormModal from './feries/PeriodeChomeeFormModal';
 
-function JoursFerieFormModal({ isOpen, onClose, onSubmit, editingFerie, formData, setFormData, actionError, submitting = false }) {
-    return <FormModal isOpen={isOpen} onClose={onClose} onSubmit={onSubmit} title={editingFerie ? 'Modifier le Jour Férié' : 'Nouveau Jour Férié'} icon={<Calendar size={18} />} size="md" isEdit={!!editingFerie} loading={submitting} error={actionError}><div className="space-y-4"><Input label="Date exacte du jour férié" type="date" required value={fmtDateInput(formData.dateFerie)} onChange={(event) => setFormData({ ...formData, dateFerie: event.target.value })} /><Input label="Libellé / Fête célébrée" required value={formData.libelle} onChange={(event) => setFormData({ ...formData, libelle: event.target.value })} placeholder="Ex: Fête Nationale de l'Indépendance" /><div className="space-y-2 p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none"><Checkbox label="Jour férié chômé et payé" checked={formData.estChome} onChange={(event) => setFormData({ ...formData, estChome: event.target.checked })} /><Checkbox label="Férié national (applicable d'office à l'ensemble des sites)" checked={formData.estNational} onChange={(event) => setFormData({ ...formData, estNational: event.target.checked })} /></div></div></FormModal>;
+function JoursFerieFormModal({ isOpen, onClose, onSubmit, editingFerie, formData, setFormData, actionError, fieldErrors = {}, setFieldErrors, submitting = false }) {
+    return (
+        <FormModal
+            isOpen={isOpen}
+            onClose={onClose}
+            onSubmit={onSubmit}
+            title={editingFerie ? 'Modifier le Jour Férié' : 'Nouveau Jour Férié'}
+            icon={<Calendar size={18} />}
+            size="md"
+            isEdit={!!editingFerie}
+            loading={submitting}
+            error={actionError}
+        >
+            <div className="space-y-4">
+                <Input
+                    label="Date exacte du jour férié"
+                    type="date"
+                    required
+                    value={fmtDateInput(formData.dateFerie)}
+                    onChange={(event) => {
+                        setFormData({ ...formData, dateFerie: event.target.value });
+                        if (fieldErrors.dateFerie && setFieldErrors) {
+                            setFieldErrors(prev => ({ ...prev, dateFerie: undefined }));
+                        }
+                    }}
+                    error={fieldErrors.dateFerie}
+                />
+                <Input
+                    label="Libellé / Fête célébrée"
+                    required
+                    value={formData.libelle}
+                    onChange={(event) => {
+                        setFormData({ ...formData, libelle: event.target.value });
+                        if (fieldErrors.libelle && setFieldErrors) {
+                            setFieldErrors(prev => ({ ...prev, libelle: undefined }));
+                        }
+                    }}
+                    error={fieldErrors.libelle}
+                    placeholder="Ex: Fête Nationale de l'Indépendance"
+                />
+                <div className="space-y-2 p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none">
+                    <Checkbox label="Jour férié chômé et payé" checked={formData.estChome} onChange={(event) => setFormData({ ...formData, estChome: event.target.checked })} />
+                    <Checkbox label="Férié national (applicable d'office à l'ensemble des sites)" checked={formData.estNational} onChange={(event) => setFormData({ ...formData, estNational: event.target.checked })} />
+                </div>
+            </div>
+        </FormModal>
+    );
 }
 
 export default function CalendrierFerieTab() {
@@ -49,8 +94,12 @@ export default function CalendrierFerieTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
-    const toast = useToast();
+    const { toast } = useToast();
     const { confirm, ConfirmModal } = useConfirm();
+
+    const [ferieFieldErrors, setFerieFieldErrors] = useState({});
+    const [siteFerieFieldErrors, setSiteFerieFieldErrors] = useState({});
+    const [periodeFieldErrors, setPeriodeFieldErrors] = useState({});
 
     // Filtres
     const [search, setSearch] = useState('');
@@ -135,6 +184,7 @@ export default function CalendrierFerieTab() {
     const handleOpenCreateFerie = () => {
         setEditingFerie(null);
         setFerieFormData({ dateFerie: todayStr, libelle: '', estChome: true, estNational: true });
+        setFerieFieldErrors({});
         setActionError(null);
         setShowFerieModal(true);
     };
@@ -147,6 +197,7 @@ export default function CalendrierFerieTab() {
             estChome: f.estChome !== false,
             estNational: f.estNational !== false
         });
+        setFerieFieldErrors({});
         setActionError(null);
         setShowFerieModal(true);
     };
@@ -186,10 +237,21 @@ export default function CalendrierFerieTab() {
         e.preventDefault();
         if (submitting) return;
         setActionError(null);
-        if (!ferieFormData.dateFerie || !ferieFormData.libelle.trim()) {
-            setActionError("La date et le libellé sont obligatoires.");
+
+        const errors = {};
+        if (!ferieFormData.dateFerie) {
+            errors.dateFerie = "La date du jour férié est obligatoire.";
+        }
+        if (!ferieFormData.libelle.trim()) {
+            errors.libelle = "Le libellé de la fête est obligatoire.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setFerieFieldErrors(errors);
             return;
         }
+        setFerieFieldErrors({});
+
         setSubmitting(true);
         try {
             if (editingFerie) {
@@ -211,6 +273,7 @@ export default function CalendrierFerieTab() {
     // Handlers Site Férié
     const handleOpenCreateSiteFerie = () => {
         setSiteFerieFormData({ idSite: '', idFerie: '' });
+        setSiteFerieFieldErrors({});
         setActionError(null);
         setShowSiteFerieModal(true);
     };
@@ -219,10 +282,21 @@ export default function CalendrierFerieTab() {
         e.preventDefault();
         if (submitting) return;
         setActionError(null);
-        if (!siteFerieFormData.idSite || !siteFerieFormData.idFerie) {
-            setActionError("Le site et le jour férié sont obligatoires.");
+
+        const errors = {};
+        if (!siteFerieFormData.idSite) {
+            errors.idSite = "Veuillez sélectionner un site d'exploitation.";
+        }
+        if (!siteFerieFormData.idFerie) {
+            errors.idFerie = "Veuillez sélectionner un jour férié régional.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setSiteFerieFieldErrors(errors);
             return;
         }
+        setSiteFerieFieldErrors({});
+
         const payload = {
             idSite: parseInt(siteFerieFormData.idSite),
             idFerie: parseInt(siteFerieFormData.idFerie)
@@ -256,6 +330,7 @@ export default function CalendrierFerieTab() {
     const handleOpenCreatePeriode = () => {
         setEditingPeriode(null);
         setPeriodeFormData({ libelle: '', idSite: '', dateDebut: todayStr, dateFin: '', estPaye: true, tauxPaiement: 100 });
+        setPeriodeFieldErrors({});
         setActionError(null);
         setShowPeriodeModal(true);
     };
@@ -270,6 +345,7 @@ export default function CalendrierFerieTab() {
             estPaye: p.estPaye,
             tauxPaiement: p.tauxPaiement
         });
+        setPeriodeFieldErrors({});
         setActionError(null);
         setShowPeriodeModal(true);
     };
@@ -278,6 +354,21 @@ export default function CalendrierFerieTab() {
         e.preventDefault();
         if (submitting) return;
         setActionError(null);
+
+        const errors = {};
+        if (!periodeFormData.libelle.trim()) {
+            errors.libelle = "L'intitulé de l'événement est obligatoire.";
+        }
+        if (!periodeFormData.dateDebut) {
+            errors.dateDebut = "La date de début de suspension est obligatoire.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setPeriodeFieldErrors(errors);
+            return;
+        }
+        setPeriodeFieldErrors({});
+
         setSubmitting(true);
         try {
             const payload = {
@@ -441,6 +532,8 @@ export default function CalendrierFerieTab() {
                 formData={ferieFormData}
                 setFormData={setFerieFormData}
                 actionError={actionError}
+                fieldErrors={ferieFieldErrors}
+                setFieldErrors={setFerieFieldErrors}
                 submitting={submitting}
             />
 
@@ -453,6 +546,8 @@ export default function CalendrierFerieTab() {
                 sites={sites}
                 feries={feries}
                 actionError={actionError}
+                fieldErrors={siteFerieFieldErrors}
+                setFieldErrors={setSiteFerieFieldErrors}
                 submitting={submitting}
             />
 
@@ -465,6 +560,8 @@ export default function CalendrierFerieTab() {
                 setFormData={setPeriodeFormData}
                 sites={sites}
                 actionError={actionError}
+                fieldErrors={periodeFieldErrors}
+                setFieldErrors={setPeriodeFieldErrors}
                 submitting={submitting}
             />
 

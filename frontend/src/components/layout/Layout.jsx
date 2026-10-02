@@ -40,7 +40,7 @@ export default function Layout({ children }) {
     }
 
     // Donnée dérivée et rendu authentifié.
-    const title = findMenuTitleByHref(menu, pathname) || 'Galaxam SIRH';
+    const title = findMenuTitleByHref(menu, pathname) || 'Galaxam GRH';
 
     return (
         <div className="h-screen flex overflow-hidden bg-[var(--color-bg)] text-[var(--color-fg)]">

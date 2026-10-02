@@ -1,106 +1,211 @@
-import { FileText, XCircle, Calendar, CheckCircle2, Clock, UserCheck, ShieldAlert, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { 
+  FileText, X, Check, Pencil, Calculator, Minus, Equal, AlertCircle, ShieldAlert 
+} from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
-import { fmtDate } from '@/utils/dateUtils';
+import congeService from '@/features/leave/api/congeService';
 
-// Helper pour styliser les types de congés de façon cohérente
-const getTypeBadgeConfig = (code, d = null) => {
-  if (d?.badgeVariant) {
-    const label = d.isCp ? 'Congé annuel payé'
-      : d.isMaladie ? 'Maladie / Santé'
-      : d.isEvenementFamilial ? 'Événement familial'
-      : d.isSansSolde ? 'Congé sans solde'
-      : null;
-    return { variant: d.badgeVariant, label };
-  }
-  switch (code) {
-    case 'CONGE_PAYE':
-    case 'ANNUEL':
-      return { variant: 'brand', label: 'Congé annuel payé' };
-    case 'MALADIE':
-    case 'ACCIDENT_TRAVAIL':
-      return { variant: 'info', label: 'Maladie / Santé' };
-    case 'EVENEMENT_FAMILIAL':
-    case 'FAMILLE':
-      return { variant: 'warning', label: 'Événement familial' };
-    case 'MATERNITE':
-    case 'PATERNITE':
-      return { variant: 'purple', label: 'Maternité / Paternité' };
-    case 'SANS_SOLDE':
-      return { variant: 'outline', label: 'Congé sans solde' };
-    default:
-      return { variant: 'default', label: null };
-  }
+const formatDate = (dateVal) => {
+  if (!dateVal) return '-';
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return String(dateVal);
+  return d.toLocaleDateString('fr-FR', {
+    day: '2-digit', month: '2-digit', year: 'numeric'
+  });
 };
 
 export default function DemandeDetailsModal({
   isOpen,
   onClose,
   demande,
-  canWrite = false,
+  selectedDemande,
+  _canWrite = false,
   onEdit,
+  onOpenModifier,
   onCancel,
+  onOpenAnnuler,
+  onOpenValider,
+  onOpenRefus,
 }) {
-  if (!demande) return null;
+  const targetDemande = demande || selectedDemande;
+  const [soldeEmploye, setSoldeEmploye] = useState(null);
+  const [simulation, setSimulation] = useState(null);
 
-  const isDemiJournee = Boolean(demande.estDemiJournee);
-  const momentText = demande.momentDemiJournee === 'MATIN'
-    ? 'Matinée'
-    : demande.momentDemiJournee === 'APRES_MIDI'
-      ? 'Après-midi'
-      : 'Demi-journée';
+  useEffect(() => {
+    let isMounted = true;
+    if (!isOpen || !targetDemande?.idEmploye) {
+      setSoldeEmploye(null);
+      setSimulation(null);
+      return;
+    }
 
-  const typeConfig = getTypeBadgeConfig(demande.codeTypeConge, demande);
-  const isRegularisationPointage = Boolean(demande.isRegularisationPointage || demande.commentaire?.includes('[REGULARISATION_POINTAGE]'));
-  const cleanCommentaire = demande.commentaire?.replace(/\[REGULARISATION_POINTAGE\]\s*/g, '').trim();
+    const fetchSolde = async () => {
+      try {
+        const res = await congeService.getSoldeEmploye(targetDemande.idEmploye);
+        if (isMounted) setSoldeEmploye(res);
+      } catch {
+        if (isMounted) setSoldeEmploye(null);
+      }
+      try {
+        const result = await congeService.simulerDemande({
+          idEmploye: targetDemande.idEmploye,
+          idTypeConge: targetDemande.idTypeConge,
+          idMotifEvenementFamilial: targetDemande.idMotifEvenementFamilial,
+          dateDebut: targetDemande.dateDebut,
+          dateFin: targetDemande.dateFin,
+          estDemiJournee: Boolean(targetDemande.estDemiJournee),
+          derogationSoldeNegatif: Boolean(targetDemande.derogationSoldeNegatif),
+          derogationDelaiPreavis: Boolean(targetDemande.derogationDelaiPreavis),
+          extensionPathologiqueMaternite: Boolean(targetDemande.extensionPathologiqueMaternite),
+        });
+        if (isMounted) setSimulation(result);
+      } catch {
+        if (isMounted) setSimulation(null);
+      }
+    };
+
+    fetchSolde();
+    return () => { isMounted = false; };
+  }, [
+    isOpen,
+    targetDemande?.idEmploye,
+    targetDemande?.idTypeConge,
+    targetDemande?.dateDebut,
+    targetDemande?.dateFin,
+    targetDemande?.estDemiJournee,
+    targetDemande?.idMotifEvenementFamilial,
+    targetDemande?.derogationSoldeNegatif,
+    targetDemande?.derogationDelaiPreavis,
+    targetDemande?.extensionPathologiqueMaternite,
+  ]);
+
+  if (!targetDemande) return null;
+
+  const joursDemandes = Number(targetDemande.nbJoursDecomptes ?? 0);
+  const soldeAvant = soldeEmploye?.soldeRestant ?? soldeEmploye?.soldeActuel ?? targetDemande.soldeRestant ?? targetDemande.soldeActuel ?? null;
+  const joursDebites = simulation?.joursDebites ?? null;
+  const soldeApres = simulation?.soldeApres ?? null;
+  const prefixeRegularisation = '[REGULARISATION_POINTAGE]';
+  const estRegularisationPointage = Boolean(targetDemande.isRegularisationPointage || targetDemande.commentaire?.includes(prefixeRegularisation));
+  const commentaireAffiche = targetDemande.commentaire
+    ?.replace(/\[REGULARISATION_POINTAGE\]\s*/gi, '')
+    .trim();
+
+  const estRemunere = targetDemande.estRemunere !== undefined && targetDemande.estRemunere !== null
+    ? Boolean(targetDemande.estRemunere)
+    : targetDemande.estPaye !== undefined
+      ? Boolean(targetDemande.estPaye)
+      : true;
 
   const hasDerogations = Boolean(
-    demande.derogationSoldeNegatif ||
-    demande.derogationDelaiPreavis ||
-    demande.derogationContinuiteService ||
-    demande.extensionPathologiqueMaternite ||
-    demande.suspendAcquisitionSolde
+    targetDemande.derogationSoldeNegatif ||
+    targetDemande.derogationDelaiPreavis ||
+    targetDemande.derogationContinuiteService ||
+    targetDemande.extensionPathologiqueMaternite ||
+    targetDemande.suspendAcquisitionSolde
   );
+
+  const handleEdit = onOpenModifier || onEdit;
+  const handleCancel = onOpenAnnuler || onCancel;
 
   return (
     <Modal
-      isOpen={isOpen}
+      isOpen={isOpen && !!targetDemande}
       onClose={onClose}
-      title={`Détail de la Demande #${demande.idDemandeConge}`}
-      icon={<FileText className="w-5 h-5 text-[var(--color-brand-500)]" />}
+      title={`Demande de congé #${targetDemande.idDemandeConge || ''}`}
+      icon={<FileText size={20} />}
       size="xl"
       footer={
-        <div className="flex items-center justify-between w-full">
+        <div className="flex w-full flex-wrap items-center justify-between gap-2">
           <div>
-            {canWrite && demande.availableActions?.CANCEL?.allowed === true && onCancel && (
+            {targetDemande.availableActions?.CANCEL?.allowed === true && handleCancel && (
               <Button
-                variant="outline"
+                variant="danger"
                 size="sm"
-                className="text-[var(--color-danger-500)] border-[var(--color-danger-500)]/30 hover:bg-[var(--color-danger-500)]/10"
+                iconLeft={<X size={14} />}
                 onClick={() => {
                   onClose();
-                  onCancel(demande);
+                  handleCancel(targetDemande);
                 }}
               >
-                Annuler cette demande
+                Annuler ce congé
               </Button>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            {canWrite && demande.availableActions?.EDIT?.allowed === true && onEdit && (
+          <div className="flex flex-wrap items-center gap-2">
+            {targetDemande.availableActions?.MODIFY_DATES?.allowed === true && handleEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                iconLeft={<Pencil size={14} />}
+                onClick={() => {
+                  onClose();
+                  handleEdit(targetDemande);
+                }}
+              >
+                Modifier les dates
+              </Button>
+            )}
+
+            {targetDemande.availableActions?.APPROVE?.allowed === true && onOpenValider && (
+              <>
+                {targetDemande.availableActions?.EDIT?.allowed === true && handleEdit && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    iconLeft={<Pencil size={14} />}
+                    onClick={() => {
+                      onClose();
+                      handleEdit(targetDemande);
+                    }}
+                  >
+                    Modifier
+                  </Button>
+                )}
+                {targetDemande.availableActions?.REJECT?.allowed === true && onOpenRefus && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    iconLeft={<X size={14} />}
+                    onClick={() => {
+                      onClose();
+                      onOpenRefus(targetDemande);
+                    }}
+                  >
+                    Refuser
+                  </Button>
+                )}
+                <Button
+                  variant="success"
+                  size="sm"
+                  iconLeft={<Check size={14} />}
+                  onClick={() => {
+                    onClose();
+                    onOpenValider(targetDemande);
+                  }}
+                >
+                  Valider
+                </Button>
+              </>
+            )}
+
+            {!targetDemande.availableActions?.APPROVE?.allowed && targetDemande.availableActions?.EDIT?.allowed === true && handleEdit && (
               <Button
                 variant="primary"
                 size="sm"
+                iconLeft={<Pencil size={14} />}
                 onClick={() => {
                   onClose();
-                  onEdit(demande);
+                  handleEdit(targetDemande);
                 }}
               >
-                Modifier la demande
+                Modifier
               </Button>
             )}
+
             <Button variant="ghost" size="sm" onClick={onClose}>
               Fermer
             </Button>
@@ -108,199 +213,136 @@ export default function DemandeDetailsModal({
         </div>
       }
     >
-      <div className="space-y-4 text-xs font-sans">
-        {/* En-tête : Type + Statut */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="text-sm font-bold text-[var(--color-fg)]">
-                {demande.libelleTypeConge || demande.codeTypeConge || 'Congé payé'}
-              </h4>
-              <Badge variant={typeConfig.variant} size="xs">
-                {typeConfig.label || demande.codeTypeConge}
-              </Badge>
-              {isRegularisationPointage && (
-                <Badge variant="purple" size="xs" className="gap-1">
-                  <Clock size={11} />
-                  Régularisation Pointage
-                </Badge>
-              )}
+      <div className="space-y-4">
+        {/* Identité + statut */}
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Collaborateur</span>
+            <h3 className="text-base font-bold text-[var(--color-fg)]">
+              {`${targetDemande.prenom || ''} ${targetDemande.nom || ''}`.trim() || `Employé #${targetDemande.idEmploye}`}
+            </h3>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              {targetDemande.matricule && <span className="text-xs text-[var(--color-fg-subtle)] font-data">Matricule {targetDemande.matricule}</span>}
+              <span className="text-xs font-medium text-[var(--color-fg-muted)]">{targetDemande.libelleTypeConge || targetDemande.codeTypeConge}</span>
+              {estRegularisationPointage && <Badge variant="warning" size="xs">Régularisation de pointage</Badge>}
             </div>
-            {demande.libelleMotifEvenement && (
-              <p className="text-[11px] text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-medium">
-                Motif familial : {demande.libelleMotifEvenement}
-              </p>
-            )}
           </div>
-          <div className="shrink-0">
-            <StatusBadge
-              status={demande.codeStatutDemande}
-              label={demande.libelleStatutDemande}
-              size="sm"
-            />
-          </div>
+          <StatusBadge
+            status={targetDemande.codeStatutDemande}
+            label={targetDemande.libelleStatutDemande}
+            size="md"
+          />
         </div>
 
-        {/* Bannière explicative pour régularisation de pointage */}
-        {isRegularisationPointage && (
-          <div className="p-3 bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/30 flex items-start gap-2.5">
-            <Clock className="w-4 h-4 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shrink-0 mt-0.5" />
-            <div className="text-[11px] space-y-0.5">
-              <p className="font-bold text-[var(--color-fg)]">Absence issue du Pointage</p>
-              <p className="text-[var(--color-fg-muted)]">
-                Cette demande a été générée automatiquement lors de l'arbitrage ou de la validation d'une anomalie de pointage.
-              </p>
+        {/* Grille dates */}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+          {[
+            ['Date de début',      formatDate(targetDemande.dateDebut)],
+            ['Date de fin',        formatDate(targetDemande.dateFin)],
+            ['Jours décomptés', targetDemande.estDemiJournee ? `0,5 jour (${targetDemande.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'})` : `${targetDemande.nbJoursDecomptes} jours`],
+            ['Date de soumission', formatDate(targetDemande.dateDemande)],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">{label}</span>
+              <p className="font-data text-sm font-semibold text-[var(--color-fg)] mt-0.5">{value}</p>
             </div>
+          ))}
+        </div>
+
+        {/* Motif familial */}
+        {targetDemande.libelleMotifEvenement && (
+          <div className="p-3 border border-warning-500/30 bg-warning-500/5 text-xs text-warning-600 dark:text-warning-400 font-semibold">
+            Motif d'événement familial : {targetDemande.libelleMotifEvenement}
           </div>
         )}
 
-        {/* Motif de refus en alerte si refusé */}
-        {(demande.codeStatutDemande === 'REFUSE' || demande.isRefuse) && (
+        {/* Commentaire */}
+        {commentaireAffiche && (
+          <div className="space-y-1 pt-2 border-t border-[var(--color-border-subtle)]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Commentaire de l'employé</span>
+            <p className="text-xs text-[var(--color-fg)] bg-[var(--color-bg-subtle)] p-3 border border-[var(--color-border-subtle)]">
+              {commentaireAffiche}
+            </p>
+          </div>
+        )}
+
+        {/* Motif de refus si refusé */}
+        {(targetDemande.codeStatutDemande === 'REFUSE' || targetDemande.isRefuse) && (
           <div className="p-3 bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/30 space-y-1">
-            <div className="flex items-center gap-2 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] font-bold">
-              <XCircle size={15} />
+            <div className="flex items-center gap-2 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] font-bold text-xs">
+              <AlertCircle size={15} />
               <span>Demande refusée</span>
             </div>
-            <p className="text-[11px] text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)] pl-6">
-              <strong>Motif :</strong> {demande.motifRefus || 'Aucun motif renseigné.'}
+            <p className="text-xs text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)] pl-6">
+              <strong>Motif :</strong> {targetDemande.motifRefus || 'Aucun motif renseigné.'}
             </p>
           </div>
         )}
 
-        {/* Cartouches Clés : Période & Impact Solde */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {/* Bloc Période */}
-          <div className="p-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] space-y-2">
-            <div className="flex items-center gap-1.5 text-[var(--color-fg-muted)]">
-              <Calendar size={13} />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Période d'absence</span>
+        {/* Vérification du solde */}
+        <section aria-label="Vérification du solde de congés payés" className="space-y-2 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3 text-xs">
+          <h4 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
+            <Calculator size={13} className="text-[var(--color-brand-500)]" /> Vérification du solde
+          </h4>
+          <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
+            <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
+              <span className="block text-[10px] text-[var(--color-fg-muted)]">Solde avant</span>
+              <span className="font-mono text-xs font-bold text-[var(--color-fg)]">{soldeAvant != null ? `${Number(soldeAvant).toFixed(2)} j` : 'Non calculé'}</span>
             </div>
-            <div className="font-mono text-sm font-bold text-[var(--color-fg)] flex items-center gap-2 flex-wrap">
-              <span>{fmtDate(demande.dateDebut)}</span>
-              {!isDemiJournee && demande.dateFin && (
-                <>
-                  <span className="text-[var(--color-fg-subtle)]">→</span>
-                  <span>{fmtDate(demande.dateFin)}</span>
-                </>
-              )}
+            <Minus size={14} className="hidden text-[var(--color-fg-muted)] sm:block" aria-hidden="true" />
+            <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
+              <span className="block text-[10px] text-[var(--color-fg-muted)]">Jours débités</span>
+              <span className="font-mono text-xs font-bold text-[var(--color-danger-600)]">{joursDebites != null ? `${Number(joursDebites).toFixed(2)} j` : 'Non calculé'}</span>
             </div>
-            {isDemiJournee && (
-              <Badge variant="info" size="xs">
-                Demi-journée ({momentText})
-              </Badge>
+            <Equal size={14} className="hidden text-[var(--color-fg-muted)] sm:block" aria-hidden="true" />
+            <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
+              <span className="block text-[10px] text-[var(--color-fg-muted)]">Solde après</span>
+              <span className={`font-mono text-xs font-bold ${soldeApres != null && soldeApres < 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
+                {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : 'Non calculé'}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-[var(--color-border-subtle)] pt-2 text-[11px] text-[var(--color-fg-subtle)]">
+            <span>Jours demandés : <strong className="font-mono text-[var(--color-fg)]">{Number(joursDemandes).toFixed(2)} j</strong></span>
+            <span>Impact Paie : <strong>{estRemunere ? 'Congé Rémunéré (TCONGE valorisé)' : 'Sans Solde (Retenue absence)'}</strong></span>
+            {soldeEmploye?.tauxJournalierConge && (
+              <span>TCONGE : <strong className="font-mono">{Number(soldeEmploye.tauxJournalierConge).toLocaleString('fr-FR')} Ar/j</strong></span>
             )}
           </div>
-
-          {/* Bloc Décompte et Impact Solde */}
-          <div className="p-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
-                Impact sur le solde
-              </span>
-              {demande.decompteSoldeAcquis === false ? (
-                <Badge variant="neutral" size="xs">Non décompté</Badge>
-              ) : (
-                <Badge variant="warning" size="xs">Décompté</Badge>
-              )}
-            </div>
-            <div className="font-mono text-sm font-bold text-[var(--color-fg)]">
-              <span className={demande.decompteSoldeAcquis === false ? 'text-[var(--color-fg-muted)]' : 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]'}>
-                {demande.decompteSoldeAcquis === false ? '' : '-'}
-                {Number(demande.nbJoursDecomptes || 0).toFixed(2)} j
-              </span>
-              <span className="text-xs text-[var(--color-fg-muted)] font-normal ml-2">
-                ({demande.nbJoursDecomptes} jour{demande.nbJoursDecomptes > 1 ? 's' : ''} d'absence)
-              </span>
-            </div>
-            <p className="text-[10px] text-[var(--color-fg-subtle)]">
-              {demande.estPaye !== false ? 'Absence rémunérée' : 'Absence non rémunérée'}
-            </p>
-          </div>
-        </div>
-
-        {/* Workflow & Traçabilité */}
-        <div className="p-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] space-y-2.5">
-          <div className="flex items-center gap-1.5 text-[var(--color-fg-muted)] pb-1.5 border-b border-[var(--color-border-subtle)]">
-            <UserCheck size={13} />
-            <span className="text-[10px] font-bold uppercase tracking-wider">Workflow & Validation</span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
-            <div>
-              <span className="text-[10px] text-[var(--color-fg-muted)] block">Date de la demande</span>
-              <span className="font-mono font-medium text-[var(--color-fg)]">
-                {demande.dateDemande ? fmtDate(demande.dateDemande) : '-'}
-              </span>
-              {demande.saisiParIdentifiant && (
-                <span className="text-[10px] text-[var(--color-fg-subtle)] block">
-                  par {demande.saisiParIdentifiant}
-                </span>
-              )}
-            </div>
-            <div>
-              <span className="text-[10px] text-[var(--color-fg-muted)] block">Décision / Validation</span>
-              <span className="font-mono font-medium text-[var(--color-fg)]">
-                {demande.dateValidation ? fmtDate(demande.dateValidation) : demande.dateDecision ? fmtDate(demande.dateDecision) : 'En cours d\'instruction'}
-              </span>
-              {demande.valideParIdentifiant && (
-                <span className="text-[10px] text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-medium block">
-                  validé par {demande.valideParIdentifiant}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
+        </section>
 
         {/* Particularités & Dérogations RH */}
         {hasDerogations && (
           <div className="space-y-1.5 p-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block flex items-center gap-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] flex items-center gap-1.5">
               <ShieldAlert size={12} className="text-[var(--color-warning-500)]" />
               Particularités réglementaires accordées
             </span>
             <div className="flex flex-wrap gap-1.5 pt-1">
-              {demande.derogationSoldeNegatif && (
+              {targetDemande.derogationSoldeNegatif && (
                 <Badge variant="warning" size="xs">Dérogation solde négatif</Badge>
               )}
-              {demande.derogationDelaiPreavis && (
+              {targetDemande.derogationDelaiPreavis && (
                 <Badge variant="warning" size="xs">Dérogation préavis</Badge>
               )}
-              {demande.derogationContinuiteService && (
+              {targetDemande.derogationContinuiteService && (
                 <Badge variant="warning" size="xs">Dérogation continuité service</Badge>
               )}
-              {demande.extensionPathologiqueMaternite && (
+              {targetDemande.extensionPathologiqueMaternite && (
                 <Badge variant="danger" size="xs">Extension pathologique</Badge>
               )}
-              {demande.suspendAcquisitionSolde && (
+              {targetDemande.suspendAcquisitionSolde && (
                 <Badge variant="default" size="xs">Suspension acquisition solde</Badge>
               )}
             </div>
           </div>
         )}
 
-        {/* Commentaire de l'employé / motif d'arbitrage */}
-        {cleanCommentaire && (
-          <div className="space-y-1 pt-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">
-              Commentaire / Motif
-            </span>
-            <p className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[11px] text-[var(--color-fg)] whitespace-pre-wrap">
-              {cleanCommentaire}
-            </p>
-          </div>
-        )}
-
-        {/* Statut justificatif */}
-        <div className="flex items-center justify-between p-2.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[11px]">
-          <div className="flex items-center gap-1.5 text-[var(--color-fg-muted)]">
-            {demande.justificatifFourni ? (
-              <CheckCircle2 size={13} className="text-[var(--color-success-500)]" />
-            ) : (
-              <AlertCircle size={13} className="text-[var(--color-fg-subtle)]" />
-            )}
-            <span>Pièce justificative légale</span>
-          </div>
-          <Badge variant={demande.justificatifFourni ? 'success' : 'neutral'} size="xs">
-            {demande.justificatifFourni ? 'Fournie et conforme' : 'Non exigée ou en attente'}
+        {/* Justificatif */}
+        <div className="flex items-center justify-between border-t border-[var(--color-border-subtle)] pt-3 text-xs">
+          <span className="text-[var(--color-fg-muted)] font-medium">Justificatif fourni :</span>
+          <Badge variant={targetDemande.justificatifFourni ? 'success' : 'neutral'} size="xs">
+            {targetDemande.justificatifFourni ? 'OUI' : 'NON'}
           </Badge>
         </div>
       </div>

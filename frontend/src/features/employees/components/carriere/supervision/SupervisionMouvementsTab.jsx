@@ -5,7 +5,7 @@ import contratService from '@/features/employees/api/contratService';
 import organisationService from '@/features/organization/api/organisationService';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
-import Select from '@/components/ui/forms/Select';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Badge from '@/components/ui/data-display/Badge';
 import StatusBadge from '@/components/ui/data-display/StatusBadge';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -83,25 +83,41 @@ function SupervisionMouvementsTab() {
     };
     const hasActiveFilters = Boolean(searchQuery || selectedType !== 'ALL' || selectedStatut !== 'ALL' || selectedSite);
     const typeOptions = [{ value: 'ALL', label: 'Tous les mouvements' },
-        ...typesEvenements.map(type => ({ value: type.code, label: type.libelle }))];
+        ...typesEvenements.map(type => ({
+            value: type.code,
+            label: type.code && type.code !== type.libelle ? `${type.code} — ${type.libelle}` : type.libelle
+        }))];
     const statutOptions = [{ value: 'ALL', label: 'Tous les états' },
-        ...statuts.map(state => ({ value: state.code, label: state.libelle }))];
+        ...statuts.map(state => ({
+            value: state.code,
+            label: state.code && state.code !== state.libelle ? `${state.code} — ${state.libelle}` : state.libelle
+        }))];
     const siteOptions = [{ value: '', label: 'Tous les sites' },
         ...sites.filter(site => site.estActif !== false && site.actif !== false)
-            .map(site => ({ value: String(site.idSite), label: site.libelle || site.nomSite || site.codeSite }))];
+            .map(site => {
+                const code = site.codeSite || site.code;
+                const libelle = site.libelle || site.nomSite || `Site #${site.idSite}`;
+                return {
+                    value: String(site.idSite),
+                    label: code ? `${code} — ${libelle}` : libelle
+                };
+            })];
 
     return <div className="space-y-3.5">
         <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 sm:p-4 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_repeat(3,minmax(150px,auto))] gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_repeat(3,minmax(180px,auto))] gap-2">
                 <Input aria-label="Rechercher un mouvement" value={searchQuery}
                     onChange={event => { setSearchQuery(event.target.value); setCurrentPage(1); }}
                     placeholder="Matricule, nom ou motif…" iconLeft={<Search size={14} />} />
-                <Select aria-label="Type de mouvement" value={selectedType} options={typeOptions}
-                    onChange={value => { setSelectedType(value); setCurrentPage(1); }} />
-                <Select aria-label="État du mouvement" value={selectedStatut} options={statutOptions}
-                    onChange={value => { setSelectedStatut(value); setCurrentPage(1); }} />
-                <Select aria-label="Site du mouvement" value={selectedSite} options={siteOptions}
-                    onChange={value => { setSelectedSite(value); setCurrentPage(1); }} />
+                <SearchSelect aria-label="Type de mouvement" value={selectedType} options={typeOptions}
+                    placeholder="Tous les mouvements"
+                    onChange={value => { setSelectedType(value || 'ALL'); setCurrentPage(1); }} />
+                <SearchSelect aria-label="État du mouvement" value={selectedStatut} options={statutOptions}
+                    placeholder="Tous les états"
+                    onChange={value => { setSelectedStatut(value || 'ALL'); setCurrentPage(1); }} />
+                <SearchSelect aria-label="Site du mouvement" value={selectedSite} options={siteOptions}
+                    placeholder="Tous les sites"
+                    onChange={value => { setSelectedSite(value || ''); setCurrentPage(1); }} />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--color-fg-muted)]">
                 <span><strong className="text-[var(--color-fg)]">{totalElements}</strong> mouvement(s) trouvé(s)</span>

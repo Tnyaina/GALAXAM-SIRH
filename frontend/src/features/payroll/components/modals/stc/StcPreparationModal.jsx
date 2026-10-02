@@ -207,7 +207,7 @@ export default function StcPreparationModal({
 
     // 2. Déclenche la validation définitive et émission du reçu numéroté
     const handleValiderDefinitivement = async () => {
-        if (!window.confirm('ATTENTION : Cette action est irréversible.\n\nLe STC sera définitivement validé, un reçu officiel numéroté sera émis, et les éventuels prêts et avances du salarié seront intégralement soldés dans le SIRH.\n\nConfirmez-vous la validation ?')) {
+        if (!window.confirm('ATTENTION : Cette action est irréversible.\n\nLe STC sera définitivement validé, un reçu officiel numéroté sera émis, et les éventuels prêts et avances du salarié seront intégralement soldés dans le GRH.\n\nConfirmez-vous la validation ?')) {
             return;
         }
 
@@ -364,7 +364,7 @@ export default function StcPreparationModal({
                                 <span className="text-[10px] text-[var(--color-fg-muted)] font-mono block">({formatMoneyAr(prepData.tauxHoraire)}/h)</span>
                             </div>
                             <div>
-                                <span className="text-[11px] text-[var(--color-fg-muted)] block">Solde Congés & Taux TCONGE</span>
+                                <span className="text-[11px] text-[var(--color-fg-muted)] block">Solde Congés & Taux congés</span>
                                 <strong className="text-[var(--color-fg)]">{prepData.soldeCongesRestant} jours</strong>
                                 <span className="text-[10px] text-[var(--color-fg-muted)] font-mono block">({formatMoneyAr(prepData.tauxJournalierConge)}/j)</span>
                             </div>

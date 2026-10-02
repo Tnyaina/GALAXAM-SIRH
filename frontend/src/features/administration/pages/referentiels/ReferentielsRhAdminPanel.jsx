@@ -8,7 +8,7 @@ import SEO from '@/components/system/SEO';
 
 const CareerReferenceDataManagementTab = lazy(() => import('@/features/administration/components/reference-data/CareerReferenceDataManagementTab'));
 const DocumentTypeManagementTab = lazy(() => import('@/features/administration/components/reference-data/DocumentTypeManagementTab'));
-const ReferentielsRhTab = lazy(() => import('@/features/organization/components/structure/ReferentielsRhTab'));
+const ReferentielsRhTab = lazy(() => import('@/features/organization/components/tabs/ReferentielsRhTab'));
 
 export default function ReferentielsRhAdminPanel() {
     const [searchParams, setSearchParams] = useSearchParams();

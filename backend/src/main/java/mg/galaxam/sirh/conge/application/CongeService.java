@@ -695,6 +695,138 @@ public class CongeService {
         return d;
     }
 
+    public DemandeConge modifierDemande(
+            int id,
+            mg.galaxam.sirh.conge.domain.DemandeCongeRequests.ModifierDemandeRequest req,
+            Integer currentUserId,
+            boolean isAdminOrRh,
+            Connection c) throws Exception {
+        String statutCode;
+        Date dateDebutCourante = null;
+        String sqlLock = "SELECT s.code, dc.id_statut_demande_conge, dc.date_debut FROM demande_conge dc " +
+                "JOIN ref_statut_demande_conge s ON dc.id_statut_demande_conge = s.id_statut_demande_conge " +
+                "WHERE dc.id_demande_conge = ? FOR UPDATE";
+        try (PreparedStatement psLock = c.prepareStatement(sqlLock)) {
+            psLock.setInt(1, id);
+            try (ResultSet rsLock = psLock.executeQuery()) {
+                if (!rsLock.next()) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_NON_TROUVE);
+                }
+                statutCode = rsLock.getString("code");
+                dateDebutCourante = rsLock.getDate("date_debut");
+            }
+        }
+
+        boolean etaitValide = "VALIDE".equals(statutCode);
+
+        if (!"EN_ATTENTE".equals(statutCode) && !"BROUILLON".equals(statutCode)) {
+            if (!etaitValide) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                        "Seules les demandes en attente, en brouillon ou validées futures peuvent être modifiées.");
+            }
+            if (!isAdminOrRh) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Seul un responsable RH ou Administrateur peut modifier un congé déjà validé.");
+            }
+            if (dateDebutCourante != null && !dateDebutCourante.toLocalDate().isAfter(java.time.LocalDate.now())) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                        "Ce congé validé a déjà commencé ou est passé. Il ne peut plus être modifié directement.");
+            }
+            if (req != null && req.dateDebut() != null && req.dateDebut().isBefore(java.time.LocalDate.now())) {
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_DATES_INVALIDES,
+                        "La nouvelle date de début ne peut pas être dans le passé.");
+            }
+        }
+
+        DemandeConge d = DemandeConge.rechercherParId(id, c);
+        if (d == null)
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.CONGE_NON_TROUVE);
+
+        d.setIdDemandeConge(id);
+
+        // Sécurisation Phase 2A-2C (RG-CONGE) : Interdire la modification sur une période de paie clôturée ou payée
+        if (etaitValide && d.getDateDebut() != null && d.getDateFin() != null) {
+            String sqlCheckPeriode = "SELECT p.code FROM periode_paie p " +
+                    "JOIN ref_statut_periode_paie r ON p.id_statut_periode = r.id_statut_periode " +
+                    "WHERE p.date_debut <= ? AND p.date_fin >= ? AND r.code IN ('CLOTUREE', 'PAIE_VALIDEE')";
+            try (PreparedStatement psP = c.prepareStatement(sqlCheckPeriode)) {
+                psP.setDate(1, d.getDateFin());
+                psP.setDate(2, d.getDateDebut());
+                try (ResultSet rsP = psP.executeQuery()) {
+                    if (rsP.next()) {
+                        throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                                mg.galaxam.sirh.common.exception.SirhErrorCode.BUSINESS_STATE_TRANSITION_BLOCKED,
+                                "Action interdite : Impossible de modifier un congé sur une période de paie déjà validée ou clôturée ("
+                                        + rsP.getString("code") + ").");
+                    }
+                }
+            }
+        }
+
+        BigDecimal ancienNbJours = d.getNbJoursDecomptes();
+
+        if (req != null) {
+            if (req.idTypeConge() != null) d.setIdTypeConge(req.idTypeConge());
+            if (req.idMotifEvenementFamilial() != null) d.setIdMotifEvenementFamilial(req.idMotifEvenementFamilial());
+            if (req.dateDebut() != null) d.setDateDebut(Date.valueOf(req.dateDebut()));
+            if (req.dateFin() != null) d.setDateFin(Date.valueOf(req.dateFin()));
+            if (req.estDemiJournee() != null) d.setEstDemiJournee(req.estDemiJournee());
+            if (req.momentDemiJournee() != null && !req.momentDemiJournee().isBlank()) {
+                d.setMomentDemiJournee(req.momentDemiJournee());
+            }
+            if (isAdminOrRh) {
+                if (req.derogationSoldeNegatif() != null) d.setDerogationSoldeNegatif(req.derogationSoldeNegatif());
+                if (req.derogationDelaiPreavis() != null) d.setDerogationDelaiPreavis(req.derogationDelaiPreavis());
+                if (req.derogationContinuiteService() != null) d.setDerogationContinuiteService(req.derogationContinuiteService());
+            }
+            if (req.extensionPathologiqueMaternite() != null) {
+                d.setExtensionPathologiqueMaternite(req.extensionPathologiqueMaternite());
+            }
+            if (req.justificatifFourni() != null) {
+                d.setJustificatifFourni(req.justificatifFourni());
+            }
+            if (req.commentaire() != null) {
+                d.setCommentaire(req.commentaire().trim());
+            }
+        }
+
+        d.controler(c);
+        d.update(c);
+
+        if (etaitValide) {
+            RefTypeConge typeConge = RefTypeConge.rechercherParId(d.getIdTypeConge(), c);
+            if (typeConge != null && typeConge.isDecompteSoldeAcquis()) {
+                BigDecimal nouveauNbJours = d.getNbJoursDecomptes();
+                BigDecimal delta = nouveauNbJours.subtract(ancienNbJours != null ? ancienNbJours : BigDecimal.ZERO);
+                if (delta.compareTo(BigDecimal.ZERO) != 0) {
+                    MouvementSoldeConge ajustement = new MouvementSoldeConge();
+                    ajustement.setIdEmploye(d.getIdEmploye());
+                    ajustement.setTypeMouvement("AJUSTEMENT");
+                    ajustement.setNbJours(delta.negate());
+                    ajustement.setIdDemandeConge(d.getIdDemandeConge());
+                    ajustement.setCommentaire("Ajustement de solde suite modification durée de la demande #" + d.getIdDemandeConge()
+                            + " (" + ancienNbJours + "j -> " + nouveauNbJours + "j)");
+                    ajustement.setCreatedBy(currentUserId);
+                    ajustement.save(c);
+                }
+            }
+
+            NotificationRhService.creer(
+                    c,
+                    "MOUVEMENT_APPLIQUE",
+                    "NORMALE",
+                    "Dates de congé modifiées",
+                    "Les dates du congé validé (#" + id + ") ont été modifiées (du " + d.getDateDebut() + " au " + d.getDateFin() + ").",
+                    "/conges",
+                    d.getIdEmploye());
+        }
+
+        return d;
+    }
+
     public DemandeConge validerDemande(int idDemande, Integer currentUserId, String commentaireValidation, Connection c)
             throws Exception {
         DemandeConge d = DemandeConge.rechercherParId(idDemande, c);

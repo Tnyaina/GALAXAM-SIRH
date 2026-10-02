@@ -7,8 +7,7 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import { useToast } from '@/components/ui/feedback/Toast';
 import congeService from '@/features/leave/api/congeService';
 import useConfirm from '@/hooks/useConfirm';
-import TypeCongeModal from './TypeCongeModal';
-import MotifFamilialModal from './MotifFamilialModal';
+import { TypeCongeModal, MotifFamilialModal } from './ParametresCongesModals';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SideTabs from '@/components/ui/navigation/SideTabs';

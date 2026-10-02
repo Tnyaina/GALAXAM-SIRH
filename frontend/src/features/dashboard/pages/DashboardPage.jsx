@@ -94,7 +94,7 @@ export default function DashboardPage() {
             {modules.length > 0 && (
                 <section>
                     <div className="mb-3">
-                        <h2 className="text-sm font-bold text-[var(--color-fg)]">Domaines du SIRH</h2>
+                        <h2 className="text-sm font-bold text-[var(--color-fg)]">Domaines du GRH</h2>
                         <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">Accès direct et état synthétique de chaque périmètre.</p>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">

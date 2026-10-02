@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react';
 import { Search, RotateCcw } from 'lucide-react';
 import Input from '@/components/ui/forms/Input';
-import Select from '@/components/ui/forms/Select';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Button from '@/components/ui/forms/Button';
 
 function SupervisionFilterBar({
@@ -23,23 +23,36 @@ function SupervisionFilterBar({
     onResetFilters,
     hasActiveFilters
 }) {
-    // Données dérivées : options présentées dans les filtres.
+    // Données dérivées : options présentées dans les filtres avec code et libellé.
     const siteOptions = useMemo(() => [
         { value: '', label: 'Tous les sites d\'affectation' },
         ...sites
             .filter(s => s.estActif !== false && s.actif !== false)
-            .map(s => ({
-                value: String(s.idSite),
-                label: `${s.libelle || s.nomSite || s.codeSite || `Site #${s.idSite}`}${s.codeSite ? ` (${s.codeSite})` : ''}`
-            }))
+            .map(s => {
+                const code = s.codeSite || s.code;
+                const libelle = s.libelle || s.nomSite || `Site #${s.idSite}`;
+                return {
+                    value: String(s.idSite),
+                    label: code ? `${code} — ${libelle}` : libelle,
+                };
+            })
     ], [sites]);
 
-    const statutOptions = useMemo(() => statuses.map(s => ({ value: s.code, label: s.libelle })), [statuses]);
+    const statutOptions = useMemo(() => [
+        { value: 'ALL', label: 'Tous les états' },
+        ...statuses.map(s => ({
+            value: s.code,
+            label: s.code && s.code !== s.libelle ? `${s.code} — ${s.libelle}` : s.libelle
+        }))
+    ], [statuses]);
 
-    const echeanceOptions = useMemo(() => deadlines.map(item => ({
-        value: item.code === 'ALL' ? '' : item.code,
-        label: item.libelle,
-    })), [deadlines]);
+    const echeanceOptions = useMemo(() => [
+        { value: '', label: 'Toutes les échéances' },
+        ...deadlines.map(item => ({
+            value: item.code === 'ALL' ? '' : item.code,
+            label: item.code && item.code !== 'ALL' && item.code !== item.libelle ? `${item.code} — ${item.libelle}` : item.libelle,
+        }))
+    ], [deadlines]);
 
     // Rendu
     return (
@@ -58,32 +71,35 @@ function SupervisionFilterBar({
                 </div>
 
                 {/* Filtre Site */}
-                <div className="min-w-[170px]">
-                    <Select
+                <div className="min-w-[200px] flex-1 sm:flex-initial">
+                    <SearchSelect
                         value={selectedSite}
-                        onChange={(val) => onSiteChange(val)}
+                        onChange={(val) => onSiteChange(val || '')}
                         options={siteOptions}
-                        className="py-1.5 text-xs"
+                        placeholder="Tous les sites d'affectation"
+                        className="w-full text-xs"
                     />
                 </div>
 
                 {/* Filtre Statut */}
-                <div className="min-w-[170px]">
-                    <Select
+                <div className="min-w-[180px] flex-1 sm:flex-initial">
+                    <SearchSelect
                         value={selectedStatut}
-                        onChange={(val) => onStatutChange(val)}
+                        onChange={(val) => onStatutChange(val || 'ALL')}
                         options={statutOptions}
-                        className="py-1.5 text-xs"
+                        placeholder="Tous les états"
+                        className="w-full text-xs"
                     />
                 </div>
 
                 {/* Filtre Échéance */}
-                <div className="min-w-[160px]">
-                    <Select
+                <div className="min-w-[180px] flex-1 sm:flex-initial">
+                    <SearchSelect
                         value={selectedEcheance}
-                        onChange={(val) => onEcheanceChange(val)}
+                        onChange={(val) => onEcheanceChange(val || '')}
                         options={echeanceOptions}
-                        className="py-1.5 text-xs"
+                        placeholder="Toutes les échéances"
+                        className="w-full text-xs"
                     />
                 </div>
 
