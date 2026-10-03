@@ -60,6 +60,7 @@ export default function CalculStepPage() {
     const [simLoading, setSimLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [existingKpis, setExistingKpis] = useState(null);
+    const [cockpitPopulationCount, setCockpitPopulationCount] = useState(null);
     const [existingBulletins, setExistingBulletins] = useState([]);
     const [bulletinPage, setBulletinPage] = useState(1);
     const [bulletinTotal, setBulletinTotal] = useState(0);
@@ -98,6 +99,7 @@ export default function CalculStepPage() {
         if (!numericPeriodId) return;
         try {
             const cockpit = await paieService.getCockpitPeriode(numericPeriodId, { page: bulletinPage, size: 20 });
+            setCockpitPopulationCount(cockpit?.populationPage?.totalElements ?? cockpit?.readiness?.effectifAttendu ?? null);
             if (cockpit?.kpis && (cockpit.kpis.totalBulletins > 0 || cockpit.kpis.bulletinsCount > 0 || cockpit.kpis.effectifCalcule > 0)) {
                 setExistingKpis({
                     bulletins: cockpit.kpis.totalBulletins ?? cockpit.kpis.bulletinsCount ?? cockpit.kpis.effectifCalcule ?? 0,
@@ -186,7 +188,7 @@ export default function CalculStepPage() {
     const displayBulletins = isSimulationActive
         ? simulationBulletins.slice((bulletinPage - 1) * 20, bulletinPage * 20)
         : existingBulletins;
-    const populationCount = context?.populationCount ?? context?.population?.eligibleCount ?? context?.periodContext?.nbSalariesTotal;
+    const populationCount = cockpitPopulationCount ?? context?.populationCount ?? context?.population?.eligibleCount ?? context?.periodContext?.nbSalariesTotal;
     const calculationVersion = context?.periodContext?.calculationSnapshotVersion ?? context?.snapshotVersion;
     const controlStep = context?.campaignSteps?.find(step => step.code === 'CONTROL');
     const canOpenControl = Boolean(controlStep?.destination && controlStep.state !== 'BLOCKED');

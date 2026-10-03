@@ -12,7 +12,9 @@ export const paieService = {
 
     // --- Cockpit & Calculs ---
     getCockpitPeriode: async (idPeriode, params = {}) => {
-        const response = await apiClient.get(`paie/periode/${idPeriode}/cockpit`, { params });
+        const response = await apiClient.get(`paie/periode/${idPeriode}/cockpit`, {
+            params: { includeContext: false, ...params }
+        });
         return response.data;
     },
 

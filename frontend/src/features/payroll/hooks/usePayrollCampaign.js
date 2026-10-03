@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
-import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 
 /**
@@ -29,9 +28,10 @@ export function usePayrollCampaign(requestedPeriodId = null) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const abortRef = useRef(null);
+    const periodsRef = useRef([]);
 
     // Chargement centralisé et protection contre les réponses obsolètes.
-    const loadData = useCallback(async (periodeId, { silent = false } = {}) => {
+    const loadData = useCallback(async (periodeId, { silent = false, reloadPeriods = false } = {}) => {
         // Annuler une éventuelle requête précédente en vol
         if (abortRef.current) abortRef.current = false;
         const token = {};
@@ -44,7 +44,9 @@ export function usePayrollCampaign(requestedPeriodId = null) {
 
         try {
             const [allPeriodes, ctx] = await Promise.all([
-                periodePaieService.getAllPeriodes(),
+                !reloadPeriods && periodsRef.current.length > 0
+                    ? Promise.resolve(periodsRef.current)
+                    : periodePaieService.getPeriodOptions(),
                 periodePaieService.getContext(periodeId),
             ]);
 
@@ -77,23 +79,9 @@ export function usePayrollCampaign(requestedPeriodId = null) {
                 }
             }
 
-            let populationCount = finalCtx?.populationCount ?? null;
-            if (resolvedId && populationCount == null) {
-                try {
-                    const cockpit = await paieService.getCockpitPeriode(resolvedId, { light: true });
-                    populationCount = cockpit?.populationPage?.totalElements
-                        ?? cockpit?.readiness?.effectifAttendu
-                        ?? cockpit?.validationSummary?.population
-                        ?? (Array.isArray(cockpit?.population) ? cockpit.population.length : null);
-                } catch {
-                    // Non bloquant : l'affichage fallback sera appliqué
-                }
-            }
-
-            const enrichedCtx = finalCtx ? { ...finalCtx, populationCount } : null;
-
+            periodsRef.current = periodList;
             setPeriodes(periodList);
-            setContext(enrichedCtx);
+            setContext(finalCtx);
             setSelectedPeriodeId(resolvedId);
         } catch (err) {
             if (abortRef.current !== token) return;
@@ -126,7 +114,7 @@ export function usePayrollCampaign(requestedPeriodId = null) {
 
     /** Rechargement manuel (bouton Actualiser ou après une action) */
     const refresh = useCallback((overrideId = null) => {
-        return loadData(overrideId || selectedPeriodeId || requestedPeriodId);
+        return loadData(overrideId || selectedPeriodeId || requestedPeriodId, { reloadPeriods: true });
     }, [selectedPeriodeId, requestedPeriodId, loadData]);
 
     const refreshSilent = useCallback((overrideId = null) => {

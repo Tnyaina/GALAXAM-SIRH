@@ -12,7 +12,7 @@ import Select from '@/components/ui/forms/Select';
 import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 import { formatMoneyAr } from '@/utils/moneyUtils';
-import { isManualPayrollVariable, isManualPayrollVariableType } from '@/features/payroll/utils/variableTypes';
+import { isManualPayrollVariable } from '@/features/payroll/utils/variableTypes';
 
 const statuses = {
     EN_ATTENTE: ['À approuver', 'warning'],
@@ -50,7 +50,7 @@ export default function BulletinVariableCorrection({ bulletin, onBulletinUpdated
             paieService.getBulletinCorrectionStatus(bulletin.idBulletin),
         ]);
         setVariables(Array.isArray(items) ? items : []);
-        setTypes(Array.isArray(catalogue) ? catalogue.filter(isManualPayrollVariableType) : []);
+        setTypes(Array.isArray(catalogue) ? catalogue : []);
         setContext(workflow);
         setCorrectionStatus(status);
     }, [periodId, employeeId, bulletin.idBulletin]);

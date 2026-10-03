@@ -96,7 +96,7 @@ export default function PopulationStepPage() {
         const requestId = ++requestIdRef.current;
         if (!silent) setLoading(true);
         try {
-            const cockpit = await paieService.getCockpitPeriode(numericPeriodId, { light: true });
+            const cockpit = await paieService.getCockpitPeriode(numericPeriodId, { projection: 'population' });
             if (requestIdRef.current !== requestId) return;
             setPopulation(Array.isArray(cockpit?.population) ? cockpit.population : []);
             setRefreshError(false);

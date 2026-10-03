@@ -32,6 +32,9 @@ export default function ControleStepPage() {
     const [page, setPage] = useState(1);
     const [selectedBulletinId, setSelectedBulletinId] = useState(null);
     const requestSequence = useRef(0);
+    const [loadedQuery, setLoadedQuery] = useState(null);
+    const queryKey = JSON.stringify([numericPeriodId, page, debouncedQuery, filter]);
+    const hasCurrentResults = loadedQuery === queryKey && cockpit !== null;
 
     useEffect(() => {
         const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 250);
@@ -50,7 +53,10 @@ export default function ControleStepPage() {
                 q: debouncedQuery || undefined,
                 filter,
             });
-            if (requestId === requestSequence.current) setCockpit(response);
+            if (requestId === requestSequence.current) {
+                setCockpit(response);
+                setLoadedQuery(JSON.stringify([numericPeriodId, page, debouncedQuery, filter]));
+            }
         } catch (cause) {
             if (requestId === requestSequence.current) {
                 setCockpit(null);
@@ -175,7 +181,7 @@ export default function ControleStepPage() {
                         { key: 'signal', label: 'Signal', align: 'center' },
                         { key: 'action', label: 'Détail', align: 'center', width: 'w-20' },
                     ]}
-                    loading={loading}
+                    loading={loading && !hasCurrentResults}
                     emptyMessage={filter === 'ALERTS' ? 'Aucun bulletin à examiner.' : 'Aucun bulletin trouvé.'}
                     pagination={{
                         currentPage: page,

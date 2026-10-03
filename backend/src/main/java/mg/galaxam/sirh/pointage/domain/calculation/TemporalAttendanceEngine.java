@@ -283,7 +283,7 @@ public final class TemporalAttendanceEngine {
                 // Qualification horaire : nuit [22h00 - 05h00[
                 LocalTime startTime = segStart.toLocalTime();
                 boolean isNight = !startTime.isBefore(NIGHT_START) || startTime.isBefore(NIGHT_END);
-                NightWorkType nightType = isNight ? NightWorkType.NIGHT_UNCLASSIFIED : NightWorkType.NONE;
+                NightWorkType nightType = isNight ? NightWorkType.OCCASIONNEL : NightWorkType.NONE;
     
                 // Résolution de la période de paie
                 Integer periodId = periodResolver.apply(segDate);

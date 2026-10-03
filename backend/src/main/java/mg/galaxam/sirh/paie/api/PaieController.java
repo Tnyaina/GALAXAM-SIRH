@@ -206,13 +206,18 @@ public class PaieController {
             @RequestParam(value = "q", required = false) String query,
             @RequestParam(value = "site", required = false) String site,
             @RequestParam(value = "filter", required = false) String filter,
+            @RequestParam(value = "projection", required = false) String projection,
+            @RequestParam(value = "includeContext", defaultValue = "true") boolean includeContext,
             Authentication authentication) throws Exception {
         try (Connection c = dataSource.getConnection()) {
-            Map<String, Object> cockpit = payrollService.obtenirCockpitPeriode(
-                    idPeriode, page, size, query, site, filter, c);
-            // Une seule réponse porte les données de travail et la décision canonique du backend.
-            cockpit.put("context", payrollPeriodWorkflowService.describeContext(
-                    idPeriode, null, PayrollPeriodUserContext.from(authentication)));
+            Map<String, Object> cockpit = "population".equalsIgnoreCase(projection)
+                    ? new java.util.HashMap<>(payrollService.obtenirPopulationCockpit(idPeriode, c))
+                    : payrollService.obtenirCockpitPeriode(idPeriode, page, size, query, site, filter, c);
+            // Les clients qui n'ont pas déjà chargé /periodes/context peuvent le demander ici.
+            if (includeContext) {
+                cockpit.put("context", payrollPeriodWorkflowService.describeContext(
+                        idPeriode, null, PayrollPeriodUserContext.from(authentication)));
+            }
             return ResponseEntity.ok(cockpit);
         }
     }

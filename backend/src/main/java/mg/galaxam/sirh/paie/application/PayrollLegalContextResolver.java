@@ -134,11 +134,9 @@ public class PayrollLegalContextResolver {
                         hs30,
                         hs50,
                         nuit,
-                        null,
                         dim,
                         ferie,
-                        input.getSpecialPremiumCollisionPolicy() != null ? input.getSpecialPremiumCollisionPolicy() : SpecialPremiumCollisionPolicy.UNRESOLVED,
-                        null
+                        input.getSpecialPremiumCollisionPolicy() != null ? input.getSpecialPremiumCollisionPolicy() : SpecialPremiumCollisionPolicy.UNRESOLVED
                 );
             } catch (Exception e) {
                 throw new IllegalStateException("Erreur de résolution des taux de majoration à la date " + date + " : " + e.getMessage(), e);

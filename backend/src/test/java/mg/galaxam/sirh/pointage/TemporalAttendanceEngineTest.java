@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
+import mg.galaxam.sirh.pointage.domain.calculation.NightWorkType;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.AttendanceTemporalPartitioner;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.OvertimeProjectionEngine;
@@ -28,6 +29,8 @@ class TemporalAttendanceEngineTest {
         var buckets = partitioner.partition(intervals);
         assertEquals(List.of(60L, 120L, 120L), buckets.stream().map(b -> b.minutes()).toList());
         assertTrue(buckets.get(1).isNight());
+        assertEquals(NightWorkType.OCCASIONNEL, buckets.get(1).nightType());
+        assertEquals(NightWorkType.OCCASIONNEL, buckets.get(2).nightType());
         assertTrue(buckets.get(2).isSunday());
         assertEquals(1, buckets.get(0).payrollPeriodId());
         assertEquals(2, buckets.get(2).payrollPeriodId());

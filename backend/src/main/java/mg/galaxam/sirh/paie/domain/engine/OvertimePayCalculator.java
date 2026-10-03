@@ -38,23 +38,17 @@ public final class OvertimePayCalculator {
     public record Rates(
             BigDecimal rateHs30,
             BigDecimal rateHs50,
-            BigDecimal rateNuitHabituel,
-            BigDecimal rateNuitOccasionnel,
+            BigDecimal rateNuit,
             BigDecimal rateDimanche,
             BigDecimal rateFerie,
-            SpecialPremiumCollisionPolicy collisionPolicy,
-            NightWorkClassifier nightClassifier
+            SpecialPremiumCollisionPolicy collisionPolicy
     ) {
         public Rates(BigDecimal rateHs30, BigDecimal rateHs50, BigDecimal rateNuit, BigDecimal rateDimanche, BigDecimal rateFerie) {
-            this(rateHs30, rateHs50, rateNuit, null, rateDimanche, rateFerie, SpecialPremiumCollisionPolicy.UNRESOLVED, null);
+            this(rateHs30, rateHs50, rateNuit, rateDimanche, rateFerie, SpecialPremiumCollisionPolicy.UNRESOLVED);
         }
 
         public Rates withCollisionPolicy(SpecialPremiumCollisionPolicy policy) {
-            return new Rates(rateHs30, rateHs50, rateNuitHabituel, rateNuitOccasionnel, rateDimanche, rateFerie, policy, nightClassifier);
-        }
-
-        public Rates withNightClassifier(NightWorkClassifier classifier) {
-            return new Rates(rateHs30, rateHs50, rateNuitHabituel, rateNuitOccasionnel, rateDimanche, rateFerie, collisionPolicy, classifier);
+            return new Rates(rateHs30, rateHs50, rateNuit, rateDimanche, rateFerie, policy);
         }
     }
 
@@ -138,18 +132,10 @@ public final class OvertimePayCalculator {
             }
 
             // 2. Traitement du travail de nuit
-            NightWorkType resolvedNight = bucket.nightType();
-            if (resolvedNight == NightWorkType.NIGHT_UNCLASSIFIED && rates.nightClassifier() != null) {
-                resolvedNight = rates.nightClassifier().classify(bucket, employeeId);
-            }
-
-            if (resolvedNight == NightWorkType.NIGHT_UNCLASSIFIED) {
-                throw new IllegalStateException(
-                        "NIGHT_CLASSIFICATION_REQUIRED: Le bucket temporel [" + bucket.start() + " -> " + bucket.end() +
-                        "] porte une qualification NIGHT_UNCLASSIFIED qui ne peut pas être monétisée sans arbitrage RH.");
-            }
-
-            boolean isNight = (resolvedNight == NightWorkType.HABITUEL || resolvedNight == NightWorkType.OCCASIONNEL);
+            // Les snapshots antérieurs peuvent porter NIGHT_UNCLASSIFIED ou HABITUEL.
+            // La configuration active ne possède qu'un taux NUIT : toutes les plages nocturnes
+            // sont valorisées comme travail occasionnel, sans arbitrage de sous-type.
+            boolean isNight = bucket.nightType() != NightWorkType.NONE;
             boolean isSunday = bucket.isSunday();
             boolean isHoliday = bucket.isPublicHoliday();
 
@@ -162,9 +148,7 @@ public final class OvertimePayCalculator {
 
             if (specialConditionsCount == 1) {
                 if (isNight) {
-                    nightRate = resolvedNight == NightWorkType.HABITUEL
-                            ? nz(rates.rateNuitHabituel())
-                            : (rates.rateNuitOccasionnel() != null ? rates.rateNuitOccasionnel() : nz(rates.rateNuitHabituel()));
+                    nightRate = nz(rates.rateNuit());
                 } else if (isSunday) {
                     sundayRate = nz(rates.rateDimanche());
                 } else if (isHoliday) {
@@ -181,9 +165,7 @@ public final class OvertimePayCalculator {
                             bucket.end() + "] présente " + specialConditionsCount +
                             " sujétions spéciales simultanées sans politique d'arbitrage configurée.");
                     case MAX_PREMIUM -> {
-                        BigDecimal rN = isNight ? (resolvedNight == NightWorkType.HABITUEL ? nz(rates.rateNuitHabituel())
-                                : (rates.rateNuitOccasionnel() != null ? rates.rateNuitOccasionnel() : nz(rates.rateNuitHabituel())))
-                                : BigDecimal.ZERO;
+                        BigDecimal rN = isNight ? nz(rates.rateNuit()) : BigDecimal.ZERO;
                         BigDecimal rS = isSunday ? nz(rates.rateDimanche()) : BigDecimal.ZERO;
                         BigDecimal rH = isHoliday ? nz(rates.rateFerie()) : BigDecimal.ZERO;
 
@@ -198,8 +180,7 @@ public final class OvertimePayCalculator {
                     }
                     case CUMUL_ADDITIF -> {
                         if (isNight) {
-                            nightRate = resolvedNight == NightWorkType.HABITUEL ? nz(rates.rateNuitHabituel())
-                                    : (rates.rateNuitOccasionnel() != null ? rates.rateNuitOccasionnel() : nz(rates.rateNuitHabituel()));
+                            nightRate = nz(rates.rateNuit());
                         }
                         if (isSunday) sundayRate = nz(rates.rateDimanche());
                         if (isHoliday) holidayRate = nz(rates.rateFerie());
@@ -210,7 +191,7 @@ public final class OvertimePayCalculator {
                         } else if (isSunday) {
                             sundayRate = nz(rates.rateDimanche());
                         } else if (isNight) {
-                            nightRate = nz(rates.rateNuitHabituel());
+                            nightRate = nz(rates.rateNuit());
                         }
                     }
                 }
@@ -297,11 +278,9 @@ public final class OvertimePayCalculator {
                         nz(input.getMajorationHs30()),
                         nz(input.getMajorationHs50()),
                         nz(input.getMajorationNuit()),
-                        null,
                         nz(input.getMajorationDimanche()),
                         nz(input.getMajorationFerie()),
-                        policy,
-                        null
+                        policy
                 );
                 resolver = date -> staticRates;
             }

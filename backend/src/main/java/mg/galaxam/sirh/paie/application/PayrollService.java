@@ -948,13 +948,15 @@ public class PayrollService {
             }
         }
 
-        // 5.1 Taux journalier de congé dynamique (résolu historiquement strictement avant la période)
-        LocalDate refDateConge = in.getDateDebutPeriode().toLocalDate();
-        var resTC = congeTauxApplicableService.resoudreTauxCongeApplicable(idEmploye, refDateConge, in.getSalaireBaseContractuel(), c);
-        if (resTC != null && resTC.getTauxJournalier().compareTo(BigDecimal.ZERO) > 0) {
-            in.setTauxJournalierConge(resTC.getTauxJournalier());
-        }
+        // 5.1 Le TCONGE est nécessaire uniquement lorsqu'une prise est valorisée.
+        // Sans congé sur la période, aucune ligne d'indemnité de congé n'est calculée.
         if (in.getNbJoursConges() != null && in.getNbJoursConges().signum() > 0) {
+            LocalDate refDateConge = in.getDateDebutPeriode().toLocalDate();
+            var resTC = congeTauxApplicableService.resoudreTauxCongeApplicable(
+                    idEmploye, refDateConge, in.getSalaireBaseContractuel(), c);
+            if (resTC != null && resTC.getTauxJournalier().compareTo(BigDecimal.ZERO) > 0) {
+                in.setTauxJournalierConge(resTC.getTauxJournalier());
+            }
             in.setIndemniteCongeLots(congeLotValorisationService.valorisationPrisesSurPeriode(
                     idEmploye, in.getDateDebutPeriode().toLocalDate(),
                     in.getDateFinPeriode().toLocalDate(), c));
@@ -1518,6 +1520,14 @@ public class PayrollService {
 
     public Map<String, Object> obtenirCockpitPeriode(Integer idPeriodePaie, Connection c) throws Exception {
         return obtenirCockpitPeriode(idPeriodePaie, 1, 25, null, null, null, c);
+    }
+
+    public Map<String, Object> obtenirPopulationCockpit(Integer idPeriodePaie, Connection c) throws Exception {
+        PayrollPopulationResolver.PayrollPopulation population = payrollPopulationResolver.resolve(idPeriodePaie, c);
+        List<PayrollPopulationMember> members = population.members();
+        return Map.of(
+                "population", members,
+                "populationPage", pageMetadata(members.size(), 1, Math.max(1, members.size())));
     }
 
     public Map<String, Object> obtenirCockpitPeriode(

@@ -32,7 +32,7 @@ import { getErrorMessage } from '@/api/apiClient';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { fmtDate } from '@/utils/dateUtils';
-import { isManualPayrollVariable, isManualPayrollVariableType } from '@/features/payroll/utils/variableTypes';
+import { isManualPayrollVariable } from '@/features/payroll/utils/variableTypes';
 import { useAuth } from '@/context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -106,8 +106,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             if (requestIdRef.current !== requestId) return;
             setVariables(Array.isArray(ajustementsRes) ? ajustementsRes : (ajustementsRes?.content || ajustementsRes?.items || []));
             setRefreshError(false);
-            const loadedTypes = (Array.isArray(typesRes) ? typesRes : (typesRes?.content || typesRes?.items || []))
-                .filter(isManualPayrollVariableType);
+            const loadedTypes = Array.isArray(typesRes) ? typesRes : (typesRes?.content || typesRes?.items || []);
             setTypesMouvements(loadedTypes);
             if (loadedTypes.length > 0) {
                 setForm(prev => ({
@@ -159,7 +158,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         setEligibleEmployees([]);
         setPopulationError('');
         if (!idPeriodeActive) return undefined;
-        paieService.getCockpitPeriode(idPeriodeActive, { light: true })
+        paieService.getCockpitPeriode(idPeriodeActive, { projection: 'population' })
             .then(cockpit => {
                 if (cancelled) return;
                 const members = Array.isArray(cockpit?.population) ? cockpit.population : [];

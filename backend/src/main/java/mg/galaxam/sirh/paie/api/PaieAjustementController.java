@@ -155,6 +155,8 @@ public class PaieAjustementController {
                         map.put("idBulletin", rs.getObject("id_bulletin"));
                         map.put("modeReglement", rs.getString("mode_reglement"));
                         String categorie = rs.getString("type_categorie");
+                        // Les attributs de versement concernent seulement les dossiers d'acompte/avance.
+                        // Toutes les lignes, dont les variables manuelles, doivent rester dans la liste.
                         if ("ACOMPTE".equals(categorie) || "AVANCE".equals(categorie)) {
                             String statut = rs.getString("statut");
                             boolean verse = rs.getTimestamp("versement_confirme_at") != null;
@@ -184,8 +186,8 @@ public class PaieAjustementController {
                             map.put("isRetenue", !isGain);
                             map.put("isAcompte", "ACOMPTE".equalsIgnoreCase(categorie));
                             map.put("isAvance", "AVANCE".equalsIgnoreCase(categorie));
-                            resultats.add(map);
                         }
+                        resultats.add(map);
                     }
                 }
             }
@@ -208,6 +210,7 @@ public class PaieAjustementController {
                     "FROM ref_type_mouvement_paie t " +
                     "LEFT JOIN paie_rubrique r ON r.id_rubrique = t.id_rubrique " +
                     "WHERE t.est_actif = TRUE AND t.saisie_manuelle_autorisee = TRUE " +
+                    "AND t.owner_code = 'DAF_PAIE' " +
                     "ORDER BY t.ordre_affichage, t.libelle";
             try (PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {

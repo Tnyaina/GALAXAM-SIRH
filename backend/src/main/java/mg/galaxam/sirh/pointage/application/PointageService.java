@@ -970,7 +970,7 @@ public class PointageService {
                     dto.setBadgeProfilCode("CADRE_AUTO");
                     dto.setBadgeProfilLabel("CADRE AUTO");
                     dto.setBadgeProfilVariant("purple");
-                    dto.setBadgeProfilTooltip("Cadre autonome (forfait sans HS payees)");
+                    dto.setBadgeProfilTooltip("Cadre dispensé de pointage");
                 } else if (isAutonome) {
                     dto.setBadgeProfilCode("AUTONOME");
                     dto.setBadgeProfilLabel("AUTONOME");

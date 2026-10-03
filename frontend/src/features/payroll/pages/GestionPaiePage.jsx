@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, lazy, Suspense } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
     Banknote, CalendarRange, FileText,
@@ -48,6 +48,7 @@ export default function GestionPaiePage() {
     // État local
     const [periodKpis, setPeriodKpis] = useState(null);
     const [kpiLoading, setKpiLoading] = useState(false);
+    const kpiRequest = useRef(0);
     const [variableSummary, setVariableSummary] = useState({ count: 0, gains: 0, retenues: 0 });
 
     // Données dérivées
@@ -86,6 +87,7 @@ export default function GestionPaiePage() {
 
     // Chargements
     const loadPeriodKpis = useCallback(async (periodId) => {
+        const requestId = ++kpiRequest.current;
         if (!periodId) {
             setPeriodKpis(null);
             return;
@@ -93,6 +95,7 @@ export default function GestionPaiePage() {
         setKpiLoading(true);
         try {
             const cockpitData = await paieService.getCockpitPeriode(periodId, { size: 1 });
+            if (requestId !== kpiRequest.current) return;
             if (cockpitData) {
                 const popCount = cockpitData.populationPage?.totalElements
                     ?? cockpitData.readiness?.effectifAttendu
@@ -109,9 +112,9 @@ export default function GestionPaiePage() {
                 setPeriodKpis(null);
             }
         } catch {
-            setPeriodKpis(null);
+            if (requestId === kpiRequest.current) setPeriodKpis(null);
         } finally {
-            setKpiLoading(false);
+            if (requestId === kpiRequest.current) setKpiLoading(false);
         }
     }, []);
 
