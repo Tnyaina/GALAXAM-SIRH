@@ -37,6 +37,8 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
   const [nbJoursDecomptes, setNbJoursDecomptes] = useState(0);
   const [nbJoursWeekEnd, setNbJoursWeekEnd] = useState(0);
   const [nbJoursOuvres, setNbJoursOuvres] = useState(0);
+  const [nbJoursFeries, setNbJoursFeries] = useState(0);
+  const [simulationError, setSimulationError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -137,6 +139,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
     let active = true;
     if (!dateDebut || !idTypeConge || (!dateFin && !selectedType?.dureeFixeJours && !idMotifEvenementFamilial)) {
       setSimulationReport(null);
+      setSimulationError(null);
       return () => { active = false; };
     }
     const timer = setTimeout(async () => {
@@ -148,18 +151,23 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
           dateDebut,
           dateFin: estDemiJournee ? dateDebut : (dateFin || null),
           estDemiJournee,
-          derogationSoldeNegatif,
+          derogationSoldeNegatif: false,
           derogationDelaiPreavis,
           extensionPathologiqueMaternite,
         });
         if (!active) return;
         setSimulationReport(report);
+        setSimulationError(null);
         setNbJoursDecomptes(Number(report.nbJours || 0));
         if (report.dateFin && formatDateForInput(report.dateFin) !== dateFin) {
           setDateFin(formatDateForInput(report.dateFin));
         }
-      } catch {
-        if (active) setSimulationReport(null);
+      } catch (err) {
+        if (!active) return;
+        setSimulationReport(null);
+        // Propager l'erreur backend (ex: TCONGE_APPLICABLE_AMBIGUOUS) sans fallback silencieux.
+        const msg = err?.userMessage || err?.response?.data?.message || err?.message || null;
+        setSimulationError(msg);
       }
     }, 180);
     return () => { active = false; clearTimeout(timer); };
@@ -192,6 +200,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
               setNbJoursDecomptes(Number(report.nbJoursDecomptes || 0));
               setNbJoursOuvres(Number(report.nbJoursOuvres || 0));
               setNbJoursWeekEnd(Number(report.nbJoursWeekEnd || 0));
+              setNbJoursFeries(Number(report.nbJoursFeries || 0));
             }
           } catch {
             // Le formulaire n'invente pas de décompte si le backend est indisponible.
@@ -208,6 +217,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
         setNbJoursDecomptes(0);
         setNbJoursWeekEnd(0);
         setNbJoursOuvres(0);
+        setNbJoursFeries(0);
         setConflitReport(null);
         setCheckingConflits(false);
         setFieldErrors((prev) => ({ ...prev, dateFin: 'La reprise doit être postérieure au premier jour de congé.' }));
@@ -216,6 +226,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
       setNbJoursDecomptes(0);
       setNbJoursWeekEnd(0);
       setNbJoursOuvres(0);
+      setNbJoursFeries(0);
       setConflitReport(null);
       setCheckingConflits(false);
     }
@@ -258,7 +269,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
         momentDemiJournee: estDemiJournee ? momentDemiJournee : null,
         commentaire: commentaire ? commentaire.trim() : null,
         justificatifFourni: Boolean(justificatifFourni),
-        derogationSoldeNegatif: Boolean(derogationSoldeNegatif),
+        derogationSoldeNegatif: false,
         derogationDelaiPreavis: Boolean(derogationDelaiPreavis),
         derogationContinuiteService: Boolean(derogationContinuiteService),
         extensionPathologiqueMaternite: Boolean(extensionPathologiqueMaternite),
@@ -314,8 +325,8 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
     showOptionsAvancees, setShowOptionsAvancees,
     preavisInfo,
 
-    nbJoursDecomptes, nbJoursWeekEnd, nbJoursOuvres,
-    conflitReport, simulationReport, checkingConflits,
+    nbJoursDecomptes, nbJoursWeekEnd, nbJoursOuvres, nbJoursFeries,
+    conflitReport, simulationReport, simulationError, checkingConflits,
     loading, error, fieldErrors, setFieldErrors,
 
     typesConge, motifsFamiliaux, selectedType,

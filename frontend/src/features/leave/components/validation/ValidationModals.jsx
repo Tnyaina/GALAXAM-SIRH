@@ -120,7 +120,7 @@ export default function ValidationModals({
         message={`Valider la demande de ${selectedDemande?.prenom || ''} ${selectedDemande?.nom || ''} (${selectedDemande?.estDemiJournee ? `0,5 jour ${selectedDemande?.momentDemiJournee === 'APRES_MIDI' ? 'Après-midi' : 'Matin'}` : `${selectedDemande?.nbJoursDecomptes} jours`} de ${selectedDemande?.codeTypeConge}) ?`}
         confirmLabel="Valider la demande"
         variant="success"
-        onConfirm={() => onConfirmValider(justificatifFourni, estRemunere, derogationSoldeNegatif)}
+        onConfirm={() => onConfirmValider(justificatifFourni, estRemunere, false)}
         onClose={onCloseValider}
         loading={actionLoading}
       >
@@ -164,10 +164,10 @@ export default function ValidationModals({
                 </span>
               </div>
             </div>
-            {soldeApres != null && soldeApres < 0 && !derogationSoldeNegatif && (
+            {soldeApres != null && soldeApres < 0 && (
               <div className="text-[11px] text-[var(--color-danger-600)] font-semibold flex items-center gap-1 mt-1">
                 <AlertTriangle size={12} />
-                Solde insuffisant : cochez l’autorisation de dépassement pour valider par anticipation.
+                Solde insuffisant : cette demande ne peut pas être validée en congé payé.
               </div>
             )}
           </div>
@@ -184,20 +184,6 @@ export default function ValidationModals({
                 {estRemunere
                   ? "Congé rémunéré : indemnité de congés payés versée selon la valorisation des droits acquis de l'employé."
                   : "Non rémunéré (congé sans solde) : retenue au taux d'absence sur le bulletin de paie."}
-              </span>
-            </span>
-          </label>
-          <label className="flex items-start gap-3 cursor-pointer p-2 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
-            <input
-              type="checkbox"
-              checked={derogationSoldeNegatif}
-              onChange={(e) => setDerogationSoldeNegatif(e.target.checked)}
-              className="w-4 h-4 mt-0.5 accent-[var(--color-warning-500)] cursor-pointer shrink-0"
-            />
-            <span className="text-sm font-medium text-[var(--color-fg)]">
-              Autoriser le dépassement de solde (prise par anticipation)
-              <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5 font-normal">
-                Permet de valider la demande même si le solde acquis est insuffisant. Le solde négatif sera régularisé par les prochaines acquisitions mensuelles.
               </span>
             </span>
           </label>

@@ -13,7 +13,6 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import mg.galaxam.sirh.contrat.persistence.ContratTravail;
 import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
@@ -130,7 +129,7 @@ public class DemandeConge extends ClassMere {
         }
 
         // 2.bis Contrôle du solde disponible pour les types de congés entamant le solde acquis (ex: ANNUEL)
-        if (typeConge.isDecompteSoldeAcquis() && !derogationSoldeNegatif) {
+        if (typeConge.isDecompteSoldeAcquis()) {
             VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
             BigDecimal soldeDisponible = (solde != null && solde.getSoldeActuel() != null)
                     ? solde.getSoldeActuel()
@@ -150,7 +149,7 @@ public class DemandeConge extends ClassMere {
             if (nouveauSolde.compareTo(BigDecimal.ZERO) < 0) {
                 throw new IllegalArgumentException(
                         "Solde de congé insuffisant (" + soldeDisponible.add(joursDejaImputes) + "j disponibles pour " + nbJoursDecomptes
-                                + "j demandés). L'autorisation de prise par anticipation (dépassement de solde) est requise.");
+                                + "j demandés). La prise par anticipation est désactivée.");
             }
         }
 
@@ -183,27 +182,25 @@ public class DemandeConge extends ClassMere {
 
         // 4. Contrôle d'ancienneté minimale (ancienneté effective cumulée sans les interruptions)
         if (typeConge.getExigeAncienneteMinMois() != null && typeConge.getExigeAncienneteMinMois() > 0) {
-            if (!derogationSoldeNegatif) {
-                ContratTravail contratActif = ContratTravail.rechercherActifParEmploye(idEmploye, c);
-                if (contratActif == null || contratActif.getDateDebut() == null) {
-                    throw new IllegalArgumentException(
-                            "Aucun contrat de travail actif trouvé pour vérifier l'ancienneté requise. Dérogation RH requise.");
-                }
+            ContratTravail contratActif = ContratTravail.rechercherActifParEmploye(idEmploye, c);
+            if (contratActif == null || contratActif.getDateDebut() == null) {
+                throw new IllegalArgumentException(
+                        "Aucun contrat de travail actif trouvé pour vérifier l'ancienneté requise.");
+            }
 
-                java.util.Map<String, Object> ancDetaillee = ContratTravail.calculerAncienneteDetaillee(contratActif.getIdContrat(), c);
-                int moisAnciennete = ancDetaillee.get("ancienneteEffectiveMois") != null
-                        ? ((Number) ancDetaillee.get("ancienneteEffectiveMois")).intValue()
-                        : 0;
-                String texteAnciennete = ancDetaillee.get("ancienneteEffectiveTexte") != null
-                        ? (String) ancDetaillee.get("ancienneteEffectiveTexte")
-                        : (moisAnciennete + " mois");
+            java.util.Map<String, Object> ancDetaillee = ContratTravail.calculerAncienneteDetaillee(contratActif.getIdContrat(), c);
+            int moisAnciennete = ancDetaillee.get("ancienneteEffectiveMois") != null
+                    ? ((Number) ancDetaillee.get("ancienneteEffectiveMois")).intValue()
+                    : 0;
+            String texteAnciennete = ancDetaillee.get("ancienneteEffectiveTexte") != null
+                    ? (String) ancDetaillee.get("ancienneteEffectiveTexte")
+                    : (moisAnciennete + " mois");
 
-                if (moisAnciennete < typeConge.getExigeAncienneteMinMois()) {
-                    throw new IllegalArgumentException(
-                            "L'ancienneté requise pour le congé " + typeConge.getLibelle() + " est de " +
-                                    typeConge.getExigeAncienneteMinMois() + " mois (" + texteAnciennete
-                                    + " constatés). Dérogation RH requise.");
-                }
+            if (moisAnciennete < typeConge.getExigeAncienneteMinMois()) {
+                throw new IllegalArgumentException(
+                        "L'ancienneté requise pour le congé " + typeConge.getLibelle() + " est de " +
+                                typeConge.getExigeAncienneteMinMois() + " mois (" + texteAnciennete
+                                + " constatés).");
             }
         }
 
@@ -213,9 +210,9 @@ public class DemandeConge extends ClassMere {
             LocalDate dDebut = dateDebut.toLocalDate();
             long joursPreavis = ChronoUnit.DAYS.between(dDemande, dDebut);
 
-            int seuilLong = getParamGlobalInt("SEUIL_JOURS_PREAVIS_LONG", 3, c);
-            int delaiCourt = getParamGlobalInt("DELAI_PREAVIS_COURT_JOURS", 2, c);
-            int delaiLong = getParamGlobalInt("DELAI_PREAVIS_LONG_JOURS", 15, c);
+            int seuilLong = getParamGlobalInt("SEUIL_JOURS_PREAVIS_LONG", c);
+            int delaiCourt = getParamGlobalInt("DELAI_PREAVIS_COURT_JOURS", c);
+            int delaiLong = getParamGlobalInt("DELAI_PREAVIS_LONG_JOURS", c);
 
             int preavisRequis = CONGE_ENGINE.calculerPreavisRequis(
                     nbJoursDecomptes, true, seuilLong, delaiCourt, delaiLong);
@@ -227,8 +224,8 @@ public class DemandeConge extends ClassMere {
             }
         }
 
-        // 5bis. Contrôle de l'ancienneté minimale (Art. 85 du Code du Travail : 12 mois de service effectif)
-        if ("ANNUEL".equals(typeConge.getCode()) && !derogationSoldeNegatif) {
+        // 5bis. Jouissance du congé payé après douze mois de service effectif (Code du travail 2024, art. 130).
+        if ("ANNUEL".equals(typeConge.getCode())) {
             String sqlEmbauche = "SELECT MIN(date_debut) AS date_embauche FROM contrat_travail WHERE id_employe = ?";
             try (PreparedStatement psEmb = c.prepareStatement(sqlEmbauche)) {
                 psEmb.setInt(1, idEmploye);
@@ -241,8 +238,7 @@ public class DemandeConge extends ClassMere {
                             long moisService = ChronoUnit.MONTHS.between(hireDate, startDate);
                             if (moisService < 12) {
                                 throw new IllegalArgumentException("L'employé ne justifie que de " + moisService +
-                                        " mois de service effectif (12 mois requis par l'Art. 85 du Code du Travail). " +
-                                        "Une dérogation RH pour prise par anticipation est requise.");
+                                        " mois de service effectif (12 mois requis par l'article 130 du Code du travail 2024).");
                             }
                         }
                     }
@@ -253,8 +249,8 @@ public class DemandeConge extends ClassMere {
         // 6. Contrôle Maternité (98 jours standard, ou 119 jours si extension
         // pathologique)
         if ("MATERNITE".equals(typeConge.getCode())) {
-            int dureeMaxStd = getParamGlobalInt("DUREE_MAX_MATERNITE_STANDARD_JOURS", 98, c);
-            int dureeMaxPatho = getParamGlobalInt("DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS", 119, c);
+            int dureeMaxStd = getParamGlobalInt("DUREE_MAX_MATERNITE_STANDARD_JOURS", c);
+            int dureeMaxPatho = getParamGlobalInt("DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS", c);
             int maxPlafond = extensionPathologiqueMaternite ? dureeMaxPatho : dureeMaxStd;
 
             if (nbJoursDecomptes.compareTo(BigDecimal.valueOf(maxPlafond)) > 0) {
@@ -300,7 +296,7 @@ public class DemandeConge extends ClassMere {
             BigDecimal engagesHorsDemandeCourante = engagesActuels.subtract(joursDejaPrisEnCompte);
             BigDecimal plafond = consommation.getPlafond();
             BigDecimal totalApresDemande = engagesHorsDemandeCourante.add(nbJoursDecomptes);
-            if (totalApresDemande.compareTo(plafond) > 0 && !derogationSoldeNegatif) {
+            if (totalApresDemande.compareTo(plafond) > 0) {
                 throw new IllegalArgumentException(
                         "Le quota du pool annuel des permissions exceptionnelles (" + plafond + " jours/an) est dépassé pour l'année "
                                 + annee + ". (Engagé hors demande courante: " + engagesHorsDemandeCourante
@@ -430,13 +426,8 @@ public class DemandeConge extends ClassMere {
         return st != null ? st.getCode() : "BROUILLON";
     }
 
-    private int getParamGlobalInt(String code, int defaultValue, Connection c) {
-        try {
-            Map<String, String> map = ParametreGlobal.loadActiveMap(c);
-            return ParametreGlobal.getInt(map, code, defaultValue);
-        } catch (Exception ignored) {
-        }
-        return defaultValue;
+    private int getParamGlobalInt(String code, Connection c) {
+        return ParametreGlobal.requirePositiveInt(ParametreGlobal.loadActiveMap(c), code);
     }
 
     @Override

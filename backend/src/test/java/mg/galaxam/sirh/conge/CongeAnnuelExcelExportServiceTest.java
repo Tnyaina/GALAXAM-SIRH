@@ -70,12 +70,16 @@ class CongeAnnuelExcelExportServiceTest {
             assertEquals("Mouvements", wb.getSheetName(1));
             assertEquals("README", wb.getSheetName(2));
             assertEquals("Origine des droits", wb.getSheetName(3));
+            assertEquals("Valeur du stock après mouvement (Ar)",
+                    wb.getSheet("Mouvements").getRow(2).getCell(8).getStringCellValue());
+            assertTrue(wb.getSheet("README").getRow(9).getCell(1).getStringCellValue()
+                    .contains("pas de solde × TCONGE"));
 
             var sheet1 = wb.getSheetAt(0);
             var rowMatricule = sheet1.getRow(2); // Row 3
             assertNotNull(rowMatricule);
             assertTrue(rowMatricule.getCell(0).getStringCellValue().contains("EMP-EXP-001"),
-                    "La cellule A3 doit mentionner le matricule de l'employé");
+                    "A3=" + rowMatricule.getCell(0).getStringCellValue());
 
             var rowTotaux = sheet1.getRow(19); // Row 20
             assertNotNull(rowTotaux);

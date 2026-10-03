@@ -39,19 +39,8 @@ public class SessionSecurityScheduler {
     private void nettoyerSecuriteInterne() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             Timestamp now = Timestamp.valueOf(LocalDateTime.now());
-            Timestamp seuil90j = Timestamp.valueOf(LocalDateTime.now().minusDays(90));
 
-            // 1. Purge des notifications lues anciennes (> 90 jours)
-            String sqlPurgeNotif = "DELETE FROM notification_rh WHERE est_lue = TRUE AND date_creation < ?";
-            try (PreparedStatement ps = c.prepareStatement(sqlPurgeNotif)) {
-                ps.setTimestamp(1, seuil90j);
-                int count = ps.executeUpdate();
-                if (count > 0) {
-                    log.info("[SessionSecurityScheduler] Nettoyage des anciennes notifications lues : {} supprimées.", count);
-                }
-            }
-
-            // 2. Révocation des Refresh Tokens expirés
+            // Révocation des Refresh Tokens expirés
             String sqlPurgeTokens = "UPDATE utilisateur SET refresh_token = NULL, refresh_token_expiration = NULL " +
                     "WHERE refresh_token_expiration IS NOT NULL AND refresh_token_expiration < ?";
             try (PreparedStatement ps = c.prepareStatement(sqlPurgeTokens)) {

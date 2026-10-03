@@ -8,7 +8,7 @@ export default function DatesCongeSection({
   dateFin, setDateFin,
   estDemiJournee, setEstDemiJournee,
   momentDemiJournee, setMomentDemiJournee,
-  nbJoursDecomptes, nbJoursOuvres, nbJoursWeekEnd,
+  nbJoursDecomptes, nbJoursOuvres, nbJoursWeekEnd, nbJoursFeries,
   selectedType,
   isMaternite,
   extensionPathologiqueMaternite, setExtensionPathologiqueMaternite,
@@ -16,8 +16,8 @@ export default function DatesCongeSection({
   derogationDelaiPreavis,
   setDerogationDelaiPreavis,
   simulationReport,
-  derogationSoldeNegatif,
-  setDerogationSoldeNegatif,
+  _derogationSoldeNegatif,
+  _setDerogationSoldeNegatif,
   setShowOptionsAvancees,
   fieldErrors, setFieldErrors
 }) {
@@ -203,7 +203,9 @@ export default function DatesCongeSection({
                 {nbJoursDecomptes} <span className="text-sm font-semibold">jour{nbJoursDecomptes > 1 ? 's' : ''}</span>
               </span>
             </div>
-            <div className="grid grid-cols-2 divide-x divide-info-500/20 border-t border-info-500/20 bg-[var(--color-surface)]">
+            <div className={`grid divide-x divide-info-500/20 border-t border-info-500/20 bg-[var(--color-surface)] ${
+              nbJoursFeries > 0 ? 'grid-cols-3' : 'grid-cols-2'
+            }`}>
               <div className="px-4 py-2.5 text-center">
                 <div className="text-[11px] text-[var(--color-fg-subtle)] uppercase tracking-wide">Jours en semaine</div>
                 <div className="text-base font-bold text-[var(--color-fg)] font-data">{nbJoursOuvres}</div>
@@ -212,6 +214,12 @@ export default function DatesCongeSection({
                 <div className="text-[11px] text-[var(--color-fg-subtle)] uppercase tracking-wide">Week-ends inclus</div>
                 <div className="text-base font-bold text-[var(--color-warning-600)] dark:text-[var(--color-warning-500)] font-data">{nbJoursWeekEnd}</div>
               </div>
+              {nbJoursFeries > 0 && (
+                <div className="px-4 py-2.5 text-center">
+                  <div className="text-[11px] text-[var(--color-fg-subtle)] uppercase tracking-wide">Fériés traversés</div>
+                  <div className="text-base font-bold text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] font-data">{nbJoursFeries}</div>
+                </div>
+              )}
             </div>
             <p className="px-4 py-2 text-xs text-[var(--color-fg-subtle)] flex items-start gap-1.5 border-t border-info-500/20">
               <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-info-500" />
@@ -248,32 +256,9 @@ export default function DatesCongeSection({
                     Solde insuffisant pour couvrir cette demande ({soldeNum.toFixed(2)} j disponibles pour {nbJoursDecomptes} j demandés).
                   </span>
                 </div>
-                {derogationSoldeNegatif ? (
-                  <div className="flex items-center justify-between text-xs text-success-600 dark:text-success-400 font-semibold bg-success-500/10 p-2 border border-success-500/20">
-                    <div className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                      <span>Prise de congés par anticipation autorisée (solde temporairement négatif)</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setDerogationSoldeNegatif && setDerogationSoldeNegatif(false)}
-                      className="text-[11px] text-[var(--color-fg-muted)] hover:text-danger-500 underline cursor-pointer"
-                    >
-                      Désactiver
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (setDerogationSoldeNegatif) setDerogationSoldeNegatif(true);
-                      if (setShowOptionsAvancees) setShowOptionsAvancees(true);
-                    }}
-                    className="text-xs font-bold underline text-[var(--color-warning-500)] hover:text-[var(--color-warning-700)] cursor-pointer block"
-                  >
-                    Autoriser la prise par anticipation (dépassement du solde)
-                  </button>
-                )}
+                <p className="text-xs text-[var(--color-warning-700)]">
+                  Les jours non couverts restent une absence à traiter dans le pointage.
+                </p>
               </div>
             )}
           </div>

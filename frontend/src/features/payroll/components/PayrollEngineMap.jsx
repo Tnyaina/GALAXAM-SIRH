@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-    ArrowRight, Check, ChevronDown, ChevronRight, HelpCircle,
+    ArrowRight, ChevronDown, HelpCircle,
     Plus, Search, Settings2, X
 } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
@@ -114,8 +114,8 @@ export default function PayrollEngineMap() {
         }
     }, []);
 
-    const phaseList = data?.phases || [];
-    const knownPhases = new Set(phaseList.map(p => p.code));
+    const phaseList = useMemo(() => data?.phases || [], [data?.phases]);
+    const knownPhases = useMemo(() => new Set(phaseList.map(p => p.code)), [phaseList]);
 
     // Rubriques filtrées
     const filteredRubriques = useMemo(() => {
@@ -164,7 +164,7 @@ export default function PayrollEngineMap() {
         ].filter(group => group.rows.length > 0);
 
         return groups;
-    }, [filteredRubriques, phaseList, knownPhases]);
+    }, [filteredRubriques, phaseList, knownPhases, data?.rubriques]);
 
     // Types filtrés
     const filteredTypes = useMemo(() => {
@@ -204,7 +204,7 @@ export default function PayrollEngineMap() {
         });
 
         return Array.from(map.values()).sort((a, b) => a.order - b.order);
-    }, [filteredTypes]);
+    }, [filteredTypes, data?.types]);
 
     // Options étapes pour le filtre
     const etapeOptions = useMemo(() => {
@@ -264,6 +264,7 @@ export default function PayrollEngineMap() {
             const target = data.types?.find(t => String(t.id) === String(params.get('vt_selection')));
             if (target) setDetailItem({ domaine: 'types', item: target });
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data, params]);
 
     // Gestion de l'éditeur modal
@@ -383,18 +384,17 @@ export default function PayrollEngineMap() {
         setFormError('');
         try {
             const payload = { ...form, code: form.code.trim().toUpperCase(), libelle: form.libelle.trim() };
-            let saved;
             if (isTypes) {
                 payload.idRubrique = Number(form.idRubrique);
                 payload.categorie = editor.item?.categorie || modalOptions.sens?.find(o => o.value === form.sens)?.categorieType || 'PRIME';
-                if (editor.item) saved = await paieService.modifierTypeVariable(editor.item.id, payload);
-                else saved = await paieService.creerTypeVariable(payload);
+                if (editor.item) await paieService.modifierTypeVariable(editor.item.id, payload);
+                else await paieService.creerTypeVariable(payload);
             } else {
                 payload.dateDebutEffet = form.dateDebutEffet || null;
                 payload.dateFinEffet = form.dateFinEffet || null;
-                if (editor.version) saved = await paieService.creerVersionRubrique(editor.item.id, payload);
-                else if (editor.item) saved = await paieService.modifierRubriqueVariable(editor.item.id, payload);
-                else saved = await paieService.creerRubriqueVariable(payload);
+                if (editor.version) await paieService.creerVersionRubrique(editor.item.id, payload);
+                else if (editor.item) await paieService.modifierRubriqueVariable(editor.item.id, payload);
+                else await paieService.creerRubriqueVariable(payload);
             }
             toast.success(editor.version ? 'Nouvelle version enregistrée.' : 'Configuration enregistrée.');
             setEditor(null);

@@ -19,6 +19,13 @@ class CongeCalculateurEngineTest {
     }
 
     @Test
+    void congeDuLundiAuJeudiCompteQuatreJoursMemeSiLeMardiEstFerie() {
+        // Règle de décompte validée pour ce projet : la période approuvée reste calendaire.
+        assertEquals(new BigDecimal("4.0"), engine.calculerNombreJours(
+                LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 8), false));
+    }
+
+    @Test
     void acquisitionProratiseeUtiliseLeTauxEtLeDiviseurFournis() {
         assertEquals(new BigDecimal("1.2500"), engine.calculerAcquisitionMensuelleProratisee(
                 new BigDecimal("15"), new BigDecimal("2.5"), new BigDecimal("30")));
@@ -42,17 +49,18 @@ class CongeCalculateurEngineTest {
     }
 
     @Test
-    void derogationsTransformentLesBlocagesEnAvertissements() {
+    void derogationDePreavisNeContourneNiLeSoldeNiLePool() {
         var result = engine.simuler(new CongeCalculateurEngine.SimulationInput(
                 LocalDate.of(2026, 9, 24), LocalDate.of(2026, 9, 28), false,
                 BigDecimal.ZERO, true, null, null, true, true, true,
                 LocalDate.of(2026, 9, 23), 3, 2, 15,
                 new BigDecimal("9"), new BigDecimal("10")));
 
-        assertTrue(result.violations().isEmpty());
-        assertEquals(3, result.warnings().size());
+        assertTrue(result.violations().contains(CongeCalculateurEngine.LEAVE_BALANCE_INSUFFICIENT));
+        assertTrue(result.violations().contains(CongeCalculateurEngine.LEAVE_POOL_EXCEEDED));
+        assertEquals(1, result.warnings().size());
         assertTrue(result.requiresOverride());
-        assertTrue(result.canSubmit());
+        assertFalse(result.canSubmit());
     }
 
     @Test

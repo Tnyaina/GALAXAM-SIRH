@@ -35,6 +35,9 @@ public final class CongeTestFixtureHelper {
             st.execute("DELETE FROM notification_rh");
             st.execute("DELETE FROM utilisateur");
             st.execute("DELETE FROM employe");
+            st.execute("INSERT INTO parametre_global (code_parametre, categorie, valeur, description, date_debut, est_actif, est_desactivable) " +
+                    "SELECT 'DIVISEUR_JOURS_CALENDAIRE_CONGE', 'CONGE', '30', 'Fixture de calcul des droits', DATE '2001-07-01', TRUE, FALSE " +
+                    "WHERE NOT EXISTS (SELECT 1 FROM parametre_global WHERE code_parametre = 'DIVISEUR_JOURS_CALENDAIRE_CONGE')");
         }
     }
 

@@ -89,6 +89,8 @@ public class CongeGrandRecapExcelExportService {
                 sheet.setAutoFilter(org.apache.poi.ss.util.CellRangeAddress.valueOf("A4:Q" + Math.max(4, lastData + 1)));
                 sheet.setPrintGridlines(false);
                 Sheet notice = workbook.getSheetAt(1);
+                notice.getRow(6).getCell(1).setCellValue(
+                        "La valeur du solde est calculée par le backend à partir des lots historiques restant après imputation des prises ; elle peut différer de solde × TCONGE.");
                 notice.getRow(4).getCell(1).setCellValue("Solde d'ouverture avant le "
                         + dateDebut.format(DATE_FORMAT) + ", mouvements du " + dateDebut.format(DATE_FORMAT)
                         + " au " + dateFin.format(DATE_FORMAT) + ", situation arrêtée au "

@@ -288,3 +288,8 @@ INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, d
 (42, 'MONTANT_PRIME_ASSIDUITE', 'PAIE', '50000', 'Montant forfaitaire mensuel de la prime d assiduité (accordé si retards < seuil)', '2001-07-01', NULL, TRUE, TRUE)
 ON CONFLICT (code_parametre, date_debut) DO UPDATE SET valeur = EXCLUDED.valeur, description = EXCLUDED.description, est_actif = EXCLUDED.est_actif, est_desactivable = EXCLUDED.est_desactivable;
 SELECT setval('parametre_global_id_parametre_seq', (SELECT GREATEST(MAX(id_parametre), 42) FROM parametre_global));
+INSERT INTO parametre_global (code_parametre, categorie, valeur, description, date_debut, est_actif, est_desactivable)
+VALUES ('DIVISEUR_JOURS_CALENDAIRE_CONGE', 'CONGE', '30',
+        'Diviseur de la période de référence utilisé pour l acquisition et la valorisation des droits à congé.',
+        '2001-07-01', TRUE, FALSE)
+ON CONFLICT (code_parametre, date_debut) DO NOTHING;

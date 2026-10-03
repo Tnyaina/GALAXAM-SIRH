@@ -1306,15 +1306,18 @@ public class PayrollService {
      * Enregistre les valorisations mensuelles bornées à la période de référence active (max 12 mois).
      */
     public void mettreAJourJournalConge(Integer idPeriodePaie, Connection c) throws Exception {
-        String sqlPeriode = "SELECT date_fin, EXTRACT(YEAR FROM date_fin)::INT AS annee, EXTRACT(MONTH FROM date_fin)::INT AS mois " +
+        String sqlPeriode = "SELECT date_debut, date_fin, EXTRACT(YEAR FROM date_fin)::INT AS annee, EXTRACT(MONTH FROM date_fin)::INT AS mois " +
                 "FROM periode_paie WHERE id_periode_paie = ?";
-        LocalDate dateFinPaie = LocalDate.of(2026, 1, 25);
-        int annee = 2026;
-        int mois = 1;
+        LocalDate dateDebutPaie = null;
+        LocalDate dateFinPaie = null;
+        int annee = 0;
+        int mois = 0;
         try (PreparedStatement psP = c.prepareStatement(sqlPeriode)) {
             psP.setInt(1, idPeriodePaie);
             try (ResultSet rsP = psP.executeQuery()) {
                 if (rsP.next()) {
+                    Date dd = rsP.getDate("date_debut");
+                    if (dd != null) dateDebutPaie = dd.toLocalDate();
                     Date df = rsP.getDate("date_fin");
                     if (df != null) dateFinPaie = df.toLocalDate();
                     annee = rsP.getInt("annee");
@@ -1322,12 +1325,18 @@ public class PayrollService {
                 }
             }
         }
+        if (dateDebutPaie == null || dateFinPaie == null) {
+            throw new IllegalStateException("Période de paie absente ou sans dates complètes : " + idPeriodePaie);
+        }
 
         // 1. Résolution stricte du paramètre DUREE_REFERENCE_TCONGE_MOIS (aucun fallback silencieux)
         Map<String, String> params = mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.loadActiveMapAtDate(
                 Date.valueOf(dateFinPaie), c);
         int dureeReferenceMax = mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.requirePositiveInt(
                 params, "DUREE_REFERENCE_TCONGE_MOIS");
+        BigDecimal diviseurConge = BigDecimal.valueOf(
+                mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.requirePositiveInt(
+                        params, "DIVISEUR_JOURS_CALENDAIRE_CONGE"));
 
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriodePaie, c);
         for (BulletinPaie bp : bulletins) {
@@ -1349,11 +1358,19 @@ public class PayrollService {
             // Dette KAJY résolue : jAbs et jCge sont déjà mutuellement exclusifs dans le modèle Pointage.
             // Les congés pris ne doivent jamais effacer les absences injustifiées.
             BigDecimal absInjustifiees = jAbs.max(BigDecimal.ZERO);
-            BigDecimal formule = new BigDecimal("30.0").subtract(absInjustifiees).max(BigDecimal.ZERO);
+            BigDecimal formule = congeService.calculerFormuleAcquisition(
+                    idEmp, dateDebutPaie, dateFinPaie, absInjustifiees, bp.getJoursTravailles(), c);
+
+            var refActive = congeTauxApplicableService.resoudrePeriodeReferenceActive(idEmp, dateFinPaie, c);
+            if (refActive == null) {
+                throw new IllegalStateException("TCONGE_REFERENCE_PERIOD_MISSING: aucune période de référence active pour l'employé "
+                        + idEmp + " à la date " + dateFinPaie + ". La clôture doit être régularisée avant l'acquisition.");
+            }
 
             // Acquisition canonique unifiée (RG-CONGE, propriété du Domaine Congés)
             BigDecimal droitMois = congeService.enregistrerAcquisitionMensuelle(
-                    idEmp, annee, mois, absInjustifiees, bp.getCalculePar(), c);
+                    idEmp, annee, mois, dateDebutPaie, dateFinPaie, absInjustifiees,
+                    bp.getJoursTravailles(), bp.getCalculePar(), c);
 
             // Récupérer les lignes du bulletin pour net_base et hs
             List<BulletinPaieLigne> lignes = BulletinPaieLigne.listerParBulletin(bp.getIdBulletin(), c);
@@ -1371,18 +1388,9 @@ public class PayrollService {
             }
 
             BigDecimal baseTotale = netBase.add(mntHs).max(BigDecimal.ZERO);
-            BigDecimal valMois = baseTotale.multiply(droitMois).divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
+            BigDecimal valMois = baseTotale.multiply(droitMois).divide(diviseurConge, 2, RoundingMode.HALF_UP);
 
             // 2. Résolution de la période de référence bornée KAJY pour l'employé
-            var refActive = congeTauxApplicableService.resoudrePeriodeReferenceActive(idEmp, dateFinPaie, c);
-            if (refActive == null) {
-                log.warn("[PayrollService] TCONGE_REFERENCE_PERIOD_MISSING: aucune période de référence active (conge_periode_reference) " +
-                        "n'est configurée pour l'employé {} couvrant la date de paie {}. " +
-                        "L'alimentation de la campagne TCONGE est ignorée pour cet employé (aucun journal de référence généré silencieusement).",
-                        idEmp, dateFinPaie);
-                continue;
-            }
-
             // Calcul du numéro de mois dans la référence à partir de la position calendaire
             long monthsBetween = java.time.temporal.ChronoUnit.MONTHS.between(
                     refActive.getDateDebut().withDayOfMonth(1),
@@ -1429,7 +1437,7 @@ public class PayrollService {
             BigDecimal cumulVal = (cumulValPrec != null ? cumulValPrec : BigDecimal.ZERO).add(valMois);
             BigDecimal tauxJournalier = cumulJours.compareTo(BigDecimal.ZERO) > 0
                     ? cumulVal.divide(cumulJours, 2, RoundingMode.HALF_UP)
-                    : base.divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
+                    : BigDecimal.ZERO; // Aucun droit valorisé : pas de TCONGE moyen inventé.
 
             String sqlUpsert = "INSERT INTO conge_journal_droit (" +
                     "id_employe, id_periode_paie, annee, mois, salaire_base, jours_travailles_formule, " +
@@ -1989,7 +1997,7 @@ public class PayrollService {
         synthese.put("diviseurHeures", diviseur);
 
         // 3. TCONGE journalier applicable résolu par le moteur canonique
-        BigDecimal tauxConge = BigDecimal.ZERO;
+        BigDecimal tauxConge = null;
         try {
             if (congeTauxApplicableService != null && salaireBase.compareTo(BigDecimal.ZERO) > 0) {
                 var res = congeTauxApplicableService.resoudreTauxCongeApplicable(idEmploye, LocalDate.now(), salaireBase, c);
@@ -1999,9 +2007,7 @@ public class PayrollService {
             }
         } catch (Exception ex) {
             log.warn("Impossible de résoudre TCONGE pour employe {}: {}", idEmploye, ex.getMessage());
-            if (salaireBase.compareTo(BigDecimal.ZERO) > 0) {
-                tauxConge = salaireBase.divide(new BigDecimal("30"), 4, RoundingMode.HALF_UP);
-            }
+            synthese.put("tauxJournalierCongeErreur", ex.getMessage());
         }
         synthese.put("tauxJournalierConge", tauxConge);
 

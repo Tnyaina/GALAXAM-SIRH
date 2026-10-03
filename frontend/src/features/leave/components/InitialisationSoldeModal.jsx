@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calendar, History, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Calendar, History, CheckCircle } from 'lucide-react';
 import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
@@ -7,7 +7,6 @@ import Input from '@/components/ui/forms/Input';
 import MoneyInput from '@/components/ui/forms/MoneyInput';
 import Modal from '@/components/ui/overlays/Modal';
 import FormError from '@/components/ui/feedback/FormError';
-import Badge from '@/components/ui/data-display/Badge';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 
@@ -38,12 +37,10 @@ export default function InitialisationSoldeModal({
   // Contexte
   const toast = useToast();
 
-  // Mode de reprise : AGGREGATED_OPENING ou MINIMAL_OPENING.
-  const [modeReprise, setModeReprise] = useState('AGGREGATED_OPENING');
-
   // Données communes
   const [dateCutover, setDateCutover] = useState('');
   const [soldeJours, setSoldeJours] = useState('');
+  const [valeurSoldeOuverture, setValeurSoldeOuverture] = useState('');
   const [tauxApplicable, setTauxApplicable] = useState('');
   const [dateDebutReference, setDateDebutReference] = useState('');
   const [commentaire, setCommentaire] = useState('');
@@ -73,8 +70,9 @@ export default function InitialisationSoldeModal({
     if (!isOpen) return;
 
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    setDateCutover(todayStr);
+    const mois = String(today.getMonth() + 1).padStart(2, '0');
+    const jour = String(today.getDate()).padStart(2, '0');
+    setDateCutover(`${today.getFullYear()}-${mois}-${jour}`);
 
     const anneeCourante = today.getFullYear();
     setDateDebutReference(`${anneeCourante}-01-01`);
@@ -89,16 +87,14 @@ export default function InitialisationSoldeModal({
       setTauxApplicable(String(Number(situationData.tauxApplicable.montant).toFixed(2)));
     } else if (soldeData?.tauxJournalierConge && Number(soldeData.tauxJournalierConge) > 0) {
       setTauxApplicable(String(Number(soldeData.tauxJournalierConge).toFixed(2)));
-    } else if (salaireBase > 0) {
-      setTauxApplicable((salaireBase / 30).toFixed(2));
     } else {
       setTauxApplicable('');
     }
 
+    setValeurSoldeOuverture('');
     setCumulDroitsOuverture('');
     setCumulValorisationOuverture('');
     setCommentaire('Initialisation du solde de congés');
-    setModeReprise('AGGREGATED_OPENING');
     setError(null);
   }, [isOpen, soldeData, employe, salaireBase, situationData?.tauxApplicable?.montant]);
 
@@ -110,6 +106,20 @@ export default function InitialisationSoldeModal({
     const sVal = parseFloat(soldeJours);
     if (isNaN(sVal) || sVal < 0) {
       setError('Veuillez renseigner un solde de jours valide (≥ 0).');
+      return;
+    }
+
+    const vVal = parseFloat(valeurSoldeOuverture);
+    if (isNaN(vVal) || vVal < 0) {
+      setError('La valeur du stock est obligatoire (montant Ariary arrêté par la DAF).');
+      return;
+    }
+    if (sVal > 0 && vVal === 0) {
+      setError('Vous avez saisi des jours disponibles mais aucune valeur monétaire. La valeur du stock ne peut pas être 0 si le solde est positif — renseignez le montant réel arrêté par la DAF.');
+      return;
+    }
+    if (sVal === 0 && vVal !== 0) {
+      setError('La valeur du stock doit être 0 si aucun jour n\'est disponible.');
       return;
     }
 
@@ -129,21 +139,15 @@ export default function InitialisationSoldeModal({
       return;
     }
 
-    let cDroits = null;
-    let cValo = null;
-
-    if (modeReprise === 'AGGREGATED_OPENING') {
-      cDroits = parseFloat(cumulDroitsOuverture);
-      cValo = parseFloat(cumulValorisationOuverture);
-
-      if (isNaN(cDroits) || cDroits < 0) {
-        setError('Le total des droits déjà acquis sur la période est obligatoire en mode complet.');
-        return;
-      }
-      if (isNaN(cValo) || cValo < 0) {
-        setError('La valorisation financière cumulée est obligatoire en mode complet.');
-        return;
-      }
+    const cDroits = parseFloat(cumulDroitsOuverture);
+    const cValo = parseFloat(cumulValorisationOuverture);
+    if (isNaN(cDroits) || cDroits < 0) {
+      setError('Le total des droits déjà acquis sur la période est obligatoire (0 si aucun).');
+      return;
+    }
+    if (isNaN(cValo) || cValo < 0) {
+      setError('La valorisation déjà acquise sur la période est obligatoire (0 si aucune).');
+      return;
     }
 
     setLoading(true);
@@ -151,21 +155,22 @@ export default function InitialisationSoldeModal({
       const payload = {
         idEmploye: employe?.idEmploye || employe?.id,
         dateCutover,
-        modeReprise,
+        modeReprise: 'AGGREGATED_OPENING',
         soldeJours: sVal,
+        valeurSoldeOuverture: vVal,
         tauxJournalierApplicable: tVal,
         dateDebutReference,
         cumulDroitsOuverture: cDroits,
         cumulValorisationOuverture: cValo,
         sourceReprise: 'REPRISE_CUTOVER',
-        commentaire: commentaire || `Initialisation solde (${modeReprise})`
+        commentaire: commentaire || 'Reprise du solde et des cumuls de congés'
       };
 
       await congeService.cutoverOpening(payload);
 
       toast({
         title: 'Initialisation enregistrée avec succès',
-        message: `Solde (${sVal} j) et valeur journalière (${formatMoneyAr(tVal)}) initialisés pour le cycle ${dateDebutReference} → ${dateFinCalculee}.`,
+        message: `Stock repris : ${sVal} j / ${formatMoneyAr(vVal)} ; TCONGE applicable : ${formatMoneyAr(tVal)}/j.`,
         type: 'success'
       });
 
@@ -188,6 +193,12 @@ export default function InitialisationSoldeModal({
       <form onSubmit={handleSubmit} className="space-y-4 font-sans text-sm">
         {error && <FormError message={error} />}
 
+        {/* Contexte d'usage */}
+        <div className="p-2.5 border-l-4 border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/6">
+          <p className="text-xs text-[var(--color-fg-muted)]">
+            Reprise des droits et valorisations acquis avant l'entrée en gestion dans le SIRH.
+          </p>
+        </div>
         {/* Fiche d'identification du collaborateur */}
         <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-3 text-xs">
           <div>
@@ -203,88 +214,21 @@ export default function InitialisationSoldeModal({
             <div className="text-right">
               <span className="text-[var(--color-fg-muted)]">Salaire de base :</span>{' '}
               <strong className="text-[var(--color-fg)] text-sm">{formatMoneyAr(salaireBase)}</strong>
-              <span className="block text-[11px] text-[var(--color-fg-subtle)]">
-                Base journalière (÷30) : ~{formatMoneyAr(salaireBase / 30)}/j
-              </span>
             </div>
           )}
         </div>
 
-        {/* Étape 1 : Choix de la méthode d'initialisation */}
-        <div className="p-3.5 border border-[var(--color-border-subtle)] space-y-2.5 bg-[var(--color-surface)]">
-          <label className="block text-xs font-semibold text-[var(--color-fg)]">
-            1. Méthode d'initialisation
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label
-              className={`p-3 border cursor-pointer flex flex-col justify-between transition-colors ${
-                modeReprise === 'AGGREGATED_OPENING'
-                  ? 'border-[var(--color-brand-600)] bg-[var(--color-brand-500)]/10 ring-1 ring-[var(--color-brand-600)]'
-                  : 'border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]'
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-semibold text-xs text-[var(--color-fg)]">
-                    <input
-                      type="radio"
-                      name="modeReprise"
-                      value="AGGREGATED_OPENING"
-                      checked={modeReprise === 'AGGREGATED_OPENING'}
-                      onChange={() => setModeReprise('AGGREGATED_OPENING')}
-                      className="text-[var(--color-brand-600)]"
-                    />
-                    <span>Reprise complète avec historique</span>
-                  </div>
-                  <Badge variant="success" size="xs">Recommandé</Badge>
-                </div>
-                <p className="text-[11px] text-[var(--color-fg-muted)] mt-1.5 pl-5 leading-normal">
-                  Calcul automatique des indemnités légales à partir de l'historique de l'exercice.
-                </p>
-              </div>
-            </label>
-
-            <label
-              className={`p-3 border cursor-pointer flex flex-col justify-between transition-colors ${
-                modeReprise === 'MINIMAL_OPENING'
-                  ? 'border-[var(--color-brand-600)] bg-[var(--color-brand-500)]/10 ring-1 ring-[var(--color-brand-600)]'
-                  : 'border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]'
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-semibold text-xs text-[var(--color-fg)]">
-                    <input
-                      type="radio"
-                      name="modeReprise"
-                      value="MINIMAL_OPENING"
-                      checked={modeReprise === 'MINIMAL_OPENING'}
-                      onChange={() => setModeReprise('MINIMAL_OPENING')}
-                      className="text-[var(--color-brand-600)]"
-                    />
-                    <span>Saisie simplifiée</span>
-                  </div>
-                  <Badge variant="neutral" size="xs">Rapide</Badge>
-                </div>
-                <p className="text-[11px] text-[var(--color-fg-muted)] mt-1.5 pl-5 leading-normal">
-                  Renseignement direct du solde restant et de la valeur journalière sans historique.
-                </p>
-              </div>
-            </label>
-          </div>
-        </div>
-
-        {/* Étape 2 : Situation arrêtée à la date de bascule */}
+        {/* Situation arrêtée à la date de bascule */}
         <div className="p-3.5 border border-[var(--color-border-subtle)] space-y-3 bg-[var(--color-surface)]">
           <div className="flex items-center gap-2 font-semibold text-xs text-[var(--color-fg)]">
             <History size={14} className="text-[var(--color-brand-500)]" />
-            <span>2. Situation à la date pivot</span>
+            <span>1. Situation à la date de bascule</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
-                Date d'arrêté <span className="text-[var(--color-danger-500)]">*</span>
+                Date de début de gestion SIRH <span className="text-[var(--color-danger-500)]">*</span>
               </label>
               <Input
                 type="date"
@@ -311,7 +255,7 @@ export default function InitialisationSoldeModal({
 
             <div>
               <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
-                Valeur journalière (Ar / jour) <span className="text-[var(--color-danger-500)]">*</span>
+                TCONGE antérieur applicable (Ar / jour) <span className="text-[var(--color-danger-500)]">*</span>
               </label>
               <MoneyInput
                 maxDecimals={2}
@@ -322,9 +266,25 @@ export default function InitialisationSoldeModal({
                 required
               />
               <span className="text-[10.5px] text-[var(--color-fg-muted)] mt-0.5 block">
-                Base : salaire brut contractuel ÷ 30
+                Dernier taux journalier de congé clôturé.
               </span>
             </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
+              Valeur du stock restant (Ar) <span className="text-[var(--color-danger-500)]">*</span>
+            </label>
+            <MoneyInput
+              maxDecimals={2}
+              min="0"
+              value={valeurSoldeOuverture}
+              onValueChange={setValeurSoldeOuverture}
+              placeholder="Ex. 240 000"
+              required
+            />
+            <span className="text-[10.5px] text-[var(--color-fg-muted)] mt-0.5 block">
+              Valeur comptable totale du stock de congés à la date de bascule.
+            </span>
           </div>
         </div>
 
@@ -332,7 +292,7 @@ export default function InitialisationSoldeModal({
         <div className="p-3.5 border border-[var(--color-border-subtle)] space-y-3 bg-[var(--color-surface)]">
           <div className="flex items-center gap-2 font-semibold text-xs text-[var(--color-fg)]">
             <Calendar size={14} className="text-[var(--color-brand-500)]" />
-            <span>3. Période annuelle de référence</span>
+            <span>2. Période annuelle de référence</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -361,60 +321,50 @@ export default function InitialisationSoldeModal({
             </div>
           </div>
 
-          {/* Cumuls si reprise complète avec historique */}
-          {modeReprise === 'AGGREGATED_OPENING' && (
-            <div className="pt-3 border-t border-[var(--color-border-subtle)] space-y-2">
-              <span className="text-xs font-medium text-[var(--color-fg)] block">
-                Données cumulées de l'exercice en cours ({dateDebutReference || 'début'} → {dateCutover || 'arrêté'}) :
-              </span>
+          {/* Cumuls de la période courante, indépendants du stock restant. */}
+          <div className="pt-3 border-t border-[var(--color-border-subtle)] space-y-2">
+            <span className="text-xs font-medium text-[var(--color-fg)] block">
+              Données cumulées de l'exercice en cours ({dateDebutReference || 'début'} → {dateCutover || 'arrêté'}) :
+            </span>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
-                    Droits acquis sur la période (jours) <span className="text-[var(--color-danger-500)]">*</span>
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    value={cumulDroitsOuverture}
-                    onChange={(e) => setCumulDroitsOuverture(e.target.value)}
-                    placeholder="Ex. 22.5"
-                    required
-                  />
-                  <span className="text-[10.5px] text-[var(--color-fg-muted)] mt-0.5 block">
-                    Total des jours acquis depuis le début de la période
-                  </span>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
+                  Droits acquis sur la période (jours) <span className="text-[var(--color-danger-500)]">*</span>
+                </label>
+                <Input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  value={cumulDroitsOuverture}
+                  onChange={(e) => setCumulDroitsOuverture(e.target.value)}
+                  placeholder="Ex. 22.5"
+                  required
+                />
+                <span className="text-[10.5px] text-[var(--color-fg-muted)] mt-0.5 block">
+                  Total des jours acquis depuis le début de la période
+                </span>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
-                    Valorisation financière cumulée (Ariary) <span className="text-[var(--color-danger-500)]">*</span>
-                  </label>
-                  <MoneyInput
-                    maxDecimals={2}
-                    min="0"
-                    value={cumulValorisationOuverture}
-                    onValueChange={setCumulValorisationOuverture}
-                    placeholder="Ex. 3 150 000"
-                    required
-                  />
-                  <span className="text-[10.5px] text-[var(--color-fg-muted)] mt-0.5 block">
-                    Cumul des valorisations mensuelles issu de la paie
-                  </span>
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
+                  Valorisation financière cumulée (Ariary) <span className="text-[var(--color-danger-500)]">*</span>
+                </label>
+                <MoneyInput
+                  maxDecimals={2}
+                  min="0"
+                  value={cumulValorisationOuverture}
+                  onValueChange={setCumulValorisationOuverture}
+                  placeholder="Ex. 3 150 000"
+                  required
+                />
+                <span className="text-[10.5px] text-[var(--color-fg-muted)] mt-0.5 block">
+                  Cumul des valorisations mensuelles issu de la paie
+                </span>
               </div>
             </div>
-          )}
+          </div>
 
-          {modeReprise === 'MINIMAL_OPENING' && (
-            <div className="p-2.5 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 text-xs flex items-center gap-2 text-[var(--color-warning-800)] dark:text-[var(--color-warning-200)]">
-              <AlertTriangle size={15} className="text-[var(--color-warning-600)] shrink-0" />
-              <span>
-                Mode simplifié : les congés et la paie utiliseront la valeur de {formatMoneyAr(tauxApplicable || 0)}/j.
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Motif ou référence */}
@@ -442,8 +392,8 @@ export default function InitialisationSoldeModal({
               <strong className="font-mono text-xs text-[var(--color-brand-600)]">{soldeJours || '0'} jours</strong>
             </div>
             <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)]">
-              <span className="text-[var(--color-fg-muted)] block text-[10.5px]">Valeur journalière :</span>
-              <strong className="font-mono text-xs text-[var(--color-brand-600)]">{formatMoneyAr(tauxApplicable || 0)}/j</strong>
+              <span className="text-[var(--color-fg-muted)] block text-[10.5px]">Valeur du stock :</span>
+              <strong className="font-mono text-xs text-[var(--color-brand-600)]">{formatMoneyAr(valeurSoldeOuverture || 0)}</strong>
             </div>
             <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)] col-span-2">
               <span className="text-[var(--color-fg-muted)] block text-[10.5px]">Exercice de référence :</span>

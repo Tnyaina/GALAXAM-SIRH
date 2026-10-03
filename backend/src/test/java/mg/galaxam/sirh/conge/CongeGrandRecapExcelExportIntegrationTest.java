@@ -60,6 +60,8 @@ class CongeGrandRecapExcelExportIntegrationTest {
 
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(
                 exportService.generer(LocalDate.of(2026, 4, 1), LocalDate.of(2026, 9, 1))))) {
+            assertTrue(workbook.getSheet("README").getRow(6).getCell(1).getStringCellValue()
+                    .contains("lots historiques"));
             var row = workbook.getSheetAt(0).getRow(4);
             assertEquals("EMP-RECAP-001", row.getCell(0).getStringCellValue());
             assertEquals(1, row.getCell(5).getNumericCellValue());

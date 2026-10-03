@@ -92,6 +92,10 @@ export default function MouvementsSoldeTable({
   const hasCutover = safeMouvements.some(m => m.typeMouvement === 'AJUSTEMENT'
     && (m.commentaire?.startsWith('[SOLDE_INITIAL]')
       || m.commentaire?.startsWith('Reprise cutover - Solde initial')));
+  // Afficher la colonne valeur si au moins un mouvement a une valeur source historique.
+  const hasValeurSource = safeMouvements.some(m => m.valeurSource != null && Number(m.valeurSource) > 0);
+
+  const [correctionAvant, setCorrectionAvant] = useState({ jours: null, valeur: null });
 
   const ouvrirCorrection = async () => {
     setShowCorrection(true);
@@ -101,7 +105,10 @@ export default function MouvementsSoldeTable({
     try {
       const situation = await congeService.getValorisationLots(idEmploye);
       const reprise = situation?.lots?.find(lot => lot.origine === 'REPRISE_CUTOVER');
-      setCorrection({ jours: String(reprise?.jours ?? 0), valeur: String(reprise?.valeur ?? 0), motif: '' });
+      const j = String(reprise?.jours ?? 0);
+      const v = String(reprise?.valeur ?? 0);
+      setCorrectionAvant({ jours: reprise?.jours ?? 0, valeur: reprise?.valeur ?? 0 });
+      setCorrection({ jours: j, valeur: v, motif: '' });
     } catch (err) {
       setCorrectionError(getErrorMessage(err, 'Impossible de charger le reliquat de reprise.'));
     } finally {
@@ -385,6 +392,7 @@ export default function MouvementsSoldeTable({
                 <Th>Type de Mouvement</Th>
                 <Th className="text-center">Impact Solde</Th>
                 <Th className="text-center">Solde Cumulé</Th>
+                {hasValeurSource && <Th className="text-right">Valeur lot (Ar)</Th>}
                 <Th>Motif & Justification</Th>
                 <Th>Opérateur</Th>
               </Tr>
@@ -421,6 +429,13 @@ export default function MouvementsSoldeTable({
                         <span className="text-[var(--color-fg-subtle)] font-normal">-</span>
                       )}
                     </Td>
+                    {hasValeurSource && (
+                      <Td className="text-right font-mono text-xs text-[var(--color-fg-muted)]">
+                        {m.valeurSource != null && Number(m.valeurSource) > 0
+                          ? <span className="font-semibold text-[var(--color-fg)]">{formatMoneyAr(m.valeurSource)}</span>
+                          : <span className="text-[var(--color-fg-subtle)]">—</span>}
+                      </Td>
+                    )}
                     <Td className="text-xs text-[var(--color-fg)]">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {isRegularisation && (
@@ -544,35 +559,119 @@ export default function MouvementsSoldeTable({
         size="md"
       >
         {correctionError && <Alert type="error" message={correctionError} />}
+
         {correctionResult ? (
-          <div className="space-y-3 text-sm text-[var(--color-fg)]">
-            <p>Reliquat corrigé : {correctionResult.nouveauReliquatJours} j · {formatMoneyAr(correctionResult.nouvelleValeur)}.</p>
-            <p>Écart antérieur à examiner : <strong>{formatMoneyAr(correctionResult.regularisationAExaminer)}</strong>.</p>
-            <p className="text-[var(--color-fg-muted)]">Vérifiez les bulletins déjà payés, puis choisissez explicitement la campagne de paie qui recevra la régularisation. Ouvrez ses variables depuis la liste des campagnes ; le système vérifiera si elle accepte encore des variables.</p>
-            <Link to="/paie?tab=periodes" className="inline-block border border-[var(--color-border)] px-3 py-2 text-xs font-bold text-[var(--color-fg)]">
-              Choisir une campagne de paie
-            </Link>
+          <div className="space-y-4 font-sans text-sm">
+            {/* Succès */}
+            <div className="p-3 bg-[var(--color-success-500)]/10 border border-[var(--color-success-500)]/30 flex items-start gap-3">
+              <span className="text-[var(--color-success-600)] text-xl leading-none mt-0.5">✓</span>
+              <div>
+                <p className="font-semibold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">Reliquat corrigé et historisé</p>
+                <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">Un mouvement d'ajustement a été généré dans le grand-livre.</p>
+              </div>
+            </div>
+
+            {/* Résumé après */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">Nouveau reliquat</span>
+                <span className="font-mono text-base font-bold text-[var(--color-fg)]">{correctionResult.nouveauReliquatJours} j</span>
+              </div>
+              <div className="p-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">Nouvelle valeur</span>
+                <span className="font-mono text-base font-bold text-[var(--color-fg)]">{formatMoneyAr(correctionResult.nouvelleValeur)}</span>
+              </div>
+            </div>
+
+            {/* Écart à régulariser */}
+            {Number(correctionResult.regularisationAExaminer) !== 0 && (
+              <div className="p-3 border border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10">
+                <p className="text-xs font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] mb-1">Écart de valorisation sur prises antérieures</p>
+                <p className="font-mono text-lg font-bold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]">
+                  {Number(correctionResult.regularisationAExaminer) > 0 ? '+' : ''}{formatMoneyAr(correctionResult.regularisationAExaminer)}
+                </p>
+                <p className="text-xs text-[var(--color-fg-muted)] mt-1.5">
+                  Différence constatée sur les congés déjà consommés avant correction.
+                </p>
+                <Link
+                  to="/paie?tab=periodes"
+                  className="inline-block mt-2 border border-[var(--color-border)] px-3 py-1.5 text-xs font-bold text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors"
+                >
+                  Campagnes de paie →
+                </Link>
+              </div>
+            )}
           </div>
         ) : (
-          <form onSubmit={soumettreCorrection} className="space-y-4">
-            <p className="text-sm text-[var(--color-fg-muted)]">La correction porte sur le reliquat futur. Les prises et bulletins antérieurs restent historiques.</p>
-            <div>
-              <label className="block text-xs font-bold uppercase text-[var(--color-fg-muted)] mb-1">Jours restants après correction</label>
-              <Input type="number" min="0" step="0.01" required disabled={correctionLoading}
-                value={correction.jours} onChange={e => setCorrection(prev => ({ ...prev, jours: e.target.value }))} />
+          <form onSubmit={soumettreCorrection} className="space-y-4 font-sans text-sm">
+
+            {/* Information */}
+            <div className="p-2.5 bg-[var(--color-brand-500)]/8 border-l-4 border-[var(--color-brand-500)]">
+              <p className="text-xs text-[var(--color-fg-muted)]">
+                Ajustement du reliquat initial. Les prises antérieures déjà clôturées restent inchangées.
+              </p>
             </div>
-            <div>
-              <label className="block text-xs font-bold uppercase text-[var(--color-fg-muted)] mb-1">Valeur restante (Ar)</label>
-              <MoneyInput min="0" maxDecimals={2} required disabled={correctionLoading}
-                value={correction.valeur} onValueChange={value => setCorrection(prev => ({ ...prev, valeur: value }))} />
+
+            {/* État actuel (avant) */}
+            {correctionLoading ? (
+              <div className="py-4 text-center text-xs text-[var(--color-fg-muted)]">Chargement du reliquat actuel…</div>
+            ) : correctionAvant.jours !== null && (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] mb-2">Reliquat enregistré actuellement :</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2.5 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]">
+                    <span className="text-[10px] text-[var(--color-fg-subtle)] block">Jours</span>
+                    <span className="font-mono font-bold text-sm text-[var(--color-fg)]">{Number(correctionAvant.jours).toFixed(2)} j</span>
+                  </div>
+                  <div className="p-2.5 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]">
+                    <span className="text-[10px] text-[var(--color-fg-subtle)] block">Valeur</span>
+                    <span className="font-mono font-bold text-sm text-[var(--color-fg)]">{formatMoneyAr(correctionAvant.valeur)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="border-t border-[var(--color-border-subtle)] pt-4 space-y-4">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Nouvelles valeurs corrigées :</p>
+
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
+                  Jours restants après correction <span className="text-[var(--color-danger-500)]">*</span>
+                </label>
+                <Input
+                  type="number" min="0" step="0.01" required disabled={correctionLoading}
+                  value={correction.jours}
+                  onChange={e => setCorrection(prev => ({ ...prev, jours: e.target.value }))}
+                  placeholder="Ex. 4.25"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
+                  Valeur restante corrigée (Ar) <span className="text-[var(--color-danger-500)]">*</span>
+                </label>
+                <MoneyInput
+                  min="0" maxDecimals={2} required disabled={correctionLoading}
+                  value={correction.valeur}
+                  onValueChange={value => setCorrection(prev => ({ ...prev, valeur: value }))}
+                  placeholder="Ex. 32 894"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-fg)] mb-1">
+                  Motif de la correction <span className="text-[var(--color-danger-500)]">*</span>
+                </label>
+                <Textarea
+                  required rows={2} disabled={correctionLoading} value={correction.motif}
+                  onChange={e => setCorrection(prev => ({ ...prev, motif: e.target.value }))}
+                  placeholder="Justification de la correction"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-bold uppercase text-[var(--color-fg-muted)] mb-1">Motif DAF</label>
-              <Textarea required rows={3} disabled={correctionLoading} value={correction.motif}
-                onChange={e => setCorrection(prev => ({ ...prev, motif: e.target.value }))} />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setShowCorrection(false)}>Annuler</Button>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border-subtle)]">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowCorrection(false)}>Annuler</Button>
               <Button type="submit" variant="primary" size="sm" loading={correctionLoading}>Enregistrer la correction</Button>
             </div>
           </form>

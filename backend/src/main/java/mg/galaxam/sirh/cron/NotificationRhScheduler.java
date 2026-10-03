@@ -88,20 +88,20 @@ public class NotificationRhScheduler {
     // =========================================================================
 
     private void purguerAnciennesNotifications(Connection c) throws Exception {
-        Timestamp seuil7j = Timestamp.valueOf(LocalDateTime.now().minusDays(7));
         Timestamp seuil30j = Timestamp.valueOf(LocalDateTime.now().minusDays(30));
+        Timestamp seuil90j = Timestamp.valueOf(LocalDateTime.now().minusDays(90));
 
-        // 1. Supprimer les notifications lues de plus de 7 jours
+        // 1. Supprimer les notifications lues de plus de 30 jours
         String sqlLues = "DELETE FROM notification_rh WHERE est_lue = TRUE AND date_creation < ?";
         try (PreparedStatement ps = c.prepareStatement(sqlLues)) {
-            ps.setTimestamp(1, seuil7j);
+            ps.setTimestamp(1, seuil30j);
             ps.executeUpdate();
         }
 
-        // 2. Supprimer les notifications non lues très anciennes (+30 jours)
+        // 2. Supprimer les notifications non lues très anciennes (+90 jours)
         String sqlNonLues = "DELETE FROM notification_rh WHERE est_lue = FALSE AND date_creation < ?";
         try (PreparedStatement ps = c.prepareStatement(sqlNonLues)) {
-            ps.setTimestamp(1, seuil30j);
+            ps.setTimestamp(1, seuil90j);
             ps.executeUpdate();
         }
     }
@@ -129,14 +129,21 @@ public class NotificationRhScheduler {
 
                 LocalDate dateFin = dFin.toLocalDate();
                 long jours = ChronoUnit.DAYS.between(today, dateFin);
-                if (jours < 0 || jours > 30) continue;
+                if (jours < -60 || jours > 30) continue;
 
                 String nomPrenom = rs.getString("nom_prenom");
                 String typeContrat = rs.getString("type_contrat");
                 String numero = rs.getString("numero_contrat");
                 int idEmploye = rs.getInt("id_employe");
 
-                if (jours == 0) {
+                if (jours < 0) {
+                    long joursEchus = Math.abs(jours);
+                    insererNotification(c, null, "CONTRAT_ECHU_NON_REGULARISE", "CRITIQUE",
+                        "Contrat CDD échu non régularisé - " + nomPrenom,
+                        "Le contrat " + typeContrat + " N°" + (numero != null ? numero : "?") +
+                        " de " + nomPrenom + " est arrivé à échéance depuis " + joursEchus + " jour(s) (le " + dateFin + ") sans clôture ni renouvellement validé.",
+                        "/employes/" + idEmploye + "?tab=carriere", idEmploye);
+                } else if (jours == 0) {
                     insererNotification(c, null, "CONTRAT_EXPIRE_J", "CRITIQUE",
                         "Contrat expirant AUJOURD'HUI - " + nomPrenom,
                         "Le contrat " + typeContrat + " N°" + (numero != null ? numero : "?") +
@@ -179,12 +186,18 @@ public class NotificationRhScheduler {
 
                 LocalDate dateFinEssai = dEssai.toLocalDate();
                 long jours = ChronoUnit.DAYS.between(today, dateFinEssai);
-                if (jours < 0 || jours > 30) continue;
+                if (jours < -30 || jours > 30) continue;
 
                 String nomPrenom = rs.getString("nom_prenom");
                 int idEmploye = rs.getInt("id_employe");
 
-                if (jours == 0) {
+                if (jours < 0) {
+                    long joursEchus = Math.abs(jours);
+                    insererNotification(c, null, "ESSAI_ECHU_SANS_DECISION", "CRITIQUE",
+                        "Période d'essai échue sans décision - " + nomPrenom,
+                        "La période d'essai de " + nomPrenom + " a pris fin depuis " + joursEchus + " jour(s) (le " + dateFinEssai + ") sans décision formelle.",
+                        "/employes/" + idEmploye + "?tab=carriere", idEmploye);
+                } else if (jours == 0) {
                     insererNotification(c, null, "ESSAI_EXPIRE_J", "CRITIQUE",
                         "Fin de periode d'essai AUJOURD'HUI - " + nomPrenom,
                         "La période d'essai de " + nomPrenom + " se termine ce soir. Décision requise : Confirmer ou Rompre l'essai.",

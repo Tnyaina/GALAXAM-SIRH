@@ -102,7 +102,7 @@ class CongeGrandRecapExcelExportServiceTest {
             assertEquals(5.5, sheet.getRow(4).getCell(12).getNumericCellValue());
             assertEquals(49500, sheet.getRow(4).getCell(14).getNumericCellValue());
             assertEquals("SUM(O5:O5)", sheet.getRow(5).getCell(14).getCellFormula());
-            assertTrue(sheet.getRow(1).getCell(0).getStringCellValue().contains("01/09/2026"));
+            assertTrue(sheet.getRow(1).getCell(0).getStringCellValue().contains("01/09/2026"), sheet.getRow(1).getCell(0).getStringCellValue());
         }
         verify(statement, times(15)).setDate(anyInt(), any(Date.class));
     }
@@ -126,7 +126,7 @@ class CongeGrandRecapExcelExportServiceTest {
             assertEquals(org.apache.poi.ss.usermodel.CellType.BLANK, sheet.getRow(4).getCell(13).getCellType());
             assertEquals(0, sheet.getRow(4).getCell(14).getNumericCellValue());
             assertEquals("SUM(O5:O5)", sheet.getRow(5).getCell(14).getCellFormula());
-            assertTrue(sheet.getRow(1).getCell(0).getStringCellValue().contains("lots historiques"));
+            assertTrue(sheet.getRow(1).getCell(0).getStringCellValue().contains("lots historiques"), sheet.getRow(1).getCell(0).getStringCellValue());
         }
     }
 }

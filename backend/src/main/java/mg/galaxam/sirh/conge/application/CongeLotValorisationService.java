@@ -239,6 +239,8 @@ public class CongeLotValorisationService {
                         joursJournal.setScale(2, RoundingMode.HALF_UP).compareTo(jours) != 0) {
                     throw new IllegalStateException("CONGE_ACQUISITION_JOURNAL_MISMATCH: mouvement " + mouvement);
                 }
+                if (rs.next()) throw new IllegalStateException(
+                        "CONGE_ACQUISITION_JOURNAL_AMBIGUOUS: plusieurs lignes journal pour le même mois (mouvement " + mouvement + ")");
                 return valeur;
             }
         }

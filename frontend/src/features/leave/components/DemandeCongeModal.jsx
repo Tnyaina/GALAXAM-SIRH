@@ -49,8 +49,8 @@ export default function DemandeCongeModal({
     preavisInfo,
 
     // Variables calculées & Conflits
-    nbJoursDecomptes, nbJoursWeekEnd, nbJoursOuvres,
-    conflitReport, simulationReport, checkingConflits,
+    nbJoursDecomptes, nbJoursWeekEnd, nbJoursOuvres, nbJoursFeries,
+    conflitReport, simulationReport, simulationError, checkingConflits,
     loading, error, fieldErrors, setFieldErrors,
 
     typesConge, motifsFamiliaux, selectedType,
@@ -111,6 +111,12 @@ export default function DemandeCongeModal({
         {error && (
           <div className="mb-4">
             <FormError message={typeof error === 'string' ? error : JSON.stringify(error)} />
+          </div>
+        )}
+        {/* Erreur de simulation backend (TCONGE_APPLICABLE_AMBIGUOUS, etc.) */}
+        {simulationError && !error && (
+          <div className="mb-4">
+            <Alert type="warning" message={simulationError} />
           </div>
         )}
 
@@ -206,6 +212,7 @@ export default function DemandeCongeModal({
               nbJoursDecomptes={nbJoursDecomptes}
               nbJoursOuvres={nbJoursOuvres}
               nbJoursWeekEnd={nbJoursWeekEnd}
+              nbJoursFeries={nbJoursFeries}
               selectedType={selectedType}
               isMaternite={isMaternite}
               extensionPathologiqueMaternite={extensionPathologiqueMaternite}
@@ -288,20 +295,6 @@ export default function DemandeCongeModal({
                       </span>
                     </label>
                   )}
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={derogationSoldeNegatif}
-                      onChange={(event) => setDerogationSoldeNegatif(event.target.checked)}
-                      className="w-4 h-4 mt-0.5 accent-[var(--color-brand-500)] cursor-pointer shrink-0"
-                    />
-                    <span className="text-xs text-[var(--color-fg)]">
-                      Autoriser le dépassement de solde (anticipation)
-                      <span className="block text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                        Valide la demande même si le solde disponible actuel est insuffisant.
-                      </span>
-                    </span>
-                  </label>
                   <label className="flex items-start gap-2.5 cursor-pointer">
                     <input
                       type="checkbox"

@@ -140,8 +140,88 @@ class CongeLedgerIntegrationTest {
     }
 
     @Test
-    @DisplayName("21. Plafond cumul congés : actif, désactivé sans repli, configuration absente bloquante")
-    void testPlafondCumulOptionnelSansFallback() throws Exception {
+    void periodeCompleteVingtHuitJoursCrediteeALaFinDeLaPeriode() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE contrat_travail SET date_debut = ? WHERE id_employe = ?")) {
+                ps.setDate(1, Date.valueOf("2025-02-26"));
+                ps.setInt(2, employeId);
+                ps.executeUpdate();
+            }
+            BigDecimal acquis = congeService.enregistrerAcquisitionMensuelle(employeId, 2025, 3,
+                    LocalDate.of(2025, 2, 26), LocalDate.of(2025, 3, 25),
+                    BigDecimal.ZERO, adminUserId, c);
+            assertEquals(0, new BigDecimal("2.5000").compareTo(acquis));
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT date_mouvement FROM mouvement_solde_conge WHERE id_employe = ? AND type_mouvement = 'ACQUISITION'")) {
+                ps.setInt(1, employeId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(LocalDate.of(2025, 3, 25), rs.getDate(1).toLocalDate());
+                }
+            }
+        }
+    }
+
+    @Test
+    void embaucheEnCoursDeMoisEstProratiseeSansDroitAvantContrat() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE contrat_travail SET date_debut = ? WHERE id_employe = ?")) {
+                ps.setDate(1, Date.valueOf("2026-01-16"));
+                ps.setInt(2, employeId);
+                ps.executeUpdate();
+            }
+            BigDecimal acquis = congeService.enregistrerAcquisitionMensuelle(employeId, 2026, 1,
+                    LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+                    BigDecimal.ZERO, adminUserId, c);
+            assertEquals(0, new BigDecimal("1.2903").compareTo(acquis));
+        }
+    }
+
+    @Test
+    void vingtQuatreJoursDeTravailDonnentUnMoisEquivalent() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE contrat_travail SET date_debut = ? WHERE id_employe = ?")) {
+                ps.setDate(1, Date.valueOf("2026-01-05"));
+                ps.setInt(2, employeId);
+                ps.executeUpdate();
+            }
+            BigDecimal acquis = congeService.enregistrerAcquisitionMensuelle(employeId, 2026, 1,
+                    LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+                    BigDecimal.ZERO, new BigDecimal("24"), adminUserId, c);
+            assertEquals(0, new BigDecimal("2.5000").compareTo(acquis));
+        }
+    }
+
+    @Test
+    void sortieEnCoursDeMoisArreteLAcquisitionAuDernierJourDuContrat() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE contrat_travail SET date_fin = ? WHERE id_employe = ?")) {
+                ps.setDate(1, Date.valueOf("2026-01-20"));
+                ps.setInt(2, employeId);
+                ps.executeUpdate();
+            }
+            BigDecimal acquis = congeService.enregistrerAcquisitionMensuelle(employeId, 2026, 1,
+                    LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+                    BigDecimal.ZERO, adminUserId, c);
+            assertEquals(0, new BigDecimal("1.6129").compareTo(acquis));
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT date_mouvement FROM mouvement_solde_conge WHERE id_employe = ? AND type_mouvement = 'ACQUISITION'")) {
+                ps.setInt(1, employeId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(LocalDate.of(2026, 1, 20), rs.getDate(1).toLocalDate());
+                }
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("21. Le plafond de stock ne diminue pas les droits acquis")
+    void testPlafondStockNeReduitPasAcquisition() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -154,7 +234,7 @@ class CongeLedgerIntegrationTest {
                 }
                 BigDecimal acquisSousPlafond = congeService.enregistrerAcquisitionMensuelle(
                         employeId, 2026, 3, BigDecimal.ZERO, adminUserId, c);
-                assertEquals(0, new BigDecimal("1.00").compareTo(acquisSousPlafond));
+                assertEquals(0, new BigDecimal("2.50").compareTo(acquisSousPlafond));
 
                 try (PreparedStatement ps = c.prepareStatement("UPDATE parametre_global SET est_actif = FALSE "
                         + "WHERE code_parametre = 'PLAFOND_CUMUL_SOLDE_CONGE_JOURS' "
@@ -164,7 +244,7 @@ class CongeLedgerIntegrationTest {
                 BigDecimal acquisSansPlafond = congeService.enregistrerAcquisitionMensuelle(
                         employeId, 2026, 4, BigDecimal.ZERO, adminUserId, c);
                 assertEquals(0, new BigDecimal("2.50").compareTo(acquisSansPlafond));
-                assertEquals(0, new BigDecimal("92.50").compareTo(
+                assertEquals(0, new BigDecimal("94.00").compareTo(
                         VSoldeCongeEmploye.rechercherParEmploye(employeId, c).getSoldeActuel()));
 
                 try (PreparedStatement ps = c.prepareStatement("DELETE FROM parametre_global "
@@ -172,8 +252,8 @@ class CongeLedgerIntegrationTest {
                         + "AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE)")) {
                     assertEquals(1, ps.executeUpdate());
                 }
-                assertThrows(IllegalStateException.class, () -> congeService.enregistrerAcquisitionMensuelle(
-                        employeId, 2026, 5, BigDecimal.ZERO, adminUserId, c));
+                assertEquals(0, new BigDecimal("2.50").compareTo(congeService.enregistrerAcquisitionMensuelle(
+                        employeId, 2026, 5, BigDecimal.ZERO, adminUserId, c)));
                 c.rollback();
             } catch (Exception e) {
                 c.rollback();

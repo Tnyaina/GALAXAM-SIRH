@@ -99,8 +99,10 @@ public class CongeCalculateurEngine {
      */
     public BigDecimal calculerAcquisitionMensuelle(int moisTravailles, BigDecimal tauxMensuel) {
         if (moisTravailles <= 0) return BigDecimal.ZERO;
-        BigDecimal taux = tauxMensuel != null ? tauxMensuel : TAUX_ACQUISITION_MENSUEL;
-        return taux.multiply(BigDecimal.valueOf(moisTravailles));
+        if (tauxMensuel == null || tauxMensuel.signum() <= 0) {
+            throw new IllegalArgumentException("Le taux mensuel d'acquisition doit être configuré et positif.");
+        }
+        return tauxMensuel.multiply(BigDecimal.valueOf(moisTravailles));
     }
 
     /**
@@ -114,14 +116,15 @@ public class CongeCalculateurEngine {
      * Calcule l'acquisition mensuelle de congés proratisée aux jours d'activité effective avec taux et diviseur configurables.
      */
     public BigDecimal calculerAcquisitionMensuelleProratisee(BigDecimal joursTravaillesTrentieme, BigDecimal tauxMensuel, BigDecimal diviseur) {
+        if (tauxMensuel == null || tauxMensuel.signum() <= 0 || diviseur == null || diviseur.signum() <= 0) {
+            throw new IllegalArgumentException("Le taux mensuel et le diviseur des congés doivent être configurés et positifs.");
+        }
         if (joursTravaillesTrentieme == null || joursTravaillesTrentieme.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
-        BigDecimal div = (diviseur != null && diviseur.compareTo(BigDecimal.ZERO) > 0) ? diviseur : new BigDecimal("30.0");
-        BigDecimal taux = tauxMensuel != null ? tauxMensuel : TAUX_ACQUISITION_MENSUEL;
-        BigDecimal ratio = joursTravaillesTrentieme.divide(div, 6, java.math.RoundingMode.HALF_UP)
+        BigDecimal ratio = joursTravaillesTrentieme.divide(diviseur, 6, java.math.RoundingMode.HALF_UP)
                 .min(BigDecimal.ONE);
-        return taux.multiply(ratio).setScale(4, java.math.RoundingMode.HALF_UP);
+        return tauxMensuel.multiply(ratio).setScale(4, java.math.RoundingMode.HALF_UP);
     }
 
     /**
@@ -235,9 +238,7 @@ public class CongeCalculateurEngine {
         boolean override = false;
 
         if (input.decompteSoldeAcquis() && soldeApres.compareTo(BigDecimal.ZERO) < 0) {
-            (input.derogationSoldeNegatif() ? warnings : violations).add(LEAVE_BALANCE_INSUFFICIENT);
-            requirements.add("BALANCE_OVERRIDE");
-            override = true;
+            violations.add(LEAVE_BALANCE_INSUFFICIENT);
         }
         if (input.soumisDelaiPreavis() && preavisConstate < preavisRequis) {
             (input.derogationDelaiPreavis() ? warnings : violations).add(LEAVE_NOTICE_NOT_RESPECTED);
@@ -246,9 +247,7 @@ public class CongeCalculateurEngine {
         }
         if (quotaApres != null && input.plafondPool() != null
                 && quotaApres.compareTo(input.plafondPool()) > 0) {
-            (input.derogationSoldeNegatif() ? warnings : violations).add(LEAVE_POOL_EXCEEDED);
-            requirements.add("POOL_OVERRIDE");
-            override = true;
+            violations.add(LEAVE_POOL_EXCEEDED);
         }
 
         return new SimulationResult(input.dateDebut(), input.dateFin(), joursDemandes, soldeAvant, soldeApres, joursDebites,

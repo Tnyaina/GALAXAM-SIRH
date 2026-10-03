@@ -228,7 +228,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                 <AccordionSection id="paie-parametres" icon={<Calculator size={15} />} title="Paramètres de calcul et prêts" defaultOpen={false}>
                     <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 text-xs">
                         <div className="flex justify-between gap-3 border-b border-[var(--color-border-subtle)] py-2"><dt className="text-[var(--color-fg-muted)]">Taux horaire</dt><dd className="font-semibold text-right">{formatMoneyAr(synthese.tauxHoraire)} / h{synthese.diviseurHeures ? ` · base ${synthese.diviseurHeures} h` : ''}</dd></div>
-                        <div className="flex justify-between gap-3 border-b border-[var(--color-border-subtle)] py-2"><dt className="text-[var(--color-fg-muted)]">Taux congé journalier</dt><dd className="font-semibold text-right">{formatMoneyAr(synthese.tauxJournalierConge)}</dd></div>
+                        <div className="flex justify-between gap-3 border-b border-[var(--color-border-subtle)] py-2"><dt className="text-[var(--color-fg-muted)]">Taux congé journalier</dt><dd className="font-semibold text-right" title={synthese.tauxJournalierCongeErreur || undefined}>{synthese.tauxJournalierConge == null ? 'À régulariser' : formatMoneyAr(synthese.tauxJournalierConge)}</dd></div>
                         <div className="flex justify-between gap-3 border-b border-[var(--color-border-subtle)] py-2"><dt className="text-[var(--color-fg-muted)]">Capital restant des prêts</dt><dd className="font-semibold text-right">{formatMoneyAr(synthese.capitalRestantPrets)}</dd></div>
                     </dl>
                 </AccordionSection>

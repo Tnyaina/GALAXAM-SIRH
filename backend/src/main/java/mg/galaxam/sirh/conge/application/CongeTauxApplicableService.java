@@ -218,37 +218,9 @@ public class CongeTauxApplicableService {
             return matches.get(0);
         }
 
-        // 2. Si aucun taux applicable explicite dans conge_taux_applicable :
-        // Recherche défensive d'un historique conge_journal_droit antérieur à dateReference (données historiques / legacy)
-        String sqlLegacy = "SELECT taux_journalier_conge, annee, mois FROM conge_journal_droit " +
-                "WHERE id_employe = ? AND (annee < ? OR (annee = ? AND mois < ?)) " +
-                "AND taux_journalier_conge IS NOT NULL AND taux_journalier_conge > 0 " +
-                "ORDER BY annee DESC, mois DESC LIMIT 1";
-        try (PreparedStatement psLeg = c.prepareStatement(sqlLegacy)) {
-            psLeg.setInt(1, idEmploye);
-            psLeg.setInt(2, dateReference.getYear());
-            psLeg.setInt(3, dateReference.getYear());
-            psLeg.setInt(4, dateReference.getMonthValue());
-            try (ResultSet rsLeg = psLeg.executeQuery()) {
-                if (rsLeg.next()) {
-                    BigDecimal tauxLeg = rsLeg.getBigDecimal("taux_journalier_conge");
-                    if (tauxLeg != null && tauxLeg.compareTo(BigDecimal.ZERO) > 0) {
-                        return new TauxCongeResolution(
-                                tauxLeg,
-                                TcongeSourceProvenance.KAJY_MIGRATION,
-                                dateReference,
-                                null,
-                                null,
-                                null
-                        );
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            log.warn("[CongeTauxApplicableService] Erreur recherche taux historique legacy pour employé {}: {}", idEmploye, e.getMessage());
-        }
-
-        // 3. Cas 0 match : Vérification anti-fallback silencieux pour salarié historique
+        // La moyenne cumulée du journal mensuel est une projection de la période en cours.
+        // Seul un taux daté et activé peut être utilisé comme TCONGE applicable.
+        // Cas 0 match : vérification anti-fallback silencieux pour salarié historique.
         String sqlCheckRef = "SELECT mode_reprise FROM conge_periode_reference WHERE id_employe = ? AND date_debut <= ? AND date_fin >= ?";
         try (PreparedStatement psRef = c.prepareStatement(sqlCheckRef)) {
             psRef.setInt(1, idEmploye);
@@ -930,16 +902,13 @@ public class CongeTauxApplicableService {
         if (req.getDateCutover() == null) {
             throw new IllegalArgumentException("La date de cutover est obligatoire.");
         }
-        if (req.getDateCutover().getDayOfMonth() != 1) {
-            throw new IllegalArgumentException("La reprise doit commencer le premier jour d'un mois, après le dernier mois suivi par la DAF.");
-        }
         if (req.getSoldeJours() == null || req.getSoldeJours().compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Le solde de jours initial doit être positif ou nul.");
         }
-        if (req.getValeurSoldeOuverture() != null
-                && (req.getValeurSoldeOuverture().signum() < 0
-                    || (req.getSoldeJours().signum() == 0 && req.getValeurSoldeOuverture().signum() != 0)
-                    || (req.getSoldeJours().signum() > 0 && req.getValeurSoldeOuverture().signum() == 0))) {
+        if (req.getValeurSoldeOuverture() == null
+                || req.getValeurSoldeOuverture().signum() < 0
+                || (req.getSoldeJours().signum() == 0 && req.getValeurSoldeOuverture().signum() != 0)
+                || (req.getSoldeJours().signum() > 0 && req.getValeurSoldeOuverture().signum() == 0)) {
             throw new IllegalArgumentException("La valeur du solde repris doit être cohérente avec les jours disponibles.");
         }
         if (req.getTauxJournalierApplicable() == null || req.getTauxJournalierApplicable().compareTo(BigDecimal.ZERO) <= 0) {
@@ -962,6 +931,9 @@ public class CongeTauxApplicableService {
 
         LocalDate dateDebut = req.getDateDebutReference();
         LocalDate dateFin = calculerDateFinReference(dateDebut);
+        if (req.getDateCutover().isBefore(dateDebut) || req.getDateCutover().isAfter(dateFin)) {
+            throw new IllegalArgumentException("La date de bascule doit appartenir à la période de référence reprise.");
+        }
 
         // 1. Vérifier l'absence de chevauchement de référence
         verifierAbsenceChevauchementReference(req.getIdEmploye(), dateDebut, dateFin, null, c);
@@ -1046,10 +1018,7 @@ public class CongeTauxApplicableService {
             } else {
                 psMvt.setNull(5, Types.INTEGER);
             }
-            BigDecimal valeurReprise = req.getValeurSoldeOuverture() != null
-                    ? req.getValeurSoldeOuverture()
-                    : req.getSoldeJours().multiply(req.getTauxJournalierApplicable());
-            psMvt.setBigDecimal(6, valeurReprise.setScale(2, RoundingMode.HALF_UP));
+            psMvt.setBigDecimal(6, req.getValeurSoldeOuverture().setScale(2, RoundingMode.HALF_UP));
             psMvt.executeUpdate();
         }
 

@@ -16,6 +16,7 @@ import org.springframework.test.context.ActiveProfiles;
 import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +43,26 @@ class CongePayrollIntegrationTest {
             employeId = CongeTestFixtureHelper.createEmploye(c, "EMP-PAY-001", "Ravelo", "Lala");
             int contratId = CongeTestFixtureHelper.createContratActif(c, employeId, LocalDate.of(2025, 1, 1));
             CongeTestFixtureHelper.createAffectation(c, employeId, contratId, LocalDate.of(2025, 1, 1), new BigDecimal("1500000.00"));
+        }
+    }
+
+    @Test
+    @DisplayName("Le taux moyen mensuel M-1 ne remplace jamais un TCONGE applicable non activé")
+    void moyenneMensuelleNeDevientPasTauxApplicable() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            CongeTestFixtureHelper.crediterSolde(c, employeId, 2.5, "Droit déjà acquis");
+            try (PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO conge_journal_droit (id_employe, annee, mois, salaire_base, " +
+                    "base_valorisation, jours_droit_acquis, valorisation_mensuelle, " +
+                    "cumul_jours_droit, cumul_valorisation, taux_journalier_conge) " +
+                    "VALUES (?, 2026, 1, 300000, 300000, 2.5, 25000, 2.5, 25000, 10000)")) {
+                ps.setInt(1, employeId);
+                ps.executeUpdate();
+            }
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> congeTauxApplicableService.resoudreTauxCongeApplicable(
+                            employeId, LocalDate.of(2026, 2, 15), new BigDecimal("300000"), c));
+            assertTrue(ex.getMessage().contains("LEAVE_RATE_MISSING"));
         }
     }
 

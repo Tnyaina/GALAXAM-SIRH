@@ -66,11 +66,12 @@ class CongeTauxEvolutionSimulationTest {
             req.setDateCutover(dateCutover);
             req.setDateDebutReference(dateCutover);
             req.setSoldeJours(soldeInitial);
+            req.setValeurSoldeOuverture(new BigDecimal("96630.90"));
             req.setTauxJournalierApplicable(tcongeInitial);
             req.setModeReprise(CongeTauxApplicableService.CongeModeReprise.AGGREGATED_OPENING);
-            req.setCumulDroitsOuverture(new BigDecimal("10.00"));
-            // 10 jours x 9663.09 = 96 630.90 Ar de réserve valorisée à l'ouverture
-            req.setCumulValorisationOuverture(new BigDecimal("96630.90"));
+            // Le stock ancien ne fait pas partie des droits acquis dans la nouvelle période.
+            req.setCumulDroitsOuverture(BigDecimal.ZERO);
+            req.setCumulValorisationOuverture(BigDecimal.ZERO);
             req.setCommentaire("Cutover initial KAJY sept26");
 
             int idPeriodeRef = congeTauxApplicableService.enregistrerCutoverSnapshot(req, adminUserId, c);
@@ -96,27 +97,25 @@ class CongeTauxEvolutionSimulationTest {
             // Valorisation mensuelle = (300 000 / 30) * 2.5 = 25 000 Ar.
             insererLigneJournalDroit(c, employeId, idPeriodeRef, 2026, 1,
                     new BigDecimal("300000.00"), new BigDecimal("2.50"), new BigDecimal("25000.00"),
-                    new BigDecimal("12.50"), // 10 (ouverture) + 2.5
-                    new BigDecimal("121630.90"), // 96630.90 + 25000
-                    new BigDecimal("9730.47") // 121630.90 / 12.5
+                    new BigDecimal("2.50"),
+                    new BigDecimal("25000.00"),
+                    new BigDecimal("10000.00")
             );
             System.out.println("\n[ÉTAPE 2 - CLÔTURE PAIE JANVIER 2026]");
             System.out.println("  -> Salaire du mois : 300 000 Ar | Droit acquis : 2.5 jours | Valorisation : 25 000 Ar");
-            System.out.println("  -> Cumul droits : 12.5 j | Cumul valorisation : 121 630.90 Ar");
-            System.out.println("  -> Taux moyen cumulé glissant = 121 630.90 / 12.5 = 9 730.47 Ar/j");
+            System.out.println("  -> Cumul de la nouvelle période : 2.5 j | 25 000 Ar | moyenne 10 000 Ar/j");
 
             // ----------------------------------------------------------------------------------------
             // ÉTAPE 3 : MOIS 2 (Février 2026) - Clôture de Paie normale (Salaire 300 000 Ar)
             // ----------------------------------------------------------------------------------------
             insererLigneJournalDroit(c, employeId, idPeriodeRef, 2026, 2,
                     new BigDecimal("300000.00"), new BigDecimal("2.50"), new BigDecimal("25000.00"),
-                    new BigDecimal("15.00"),
-                    new BigDecimal("146630.90"),
-                    new BigDecimal("9775.39")
+                    new BigDecimal("5.00"),
+                    new BigDecimal("50000.00"),
+                    new BigDecimal("10000.00")
             );
             System.out.println("\n[ÉTAPE 3 - CLÔTURE PAIE FÉVRIER 2026]");
-            System.out.println("  -> Cumul droits : 15.0 j | Cumul valorisation : 146 630.90 Ar");
-            System.out.println("  -> Taux moyen cumulé glissant = 9 775.39 Ar/j");
+            System.out.println("  -> Cumul de la nouvelle période : 5 j | 50 000 Ar | moyenne 10 000 Ar/j");
 
             // ----------------------------------------------------------------------------------------
             // ÉTAPE 4 : MOIS 3 (Mars 2026) - AUGMENTATION DE SALAIRE À 370 000 Ar
@@ -125,26 +124,25 @@ class CongeTauxEvolutionSimulationTest {
             // Valorisation mensuelle = (370 000 / 30) * 2.5 = 30 833.33 Ar.
             insererLigneJournalDroit(c, employeId, idPeriodeRef, 2026, 3,
                     new BigDecimal("370000.00"), new BigDecimal("2.50"), new BigDecimal("30833.33"),
-                    new BigDecimal("17.50"),
-                    new BigDecimal("177464.23"),
-                    new BigDecimal("10140.81")
+                    new BigDecimal("7.50"),
+                    new BigDecimal("80833.33"),
+                    new BigDecimal("10777.78")
             );
             System.out.println("\n[ÉTAPE 4 - CLÔTURE PAIE MARS 2026 (Augmentation à 370 000 Ar)]");
             System.out.println("  -> Salaire : 370 000 Ar | Droit : 2.5 j | Valorisation : 30 833.33 Ar (hausse de la réserve !)");
-            System.out.println("  -> Cumul droits : 17.5 j | Cumul valorisation : 177 464.23 Ar");
-            System.out.println("  -> Le taux moyen cumulé progresse automatiquement à : 10 140.81 Ar/j");
+            System.out.println("  -> Cumul de la nouvelle période : 7.5 j | 80 833.33 Ar | moyenne 10 777.78 Ar/j");
 
             // ----------------------------------------------------------------------------------------
-            // ÉTAPE 5 : CLÔTURE DE PÉRIODE DE RÉFÉRENCE & CALCUL DU NOUVEAU TCONGE
+            // ÉTAPE 5 : CLÔTURE MANUELLE ANTICIPÉE DE LA RÉFÉRENCE POUR TESTER LE CALCUL
             // ----------------------------------------------------------------------------------------
             BigDecimal nouveauTconge = congeTauxApplicableService.cloturerPeriodeReference(idPeriodeRef, adminUserId, c);
             assertNotNull(nouveauTconge);
-            assertTrue(nouveauTconge.compareTo(tcongeInitial) > 0, "Le nouveau TCONGE doit être supérieur à l'ancien grâce à l'augmentation");
+            assertEquals(0, new BigDecimal("10777.78").compareTo(nouveauTconge));
 
-            System.out.println("\n[ÉTAPE 5 - CLÔTURE ANNUELLE DE LA PÉRIODE DE RÉFÉRENCE]");
+            System.out.println("\n[ÉTAPE 5 - CLÔTURE MANUELLE DE LA PÉRIODE DE RÉFÉRENCE]");
             System.out.println("  -> Ancien TCONGE initial : " + tcongeInitial + " Ar/j");
             System.out.println("  -> NOUVEAU TCONGE officiel calculé et scellé : " + nouveauTconge + " Ar/j");
-            System.out.println("  -> Ce nouveau taux s'appliquera automatiquement dès l'activation pour l'année suivante !");
+            System.out.println("  -> Ce nouveau taux ne devient applicable qu'après activation datée explicite.");
             System.out.println("======================================================================\n");
         }
     }

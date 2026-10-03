@@ -215,7 +215,7 @@ CREATE TABLE paie_config_legale (
     sme_agricole NUMERIC(20,2) NOT NULL,
     plafond_cotisation_nb_sme NUMERIC(4,2) NOT NULL DEFAULT 8.00,
     plafond_avance_employeur_pct NUMERIC(9,6) NOT NULL DEFAULT 10.000000,
-    quotite_cessible_pct NUMERIC(9,6) NOT NULL DEFAULT 33.33,
+    quotite_cessible_pct NUMERIC(20,6) NOT NULL DEFAULT 33.33,
     seuil_exoneration_irsa NUMERIC(20,2) NOT NULL,
     minimum_perception_irsa NUMERIC(20,2) NOT NULL,
     deduction_charge_famille NUMERIC(20,2) NOT NULL,

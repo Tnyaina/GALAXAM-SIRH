@@ -1,6 +1,8 @@
 package mg.galaxam.sirh.conge;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -37,9 +39,10 @@ class CongeLotValorisationIntegrationTest {
             reprise.setDateCutover(LocalDate.of(2026, 1, 1));
             reprise.setDateDebutReference(LocalDate.of(2026, 1, 1));
             reprise.setSoldeJours(new BigDecimal("1.00"));
+            reprise.setValeurSoldeOuverture(new BigDecimal("9000.00"));
             reprise.setTauxJournalierApplicable(new BigDecimal("9000.00"));
-            reprise.setCumulDroitsOuverture(new BigDecimal("1.00"));
-            reprise.setCumulValorisationOuverture(new BigDecimal("9000.00"));
+            reprise.setCumulDroitsOuverture(BigDecimal.ZERO);
+            reprise.setCumulValorisationOuverture(BigDecimal.ZERO);
             int reference = tauxService.enregistrerCutoverSnapshot(reprise, utilisateur, c);
 
             ajouterAcquisition(c, employe, reference, 2026, 1, "300000.00", "25000.00");
@@ -83,6 +86,37 @@ class CongeLotValorisationIntegrationTest {
             var apres = lotService.situation(employe, LocalDate.now(), c);
             assertEquals(new BigDecimal("9000.00"), apres.imputations().get(0).valeur());
             assertEquals(0, apres.soldeValorisation().compareTo(new BigDecimal("29000.00")));
+        }
+    }
+
+    @Test
+    void testCutoverCycleDecale26Au25() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            CongeTestFixtureHelper.cleanDatabase(c);
+            int utilisateur = CongeTestFixtureHelper.createAdminUser(c, "admin.cycle@galaxam.mg");
+            int employe = CongeTestFixtureHelper.createEmploye(c, "CYCLE-26-001", "CYCLE", "DECALE");
+
+            var reprise = new CongeTauxApplicableService.CutoverOpeningRequest();
+            reprise.setIdEmploye(employe);
+            // Cycle de paie démarrant le 26 septembre 2026
+            LocalDate dateCutover = LocalDate.of(2026, 9, 26);
+            reprise.setDateCutover(dateCutover);
+            reprise.setDateDebutReference(LocalDate.of(2026, 1, 1));
+            reprise.setSoldeJours(new BigDecimal("12.00"));
+            reprise.setValeurSoldeOuverture(new BigDecimal("120000.00"));
+            reprise.setTauxJournalierApplicable(new BigDecimal("10000.00"));
+            reprise.setCumulDroitsOuverture(BigDecimal.ZERO);
+            reprise.setCumulValorisationOuverture(BigDecimal.ZERO);
+
+            // Doit réussir sans exiger le 1er du mois
+            int reference = tauxService.enregistrerCutoverSnapshot(reprise, utilisateur, c);
+            assertTrue(reference > 0);
+
+            // Vérifier que le TCONGE est actif dès le 26/09/2026 (ex: demande posée le 28/09)
+            var res = tauxService.resoudreTauxCongeApplicable(employe, LocalDate.of(2026, 9, 28), null, c);
+            assertNotNull(res);
+            assertEquals(0, res.getTauxJournalier().compareTo(new BigDecimal("10000.00")));
+            assertEquals(CongeTauxApplicableService.TcongeSourceProvenance.REPRISE_CUTOVER, res.getSourceProvenance());
         }
     }
 

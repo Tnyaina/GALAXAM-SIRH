@@ -34,7 +34,8 @@ public class CongeAnnuelExcelExportService {
 
     @Autowired
     private DataSource dataSource;
-    private final CongeLotValorisationService lots = new CongeLotValorisationService();
+    @Autowired
+    private CongeLotValorisationService lots;
 
     public byte[] genererEtatCongesIndividuel(int idEmploye, Integer idPeriodeReference) throws Exception {
         try (Connection c = dataSource.getConnection()) {
@@ -78,6 +79,7 @@ public class CongeAnnuelExcelExportService {
                 // 7. Remplir la Feuille 2 : Mouvements
                 Sheet sheet2 = workbook.getSheetAt(1);
                 remplirFeuilleMouvements(sheet2, mouvements, ref, idEmploye, c);
+                setCellString(sheet2, 2, 8, "Valeur du stock après mouvement (Ar)");
                 Sheet detailLots = workbook.createSheet("Origine des droits");
                 var situationLots = lots.situation(idEmploye, ref.dateFin.isAfter(LocalDate.now())
                         ? LocalDate.now() : ref.dateFin, c);
@@ -106,6 +108,8 @@ public class CongeAnnuelExcelExportService {
                         "Douze périodes du cycle individuel ; les dates des campagnes de paie sont utilisées lorsqu'elles sont disponibles.");
                 notice.getRow(8).getCell(1).setCellValue(
                         "Le cumul valorisé des droits TCONGE et la valeur du solde disponible sont deux indicateurs distincts.");
+                notice.getRow(9).getCell(1).setCellValue(
+                        "Les mouvements expliquent les crédits et débits ; la valeur du stock provient des lots de droits, pas de solde × TCONGE.");
 
                 // 8. Forcer le recalcul des formules natives (=SUM(B8:B19), etc.)
                 workbook.setForceFormulaRecalculation(true);

@@ -255,7 +255,7 @@ public class DemandeCongeController {
                 d.setEstRemunere(estRemunere);
             }
             if (derogationSoldeNegatif) {
-                d.setDerogationSoldeNegatif(true);
+                throw new IllegalArgumentException("La prise par anticipation avec solde négatif est désactivée.");
             }
             d.update(c);
 

@@ -1,10 +1,12 @@
 package mg.galaxam.sirh.conge.application;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import mg.galaxam.sirh.conge.persistence.DemandeConge;
 import mg.galaxam.sirh.conge.persistence.MouvementSoldeConge;
@@ -96,12 +98,8 @@ public class CongeService {
         return stateAllowed ? ActionCapability.permit() : ActionCapability.denied(reason);
     }
 
-    private int getParamGlobalInt(String code, int defaultValue, Connection c) {
-        try {
-            return ParametreGlobal.getInt(ParametreGlobal.loadActiveMap(c), code, defaultValue);
-        } catch (Exception ignored) {
-            return defaultValue;
-        }
+    private int getParamGlobalInt(String code, Connection c) {
+        return ParametreGlobal.requirePositiveInt(ParametreGlobal.loadActiveMap(c), code);
     }
 
     /** Retourne null si le plafond est volontairement désactivé ; une configuration absente/invalide est bloquante. */
@@ -178,11 +176,9 @@ public class CongeService {
                 tauxAcquisition = configLegale.getAcquisitionCongeMensuelJours();
 
                 // 2. Diviseur calendaire configurable
-                java.util.Map<String, mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.ParametreEtat> etatMap =
-                        mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.loadEtatMap(c);
-                double divBdd = mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.getDouble(
-                        etatMap, "DIVISEUR_JOURS_CALENDAIRE_CONGE", 30.0, 30.0);
-                diviseur = BigDecimal.valueOf(divBdd);
+                java.util.Map<String, String> parametres = ParametreGlobal.loadActiveMapAtDate(Date.valueOf(d), c);
+                diviseur = BigDecimal.valueOf(ParametreGlobal.requirePositiveInt(
+                        parametres, "DIVISEUR_JOURS_CALENDAIRE_CONGE"));
             } catch (Exception e) {
                 throw new IllegalStateException("Impossible de charger les paramètres d'acquisition des congés.", e);
             }
@@ -206,21 +202,30 @@ public class CongeService {
      */
     public BigDecimal enregistrerAcquisitionMensuelle(int idEmploye, int annee, int mois,
             BigDecimal absencesInjustifiees, Integer currentUserId, Connection c) throws Exception {
-        LocalDate dateAcqRef = LocalDate.of(annee, mois, 1);
-        BigDecimal droitMois = calculerDroitAcquis(absencesInjustifiees, dateAcqRef, c);
+        LocalDate debutMois = LocalDate.of(annee, mois, 1);
+        return enregistrerAcquisitionMensuelle(idEmploye, annee, mois, debutMois,
+                debutMois.withDayOfMonth(debutMois.lengthOfMonth()), absencesInjustifiees, currentUserId, c);
+    }
 
-        java.util.Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMap(c);
-        BigDecimal plafondCumulSolde = resoudrePlafondCumulConges(etatMap);
-        if (plafondCumulSolde != null) {
-            VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
-            BigDecimal soldeActuel = (solde != null && solde.getSoldeActuel() != null) ? solde.getSoldeActuel() : BigDecimal.ZERO;
+    /** Une période de paie complète vaut un mois ; l'entrée ou la sortie est bornée par le contrat. */
+    public BigDecimal enregistrerAcquisitionMensuelle(int idEmploye, int annee, int mois,
+            LocalDate debutPeriode, LocalDate finPeriode, BigDecimal absencesInjustifiees,
+            Integer currentUserId, Connection c) throws Exception {
+        return enregistrerAcquisitionMensuelle(idEmploye, annee, mois, debutPeriode, finPeriode,
+                absencesInjustifiees, null, currentUserId, c);
+    }
 
-            if (soldeActuel.compareTo(plafondCumulSolde) >= 0) {
-                droitMois = BigDecimal.ZERO;
-            } else if (soldeActuel.add(droitMois).compareTo(plafondCumulSolde) > 0) {
-                droitMois = plafondCumulSolde.subtract(soldeActuel);
-            }
+    public BigDecimal enregistrerAcquisitionMensuelle(int idEmploye, int annee, int mois,
+            LocalDate debutPeriode, LocalDate finPeriode, BigDecimal absencesInjustifiees,
+            BigDecimal joursTravailEffectif, Integer currentUserId, Connection c) throws Exception {
+        if (debutPeriode == null || finPeriode == null || finPeriode.isBefore(debutPeriode)
+                || finPeriode.getYear() != annee || finPeriode.getMonthValue() != mois) {
+            throw new IllegalArgumentException("La période de service doit être valide et se terminer dans le mois d'acquisition.");
         }
+        BigDecimal formule = calculerFormuleAcquisition(idEmploye, debutPeriode, finPeriode,
+                absencesInjustifiees, joursTravailEffectif, c);
+        BigDecimal joursNonEligibles = new BigDecimal("30").subtract(formule);
+        BigDecimal droitMois = calculerDroitAcquis(joursNonEligibles, finPeriode, c);
 
         // Protection anti-duplication au cutover (Phase 2A-3B) :
         // Si un solde initial arrêté couvre déjà cette période, aucune acquisition fictive ou doublée ne doit être ajoutée.
@@ -251,7 +256,8 @@ public class CongeService {
             }
         }
 
-        String sqlCheck = "SELECT id_mouvement, nb_jours FROM mouvement_solde_conge " +
+        LocalDate dateAcquisition = calculerDateEffetAcquisition(idEmploye, debutPeriode, finPeriode, c);
+        String sqlCheck = "SELECT id_mouvement, nb_jours, date_mouvement FROM mouvement_solde_conge " +
                 "WHERE id_employe = ? AND type_mouvement = 'ACQUISITION' " +
                 "AND EXTRACT(YEAR FROM date_mouvement) = ? AND EXTRACT(MONTH FROM date_mouvement) = ? " +
                 "FOR UPDATE";
@@ -265,6 +271,10 @@ public class CongeService {
                 if (rs.next()) {
                     idMouvementExistant = rs.getInt("id_mouvement");
                     ancienNbJours = rs.getBigDecimal("nb_jours");
+                    if (!dateAcquisition.equals(rs.getDate("date_mouvement").toLocalDate())) {
+                        throw new IllegalStateException("ACQUISITION_DATE_CONFLICT: le mouvement existant du mois "
+                                + annee + "-" + mois + " doit être corrigé par une migration auditée.");
+                    }
                 }
             }
         }
@@ -273,7 +283,6 @@ public class CongeService {
             String sqlIns = "INSERT INTO mouvement_solde_conge (" +
                     "id_employe, type_mouvement, nb_jours, date_mouvement, commentaire, created_by" +
                     ") VALUES (?, 'ACQUISITION', ?, ?, ?, ?)";
-            LocalDate dateAcquisition = java.time.LocalDate.of(annee, mois, Math.min(28, java.time.LocalDate.of(annee, mois, 1).lengthOfMonth()));
             try (PreparedStatement psIns = c.prepareStatement(sqlIns)) {
                 psIns.setInt(1, idEmploye);
                 psIns.setBigDecimal(2, droitMois);
@@ -298,6 +307,66 @@ public class CongeService {
             }
         }
         return droitMois;
+    }
+
+    public BigDecimal calculerFormuleAcquisition(int idEmploye, LocalDate debut, LocalDate fin,
+            BigDecimal absencesInjustifiees, Connection c) throws SQLException {
+        return calculerFormuleAcquisition(idEmploye, debut, fin, absencesInjustifiees, null, c);
+    }
+
+    public BigDecimal calculerFormuleAcquisition(int idEmploye, LocalDate debut, LocalDate fin,
+            BigDecimal absencesInjustifiees, BigDecimal joursTravailEffectif, Connection c) throws SQLException {
+        BigDecimal joursService = calculerJoursServiceEquivalent(idEmploye, debut, fin, c);
+        if (joursService.signum() > 0 && joursTravailEffectif != null
+                && joursTravailEffectif.compareTo(new BigDecimal("24")) >= 0) {
+            joursService = new BigDecimal("30");
+        }
+        BigDecimal abs = absencesInjustifiees != null ? absencesInjustifiees.max(BigDecimal.ZERO) : BigDecimal.ZERO;
+        return joursService.subtract(abs).max(BigDecimal.ZERO).min(new BigDecimal("30"));
+    }
+
+    private BigDecimal calculerJoursServiceEquivalent(int idEmploye, LocalDate debut, LocalDate fin,
+            Connection c) throws SQLException {
+        java.util.Set<LocalDate> joursSousContrat = new java.util.HashSet<>();
+        String sql = "SELECT date_debut, date_fin FROM contrat_travail " +
+                "WHERE id_employe = ? AND date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?)";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmploye);
+            ps.setDate(2, Date.valueOf(fin));
+            ps.setDate(3, Date.valueOf(debut));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    LocalDate d = rs.getDate("date_debut").toLocalDate();
+                    Date finContratSql = rs.getDate("date_fin");
+                    LocalDate f = finContratSql == null ? fin : finContratSql.toLocalDate();
+                    for (LocalDate jour = d.isBefore(debut) ? debut : d;
+                            !jour.isAfter(f.isAfter(fin) ? fin : f); jour = jour.plusDays(1)) {
+                        joursSousContrat.add(jour);
+                    }
+                }
+            }
+        }
+        long joursPeriode = java.time.temporal.ChronoUnit.DAYS.between(debut, fin) + 1;
+        if (joursSousContrat.size() >= 28) return new BigDecimal("30");
+        return new BigDecimal("30").multiply(BigDecimal.valueOf(joursSousContrat.size()))
+                .divide(BigDecimal.valueOf(joursPeriode), 6, RoundingMode.HALF_UP);
+    }
+
+    private LocalDate calculerDateEffetAcquisition(int idEmploye, LocalDate debut, LocalDate fin,
+            Connection c) throws SQLException {
+        String sql = "SELECT MAX(LEAST(COALESCE(date_fin, ?), ?)) FROM contrat_travail " +
+                "WHERE id_employe = ? AND date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?)";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(fin));
+            ps.setDate(2, Date.valueOf(fin));
+            ps.setInt(3, idEmploye);
+            ps.setDate(4, Date.valueOf(fin));
+            ps.setDate(5, Date.valueOf(debut));
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getDate(1) != null) return rs.getDate(1).toLocalDate();
+            }
+        }
+        return fin;
     }
 
     private record ContratActif(int idEmploye, LocalDate dateDebut) {}
@@ -585,7 +654,7 @@ public class CongeService {
             if (motif != null) dureeFixe = motif.getNbJoursAutorises();
         }
         if (extensionPathologiqueMaternite && "MATERNITE".equals(type.getCode())) {
-            dureeFixe = BigDecimal.valueOf(getParamGlobalInt("DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS", 119, c));
+            dureeFixe = BigDecimal.valueOf(getParamGlobalInt("DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS", c));
         }
         LocalDate finCalculee = calculateurEngine.calculerDateFinFixe(dateDebut.toLocalDate(), dureeFixe);
         Date dateFinEffective = finCalculee != null ? Date.valueOf(finCalculee) : dateFin;
@@ -612,9 +681,9 @@ public class CongeService {
             consommationPool = consommation != null ? consommation.getJoursEngages() : BigDecimal.ZERO;
         }
 
-        int seuilLong = getParamGlobalInt("SEUIL_JOURS_PREAVIS_LONG", 3, c);
-        int delaiCourt = getParamGlobalInt("DELAI_PREAVIS_COURT_JOURS", 2, c);
-        int delaiLong = getParamGlobalInt("DELAI_PREAVIS_LONG_JOURS", 15, c);
+        int seuilLong = getParamGlobalInt("SEUIL_JOURS_PREAVIS_LONG", c);
+        int delaiCourt = getParamGlobalInt("DELAI_PREAVIS_COURT_JOURS", c);
+        int delaiLong = getParamGlobalInt("DELAI_PREAVIS_LONG_JOURS", c);
         return calculateurEngine.simuler(new CongeCalculateurEngine.SimulationInput(
                 dateDebut.toLocalDate(), dateFinEffective.toLocalDate(), estDemiJournee,
                 soldeAvant, type.isDecompteSoldeAcquis(), joursDebites, joursDemandes, derogationSoldeNegatif,
@@ -864,26 +933,7 @@ public class CongeService {
             BigDecimal projete = calculateurEngine.calculerSoldeProjete(disponible, d.getNbJoursDecomptes(), true);
             java.util.Map<String, ParametreGlobal.ParametreEtat> params = ParametreGlobal.loadEtatMap(c);
             if (projete.signum() < 0) {
-                if (!d.isDerogationSoldeNegatif()) {
-                    throw new IllegalArgumentException("Solde de congé insuffisant. Dérogation requise.");
-                }
-                var anticipation = ParametreGlobal.resolve(params, "PLAFOND_SOLDE_CONGE_NEGATIF");
-                if (anticipation.isMissing()) {
-                    throw new IllegalStateException("Paramètre de congé absent : PLAFOND_SOLDE_CONGE_NEGATIF");
-                }
-                if (anticipation.isDisabled()) {
-                    throw new IllegalArgumentException("La prise de congés par anticipation est désactivée.");
-                }
-                int plafond;
-                try {
-                    plafond = Integer.parseInt(anticipation.valeur().trim());
-                    if (plafond >= 0) throw new NumberFormatException();
-                } catch (RuntimeException e) {
-                    throw new IllegalStateException("Paramètre de congé actif invalide : PLAFOND_SOLDE_CONGE_NEGATIF", e);
-                }
-                if (projete.compareTo(BigDecimal.valueOf(plafond)) < 0) {
-                    throw new IllegalArgumentException("Le plafond de solde négatif autorisé est dépassé.");
-                }
+                throw new IllegalArgumentException("Solde de congé insuffisant : aucune prise par anticipation n'est autorisée.");
             }
             MouvementSoldeConge prise = new MouvementSoldeConge();
             prise.setIdEmploye(d.getIdEmploye());
@@ -912,10 +962,7 @@ public class CongeService {
                     throw new IllegalStateException("Paramètre de congé actif invalide : SEUIL_ALERTE_SOLDE_CONGE_FAIBLE", e);
                 }
             }
-            if (projete.signum() < 0) {
-                NotificationRhService.creer(c, "SOLDE_CONGE_NEGATIF", "HAUTE", "Solde négatif sous dérogation",
-                        "Le solde est passé à " + projete + " jour(s).", "/conges/soldes", d.getIdEmploye());
-            } else if (alerte.isActive()
+            if (alerte.isActive()
                     && projete.compareTo(BigDecimal.valueOf(seuil)) <= 0) {
                 NotificationRhService.creer(c, "SOLDE_CONGE_FAIBLE", "NORMALE", "Solde de congé faible",
                         "Le solde disponible est de " + projete + " jour(s).", "/conges/soldes", d.getIdEmploye());

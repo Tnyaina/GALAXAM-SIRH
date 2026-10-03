@@ -331,12 +331,12 @@ class CongeWorkflowIntegrationTest {
                 assertFalse(simSans.canSubmit());
                 assertTrue(simSans.violations().contains("LEAVE_BALANCE_INSUFFICIENT"));
 
-                // Simulation avec dérogation
+                // Le drapeau historique de dérogation ne rend plus la demande recevable.
                 CongeCalculateurEngine.SimulationResult simAvec = congeService.simulerDemande(
                         employeId, typeAnnuelId, null, Date.valueOf(debut), Date.valueOf(fin),
                         false, true, false, false, c);
-                assertTrue(simAvec.canSubmit());
-                assertTrue(simAvec.warnings().contains("LEAVE_BALANCE_INSUFFICIENT"));
+                assertFalse(simAvec.canSubmit());
+                assertTrue(simAvec.violations().contains("LEAVE_BALANCE_INSUFFICIENT"));
 
                 // Tentative de création sans dérogation -> bloquée immédiatement par controler()
                 DemandeConge dSans = new DemandeConge();
@@ -360,12 +360,12 @@ class CongeWorkflowIntegrationTest {
                 dAvec.setDerogationSoldeNegatif(true);
                 dAvec.setDerogationDelaiPreavis(true);
 
-                DemandeConge c1 = congeService.creerDemande(dAvec, adminUserId, c);
-                DemandeConge v1 = congeService.validerDemande(c1.getIdDemandeConge(), adminUserId, "Validation avec dérogation", c);
-                assertEquals("VALIDE", v1.getStatutCode(c));
+                IllegalArgumentException exAvec = assertThrows(IllegalArgumentException.class,
+                        () -> congeService.creerDemande(dAvec, adminUserId, c));
+                assertTrue(exAvec.getMessage().contains("Solde de congé insuffisant"));
 
-                VSoldeCongeEmploye soldeNeg = VSoldeCongeEmploye.rechercherParEmploye(employeId, c);
-                assertEquals(0, new BigDecimal("-3.0").compareTo(soldeNeg.getSoldeActuel()));
+                VSoldeCongeEmploye soldeApres = VSoldeCongeEmploye.rechercherParEmploye(employeId, c);
+                assertEquals(0, new BigDecimal("2.0").compareTo(soldeApres.getSoldeActuel()));
 
                 // Demande supplémentaire dépassant le plafond légal de -10j (ex: 15j supplémentaires -> solde projeté -18j)
                 DemandeConge dTrop = new DemandeConge();
@@ -375,12 +375,9 @@ class CongeWorkflowIntegrationTest {
                 dTrop.setDateFin(Date.valueOf(LocalDate.of(2026, 12, 15)));
                 dTrop.setDerogationSoldeNegatif(true);
                 dTrop.setDerogationDelaiPreavis(true);
-                DemandeConge cTrop = congeService.creerDemande(dTrop, adminUserId, c);
-
-                IllegalArgumentException exPlafond = assertThrows(IllegalArgumentException.class, () -> {
-                    congeService.validerDemande(cTrop.getIdDemandeConge(), adminUserId, "Tentative dépassement plafond négatif", c);
-                });
-                assertTrue(exPlafond.getMessage().contains("plafond de solde négatif autorisé est dépassé"));
+                IllegalArgumentException exPlafond = assertThrows(IllegalArgumentException.class,
+                        () -> congeService.creerDemande(dTrop, adminUserId, c));
+                assertTrue(exPlafond.getMessage().contains("Solde de congé insuffisant"));
             } finally {
                 try (Statement st = c.createStatement()) {
                     st.executeUpdate("UPDATE parametre_global SET est_actif = false WHERE code_parametre = 'PLAFOND_SOLDE_CONGE_NEGATIF'");
@@ -414,6 +411,52 @@ class CongeWorkflowIntegrationTest {
                 congeService.annulerDemande(cree.getIdDemandeConge(), adminUserId, "Annulation tardive", c);
             });
             assertTrue(exAnnul.getMessage().contains("Action interdite sur la période de paie clôturée"));
+        }
+    }
+
+    @Test
+    @DisplayName("M. Règle projet : un congé traversant un jour férié est décompté intégralement (calendaire strict)")
+    void testCongeTraversantJourFerieCompteQuandMeme() throws Exception {
+        // Règle validée pour GALAXAM : le décompte est calendaire strict.
+        // Un congé du lundi au vendredi couvrant un jour férié intermédiaire = 5 jours débités.
+        // Le moteur utilise ChronoUnit.DAYS.between(debut, fin) + 1, sans exclusion des fériés.
+        try (Connection c = dataSource.getConnection()) {
+            CongeTestFixtureHelper.crediterSolde(c, employeId, 20.0, "Solde initial 20j");
+
+            // Lundi 2 au vendredi 6 novembre 2026 (5 jours calendaires).
+            // La règle s'applique quelle que soit la présence d'un fériés dans l'intervalle.
+            LocalDate debut = LocalDate.of(2026, 11, 2);
+            LocalDate fin   = LocalDate.of(2026, 11, 6);
+
+            CongeCalculateurEngine.SimulationResult sim = congeService.simulerDemande(
+                    employeId, typeAnnuelId, null, Date.valueOf(debut), Date.valueOf(fin),
+                    false, false, false, false, c);
+
+            assertEquals(0, new BigDecimal("5.0").compareTo(sim.nbJours()),
+                    "5 jours calendaires doivent être décomptés même si un fériés est inclus");
+            assertTrue(sim.canSubmit());
+
+            DemandeConge d = new DemandeConge();
+            d.setIdEmploye(employeId);
+            d.setIdTypeConge(typeAnnuelId);
+            d.setDateDebut(Date.valueOf(debut));
+            d.setDateFin(Date.valueOf(fin));
+            d.setCommentaire("Congé traversant un fériés - décompte calendaire");
+            DemandeConge cree = congeService.creerDemande(d, adminUserId, c);
+            congeService.validerDemande(cree.getIdDemandeConge(), adminUserId, "Validation", c);
+
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT nb_jours FROM mouvement_solde_conge WHERE id_demande_conge = ? AND type_mouvement = 'PRISE'")) {
+                ps.setInt(1, cree.getIdDemandeConge());
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(0, new BigDecimal("-5.0").compareTo(rs.getBigDecimal("nb_jours")),
+                            "Le mouvement PRISE doit être de -5.0 jours (fériés traversé compris)");
+                }
+            }
+
+            VSoldeCongeEmploye soldeFinal = VSoldeCongeEmploye.rechercherParEmploye(employeId, c);
+            assertEquals(0, new BigDecimal("15.0").compareTo(soldeFinal.getSoldeActuel()));
         }
     }
 }
