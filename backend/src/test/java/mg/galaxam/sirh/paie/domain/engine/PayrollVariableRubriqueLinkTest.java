@@ -19,6 +19,18 @@ class PayrollVariableRubriqueLinkTest {
         var result = new SocialContributionCalculator().calculate(new BigDecimal("900000"), rules);
         assertEquals(0, new BigDecimal("500000").compareTo(result.cnaps().assiette()));
         assertEquals(0, new BigDecimal("5000").compareTo(result.cnaps().partSalariale()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(result.fmfp()));
+    }
+
+    @Test
+    void fmfpUtiliseLaMemeLimiteMensuelleQueLaCotisationSociale() {
+        var rules = new SocialContributionCalculator.Rules(
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.ZERO, new BigDecimal("0.01"), new BigDecimal("500000"), true);
+        var result = new SocialContributionCalculator().calculate(
+                new BigDecimal("900000"), BigDecimal.ZERO, new BigDecimal("900000"), rules);
+        assertEquals(0, new BigDecimal("500000").compareTo(result.cnaps().assiette()));
+        assertEquals(0, new BigDecimal("5000").compareTo(result.fmfp()));
     }
 
     @Test

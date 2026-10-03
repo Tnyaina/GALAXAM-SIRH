@@ -33,6 +33,10 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
     const previewTimers = useRef(new Map());
+    const loadSequence = useRef(0);
+    const [loadedSelection, setLoadedSelection] = useState(null);
+    const selectionKey = `${selectedSite}:${selectedDate}`;
+    const hasCurrentData = loadedSelection === selectionKey;
 
     // Comparateur précis délégué à l'utilitaire pur
     const isRowModified = isRowDataModified;
@@ -57,12 +61,14 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
     });
 
     const loadData = useCallback(async () => {
+        const sequence = ++loadSequence.current;
         const siteId = Number(selectedSite);
         if (!siteId || siteId <= 0) {
             setGrilleData([]);
             setInitialGrilleData([]);
             setSiteParams(null);
             setSiteIndemnites([]);
+            setLoadedSelection(null);
             setLoading(false);
             return;
         }
@@ -73,6 +79,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                 idSite: siteId,
                 date: selectedDate
             });
+            if (sequence !== loadSequence.current) return;
             if (data) {
                 const sParams = data.siteParams || null;
                 setSiteParams(sParams);
@@ -85,13 +92,15 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
                 if (data.statsJour) {
                     setStatsJour(data.statsJour);
                 }
+                setLoadedSelection(`${siteId}:${selectedDate}`);
             }
         } catch (err) {
+            if (sequence !== loadSequence.current) return;
             console.error('Erreur chargement saisie pointages:', err);
             const serverMessage = err?.response?.data?.message;
             setError(serverMessage || "Impossible de charger les données de pointage pour ce site.");
         } finally {
-            setLoading(false);
+            if (sequence === loadSequence.current) setLoading(false);
         }
     }, [selectedSite, selectedDate]);
 
@@ -402,6 +411,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
         periodeInfo,
         statsJour,
         loading,
+        hasCurrentData,
         saving,
         error,
         loadData,

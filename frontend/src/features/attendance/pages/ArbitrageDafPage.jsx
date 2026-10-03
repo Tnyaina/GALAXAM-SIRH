@@ -34,7 +34,7 @@ const PointageGanttView = lazy(() => import('@/features/attendance/components/vi
  * Arbitrage DAF — Etape 3 du cockpit Pointage (DAF uniquement).
  * Synthese mensuelle + Vue Gantt pour investigation + Actions : Valider / Rejeter.
  */
-export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode = null }) {
+export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode = null, periodesDisponibles = null, sitesDisponibles = null }) {
     // Contexte, navigation et hook métier
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -58,6 +58,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const [loadError, setLoadError] = useState('');
     const [preflight, setPreflight] = useState(null);
     const loadSequence = useRef(0);
+    const [loadedQuery, setLoadedQuery] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebounce(searchTerm, 300);
     const [alertFilter, setAlertFilter] = useState('ALL');
@@ -65,6 +66,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     // Pagination serveur & Lazy loading
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
+    const queryKey = JSON.stringify([selectedPeriode, selectedSite, debouncedSearch.trim(), alertFilter, currentPage, pageSize]);
+    const hasCurrentData = loadedQuery === queryKey;
     const [totalElements, setTotalElements] = useState(0);
     const [serverKpis, setServerKpis] = useState(null);
     const [serverAlertCounts, setServerAlertCounts] = useState(null);
@@ -88,9 +91,9 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             try {
                 const paramPeriode = searchParams.get('periode');
                 const [resPeriodes, resSites, context] = await Promise.all([
-                    periodePaieService.getAllPeriodes(),
-                    organisationService.getSites(),
-                    periodePaieService.getContext(paramPeriode ? Number(paramPeriode) : null)
+                    periodesDisponibles ?? periodePaieService.getAllPeriodes(),
+                    sitesDisponibles ?? organisationService.getSites(),
+                    activePeriode ? null : periodePaieService.getContext(paramPeriode ? Number(paramPeriode) : null)
                 ]);
                 if (resPeriodes && resPeriodes.length > 0) {
                     setPeriodes(resPeriodes);
@@ -143,30 +146,22 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         const sequence = ++loadSequence.current;
         setLoading(true);
         setLoadError('');
-        setPreflight(null);
         try {
             const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
-            const [resSemaines, resSynthese, resPreflight, resPeriodes] = await Promise.all([
-                pointageSyntheseService.getSemaines({ idPeriodePaie: selectedPeriode, idSite: siteParam }),
-                pointageSyntheseService.getSynthese({
+            const resSynthese = await pointageSyntheseService.getSynthese({
                     idPeriodePaie: selectedPeriode,
                     idSite: siteParam,
                     search: debouncedSearch.trim() || undefined,
                     filtre: alertFilter !== 'ALL' ? alertFilter : undefined,
                     page: currentPage,
                     size: pageSize
-                }),
-                pointageSyntheseService.getPreflight({ idPeriodePaie: selectedPeriode }),
-                periodePaieService.getAllPeriodes()
-            ]);
+                });
             if (sequence !== loadSequence.current) return;
-            if (resSemaines?.semaines) setSemaines(resSemaines.semaines);
             if (resSynthese?.synthese) setSyntheseData(resSynthese.synthese);
             if (resSynthese?.totalElements !== undefined) setTotalElements(resSynthese.totalElements);
             if (resSynthese?.kpis) setServerKpis(resSynthese.kpis);
             if (resSynthese?.alertCounts) setServerAlertCounts(resSynthese.alertCounts);
-            setPreflight(resPreflight);
-            if (resPeriodes) setPeriodes(resPeriodes);
+            setLoadedQuery(JSON.stringify([selectedPeriode, selectedSite, debouncedSearch.trim(), alertFilter, currentPage, pageSize]));
         } catch (err) {
             if (sequence !== loadSequence.current) return;
             setLoadError(getErrorMessage(err, 'Impossible de charger le contrôle du pointage.'));
@@ -182,6 +177,42 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
     useEffect(() => { loadData(); }, [loadData]);
 
+    useEffect(() => {
+        if (!selectedPeriode) {
+            setSemaines([]);
+            return undefined;
+        }
+        if (viewMode !== 'gantt') return undefined;
+        setSelectedSemaine(null);
+        let cancelled = false;
+        const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
+        pointageSyntheseService.getSemaines({ idPeriodePaie: selectedPeriode, idSite: siteParam })
+            .then(result => {
+                if (!cancelled) {
+                    const weeks = result?.semaines || [];
+                    setSemaines(weeks);
+                    setSelectedSemaine(weeks[0] || null);
+                }
+            })
+            .catch(() => { if (!cancelled) setSemaines([]); });
+        return () => { cancelled = true; };
+    }, [selectedPeriode, selectedSite, viewMode]);
+
+    // Le préflight est coûteux (synthèse + couverture des jours ouvrables). Il ne dépend
+    // pas des filtres de recherche, du tri ou de la pagination de la synthèse.
+    useEffect(() => {
+        if (!selectedPeriode) {
+            setPreflight(null);
+            return undefined;
+        }
+        setPreflight(null);
+        let cancelled = false;
+        pointageSyntheseService.getPreflight({ idPeriodePaie: selectedPeriode })
+            .then(result => { if (!cancelled) setPreflight(result); })
+            .catch(() => { if (!cancelled) setPreflight(null); });
+        return () => { cancelled = true; };
+    }, [selectedPeriode]);
+
     // Données dérivées
     const currentPeriodeObj = useMemo(() =>
         periodes.find(p => p.idPeriodePaie === Number(selectedPeriode)) || null,
@@ -192,7 +223,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         return st === 'VALIDEE' || st === 'PAIE_VALIDEE' || st === 'CLOTUREE';
     }, [currentPeriodeObj]);
 
-    const periodActions = currentPeriodeObj?.availableActions || {};
+    const periodActions = String(activePeriode?.idPeriodePaie) === String(selectedPeriode)
+        ? activePeriode.availableActions || {} : currentPeriodeObj?.availableActions || {};
     const isPendingDaf = ['A_VALIDER', 'TRANSMIS_DAF'].includes(currentPeriodeObj?.statutCode);
     const isPreflightPret = Boolean(
         preflight && (
@@ -784,8 +816,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                     </div>
 
                     {/* Vue Synthese — tableau mensuel par employe */}
+                    {viewMode === 'synthese' && loading && hasCurrentData && (
+                        <p className="px-3 py-2 text-xs text-[var(--color-fg-muted)]" role="status">Actualisation du contrôle…</p>
+                    )}
                     {viewMode === 'synthese' && (
-                        loading ? (
+                        loading && !hasCurrentData ? (
                             <div className="flex items-center justify-center gap-2 py-12 text-xs text-[var(--color-fg-muted)]">
                                 <Clock size={14} className="animate-spin text-[var(--color-brand-500)]" />Chargement de la synthese...
                             </div>
@@ -877,8 +912,6 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                 ferie: totals.ferie + Number(week.heuresFerie || 0),
                                             }), { nuit: 0, dimanche: 0, ferie: 0 });
                                             const totalIndRow = allowanceEntries.reduce((total, [, amount]) => total + Number(amount || 0), 0);
-                                            const allowanceDetails = allowanceEntries.map(([code, amount]) =>
-                                                `• ${code} : ${formatMonnaie(amount || 0)}`).join('\n');
 
                                             return (
                                                 <Tr key={row.idEmploye || row.matricule}>
@@ -962,18 +995,15 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                         <span className="attendance-duration-secondary block">({formatHeuresDecimal(heuresQualifiees.ferie)})</span>
                                                     </Td>
                                                     {/* Total Indemnités regroupé */}
-                                                    <Td
-                                                        className="attendance-allowance text-center attendance-duration text-xs cursor-help"
-                                                        title={`Détail des indemnités :\n${allowanceDetails || 'Aucune'}\n• Total : ${formatMonnaie(totalIndRow)}`}
-                                                    >
+                                                    <Td className="attendance-allowance text-center attendance-duration text-xs">
                                                         {totalIndRow > 0 ? (
-                                                            <div className="flex flex-col items-center">
+                                                            <button type="button" className="flex flex-col items-center w-full hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]" onClick={() => setSelectedEmployeForDetail(row)} aria-label={`Voir le détail des indemnités de ${row.nom} ${row.prenom}`}>
                                                                 <span className="font-bold">{formatMonnaie(totalIndRow)}</span>
                                                                 <span className="text-[9px] text-[var(--color-fg-muted)] mt-0.5">
                                                                     {allowanceEntries.map(([code]) => code).join(' · ')}
                                                                 </span>
                                                                 {fixedEntries.length > 0 && <span className="text-[9px] text-[var(--color-brand-600)] mt-0.5">Fixe mensuel {fixedEstimated ? 'estimé' : 'validé'}</span>}
-                                                            </div>
+                                                            </button>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
                                                         )}
@@ -1054,24 +1084,24 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     </Td>
                                                     {/* Actions : Voir détail & Ajuster */}
                                                     <Td className="text-center">
-                                                        <div className="flex items-center justify-center gap-1.5">
+                                                        <div className="flex items-center justify-center gap-1">
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setSelectedEmployeForSolde(row)}
-                                                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] transition-all cursor-pointer"
+                                                                className="w-7 h-7 inline-flex items-center justify-center border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] transition-all cursor-pointer"
                                                                 title="Voir le solde horaire de période et les ajustements"
                                                                 aria-label={`Voir le solde horaire de période de ${row.prenom || ''} ${row.nom || ''}`.trim()}
                                                             >
-                                                                <Scale size={15} />
+                                                                <Scale size={13} />
                                                             </button>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setSelectedEmployeForDetail(row)}
-                                                                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] transition-all cursor-pointer"
+                                                                className="w-7 h-7 inline-flex items-center justify-center border border-[var(--color-border-subtle)] hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] transition-all cursor-pointer"
                                                                 title="Voir le détail des pointages & la compensation hebdomadaire"
                                                                 aria-label={`Voir le détail des pointages de ${row.prenom || ''} ${row.nom || ''}`.trim()}
                                                             >
-                                                                <Eye size={15} />
+                                                                <Eye size={13} />
                                                             </button>
                                                             {isDaf && (
                                                                 <button
@@ -1089,11 +1119,11 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                                         setAdjustInitialDate(null);
                                                                         setSelectedEmployeToAdjust(row);
                                                                     }}
-                                                                    className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center border border-[var(--color-border-subtle)] ${isPeriodLocked ? 'opacity-40 cursor-not-allowed' : 'hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] cursor-pointer'} transition-all`}
+                                                                    className={`w-7 h-7 inline-flex items-center justify-center border border-[var(--color-border-subtle)] ${isPeriodLocked ? 'opacity-40 cursor-not-allowed' : 'hover:border-[var(--color-brand-500)] hover:bg-[var(--color-brand-500)]/10 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] cursor-pointer'} transition-all`}
                                                                     title={isPeriodLocked ? "Période validée/clôturée : modifications impossibles" : "Ajuster le pointage de ce collaborateur"}
                                                                     aria-label={`Ajuster le pointage de ${row.prenom || ''} ${row.nom || ''}`.trim()}
                                                                 >
-                                                                    <Edit3 size={15} />
+                                                                    <Edit3 size={13} />
                                                                 </button>
                                                             )}
                                                         </div>

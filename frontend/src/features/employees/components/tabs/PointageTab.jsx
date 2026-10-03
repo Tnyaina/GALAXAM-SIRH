@@ -49,10 +49,12 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const [selectedDate, setSelectedDate] = useState(() => getTodayDateString());
     const [selectedPeriodeId, setSelectedPeriodeId] = useState(null);
     const [periodesList, setPeriodesList] = useState([]);
+    const [periodsReady, setPeriodsReady] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [noPeriodError, setNoPeriodError] = useState(false);
     const [ficheData, setFicheData] = useState(null);
+    const [loadedSelection, setLoadedSelection] = useState(null);
     const [correctionDate, setCorrectionDate] = useState(null);
     const [showBalance, setShowBalance] = useState(false);
 
@@ -61,6 +63,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const [exportingExcel, setExportingExcel] = useState(false);
     const dropdownRef = useRef(null);
     const loadRequest = useRef(0);
+    const selectionKey = periodView === 'periode' && selectedPeriodeId
+        ? `${idEmploye}:periode:${selectedPeriodeId}`
+        : `${idEmploye}:${periodView}:${selectedDate}`;
+    const hasCurrentFiche = ficheData && loadedSelection === selectionKey;
 
     // Effets : chargent les périodes, la fiche et synchronisent la sélection.
     useEffect(() => {
@@ -126,30 +132,32 @@ export default function PointageTab({ idEmploye, employe = null }) {
     useEffect(() => {
         const fetchPeriodes = async () => {
             try {
-                const data = await periodePaieService.getAllPeriodes();
+                const data = await periodePaieService.getPeriodOptions();
                 if (data && Array.isArray(data) && data.length > 0) {
                     setPeriodesList(data);
                     const active = data.find(p => p.statutCode === 'EN_COURS' || p.codeStatut === 'EN_COURS') || data[0];
                     if (active?.idPeriodePaie) {
                         setSelectedPeriodeId(prev => prev || active.idPeriodePaie);
-                        if (active.dateDebut) {
-                            setSelectedDate(prev => prev || active.dateDebut);
+                        const today = getTodayDateString();
+                        if (active.dateDebut && active.dateFin && (today < active.dateDebut || today > active.dateFin)) {
+                            setSelectedDate(active.dateDebut);
                         }
                     }
                 }
             } catch (err) {
                 console.error('Erreur chargement liste des périodes de paie:', err);
+            } finally {
+                setPeriodsReady(true);
             }
         };
         fetchPeriodes();
     }, []);
 
     const loadFiche = useCallback(async ({ background = false } = {}) => {
-        if (!idEmploye) return;
+        if (!idEmploye || !periodsReady) return;
         const requestId = ++loadRequest.current;
         if (!background) {
             setLoading(true);
-            setFicheData(null);
         }
         setError(null);
         try {
@@ -163,6 +171,9 @@ export default function PointageTab({ idEmploye, employe = null }) {
             const res = await attendanceService.getFicheEmploye(idEmploye, params);
             if (requestId !== loadRequest.current) return;
             setFicheData(res);
+            setLoadedSelection(periodView === 'periode' && (selectedPeriodeId || res?.idPeriode)
+                ? `${idEmploye}:periode:${selectedPeriodeId || res.idPeriode}`
+                : `${idEmploye}:${periodView}:${selectedDate}`);
             setNoPeriodError(false);
             setError(null);
             if (res?.idPeriode && periodView === 'periode') {
@@ -184,7 +195,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
         } finally {
             if (requestId === loadRequest.current) setLoading(false);
         }
-    }, [idEmploye, selectedDate, periodView, selectedPeriodeId]);
+    }, [idEmploye, selectedDate, periodView, selectedPeriodeId, periodsReady]);
 
     useEffect(() => {
         loadFiche();
@@ -504,7 +515,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
 
             {error && <Alert type="error" message={error} />}
 
-            {loading ? (
+            {loading && hasCurrentFiche && (
+                <p className="py-2 text-xs text-[var(--color-fg-muted)]" role="status">Actualisation du pointage…</p>
+            )}
+            {loading && !hasCurrentFiche ? (
                 <div className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {[1, 2, 3, 4].map((i) => (

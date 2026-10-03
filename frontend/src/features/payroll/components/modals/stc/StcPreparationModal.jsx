@@ -396,14 +396,14 @@ export default function StcPreparationModal({
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <Input
                                         type="date"
-                                        label="Date de Départ Effective *"
+                                        label="Date de Départ Effective"
                                         hint="Date utilisée pour calculer le salaire final, les congés et l’ancienneté."
                                         required
                                         value={form.dateDepart}
                                         onChange={(e) => handleFormChange('dateDepart', e.target.value)}
                                     />
                                     <Select
-                                        label="Motif Légal de Rupture *"
+                                        label="Motif Légal de Rupture"
                                         required
                                         value={form.motifRupture}
                                         onChange={(e) => handleFormChange('motifRupture', e.target.value)}
@@ -434,7 +434,7 @@ export default function StcPreparationModal({
                                         />
                                     )}
                                     <Select
-                                        label="Mode de Règlement *"
+                                        label="Mode de Règlement"
                                         required
                                         value={form.modeReglement}
                                         onChange={(e) => handleFormChange('modeReglement', e.target.value)}

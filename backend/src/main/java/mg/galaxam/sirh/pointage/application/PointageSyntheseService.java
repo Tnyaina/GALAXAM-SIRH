@@ -735,8 +735,9 @@ public class PointageSyntheseService {
             montantDeplacementFinal = refDeplacementSite.subtract(ajustementJournalier).max(BigDecimal.ZERO);
         }
         dto.setMontantDeplacement(mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy.amount(montantDeplacementFinal));
-        dto.setMontantsIndemnites(loadAllowanceAmounts(idEmp, idPeriode, dateDebut, dateFin, statutPeriode, c));
-        dto.setIndemnitesFixesMensuelles(loadFixedMonthlyAmounts(idEmp, idPeriode, dateDebut, dateFin, statutPeriode, c));
+        Map<String, BigDecimal> fixedAmounts = loadFixedMonthlyAmounts(idEmp, idPeriode, dateDebut, dateFin, statutPeriode, c);
+        dto.setMontantsIndemnites(loadAllowanceAmounts(idEmp, idPeriode, dateDebut, dateFin, statutPeriode, c, fixedAmounts));
+        dto.setIndemnitesFixesMensuelles(fixedAmounts);
         dto.setNbAnomaliesNonResolues(nbAnomalies);
         dto.setHeuresNormales(seuilHeuresJour.multiply(BigDecimal.valueOf(nbJoursOuvrablesPeriode)).doubleValue());
 
@@ -775,6 +776,12 @@ public class PointageSyntheseService {
     /** Lecture générique : journal avant gel, valeurs figées après gel. */
     Map<String, BigDecimal> loadAllowanceAmounts(int employeeId, Integer periodId,
             LocalDate from, LocalDate to, String periodStatus, Connection c) throws SQLException {
+        return loadAllowanceAmounts(employeeId, periodId, from, to, periodStatus, c, null);
+    }
+
+    private Map<String, BigDecimal> loadAllowanceAmounts(int employeeId, Integer periodId,
+            LocalDate from, LocalDate to, String periodStatus, Connection c,
+            Map<String, BigDecimal> fixedAmounts) throws SQLException {
         Map<String, BigDecimal> amounts = new LinkedHashMap<>();
         boolean frozen = periodId != null && periodStatus != null
                 && Set.of("VALIDEE", "PAIE_VALIDEE", "CLOTUREE").contains(periodStatus);
@@ -814,8 +821,8 @@ public class PointageSyntheseService {
                 }
             }
         }
-        if (!frozen && isFullPeriod(periodId, from, to, c)) {
-            estimateFixedMonthlyAmounts(employeeId, periodId, c)
+        if (!frozen && (fixedAmounts != null || isFullPeriod(periodId, from, to, c))) {
+            (fixedAmounts != null ? fixedAmounts : estimateFixedMonthlyAmounts(employeeId, periodId, c))
                     .forEach((code, amount) -> amounts.merge(code, amount, BigDecimal::add));
         }
         return amounts;
@@ -1264,23 +1271,8 @@ public class PointageSyntheseService {
         String dataSql = cteSql + "SELECT * FROM employes_actifs ORDER BY nom ASC, prenom ASC, matricule ASC LIMIT ? OFFSET ?";
         List<PointageSyntheseMensuelleDTO> pageList = new ArrayList<>();
         if (totalElements > 0) {
-            int nbJoursOuvrablesPeriode = calendrierEngine.compterJoursOuvrables(dateDebut, dateFin, idSite, c);
-            if (nbJoursOuvrablesPeriode == 0) throw new IllegalStateException("MISSING_WORKING_CALENDAR");
-
-            Map<Integer, BigDecimal> siteDeplacementRefMap = new HashMap<>();
-            String sqlSiteIndConfig = "SELECT c.id_site, c.montant_reference FROM site_indemnite_config c " +
-                                      "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
-                                      "WHERE i.code IN ('DPLCT', 'DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE";
-            try (PreparedStatement psSIC = c.prepareStatement(sqlSiteIndConfig);
-                 ResultSet rsSIC = psSIC.executeQuery()) {
-                while (rsSIC.next()) {
-                    siteDeplacementRefMap.put(rsSIC.getInt("id_site"), nullToZero(rsSIC.getBigDecimal("montant_reference")));
-                }
-            } catch (Exception e) {
-                log.warn("Erreur chargement siteDeplacementRefMap: {}", e.getMessage());
-            }
-
-            Map<String, String> params = ParametreGlobal.loadActiveMapAtDate(Date.valueOf(dateDebut), c);
+            Map<Integer, PointageSyntheseMensuelleDTO> calculatedByEmployee = new HashMap<>();
+            periodValues.forEach(dto -> calculatedByEmployee.put(dto.getIdEmploye(), dto));
 
             try (PreparedStatement psD = c.prepareStatement(dataSql)) {
                 int idx = 1;
@@ -1296,36 +1288,10 @@ public class PointageSyntheseService {
                 try (ResultSet rsE = psD.executeQuery()) {
                     while (rsE.next()) {
                         int idEmp = rsE.getInt("id_employe");
-                        boolean estAutonome = rsE.getBoolean("est_autonome");
-                        String codeCat = rsE.getString("code_categorie");
-                        boolean isCadre = rsE.getBoolean("categorie_est_cadre");
-
-                        PointageSyntheseMensuelleDTO dto = calculerSyntheseEmploye(
-                                idEmp,
-                                rsE.getString("matricule"),
-                                rsE.getString("nom"),
-                                rsE.getString("prenom"),
-                                rsE.getString("photo_url"),
-                                rsE.getInt("id_site"),
-                                rsE.getString("site_code"),
-                                rsE.getString("site_nom"),
-                                rsE.getBoolean("horaire_continu"),
-                                codeCat,
-                                isCadre,
-                                estAutonome,
-                                dateDebut,
-                                dateFin,
-                                laterDate(rsE.getDate("date_debut_affectation"), rsE.getDate("date_debut_contrat")),
-                                earlierNonNullDate(rsE.getDate("date_fin_affectation"), rsE.getDate("date_fin_contrat")),
-                                idPeriode,
-                                codePeriode,
-                                libellePeriode,
-                                statutPeriode,
-                                nbJoursOuvrablesPeriode,
-                                siteDeplacementRefMap,
-                                params,
-                                c
-                        );
+                        PointageSyntheseMensuelleDTO dto = calculatedByEmployee.get(idEmp);
+                        if (dto == null) {
+                            throw new IllegalStateException("Population de synthèse incohérente pour " + idEmp);
+                        }
                         pageList.add(dto);
                     }
                 }

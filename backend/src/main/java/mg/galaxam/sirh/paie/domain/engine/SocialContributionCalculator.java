@@ -27,7 +27,8 @@ public final class SocialContributionCalculator {
         var health = new Contribution(healthBase,
                 MoneyRoundingPolicy.contribution(healthBase.multiply(rules.healthEmployee())),
                 MoneyRoundingPolicy.contribution(healthBase.multiply(rules.healthEmployer())));
-        BigDecimal fmfp = MoneyRoundingPolicy.contribution(fmfpAssiette.max(BigDecimal.ZERO).multiply(rules.fmfpRate()));
+        BigDecimal fmfpBase = fmfpAssiette.max(BigDecimal.ZERO).min(rules.plafondMensuel());
+        BigDecimal fmfp = MoneyRoundingPolicy.contribution(fmfpBase.multiply(rules.fmfpRate()));
         return new Result(cnaps, health, fmfp);
     }
 }

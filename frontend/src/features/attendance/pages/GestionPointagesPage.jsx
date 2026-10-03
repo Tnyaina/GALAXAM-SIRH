@@ -1,11 +1,13 @@
-import { useEffect, lazy, Suspense, useState, useMemo } from 'react';
+import { useEffect, lazy, Suspense, useState, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import SEO from '@/components/system/SEO';
 import WorkflowStepper from '@/components/ui/navigation/WorkflowStepper';
 import { useAuth } from '@/context/AuthContext';
-import { periodePaieService, attendanceService } from '@/features/attendance/api/attendanceApi';
+import { periodePaieService } from '@/features/attendance/api/attendanceApi';
+import { getTodayDateString } from '@/utils/dateUtils';
+import organisationService from '@/features/organization/api/organisationService';
 
 // Lazy-loading des etapes du cockpit
 const SaisieQuotidiennePage    = lazy(() => import('@/features/attendance/pages/SaisieQuotidiennePage'));
@@ -33,16 +35,28 @@ export default function GestionPointagesPage() {
 
     // État local
     const [allPeriodes, setAllPeriodes] = useState([]);
+    const [allSites, setAllSites] = useState([]);
     const [activePeriode, setActivePeriode] = useState(null);
     const [anomaliesCount, setAnomaliesCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [refreshVersion, setRefreshVersion] = useState(0);
+    const loadedRefresh = useRef(-1);
+
+    useEffect(() => {
+        const refresh = () => setRefreshVersion(value => value + 1);
+        window.addEventListener('pointage-period-updated', refresh);
+        return () => window.removeEventListener('pointage-period-updated', refresh);
+    }, []);
 
     // Données dérivées
     const isDaf = hasPermission('POINTAGE_VALIDATE');
     const activeStep = normalizePointageStep((searchParams.get('tab') || 'saisie').toLowerCase());
     const paramPeriodeId = searchParams.get('periode');
     const periodStatus = activePeriode?.statutCode;
+    const activePeriodeId = activePeriode?.idPeriodePaie;
+    const activePeriodeIdRef = useRef(activePeriodeId);
+    useEffect(() => { activePeriodeIdRef.current = activePeriodeId; }, [activePeriodeId]);
     const submitted = ['A_VALIDER', 'TRANSMIS_DAF', 'VALIDEE', 'PAIE_VALIDEE', 'CLOTUREE'].includes(periodStatus);
     const frozen = ['VALIDEE', 'PAIE_VALIDEE', 'CLOTUREE'].includes(periodStatus);
 
@@ -68,14 +82,17 @@ export default function GestionPointagesPage() {
 
     // Effets
     useEffect(() => {
+        // L'URL est normalisée après le premier chargement. Ne recharge pas le contexte
+        // quand elle reçoit simplement l'identifiant déjà sélectionné.
+        if (paramPeriodeId && activePeriodeIdRef.current && String(activePeriodeIdRef.current) === String(paramPeriodeId) && loadedRefresh.current === refreshVersion) return undefined;
         let isMounted = true;
         const fetchData = async () => {
-            setLoading(true);
+            if (!activePeriodeIdRef.current) setLoading(true);
             setError(null);
             try {
-                const [list, context] = await Promise.all([
-                    periodePaieService.getAllPeriodes(),
-                    periodePaieService.getContext(paramPeriodeId ? Number(paramPeriodeId) : null)
+                const [list, sites] = await Promise.all([
+                    periodePaieService.getPeriodOptions(),
+                    organisationService.getSites().catch(() => [])
                 ]);
                 if (!isMounted) return;
                 if (!list || list.length === 0) {
@@ -83,15 +100,19 @@ export default function GestionPointagesPage() {
                     setLoading(false);
                     return;
                 }
+                loadedRefresh.current = refreshVersion;
                 setAllPeriodes(list);
+                setAllSites(sites || []);
 
-                const selectedId = context?.selectedPeriod?.id;
+                const today = getTodayDateString();
                 const target = (paramPeriodeId ? list.find(p => String(p.idPeriodePaie) === String(paramPeriodeId)) : null)
-                    || (selectedId ? list.find(p => String(p.idPeriodePaie) === String(selectedId)) : null)
+                    || list.find(p => p.dateDebut <= today && p.dateFin >= today)
                     || list.find(p => ['EN_COURS', 'A_VALIDER', 'TRANSMIS_DAF'].includes(p.statutCode))
                     || list[0]
                     || null;
-                setActivePeriode(target);
+                setActivePeriode(current => current?.idPeriodePaie === target?.idPeriodePaie
+                    && current?.version === target?.version && current?.statutCode === target?.statutCode
+                    ? { ...target, availableActions: current.availableActions || {} } : target);
 
                 // Initialisation ou correction du paramètre d'URL s'il est absent ou invalide
                 if (target?.idPeriodePaie && (!paramPeriodeId || String(target.idPeriodePaie) !== String(paramPeriodeId))) {
@@ -102,21 +123,6 @@ export default function GestionPointagesPage() {
                     }, { replace: true });
                 }
 
-                if (target?.idPeriodePaie) {
-                    try {
-                        const res = await attendanceService.getAnomalies({
-                            idPeriodePaie: target.idPeriodePaie,
-                            pageSize: 1
-                        });
-                        if (isMounted) {
-                            setAnomaliesCount(res?.kpis?.anomaliesActives
-                                ?? res?.anomalies?.filter(item => item.statutAnomalie === 'todo').length
-                                ?? 0);
-                        }
-                    } catch {
-                        if (isMounted) setAnomaliesCount(0);
-                    }
-                }
             } catch (err) {
                 if (isMounted) {
                     console.error('Erreur chargement periode active:', err);
@@ -127,14 +133,27 @@ export default function GestionPointagesPage() {
             }
         };
         fetchData();
-        window.addEventListener('pointage-period-updated', fetchData);
         return () => {
             isMounted = false;
-            window.removeEventListener('pointage-period-updated', fetchData);
         };
-    }, [paramPeriodeId, setSearchParams]);
+    }, [paramPeriodeId, setSearchParams, refreshVersion]);
 
     // Actions
+    // Les droits détaillés arrivent séparément : leur précontrôle ne bloque plus la grille.
+    useEffect(() => {
+        if (!activePeriodeId) return undefined;
+        let cancelled = false;
+        setActivePeriode(current => ({ ...current, availableActions: {} }));
+        periodePaieService.getContext(activePeriodeId).then(context => {
+            if (cancelled) return;
+            setActivePeriode(current => current?.idPeriodePaie === activePeriodeId
+                ? { ...current, availableActions: context?.availableActions || {} } : current);
+        }).catch(() => {
+            // Les actions restent désactivées si leurs droits n'ont pas pu être vérifiés.
+        });
+        return () => { cancelled = true; };
+    }, [activePeriodeId, activePeriode?.version, activePeriode?.statutCode, refreshVersion]);
+
     const handlePeriodeChange = (newPeriodeId) => {
         const found = allPeriodes.find(p => String(p.idPeriodePaie) === String(newPeriodeId));
         if (found) {
@@ -190,6 +209,7 @@ export default function GestionPointagesPage() {
                         {activeStep === 'saisie' && activePeriode && (
                             <SaisieQuotidiennePage
                                 activePeriode={activePeriode}
+                                sitesDisponibles={allSites}
                                 onSelectPeriode={handlePeriodeChange}
                             />
                         )}
@@ -197,14 +217,19 @@ export default function GestionPointagesPage() {
                         {activeStep === 'suivi' && activePeriode && (
                             <SuiviAnomaliesPage
                                 activePeriode={activePeriode}
+                                periodesDisponibles={allPeriodes}
+                                sitesDisponibles={allSites}
                                 onSelectPeriode={handlePeriodeChange}
                                 onTabChange={handleStepChange}
+                                onAnomaliesCountChange={setAnomaliesCount}
                             />
                         )}
 
                         {activeStep === 'arbitrage' && activePeriode && (
                             <ArbitrageDafPage
                                 activePeriode={activePeriode}
+                                periodesDisponibles={allPeriodes}
+                                sitesDisponibles={allSites}
                                 onSelectPeriode={handlePeriodeChange}
                             />
                         )}

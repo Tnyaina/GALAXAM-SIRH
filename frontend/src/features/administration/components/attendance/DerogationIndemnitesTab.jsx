@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { ShieldAlert, Plus, Search, Trash2, Edit2, User, Gift } from 'lucide-react';
 import { useDerogationIndemnites } from '@/features/attendance/hooks/useDerogationIndemnites';
 import Button from '@/components/ui/forms/Button';
-import Input, { Select, Textarea } from '@/components/ui/forms/Input';
+import Input, { Textarea } from '@/components/ui/forms/Input';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Badge from '@/components/ui/data-display/Badge';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
@@ -103,17 +104,18 @@ export default function DerogationIndemnitesTab() {
                     />
                 </div>
                 <div className="w-full sm:w-60">
-                    <Select
+                    <SearchSelect
                         value={indemniteFilter}
-                        onChange={(e) => setIndemniteFilter(e.target.value)}
-                    >
-                        <option value="ALL">Toutes les indemnités</option>
-                        {indemnites.map(i => (
-                            <option key={i.idIndemnite} value={i.idIndemnite}>
-                                {i.code} — {i.libelle}
-                            </option>
-                        ))}
-                    </Select>
+                        onChange={(val) => setIndemniteFilter(val || 'ALL')}
+                        options={[
+                            { value: 'ALL', label: 'Toutes les indemnités' },
+                            ...indemnites.map(i => ({
+                                value: String(i.idIndemnite),
+                                label: `${i.code} — ${i.libelle}`,
+                                sublabel: i.code
+                            }))
+                        ]}
+                    />
                 </div>
             </div>
 
@@ -213,7 +215,7 @@ export default function DerogationIndemnitesTab() {
                     {actionError && <FormError message={actionError} />}
                     <div>
                         <EmployeSearchSelect
-                            label="Employé *"
+                            label="Employé"
                             value={formData.idEmploye}
                             onChange={(empId) => {
                                 setFormData({ ...formData, idEmploye: empId });
@@ -230,27 +232,26 @@ export default function DerogationIndemnitesTab() {
                         )}
                     </div>
 
-                    <Select
-                        label="Indemnité *"
+                    <SearchSelect
+                        label="Indemnité"
                         value={formData.idIndemnite}
-                        onChange={(e) => {
-                            setFormData({ ...formData, idIndemnite: e.target.value });
+                        onChange={(val) => {
+                            setFormData({ ...formData, idIndemnite: val });
                             if (fieldErrors.idIndemnite) {
                                 setFieldErrors(prev => ({ ...prev, idIndemnite: undefined }));
                             }
                         }}
+                        options={indemnites
+                            .filter(i => (i.estActif !== false && i.actif !== false) || String(i.idIndemnite) === String(formData.idIndemnite))
+                            .map(i => ({
+                                value: String(i.idIndemnite),
+                                label: `${i.code} — ${i.libelle}`,
+                                sublabel: i.code
+                            }))}
+                        placeholder="Sélectionner une indemnité"
                         error={fieldErrors.idIndemnite}
                         required
-                    >
-                        <option value="">Sélectionner une indemnité</option>
-                        {indemnites
-                            .filter(i => (i.estActif !== false && i.actif !== false) || String(i.idIndemnite) === String(formData.idIndemnite))
-                            .map(i => (
-                                <option key={i.idIndemnite} value={i.idIndemnite}>
-                                    {i.code} — {i.libelle}
-                                </option>
-                            ))}
-                    </Select>
+                    />
 
                     <div className="p-3 bg-[var(--color-danger-500)]/10 border border-[var(--color-danger-500)]/20 text-xs text-[var(--color-danger-500)] font-medium flex items-start gap-2 rounded-none">
                         <ShieldAlert size={16} className="shrink-0 text-[var(--color-danger-500)] mt-0.5" />
@@ -269,7 +270,7 @@ export default function DerogationIndemnitesTab() {
                     <div className="grid grid-cols-2 gap-3">
                         <Input
                             type="date"
-                            label="Date de début *"
+                            label="Date de début"
                             value={formData.dateDebut}
                             onChange={(e) => {
                                 setFormData({ ...formData, dateDebut: e.target.value });

@@ -849,6 +849,103 @@ public class PointageService {
                 eligibleEmployees.add(emp);
             }
 
+            // Charge en lot les données variables par salarié. Les anciennes lectures dans
+            // la boucle faisaient jusqu'à quatre requêtes SQL par personne (congé, pointage,
+            // indemnités et dérogations), ce qui rendait la grille lente dès que le site
+            // comptait beaucoup de salariés.
+            Map<Integer, Map<String, Object>> congesParEmploye = new HashMap<>();
+            String sqlCongesJour = "SELECT dc.id_employe, tc.libelle, tc.code AS type_code, "
+                    + "COALESCE(dc.est_remunere, tc.est_paye) AS est_paye, tc.decompte_solde_acquis, "
+                    + "dc.est_demi_journee, dc.moment_demi_journee "
+                    + "FROM demande_conge dc JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge "
+                    + "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge "
+                    + "WHERE ? BETWEEN dc.date_debut AND dc.date_fin AND sc.code IN ('VALIDE', 'APPROUVEE')";
+            try (PreparedStatement ps = c.prepareStatement(sqlCongesJour)) {
+                ps.setDate(1, date);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        Map<String, Object> row = new HashMap<>();
+                        row.put("libelle", rs.getString("libelle"));
+                        row.put("type_code", rs.getString("type_code"));
+                        row.put("est_paye", rs.getBoolean("est_paye"));
+                        row.put("decompte_solde_acquis", rs.getBoolean("decompte_solde_acquis"));
+                        row.put("est_demi_journee", rs.getBoolean("est_demi_journee"));
+                        row.put("moment_demi_journee", rs.getString("moment_demi_journee"));
+                        congesParEmploye.putIfAbsent(rs.getInt("id_employe"), row);
+                    }
+                }
+            }
+
+            Map<Integer, Map<String, Object>> pointagesParEmploye = new HashMap<>();
+            String sqlPointagesJour = "SELECT p.id_employe, p.id_pointage, COALESCE(p.version, 1) AS version, "
+                    + "p.heure_entree_matin, p.heure_sortie_matin, p.heure_entree_am, p.heure_sortie_am, "
+                    + "p.total_heures, p.minutes_retard, p.heures_nuit, p.motif_ajustement, "
+                    + "st.code AS statut_code, st.libelle AS statut_libelle, p.horaire_continu_jour "
+                    + "FROM pointage_jour p LEFT JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour "
+                    + "WHERE p.date_pointage = ? ORDER BY p.id_pointage";
+            try (PreparedStatement ps = c.prepareStatement(sqlPointagesJour)) {
+                ps.setDate(1, date);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        Map<String, Object> row = new HashMap<>();
+                        row.put("id_pointage", rs.getInt("id_pointage"));
+                        row.put("version", rs.getInt("version"));
+                        row.put("heure_entree_matin", rs.getTime("heure_entree_matin"));
+                        row.put("heure_sortie_matin", rs.getTime("heure_sortie_matin"));
+                        row.put("heure_entree_am", rs.getTime("heure_entree_am"));
+                        row.put("heure_sortie_am", rs.getTime("heure_sortie_am"));
+                        row.put("total_heures", rs.getDouble("total_heures"));
+                        row.put("minutes_retard", rs.getInt("minutes_retard"));
+                        row.put("heures_nuit", rs.getDouble("heures_nuit"));
+                        row.put("motif_ajustement", rs.getString("motif_ajustement"));
+                        row.put("statut_code", rs.getString("statut_code"));
+                        row.put("statut_libelle", rs.getString("statut_libelle"));
+                        row.put("horaire_continu_jour", rs.getObject("horaire_continu_jour"));
+                        pointagesParEmploye.putIfAbsent(rs.getInt("id_employe"), row);
+                    }
+                }
+            }
+
+            Map<Integer, List<Map<String, Object>>> indemnitesParPointage = new HashMap<>();
+            String sqlIndemnitesJour = "SELECT p.id_employe, pij.id_pointage, pij.id_indemnite, ri.code, "
+                    + "pij.fraction, pij.quantite, pij.montant_calcule, pij.accorde "
+                    + "FROM pointage_jour p JOIN pointage_indemnite_jour pij ON pij.id_pointage = p.id_pointage "
+                    + "JOIN ref_indemnite ri ON pij.id_indemnite = ri.id_indemnite WHERE p.date_pointage = ?";
+            try (PreparedStatement ps = c.prepareStatement(sqlIndemnitesJour)) {
+                ps.setDate(1, date);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        Map<String, Object> row = new HashMap<>();
+                        row.put("id_indemnite", rs.getInt("id_indemnite"));
+                        row.put("code", rs.getString("code"));
+                        row.put("fraction", rs.getString("fraction"));
+                        row.put("quantite", rs.getBigDecimal("quantite"));
+                        row.put("montant_calcule", rs.getBigDecimal("montant_calcule"));
+                        row.put("accorde", rs.getBoolean("accorde"));
+                        indemnitesParPointage.computeIfAbsent(rs.getInt("id_pointage"), ignored -> new ArrayList<>()).add(row);
+                    }
+                }
+            }
+
+            Map<Integer, List<Map<String, Object>>> derogationsParEmploye = new HashMap<>();
+            String sqlDerogationsJour = "SELECT d.id_employe, d.id_indemnite, i.code, d.beneficie, d.motif "
+                    + "FROM employe_indemnite_derogation d JOIN ref_indemnite i ON d.id_indemnite = i.id_indemnite "
+                    + "WHERE d.date_debut <= ? AND (d.date_fin IS NULL OR d.date_fin >= ?)";
+            try (PreparedStatement ps = c.prepareStatement(sqlDerogationsJour)) {
+                ps.setDate(1, date);
+                ps.setDate(2, date);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        Map<String, Object> row = new HashMap<>();
+                        row.put("id_indemnite", rs.getInt("id_indemnite"));
+                        row.put("code", rs.getString("code"));
+                        row.put("beneficie", rs.getBoolean("beneficie"));
+                        row.put("motif", rs.getString("motif"));
+                        derogationsParEmploye.computeIfAbsent(rs.getInt("id_employe"), ignored -> new ArrayList<>()).add(row);
+                    }
+                }
+            }
+
             List<SaisiePointageJourDTO> grille = new ArrayList<>();
             for (EmployeCandidatSite empCand : eligibleEmployees) {
                 int idEmp = empCand.idEmploye;
@@ -889,28 +986,16 @@ public class PointageService {
                 dto.setFerieJour(isFerie);
                 dto.setLibelleFerie(libelleFerie);
 
-                        // Congé approuvé ce jour
-                        String sqlConge = "SELECT tc.libelle, tc.code AS type_code, COALESCE(dc.est_remunere, tc.est_paye) AS est_paye, " +
-                                          "tc.decompte_solde_acquis, " +
-                                          "dc.est_demi_journee, dc.moment_demi_journee " +
-                                          "FROM demande_conge dc " +
-                                          "JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
-                                          "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
-                                          "WHERE dc.id_employe = ? AND ? BETWEEN dc.date_debut AND dc.date_fin " +
-                                          "AND sc.code IN ('VALIDE', 'APPROUVEE') LIMIT 1";
+                        // Congé approuvé ce jour (préchargé pour toute la date)
                         String typeCongeJour = null;
                         String libelleConge = null;
 
-                        if (!isFerie) {
-                            try (PreparedStatement psC = c.prepareStatement(sqlConge)) {
-                                psC.setInt(1, idEmp);
-                                psC.setDate(2, date);
-                                try (ResultSet rsC = psC.executeQuery()) {
-                                    if (rsC.next()) {
-                                        String tCode = rsC.getString("type_code");
-                                        boolean estPayeConge = rsC.getBoolean("est_paye");
-                                        boolean decompteSolde = rsC.getBoolean("decompte_solde_acquis");
-                                        String baseLib = rsC.getString("libelle");
+                        Map<String, Object> conge = isFerie ? null : congesParEmploye.get(idEmp);
+                        if (conge != null) {
+                                        String tCode = (String) conge.get("type_code");
+                                        boolean estPayeConge = Boolean.TRUE.equals(conge.get("est_paye"));
+                                        boolean decompteSolde = Boolean.TRUE.equals(conge.get("decompte_solde_acquis"));
+                                        String baseLib = (String) conge.get("libelle");
 
                                         dto.setCongePaye(estPayeConge);
                                         dto.setCongeDecompteSolde(decompteSolde);
@@ -923,52 +1008,38 @@ public class PointageService {
                                             libelleConge = baseLib;
                                         }
 
-                                        boolean estDemi = rsC.getBoolean("est_demi_journee");
-                                        String mdj = rsC.getString("moment_demi_journee");
+                                        boolean estDemi = Boolean.TRUE.equals(conge.get("est_demi_journee"));
+                                        String mdj = (String) conge.get("moment_demi_journee");
                                         if (estDemi && "MATIN".equalsIgnoreCase(mdj)) typeCongeJour = "MATIN";
                                         else if (estDemi && "APRES_MIDI".equalsIgnoreCase(mdj)) typeCongeJour = "APRES_MIDI";
                                         else typeCongeJour = "FULL_DAY";
-                                    }
-                                }
-                            }
                         }
                         dto.setTypeCongeJour(typeCongeJour);
                         dto.setLibelleConge(libelleConge);
 
                         // Pointage journalier existant
-                        String sqlPtg = "SELECT p.id_pointage, COALESCE(p.version, 1) AS version, p.heure_entree_matin, p.heure_sortie_matin, " +
-                                        "p.heure_entree_am, p.heure_sortie_am, p.total_heures, p.minutes_retard, " +
-                                        "p.heures_nuit, p.motif_ajustement, st.code AS statut_code, st.libelle AS statut_libelle, " +
-                                        "p.montant_total_indemnites, p.horaire_continu_jour " +
-                                        "FROM pointage_jour p " +
-                                        "LEFT JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour " +
-                                        "WHERE p.id_employe = ? AND p.date_pointage = ?";
-
                         boolean hasExisting = false;
-                        try (PreparedStatement psPtg = c.prepareStatement(sqlPtg)) {
-                            psPtg.setInt(1, idEmp);
-                            psPtg.setDate(2, date);
-                            try (ResultSet rsPtg = psPtg.executeQuery()) {
-                                if (rsPtg.next()) {
+                        Map<String, Object> existingPointage = pointagesParEmploye.get(idEmp);
+                        if (existingPointage != null) {
                                     hasExisting = true;
-                                    dto.setIdPointage(rsPtg.getInt("id_pointage"));
-                                    dto.setVersion(rsPtg.getInt("version"));
-                                    Time em = rsPtg.getTime("heure_entree_matin");
-                                    Time sm = rsPtg.getTime("heure_sortie_matin");
-                                    Time ea = rsPtg.getTime("heure_entree_am");
-                                    Time sa = rsPtg.getTime("heure_sortie_am");
+                                    dto.setIdPointage((Integer) existingPointage.get("id_pointage"));
+                                    dto.setVersion((Integer) existingPointage.get("version"));
+                                    Time em = (Time) existingPointage.get("heure_entree_matin");
+                                    Time sm = (Time) existingPointage.get("heure_sortie_matin");
+                                    Time ea = (Time) existingPointage.get("heure_entree_am");
+                                    Time sa = (Time) existingPointage.get("heure_sortie_am");
 
                                     dto.setHeureEntreeMatin(em != null ? em.toString().substring(0, 5) : "");
                                     dto.setHeureSortieMatin(sm != null ? sm.toString().substring(0, 5) : "");
                                     dto.setHeureEntreeAm(ea != null ? ea.toString().substring(0, 5) : "");
                                     dto.setHeureSortieAm(sa != null ? sa.toString().substring(0, 5) : "");
-                                    dto.setTotalHeures(rsPtg.getDouble("total_heures"));
-                                    dto.setMinutesRetard(rsPtg.getInt("minutes_retard"));
-                                    dto.setHeuresNuit(rsPtg.getDouble("heures_nuit"));
-                                    dto.setMotifAjustement(rsPtg.getString("motif_ajustement"));
-                                    dto.setCodeStatut(rsPtg.getString("statut_code"));
-                                    dto.setLibelleStatut(rsPtg.getString("statut_libelle"));
-                                    dto.setHoraireContinu(Boolean.TRUE.equals(rsPtg.getObject("horaire_continu_jour")));
+                                    dto.setTotalHeures((Double) existingPointage.get("total_heures"));
+                                    dto.setMinutesRetard((Integer) existingPointage.get("minutes_retard"));
+                                    dto.setHeuresNuit((Double) existingPointage.get("heures_nuit"));
+                                    dto.setMotifAjustement((String) existingPointage.get("motif_ajustement"));
+                                    dto.setCodeStatut((String) existingPointage.get("statut_code"));
+                                    dto.setLibelleStatut((String) existingPointage.get("statut_libelle"));
+                                    dto.setHoraireContinu(Boolean.TRUE.equals(existingPointage.get("horaire_continu_jour")));
 
                                     boolean depM = false;
                                     boolean depA = false;
@@ -977,19 +1048,12 @@ public class PointageService {
                                     boolean repasRecue = false;
                                     BigDecimal mntRepasDb = BigDecimal.ZERO;
 
-                                    try (PreparedStatement psInd = c.prepareStatement(
-                                            "SELECT ri.code, pij.fraction, pij.quantite, pij.montant_calcule, pij.accorde " +
-                                            "FROM pointage_indemnite_jour pij " +
-                                            "JOIN ref_indemnite ri ON pij.id_indemnite = ri.id_indemnite " +
-                                            "WHERE pij.id_pointage = ?")) {
-                                        psInd.setInt(1, rsPtg.getInt("id_pointage"));
-                                        try (ResultSet rsInd = psInd.executeQuery()) {
-                                            while (rsInd.next()) {
-                                                String codeInd = rsInd.getString("code");
-                                                boolean accorde = rsInd.getBoolean("accorde");
-                                                BigDecimal mntCalc = zeroIfNull(rsInd.getBigDecimal("montant_calcule"));
-                                                String fraction = rsInd.getString("fraction");
-                                                BigDecimal qte = zeroIfNull(rsInd.getBigDecimal("quantite"));
+                                    for (Map<String, Object> savedAllowance : indemnitesParPointage.getOrDefault(dto.getIdPointage(), List.of())) {
+                                                String codeInd = (String) savedAllowance.get("code");
+                                                boolean accorde = Boolean.TRUE.equals(savedAllowance.get("accorde"));
+                                                BigDecimal mntCalc = zeroIfNull((BigDecimal) savedAllowance.get("montant_calcule"));
+                                                String fraction = (String) savedAllowance.get("fraction");
+                                                BigDecimal qte = zeroIfNull((BigDecimal) savedAllowance.get("quantite"));
 
                                                 if ("REPAS".equalsIgnoreCase(codeInd)) {
                                                     repasRecue = accorde;
@@ -1013,8 +1077,6 @@ public class PointageService {
                                                         depA = false;
                                                     }
                                                 }
-                                            }
-                                        }
                                     }
 
                                     dto.setDeplacementMatin(depM);
@@ -1028,8 +1090,6 @@ public class PointageService {
 
                                     dto.setIndemniteRepasRecue(repasRecue);
                                     dto.setMontantRepas(repasRecue ? mntRepasDb : BigDecimal.ZERO);
-                                }
-                            }
                         }
 
                         // Valeurs par défaut si non encore enregistré
@@ -1146,31 +1206,25 @@ public class PointageService {
 
                         if (hasExisting && dto.getIdPointage() != null) {
                             // 1. Charger depuis pointage_indemnite_jour si déjà enregistré
-                            String sqlLoadDyn = "SELECT id_indemnite, fraction, accorde, quantite, montant_calcule FROM pointage_indemnite_jour WHERE id_pointage = ?";
                             Map<Integer, Map<String, Object>> savedDyn = new HashMap<>();
-                            try (PreparedStatement psDynL = c.prepareStatement(sqlLoadDyn)) {
-                                psDynL.setInt(1, dto.getIdPointage());
-                                try (ResultSet rsDynL = psDynL.executeQuery()) {
-                                    while (rsDynL.next()) {
-                                        int allowanceId = rsDynL.getInt("id_indemnite");
-                                        Map<String, Object> item = savedDyn.computeIfAbsent(allowanceId, ignored -> new HashMap<>());
-                                        boolean acc = rsDynL.getBoolean("accorde");
-                                        String frac = rsDynL.getString("fraction");
-                                        BigDecimal qte = zeroIfNull(rsDynL.getBigDecimal("quantite"));
-                                        item.put("accordee", Boolean.TRUE.equals(item.get("accordee")) || acc);
-                                        item.put("montantApplique", zeroIfNull((BigDecimal) item.get("montantApplique"))
-                                                .add(zeroIfNull(rsDynL.getBigDecimal("montant_calcule"))));
-                                        item.put("fractionJour", zeroIfNull((BigDecimal) item.get("fractionJour")).add(qte));
-                                        item.put("fraction", frac);
-                                        if ("MATIN".equalsIgnoreCase(frac)) {
-                                            item.put("matin", Boolean.TRUE.equals(item.get("matin")) || acc);
-                                        } else if ("APRES_MIDI".equalsIgnoreCase(frac)) {
-                                            item.put("am", Boolean.TRUE.equals(item.get("am")) || acc);
-                                        } else {
-                                            item.put("matin", Boolean.TRUE.equals(item.get("matin")) || acc && qte.signum() > 0);
-                                            item.put("am", Boolean.TRUE.equals(item.get("am")) || acc && qte.compareTo(BigDecimal.ONE) >= 0);
-                                        }
-                                    }
+                            for (Map<String, Object> savedRow : indemnitesParPointage.getOrDefault(dto.getIdPointage(), List.of())) {
+                                int allowanceId = (Integer) savedRow.get("id_indemnite");
+                                Map<String, Object> item = savedDyn.computeIfAbsent(allowanceId, ignored -> new HashMap<>());
+                                boolean acc = Boolean.TRUE.equals(savedRow.get("accorde"));
+                                String frac = (String) savedRow.get("fraction");
+                                BigDecimal qte = zeroIfNull((BigDecimal) savedRow.get("quantite"));
+                                item.put("accordee", Boolean.TRUE.equals(item.get("accordee")) || acc);
+                                item.put("montantApplique", zeroIfNull((BigDecimal) item.get("montantApplique"))
+                                        .add(zeroIfNull((BigDecimal) savedRow.get("montant_calcule"))));
+                                item.put("fractionJour", zeroIfNull((BigDecimal) item.get("fractionJour")).add(qte));
+                                item.put("fraction", frac);
+                                if ("MATIN".equalsIgnoreCase(frac)) {
+                                    item.put("matin", Boolean.TRUE.equals(item.get("matin")) || acc);
+                                } else if ("APRES_MIDI".equalsIgnoreCase(frac)) {
+                                    item.put("am", Boolean.TRUE.equals(item.get("am")) || acc);
+                                } else {
+                                    item.put("matin", Boolean.TRUE.equals(item.get("matin")) || acc && qte.signum() > 0);
+                                    item.put("am", Boolean.TRUE.equals(item.get("am")) || acc && qte.compareTo(BigDecimal.ONE) >= 0);
                                 }
                             }
                             for (Map<String, Object> sInd : siteIndemnites) {
@@ -1207,20 +1261,11 @@ public class PointageService {
                             boolean excluRepas = false;
                             String motifExcluRepas = null;
 
-                            String sqlDerog = "SELECT d.id_indemnite, i.code, d.beneficie, d.motif " +
-                                              "FROM employe_indemnite_derogation d " +
-                                              "JOIN ref_indemnite i ON d.id_indemnite = i.id_indemnite " +
-                                              "WHERE d.id_employe = ? AND d.date_debut <= ? AND (d.date_fin IS NULL OR d.date_fin >= ?)";
-                            try (PreparedStatement psDerog = c.prepareStatement(sqlDerog)) {
-                                psDerog.setInt(1, idEmp);
-                                psDerog.setDate(2, date);
-                                psDerog.setDate(3, date);
-                                try (ResultSet rsDerog = psDerog.executeQuery()) {
-                                    while (rsDerog.next()) {
-                                        boolean beneficie = rsDerog.getBoolean("beneficie");
-                                        int idIndDerog = rsDerog.getInt("id_indemnite");
-                                        String codeInd = rsDerog.getString("code");
-                                        String motif = rsDerog.getString("motif");
+                            for (Map<String, Object> derogation : derogationsParEmploye.getOrDefault(idEmp, List.of())) {
+                                        boolean beneficie = Boolean.TRUE.equals(derogation.get("beneficie"));
+                                        int idIndDerog = (Integer) derogation.get("id_indemnite");
+                                        String codeInd = (String) derogation.get("code");
+                                        String motif = (String) derogation.get("motif");
                                         if (!beneficie) {
                                             exclusionsIndemnites.add(idIndDerog);
                                             derogationMotifs.put(idIndDerog, motif);
@@ -1232,8 +1277,6 @@ public class PointageService {
                                                 motifExcluRepas = motif;
                                             }
                                         }
-                                    }
-                                }
                             }
 
                             if (excluDeplacement) {

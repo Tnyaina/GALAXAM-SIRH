@@ -59,7 +59,8 @@ public class IndemniteController {
                 ind.setCode(request.getCode());
                 ind.setLibelle(request.getLibelle());
                 ind.setCodeRubriquePaie(request.getCodeRubriquePaie());
-                ind.setImposableIrsa(request.isImposableIrsa());
+                if (request.getImposableIrsa() == null) throw new IllegalArgumentException("Qualification IRSA obligatoire.");
+                ind.setImposableIrsa(request.getImposableIrsa());
                 if (request.getSoumisCotisation() == null) throw new IllegalArgumentException("Qualification cotisations sociales obligatoire.");
                 ind.setSoumisCotisation(request.getSoumisCotisation());
                 ind.setFractionnable(request.isFractionnable());
@@ -94,7 +95,8 @@ public class IndemniteController {
                 existing.setCode(request.getCode());
                 existing.setLibelle(request.getLibelle());
                 existing.setCodeRubriquePaie(request.getCodeRubriquePaie());
-                existing.setImposableIrsa(request.isImposableIrsa());
+                if (request.getImposableIrsa() == null) throw new IllegalArgumentException("Qualification IRSA obligatoire.");
+                existing.setImposableIrsa(request.getImposableIrsa());
                 if (request.getSoumisCotisation() == null) throw new IllegalArgumentException("Qualification cotisations sociales obligatoire.");
                 existing.setSoumisCotisation(request.getSoumisCotisation());
                 existing.setFractionnable(request.isFractionnable());

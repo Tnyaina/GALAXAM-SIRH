@@ -18,7 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping({"/api/paie/rubriques", "/api/v1/paie/rubriques"})
+@RequestMapping({"/paie/rubriques", "/v1/paie/rubriques"})
 public class PaieRubriqueController {
 
     private static final java.util.Set<String> MANUAL_CATEGORIES = java.util.Set.of(
@@ -53,7 +53,7 @@ public class PaieRubriqueController {
         return entity;
     }
 
-    private static void validateManualRubrique(PaieRubrique rubrique, boolean requireEvidence) {
+    static void validateManualRubrique(PaieRubrique rubrique, boolean requireEvidence) {
         if (rubrique.isEstFixe() || !MANUAL_CATEGORIES.contains(rubrique.getCategorie())
                 || !"MONTANT".equals(rubrique.getTypeValeur())
                 || !("GAIN".equals(rubrique.getSens()) || "RETENUE".equals(rubrique.getSens()))) {
@@ -75,6 +75,9 @@ public class PaieRubriqueController {
             invalid("Méthode ou politique d’arrondi non prise en charge.");
         if (!"BRUT".equals(rubrique.getEtapeCalcul()) && Boolean.TRUE.equals(rubrique.getSoumisFmfp()))
             invalid("Un ajout ou une retenue nette ne peut pas alimenter le FMFP.");
+        if (rubrique.getSoumisFmfp() != null
+                && rubrique.getSoumisFmfp() != rubrique.isSoumisCnaps())
+            invalid("L'assiette FMFP doit suivre l'assiette sociale CNaPS pour une rubrique manuelle.");
         if (requireEvidence && (rubrique.getReferenceReglementaire() == null || rubrique.getReferenceReglementaire().isBlank()
                 || rubrique.getDateDebutEffet() == null)) {
             invalid("La référence du traitement et sa date de début d'effet sont obligatoires.");

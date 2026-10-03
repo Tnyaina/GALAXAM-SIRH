@@ -19,6 +19,7 @@ import usePayrollConfiguration from '@/features/payroll/hooks/usePayrollConfigur
 import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 import { fmtDate } from '@/utils/dateUtils';
+import RubriqueCyclePreview from '@/features/payroll/components/RubriqueCyclePreview';
 
 export default function PayrollConfigurationTab({ domaine = 'rubriques' }) {
     const [params, setParams] = useSearchParams();
@@ -240,7 +241,7 @@ export default function PayrollConfigurationTab({ domaine = 'rubriques' }) {
                             </div>
                         </>}
                     </fieldset>
-                    {!isTypes && <fieldset disabled={saving || treatmentLocked} className="space-y-4 border-t border-[var(--color-border-subtle)] pt-5"><legend className="font-semibold pt-3">3. Justification et validité</legend><Input label="Référence du traitement" {...inputProps('referenceReglementaire')} required placeholder="Texte, accord ou décision interne" /><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><Input label="Début d’application" type="date" {...inputProps('dateDebutEffet')} required={!editor?.item || !!editor.version} /><Input label="Fin d’application (facultative)" type="date" {...inputProps('dateFinEffet')} min={form.dateDebutEffet || undefined} /></div></fieldset>}
+                    {!isTypes && <fieldset disabled={saving || treatmentLocked} className="space-y-4 border-t border-[var(--color-border-subtle)] pt-5"><legend className="font-semibold pt-3">3. Justification et validité</legend><Input label="Référence du traitement" {...inputProps('referenceReglementaire')} required placeholder="Texte, accord ou décision interne" /><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><Input label="Début d’application" type="date" {...inputProps('dateDebutEffet')} required={!editor?.item || !!editor.version} /><Input label="Fin d’application (facultative)" type="date" {...inputProps('dateFinEffet')} min={form.dateDebutEffet || undefined} /></div><RubriqueCyclePreview start={form.dateDebutEffet} end={form.dateFinEffet} /></fieldset>}
                     <Input label="Ordre dans le catalogue" type="number" value={form.ordreAffichage ?? ''} onChange={e => handleField('ordreAffichage', e.target.value === '' ? '' : Number(e.target.value))} disabled={saving} className="min-h-[44px]" hint="Priorité utilisée lorsque le catalogue est trié par ordre." /><Textarea label="Description et consignes" placeholder="Précisez l’usage et les justificatifs attendus." value={form.description || ''} onChange={e => handleField('description',e.target.value)} disabled={saving} rows={3} />
                     <label className="flex gap-3 items-center min-h-[44px] text-sm"><input type="checkbox" className="w-5 h-5 accent-[var(--color-brand-500)]" checked={!!form.estActif} disabled={saving} onChange={e => handleField('estActif',e.target.checked)} />Actif dans le catalogue</label>
                 </div>

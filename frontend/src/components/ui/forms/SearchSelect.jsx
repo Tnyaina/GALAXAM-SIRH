@@ -66,12 +66,14 @@ export default function SearchSelect({
     return optLabel.includes(query) || optSublabel.includes(query);
   });
 
+  const displayLabel = typeof label === 'string' && required ? label.trim().replace(/\s*\*+$/, '') : label;
+
   // Rendu
   return (
     <div className={`flex flex-col gap-1 relative ${className}`} ref={dropdownRef}>
       {label && (
         <label htmlFor={fieldId} className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)]">
-          {label}
+          {displayLabel}
           {required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
         </label>
       )}

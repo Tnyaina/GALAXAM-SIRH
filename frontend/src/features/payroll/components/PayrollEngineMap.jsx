@@ -21,6 +21,7 @@ import { getErrorMessage } from '@/api/apiClient';
 import { useAuth } from '@/context/AuthContext';
 import paieService from '@/features/payroll/api/paieService';
 import { fmtDate } from '@/utils/dateUtils';
+import RubriqueCyclePreview from './RubriqueCyclePreview';
 
 function categorizeType(item) {
     const code = (item.code || '').toUpperCase();
@@ -80,6 +81,7 @@ export default function PayrollEngineMap() {
     const [editor, setEditor] = useState(null); // { domaine: 'types' | 'rubriques', item: null | object, version: boolean }
     const [catalogueMeta, setCatalogueMeta] = useState(null);
     const [form, setForm] = useState({});
+    const [rubriqueGuide, setRubriqueGuide] = useState('');
     const [errors, setErrors] = useState({});
     const [formError, setFormError] = useState('');
     const [saving, setSaving] = useState(false);
@@ -129,7 +131,7 @@ export default function PayrollEngineMap() {
                 if (!matches) return false;
             }
             if (filterEtape) {
-                const stage = item.etapeCalcul || item.phaseCalcul;
+                const stage = item.phaseCalcul || item.etapeCalcul;
                 if (stage !== filterEtape) return false;
             }
             if (filterNiveau) {
@@ -212,7 +214,7 @@ export default function PayrollEngineMap() {
         const opts = (data.phases || []).map(p => ({ value: p.code, label: p.libelle }));
         const existingCodes = new Set(opts.map(o => o.value));
         (data.rubriques || []).forEach(r => {
-            const code = r.etapeCalcul || r.phaseCalcul;
+            const code = r.phaseCalcul || r.etapeCalcul;
             if (code && !existingCodes.has(code)) {
                 existingCodes.add(code);
                 opts.push({ value: code, label: r.etapeLibelle || code });
@@ -272,7 +274,9 @@ export default function PayrollEngineMap() {
         const isTypes = domaine === 'types';
         const isVersion = intent === 'version';
         let item = null;
-        if (targetItem && typeof targetItem === 'object') {
+        if (intent === 'create') {
+            item = null;
+        } else if (targetItem && typeof targetItem === 'object') {
             item = targetItem;
         } else if (targetItem && data) {
             item = (isTypes ? data.types : data.rubriques).find(i => i.id === Number(targetItem)) || null;
@@ -311,12 +315,16 @@ export default function PayrollEngineMap() {
         };
 
         if (intent === 'create' && isTypes) {
-            if (targetItem?.idRubrique) initialForm.idRubrique = String(targetItem.idRubrique);
-            else if (typeof targetItem === 'number') initialForm.idRubrique = String(targetItem);
-            if (targetItem?.sens) initialForm.sens = targetItem.sens;
+            const linkedRubrique = data?.rubriques?.find(r => String(r.id) === String(targetItem?.idRubrique ?? targetItem));
+            if (linkedRubrique) {
+                initialForm.idRubrique = String(linkedRubrique.id);
+                initialForm.sens = linkedRubrique.sens;
+                initialForm.categorie = linkedRubrique.categorie;
+            }
         }
 
         setForm(initialForm);
+        setRubriqueGuide('');
         setErrors({});
         setFormError('');
         setEditor({ domaine, item, version: isVersion, intent });
@@ -360,7 +368,11 @@ export default function PayrollEngineMap() {
     }
 
     function handleField(name, value) {
-        setForm(previous => ({ ...previous, [name]: value }));
+        setForm(previous => ({
+            ...previous,
+            [name]: value,
+            ...(name === 'soumisCnaps' ? { soumisFmfp: value } : {}),
+        }));
         if (errors[name]) setErrors(previous => ({ ...previous, [name]: validateField(name, value) }));
     }
 
@@ -386,12 +398,14 @@ export default function PayrollEngineMap() {
             const payload = { ...form, code: form.code.trim().toUpperCase(), libelle: form.libelle.trim() };
             if (isTypes) {
                 payload.idRubrique = Number(form.idRubrique);
-                payload.categorie = editor.item?.categorie || modalOptions.sens?.find(o => o.value === form.sens)?.categorieType || 'PRIME';
+                const linkedRubrique = availableRubriques.find(r => String(r.id) === String(form.idRubrique));
+                payload.categorie = editor.item?.categorie || linkedRubrique?.categorie;
                 if (editor.item) await paieService.modifierTypeVariable(editor.item.id, payload);
                 else await paieService.creerTypeVariable(payload);
             } else {
                 payload.dateDebutEffet = form.dateDebutEffet || null;
                 payload.dateFinEffet = form.dateFinEffet || null;
+                payload.soumisFmfp = payload.soumisCnaps;
                 if (editor.version) await paieService.creerVersionRubrique(editor.item.id, payload);
                 else if (editor.item) await paieService.modifierRubriqueVariable(editor.item.id, payload);
                 else await paieService.creerRubriqueVariable(payload);
@@ -636,7 +650,7 @@ export default function PayrollEngineMap() {
                                         options={[
                                             { value: '', label: 'Alimentation : Toutes' },
                                             { value: 'VARIABLE', label: 'Avec variable liée (saisie RH)' },
-                                            { value: 'AUTO', label: '100% Automatique (formule)' },
+                                            { value: 'AUTO', label: 'Sans type de variable lié' },
                                         ]}
                                         value={filterAlimentation}
                                         onChange={val => setFilterAlimentation(val || '')}
@@ -729,7 +743,7 @@ export default function PayrollEngineMap() {
                                                                         {/* Mode d'alimentation */}
                                                                         <div className="shrink-0 w-28 sm:w-32 text-right sm:text-left">
                                                                             <span className="text-xs text-[var(--color-fg-muted)]">
-                                                                                {hasLinkedTypes ? 'Variable liée' : 'Automatique'}
+                                                                                {hasLinkedTypes ? 'Variable liée' : isConfigurable ? 'Type à créer' : 'Circuit dédié'}
                                                                             </span>
                                                                         </div>
 
@@ -1219,7 +1233,7 @@ export default function PayrollEngineMap() {
                                                 <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-fg-muted)] block">Étape 1</span>
                                                 <span className="block font-bold text-[var(--color-fg)] truncate">Données d'entrée</span>
                                                 <span className="text-[10px] text-[var(--color-fg-muted)] block truncate mt-0.5">
-                                                    {linkedTypes.length > 0 ? `${linkedTypes.length} type(s) lié(s)` : 'Règle automatique'}
+                                                    {linkedTypes.length > 0 ? `${linkedTypes.length} type(s) lié(s)` : isConfigurable ? 'Aucun type lié' : 'Circuit dédié'}
                                                 </span>
                                             </div>
                                             <div className="p-2.5 bg-[var(--color-brand-50)] dark:bg-[var(--color-brand-950)]/30 border border-[var(--color-brand-500)]/40 text-center min-w-0">
@@ -1285,7 +1299,7 @@ export default function PayrollEngineMap() {
                                         </span>
                                         {linkedTypes.length === 0 ? (
                                             <div className="text-xs text-[var(--color-fg-muted)] space-y-3">
-                                                <p>Automatique : aucun type de variable ne saisit directement cette règle. Elle est exécutée par le moteur de paie selon sa formule.</p>
+                                                <p>{isConfigurable ? 'Aucun type de variable ne saisit encore cette rubrique. Créez un type lié pour l’utiliser dans une campagne de paie.' : 'Aucun type de variable ne saisit directement cette règle. Elle est exécutée par son circuit métier.'}</p>
                                                 {canWriteType && isConfigurable && (
                                                     <Button
                                                         variant="outline"
@@ -1294,7 +1308,7 @@ export default function PayrollEngineMap() {
                                                         onClick={() => {
                                                             const target = rubrique;
                                                             setDetailItem(null);
-                                                            openEditor('types', { idRubrique: target.id, sens: target.sens }, 'create');
+                                                            openEditor('types', { idRubrique: target.id }, 'create');
                                                         }}
                                                     >
                                                         Créer un type lié
@@ -1458,17 +1472,47 @@ export default function PayrollEngineMap() {
                                     }
                                 />
                             ) : (
-                                <SearchSelect
-                                    label="Nature"
-                                    value={form.categorie ?? ''}
-                                    disabled={treatmentLocked || !!editor?.version}
-                                    options={modalOptions.categories}
-                                    hint="Définit la catégorie de la règle et pré-remplit les assiettes recommandées."
-                                    onChange={value => {
-                                        const cat = modalOptions.categories?.find(o => o.value === value);
-                                        setForm(p => ({ ...p, categorie: value, ...cat?.defauts }));
-                                    }}
-                                />
+                                <div className="space-y-4">
+                                    {!editor?.item && (
+                                        <>
+                                            <SearchSelect
+                                                label="Aide : que représente ce versement ?"
+                                                value={rubriqueGuide}
+                                                onChange={setRubriqueGuide}
+                                                options={[
+                                                    { value: 'remuneration', label: 'Complément de rémunération' },
+                                                    { value: 'frais', label: 'Remboursement de frais engagés' },
+                                                    { value: 'mixte', label: 'Frais et rémunération dans un même montant' },
+                                                    { value: 'autre', label: 'Autre fondement à vérifier' },
+                                                ]}
+                                                placeholder="Choisir un cas"
+                                            />
+                                            {rubriqueGuide === 'remuneration' && (
+                                                <p className="text-xs text-[var(--color-fg-muted)]">Une prime ou indemnité qui complète le salaire entre en principe dans le brut et les assiettes. Vérifiez les exceptions applicables.</p>
+                                            )}
+                                            {rubriqueGuide === 'frais' && (
+                                                <p className="text-xs text-[var(--color-warning-800)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-3">Pour des frais ponctuels réellement remboursés, utilisez le circuit de notes de frais avec justificatif. Une rubrique manuelle ne vérifie pas les dépenses engagées.</p>
+                                            )}
+                                            {rubriqueGuide === 'mixte' && (
+                                                <p className="text-xs text-[var(--color-warning-800)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-3">Séparez les deux montants : une rubrique applique le même traitement à toute la somme saisie.</p>
+                                            )}
+                                            {rubriqueGuide === 'autre' && (
+                                                <p className="text-xs text-[var(--color-warning-800)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-3">Vérifiez le texte applicable et la nature du versement avant de choisir les assiettes.</p>
+                                            )}
+                                        </>
+                                    )}
+                                    <SearchSelect
+                                        label="Nature"
+                                        value={form.categorie ?? ''}
+                                        disabled={treatmentLocked || !!editor?.version}
+                                        options={modalOptions.categories}
+                                        hint="Pré-remplit le traitement ; le nom de la catégorie ne prouve pas une exonération."
+                                        onChange={value => {
+                                            const cat = modalOptions.categories?.find(o => o.value === value);
+                                            setForm(p => ({ ...p, categorie: value, ...cat?.defauts }));
+                                        }}
+                                    />
+                                </div>
                             )}
                         </fieldset>
 
@@ -1489,16 +1533,17 @@ export default function PayrollEngineMap() {
                                         disabled={!!editor?.item?.liaisonVerrouillee}
                                         error={errors.idRubrique}
                                         placeholder="Rechercher une rubrique manuelle…"
-                                        hint="La règle du moteur qui exécutera le calcul à partir du montant saisi pour ce type."
+                                        hint="Le montant saisi hérite du brut/net et des assiettes de cette rubrique. Vérifiez son aperçu avant d'enregistrer."
                                         options={[
                                             ...availableRubriques
-                                                .filter(r => !form.sens || r.sens === form.sens)
+                                                .filter(r => (!form.sens || r.sens === form.sens)
+                                                    && (!editor?.item || r.categorie === editor.item.categorie))
                                                 .map(r => {
                                                     const assiettes = [
                                                         r.soumisIrsa ? 'IRSA' : null,
                                                         r.soumisCnaps ? 'CNaPS' : null,
                                                         r.soumisSante ? 'Santé' : null,
-                                                        r.soumisFmfp ? 'FMFP' : null,
+                                                        (r.soumisFmfp ?? r.soumisCnaps) ? 'FMFP' : null,
                                                     ].filter(Boolean).join(', ');
                                                     const fiscalInfo = assiettes ? `Soumis : ${assiettes}` : 'Hors charges et impôt';
                                                     return {
@@ -1524,7 +1569,7 @@ export default function PayrollEngineMap() {
                                                 placeholder="Choisir une étape"
                                                 error={errors.etapeCalcul}
                                                 options={modalOptions.etapes?.filter(o => o.sens === form.sens)}
-                                                hint="Moment d'intervention : 'Dans le brut' (soumis aux charges), ou 'Au net' (frais, hors charges)."
+                                                hint="Dans le brut : les assiettes se règlent ci-dessous. Au net : aucune assiette n'est alimentée."
                                                 onChange={value => {
                                                     const stage = modalOptions.etapes?.find(o => o.value === value);
                                                     setForm(p => ({
@@ -1581,7 +1626,8 @@ export default function PayrollEngineMap() {
                                         )}
 
                                         {(modalOptions.assiettes || []).map(({ key, label, heriteDe }) => {
-                                            const isDisabled = !chosenStage?.assiettesModifiables || treatmentLocked;
+                                            const isFmfp = key === 'soumisFmfp';
+                                            const isDisabled = !chosenStage?.assiettesModifiables || treatmentLocked || isFmfp;
                                             return (
                                                 <label
                                                     key={key}
@@ -1591,18 +1637,28 @@ export default function PayrollEngineMap() {
                                                 >
                                                     <span>
                                                         {label}
-                                                        {heriteDe && form[key] == null ? ' · Traitement hérité' : ''}
+                                                        {isFmfp ? ' · suit la CNaPS' : heriteDe && form[key] == null ? ' · Traitement hérité' : ''}
                                                     </span>
                                                     <input
                                                         type="checkbox"
                                                         className="w-4 h-4 accent-[var(--color-brand-500)] cursor-pointer disabled:cursor-not-allowed"
-                                                        checked={Boolean(form[key] ?? form[heriteDe])}
+                                                        checked={Boolean(isFmfp ? form.soumisCnaps : form[key] ?? form[heriteDe])}
                                                         disabled={isDisabled}
                                                         onChange={e => handleField(key, e.target.checked)}
                                                     />
                                                 </label>
                                             );
                                         })}
+                                        {chosenStage?.assiettesModifiables && form.soumisSante !== form.soumisCnaps && (
+                                            <p className="text-xs text-[var(--color-warning-800)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-3">
+                                                Les assiettes Santé et CNaPS diffèrent. Vérifiez le régime applicable : l'assiette des services médicaux interentreprises suit normalement les salaires définis par le Code de prévoyance sociale.
+                                            </p>
+                                        )}
+                                        {(!form.soumisIrsa || !form.soumisCnaps) && form.sens === 'GAIN' && (
+                                            <p className="text-xs text-[var(--color-warning-800)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-3">
+                                                Une exclusion d'assiette doit correspondre à la nature réelle du versement. Précisez le fondement du traitement et les justificatifs attendus.
+                                            </p>
+                                        )}
                                     </div>
                                 </>
                             )}
@@ -1619,7 +1675,7 @@ export default function PayrollEngineMap() {
                                     {...inputProps('referenceReglementaire')}
                                     required
                                     placeholder="Texte, accord ou décision interne"
-                                    hint="Référence de l'accord ou de la décision interne."
+                                    hint="Indiquez le texte applicable. Une décision interne ne suffit pas à créer une exonération fiscale ou sociale."
                                 />
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <Input
@@ -1635,6 +1691,7 @@ export default function PayrollEngineMap() {
                                         min={form.dateDebutEffet || undefined}
                                     />
                                 </div>
+                                <RubriqueCyclePreview start={form.dateDebutEffet} end={form.dateFinEffet} />
                             </fieldset>
                         )}
 
@@ -1712,6 +1769,8 @@ export default function PayrollEngineMap() {
                                             <p className="text-[11px] font-mono text-[var(--color-fg-muted)]">{selectedRub.code}</p>
                                         </div>
 
+                                        <RubriqueCyclePreview start={selectedRub.dateDebutEffet} end={selectedRub.dateFinEffet} />
+
                                         <dl className="space-y-2.5 text-xs">
                                             <div className="flex justify-between gap-3">
                                                 <dt className="text-[var(--color-fg-muted)]">Sens comptable</dt>
@@ -1742,7 +1801,7 @@ export default function PayrollEngineMap() {
                                                         { k: 'IRSA', v: selectedRub.soumisIrsa },
                                                         { k: 'CNaPS', v: selectedRub.soumisCnaps },
                                                         { k: 'Santé', v: selectedRub.soumisSante },
-                                                        { k: 'FMFP', v: selectedRub.soumisFmfp },
+                                                        { k: 'FMFP', v: selectedRub.soumisFmfp ?? selectedRub.soumisCnaps },
                                                     ].map(({ k, v }) => (
                                                         <div
                                                             key={k}
@@ -1754,7 +1813,7 @@ export default function PayrollEngineMap() {
                                                         >
                                                             <span className="font-bold">{k}</span>
                                                             <span className="text-[10px] uppercase font-semibold">
-                                                                {v ? 'Soumis' : 'Exonéré'}
+                                                                {v ? 'Soumis' : 'Hors assiette'}
                                                             </span>
                                                         </div>
                                                     ))}
@@ -1763,6 +1822,11 @@ export default function PayrollEngineMap() {
                                                 <div className="p-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-xs text-[var(--color-fg-muted)]">
                                                     Rubrique au net : non soumise aux cotisations sociales et à l’IRSA.
                                                 </div>
+                                            )}
+                                            {form.sens === 'GAIN' && (!selectedRub.soumisIrsa || !selectedRub.soumisCnaps) && (
+                                                <p className="text-xs text-[var(--color-warning-800)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-3">
+                                                    Cette variable hérite d'une exclusion d'assiette. Vérifiez que le versement et ses justificatifs correspondent au traitement de la rubrique liée.
+                                                </p>
                                             )}
                                         </div>
                                     </div>

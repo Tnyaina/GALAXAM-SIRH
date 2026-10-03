@@ -9,11 +9,13 @@ import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { useToast } from '@/components/ui/feedback/Toast';
+import useConfirm from '@/hooks/useConfirm';
 import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 
 export default function ModesPaiementTab() {
     const { toast } = useToast();
+    const { confirm, ConfirmModal } = useConfirm();
     const [modes, setModes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -59,19 +61,39 @@ export default function ModesPaiementTab() {
         setFieldErrors({});
     };
 
-    const handleToggleActif = async (mode) => {
-        try {
-            await paieService.modifierModePaiement(mode.idModePaiement, {
-                libelle: mode.libelle,
-                exigeRib: mode.exigeRib,
-                inclusFichierVirement: mode.inclusFichierVirement,
-                actif: !mode.actif,
-            });
-            toast({ title: 'Succès', message: `Mode de paiement « ${mode.libelle} » ${!mode.actif ? 'activé' : 'désactivé'}.`, type: 'success' });
-            chargerModes();
-        } catch (err) {
-            toast({ title: 'Erreur', message: getErrorMessage(err, 'Erreur lors du changement de statut.'), type: 'error' });
-        }
+    const handleToggleActif = (mode) => {
+        const isActif = mode.actif !== false;
+        const actionText = isActif ? 'Désactiver' : 'Activer';
+        confirm({
+            title: `${actionText} le mode de paiement`,
+            message: isActif
+                ? `Êtes-vous sûr de vouloir désactiver le mode de paiement « ${mode.libelle} » (${mode.code}) ?\n\nCe mode ne pourra plus être sélectionné pour le versement des salaires, acomptes ou soldes de tout compte.`
+                : `Êtes-vous sûr de vouloir activer le mode de paiement « ${mode.libelle} » (${mode.code}) ?`,
+            confirmLabel: actionText,
+            variant: isActif ? 'danger' : 'primary',
+            onConfirm: async () => {
+                try {
+                    await paieService.modifierModePaiement(mode.idModePaiement, {
+                        libelle: mode.libelle,
+                        exigeRib: mode.exigeRib,
+                        inclusFichierVirement: mode.inclusFichierVirement,
+                        actif: !isActif,
+                    });
+                    toast({
+                        title: 'Succès',
+                        message: `Mode de paiement « ${mode.libelle} » ${!isActif ? 'activé' : 'désactivé'}.`,
+                        type: 'success',
+                    });
+                    chargerModes();
+                } catch (err) {
+                    toast({
+                        title: 'Erreur',
+                        message: getErrorMessage(err, 'Erreur lors du changement de statut.'),
+                        type: 'error',
+                    });
+                }
+            },
+        });
     };
 
     const handleSave = async (e) => {
@@ -275,6 +297,8 @@ export default function ModesPaiementTab() {
                     </form>
                 </Modal>
             )}
+
+            <ConfirmModal />
         </div>
     );
 }

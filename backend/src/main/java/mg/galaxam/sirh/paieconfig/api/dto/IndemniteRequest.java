@@ -4,7 +4,7 @@ public class IndemniteRequest {
     private String code;
     private String libelle;
     private String codeRubriquePaie;
-    private boolean imposableIrsa;
+    private Boolean imposableIrsa;
     private Boolean soumisCotisation;
     private boolean fractionnable;
 
@@ -14,8 +14,8 @@ public class IndemniteRequest {
     public void setLibelle(String libelle) { this.libelle = libelle; }
     public String getCodeRubriquePaie() { return codeRubriquePaie; }
     public void setCodeRubriquePaie(String codeRubriquePaie) { this.codeRubriquePaie = codeRubriquePaie; }
-    public boolean isImposableIrsa() { return imposableIrsa; }
-    public void setImposableIrsa(boolean imposableIrsa) { this.imposableIrsa = imposableIrsa; }
+    public Boolean getImposableIrsa() { return imposableIrsa; }
+    public void setImposableIrsa(Boolean imposableIrsa) { this.imposableIrsa = imposableIrsa; }
     public Boolean getSoumisCotisation() { return soumisCotisation; }
     public void setSoumisCotisation(Boolean soumisCotisation) { this.soumisCotisation = soumisCotisation; }
     public boolean isFractionnable() { return fractionnable; }

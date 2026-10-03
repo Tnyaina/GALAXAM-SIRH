@@ -160,16 +160,18 @@ export default function EmployeSearchSelect({
 
   const selectedId = selectedEmployeObj ? (selectedEmployeObj.idEmploye ?? selectedEmployeObj.id_employe) : null;
 
+  const displayLabel = typeof label === 'string' && required ? label.trim().replace(/\s*\*+$/, '') : label;
+
   return (
     <div className={`space-y-1.5 relative ${className}`} ref={dropdownRef}>
       {label && (
         selectedEmployeObj && selectedId ? (
           <span className="block text-sm font-semibold text-[var(--color-fg)]">
-            {label} {required && <span className="text-danger-500">*</span>}
+            {displayLabel} {required && <span className="text-danger-500">*</span>}
           </span>
         ) : (
           <label htmlFor={fieldId} className="block text-sm font-semibold text-[var(--color-fg)]">
-            {label} {required && <span className="text-danger-500">*</span>}
+            {displayLabel} {required && <span className="text-danger-500">*</span>}
           </label>
         )
       )}

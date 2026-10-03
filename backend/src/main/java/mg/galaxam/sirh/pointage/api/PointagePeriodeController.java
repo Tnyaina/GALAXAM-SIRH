@@ -41,7 +41,8 @@ public class PointagePeriodeController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<List<PeriodePaieDTO>> getAllPeriodes(Authentication authentication) throws SQLException {
+    public ResponseEntity<List<PeriodePaieDTO>> getAllPeriodes(Authentication authentication,
+            @RequestParam(defaultValue = "false") boolean lightweight) throws SQLException {
         List<PeriodePaieDTO> list = new ArrayList<>();
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, " +
                      "p.id_statut_periode, s.code AS statut_code, s.libelle AS statut_libelle, p.motif_rejet, p.version " +
@@ -67,18 +68,20 @@ public class PointagePeriodeController {
                 dto.setStatutLibelle(rs.getString("statut_libelle"));
                 dto.setMotifRejet(rs.getString("motif_rejet"));
                 dto.setVersion(rs.getInt("version"));
-                dto.setAvailableActions(payrollPeriodWorkflowService.describeActions(
-                        dto.getIdPeriodePaie(), dto.getStatutCode(),
-                        PayrollPeriodUserContext.from(authentication), c));
-                dto.setWorkflowStatuses(payrollPeriodWorkflowService.describeWorkflowStatuses(
-                        dto.getIdPeriodePaie(), dto.getStatutCode(), c));
-                dto.setNextStep(payrollPeriodWorkflowService.describeNextStep(
-                        dto.getIdPeriodePaie(), dto.getStatutCode(), dto.getAvailableActions(), c));
+                if (!lightweight) {
+                    dto.setAvailableActions(payrollPeriodWorkflowService.describeActions(
+                            dto.getIdPeriodePaie(), dto.getStatutCode(),
+                            PayrollPeriodUserContext.from(authentication), c));
+                    dto.setWorkflowStatuses(payrollPeriodWorkflowService.describeWorkflowStatuses(
+                            dto.getIdPeriodePaie(), dto.getStatutCode(), c));
+                    dto.setNextStep(payrollPeriodWorkflowService.describeNextStep(
+                            dto.getIdPeriodePaie(), dto.getStatutCode(), dto.getAvailableActions(), c));
 
-                if (dDeb != null && dFin != null) {
-                    dto.setNbJoursOuvrables(calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
-                    dto.setNbJoursCalendaires(calendrierEngine.compterJoursCalendaires(dDeb.toLocalDate(), dFin.toLocalDate()));
-                    dto.setNbJoursFeries(calendrierEngine.compterJoursFeriesChomes(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
+                    if (dDeb != null && dFin != null) {
+                        dto.setNbJoursOuvrables(calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
+                        dto.setNbJoursCalendaires(calendrierEngine.compterJoursCalendaires(dDeb.toLocalDate(), dFin.toLocalDate()));
+                        dto.setNbJoursFeries(calendrierEngine.compterJoursFeriesChomes(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
+                    }
                 }
 
                 list.add(dto);

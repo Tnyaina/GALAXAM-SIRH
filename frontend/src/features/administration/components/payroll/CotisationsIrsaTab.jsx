@@ -8,7 +8,8 @@ import SideTabs from '@/components/ui/navigation/SideTabs';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import FormModal from '@/components/ui/overlays/FormModal';
-import Input, { Select } from '@/components/ui/forms/Input';
+import Input from '@/components/ui/forms/Input';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -19,7 +20,54 @@ import { getErrorMessage } from '@/api/apiClient';
 
 
 function SiteCotisationFormModal({ isOpen, onClose, onSubmit, formData, setFormData, sites = [], cotisations = [], actionError, submitting = false }) {
-    return <FormModal isOpen={isOpen} onClose={onClose} onSubmit={onSubmit} title="Associer une Cotisation à un Site" icon={<MapPin size={18} />} size="md" submitLabel="Associer" loading={submitting} error={actionError}><Select label="Site d'Exploitation" required value={formData.idSite} onChange={(event) => setFormData({ ...formData, idSite: event.target.value })}><option value="">-- Sélectionner un site --</option>{sites.filter((site) => site.estActif !== false && site.actif !== false || String(site.idSite) === String(formData.idSite)).map((site) => <option key={site.idSite} value={site.idSite}>{site.libelle} ({site.codeSite})</option>)}</Select><Select label="Type de Cotisation" required value={formData.idTypeCotisation} onChange={(event) => setFormData({ ...formData, idTypeCotisation: event.target.value })}><option value="">-- Sélectionner une cotisation --</option>{cotisations.filter((cotisation) => !cotisation.portee || cotisation.portee === 'SITE').map((cotisation) => <option key={cotisation.idTypeCotisation} value={cotisation.idTypeCotisation}>{cotisation.code} - {cotisation.libelle} (Salarial: {cotisation.tauxSalarial}%, Patronal: {cotisation.tauxPatronal}%)</option>)}</Select></FormModal>;
+    const siteOptions = sites
+        .filter((site) => (site.estActif !== false && site.actif !== false) || String(site.idSite) === String(formData.idSite))
+        .map((site) => ({
+            value: String(site.idSite),
+            label: site.libelle,
+            sublabel: site.codeSite
+        }));
+
+    const cotisationOptions = cotisations
+        .filter((cotisation) => !cotisation.portee || cotisation.portee === 'SITE')
+        .map((cotisation) => ({
+            value: String(cotisation.idTypeCotisation),
+            label: `${cotisation.code} - ${cotisation.libelle}`,
+            sublabel: `Salarial: ${cotisation.tauxSalarial}%, Patronal: ${cotisation.tauxPatronal}%`
+        }));
+
+    return (
+        <FormModal
+            isOpen={isOpen}
+            onClose={onClose}
+            onSubmit={onSubmit}
+            title="Associer une Cotisation à un Site"
+            icon={<MapPin size={18} />}
+            size="md"
+            submitLabel="Associer"
+            loading={submitting}
+            error={actionError}
+        >
+            <div className="space-y-3">
+                <SearchSelect
+                    label="Site d'Exploitation"
+                    required
+                    value={formData.idSite}
+                    onChange={(val) => setFormData({ ...formData, idSite: val })}
+                    options={siteOptions}
+                    placeholder="-- Sélectionner un site --"
+                />
+                <SearchSelect
+                    label="Type de Cotisation"
+                    required
+                    value={formData.idTypeCotisation}
+                    onChange={(val) => setFormData({ ...formData, idTypeCotisation: val })}
+                    options={cotisationOptions}
+                    placeholder="-- Sélectionner une cotisation --"
+                />
+            </div>
+        </FormModal>
+    );
 }
 
 function CotisationFormModal({ isOpen, onClose, onSubmit, editingCotisation, formData, setFormData, actionError, submitting = false }) {
@@ -59,20 +107,22 @@ function CotisationFormModal({ isOpen, onClose, onSubmit, editingCotisation, for
                         onChange={(event) => setFormData({ ...formData, code: event.target.value.toUpperCase() })}
                         placeholder="Ex: CNAPS, OSTIE, AMIT"
                     />
-                    <Select
+                    <SearchSelect
                         label="Catégorie / Nature"
                         required
                         value={categorie}
-                        onChange={(event) => {
-                            const cat = event.target.value;
+                        onChange={(val) => {
+                            const cat = val;
                             const autoPortee = (cat === 'PREVOYANCE' || cat === 'FORMATION') ? 'ENTREPRISE' : formData.portee;
                             setFormData({ ...formData, categorie: cat, portee: autoPortee });
                         }}
-                    >
-                        <option value="SANTE">Santé au Travail</option>
-                        <option value="PREVOYANCE">Prévoyance / Retraite (CNaPS)</option>
-                        <option value="FORMATION">Formation Professionnelle (FMFP)</option>
-                    </Select>
+                        options={[
+                            { value: 'SANTE', label: 'Santé au Travail' },
+                            { value: 'PREVOYANCE', label: 'Prévoyance / Retraite (CNaPS)' },
+                            { value: 'FORMATION', label: 'Formation Professionnelle (FMFP)' }
+                        ]}
+                        placeholder="Sélectionner une catégorie"
+                    />
                 </div>
 
                 <Input

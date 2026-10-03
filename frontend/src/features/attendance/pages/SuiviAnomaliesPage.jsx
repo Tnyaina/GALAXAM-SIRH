@@ -40,7 +40,7 @@ const SEVERITY_PRESENTATION = {
     FAIBLE: { label: 'Faible', badge: 'neutral', border: 'border-l-[var(--color-border)]' },
 };
 
-export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onTabChange }) {
+export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onTabChange, onAnomaliesCountChange, periodesDisponibles = null, sitesDisponibles = null }) {
     // Contexte, navigation et hook métier
     const [searchParams, setSearchParams] = useSearchParams();
     const { hasPermission } = useAuth();
@@ -93,15 +93,21 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         idSite: searchParams.get('site') ? Number(searchParams.get('site')) : 0
     });
 
+    useEffect(() => {
+        if (kpis.anomaliesActives !== undefined && onAnomaliesCountChange) {
+            onAnomaliesCountChange(Number(kpis.anomaliesActives) || 0);
+        }
+    }, [kpis.anomaliesActives, onAnomaliesCountChange]);
+
     // Effets
     useEffect(() => {
         const init = async () => {
             try {
                 const paramPeriode = searchParams.get('periode');
                 const [resPeriodes, resSites, context] = await Promise.all([
-                    periodePaieService.getAllPeriodes(),
-                    organisationService.getSites(),
-                    periodePaieService.getContext(paramPeriode ? Number(paramPeriode) : null)
+                    periodesDisponibles ?? periodePaieService.getAllPeriodes(),
+                    sitesDisponibles ?? organisationService.getSites(),
+                    activePeriode ? null : periodePaieService.getContext(paramPeriode ? Number(paramPeriode) : null)
                 ]);
                 if (resPeriodes && resPeriodes.length > 0) {
                     setPeriodes(resPeriodes);
@@ -166,7 +172,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             .then(res => { if (!cancelled) setPreflight(res); })
             .catch(() => { if (!cancelled) setPreflight(null); });
         return () => { cancelled = true; };
-    }, [selectedPeriodeId, anomalies]);
+    }, [selectedPeriodeId]);
 
     const isSiteFiltered = Number(selectedSiteId) > 0;
     const selectedSiteObj = useMemo(() =>
@@ -210,7 +216,8 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         }, { replace: true });
     };
 
-    const actions = currentPeriodeObj?.availableActions || {};
+    const actions = String(activePeriode?.idPeriodePaie) === String(selectedPeriodeId)
+        ? activePeriode.availableActions || {} : currentPeriodeObj?.availableActions || {};
     const isLocked = actions.REGULARIZE_ANOMALY?.allowed !== true;
 
     // Anomalies bloquantes pour la transmission DAF

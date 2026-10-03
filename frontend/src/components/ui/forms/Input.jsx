@@ -37,11 +37,13 @@ export default function Input({
     }
   };
 
+  const displayLabel = typeof label === 'string' && props.required ? label.trim().replace(/\s*\*+$/, '') : label;
+
   return (
     <div className={`flex flex-col gap-1 ${containerClassName}`}>
       {label && (
         <label htmlFor={fieldId} className={`text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)] ${labelClassName}`}>
-          {label}
+          {displayLabel}
           {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
         </label>
       )}

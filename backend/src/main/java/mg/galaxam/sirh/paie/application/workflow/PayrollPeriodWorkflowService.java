@@ -858,6 +858,10 @@ public class PayrollPeriodWorkflowService {
     }
 
     private ActionCapability submissionCapability(int periodId, Connection connection) throws SQLException {
+        return submissionCapability(periodId, connection, false);
+    }
+
+    private ActionCapability submissionCapability(int periodId, Connection connection, boolean approval) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT date_fin FROM periode_paie WHERE id_periode_paie = ?")) {
             statement.setInt(1, periodId);
@@ -876,6 +880,9 @@ public class PayrollPeriodWorkflowService {
         if (!preflight.journeesManquantes().isEmpty()) {
             return ActionCapability.denied("POINTAGE_JOURNEES_MANQUANTES");
         }
+        if (approval && !preflight.blocages().isEmpty()) {
+            return ActionCapability.denied("POINTAGE_HS_SANS_SEMAINE");
+        }
         String blockingSql = "SELECT COUNT(*) FROM pointage_jour p "
                 + "JOIN ref_statut_pointage_jour st ON p.id_statut_jour = st.id_statut_jour "
                 + "WHERE p.id_periode_paie = ? AND (st.code = 'ANOMALIE_SAISIE' "
@@ -891,13 +898,7 @@ public class PayrollPeriodWorkflowService {
     }
 
     private ActionCapability approvalCapability(int periodId, Connection connection) throws SQLException {
-        ActionCapability submission = submissionCapability(periodId, connection);
-        if (!submission.allowed()) return submission;
-        var preflight = pointageSyntheseService.preflightPeriode(periodId, connection);
-        if (preflight.nombreEmployes() == 0) return ActionCapability.denied("POINTAGE_POPULATION_EMPTY");
-        if (!preflight.journeesManquantes().isEmpty()) return ActionCapability.denied("POINTAGE_JOURNEES_MANQUANTES");
-        if (!preflight.blocages().isEmpty()) return ActionCapability.denied("POINTAGE_HS_SANS_SEMAINE");
-        return ActionCapability.permit();
+        return submissionCapability(periodId, connection, true);
     }
 
     private List<BusinessIssue> contextIssues(int periodId, String state, Connection connection) throws SQLException {

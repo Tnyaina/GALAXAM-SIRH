@@ -526,7 +526,8 @@ export default function RuptureContratModal({
                                     <Select
                                         id="dureePreavisKey"
                                         name="dureePreavisKey"
-                                        label="Délai de préavis *"
+                                        label="Délai de préavis"
+                                        required
                                         value={formData.dureePreavisKey}
                                         onChange={(e) => handleDureePreavisChange(e.target.value)}
                                     >

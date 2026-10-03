@@ -8,6 +8,7 @@ import organisationService from '@/features/organization/api/organisationService
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import Input, { Select, Checkbox } from '@/components/ui/forms/Input';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import MoneyInput from '@/components/ui/forms/MoneyInput';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDateInput } from '@/utils/dateUtils';
@@ -53,8 +54,9 @@ export default function IndemnitesSitesTab() {
     // Modale Indemnité
     const [showIndemniteModal, setShowIndemniteModal] = useState(false);
     const [editingIndemnite, setEditingIndemnite] = useState(null);
+    const [qualificationGuide, setQualificationGuide] = useState('');
     const [indemniteFormData, setIndemniteFormData] = useState({
-        code: '', libelle: '', codeRubriquePaie: '', imposableIrsa: false, soumisCotisation: '', fractionnable: false
+        code: '', libelle: '', codeRubriquePaie: '', imposableIrsa: '', soumisCotisation: '', fractionnable: false
     });
 
     // Modale Config Site
@@ -93,6 +95,10 @@ export default function IndemnitesSitesTab() {
     const handleSaveIndemnite = async (e) => {
         e.preventDefault();
         if (submitting) return;
+        if (indemniteFormData.imposableIrsa === '' || indemniteFormData.soumisCotisation === '') {
+            setActionError("Qualifiez l'IRSA et les cotisations sociales avant d'enregistrer l'indemnité.");
+            return;
+        }
         setActionError(null);
         setSubmitting(true);
         try {
@@ -260,7 +266,8 @@ export default function IndemnitesSitesTab() {
                         <Button
                             onClick={() => {
                                 setEditingIndemnite(null);
-                                setIndemniteFormData({ code: '', libelle: '', codeRubriquePaie: '', imposableIrsa: false, soumisCotisation: '', fractionnable: false });
+                                setQualificationGuide('');
+                                setIndemniteFormData({ code: '', libelle: '', codeRubriquePaie: '', imposableIrsa: '', soumisCotisation: '', fractionnable: false });
                                 setActionError(null);
                                 setShowIndemniteModal(true);
                             }}
@@ -292,7 +299,8 @@ export default function IndemnitesSitesTab() {
                                             actionLabel="Créer une indemnité"
                                             onAction={() => {
                                                 setEditingIndemnite(null);
-                                                setIndemniteFormData({ code: '', libelle: '', codeRubriquePaie: '', imposableIrsa: false, soumisCotisation: '', fractionnable: false });
+                                                setQualificationGuide('');
+                                                setIndemniteFormData({ code: '', libelle: '', codeRubriquePaie: '', imposableIrsa: '', soumisCotisation: '', fractionnable: false });
                                                 setActionError(null);
                                                 setShowIndemniteModal(true);
                                             }}
@@ -330,6 +338,7 @@ export default function IndemnitesSitesTab() {
                                                     <button
                                                         onClick={() => {
                                                             setEditingIndemnite(ind);
+                                                            setQualificationGuide('');
                                                             setIndemniteFormData({
                                                                 code: ind.code,
                                                                 libelle: ind.libelle,
@@ -536,55 +545,127 @@ export default function IndemnitesSitesTab() {
                 onSubmit={handleSaveIndemnite}
                 title={editingIndemnite ? "Modifier l'Indemnité" : "Nouvelle Indemnité"}
                 icon={<Gift size={18} />}
-                size="md"
+                size="2xl"
                 isEdit={!!editingIndemnite}
                 loading={submitting}
                 error={actionError}
             >
-                <div className="space-y-4">
-                    <Input
-                        label="Code de l'Indemnité"
-                        required
-                        disabled={!!editingIndemnite}
-                        value={indemniteFormData.code}
-                        onChange={(e) => setIndemniteFormData({ ...indemniteFormData, code: e.target.value.toUpperCase() })}
-                        placeholder="Ex: REPAS, DEPLACEMENT, PANIER"
-                    />
-                    <Input
-                        label="Libellé Complet"
-                        required
-                        value={indemniteFormData.libelle}
-                        onChange={(e) => setIndemniteFormData({ ...indemniteFormData, libelle: e.target.value })}
-                        placeholder="Ex: Indemnité Forfaitaire de Repas"
-                    />
-                    <Input
-                        label="Code rubrique Paie (facultatif)"
-                        value={indemniteFormData.codeRubriquePaie || ''}
-                        onChange={(e) => setIndemniteFormData({ ...indemniteFormData, codeRubriquePaie: e.target.value.toUpperCase() })}
-                        placeholder="Par défaut : INDEMNITE_{CODE}"
-                    />
-                    <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-2.5">
-                        <Checkbox
-                            label="Imposable à l'IRSA (sinon exonérée d'impôt sur le revenu)"
-                            checked={indemniteFormData.imposableIrsa}
-                            onChange={(e) => setIndemniteFormData({ ...indemniteFormData, imposableIrsa: e.target.checked })}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    <div className="space-y-4 min-w-0">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Identification</h3>
+                        <Input
+                            label="Code de l'Indemnité"
+                            required
+                            disabled={!!editingIndemnite}
+                            value={indemniteFormData.code}
+                            onChange={(e) => setIndemniteFormData({ ...indemniteFormData, code: e.target.value.toUpperCase() })}
+                            placeholder="Ex: REPAS, DEPLACEMENT, PANIER"
                         />
+                        <Input
+                            label="Libellé Complet"
+                            required
+                            value={indemniteFormData.libelle}
+                            onChange={(e) => setIndemniteFormData({ ...indemniteFormData, libelle: e.target.value })}
+                            placeholder="Ex: Indemnité Forfaitaire de Repas"
+                        />
+                        <Input
+                            label="Code de ligne sur le bulletin (facultatif)"
+                            value={indemniteFormData.codeRubriquePaie || ''}
+                            onChange={(e) => setIndemniteFormData({ ...indemniteFormData, codeRubriquePaie: e.target.value.toUpperCase() })}
+                            placeholder="Par défaut : INDEMNITE_{CODE}"
+                            hint="Identifie la ligne du bulletin ; ne reprend pas les paramètres d'une rubrique de calcul."
+                        />
+                        <Checkbox
+                            label="Fractionnable par demi-journée (50 % matin / 50 % après-midi)"
+                            checked={indemniteFormData.fractionnable}
+                            onChange={(e) => setIndemniteFormData({ ...indemniteFormData, fractionnable: e.target.checked })}
+                        />
+                    </div>
+                    <div className="p-4 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] space-y-4 min-w-0">
+                        <div>
+                            <h3 className="text-xs font-bold text-[var(--color-fg)]">Traitement en paie</h3>
+                            <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">Paramètres appliqués au montant calculé par le pointage.</p>
+                        </div>
+                        <Select
+                            label="Aide : que représente ce versement ?"
+                            value={qualificationGuide}
+                            onChange={(e) => setQualificationGuide(e.target.value)}
+                            hint="Cette aide oriente le choix ; la qualification doit correspondre aux faits et aux pièces disponibles."
+                        >
+                            <option value="">-- Choisir un cas --</option>
+                            <option value="remuneration">Complément de rémunération</option>
+                            <option value="frais">Remboursement de frais engagés</option>
+                            <option value="mixte">Montant mêlant frais et rémunération</option>
+                            <option value="autre">Autre fondement à vérifier</option>
+                        </Select>
+                        {qualificationGuide === 'remuneration' && (
+                            <div className="text-xs text-[var(--color-fg-muted)] space-y-2">
+                                <p>Traitement proposé : IRSA et assiette sociale. Vérifiez le régime propre au versement.</p>
+                                <button type="button" className="font-semibold text-[var(--color-brand-600)] underline cursor-pointer" onClick={() => setIndemniteFormData(p => ({ ...p, imposableIrsa: true, soumisCotisation: true }))}>
+                                    Appliquer cette proposition
+                                </button>
+                            </div>
+                        )}
+                        {qualificationGuide === 'frais' && (
+                            <p className="text-xs text-[var(--color-warning-800)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-3">
+                                Conservez la preuve des frais réellement engagés. Si ce versement est un remboursement ponctuel, utilisez le circuit de notes de frais avec justificatif ; ne qualifiez pas un forfait de frais sans vérifier ce qu'il couvre.
+                            </p>
+                        )}
+                        {qualificationGuide === 'mixte' && (
+                            <p className="text-xs text-[var(--color-warning-800)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-3">
+                                Séparez la part remboursant les frais de la part constituant une rémunération : cette fiche applique un seul traitement à tout son montant.
+                            </p>
+                        )}
+                        {qualificationGuide === 'autre' && (
+                            <p className="text-xs text-[var(--color-warning-800)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-3">
+                                Vérifiez le texte applicable et les justificatifs avant de qualifier l'IRSA et les cotisations.
+                            </p>
+                        )}
+                        <Select
+                            label="Imposable à l'IRSA"
+                            required
+                            value={indemniteFormData.imposableIrsa}
+                            onChange={(e) => setIndemniteFormData({ ...indemniteFormData, imposableIrsa: e.target.value === '' ? '' : e.target.value === 'true' })}
+                            hint="Un complément de salaire est en principe imposable ; vérifiez la nature réelle d'un remboursement de frais."
+                        >
+                            <option value="">-- À qualifier --</option>
+                            <option value="true">Oui — imposable</option>
+                            <option value="false">Non — hors assiette IRSA</option>
+                        </Select>
                         <Select
                             label="Soumise aux cotisations sociales"
                             required
                             value={indemniteFormData.soumisCotisation}
                             onChange={(e) => setIndemniteFormData({ ...indemniteFormData, soumisCotisation: e.target.value === '' ? '' : e.target.value === 'true' })}
-                            hint="Indépendant de l'IRSA : à qualifier selon la nature de l'indemnité."
+                            hint="Selon la nature du paiement : rémunération ou remboursement de frais. Ce choix pilote CNaPS, Santé et FMFP."
                         >
                             <option value="">-- À qualifier --</option>
                             <option value="true">Oui</option>
                             <option value="false">Non</option>
                         </Select>
-                        <Checkbox
-                            label="Fractionnable par demi-journée (ex: 50% matin / 50% après-midi)"
-                            checked={indemniteFormData.fractionnable}
-                            onChange={(e) => setIndemniteFormData({ ...indemniteFormData, fractionnable: e.target.checked })}
-                        />
+                        <div className="border-t border-[var(--color-border-subtle)] pt-3" aria-live="polite">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)]">Aperçu du traitement</p>
+                            <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-2 mt-2 text-xs">
+                                <dt className="text-[var(--color-fg-muted)]">Intervention</dt>
+                                <dd className="text-right font-medium text-[var(--color-fg)]">{indemniteFormData.imposableIrsa === '' ? 'À qualifier' : indemniteFormData.imposableIrsa ? 'Dans le brut' : 'Ajout au net après impôt'}</dd>
+                                <dt className="text-[var(--color-fg-muted)]">IRSA</dt>
+                                <dd className="text-right font-medium text-[var(--color-fg)]">{indemniteFormData.imposableIrsa === '' ? 'À qualifier' : indemniteFormData.imposableIrsa ? 'Assiette alimentée' : 'Hors assiette'}</dd>
+                                <dt className="text-[var(--color-fg-muted)]">CNaPS / Santé / FMFP</dt>
+                                <dd className="text-right font-medium text-[var(--color-fg)]">
+                                    {indemniteFormData.soumisCotisation === '' ? 'À qualifier' : indemniteFormData.soumisCotisation ? 'Assiettes alimentées' : 'Hors assiettes'}
+                                </dd>
+                            </dl>
+                        </div>
+                        {indemniteFormData.imposableIrsa === false && (
+                            <p className="text-xs text-[var(--color-warning-800)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-3">
+                                Vérifiez le fondement de l'exclusion IRSA et les frais réellement couverts. Le libellé « indemnité » ne suffit pas à justifier une exonération.
+                            </p>
+                        )}
+                        {indemniteFormData.imposableIrsa === false && indemniteFormData.soumisCotisation === true && (
+                            <p className="text-xs text-[var(--color-warning-800)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-3">
+                                Cette combinaison est ajoutée au net mais entre dans l'assiette sociale dans le moteur actuel. Faites vérifier ce traitement avant usage.
+                            </p>
+                        )}
                     </div>
                 </div>
             </FormModal>
@@ -602,32 +683,34 @@ export default function IndemnitesSitesTab() {
                 error={actionError}
             >
                 <div className="space-y-4">
-                    <Select
+                    <SearchSelect
                         label="Site d'Exploitation"
                         required
                         value={siteIndemniteFormData.idSite}
-                        onChange={(e) => setSiteIndemniteFormData({ ...siteIndemniteFormData, idSite: e.target.value })}
-                    >
-                        <option value="">-- Choisir un site --</option>
-                        {sites
+                        onChange={(val) => setSiteIndemniteFormData({ ...siteIndemniteFormData, idSite: val })}
+                        options={sites
                             .filter(s => (s.estActif !== false && s.actif !== false) || String(s.idSite) === String(siteIndemniteFormData.idSite))
-                            .map((s) => (
-                                <option key={s.idSite} value={s.idSite}>{s.libelle} ({s.codeSite})</option>
-                            ))}
-                    </Select>
-                    <Select
+                            .map((s) => ({
+                                value: String(s.idSite),
+                                label: s.libelle,
+                                sublabel: s.codeSite
+                            }))}
+                        placeholder="-- Choisir un site --"
+                    />
+                    <SearchSelect
                         label="Type d'Indemnité"
                         required
                         value={siteIndemniteFormData.idIndemnite}
-                        onChange={(e) => setSiteIndemniteFormData({ ...siteIndemniteFormData, idIndemnite: e.target.value })}
-                    >
-                        <option value="">-- Choisir une indemnité --</option>
-                        {indemnites
+                        onChange={(val) => setSiteIndemniteFormData({ ...siteIndemniteFormData, idIndemnite: val })}
+                        options={indemnites
                             .filter(i => (i.estActif !== false) || String(i.idIndemnite) === String(siteIndemniteFormData.idIndemnite))
-                            .map((i) => (
-                                <option key={i.idIndemnite} value={i.idIndemnite}>{i.libelle} ({i.code})</option>
-                            ))}
-                    </Select>
+                            .map((i) => ({
+                                value: String(i.idIndemnite),
+                                label: i.libelle,
+                                sublabel: i.code
+                            }))}
+                        placeholder="-- Choisir une indemnité --"
+                    />
                     <div className="grid grid-cols-2 gap-3">
                         <Select
                             label="Périodicité"

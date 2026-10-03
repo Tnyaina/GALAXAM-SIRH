@@ -17,12 +17,12 @@ import useDebounce from '@/hooks/useDebounce';
 
 const PointageRecapModal = lazy(() => import('@/features/attendance/components/modals/PointageRecapModal'));
 
-export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectPeriode = null }) {
+export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectPeriode = null, sitesDisponibles = null }) {
     const { toast } = useToast();
     const { hasPermission } = useAuth();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const [sites, setSites] = useState([]);
+    const [sites, setSites] = useState(() => sitesDisponibles || []);
     const canValidate = hasPermission('POINTAGE_VALIDATE');
     const canReadConge = hasPermission('CONGE_READ');
 
@@ -46,19 +46,31 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     }, [paramDate, activePeriode?.dateDebut, activePeriode?.dateFin, todayStr]);
 
     const parsedParamSite = paramSite ? Number(paramSite) : null;
-    const initialSite = (parsedParamSite && parsedParamSite > 0) ? parsedParamSite : 1;
+    const listedSite = sitesDisponibles?.find(s => Number(s.idSite) === parsedParamSite && s.estActif !== false && s.actif !== false);
+    const initialSite = listedSite?.idSite
+        || sitesDisponibles?.find(s => s.estActif !== false && s.actif !== false)?.idSite
+        || sitesDisponibles?.[0]?.idSite
+        || (parsedParamSite && parsedParamSite > 0 ? parsedParamSite : 1);
+    const validSites = useMemo(() => {
+        const active = sites.filter(s => s.estActif !== false && s.actif !== false);
+        return active.length > 0 ? active : sites;
+    }, [sites]);
 
     useEffect(() => {
+        if (sitesDisponibles) {
+            setSites(sitesDisponibles);
+            return;
+        }
         const fetchSites = async () => {
             try {
                 const res = await organisationService.getSites();
-                if (res) setSites(res);
+                setSites(res || []);
             } catch (err) {
                 console.error('Erreur chargement sites:', err);
             }
         };
         fetchSites();
-    }, []);
+    }, [sitesDisponibles]);
 
     const {
         selectedSite,
@@ -72,6 +84,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
         periodeInfo,
         statsJour: backendStatsJour,
         loading,
+        hasCurrentData,
         saving,
         error,
         isRowModified,
@@ -112,9 +125,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
 
     // Synchronisation automatique si le site initial n'est pas encore défini ou invalide
     useEffect(() => {
-        if (sites && sites.length > 0) {
-            const activeSites = sites.filter(s => s.estActif !== false && s.actif !== false);
-            const validSites = activeSites.length > 0 ? activeSites : sites;
+        if (validSites.length > 0) {
             const isCurrentValid = validSites.some(s => Number(s.idSite) === Number(selectedSite));
             if (!isCurrentValid) {
                 const defaultSite = validSites[0];
@@ -128,7 +139,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                 }
             }
         }
-    }, [sites, selectedSite, setSelectedSite, setSearchParams]);
+    }, [validSites, selectedSite, setSelectedSite, setSearchParams]);
 
     // Changement de site ou de date
     const handleSiteChange = (siteId) => {
@@ -461,9 +472,12 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                 )}
 
                 {/* 5. Table de Saisie DOMINANTE (scroll interne) */}
-                {loading ? (
+                {loading && hasCurrentData && (
+                    <p className="px-3 py-2 text-xs text-[var(--color-fg-muted)]" role="status">Actualisation de la grille…</p>
+                )}
+                {loading && !hasCurrentData ? (
                     <SkeletonTable rows={8} columns={10} />
-                ) : error ? (
+                ) : error && !hasCurrentData ? (
                     <Alert type="error" title="Impossible de charger les pointages" message={error} />
                 ) : (
                     <PointageGridTable
@@ -486,7 +500,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                         pageSize={pageSize}
                         onPageChange={setCurrentPage}
                         onPageSizeChange={(sz) => { setPageSize(sz); setCurrentPage(1); }}
-                        isReadOnly={isReadOnly}
+                        isReadOnly={isReadOnly || loading || Boolean(error)}
                     />
                 )}
             </div>

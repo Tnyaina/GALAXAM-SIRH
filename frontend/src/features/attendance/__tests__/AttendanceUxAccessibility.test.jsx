@@ -22,6 +22,7 @@ vi.mock('../api/attendanceApi', () => ({
     },
     periodePaieService: {
         getAllPeriodes: vi.fn(),
+        getPeriodOptions: vi.fn(),
         getContext: vi.fn()
     },
     pointageSyntheseService: {
@@ -66,6 +67,7 @@ describe('Attendance UX & Accessibilité (WCAG AA & Retours visuels)', () => {
         document.body.appendChild(container);
         root = createRoot(container);
 
+        periodePaieService.getPeriodOptions.mockImplementation(() => periodePaieService.getAllPeriodes());
         periodePaieService.getAllPeriodes.mockResolvedValue([
             { idPeriodePaie: 1, libelle: 'Septembre 2026', statut: 'EN_COURS' }
         ]);
@@ -101,7 +103,7 @@ describe('Attendance UX & Accessibilité (WCAG AA & Retours visuels)', () => {
         });
     };
 
-    it('ArbitrageDafPage fournit des cibles tactiles WCAG AA >= 44x44px et des aria-labels nominatifs sur les actions', async () => {
+    it('ArbitrageDafPage fournit des boutons d action compacts et des aria-labels nominatifs sur les actions', async () => {
         pointageSyntheseService.getSynthese.mockResolvedValue({
             synthese: [
                 {
@@ -141,13 +143,13 @@ describe('Attendance UX & Accessibilité (WCAG AA & Retours visuels)', () => {
         expect(detailBtn).not.toBeNull();
         expect(ajusterBtn).not.toBeNull();
 
-        // Vérifier les classes de cible tactile WCAG AA min-h-[44px] min-w-[44px]
-        expect(soldeBtn.className).toContain('min-h-[44px]');
-        expect(soldeBtn.className).toContain('min-w-[44px]');
-        expect(detailBtn.className).toContain('min-h-[44px]');
-        expect(detailBtn.className).toContain('min-w-[44px]');
-        expect(ajusterBtn.className).toContain('min-h-[44px]');
-        expect(ajusterBtn.className).toContain('min-w-[44px]');
+        // Vérifier les classes de boutons compacts w-7 h-7
+        expect(soldeBtn.className).toContain('w-7');
+        expect(soldeBtn.className).toContain('h-7');
+        expect(detailBtn.className).toContain('w-7');
+        expect(detailBtn.className).toContain('h-7');
+        expect(ajusterBtn.className).toContain('w-7');
+        expect(ajusterBtn.className).toContain('h-7');
     });
 
     it('SuiviAnomaliesPage propose un bouton d action conforme WCAG AA avec aria-label descriptif', async () => {

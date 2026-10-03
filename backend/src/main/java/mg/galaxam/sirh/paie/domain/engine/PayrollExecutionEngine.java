@@ -595,7 +595,7 @@ public class PayrollExecutionEngine {
             // 2.3 FMFP patronale sur sa propre assiette.
             BigDecimal fmfpPat = MoneyRoundingPolicy.contribution(social.fmfp());
             lignes.add(creerLigne(bp, "COTISATION_FMFP_PAT", "Cotisation FMFP Patronale (" + percent(input.getTauxFmfpPatronalDecimal()) + "%)", "PATRONAL", "COTISATION_PATRONALE",
-                    assietteFmfp.max(BigDecimal.ZERO), input.getTauxFmfpPatronalDecimal().movePointRight(2), null, fmfpPat, 330));
+                    assietteFmfp.max(BigDecimal.ZERO).min(plafondCotisation), input.getTauxFmfpPatronalDecimal().movePointRight(2), null, fmfpPat, 330));
             totalCotisPatronales = totalCotisPatronales.add(fmfpPat);
         }
 

@@ -1088,6 +1088,11 @@ public class PayrollService {
                             gv.setSoumisSante(PayrollConfigurationGuard.requireFlag(
                                     rs, "rubrique_soumis_sante", "RUBRIQUE_PAIE", idEmploye));
                             gv.setSoumisFmfp(rs.getBoolean("rubrique_soumis_fmfp"));
+                            if (gv.isSoumisFmfp() != soumisCotis) {
+                                throw new SirhBusinessException(SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
+                                        "La rubrique " + rs.getString("rubrique_code")
+                                                + " présente des assiettes CNaPS et FMFP incohérentes. Corrigez sa configuration avant le calcul.");
+                            }
                             gv.setExplicationCalcul(explanation);
                             if(amountCalculation!=null) { gv.setBaseCalcul(amountCalculation.base()); gv.setQuantite(amountCalculation.quantite()); gv.setTaux(amountCalculation.taux()); }
                             gv.setCodeRubrique(rs.getString("rubrique_code"));

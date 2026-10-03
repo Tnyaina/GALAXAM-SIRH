@@ -932,11 +932,16 @@ public class PointageEmployeService {
 
         // Déplacement : priorité à synDto si renseigné, sinon prorata basé sur totalTrajetsCount et forfait de référence
         BigDecimal mntDepl = synDto != null ? synDto.getMontantDeplacement() : BigDecimal.ZERO;
-        BigDecimal totalIndemnites = pointageMap.values().stream()
-                .flatMap(record -> record.indemnites.values().stream())
-                .filter(PointageJourDTO.IndemniteJourDTO::accordee)
-                .map(indemnite -> zeroIfNull(indemnite.montant()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // La synthèse est la source du total de période : elle inclut aussi les forfaits mensuels.
+        BigDecimal totalIndemnites = synDto != null && synDto.getMontantsIndemnites() != null
+                ? synDto.getMontantsIndemnites().values().stream()
+                        .map(PointageEmployeService::zeroIfNull)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                : pointageMap.values().stream()
+                        .flatMap(record -> record.indemnites.values().stream())
+                        .filter(PointageJourDTO.IndemniteJourDTO::accordee)
+                        .map(indemnite -> zeroIfNull(indemnite.montant()))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         Map<String, String> kpis = new LinkedHashMap<>();
         kpis.put("statutEmployePeriode", synDto != null ? "ACTIF" : "INACTIF");
@@ -1121,7 +1126,8 @@ public class PointageEmployeService {
                 .filter(PointageJourDTO.IndemniteJourDTO::accordee)
                 .forEach(indemnite -> totauxIndemnites.merge(indemnite.code(), zeroIfNull(indemnite.montant()), BigDecimal::add)));
         totauxIndemnites.replaceAll((k, v) -> v.setScale(0, RoundingMode.HALF_UP));
-        result.setTotauxIndemnites(totauxIndemnites);
+        result.setTotauxIndemnites(synDto != null && synDto.getMontantsIndemnites() != null
+                ? synDto.getMontantsIndemnites() : totauxIndemnites);
         if (synDto != null && resolvedIdPeriode != null
                 && startDate.toString().equals(result.getDateDebut())
                 && endDate.toString().equals(result.getDateFin())) {

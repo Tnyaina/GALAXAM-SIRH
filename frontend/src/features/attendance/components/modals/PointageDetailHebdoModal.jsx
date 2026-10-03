@@ -78,9 +78,11 @@ export default function PointageDetailHebdoModal({
     const pointages = ficheData?.pointagesData || ficheData?.pointages || [];
 
     const totalIndemnitesStr = kpis.totalIndemnitesMois || recap.totalIndemnites;
-    const allowanceCodes = [...new Set(pointages.flatMap((pointage) =>
-        Object.values(pointage.indemnites || {}).filter((allowance) => allowance.accordee)
-            .map((allowance) => allowance.code)))];
+    const allowanceTotals = Object.entries(ficheData?.totauxIndemnites || employe?.montantsIndemnites || {});
+    const fixedAllowances = ficheData?.indemnitesFixesMensuelles || employe?.indemnitesFixesMensuelles || {};
+    const dailyAllowances = Object.fromEntries(allowanceTotals.map(([code, amount]) =>
+        [code, Number(amount || 0) - Number(fixedAllowances[code] || 0)]));
+    const fixedEstimated = ficheData?.indemnitesFixesEstimees ?? !['VALIDEE', 'PAIE_VALIDEE', 'CLOTUREE'].includes(employe?.statutPeriode);
 
     // Rendu
     return (
@@ -229,11 +231,36 @@ export default function PointageDetailHebdoModal({
                                 <div className="text-base font-bold mt-1 attendance-duration">
                                     {totalIndemnitesStr || '—'}
                                 </div>
-                                <div className="attendance-duration-secondary mt-0.5 truncate">
-                                    {allowanceCodes.join(' · ') || 'Aucune indemnité accordée'}
+                                <div className="attendance-duration-secondary mt-0.5">
+                                    {allowanceTotals.length ? `${allowanceTotals.length} type${allowanceTotals.length > 1 ? 's' : ''} d’indemnité` : 'Aucune indemnité accordée'}
                                 </div>
                             </div>
                         </div>
+
+                        {allowanceTotals.length > 0 && (
+                            <section className="border border-[var(--color-border-subtle)] p-3 space-y-2" aria-label="Détail des indemnités">
+                                <div className="flex items-center justify-between gap-2">
+                                    <h3 className="text-xs font-bold text-[var(--color-fg)]">Détail des indemnités</h3>
+                                    <span className="text-xs font-semibold">{totalIndemnitesStr}</span>
+                                </div>
+                                <div className="divide-y divide-[var(--color-border-subtle)]">
+                                    {allowanceTotals.map(([code, amount]) => (
+                                        <div key={code} className="flex items-start justify-between gap-3 py-1.5 text-xs">
+                                            <div>
+                                                <div className="font-medium">{ficheData?.indemnitesDisponibles?.[code]?.libelle || code}</div>
+                                                {ficheData?.indemnitesDisponibles?.[code]?.libelle && <div className="font-mono text-[var(--color-fg-muted)]">{code}</div>}
+                                                {Number(dailyAllowances[code]) > 0 && <div className="text-[var(--color-fg-muted)]">Selon les jours pointés : {formatMonnaie(dailyAllowances[code])}</div>}
+                                                {Number(fixedAllowances[code]) > 0 && <div className="text-[var(--color-fg-muted)]">Mensuel fixe {fixedEstimated ? 'estimé' : 'validé'} : {formatMonnaie(fixedAllowances[code])}</div>}
+                                            </div>
+                                            <span className="font-semibold whitespace-nowrap">{formatMonnaie(amount)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                {Object.keys(fixedAllowances).length > 0 && (
+                                    <p className="text-[11px] text-[var(--color-fg-muted)]">La part mensuelle fixe est calculée selon le tarif du site d’affectation de chaque jour de la période. Le journal quotidien détaille les indemnités liées au pointage.</p>
+                                )}
+                            </section>
+                        )}
 
                         {/* 2. BANNIÈRE EXPLICATIVE DU MÉCANISME DE COMPENSATION */}
                         <div className="attendance-info p-3 text-xs">

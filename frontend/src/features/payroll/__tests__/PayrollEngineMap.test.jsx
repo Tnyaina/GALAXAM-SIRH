@@ -53,4 +53,21 @@ it('place les données du serveur dans leur phase et relie type et rubrique selo
     expect(host.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Prime exceptionnelle');
 });
 
-
+it('ouvre la création d’un type prélié depuis une rubrique sans type', async () => {
+    paieService.getParcoursConfiguration.mockResolvedValue({
+        phases: [{ code: 'BRUT', libelle: 'Brut et gains', description: 'Gains bruts' }],
+        rubriques: [{ ...rule, id: 42, code: 'PRIME_PROJET_TEST', libelle: 'Prime projet', categorie: 'PRIME', sens: 'GAIN' }],
+        types: [],
+    });
+    await act(async () => root.render(<MemoryRouter initialEntries={['/paie/configuration']}><PayrollEngineMap /></MemoryRouter>));
+    expect(host.textContent).toContain('Type à créer');
+    const openRubrique = host.querySelector('button[aria-label="Ouvrir le détail de Prime projet"]');
+    await act(async () => openRubrique.click());
+    const createLinked = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Créer un type lié'));
+    expect(createLinked).toBeTruthy();
+    await act(async () => createLinked.click());
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog.textContent).toContain('Créer un type de variable');
+    expect(dialog.textContent).toContain('Prime projet');
+    expect(dialog.querySelector('input[placeholder="Ex. PRIME_PERFORMANCE"]').disabled).toBe(false);
+});

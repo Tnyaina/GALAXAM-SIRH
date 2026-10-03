@@ -21,11 +21,13 @@ export default function Select({
         return true;
     });
 
+    const displayLabel = typeof label === 'string' && props.required ? label.trim().replace(/\s*\*+$/, '') : label;
+
     return (
         <div className={`flex flex-col ${label ? 'gap-1' : ''} ${containerClassName || 'w-full'}`}>
             {label && (
                 <label htmlFor={fieldId} className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)]">
-                    {label}
+                    {displayLabel}
                     {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
                 </label>
             )}

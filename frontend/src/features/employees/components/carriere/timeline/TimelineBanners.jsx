@@ -51,14 +51,13 @@ export default function TimelineBanners({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto shrink-0">
-                        {!brouillonEstRupture && contratBrouillon && onOpenContrat && <Button variant="primary" size="sm" className="min-h-[44px] inline-flex items-center justify-center" onClick={() => onOpenContrat(contratBrouillon)}>Préparer le contrat</Button>}
+                        {!brouillonEstRupture && contratBrouillon && onOpenContrat && <Button variant="primary" size="sm" onClick={() => onOpenContrat(contratBrouillon)}>Préparer le contrat</Button>}
                         {canWrite && (
                             <>
                                 <Button
                                     onClick={() => onSelectWorkflowRecap(brouillonWf, { startInCancelMode: true })}
                                     variant="danger"
                                     size="sm"
-                                    className="min-h-[44px] inline-flex items-center justify-center"
                                     iconLeft={<XCircle size={15} />}
                                 >
                                     Annuler
@@ -67,7 +66,6 @@ export default function TimelineBanners({
                                     onClick={() => onOpenEditModal(brouillonWf)}
                                     variant="outline"
                                     size="sm"
-                                    className="min-h-[44px] inline-flex items-center justify-center"
                                 >
                                     Corriger
                                 </Button>
@@ -77,7 +75,6 @@ export default function TimelineBanners({
                             onClick={() => onSelectWorkflowRecap(brouillonWf)}
                             variant={!brouillonEstRupture && contratBrouillon ? "outline" : "primary"}
                             size="sm"
-                            className="min-h-[44px] inline-flex items-center justify-center"
                             iconLeft={<Eye size={16} />}
                         >
                             Relecture et validation
@@ -123,7 +120,6 @@ export default function TimelineBanners({
                                 onClick={() => onSelectWorkflowRecap(workflowPlanifieFutur, { startInCancelMode: true })}
                                 variant="danger"
                                 size="sm"
-                                className="min-h-[44px] inline-flex items-center justify-center"
                                 iconLeft={<XCircle size={15} />}
                             >
                                 Annuler la planification
@@ -133,7 +129,6 @@ export default function TimelineBanners({
                             onClick={() => onSelectWorkflowRecap(workflowPlanifieFutur)}
                             variant="outline"
                             size="sm"
-                            className="min-h-[44px] inline-flex items-center justify-center"
                             iconLeft={<Eye size={16} />}
                         >
                             Consulter l'événement

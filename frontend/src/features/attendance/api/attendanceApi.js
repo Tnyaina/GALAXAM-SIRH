@@ -1,4 +1,4 @@
-import apiClient from '@/api/apiClient';
+import apiClient, { getAccessToken } from '@/api/apiClient';
 
 async function exportDocument(idEmploye, format, params) {
     const response = await apiClient.get(`/pointages/employes/${idEmploye}/export/${format}`, { params, responseType: 'blob' });
@@ -8,6 +8,49 @@ async function exportDocument(idEmploye, format, params) {
 }
 
 const cleanSite = (site) => (Number(site) > 0 ? Number(site) : undefined);
+
+// Une fiche est coûteuse à calculer. Les vues de la même période partagent
+// brièvement sa lecture ; toute écriture de pointage vide ce cache.
+const employeeSheetRequests = new Map();
+const employeeSheetCache = new Map();
+const SHEET_TTL_MS = 15_000;
+let sheetRevision = 0;
+let cacheToken = getAccessToken();
+
+function invalidateEmployeeSheets() {
+    sheetRevision += 1;
+    employeeSheetRequests.clear();
+    employeeSheetCache.clear();
+}
+
+function getEmployeeSheet(idEmploye, params = {}) {
+    const token = getAccessToken();
+    if (token !== cacheToken) {
+        invalidateEmployeeSheets();
+        cacheToken = token;
+    }
+    const periodId = Number(params.idPeriode);
+    const key = periodId > 0
+        ? `${idEmploye}:periode:${periodId}`
+        : `${idEmploye}:${params.period || 'mois'}:${params.date || ''}`;
+    const cached = employeeSheetCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.data);
+    if (!employeeSheetRequests.has(key)) {
+        const revision = sheetRevision;
+        const request = apiClient.get(`/pointages/employes/${idEmploye}`, { params })
+            .then((response) => {
+                if (revision === sheetRevision) {
+                    employeeSheetCache.set(key, { data: response.data, expiresAt: Date.now() + SHEET_TTL_MS });
+                }
+                return response.data;
+            })
+            .finally(() => {
+                if (employeeSheetRequests.get(key) === request) employeeSheetRequests.delete(key);
+            });
+        employeeSheetRequests.set(key, request);
+    }
+    return employeeSheetRequests.get(key);
+}
 
 /** Tous les appels Pointage et son contrat de période, regroupés par intention. */
 const attendanceApi = {
@@ -20,7 +63,11 @@ const attendanceApi = {
             return (await apiClient.get('/pointages/saisie', { params: { idSite: parsedSite, date } })).data;
         },
         preview: async (pointage) => (await apiClient.post('/pointages/saisie/preview', pointage)).data,
-        saveBatch: async (pointages) => (await apiClient.post('/pointages/saisie/batch', pointages)).data
+        saveBatch: async (pointages) => {
+            const data = (await apiClient.post('/pointages/saisie/batch', pointages)).data;
+            invalidateEmployeeSheets();
+            return data;
+        }
     },
     anomalies: {
         list: async (params = {}, options = {}) => {
@@ -39,10 +86,14 @@ const attendanceApi = {
             }
             return (await apiClient.get('/pointages/anomalies', { params: cleanParams, signal: options?.signal })).data;
         },
-        regularize: async (idPointage, payload) => (await apiClient.put(`/pointages/anomalies/${idPointage}/regulariser`, payload)).data
+        regularize: async (idPointage, payload) => {
+            const data = (await apiClient.put(`/pointages/anomalies/${idPointage}/regulariser`, payload)).data;
+            invalidateEmployeeSheets();
+            return data;
+        }
     },
     employees: {
-        getSheet: async (idEmploye, params = {}) => (await apiClient.get(`/pointages/employes/${idEmploye}`, { params })).data,
+        getSheet: getEmployeeSheet,
         exportExcel: (idEmploye, params = {}) => exportDocument(idEmploye, 'excel', params),
         exportPdf: (idEmploye, params = {}) => exportDocument(idEmploye, 'pdf', params)
     },
@@ -58,15 +109,27 @@ const attendanceApi = {
             return data;
         },
         getAdjustments: async ({ idPeriodePaie, idEmploye }) => (await apiClient.get('/pointages/synthese/ajustements', { params: { idPeriodePaie, idEmploye } })).data,
-        createAdjustment: async ({ idPeriodePaie, idEmploye, minutesSignees, motif }) => (await apiClient.post('/pointages/synthese/ajustements', { minutesSignees, motif }, { params: { idPeriodePaie, idEmploye } })).data,
-        cancelAdjustment: async ({ idPeriodePaie, idEmploye, idAjustement, motif }) => (await apiClient.post(`/pointages/synthese/ajustements/${idAjustement}/annuler`, { motif }, { params: { idPeriodePaie, idEmploye } })).data,
-        recalculateWeeks: async ({ idPeriodePaie, idSite }) => (await apiClient.post('/pointages/synthese/calculer-tout', {
-            idPeriodePaie: Number(idPeriodePaie),
-            idSite: cleanSite(idSite)
-        })).data
+        createAdjustment: async ({ idPeriodePaie, idEmploye, minutesSignees, motif }) => {
+            const data = (await apiClient.post('/pointages/synthese/ajustements', { minutesSignees, motif }, { params: { idPeriodePaie, idEmploye } })).data;
+            invalidateEmployeeSheets();
+            return data;
+        },
+        cancelAdjustment: async ({ idPeriodePaie, idEmploye, idAjustement, motif }) => {
+            const data = (await apiClient.post(`/pointages/synthese/ajustements/${idAjustement}/annuler`, { motif }, { params: { idPeriodePaie, idEmploye } })).data;
+            invalidateEmployeeSheets();
+            return data;
+        },
+        recalculateWeeks: async ({ idPeriodePaie, idSite }) => {
+            const data = (await apiClient.post('/pointages/synthese/calculer-tout', {
+                idPeriodePaie: Number(idPeriodePaie), idSite: cleanSite(idSite)
+            })).data;
+            invalidateEmployeeSheets();
+            return data;
+        }
     },
     period: {
         list: async () => (await apiClient.get('/periodes')).data,
+        options: async () => (await apiClient.get('/periodes', { params: { lightweight: true } })).data,
         getContext: async (periodId = null, date = null) => {
             const params = {};
             if (periodId) params.periodId = periodId;
@@ -74,7 +137,11 @@ const attendanceApi = {
             return (await apiClient.get('/periodes/context', { params })).data;
         },
         create: async (periodData) => (await apiClient.post('/periodes', periodData)).data,
-        execute: async (id, command, payload) => (await apiClient.post(`/periodes/${id}/actions/${command}`, payload)).data,
+        execute: async (id, command, payload) => {
+            const data = (await apiClient.post(`/periodes/${id}/actions/${command}`, payload)).data;
+            invalidateEmployeeSheets();
+            return data;
+        },
         simulate: async (dateDebut, dateFin) => (await apiClient.get('/periodes/simuler', { params: { dateDebut, dateFin } })).data
     }
 };
@@ -104,6 +171,7 @@ export const pointageSyntheseService = {
 };
 export const periodePaieService = {
     getAllPeriodes: attendanceApi.period.list,
+    getPeriodOptions: attendanceApi.period.options,
     getContext: attendanceApi.period.getContext,
     createPeriode: attendanceApi.period.create,
     executeCommand: attendanceApi.period.execute,
