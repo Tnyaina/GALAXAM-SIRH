@@ -736,6 +736,7 @@ public class PointageSyntheseService {
         }
         dto.setMontantDeplacement(mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy.amount(montantDeplacementFinal));
         dto.setMontantsIndemnites(loadAllowanceAmounts(idEmp, idPeriode, dateDebut, dateFin, statutPeriode, c));
+        dto.setIndemnitesFixesMensuelles(loadFixedMonthlyAmounts(idEmp, idPeriode, dateDebut, dateFin, statutPeriode, c));
         dto.setNbAnomaliesNonResolues(nbAnomalies);
         dto.setHeuresNormales(seuilHeuresJour.multiply(BigDecimal.valueOf(nbJoursOuvrablesPeriode)).doubleValue());
 
@@ -789,8 +790,10 @@ public class PointageSyntheseService {
         }
         String sql = frozen
                 ? "SELECT si.code, SUM(si.montant) AS montant FROM pointage_snapshot_indemnite si "
-                    + "JOIN pointage_cumul_periode cp ON cp.id_cumul = si.id_cumul "
-                    + "WHERE cp.id_employe = ? AND cp.id_periode_paie = ? AND cp.statut_snapshot = 'GELE' "
+                    + "WHERE si.id_cumul = (SELECT cp.id_cumul FROM pointage_cumul_periode cp "
+                    + "WHERE cp.id_employe = ? AND cp.id_periode_paie = ? "
+                    + "AND cp.statut_snapshot IN ('GELE','CONSOMME') "
+                    + "ORDER BY cp.version_snapshot DESC, cp.id_cumul DESC LIMIT 1) "
                     + "GROUP BY si.code ORDER BY si.code"
                 : "SELECT i.code, SUM(pij.montant_calcule) AS montant FROM pointage_jour p "
                     + "JOIN pointage_indemnite_jour pij ON pij.id_pointage = p.id_pointage "
@@ -809,6 +812,75 @@ public class PointageSyntheseService {
                 while (rs.next()) {
                     amounts.put(rs.getString("code"), rs.getBigDecimal("montant"));
                 }
+            }
+        }
+        if (!frozen && isFullPeriod(periodId, from, to, c)) {
+            estimateFixedMonthlyAmounts(employeeId, periodId, c)
+                    .forEach((code, amount) -> amounts.merge(code, amount, BigDecimal::add));
+        }
+        return amounts;
+    }
+
+    private boolean isFullPeriod(Integer periodId, LocalDate from, LocalDate to, Connection c) throws SQLException {
+        if (periodId == null) return false;
+        try (PreparedStatement ps = c.prepareStatement("SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?")) {
+            ps.setInt(1, periodId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && from.equals(rs.getDate(1).toLocalDate()) && to.equals(rs.getDate(2).toLocalDate());
+            }
+        }
+    }
+
+    Map<String, BigDecimal> loadFixedMonthlyAmounts(int employeeId, Integer periodId,
+            LocalDate from, LocalDate to, String periodStatus, Connection c) throws SQLException {
+        if (!isFullPeriod(periodId, from, to, c)) return Map.of();
+        if (!Set.of("VALIDEE", "PAIE_VALIDEE", "CLOTUREE").contains(periodStatus == null ? "" : periodStatus)) {
+            return estimateFixedMonthlyAmounts(employeeId, periodId, c);
+        }
+        Map<String, BigDecimal> frozen = loadAllowanceAmounts(employeeId, periodId, from, to, periodStatus, c);
+        Map<String, BigDecimal> daily = new LinkedHashMap<>();
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT i.code, SUM(pij.montant_calcule) FROM pointage_jour p "
+                + "JOIN pointage_indemnite_jour pij ON pij.id_pointage = p.id_pointage "
+                + "JOIN ref_indemnite i ON i.id_indemnite = pij.id_indemnite "
+                + "WHERE p.id_employe = ? AND p.id_periode_paie = ? AND pij.accorde = TRUE GROUP BY i.code")) {
+            ps.setInt(1, employeeId);
+            ps.setInt(2, periodId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) daily.put(rs.getString(1), rs.getBigDecimal(2));
+            }
+        }
+        Map<String, BigDecimal> fixed = new LinkedHashMap<>();
+        frozen.keySet().forEach(code -> {
+            BigDecimal amount = frozen.getOrDefault(code, BigDecimal.ZERO)
+                    .subtract(daily.getOrDefault(code, BigDecimal.ZERO)).max(BigDecimal.ZERO);
+            if (amount.signum() > 0) fixed.put(code, amount);
+        });
+        return fixed;
+    }
+
+    Map<String, BigDecimal> estimateFixedMonthlyAmounts(int employeeId, int periodId, Connection c) throws SQLException {
+        Map<String, BigDecimal> amounts = new LinkedHashMap<>();
+        String sql = "SELECT i.code, SUM(config.montant_reference / (periode.date_fin - periode.date_debut + 1)) "
+                + "FROM periode_paie periode "
+                + "CROSS JOIN LATERAL generate_series(periode.date_debut, periode.date_fin, interval '1 day') AS jour(date_jour) "
+                + "JOIN LATERAL (SELECT a.id_site FROM employe_affectation_carriere a "
+                + "WHERE a.id_employe = ? AND a.date_debut <= jour.date_jour::date "
+                + "AND (a.date_fin IS NULL OR a.date_fin >= jour.date_jour::date) "
+                + "ORDER BY a.date_debut DESC, a.id_affectation DESC LIMIT 1) affectation ON TRUE "
+                + "JOIN ref_indemnite i ON i.est_actif = TRUE "
+                + "JOIN LATERAL (SELECT sic.montant_reference, sic.periodicite, sic.est_actif FROM site_indemnite_config sic "
+                + "WHERE sic.id_site = affectation.id_site AND sic.id_indemnite = i.id_indemnite "
+                + "AND sic.date_debut <= jour.date_jour::date "
+                + "AND (sic.date_fin IS NULL OR sic.date_fin >= jour.date_jour::date) "
+                + "ORDER BY sic.date_debut DESC, sic.id_site_indemnite DESC LIMIT 1) config ON TRUE "
+                + "WHERE periode.id_periode_paie = ? AND config.montant_reference > 0 "
+                + "AND config.periodicite = 'FIXE_MENSUEL' AND config.est_actif = TRUE GROUP BY i.code";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, employeeId);
+            ps.setInt(2, periodId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) amounts.put(rs.getString(1), rs.getBigDecimal(2).setScale(2, RoundingMode.HALF_UP));
             }
         }
         return amounts;

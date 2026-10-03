@@ -321,7 +321,6 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
     const isInit = mode === 'init';
     const isView = mode === 'view';
     const isReadOnly = isView;
-
     const TITLES = {
         revaloriser: { title: 'Nouvelle Loi de Finances — Date d\'Application', icon: <TrendingUp size={18} />, submit: 'Appliquer la nouvelle LF' },
         init: { title: 'Initialiser le premier exercice fiscal', icon: <Sparkles size={18} />, submit: 'Créer l\'exercice' },
@@ -330,26 +329,12 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
     };
     const meta = TITLES[mode] || TITLES.init;
 
-    return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title={meta.title}
-            size="4xl"
-            footer={
-                <>
-                    <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={loading}>
-                        {isView ? 'Fermer' : 'Annuler'}
-                    </Button>
-                    {!isView && (
-                        <Button type="submit" form="exercice-form" variant="primary" size="sm" loading={loading}>
-                            {meta.submit}
-                        </Button>
-                    )}
-                </>
-            }
-        >
-            <form id="exercice-form" onSubmit={onSave} className="space-y-4">
+    const footer = <>
+        <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={loading}>{isView ? 'Fermer' : 'Annuler'}</Button>
+        {!isView && <Button type="submit" form="exercice-form" variant="primary" size="sm" loading={loading}>{meta.submit}</Button>}
+    </>;
+    const form = (
+            <form id="exercice-form" onSubmit={onSave} className="space-y-5 scroll-mt-24">
                 {error && <Alert type="error" message={error} />}
 
                 {/* Message contextuel selon le mode */}
@@ -391,7 +376,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                 )}
 
                 {/* SECTION 1 : Identification (Pleine largeur) */}
-                <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-4 space-y-3">
+                <div id="exercice-identification" className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] p-4 space-y-3 scroll-mt-24">
                     <SectionTitle icon={FileText} label="1. Identification du millésime légal" color="var(--color-brand-500)" />
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                         <div>
@@ -448,11 +433,11 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                     </div>
                 </div>
 
-                {/* GRILLE 2 COLONNES POUR LES CATÉGORIES DE RÈGLES */}
+                {/* Sections de saisie dans l'ordre du sommaire */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
                     {/* COLONNE GAUCHE : Social & Retraite */}
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3.5 flex flex-col justify-between">
+                    <div id="exercice-salaires" className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3.5 scroll-mt-24">
                         <div>
                             <SectionTitle
                                 icon={Banknote}
@@ -489,8 +474,8 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                         hint="Facteur légal pour le plafond CNaPS / Santé (défaut : 8 × SME)"
                                     />
                                 </div>
-                                <div className="sm:col-span-2 border-t border-[var(--color-border-subtle)] pt-3">
-                                    <p className="text-xs font-semibold text-[var(--color-fg)] mb-2">Plafonds légaux de retenue sur salaire</p>
+                                <div id="exercice-retenues" className="sm:col-span-2 border-t border-[var(--color-border-subtle)] pt-3 scroll-mt-24">
+                                    <p className="text-sm font-semibold text-[var(--color-fg)] mb-2">Retenues sur salaire</p>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <Input label="Avances employeur (%)" type="number" min="0" max="100" step="0.000001" required={!isReadOnly} disabled={isReadOnly} value={formData.plafondAvanceEmployeurPct} onChange={e => upd('plafondAvanceEmployeurPct', e.target.value)} hint="Plafond applicable aux avances employeur." />
                                         <Input label="Quotité cessible (%)" type="number" min="0" max="100" step="0.000001" required={!isReadOnly} disabled={isReadOnly} value={formData.quotiteCessiblePct} onChange={e => upd('quotiteCessiblePct', e.target.value)} hint="Plafond applicable aux prêts et saisies." />
@@ -512,7 +497,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                     </div>
 
                     {/* COLONNE DROITE : Fiscalité IRSA */}
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3.5 flex flex-col justify-between">
+                    <div id="exercice-irsa" className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3.5 scroll-mt-24">
                         <div>
                             <SectionTitle
                                 icon={Percent}
@@ -553,13 +538,13 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                         <div className="p-3 bg-[var(--color-warning-500)]/8 border border-[var(--color-warning-500)]/25 text-xs text-[var(--color-fg-muted)] space-y-1">
                             <span className="font-semibold text-[var(--color-fg)]">Grille des tranches IRSA :</span>
                             <p className="text-[11px]">
-                                Les tranches d'imposition progressives sont configurables dans la section 6 ci-dessous pour cet exercice fiscal.
+                                Modifiez les taux et les seuils dans la section « Barème IRSA ».
                             </p>
                         </div>
                     </div>
 
                     {/* COLONNE GAUCHE : Temps de Travail */}
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3">
+                    <div id="exercice-travail" className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3 scroll-mt-24">
                         <SectionTitle
                             icon={Timer}
                             label="4. Temps de Travail & Heures Supplémentaires"
@@ -574,10 +559,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 required={!isReadOnly}
                                 disabled={isReadOnly}
                                 value={formData.dureeHebdoLegale}
-                                onChange={e => {
-                                    upd('dureeHebdoLegale', e.target.value);
-                                    if (e.target.value) upd('diviseurMensuelHeures', ((parseFloat(e.target.value) * 52) / 12).toFixed(4));
-                                }}
+                                onChange={e => setFormData(f => ({ ...f, dureeHebdoLegale: e.target.value, diviseurMensuelHeures: e.target.value ? ((parseFloat(e.target.value) * 52) / 12).toFixed(4) : f.diviseurMensuelHeures }))}
                                 hint="Référence nationale (40h)"
                             />
                             <Input
@@ -650,7 +632,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                     </div>
 
                     {/* COLONNE DROITE : Congés Payés */}
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3">
+                    <div id="exercice-conges" className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 space-y-3 scroll-mt-24">
                         <SectionTitle
                             icon={Palmtree}
                             label="5. Droits & Valorisation des Congés Payés"
@@ -666,7 +648,7 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 disabled={isReadOnly}
                                 value={formData.acquisitionCongeMensuelJours}
                                 onChange={e => upd('acquisitionCongeMensuelJours', e.target.value)}
-                                hint="2.5 j/mois (= 30 jours ouvrables/an)"
+                                hint="Nombre de jours acquis par mois dans cet exercice"
                             />
                             <Input
                                 label="Diviseur valorisation (jours)"
@@ -675,32 +657,30 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 disabled={isReadOnly}
                                 value={formData.diviseurValorisationCongeJours}
                                 onChange={e => upd('diviseurValorisationCongeJours', e.target.value)}
-                                hint="Valorisation: Brut ÷ 30 (calendaire)"
+                                hint="Diviseur appliqué au salaire brut pour valoriser un jour"
                             />
                         </div>
-                        <p className="text-[11px] text-[var(--color-fg-muted)] pt-1">
-                            À Madagascar, le décompte calendaire de 30 jours par an s'applique avec une valorisation calculée sur la base du salaire brut divisé par 30.
-                        </p>
                     </div>
 
                     {/* SECTION 6 : Taux de Majoration des Heures Spéciales (Pleine largeur) */}
-                    <MajorationsFormSection
+                    <div id="exercice-majorations" className="lg:col-span-2 scroll-mt-24"><MajorationsFormSection
                         majorations={formData.majorations}
                         onChange={m => setFormData(prev => ({ ...prev, majorations: m }))}
                         isReadOnly={isReadOnly}
-                    />
+                    /></div>
 
                     {/* SECTION 7 : Barème Progressif IRSA (Pleine largeur) */}
-                    <TranchesIrsaFormSection
+                    <div id="exercice-bareme" className="lg:col-span-2 scroll-mt-24"><TranchesIrsaFormSection
                         tranches={formData.tranchesIrsa || []}
                         onChange={v => upd('tranchesIrsa', v)}
                         isReadOnly={isReadOnly}
-                    />
+                    /></div>
 
                 </div>
             </form>
-        </Modal>
     );
+
+    return <Modal isOpen={isOpen} onClose={onClose} title={meta.title} size="full" className="!max-w-[96rem] max-h-[96vh]" footer={footer}>{form}</Modal>;
 }
 
 function getTranchesForConfig(config, baremesList) {
@@ -754,6 +734,7 @@ export default function ReglementationFiscaleTab() {
     const [editingId, setEditingId] = useState(null);
     const [formData, setFormData] = useState({ ...EMPTY_FORM });
     const [showArchived, setShowArchived] = useState(false);
+    const [activeSection, setActiveSection] = useState('salaires');
     // Confirmation annulation exercice programmé
     const [confirmAnnulation, setConfirmAnnulation] = useState(null); // { id, codeVersion } | null
     const [annulationLoading, setAnnulationLoading] = useState(false);
@@ -1008,6 +989,7 @@ export default function ReglementationFiscaleTab() {
         } catch (err) {
             const errMsg = err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response?.data : null) || "Erreur lors de la sauvegarde. Vérifiez les données saisies.";
             setModalError(errMsg);
+            document.getElementById('exercice-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } finally {
             setSubmitting(false);
         }
@@ -1020,67 +1002,39 @@ export default function ReglementationFiscaleTab() {
         <div className="space-y-5">
             {error && <Alert type="error" message={error} />}
 
-            {/* ---- Bannière Sources Légales — 100% dynamique depuis activeConfig ---- */}
-            <div className="bg-[var(--color-brand-500)]/8 border border-[var(--color-brand-500)]/20 p-4 flex items-start gap-3">
-                <Scale size={18} className="text-[var(--color-brand-500)] shrink-0 mt-0.5" />
-                <div className="space-y-1 text-xs text-[var(--color-fg-muted)]">
-                    <p className="font-bold text-[var(--color-fg)]">
-                        Sources légales — Madagascar
-                        {activeConfig && <span className="ml-2 font-normal text-[var(--color-fg-muted)]">(exercice actif : {activeConfig.codeVersion})</span>}
-                    </p>
-                    {activeConfig ? (
-                        <>
-                            <p>• <strong>IRSA</strong> (Code Général des Impôts — LF annuelle) :
-                                SME national&nbsp;<strong>{fmtAr(activeConfig.smeNational)}</strong>,
-                                seuil exonération&nbsp;<strong>{fmtAr(activeConfig.seuilExonerationIrsa)}</strong>,
-                                min. perception&nbsp;<strong>{fmtAr(activeConfig.minimumPerceptionIrsa)}</strong>,
-                                déduction charge famille&nbsp;<strong>{fmtAr(activeConfig.deductionChargeFamille)}</strong>
-                            </p>
-                            <p>• <strong>CNaPS / OSTIE / FMFP</strong> (Décrets sociaux) :
-                                Plafond = <strong>{fmtNb(activeConfig.plafondCotisationNbSme, 0)} × SME</strong> = <strong>{fmtAr(activeConfig.plafondCotisationMensuel)}</strong>
-                            </p>
-                            <p>• <strong>Temps de travail</strong> (Code du Travail Art. 83, Loi n°2003-044) :
-                                <strong> {fmtNb(activeConfig.dureeHebdoLegale, 0)}h</strong>/sem,
-                                HS max&nbsp;<strong>{fmtNb(activeConfig.plafondHsHebdo, 0)}h</strong>/sem,
-                                diviseur&nbsp;<strong>{fmtNb(activeConfig.diviseurMensuelHeures, 4)}h</strong>/mois
-                            </p>
-                            <p>• <strong>Congés payés</strong> :
-                                <strong> {fmtNb(activeConfig.acquisitionCongeMensuelJours, 2)} j</strong>/mois,
-                                décompte calendaire ÷&nbsp;<strong>{activeConfig.diviseurValorisationCongeJours}</strong>
-                            </p>
-                            <p>• <strong>Retenues sur salaire</strong> : avance employeur&nbsp;<strong>{fmtNb(activeConfig.plafondAvanceEmployeurPct, 4)}%</strong>, quotité cessible&nbsp;<strong>{fmtNb(activeConfig.quotiteCessiblePct, 4)}%</strong>.</p>
-                        </>
-                    ) : (
-                        <p className=" text-[var(--color-warning-600)]">Aucun exercice fiscal actif — initialisez le premier exercice ci-dessous.</p>
-                    )}
-                </div>
-            </div>
-
             {/* ---- Tableau de bord de l'exercice en vigueur ---- */}
             {activeConfig && (
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-sm">
-                    <div className="px-5 py-3.5 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
+                <div id="exercice-actif" className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-sm scroll-mt-20">
+                    <div className="px-5 py-4 border-b border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                             <CheckCircle2 size={18} className="text-[var(--color-success-500)]" />
                             <div>
-                                <h4 className="font-bold text-[var(--color-fg)] text-sm">{activeConfig.codeVersion} — {activeConfig.libelle}</h4>
+                                <h4 className="font-bold text-[var(--color-fg)] text-base">{activeConfig.codeVersion} <StatutBadge statut="EN_VIGUEUR" /></h4>
                                 <PeriodeBadge config={activeConfig} />
+                                <p className="text-sm text-[var(--color-fg-muted)] mt-1">{activeConfig.libelle}</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <StatutBadge statut="EN_VIGUEUR" />
-                            <button
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <Button variant="secondary" size="sm" onClick={handleOpenRevaloriser} iconLeft={<TrendingUp size={14} />}>Nouvelle loi de finances</Button>
+                            <Button variant="secondary" size="sm"
                                 onClick={() => handleOpenEdit(activeConfig)}
-                                className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] transition-colors"
-                                title="Correction immédiate (sans créer d'historique)"
+                                iconLeft={<Edit2 size={14} />}
                             >
-                                <Edit2 size={14} />
-                            </button>
+                                Corriger
+                            </Button>
                         </div>
                     </div>
 
-                    <div className="p-5 space-y-4">
-                        <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-5 border-b border-[var(--color-border-subtle)]">
+                        <KpiField label="SME national" value={fmtAr(activeConfig.smeNational)} />
+                        <KpiField label="Plafond social" value={fmtAr(activeConfig.plafondCotisationMensuel)} />
+                        <KpiField label="Minimum IRSA" value={fmtAr(activeConfig.minimumPerceptionIrsa)} />
+                    </div>
+                    <div className="flex gap-1 overflow-x-auto px-5 pt-4" aria-label="Rubriques de l’exercice">
+                        {[['salaires', 'Salaires'], ['irsa', 'IRSA'], ['travail', 'Travail'], ['conges', 'Congés'], ['retenues', 'Retenues']].map(([key, label]) => <button key={key} type="button" aria-pressed={activeSection === key} onClick={() => setActiveSection(key)} className={`px-4 py-2 text-sm font-medium shrink-0 border-b-2 ${activeSection === key ? 'border-[var(--color-brand-500)] text-[var(--color-brand-700)]' : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}>{label}</button>)}
+                    </div>
+                    <div className="p-5 min-h-40 space-y-4">
+                        {activeSection === 'salaires' && <div>
                             <SectionTitle icon={Banknote} label="Salaire Minimum & Plafonds Sociaux" color="var(--color-success-600)" />
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 <KpiField label="SME National" value={fmtAr(activeConfig.smeNational)} sub="Secteur non agricole" />
@@ -1088,9 +1042,9 @@ export default function ReglementationFiscaleTab() {
                                 <KpiField label="Multiplicateur Plafond Social" value={`× ${fmtNb(activeConfig.plafondCotisationNbSme, 0)} SME`} sub="Plafond CNaPS et santé si applicable" />
                                 <KpiField label="Plafond Mensuel Calculé" value={fmtAr(activeConfig.plafondCotisationMensuel)} sub="Base maximale soumise aux cotisations" />
                             </div>
-                        </div>
+                        </div>}
 
-                        <div>
+                        {activeSection === 'irsa' && <div>
                             <SectionTitle icon={Percent} label="Règles Fiscales IRSA" color="var(--color-warning-600)" badge="Code Général des Impôts" />
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 <KpiField label="Seuil d'exonération" value={fmtAr(activeConfig.seuilExonerationIrsa)} sub="Base imposable en dessous → IRSA = 0" />
@@ -1125,17 +1079,17 @@ export default function ReglementationFiscaleTab() {
                                     </Table>
                                 </div>
                             )}
-                        </div>
+                        </div>}
 
-                        <div>
+                        {activeSection === 'retenues' && <div>
                             <SectionTitle icon={Scale} label="Plafonds de retenues" color="var(--color-brand-600)" />
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 <KpiField label="Avances employeur" value={`${fmtNb(activeConfig.plafondAvanceEmployeurPct, 4)}%`} sub="Plafond de remboursement" />
                                 <KpiField label="Quotité cessible" value={`${fmtNb(activeConfig.quotiteCessiblePct, 4)}%`} sub="Prêts et saisies" />
                             </div>
-                        </div>
+                        </div>}
 
-                        <div>
+                        {activeSection === 'travail' && <div>
                             <SectionTitle icon={Timer} label="Temps de Travail & Majorations Spéciales" color="var(--color-fg-muted)" />
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 <KpiField label="Durée Légale Hebdo" value={`${fmtNb(activeConfig.dureeHebdoLegale, 0)}h`} sub="Code du Travail Art. 83" />
@@ -1175,15 +1129,15 @@ export default function ReglementationFiscaleTab() {
                                     </Table>
                                 </div>
                             )}
-                        </div>
+                        </div>}
 
-                        <div>
+                        {activeSection === 'conges' && <div>
                             <SectionTitle icon={Palmtree} label="Congés Payés" color="var(--color-brand-500)" />
                             <div className="grid grid-cols-2 gap-2">
                                 <KpiField label="Acquisition mensuelle" value={`${fmtNb(activeConfig.acquisitionCongeMensuelJours, 2)} j/mois`} sub="= 30 j/an" />
                                 <KpiField label="Valorisation d'1 jour de congé" value={`Salaire brut ÷ ${activeConfig.diviseurValorisationCongeJours}`} sub="Décompte calendaire standard" />
                             </div>
-                        </div>
+                        </div>}
                     </div>
                 </div>
             )}
@@ -1206,12 +1160,6 @@ export default function ReglementationFiscaleTab() {
                     </button>
 
                     {/* 'Nouvelle LF' = seul workflow autorisé lorsqu'un exercice est actif */}
-                    {activeConfig && (
-                        <Button variant="secondary" size="sm" onClick={handleOpenRevaloriser} icon={<TrendingUp size={14} />}>
-                            Nouvelle Loi de Finances
-                        </Button>
-                    )}
-
                     {/* 'Initialiser' = uniquement affiché si la base est totalement vide */}
                     {!activeConfig && (
                         <Button variant="primary" size="sm" onClick={handleOpenInit} icon={<Sparkles size={14} />}>
@@ -1251,12 +1199,12 @@ export default function ReglementationFiscaleTab() {
                                 <div className="text-xs text-[var(--color-fg-muted)] truncate">{config.libelle}</div>
                                 <PeriodeBadge config={config} />
                             </div>
-                            <div className="hidden md:flex items-center gap-6 text-xs text-[var(--color-fg-muted)] shrink-0">
+                            {!isActive && <div className="hidden md:flex items-center gap-6 text-xs text-[var(--color-fg-muted)] shrink-0">
                                 <span><span className="font-bold text-[var(--color-fg)]">{fmtAr(config.smeNational)}</span><br />SME</span>
                                 <span><span className="font-bold text-[var(--color-fg)]">{fmtAr(config.minimumPerceptionIrsa)}</span><br />Min. IRSA</span>
                                 <span><span className="font-bold text-[var(--color-fg)]">{config.dureeHebdoLegale}h</span><br />Légale</span>
                                 <span><span className="font-bold text-[var(--color-fg)]">{fmtAr(config.plafondCotisationMensuel)}</span><br />Plafond social</span>
-                            </div>
+                            </div>}
 
                             {/* Actions selon le statut */}
                             <div className="flex items-center gap-1 shrink-0">
@@ -1273,11 +1221,10 @@ export default function ReglementationFiscaleTab() {
                                 {/* EN_VIGUEUR → bouton Corriger */}
                                 {isActive && (
                                     <button
-                                        onClick={() => handleOpenEdit(config)}
-                                        className="p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-brand-500)] hover:bg-[var(--color-bg-subtle)] transition-colors"
-                                        title="Corriger les valeurs de cet exercice"
+                                        onClick={() => document.getElementById('exercice-actif')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                                        className="px-2 py-1 text-xs text-[var(--color-brand-600)] hover:underline"
                                     >
-                                        <Edit2 size={14} />
+                                        Voir la fiche
                                     </button>
                                 )}
                                 {/* PROGRAMMÉ → bouton Corriger + bouton Annuler */}
@@ -1304,6 +1251,46 @@ export default function ReglementationFiscaleTab() {
                     );
                 })}
             </div>
+
+            {/* ---- Références et valeurs enregistrées ---- */}
+            <details className="bg-[var(--color-brand-500)]/8 border border-[var(--color-brand-500)]/20 p-4">
+                <summary className="cursor-pointer font-semibold text-sm text-[var(--color-fg)]">Sources et références de l’exercice</summary>
+                <div className="flex items-start gap-3 mt-3">
+                <Scale size={18} className="text-[var(--color-brand-500)] shrink-0 mt-0.5" />
+                <div className="space-y-1 text-xs text-[var(--color-fg-muted)]">
+                    <p className="font-bold text-[var(--color-fg)]">
+                        Sources légales — Madagascar
+                        {activeConfig && <span className="ml-2 font-normal text-[var(--color-fg-muted)]">(exercice actif : {activeConfig.codeVersion})</span>}
+                    </p>
+                    {activeConfig ? (
+                        <>
+                            <p>• <strong>IRSA</strong> (Code Général des Impôts — LF annuelle) :
+                                SME national&nbsp;<strong>{fmtAr(activeConfig.smeNational)}</strong>,
+                                seuil exonération&nbsp;<strong>{fmtAr(activeConfig.seuilExonerationIrsa)}</strong>,
+                                min. perception&nbsp;<strong>{fmtAr(activeConfig.minimumPerceptionIrsa)}</strong>,
+                                déduction charge famille&nbsp;<strong>{fmtAr(activeConfig.deductionChargeFamille)}</strong>
+                            </p>
+                            <p>• <strong>CNaPS / OSTIE / FMFP</strong> (Décrets sociaux) :
+                                Plafond = <strong>{fmtNb(activeConfig.plafondCotisationNbSme, 0)} × SME</strong> = <strong>{fmtAr(activeConfig.plafondCotisationMensuel)}</strong>
+                            </p>
+                            <p>• <strong>Temps de travail</strong> (Code du Travail Art. 83, Loi n°2003-044) :
+                                <strong> {fmtNb(activeConfig.dureeHebdoLegale, 0)}h</strong>/sem,
+                                HS max&nbsp;<strong>{fmtNb(activeConfig.plafondHsHebdo, 0)}h</strong>/sem,
+                                diviseur&nbsp;<strong>{fmtNb(activeConfig.diviseurMensuelHeures, 4)}h</strong>/mois
+                            </p>
+                            <p>• <strong>Congés payés</strong> :
+                                <strong> {fmtNb(activeConfig.acquisitionCongeMensuelJours, 2)} j</strong>/mois,
+                                décompte calendaire ÷&nbsp;<strong>{activeConfig.diviseurValorisationCongeJours}</strong>
+                            </p>
+                            <p>• <strong>Retenues sur salaire</strong> : avance employeur&nbsp;<strong>{fmtNb(activeConfig.plafondAvanceEmployeurPct, 4)}%</strong>, quotité cessible&nbsp;<strong>{fmtNb(activeConfig.quotiteCessiblePct, 4)}%</strong>.</p>
+                        </>
+                    ) : (
+                        <p className=" text-[var(--color-warning-600)]">Aucun exercice fiscal actif — initialisez le premier exercice ci-dessous.</p>
+                    )}
+                </div>
+                </div>
+            </details>
+
 
             <ExerciceFormModal
                 isOpen={showModal}

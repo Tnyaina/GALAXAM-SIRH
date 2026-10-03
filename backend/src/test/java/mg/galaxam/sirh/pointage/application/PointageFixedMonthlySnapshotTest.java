@@ -161,6 +161,11 @@ class PointageFixedMonthlySnapshotTest {
                         snapshot = rs.getInt(1);
                     }
                 }
+                assertEquals(0, new BigDecimal("50000.00").compareTo(
+                        synthese.estimateFixedMonthlyAmounts(employee, period, c).get("FIX" + suffix)));
+                assertEquals(0, new BigDecimal("50000.00").compareTo(
+                        synthese.loadAllowanceAmounts(employee, period, LocalDate.of(2026, 9, 1),
+                                LocalDate.of(2026, 9, 30), "EN_COURS", c).get("FIX" + suffix)));
                 synthese.enregistrerIndemnitesFixesMensuelles(snapshot, employee, period, c);
                 try (PreparedStatement ps = c.prepareStatement(
                         "UPDATE pointage_cumul_periode SET statut_snapshot = 'GELE' WHERE id_cumul = ?")) {
@@ -190,6 +195,17 @@ class PointageFixedMonthlySnapshotTest {
                                 LocalDate.of(2026, 9, 30), "VALIDEE", c)
                                 .get("FIX" + suffix)),
                         "La lecture après gel ne doit jamais reprendre les tarifs modifiés après coup.");
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE pointage_cumul_periode SET statut_snapshot = 'CONSOMME' WHERE id_cumul = ?")) {
+                    ps.setInt(1, snapshot);
+                    ps.executeUpdate();
+                }
+                assertEquals(0, new BigDecimal("50000.00").compareTo(
+                        synthese.loadAllowanceAmounts(employee, period, LocalDate.of(2026, 9, 1),
+                                LocalDate.of(2026, 9, 30), "PAIE_VALIDEE", c).get("FIX" + suffix)));
+                assertEquals(0, new BigDecimal("50000.00").compareTo(
+                        synthese.loadFixedMonthlyAmounts(employee, period, LocalDate.of(2026, 9, 1),
+                                LocalDate.of(2026, 9, 30), "PAIE_VALIDEE", c).get("FIX" + suffix)));
                 assertTrue(synthese.loadAllowanceAmounts(employee, period, LocalDate.of(2026, 9, 1),
                         LocalDate.of(2026, 9, 7), "VALIDEE", c).isEmpty(),
                         "Un tronçon hebdomadaire ne doit pas réutiliser le snapshot mensuel.");

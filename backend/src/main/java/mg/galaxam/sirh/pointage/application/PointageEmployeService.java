@@ -1122,6 +1122,13 @@ public class PointageEmployeService {
                 .forEach(indemnite -> totauxIndemnites.merge(indemnite.code(), zeroIfNull(indemnite.montant()), BigDecimal::add)));
         totauxIndemnites.replaceAll((k, v) -> v.setScale(0, RoundingMode.HALF_UP));
         result.setTotauxIndemnites(totauxIndemnites);
+        if (synDto != null && resolvedIdPeriode != null
+                && startDate.toString().equals(result.getDateDebut())
+                && endDate.toString().equals(result.getDateFin())) {
+            result.setIndemnitesFixesMensuelles(synDto.getIndemnitesFixesMensuelles());
+            result.setIndemnitesFixesEstimees(!Set.of("VALIDEE", "PAIE_VALIDEE", "CLOTUREE")
+                    .contains(resolvedStatutPeriode == null ? "" : resolvedStatutPeriode));
+        }
         result.setKpis(kpis);
         result.setRecap(recap);
         regles.put("palierHs30", synDto == null ? "—" : formatHoursMinutes(synDto.getMinutesPremierPalierHs()));

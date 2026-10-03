@@ -93,6 +93,12 @@ public class PointageSyntheseMensuelleDTO implements Serializable {
     private int nbJoursRepas;
     private BigDecimal montantRepas = BigDecimal.ZERO;
     private java.util.Map<String, BigDecimal> montantsIndemnites = new java.util.LinkedHashMap<>();
+    private java.util.Map<String, BigDecimal> indemnitesFixesMensuelles = new java.util.LinkedHashMap<>();
+
+    public java.util.Map<String, BigDecimal> getIndemnitesFixesMensuelles() { return indemnitesFixesMensuelles; }
+    public void setIndemnitesFixesMensuelles(java.util.Map<String, BigDecimal> value) {
+        this.indemnitesFixesMensuelles = value == null ? new java.util.LinkedHashMap<>() : value;
+    }
 
     public java.util.Map<String, BigDecimal> getMontantsIndemnites() {
         return montantsIndemnites;

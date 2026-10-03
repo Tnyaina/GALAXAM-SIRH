@@ -11,6 +11,14 @@ public class FichePointageEmployeDTO {
     private PointageSyntheseMensuelleDTO soldePeriode;
     private Map<String, Boolean> availableActions = new LinkedHashMap<>();
     private Map<String, java.math.BigDecimal> totauxIndemnites = new LinkedHashMap<>();
+    private Map<String, java.math.BigDecimal> indemnitesFixesMensuelles = new LinkedHashMap<>();
+    private boolean indemnitesFixesEstimees;
+    public Map<String, java.math.BigDecimal> getIndemnitesFixesMensuelles() { return indemnitesFixesMensuelles; }
+    public void setIndemnitesFixesMensuelles(Map<String, java.math.BigDecimal> value) {
+        indemnitesFixesMensuelles = value == null ? new LinkedHashMap<>() : value;
+    }
+    public boolean isIndemnitesFixesEstimees() { return indemnitesFixesEstimees; }
+    public void setIndemnitesFixesEstimees(boolean value) { indemnitesFixesEstimees = value; }
     public PointageSyntheseMensuelleDTO getSoldePeriode() { return soldePeriode; }
     public void setSoldePeriode(PointageSyntheseMensuelleDTO value) { soldePeriode = value; }
     public Map<String, Boolean> getAvailableActions() { return availableActions; }

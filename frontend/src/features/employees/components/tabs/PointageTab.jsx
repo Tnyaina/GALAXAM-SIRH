@@ -321,6 +321,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
     const totalRetardHhMm = kpis.retardCumule || '-';
     const displayEcart = recap.ecartCumule || '-';
     const dynamicAllowanceTotals = ficheData?.totauxIndemnites || {};
+    const fixedMonthlyAllowances = Object.entries(ficheData?.indemnitesFixesMensuelles || {});
     const heuresQualifiees = (ficheData?.bilansHebdo || []).reduce((totals, week) => ({
         nuit: totals.nuit + Number(week.heuresNuit || 0),
         dimanche: totals.dimanche + Number(week.heuresDimanche || 0),
@@ -694,6 +695,23 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             </div>
                         </div>
                     </div>
+
+                    {fixedMonthlyAllowances.length > 0 && (
+                        <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                <h3 className="text-sm font-bold text-[var(--color-fg)]">Indemnités fixes de la période</h3>
+                                <span className="text-xs text-[var(--color-fg-muted)]">{ficheData?.indemnitesFixesEstimees ? 'Estimation avant validation' : 'Montants validés'}</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {fixedMonthlyAllowances.map(([code, amount]) => (
+                                    <div key={code} className="flex justify-between gap-3 p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-sm">
+                                        <span className="text-[var(--color-fg-muted)]">{code}</span>
+                                        <strong className="text-[var(--color-fg)]">{Math.round(Number(amount)).toLocaleString('fr-FR')} Ar</strong>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* 3. Tableau Détail Journalier (Pleine Largeur) */}
                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
@@ -1160,7 +1178,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 </span>
                                 <span className="text-[var(--color-border-subtle)]">·</span>
                                 <span className="flex items-center gap-1.5">
-                                    <span className="text-[var(--color-fg-muted)] font-sans">Indemnités :</span>
+                                    <span className="text-[var(--color-fg-muted)] font-sans">Indemnités de pointage :</span>
                                     <span className="font-bold text-[var(--color-orange-600)] dark:text-[var(--color-orange-400)]">
                                         {kpis.totalIndemnitesMois || '0 Ar'}
                                     </span>
@@ -1275,7 +1293,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     <div className="flex items-center justify-between pb-2 border-b border-[var(--color-border-subtle)] text-xs font-semibold text-[var(--color-fg)]">
                                         <span className="flex items-center gap-1.5">
                                             <DollarSign size={14} className="text-[var(--color-orange-600)] shrink-0" />
-                                            Indemnités & majorations
+                                            Indemnités de pointage & majorations
                                         </span>
                                         <span className="font-mono text-xs font-bold text-[var(--color-orange-600)] dark:text-[var(--color-orange-400)]">
                                             {kpis.totalIndemnitesMois || '0 Ar'}

@@ -866,6 +866,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                             const profilLabel = row.badgeProfilLabel || (row.dispensePointage ? 'AUTONOME' : row.estCadre ? 'CADRE' : null);
                                             const profilVariant = row.badgeProfilVariant || (row.dispensePointage ? 'neutral' : row.estCadre ? 'info' : null);
                                             const allowanceEntries = Object.entries(row.montantsIndemnites || {});
+                                            const fixedEntries = Object.entries(row.indemnitesFixesMensuelles || {});
+                                            const fixedEstimated = !['VALIDEE', 'PAIE_VALIDEE', 'CLOTUREE'].includes(row.statutPeriode);
                                             const hs30Finales = row.minutesHs30Finales != null ? row.minutesHs30Finales / 60 : (row.heuresHs30 || 0);
                                             const hs50Finales = row.minutesHs50Finales != null ? row.minutesHs50Finales / 60 : (row.heuresHs50 || 0);
                                             const absenceFinale = row.minutesAbsenceFinale != null ? row.minutesAbsenceFinale / 60 : (row.heuresAbsenceRetenues || 0);
@@ -970,6 +972,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                                 <span className="text-[9px] text-[var(--color-fg-muted)] mt-0.5">
                                                                     {allowanceEntries.map(([code]) => code).join(' · ')}
                                                                 </span>
+                                                                {fixedEntries.length > 0 && <span className="text-[9px] text-[var(--color-brand-600)] mt-0.5">Fixe mensuel {fixedEstimated ? 'estimé' : 'validé'}</span>}
                                                             </div>
                                                         ) : (
                                                             <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
