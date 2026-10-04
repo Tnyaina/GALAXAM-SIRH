@@ -3,7 +3,7 @@ package mg.galaxam.sirh.paie.domain.engine;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
 
 /**

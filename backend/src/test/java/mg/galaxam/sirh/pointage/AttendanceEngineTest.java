@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import mg.galaxam.sirh.pointage.domain.calculation.AttendanceEngine;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,29 @@ class AttendanceEngineTest {
     private static final long STANDARD_DAY_MINUTES = 8 * 60;
     private static final long OVERTIME_BAND_MINUTES = 8 * 60;
     private final AttendanceEngine calculator = new AttendanceEngine();
+
+    @Test void nuitOccasionnelleNeComptePasLesHeuresAvantLEntree() {
+        var result = calculator.calculateDay(new AttendanceEngine.Context(1, LocalDate.of(2026, 9, 5),
+                LocalTime.of(23, 0), null, null, LocalTime.of(2, 0),
+                LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0),
+                LocalTime.of(22, 0), LocalTime.of(5, 0), true, false, false,
+                AttendanceEngine.Context.LeavePart.NONE, false, BigDecimal.ZERO,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false));
+        assertEquals(180, result.workedMinutes());
+        assertEquals(180, result.nightMinutes());
+    }
+
+    @Test void nuitTravailleeAppliqueLaNouvellePlageApresMinuit() {
+        var context = new AttendanceEngine.Context(1, LocalDate.of(2026, 9, 30),
+                LocalTime.of(23, 0), null, null, LocalTime.of(2, 0),
+                LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0),
+                LocalTime.of(22, 0), LocalTime.of(5, 0), true, false, false,
+                AttendanceEngine.Context.LeavePart.NONE, false, BigDecimal.ZERO,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false);
+        var next = new mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.NightWindow(
+                LocalTime.of(23, 0), LocalTime.of(1, 0));
+        assertEquals(120, calculator.calculateDay(context, next).nightMinutes());
+    }
 
     @Test
     void surplusUnJourCompenseDeficitUnAutreJour() {

@@ -4,6 +4,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import mg.galaxam.sirh.pointage.domain.calculation.*;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.DaySpecialType;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.NightWorkType;
 import mg.galaxam.sirh.paie.domain.dto.*;
 import static org.junit.jupiter.api.Assertions.*;
 class DafOvertimePayTest {

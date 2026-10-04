@@ -824,21 +824,39 @@ public class PointageAnomalieService {
                 }
             } else {
                 // Mode 1 : Saisie / Rectification des heures
-                LocalTime effectiveEntry = PointageService.effectiveMorningEntry(local(em), heureMinimaleComptabilisee);
-                if (effectiveEntry != null && ((isJourneeContinue && sa != null && effectiveEntry.isAfter(sa.toLocalTime()))
-                        || (!isJourneeContinue && sm != null && effectiveEntry.isAfter(sm.toLocalTime())))) {
-                    throw new IllegalArgumentException("La sortie précède l'heure minimale comptabilisée du site.");
-                }
-                emEffectif = effectiveEntry == null ? null : Time.valueOf(effectiveEntry);
                 Map<String, mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.ParametreEtat> parametresPointage =
                         mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.loadEtatMapAtDate(datePtg, c);
+                LocalTime debutNuit = PointageService.resolveOptionalTimeRule(parametresPointage, "SEUIL_NUIT_DEBUT");
+                LocalTime finNuit = PointageService.resolveOptionalTimeRule(parametresPointage, "SEUIL_NUIT_FIN");
+                var plageNuit = debutNuit == null || finNuit == null ? null
+                        : new mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.NightWindow(debutNuit, finNuit);
+                LocalTime effectiveEntry = PointageService.effectiveMorningEntry(
+                        local(em), heureMinimaleComptabilisee, plageNuit);
+                LocalTime firstExit = isJourneeContinue ? local(sa) : local(sm);
+                if (effectiveEntry != null && firstExit != null && effectiveEntry.isAfter(firstExit)
+                        && (em == null || !em.toLocalTime().isAfter(firstExit))) {
+                    throw new IllegalArgumentException("La sortie précède l'heure minimale comptabilisée du site.");
+                }
+                if (idPer == null || idPer <= 0)
+                    throw new IllegalStateException("MISSING_CONFIGURATION: PERIODE_PAIE au " + datePtg);
+                try (PreparedStatement ps = c.prepareStatement("SELECT date_fin FROM periode_paie WHERE id_periode_paie=?")) {
+                    ps.setInt(1, idPer);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next()) throw new IllegalStateException("MISSING_CONFIGURATION: PERIODE_PAIE id=" + idPer);
+                        PointageService.verifierVacationDansCampagne(idEmp, datePtg.toLocalDate(),
+                                rs.getDate(1).toLocalDate(), effectiveEntry,
+                                local(sm), local(ea), local(sa), isJourneeContinue);
+                    }
+                }
+                emEffectif = effectiveEntry == null ? null : Time.valueOf(effectiveEntry);
                 AttendanceEngine.Result dailyResult = dailyAttendanceCalculator.calculateDay(new AttendanceEngine.Context(
                         idEmp, datePtg.toLocalDate(), effectiveEntry, local(sm), local(ea), local(sa),
                         siteDebM, siteFinM, siteDebA, siteFinA,
-                        PointageService.resolveOptionalTimeRule(parametresPointage, "SEUIL_NUIT_DEBUT"),
-                        PointageService.resolveOptionalTimeRule(parametresPointage, "SEUIL_NUIT_FIN"),
+                        debutNuit, finNuit,
                         isJourneeContinue, false, false, AttendanceEngine.Context.LeavePart.NONE,
-                        false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false));
+                        false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false),
+                        PointageService.resolveNextDayNightWindow(c, datePtg.toLocalDate(), effectiveEntry,
+                                local(sm), local(ea), local(sa), isJourneeContinue));
                 hMatin = hours(dailyResult.morningMinutes());
                 hAm = hours(dailyResult.afternoonMinutes());
                 totalH = hours(dailyResult.workedMinutes());

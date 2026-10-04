@@ -7,6 +7,8 @@ import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
 import mg.galaxam.sirh.pointage.domain.calculation.AttendanceEngine;
+import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.WorkIntervalFactory;
+import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.NightWindow;
 import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -207,6 +209,36 @@ public class PointageService {
         return value == null ? null : value.toLocalTime();
     }
 
+    static void verifierVacationDansCampagne(int employeId, LocalDate jour, LocalDate finCampagne,
+            LocalTime entreeMatin, LocalTime sortieMatin, LocalTime entreeAm, LocalTime sortieAm,
+            boolean horaireContinu) {
+        if (!jour.equals(finCampagne)) return;
+        var intervals = WorkIntervalFactory.createIntervals(employeId, null, jour,
+                entreeMatin, sortieMatin, entreeAm, sortieAm, horaireContinu, "SAISIE");
+        if (intervals.stream().anyMatch(interval -> interval.end().isAfter(finCampagne.plusDays(1).atStartOfDay()))) {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                    "POINTAGE_CROSS_PERIOD_SHIFT: les heures après minuit le " + finCampagne.plusDays(1)
+                    + " doivent être saisies sur la campagne suivante. Scindez la vacation par date.");
+        }
+    }
+
+    static NightWindow resolveNightWindowAt(Connection c, LocalDate day) {
+        var etat = ParametreGlobal.loadEtatMapAtDate(Date.valueOf(day), c);
+        LocalTime start = resolveOptionalTimeRule(etat, "SEUIL_NUIT_DEBUT");
+        LocalTime end = resolveOptionalTimeRule(etat, "SEUIL_NUIT_FIN");
+        if ((start == null) != (end == null))
+            throw new IllegalStateException("CONFIGURATION_MISSING: bornes de nuit incomplètes au " + day);
+        return start == null ? null : new NightWindow(start, end);
+    }
+
+    static NightWindow resolveNextDayNightWindow(Connection c, LocalDate day,
+            LocalTime em, LocalTime sm, LocalTime ea, LocalTime sa, boolean continu) {
+        var intervals = WorkIntervalFactory.createIntervals(null, null, day,
+                em, sm, ea, sa, continu, "NUIT_PREVIEW");
+        return intervals.stream().anyMatch(interval -> interval.end().toLocalDate().isAfter(day))
+                ? resolveNightWindowAt(c, day.plusDays(1)) : null;
+    }
+
     /**
      * Plancher d'arrivée valorisé (earliest paid start).
      *
@@ -231,6 +263,14 @@ public class PointageService {
     public static LocalTime effectiveMorningEntry(LocalTime punched, LocalTime earliestCounted) {
         if (punched == null || earliestCounted == null) return punched;
         return punched.isBefore(earliestCounted) ? earliestCounted : punched;
+    }
+
+    static LocalTime effectiveMorningEntry(LocalTime punched, LocalTime earliestCounted, NightWindow nightWindow) {
+        if (punched != null && nightWindow != null
+                && (!punched.isBefore(nightWindow.start()) || punched.isBefore(nightWindow.end()))) {
+            return punched;
+        }
+        return effectiveMorningEntry(punched, earliestCounted);
     }
 
     /**
@@ -411,23 +451,43 @@ public class PointageService {
                     "Horaires de travail incomplets pour le site " + dto.getIdSite() + ".");
         }
         normalizeDayIntent(dto, startMorning, endMorning, startAfternoon, endAfternoon);
+        Map<String, ParametreGlobal.ParametreEtat> params = ParametreGlobal.loadEtatMapAtDate(Date.valueOf(date), c);
+        LocalTime debutNuit = resolveOptionalTimeRule(params, "SEUIL_NUIT_DEBUT");
+        LocalTime finNuit = resolveOptionalTimeRule(params, "SEUIL_NUIT_FIN");
+        NightWindow plageNuit = debutNuit == null || finNuit == null ? null : new NightWindow(debutNuit, finNuit);
         LocalTime effectiveEntry = effectiveMorningEntry(
-                toLocalTime(parseTime(dto.getHeureEntreeMatin())), activeArrivalFloor(c, dto.getIdSite()));
+                toLocalTime(parseTime(dto.getHeureEntreeMatin())), activeArrivalFloor(c, dto.getIdSite()), plageNuit);
         LocalTime morningExit = toLocalTime(parseTime(dto.getHeureSortieMatin()));
         LocalTime dayExit = toLocalTime(parseTime(dto.getHeureSortieAm()));
-        if (effectiveEntry != null && ((dto.isHoraireContinu() && dayExit != null && effectiveEntry.isAfter(dayExit))
-                || (!dto.isHoraireContinu() && morningExit != null && effectiveEntry.isAfter(morningExit)))) {
+        LocalTime originalEntry = toLocalTime(parseTime(dto.getHeureEntreeMatin()));
+        LocalTime firstExit = dto.isHoraireContinu() ? dayExit : morningExit;
+        if (effectiveEntry != null && firstExit != null && effectiveEntry.isAfter(firstExit)
+                && (originalEntry == null || !originalEntry.isAfter(firstExit))) {
             throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
                     "La sortie précède l'heure minimale comptabilisée du site.");
         }
-        Map<String, ParametreGlobal.ParametreEtat> params = ParametreGlobal.loadEtatMapAtDate(Date.valueOf(date), c);
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT date_fin FROM periode_paie WHERE date_debut<=? AND date_fin>=?")) {
+            ps.setDate(1, Date.valueOf(date));
+            ps.setDate(2, Date.valueOf(date));
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    verifierVacationDansCampagne(dto.getIdEmploye(), date, rs.getDate(1).toLocalDate(),
+                            effectiveEntry, morningExit, toLocalTime(parseTime(dto.getHeureEntreeAm())),
+                            dayExit, dto.isHoraireContinu());
+                    if (rs.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: PERIODE_PAIE au " + date);
+                }
+            }
+        }
         AttendanceEngine.Result result = dailyAttendanceCalculator.calculateDay(new AttendanceEngine.Context(
                 dto.getIdEmploye(), date, effectiveEntry,
                 toLocalTime(parseTime(dto.getHeureSortieMatin())), toLocalTime(parseTime(dto.getHeureEntreeAm())),
                 toLocalTime(parseTime(dto.getHeureSortieAm())), startMorning, endMorning, startAfternoon, endAfternoon,
-                resolveOptionalTimeRule(params, "SEUIL_NUIT_DEBUT"), resolveOptionalTimeRule(params, "SEUIL_NUIT_FIN"),
+                debutNuit, finNuit,
                 dto.isHoraireContinu(), dto.isEstAutonome(), dto.isFerieJour(), parseLeavePart(dto.getTypeCongeJour()),
-                false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false));
+                false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false),
+                resolveNextDayNightWindow(c, date, effectiveEntry, morningExit,
+                        toLocalTime(parseTime(dto.getHeureEntreeAm())), dayExit, dto.isHoraireContinu()));
         dto.setHeuresMatin(minutesToStorageHours(result.morningMinutes()));
         dto.setHeuresAm(minutesToStorageHours(result.afternoonMinutes()));
         dto.setTotalHeures(minutesToStorageHours(result.workedMinutes()));
@@ -1626,13 +1686,20 @@ public class PointageService {
                 Time sa = parseTime(dto.getHeureSortieAm());
 
                 LocalTime ltPlafondSite = sH.length > 4 ? sH[4] : null;
-                LocalTime ltEmEffectif = effectiveMorningEntry(toLocalTime(em), ltPlafondSite);
-                if (ltEmEffectif != null && ((dto.isHoraireContinu() && sa != null && ltEmEffectif.isAfter(sa.toLocalTime()))
-                        || (!dto.isHoraireContinu() && sm != null && ltEmEffectif.isAfter(sm.toLocalTime())))) {
+                NightWindow plageNuit = debutNuit == null || finNuit == null
+                        ? null : new NightWindow(debutNuit, finNuit);
+                LocalTime ltEmEffectif = effectiveMorningEntry(toLocalTime(em), ltPlafondSite, plageNuit);
+                LocalTime firstExit = dto.isHoraireContinu() ? toLocalTime(sa) : toLocalTime(sm);
+                if (ltEmEffectif != null && firstExit != null && ltEmEffectif.isAfter(firstExit)
+                        && (em == null || !em.toLocalTime().isAfter(firstExit))) {
                     throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
                             "La sortie précède l'heure minimale comptabilisée du site.");
                 }
                 Time emEffectif = ltEmEffectif == null ? null : Time.valueOf(ltEmEffectif);
+
+                verifierVacationDansCampagne(dto.getIdEmploye(), dtPtg.toLocalDate(), perFin,
+                        ltEmEffectif, toLocalTime(sm), toLocalTime(ea), toLocalTime(sa),
+                        dto.isHoraireContinu());
 
                 boolean isJourneeContinue = dto.isHoraireContinu();
                 LocalDate datePtg = null;
@@ -1646,7 +1713,9 @@ public class PointageService {
                         toLocalTime(emEffectif), toLocalTime(sm), toLocalTime(ea), toLocalTime(sa),
                         siteDebM, siteFinM, siteDebA, siteFinA, debutNuit, finNuit,
                         isJourneeContinue, dto.isEstAutonome(), dto.isFerieJour(), leavePart,
-                        false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false));
+                        false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false),
+                        resolveNextDayNightWindow(c, datePtg, ltEmEffectif, toLocalTime(sm),
+                                toLocalTime(ea), toLocalTime(sa), isJourneeContinue));
 
                 double hMatin = minutesToStorageHours(dailyResult.morningMinutes());
                 double hAm = minutesToStorageHours(dailyResult.afternoonMinutes());

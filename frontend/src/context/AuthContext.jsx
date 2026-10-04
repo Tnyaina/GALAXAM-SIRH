@@ -276,6 +276,26 @@ export const AuthProvider = ({ children }) => {
         };
     }, [handleTokenUpdate, clearRefreshTimer, scheduleTokenRefresh, silentRefresh]);
 
+    const getDefaultHomeRoute = useCallback(() => {
+        if (!user) return '/';
+        if (user.role === 'ROLE_ADMIN' || (user.permissions && user.permissions.includes('EMPLOYE_READ'))) {
+            return '/dashboard';
+        }
+        if (hasPermission('POINTAGE_READ')) {
+            return '/pointages';
+        }
+        if (hasPermission('CONGE_READ')) {
+            return '/conges';
+        }
+        if (hasPermission('PAIE_READ')) {
+            return '/paie';
+        }
+        if (hasPermission('ORGANISATION_READ')) {
+            return '/admin/organisation';
+        }
+        return '/non-autorise';
+    }, [user, hasPermission]);
+
     const value = {
         user,
         isAuthenticated: !!user,
@@ -286,6 +306,7 @@ export const AuthProvider = ({ children }) => {
         hasAnyPermission,
         hasAllPermissions,
         hasRole,
+        getDefaultHomeRoute,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

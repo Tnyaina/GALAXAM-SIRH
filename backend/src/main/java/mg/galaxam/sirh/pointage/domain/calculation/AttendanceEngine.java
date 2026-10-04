@@ -14,6 +14,20 @@ import org.springframework.stereotype.Component;
 @Component
 public class AttendanceEngine {
 
+    /** Rapprochement DAF des totaux hebdomadaires, en minutes entières. */
+    public record PeriodBalance(int balanceMinutes, int absenceMinutes,
+                                int overtime30Minutes, int overtime50Minutes) {
+        public static PeriodBalance calculate(int hs30, int hs50, int deficit, int adjustment, int firstBand) {
+            if (hs30 < 0 || hs50 < 0 || deficit < 0 || firstBand < 0)
+                throw new IllegalArgumentException("Volumes de rapprochement invalides.");
+            int balance = Math.addExact(Math.subtractExact(Math.addExact(hs30, hs50), deficit), adjustment);
+            int overtime = Math.max(0, balance);
+            int tier30 = Math.min(overtime, firstBand);
+            return new PeriodBalance(balance, balance < 0 ? Math.negateExact(balance) : 0,
+                    tier30, overtime - tier30);
+        }
+    }
+
     public record Context(
             Integer employeeId,
             LocalDate date,
@@ -106,6 +120,12 @@ public class AttendanceEngine {
     }
 
     public Result calculateDay(Context context) {
+        TemporalAttendanceEngine.NightWindow today = context.nightStartsAt() == null || context.nightEndsAt() == null
+                ? null : new TemporalAttendanceEngine.NightWindow(context.nightStartsAt(), context.nightEndsAt());
+        return calculateDay(context, today);
+    }
+
+    public Result calculateDay(Context context, TemporalAttendanceEngine.NightWindow nextDayNightWindow) {
         List<String> anomalies = validatePunches(context);
         boolean sunday = context.date().getDayOfWeek() == DayOfWeek.SUNDAY;
         boolean weekend = sunday || context.date().getDayOfWeek() == DayOfWeek.SATURDAY;
@@ -137,7 +157,7 @@ public class AttendanceEngine {
         } else if (context.leavePart() == Context.LeavePart.AFTERNOON) {
             absenceMinutes = Math.max(0, absenceMinutes - (scheduledMinutes - scheduledMorningMinutes(context)));
         }
-        long nightMinutes = nightMinutes(context);
+        long nightMinutes = nightMinutes(context, nextDayNightWindow);
 
         Result.Status status = determineStatus(
                 context, anomalies, sunday, weekend, hasPunch, workedMinutes, scheduledMinutes);
@@ -233,12 +253,13 @@ public class AttendanceEngine {
                 && c.morningExit() == null && c.afternoonEntry() == null;
     }
 
-    private long nightMinutes(Context c) {
-        if (c.afternoonExit() == null || c.nightStartsAt() == null || c.nightEndsAt() == null) return 0;
-        LocalTime exit = c.afternoonExit();
-        if (exit.isAfter(c.nightStartsAt())) return Duration.between(c.nightStartsAt(), exit).toMinutes();
-        if (!exit.isAfter(c.nightEndsAt())) return minutesBetween(c.nightStartsAt(), exit);
-        return 0;
+    private long nightMinutes(Context c, TemporalAttendanceEngine.NightWindow nextDayNightWindow) {
+        if (c.leavePart() == Context.LeavePart.FULL_DAY) return 0;
+        var intervals = TemporalAttendanceEngine.WorkIntervalFactory.createIntervals(
+                c.employeeId(), null, c.date(), c.morningEntry(), c.morningExit(),
+                c.afternoonEntry(), c.afternoonExit(), c.continuousSchedule(), "POINTAGE_JOUR");
+        return TemporalAttendanceEngine.nightMinutes(intervals, c.nightStartsAt(), c.nightEndsAt(),
+                nextDayNightWindow);
     }
 
     private Result.Status determineStatus(Context c, List<String> anomalies,

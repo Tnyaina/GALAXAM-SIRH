@@ -54,6 +54,7 @@ export const refreshTokenOnce = () => {
 const apiClient = axios.create({
     baseURL: BASE_URL,
     withCredentials: true,
+    timeout: 25000, // 25s pour éviter le blocage indéfini des interfaces
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -64,6 +65,53 @@ const reportNetworkStatus = (reachable) => {
     // Événement global consommé par NetworkStatusProvider. Cette vérification
     // reflète une vraie réponse API, contrairement à navigator.onLine seul.
     window.dispatchEvent(new CustomEvent('api-network-status', { detail: { reachable } }));
+};
+
+/**
+ * Sonde directe et légère de la connectivité au backend Galaxam.
+ * Utilise une requête dédiée indépendante des intercepteurs pour valider la liaison sans effet de bord.
+ */
+export const probeBackendConnectivity = async () => {
+    try {
+        await axios.get(`${BASE_URL}auth/login`, {
+            timeout: 5000,
+            withCredentials: true,
+            validateStatus: () => true, // Tout statut HTTP (200, 401, 405...) atteste que le serveur répond
+        });
+        reportNetworkStatus(true);
+        return true;
+    } catch {
+        reportNetworkStatus(false);
+        return false;
+    }
+};
+
+/**
+ * Détermine si une erreur est de nature transitoire (micro-coupure réseau, timeout, 502/503/504).
+ */
+export const isTransientNetworkError = (error) => {
+    if (!error) return false;
+    if (axios.isCancel(error) || error?.code === 'ERR_CANCELED' || error?.name === 'CanceledError') {
+        return false;
+    }
+    // Erreur réseau pure (serveur injoignable, offline, coupure DNS)
+    if (!error.response && error.request) {
+        return true;
+    }
+    // Timeout
+    if (error.code === 'ECONNABORTED' || (typeof error.message === 'string' && error.message.toLowerCase().includes('timeout'))) {
+        return true;
+    }
+    // Erreur réseau générique
+    if (error.code === 'ERR_NETWORK') {
+        return true;
+    }
+    // Indisponibilités temporaires passerelle / proxy
+    const status = error.response?.status;
+    if (status === 502 || status === 503 || status === 504) {
+        return true;
+    }
+    return false;
 };
 
 // Intercepteur de requête : Rafraîchissement proactif
@@ -104,7 +152,7 @@ apiClient.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// Intercepteur de réponse : Fallback en cas de 401
+// Intercepteur de réponse : Fallback en cas de 401, retentative réseau et normalisation d'erreur
 apiClient.interceptors.response.use(
     (response) => {
         reportNetworkStatus(true);
@@ -118,7 +166,15 @@ apiClient.interceptors.response.use(
 
         const originalRequest = error.config;
 
-        if (!error.response && error.request) {
+        // Mise à jour de l'état réseau selon la nature de la réponse
+        if (error.response) {
+            if ([502, 503, 504].includes(error.response.status)) {
+                reportNetworkStatus(false);
+            } else {
+                // Tout code HTTP client (400, 401, 403, 404, etc.) ou 500 prouve que le serveur est joint
+                reportNetworkStatus(true);
+            }
+        } else if (error.request) {
             reportNetworkStatus(false);
         }
 
@@ -147,6 +203,24 @@ apiClient.interceptors.response.use(
             } catch (refreshError) {
                 return Promise.reject(refreshError);
             }
+        }
+
+        // Re-tentative automatique (Retry avec backoff) pour les requêtes de lecture idempotentes (GET, HEAD, OPTIONS)
+        const method = (originalRequest.method || 'get').toLowerCase();
+        const isIdempotent = ['get', 'head', 'options'].includes(method);
+        const currentRetry = originalRequest._retryCount || 0;
+        const MAX_RETRIES = 2;
+
+        if (
+            isIdempotent &&
+            !originalRequest._skipRetry &&
+            currentRetry < MAX_RETRIES &&
+            isTransientNetworkError(error)
+        ) {
+            originalRequest._retryCount = currentRetry + 1;
+            const backoffDelay = Math.min(750 * Math.pow(2, currentRetry) + Math.random() * 250, 3000);
+            await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+            return apiClient(originalRequest);
         }
 
         // Normalisation d'un message convivial et non technique pour l'utilisateur

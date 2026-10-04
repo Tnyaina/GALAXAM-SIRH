@@ -19,6 +19,8 @@ import employeService from '@/features/employees/api/employeService';
 import { getErrorMessage } from '@/api/apiClient';
 import Button from '@/components/ui/forms/Button';
 import Modal from '@/components/ui/overlays/Modal';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import useUnsavedChanges from '@/hooks/useUnsavedChanges';
 import Input, { AutocompleteInput } from '@/components/ui/forms/Input';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import { Card } from '@/components/ui/data-display/Card';
@@ -77,6 +79,11 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
     const [matriculeError, setMatriculeError] = useState('');
 
     const [formData, setFormData] = useState({ ...EMPTY_FORM });
+    const [isDirty, setIsDirty] = useState(false);
+    const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+    // Alerte navigateur si l'utilisateur tente de fermer l'onglet avec un formulaire commencé
+    useUnsavedChanges(isOpen && isDirty, 'Des informations ont été saisies pour ce collaborateur.');
 
     const loadBanques = async () => {
         try {
@@ -174,9 +181,11 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
         setErrorMsg('');
         setFieldErrors({});
         setMatriculeError('');
+        setIsDirty(false);
     }, [employeData, isOpen, initialStep]);
 
     const set = useCallback((field, val) => {
+        setIsDirty(true);
         setFormData(prev => ({ ...prev, [field]: val }));
         setFieldErrors(prev => {
             if (!prev[field]) return prev;
@@ -200,6 +209,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
     }, [activeStep, formData, matriculeError, customNationalite, isCustomNat]);
 
     const setNested = useCallback((parent, field, val) => {
+        setIsDirty(true);
         setFormData(prev => ({
             ...prev,
             [parent]: { ...prev[parent], [field]: val }
@@ -213,6 +223,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
     }, []);
 
     const addEnfant = useCallback(() => {
+        setIsDirty(true);
         setFormData(prev => ({
             ...prev,
             enfants: [
@@ -229,6 +240,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
     }, []);
 
     const removeEnfant = useCallback((index) => {
+        setIsDirty(true);
         setFormData(prev => ({
             ...prev,
             enfants: prev.enfants.filter((_, i) => i !== index)
@@ -236,6 +248,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
     }, []);
 
     const setEnfant = useCallback((index, field, val) => {
+        setIsDirty(true);
         setFormData(prev => {
             const copy = [...prev.enfants];
             copy[index] = { ...copy[index], [field]: val };
@@ -244,6 +257,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
     }, []);
 
     const addContact = useCallback(() => {
+        setIsDirty(true);
         setFormData(prev => ({
             ...prev,
             contactsUrgence: [...prev.contactsUrgence, { nom: '', prenom: '', lienParente: 'Autre', telephone: '', adresse: '', societe: '' }]
@@ -251,6 +265,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
     }, []);
 
     const removeContact = useCallback((index) => {
+        setIsDirty(true);
         setFormData(prev => ({
             ...prev,
             contactsUrgence: prev.contactsUrgence.filter((_, i) => i !== index)
@@ -258,6 +273,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
     }, []);
 
     const setContact = useCallback((index, field, val) => {
+        setIsDirty(true);
         setFormData(prev => {
             const copy = [...prev.contactsUrgence];
             copy[index] = { ...copy[index], [field]: val };
@@ -438,6 +454,7 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                 permisConduireNumero: formData.permisConduireNumero?.trim() || null,
                 email: formData.email?.trim() || null
             });
+            setIsDirty(false);
         } catch (err) {
             console.error("Erreur soumission formulaire employé:", err);
             const msg = getErrorMessage(err, "Erreur lors de l'enregistrement de la fiche.");
@@ -446,17 +463,38 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
     };
 
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title={employeData ? `Modifier la Fiche — ${formData.matricule}` : 'Nouveau Collaborateur'}
-            icon={<User size={18} />}
-            size="3xl"
-            footer={
-                <div className="flex justify-between items-center w-full">
-                    <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={isSubmitting}>
-                        Annuler
-                    </Button>
+        <>
+            <Modal
+                isOpen={isOpen}
+                onClose={onClose}
+                title={employeData ? `Modifier la Fiche — ${formData.matricule}` : 'Nouveau Collaborateur'}
+                icon={<User size={18} />}
+                size="3xl"
+                closeOnBackdrop={false}
+                isDirty={isDirty}
+                dirtyWarningTitle="Formulaire collaborateur en cours"
+                dirtyWarningMessage="Des informations ont été saisies pour ce collaborateur. Si vous fermez la modale sans valider, vos modifications seront perdues. Voulez-vous vraiment quitter ?"
+                onConfirmDiscard={() => {
+                    setIsDirty(false);
+                    onClose();
+                }}
+                footer={
+                    <div className="flex justify-between items-center w-full">
+                        <Button
+                            type="button"
+                            onClick={() => {
+                                if (isDirty) {
+                                    setShowCancelConfirm(true);
+                                } else {
+                                    onClose();
+                                }
+                            }}
+                            variant="ghost"
+                            size="sm"
+                            disabled={isSubmitting}
+                        >
+                            Annuler
+                        </Button>
                     <div className="flex items-center gap-2">
                         {activeStep > 0 && (
                             <Button
@@ -776,5 +814,22 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
                 </form>
             </div>
         </Modal>
+
+        {/* Boîte de confirmation d'abandon en cas de clic sur Annuler */}
+        <ConfirmDialog
+            isOpen={showCancelConfirm}
+            onClose={() => setShowCancelConfirm(false)}
+            onConfirm={() => {
+                setShowCancelConfirm(false);
+                setIsDirty(false);
+                onClose();
+            }}
+            title="Formulaire collaborateur en cours"
+            message="Des informations ont été saisies pour ce collaborateur. Si vous quittez maintenant, vos modifications seront perdues. Voulez-vous vraiment quitter ?"
+            confirmLabel="Abandonner les modifications"
+            cancelLabel="Poursuivre la saisie"
+            variant="danger"
+        />
+        </>
     );
 }

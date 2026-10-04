@@ -7,15 +7,16 @@ import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
 import mg.galaxam.sirh.pointage.domain.calculation.AttendanceEngine;
+import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.WorkInterval;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.WorkIntervalFactory;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.TemporalBucket;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.AttendanceTemporalPartitioner;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.OvertimeProjectionEngine;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
-import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
-import mg.galaxam.sirh.pointage.domain.calculation.DaySpecialType;
-import mg.galaxam.sirh.pointage.domain.calculation.NightWorkType;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.DaySpecialType;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.NightWorkType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +31,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
@@ -627,7 +629,7 @@ public class PointageSyntheseService {
             // Chaque tronçon est calculé avec son propre seuil et sa propre compensation autonome.
             AttendanceEngine.WeekResult res = weeklyAttendanceCalculator.calculateWeek(
                     new AttendanceEngine.WeekContext(lundi, expectedMinutes, firstBandMinutes,
-                            premierJourEmploi != null && resolveOvertimeEligibility(idEmp, premierJourEmploi, c),
+                            premierJourEmploi != null && contextesJournaliers.get(premierJourEmploi).overtimeEligible(),
                             seuilHeuresJour.multiply(BigDecimal.valueOf(60)).longValueExact()), jours);
             weeklyResults.add(res);
 
@@ -699,7 +701,7 @@ public class PointageSyntheseService {
                 }
             }
         }
-        var balance = mg.galaxam.sirh.pointage.domain.calculation.PeriodBalance.calculate(
+        var balance = AttendanceEngine.PeriodBalance.calculate(
                 hs30Minutes, hs50Minutes, deficitMinutes, ajustementMinutes,
                 seuilHsTranche1.multiply(BigDecimal.valueOf(60)).intValueExact());
         dto.setMinutesPremierPalierHs(seuilHsTranche1.multiply(BigDecimal.valueOf(60)).intValueExact());
@@ -1365,8 +1367,23 @@ public class PointageSyntheseService {
      * Gèle le cumul de période, les journées sources et les buckets temporels pour Paie.
      */
     public void gelerPeriode(int idPeriode, Integer userId, Connection c) throws SQLException {
+        var vacationsChevauchantes = vacationsSurDeuxCampagnes(idPeriode, c);
+        if (!vacationsChevauchantes.isEmpty()) {
+            throw new IllegalStateException("POINTAGE_CROSS_PERIOD_SHIFT: scinder la vacation "
+                    + vacationsChevauchantes.get(0).idPointage() + " du "
+                    + vacationsChevauchantes.get(0).datePointage()
+                    + " avant le gel de la période.");
+        }
         // Calculer la synthèse via notre logique métier pure
         List<PointageSyntheseMensuelleDTO> synthese = getSynthesePeriode(idPeriode, null, c);
+        var changementsEligibilite = changementsEligibiliteHs(idPeriode, synthese, c);
+        if (!changementsEligibilite.isEmpty()) {
+            var changement = changementsEligibilite.get(0);
+            throw new IllegalStateException("POINTAGE_HS_ELIGIBILITY_CHANGE: employé "
+                    + changement.matricule() + ", semaine " + changement.debutTroncon()
+                    + " à " + changement.finTroncon() + ", changement le "
+                    + changement.dateChangement() + ". Décision DAF requise avant le gel.");
+        }
 
         String sqlCumul = "INSERT INTO pointage_cumul_periode (" +
                           "id_employe, id_periode_paie, version_snapshot, contrat_indemnites_version, statut_snapshot, remplace_id_cumul, nb_jours_ouvrables, nb_jours_presents, " +
@@ -1462,28 +1479,91 @@ public class PointageSyntheseService {
 
     /** Même contrôle utilisé par la décision backend et par la revue DAF. */
     public PointagePreflight preflightPeriode(int idPeriode, Connection c) throws SQLException {
+        var vacationsChevauchantes = vacationsSurDeuxCampagnes(idPeriode, c);
         List<PointagePreflight.Blocker> blockers = new ArrayList<>();
         List<PointageSyntheseMensuelleDTO> synthese = getSynthesePeriode(idPeriode, null, c);
+        var changementsEligibilite = changementsEligibiliteHs(idPeriode, synthese, c);
         return new PointagePreflight(idPeriode, synthese.size(), List.copyOf(blockers),
-                List.copyOf(journeesOuvrablesSansStatut(idPeriode, synthese, c)));
+                List.copyOf(journeesOuvrablesSansStatut(idPeriode, synthese, c)),
+                vacationsChevauchantes, changementsEligibilite);
     }
 
     public record PointagePreflight(int idPeriodePaie, int nombreEmployes, List<Blocker> blocages,
-                                   List<JourneeManquante> journeesManquantes) {
+                                   List<JourneeManquante> journeesManquantes,
+                                   List<VacationChevauchante> vacationsChevauchantes,
+                                   List<ChangementEligibiliteHs> changementsEligibiliteHs) {
         @com.fasterxml.jackson.annotation.JsonProperty("pret")
-        public boolean pret() { return blocages.isEmpty() && journeesManquantes.isEmpty() && nombreEmployes > 0; }
+        public boolean pret() { return blocages.isEmpty() && journeesManquantes.isEmpty()
+                && vacationsChevauchantes.isEmpty() && changementsEligibiliteHs.isEmpty()
+                && nombreEmployes > 0; }
 
         @com.fasterxml.jackson.annotation.JsonProperty("pret")
         public boolean isPret() { return pret(); }
 
         public record Blocker(int idEmploye, String matricule, String nom, String prenom,
                               int minutesHsSansSemaine) {}
+        public record VacationChevauchante(int idPointage, int idEmploye, LocalDate datePointage,
+                                            LocalDate dateSuivante) {}
+        public record ChangementEligibiliteHs(int idEmploye, String matricule, String nom, String prenom,
+                                               LocalDate debutTroncon, LocalDate finTroncon,
+                                               LocalDate dateChangement, boolean eligibleAvant,
+                                               boolean eligibleApres) {}
         public record JourneeManquante(int idEmploye, String matricule, String nom, String prenom,
                                       LocalDate date, Integer idSite) {
             public JourneeManquante(int idEmploye, String matricule, String nom, String prenom, LocalDate date) {
                 this(idEmploye, matricule, nom, prenom, date, null);
             }
         }
+    }
+
+    private List<PointagePreflight.ChangementEligibiliteHs> changementsEligibiliteHs(int periodId,
+            List<PointageSyntheseMensuelleDTO> synthese, Connection c) throws SQLException {
+        LocalDate debut;
+        LocalDate fin;
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT date_debut,date_fin FROM periode_paie WHERE id_periode_paie=?")) {
+            ps.setInt(1, periodId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new IllegalStateException("MISSING_CONFIGURATION: PERIODE_PAIE id=" + periodId);
+                debut = rs.getDate(1).toLocalDate();
+                fin = rs.getDate(2).toLocalDate();
+            }
+        }
+        Map<Integer, Set<LocalDate>> weekEndsTravailles = new HashMap<>();
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT id_employe,date_pointage FROM pointage_jour "
+                        + "WHERE id_periode_paie=? AND total_heures>0")) {
+            ps.setInt(1, periodId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) weekEndsTravailles
+                        .computeIfAbsent(rs.getInt(1), ignored -> new HashSet<>())
+                        .add(rs.getDate(2).toLocalDate());
+            }
+        }
+        List<PointagePreflight.ChangementEligibiliteHs> changements = new ArrayList<>();
+        var troncons = AttendanceEngine.segmentWeeks(debut, fin);
+        for (PointageSyntheseMensuelleDTO employe : synthese) {
+            int idEmp = employe.getIdEmploye();
+            var jours = employmentContextResolver.resolvePointageDays(idEmp, debut, fin, c);
+            var travailles = weekEndsTravailles.getOrDefault(idEmp, Set.of());
+            for (var troncon : troncons) {
+                Boolean precedent = null;
+                for (LocalDate jour = troncon.start(); !jour.isAfter(troncon.end()); jour = jour.plusDays(1)) {
+                    var contexte = jours.get(jour);
+                    if (contexte == null || (CalendrierOuvrableEngine.isWeekend(jour) && !travailles.contains(jour)))
+                        continue;
+                    boolean eligible = contexte.overtimeEligible();
+                    if (precedent != null && precedent != eligible) {
+                        changements.add(new PointagePreflight.ChangementEligibiliteHs(idEmp,
+                                employe.getMatricule(), employe.getNom(), employe.getPrenom(),
+                                troncon.start(), troncon.end(), jour, precedent, eligible));
+                        break;
+                    }
+                    precedent = eligible;
+                }
+            }
+        }
+        return List.copyOf(changements);
     }
 
     private List<PointagePreflight.JourneeManquante> journeesOuvrablesSansStatut(int periodId,
@@ -1675,10 +1755,6 @@ public class PointageSyntheseService {
             return;
         }
 
-        final Set<LocalDate> feries = (calendrierEngine != null)
-                ? calendrierEngine.getDatesFeriesEtChomees(dateDebutPeriode, dateFinPeriode, null, c)
-                : Collections.emptySet();
-
         List<WorkInterval> intervals = new ArrayList<>();
         String sqlP = "SELECT id_pointage, date_pointage, COALESCE(heure_entree_matin_effective, heure_entree_matin) AS heure_entree_matin, heure_sortie_matin, " +
                       "heure_entree_am, heure_sortie_am, horaire_continu_jour " +
@@ -1714,9 +1790,38 @@ public class PointageSyntheseService {
             return;
         }
 
+        LocalDateTime finExclusive = dateFinPeriode.plusDays(1).atStartOfDay();
+        for (WorkInterval interval : intervals) {
+            if (interval.end().isAfter(finExclusive)) {
+                throw new IllegalStateException("POINTAGE_CROSS_PERIOD_SHIFT: la vacation du "
+                        + interval.start() + " au " + interval.end()
+                        + " dépasse la campagne se terminant le " + dateFinPeriode
+                        + ". Scinder et imputer les heures du 26 à la campagne suivante avant validation.");
+            }
+        }
+
+        var contextes = employmentContextResolver.resolvePointageDays(
+                employeeId, dateDebutPeriode, dateFinPeriode, c);
+        final LocalDate debutCalendrier = dateDebutPeriode;
+        final LocalDate finCalendrier = dateFinPeriode;
+        Map<Integer, Set<LocalDate>> feriesParSite = new HashMap<>();
+        Set<LocalDate> feries = new HashSet<>();
+        Map<LocalDate, TemporalAttendanceEngine.NightWindow> plagesNuit = new HashMap<>();
+        for (LocalDate day = dateDebutPeriode; !day.isAfter(dateFinPeriode); day = day.plusDays(1)) {
+            var contexte = contextes.get(day);
+            if (contexte != null) {
+                Set<LocalDate> datesFeries = feriesParSite.computeIfAbsent(contexte.siteId(),
+                        site -> calendrierEngine.getDatesFeriesEtChomees(debutCalendrier, finCalendrier, site, c));
+                if (datesFeries.contains(day)) feries.add(day);
+            }
+            var plageNuit = PointageService.resolveNightWindowAt(c, day);
+            if (plageNuit != null) plagesNuit.put(day, plageNuit);
+        }
+
         AttendanceTemporalPartitioner partitioner = new AttendanceTemporalPartitioner(
                 feries::contains,
-                date -> periodId
+                date -> periodId,
+                plagesNuit::get
         );
         List<TemporalBucket> allBuckets = partitioner.partition(intervals);
 
@@ -1778,6 +1883,43 @@ public class PointageSyntheseService {
             }
             psB.executeBatch();
         }
+    }
+
+    private static List<PointagePreflight.VacationChevauchante> vacationsSurDeuxCampagnes(
+            int periodId, Connection c) throws SQLException {
+        List<PointagePreflight.VacationChevauchante> chevauchantes = new ArrayList<>();
+        LocalDate fin;
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT date_fin FROM periode_paie WHERE id_periode_paie=?")) {
+            ps.setInt(1, periodId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new IllegalStateException("MISSING_CONFIGURATION: PERIODE_PAIE id=" + periodId);
+                fin = rs.getDate(1).toLocalDate();
+            }
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT id_pointage,id_employe,COALESCE(heure_entree_matin_effective,heure_entree_matin) AS em,"
+                        + "heure_sortie_matin AS sm,heure_entree_am AS ea,heure_sortie_am AS sa,horaire_continu_jour "
+                        + "FROM pointage_jour WHERE id_periode_paie=? AND date_pointage=?")) {
+            ps.setInt(1, periodId);
+            ps.setDate(2, Date.valueOf(fin));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int id = rs.getInt("id_pointage");
+                    var intervals = WorkIntervalFactory.createIntervals(rs.getInt("id_employe"), id, fin,
+                            rs.getTime("em") == null ? null : rs.getTime("em").toLocalTime(),
+                            rs.getTime("sm") == null ? null : rs.getTime("sm").toLocalTime(),
+                            rs.getTime("ea") == null ? null : rs.getTime("ea").toLocalTime(),
+                            rs.getTime("sa") == null ? null : rs.getTime("sa").toLocalTime(),
+                            rs.getBoolean("horaire_continu_jour"), "PTG_" + id);
+                    if (intervals.stream().anyMatch(interval -> interval.end().isAfter(fin.plusDays(1).atStartOfDay()))) {
+                        chevauchantes.add(new PointagePreflight.VacationChevauchante(
+                                id, rs.getInt("id_employe"), fin, fin.plusDays(1)));
+                    }
+                }
+            }
+        }
+        return List.copyOf(chevauchantes);
     }
 
     public List<QualifiedTimeBucket> getSnapshotBuckets(int snapshotId, Connection c) throws SQLException {
@@ -2115,30 +2257,6 @@ public class PointageSyntheseService {
         result.put("nbSemaines", semaines.size());
         result.put("message", semaines.size() + " semaine(s) calculée(s) à la demande, sans persistance.");
         return result;
-    }
-
-    private static boolean resolveOvertimeEligibility(int employeeId, LocalDate effectiveDate, Connection connection)
-            throws SQLException {
-        String sql = "SELECT cp.est_eligible_hs FROM employe_affectation_carriere a "
-                + "JOIN ref_categorie_professionnelle cp ON cp.id_categorie_professionnelle = a.id_categorie_professionnelle "
-                + "WHERE a.id_employe = ? AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) "
-                + "ORDER BY a.date_debut DESC";
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setInt(1, employeeId);
-            statement.setDate(2, Date.valueOf(effectiveDate));
-            statement.setDate(3, Date.valueOf(effectiveDate));
-            try (ResultSet result = statement.executeQuery()) {
-                if (!result.next()) {
-                    return false;
-                }
-                boolean eligible = result.getBoolean(1);
-                if (result.wasNull()) {
-                    return false;
-                }
-                if (result.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: CATEGORIE_HS au " + effectiveDate);
-                return eligible;
-            }
-        }
     }
 
     private static void appendEmployeeSetFilter(StringBuilder where, List<Object> params, Set<Integer> ids) {

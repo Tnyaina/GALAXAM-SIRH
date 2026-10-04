@@ -134,7 +134,7 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
     const location = useLocation();
     const sorted = sortByRang(menu);
     const activeLeafId = useMemo(() => findActiveLeafId(menu, location), [menu, location]);
-    const { user, logout } = useAuth();
+    const { user, logout, getDefaultHomeRoute } = useAuth();
     const navigate = useNavigate();
 
     const [collapsed, setCollapsed] = useState(() => {
@@ -191,7 +191,7 @@ export default function Sidebar({ open, onClose, menu = [], loading, error }) {
                 {/* Header Brand avec Avatar carré */}
                 <div className={`flex items-center h-12 border-b border-[var(--color-sidebar-border)] shrink-0 px-3.5 ${collapsed ? 'lg:justify-center lg:px-0' : 'justify-between'}`}>
                     <NavLink
-                        to="/dashboard"
+                        to={getDefaultHomeRoute()}
                         onClick={onClose}
                         className="flex items-center gap-2.5 min-w-0"
                     >

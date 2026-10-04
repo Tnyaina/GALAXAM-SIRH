@@ -5,7 +5,7 @@ Ce dossier regroupe toute la chaîne de gestion du temps et des présences : sai
 - `api/` : deux contrôleurs REST (`PointageController` pour la saisie, les anomalies, les fiches, la synthèse et le paramétrage ; `PointagePeriodeController` pour la période)
 - `api/dto/` : contrats DTO pour la saisie, les fiches individuelles et les synthèses
 - `application/` : `PointageService` possède les écritures journalières, `PointageSyntheseService` la synthèse et le gel ; les services d'anomalie, fiche et export restent distincts en raison de leur volume ou de leur transaction inter-domaines
-- `domain/` : `AttendanceEngine` calcule jour/semaine/tronçons, `TemporalAttendanceEngine` construit et qualifie la chronologie, `CalendrierOuvrableEngine` résout le calendrier avec ses lectures JDBC datées
+- `domain/` : `AttendanceEngine` calcule jour/semaine/tronçons, `TemporalAttendanceEngine` construit les intervalles et qualifie les minutes réelles, `QualifiedTimeBucket` regroupe les trois qualifications persistées (HS, jour spécial, nuit), `CalendrierOuvrableEngine` résout le calendrier avec ses lectures JDBC datées
 - `persistence/` : entités de persistance et dérogations d'indemnité (`EmployeIndemniteDerogation`, configuration plancher d'arrivée intégrée dans `ref_site`)
 
 Les routes publiques restent sous `/pointages/*` et `/periodes/*`.
@@ -25,3 +25,14 @@ la base interdit les chevauchements de campagnes, avec bornes inclusives. La
 compensation reste hebdomadaire selon l'objectif de la semaine ; l'ajustement
 motivé du solde final est distinct d'une correction de badge. Les snapshots
 déjà consommés par la Paie restent historiques.
+
+Si une affectation change l'éligibilité aux heures supplémentaires au milieu
+d'un tronçon hebdomadaire de paie, le précontrôle signale l'employé, les bornes
+du tronçon et la date de changement. La transmission et le gel sont bloqués
+jusqu'à décision explicite de la DAF sur la date d'effet. Une nouvelle
+affectation qui conserve la même éligibilité ne déclenche pas ce blocage.
+
+La nuit occasionnelle est comptée sur les intervalles travaillés, avec les
+bornes applicables à la date civile de chaque segment, y compris à l'aperçu et lors du gel. Une vacation
+du dernier jour qui dépasse minuit est signalée au précontrôle : les minutes
+du lendemain doivent être saisies sur la campagne suivante avant validation.

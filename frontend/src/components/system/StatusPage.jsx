@@ -28,15 +28,16 @@ export default function StatusPage({
     actionIcon = <ArrowLeft size={16} />,
 }) {
     const navigate = useNavigate();
-    const { isAuthenticated } = useAuth(); // Récupération de l'état d'authentification
+    const { isAuthenticated, getDefaultHomeRoute } = useAuth(); // Récupération de l'état d'authentification
 
     const iconTone = tones[tone] ?? tones.neutral;
     const codeTone = codeTones[tone] ?? codeTones.neutral;
 
     // Détermination dynamique de la destination et du texte si non fournis
-    const defaultHref = isAuthenticated ? '/dashboard' : '/';
+    const homeRoute = isAuthenticated && getDefaultHomeRoute ? getDefaultHomeRoute() : '/';
+    const defaultHref = homeRoute === '/non-autorise' ? '/' : homeRoute;
     const targetHref = actionHref ?? defaultHref;
-    const defaultLabel = isAuthenticated ? "Retour au tableau de bord" : "Retour à l'accueil";
+    const defaultLabel = defaultHref === '/dashboard' ? "Retour au tableau de bord" : "Retour à l'accueil";
     const label = actionLabel ?? defaultLabel;
 
     const handleAction = () => {

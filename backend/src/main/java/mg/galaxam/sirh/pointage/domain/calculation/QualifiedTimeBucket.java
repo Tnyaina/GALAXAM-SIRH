@@ -19,6 +19,23 @@ public record QualifiedTimeBucket(
         Integer payrollPeriodId,
         Integer pointageId
 ) {
+    public enum OvertimeTier { REGULAR, OVERTIME_30, OVERTIME_50 }
+
+    public enum NightWorkType {
+        NONE,
+        // Les anciennes valeurs restent lisibles dans les snapshots historiques.
+        NIGHT_UNCLASSIFIED, HABITUEL, OCCASIONNEL
+    }
+
+    public enum DaySpecialType {
+        STANDARD, SATURDAY, SUNDAY, PUBLIC_HOLIDAY, SUNDAY_AND_PUBLIC_HOLIDAY;
+
+        public boolean isSunday() { return this == SUNDAY || this == SUNDAY_AND_PUBLIC_HOLIDAY; }
+        public boolean isPublicHoliday() { return this == PUBLIC_HOLIDAY || this == SUNDAY_AND_PUBLIC_HOLIDAY; }
+        public boolean isSaturday() { return this == SATURDAY; }
+        public boolean isStandard() { return this == STANDARD; }
+    }
+
     public QualifiedTimeBucket {
         if (start == null || end == null) {
             throw new IllegalArgumentException("start et end doivent être non nuls.");

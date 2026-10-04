@@ -8,8 +8,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
-import mg.galaxam.sirh.pointage.domain.calculation.NightWorkType;
-import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.NightWorkType;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
 
 /**

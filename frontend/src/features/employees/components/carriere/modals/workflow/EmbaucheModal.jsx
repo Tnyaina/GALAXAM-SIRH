@@ -13,6 +13,7 @@ import { formatMoneyAr } from '@/utils/moneyUtils';
 
 import ContratFieldsSection, { PeriodeEssaiFieldsSection } from '@/features/employees/components/carriere/form/ContratFieldsSection';
 import AffectationFieldsSection from '@/features/employees/components/carriere/form/AffectationFieldsSection';
+import useUnsavedChanges from '@/hooks/useUnsavedChanges';
 
 
 export default function EmbaucheModal({
@@ -51,6 +52,9 @@ export default function EmbaucheModal({
 
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
+    const [isDirty, setIsDirty] = useState(false);
+
+    useUnsavedChanges(isOpen && isDirty);
 
     // Initialisation du formulaire selon le mode création ou modification.
     useEffect(() => {
@@ -106,11 +110,14 @@ export default function EmbaucheModal({
                 dateEffet: '', motif: '',
             });
         }
+        setIsDirty(false);
         setErrorMsg('');
     }, [isOpen, initialData, hasHistory]);
 
     const setField = (field, value) => {
+        setIsDirty(true);
         setFormData(prev => {
+
             const updated = { ...prev, [field]: value };
             if (field === 'idDepartement' && String(value) !== String(prev.idDepartement)) {
                 updated.idService = '';
@@ -267,6 +274,8 @@ export default function EmbaucheModal({
         <SlideOver
             isOpen={isOpen}
             onClose={onClose}
+            closeOnBackdrop={false}
+            isDirty={isDirty}
             title={
                 isEditMode
                     ? 'Modifier le brouillon d\'embauche'

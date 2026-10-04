@@ -45,6 +45,7 @@ export function useTransitionForm({
     const [errorMsg, setErrorMsg] = useState('');
     const [showPreviewMobile, setShowPreviewMobile] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [isDirty, setIsDirty] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -213,6 +214,7 @@ export function useTransitionForm({
             initData = applyTargetEventConfig(defaultTypeEv, initData);
             setFormData(initData);
         }
+        setIsDirty(false);
         setErrorMsg('');
     }, [isOpen, typeEvenement, initialData, contratActif, affectationActive, filiales, sites, departements, services, fonctions, categoriesPro, modesPaie, relevantEvTypes, applyTargetEventConfig]);
 
@@ -252,7 +254,9 @@ export function useTransitionForm({
 
     // 6. Gestion des modifications de champs avec auto-sélections réactives
     const setField = (field, val) => {
+        setIsDirty(true);
         setFormData(prev => {
+
             let updated = { ...prev, [field]: val };
             if (field === 'idDepartement') {
                 updated.idService = '';
@@ -443,6 +447,7 @@ export function useTransitionForm({
         submitting, errorMsg, setErrorMsg,
         showPreviewMobile, setShowPreviewMobile,
         mounted,
+        isDirty,
         exigeNouveauContrat, autorisePeriodeEssai, isEditMode,
         loadingRef, handleSubmit,
 

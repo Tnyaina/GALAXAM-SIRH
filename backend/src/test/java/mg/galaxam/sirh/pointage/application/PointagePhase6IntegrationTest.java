@@ -40,6 +40,9 @@ class PointagePhase6IntegrationTest {
     private PointageSyntheseService pointageSyntheseService;
 
     @Autowired
+    private PointageService pointageService;
+
+    @Autowired
     private CongeService congeService;
 
     @Autowired
@@ -56,6 +59,8 @@ class PointagePhase6IntegrationTest {
     private int activeSiteId;
     private int inactiveSiteId;
     private int testPeriodId;
+    private int initialAssignmentId;
+    private int contractId;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -80,8 +85,8 @@ class PointagePhase6IntegrationTest {
                     employeId = rsEmp.getInt(1);
                 }
             }
-            int contratId = CongeTestFixtureHelper.createContratActif(c, employeId, LocalDate.of(2025, 1, 1));
-            CongeTestFixtureHelper.createAffectation(c, employeId, contratId, LocalDate.of(2025, 1, 1), new BigDecimal("1000000"));
+            contractId = CongeTestFixtureHelper.createContratActif(c, employeId, LocalDate.of(2025, 1, 1));
+            initialAssignmentId = CongeTestFixtureHelper.createAffectation(c, employeId, contractId, LocalDate.of(2025, 1, 1), new BigDecimal("1000000"));
 
             // Créer deux sites de test : un avec plancher actif, un avec plancher inactif
             try (PreparedStatement ps = c.prepareStatement(
@@ -187,6 +192,37 @@ class PointagePhase6IntegrationTest {
     // =========================================================================
 
     @Test
+    @DisplayName("Une catégorie qui change l'éligibilité HS en semaine bloque le gel, sans bloquer une affectation équivalente")
+    void testChangementEligibiliteHsEnSemaine() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE employe_affectation_carriere SET date_fin=DATE '2026-09-15' WHERE id_affectation=?")) {
+                ps.setInt(1, initialAssignmentId);
+                ps.executeUpdate();
+            }
+            int suivante = CongeTestFixtureHelper.createAffectation(c, employeId, contractId,
+                    LocalDate.of(2026, 9, 16), new BigDecimal("1000000"));
+            assertTrue(pointageSyntheseService.preflightPeriode(testPeriodId, c)
+                    .changementsEligibiliteHs().isEmpty());
+
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE employe_affectation_carriere SET id_categorie_professionnelle=2 WHERE id_affectation=?")) {
+                ps.setInt(1, suivante);
+                ps.executeUpdate();
+            }
+            var preflight = pointageSyntheseService.preflightPeriode(testPeriodId, c);
+            assertFalse(preflight.pret());
+            assertTrue(preflight.changementsEligibiliteHs().stream().anyMatch(changement ->
+                    changement.idEmploye() == employeId
+                            && changement.dateChangement().equals(LocalDate.of(2026, 9, 16))
+                            && changement.debutTroncon().equals(LocalDate.of(2026, 9, 14))));
+            var error = assertThrows(IllegalStateException.class,
+                    () -> pointageSyntheseService.gelerPeriode(testPeriodId, adminUserId, c));
+            assertTrue(error.getMessage().contains("POINTAGE_HS_ELIGIBILITY_CHANGE"));
+        }
+    }
+
+    @Test
     @DisplayName("Préflight : une journée ouvrable non saisie bloque le gel avec une date identifiable")
     void testPreflightJourneesManquantes() throws Exception {
         try (Connection c = dataSource.getConnection()) {
@@ -195,6 +231,77 @@ class PointagePhase6IntegrationTest {
             assertTrue(preflight.journeesManquantes().stream()
                     .anyMatch(jour -> jour.idEmploye() == employeId
                             && jour.date().equals(LocalDate.of(2026, 9, 1))));
+        }
+    }
+
+    @Test
+    @DisplayName("Une vacation dépassant minuit le dernier jour bloque la validation avant le gel")
+    void testPreflightRefuseVacationSurDeuxCampagnes() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO pointage_jour (id_employe,id_periode_paie,id_site,date_pointage,id_statut_jour,"
+                            + "heure_entree_matin,heure_entree_matin_effective,heure_sortie_am,horaire_continu_jour,version) "
+                            + "VALUES (?,?,?,DATE '2026-09-30',1,TIME '23:00',TIME '23:00',TIME '02:00',TRUE,1)")) {
+                ps.setInt(1, employeId); ps.setInt(2, testPeriodId); ps.setInt(3, activeSiteId);
+                ps.executeUpdate();
+            }
+            var preflight = pointageSyntheseService.preflightPeriode(testPeriodId, c);
+            assertFalse(preflight.pret());
+            assertEquals(1, preflight.vacationsChevauchantes().size());
+            assertEquals(LocalDate.of(2026, 10, 1), preflight.vacationsChevauchantes().get(0).dateSuivante());
+            var error = assertThrows(IllegalStateException.class,
+                    () -> pointageSyntheseService.gelerPeriode(testPeriodId, adminUserId, c));
+            assertTrue(error.getMessage().contains("POINTAGE_CROSS_PERIOD_SHIFT"));
+        }
+    }
+
+    @Test
+    @DisplayName("Le gel conserve trois heures de nuit occasionnelle pour 23h à 02h")
+    void testGelNuitOccasionnelleSurMinutesReelles() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO pointage_jour (id_employe,id_periode_paie,id_site,date_pointage,id_statut_jour,"
+                            + "heure_entree_matin,heure_entree_matin_effective,heure_sortie_am,horaire_continu_jour,version) "
+                            + "VALUES (?,?,?,DATE '2026-09-29',1,TIME '23:00',TIME '23:00',TIME '02:00',TRUE,1)")) {
+                ps.setInt(1, employeId); ps.setInt(2, testPeriodId); ps.setInt(3, activeSiteId);
+                ps.executeUpdate();
+            }
+            c.setAutoCommit(false);
+            pointageSyntheseService.gelerPeriode(testPeriodId, adminUserId, c);
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT COALESCE(SUM(b.minutes),0) FROM pointage_snapshot_bucket b "
+                            + "JOIN pointage_cumul_periode s ON s.id_cumul=b.id_cumul "
+                            + "WHERE s.id_employe=? AND s.id_periode_paie=? AND b.night_work_type='OCCASIONNEL'")) {
+                ps.setInt(1, employeId); ps.setInt(2, testPeriodId);
+                try (ResultSet rs = ps.executeQuery()) { assertTrue(rs.next()); assertEquals(180, rs.getInt(1)); }
+            }
+            c.commit();
+        }
+    }
+
+    @Test
+    @DisplayName("La prévisualisation accepte la nuit dans la campagne et refuse le débordement du dernier jour")
+    void testPrevisualisationNuitEtFrontiereCampagne() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            var dto = new mg.galaxam.sirh.pointage.api.dto.SaisiePointageJourDTO();
+            dto.setIdEmploye(employeId);
+            dto.setIdSite(activeSiteId);
+            dto.setHoraireContinu(true);
+            dto.setHeureEntreeMatin("23:00");
+            dto.setHeureSortieAm("02:00");
+            dto.setDatePointage("2026-09-29");
+            var preview = pointageService.previsualiserPointage(dto, c);
+            assertEquals(3.0, preview.getHeuresNuit(), 0.0001);
+            dto.setHeureEntreeMatin("00:00");
+            dto.setHeureSortieAm("02:00");
+            var morningAfterSplit = pointageService.previsualiserPointage(dto, c);
+            assertEquals(2.0, morningAfterSplit.getTotalHeures(), 0.0001);
+            assertEquals(2.0, morningAfterSplit.getHeuresNuit(), 0.0001);
+            dto.setHeureEntreeMatin("23:00");
+            dto.setDatePointage("2026-09-30");
+            var error = assertThrows(RuntimeException.class,
+                    () -> pointageService.previsualiserPointage(dto, c));
+            assertTrue(error.getMessage().contains("POINTAGE_CROSS_PERIOD_SHIFT"));
         }
     }
 

@@ -245,6 +245,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         BLOCKING_ANOMALIES: 'Des anomalies de pointage doivent être régularisées.',
         POINTAGE_POPULATION_EMPTY: 'Aucun collaborateur n’est présent dans la synthèse.',
         POINTAGE_JOURNEES_MANQUANTES: 'Des journées ouvrables n’ont aucun statut de pointage.',
+        POINTAGE_CROSS_PERIOD_SHIFT: 'Une vacation du dernier jour déborde sur la campagne suivante. Scindez sa saisie entre les deux dates.',
+        POINTAGE_HS_ELIGIBILITY_CHANGE: 'L’éligibilité aux HS change au milieu d’une semaine. Une décision DAF sur la date d’effet est nécessaire.',
         POINTAGE_HS_SANS_SEMAINE: 'Des HS finales n’ont pas de semaine de rattachement.'
     }[approvalBlockCode];
     const canSubmit = periodActions.SUBMIT?.allowed === true;
@@ -588,6 +590,25 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             ))}</div>
                             {preflight.journeesManquantes.length > 12 && <p className="text-xs">+ {preflight.journeesManquantes.length - 12} autres journées à traiter.</p>}
                         </>}
+                        {preflight.vacationsChevauchantes?.length > 0 && <>
+                            <p><strong>{preflight.vacationsChevauchantes.length} vacation(s)</strong> dépassent minuit le dernier jour de la campagne. Scindez chaque vacation en deux pointages : les heures du lendemain appartiennent à la campagne suivante.</p>
+                            <div className="flex flex-wrap gap-2">{preflight.vacationsChevauchantes.map((vacation) => (
+                                <button key={vacation.idPointage} type="button"
+                                    className="border border-[var(--color-warning-400)] bg-[var(--color-surface)] px-2 py-1 text-xs font-mono hover:bg-[var(--color-warning-100)]"
+                                    onClick={() => navigate(`/pointages?tab=saisie&date=${vacation.datePointage}`)}>
+                                    Pointage #{vacation.idPointage} · {vacation.datePointage} → {vacation.dateSuivante}
+                                </button>
+                            ))}</div>
+                        </>}
+                        {preflight.changementsEligibiliteHs?.length > 0 && <>
+                            <p><strong>{preflight.changementsEligibiliteHs.length} changement(s) d’éligibilité HS</strong> interviennent pendant une semaine de calcul. Confirmez avec la DAF la date d’effet de l’affectation avant la validation.</p>
+                            <div className="flex flex-wrap gap-2">{preflight.changementsEligibiliteHs.map((item) => (
+                                <span key={`${item.idEmploye}-${item.debutTroncon}`}
+                                    className="border border-[var(--color-warning-400)] bg-[var(--color-surface)] px-2 py-1 text-xs">
+                                    {item.matricule} · semaine {item.debutTroncon} → {item.finTroncon} · effet {item.dateChangement}
+                                </span>
+                            ))}</div>
+                        </>}
                         {preflight.blocages?.length > 0 && <>
                             <p>{preflight.blocages.length} collaborateur(s) ont des HS sans semaine de rattachement. Corrigez leur journée avant de sceller le pointage.</p>
                             <div className="flex flex-wrap gap-2">{preflight.blocages.map((blocker) => (
@@ -597,7 +618,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                 </button>
                             ))}</div>
                         </>}
-                        {preflight.nombreEmployes > 0 && !preflight.journeesManquantes?.length && !preflight.blocages?.length && (
+                        {preflight.nombreEmployes > 0 && !preflight.journeesManquantes?.length && !preflight.blocages?.length && !preflight.vacationsChevauchantes?.length && !preflight.changementsEligibiliteHs?.length && (
                             <p className="text-xs text-[var(--color-warning-800)]">
                                 Condition de blocage non résolue. Cliquez sur <strong>Actualiser les calculs</strong> puis rechargez la page.
                             </p>

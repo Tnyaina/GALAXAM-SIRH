@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Calendar, ChevronDown, ShieldAlert } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
@@ -8,6 +9,8 @@ import Badge from '@/components/ui/data-display/Badge';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { Textarea } from '@/components/ui/forms/Input';
 import Modal from '@/components/ui/overlays/Modal';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import useUnsavedChanges from '@/hooks/useUnsavedChanges';
 
 // Hooks
 import { useDemandeCongeForm } from '@/features/leave/hooks/useDemandeCongeForm';
@@ -27,6 +30,7 @@ export default function DemandeCongeModal({
   onSuccess
 }) {
   const toast = useToast();
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const {
     // États et setters
@@ -69,9 +73,13 @@ export default function DemandeCongeModal({
     onSuccess
   });
 
+  const isDirty = Boolean(dateDebut || dateFin || commentaire);
+  useUnsavedChanges(isOpen && isDirty, 'Une demande de congé est en cours de rédaction.');
+
   if (!isOpen) return null;
 
   return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={onClose}
@@ -83,13 +91,28 @@ export default function DemandeCongeModal({
       icon={<Calendar className="w-5 h-5 text-[var(--color-brand-500)]" />}
       size="full"
       className="max-w-5xl w-full"
+      closeOnBackdrop={false}
+      isDirty={isDirty}
+      dirtyWarningTitle="Demande de congé en cours"
+      dirtyWarningMessage="Une demande de congé est en cours de rédaction. Si vous quittez sans valider, vos informations seront perdues. Voulez-vous vraiment quitter ?"
       footer={
         <div className="flex items-center justify-between w-full">
           <span className="text-xs text-[var(--color-fg-subtle)]">
             <span className="text-[var(--color-danger-500)]">*</span> Champs obligatoires
           </span>
           <div className="flex items-center gap-3">
-            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (isDirty) {
+                  setShowCancelConfirm(true);
+                } else {
+                  onClose();
+                }
+              }}
+            >
               Annuler
             </Button>
             <Button
@@ -344,5 +367,20 @@ export default function DemandeCongeModal({
         </div>
       </form>
     </Modal>
+
+    <ConfirmDialog
+      isOpen={showCancelConfirm}
+      onClose={() => setShowCancelConfirm(false)}
+      onConfirm={() => {
+        setShowCancelConfirm(false);
+        onClose();
+      }}
+      title="Demande de congé en cours"
+      message="Une demande de congé est en cours de rédaction. Si vous quittez sans enregistrer, toutes vos saisies seront perdues."
+      confirmLabel="Abandonner la demande"
+      cancelLabel="Poursuivre la saisie"
+      variant="danger"
+    />
+    </>
   );
 }

@@ -43,7 +43,7 @@ const ETATS = {
 export default function AcomptesAvancesPage() {
     const navigate = useNavigate();
     const { hasPermission } = useAuth();
-    const canWrite = hasPermission('PAIE_WRITE') || hasPermission('ROLE_ADMIN');
+    const canWrite = hasPermission('PAIE_WRITE');
     const [dossiers, setDossiers] = useState([]);
     const [synthese, setSynthese] = useState(null);
     const [modes, setModes] = useState(DEFAULT_MODES);

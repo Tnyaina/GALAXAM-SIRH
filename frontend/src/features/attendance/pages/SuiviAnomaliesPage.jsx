@@ -236,6 +236,8 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         POINTAGE_EMPTY: 'Aucun pointage n’a été saisi pour cette période.',
         POINTAGE_POPULATION_EMPTY: 'Aucun collaborateur éligible n’a été trouvé pour cette période.',
         POINTAGE_JOURNEES_MANQUANTES: 'Des journées ouvrables restent sans pointage. Complétez la saisie avant de transmettre.',
+        POINTAGE_CROSS_PERIOD_SHIFT: 'Une vacation du dernier jour déborde sur la période suivante. Scindez sa saisie par date avant de transmettre.',
+        POINTAGE_HS_ELIGIBILITY_CHANGE: 'L’éligibilité aux HS change pendant une semaine. La DAF doit confirmer la date d’effet de l’affectation.',
         BLOCKING_ANOMALIES: 'Des anomalies bloquantes doivent être régularisées.',
     }[code] || code)).join(' · ');
 

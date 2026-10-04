@@ -6,9 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.time.LocalDateTime;
 import java.util.List;
 import mg.galaxam.sirh.paie.domain.dto.PayrollAttendanceInput;
-import mg.galaxam.sirh.pointage.domain.calculation.DaySpecialType;
-import mg.galaxam.sirh.pointage.domain.calculation.NightWorkType;
-import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.DaySpecialType;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.NightWorkType;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
 import org.junit.jupiter.api.Test;
 

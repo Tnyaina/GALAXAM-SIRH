@@ -480,7 +480,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
     // État local : données, filtres, version et modale d'édition.
     const toast = useToast();
     const { hasPermission } = useAuth();
-    const canWrite = hasPermission('ROLE_ADMIN') || hasPermission('PAIE_WRITE');
+    const canWrite = hasPermission('PAIE_WRITE');
     const submitLock = useRef(false);
     const toggleLock = useRef(false);
     const requestController = useRef(null);

@@ -624,10 +624,7 @@ backend/src/main/java/mg/galaxam/sirh/pointage/
 │   ├── calculation/
 │   │   ├── AttendanceEngine.java            # Moteur pur de calcul journalier et hebdomadaire
 │   │   ├── TemporalAttendanceEngine.java    # Partitionneur temporel et projection chronologique HS
-│   │   ├── QualifiedTimeBucket.java         # Record immuable d'un bucket temporel qualifié
-│   │   ├── DaySpecialType.java              # Enumération des jours spéciaux (Dimanche, Férié)
-│   │   ├── NightWorkType.java               # Enumération des types de travail de nuit
-│   │   └── OvertimeTier.java                # Enumération des paliers d'heures sup (REGULAR, HS30, HS50)
+│   │   └── QualifiedTimeBucket.java         # Bucket et ses enums HS, jour spécial, nuit
 │   └── engine/
 │       └── CalendrierOuvrableEngine.java    # Moteur de calcul des jours ouvrables et fériés
 └── persistence/

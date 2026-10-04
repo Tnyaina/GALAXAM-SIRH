@@ -877,6 +877,12 @@ public class PayrollPeriodWorkflowService {
         }
         var preflight = pointageSyntheseService.preflightPeriode(periodId, connection);
         if (preflight.nombreEmployes() == 0) return ActionCapability.denied("POINTAGE_POPULATION_EMPTY");
+        if (!preflight.vacationsChevauchantes().isEmpty()) {
+            return ActionCapability.denied("POINTAGE_CROSS_PERIOD_SHIFT");
+        }
+        if (!preflight.changementsEligibiliteHs().isEmpty()) {
+            return ActionCapability.denied("POINTAGE_HS_ELIGIBILITY_CHANGE");
+        }
         if (!preflight.journeesManquantes().isEmpty()) {
             return ActionCapability.denied("POINTAGE_JOURNEES_MANQUANTES");
         }

@@ -29,7 +29,7 @@ Audit du code courant, suivi d'une première tranche de corrections temporelles 
 | `application/PointagePdfExportService.java` | Rendu PDF | Garder : format distinct. |
 | `domain/calculation/AttendanceEngine.java` | Calcul pur du jour, compensation et segmentation hebdomadaire | Garder comme source du calcul. |
 | `domain/calculation/TemporalAttendanceEngine.java` | Découpe les heures aux frontières de jour, nuit, dimanche et férié | Garder ; règle indispensable aux traversées minuit/année. |
-| `domain/calculation/{DaySpecialType,NightWorkType,OvertimeTier,QualifiedTimeBucket,PeriodBalance}.java` | Types de qualification et résultat du calcul | Garder ; petits types cohérents avec le moteur. |
+| `domain/calculation/QualifiedTimeBucket.java` | Bucket qualifié avec ses trois `enum` internes | Regroupement appliqué : les noms sérialisés des catégories restent stables. Le rapprochement de période est interne à `AttendanceEngine`. |
 | `domain/engine/CalendrierOuvrableEngine.java` | Résolution du calendrier ouvrable/jours spéciaux | Garder ; comparer ses dates et sites aux contextes d'emploi réels. |
 | `persistence/EmployeIndemniteDerogation.java` | Représentation de dérogation individuelle datée | Garder si les usages API/UI sont confirmés ; vérifier collisions temporelles. |
 | `README.md` | Carte technique locale du domaine | Actualiser après refactoring. |
@@ -123,7 +123,7 @@ La Loi malgache n° 2024-014, art. 109, pose une durée légale de 173,33 h/mois
 ## Limites encore identifiées
 
 - Les métadonnées et certains totaux de la synthèse mensuelle utilisent encore un site représentatif de l'employé pour la campagne. Leur portée doit être clarifiée avant de modifier une valorisation mensuelle ou un snapshot déjà consommé par la paie.
-- L'éligibilité aux heures supplémentaires reste un booléen hebdomadaire résolu au premier jour d'emploi du tronçon. Un changement de catégorie au milieu de la même semaine nécessite une règle métier explicite avant de répartir l'éligibilité par jour.
+- L'éligibilité aux heures supplémentaires reste un booléen hebdomadaire résolu au premier jour d'emploi du tronçon. Si elle change au milieu du tronçon, le précontrôle, la transmission et le gel bloquent avec l'employé, la semaine et la date de changement. La DAF doit fixer explicitement une date d'effet compatible avec le calcul hebdomadaire ; aucun snapshot historique n'est recalculé. Un changement d'affectation conservant la même éligibilité reste autorisé.
 
 ## Contre-audit du calcul et du découpage — 04/10/2026
 
@@ -137,7 +137,7 @@ Le rangement en fichiers n'est pas la difficulté principale : le calcul journal
 | Vacation au-delà du 25 | Le partitionneur coupe à minuit, mais le snapshot lui donne toujours l'ID de la campagne d'origine (`date -> periodId`) et ajoute les buckets hors tronçon en `REGULAR`. | Définir l'imputation des minutes après minuit au 26 avant de modifier les données. Proposition : date civile du segment et période contenant cette date, avec rejet explicite si période suivante absente ; jamais attribution silencieuse à la campagne précédente. |
 | Férié selon le site | L'objectif hebdomadaire utilise maintenant le site du jour. Le snapshot utilise un calendrier appelé avec `site=null`. | Utiliser la même résolution datée de site et de férié lors du gel ; caractériser d'abord les fériés locaux et leurs effets sur les anciennes données. |
 | HS | Compensation hebdomadaire confirmée, tronquée à chaque frontière de campagne. Les quotas HS sont ensuite projetés chronologiquement sur les minutes pour permettre leur valorisation. | Conserver cette distinction et ses invariants de conservation ; expliquer en interface qu'une heure peut être à la fois HS et nuit, sans additionner les durées. |
-| Catégorie modifiée en semaine | L'éligibilité HS est lue une fois au premier jour couvert du tronçon. | Clarifier la règle avant de répartir une semaine entre catégories ; tester changement au 01/01 et entrée/sortie en milieu de semaine. |
+| Catégorie modifiée en semaine | L'éligibilité HS est lue une fois au premier jour couvert du tronçon. | Bloquer explicitement si l'éligibilité change en cours de tronçon ; afficher la date et la semaine à la DAF. Une règle de répartition journalière demanderait une décision métier distincte. |
 | Gel | Les snapshots versionnés sont la source de la Paie après validation. | Conserver inchangés les snapshots historiques ; correction seulement par réouverture/commande explicite et nouvelle version. |
 
 ### Découpage cible compatible avec la préférence de regroupement
@@ -145,3 +145,11 @@ Le rangement en fichiers n'est pas la difficulté principale : le calcul journal
 Un fichier de moteur peut contenir plusieurs types internes et des méthodes unitaires orientées opérations métier. Les petits `enum` autonomes ne sont pas une frontière métier et peuvent être regroupés avec les types de résultat, à condition de conserver les noms sérialisés dans les snapshots et d'adapter explicitement les consommateurs Paie. Le calcul pur doit rester distinct de l'accès SQL/transaction, et les exports PDF/XLSX doivent garder leurs implémentations de format séparées d'un modèle documentaire commun. Un très grand fichier applicatif reste acceptable s'il présente des sections et une API publique courtes ; fusionner saisie, gel et export dans un seul fichier rendrait toutefois plus difficile l'audit des effets de bord.
 
 La priorité est de caractériser les écarts de nuit et de vacation chevauchant le 25, puis de corriger la source de vérité des minutes. Le regroupement de fichiers vient après des tests de non-régression, car un déplacement de classes seul ne résout aucune divergence métier.
+
+### Tranche appliquée après ce contre-audit
+
+- Le jour compte désormais la nuit sur les intervalles réellement travaillés ; la prévisualisation, la rectification et la saisie résolvent aussi la règle du lendemain pour les vacations franchissant minuit. Le gel résout les bornes de nuit par date civile du segment au lieu de figer 22 h–05 h. Les nouveaux buckets restent `OCCASIONNEL` et les anciens codes restent lisibles.
+- Le plancher d'arrivée du site n'écrase plus une entrée dans la plage nocturne. Cela permet de saisir les heures 00 h→02 h de la seconde campagne après découpe d'une vacation chevauchante.
+- Le gel résout les jours fériés chômés selon le site applicable à chaque date.
+- La prévisualisation et l'écriture refusent immédiatement une vacation du dernier jour qui dépasse minuit ; le précontrôle signale aussi les anciennes saisies déjà présentes et interdit leur gel dans la campagne précédente. L'agent est guidé pour scinder la saisie entre les deux dates ; le workflow bloque transmission et approbation tant que ce cas existe. Le modèle actuel de snapshot par campagne ne permet pas encore une ventilation automatique fiable vers le prochain snapshot.
+- `DaySpecialType`, `NightWorkType` et `OvertimeTier` sont regroupés dans `QualifiedTimeBucket.java`, et `PeriodBalance` dans `AttendanceEngine.java`. Les valeurs enregistrées en base et les snapshots anciens sont inchangés.

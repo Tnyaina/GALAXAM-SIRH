@@ -1,10 +1,11 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/layout/Layout';
 import Loading from '@/components/ui/feedback/Loading';
 
 export default function ProtectedRoute({ allowedRoles, requiredPermission, children }) {
-    const { isAuthenticated, user, hasPermission, loading } = useAuth();
+    const location = useLocation();
+    const { isAuthenticated, user, hasPermission, getDefaultHomeRoute, loading } = useAuth();
 
     // Écran de chargement lors de la récupération de la session (Thème & Token dynamique)
     if (loading) {
@@ -22,17 +23,19 @@ export default function ProtectedRoute({ allowedRoles, requiredPermission, child
         return <Navigate to="/" replace />;
     }
 
-    // Redirige vers la page non autorisée si le rôle ou la permission est insuffisante
+    // Redirige vers la page non autorisée si le rôle est insuffisant
     if (allowedRoles && !allowedRoles.includes(user?.role) && user?.role !== 'ROLE_ADMIN') {
-        if (!hasPermission('EMPLOYE_READ') && hasPermission('POINTAGE_READ')) {
-            return <Navigate to="/pointages/saisie" replace />;
-        }
         return <Navigate to="/non-autorise" replace />;
     }
 
+    // Redirige si la permission requise est manquante
     if (requiredPermission && !hasPermission(requiredPermission)) {
-        if (!hasPermission('EMPLOYE_READ') && hasPermission('POINTAGE_READ')) {
-            return <Navigate to="/pointages/saisie" replace />;
+        // Si l'utilisateur atterrit sur /dashboard sans avoir EMPLOYE_READ, on le redirige vers son module principal
+        if (location.pathname === '/dashboard') {
+            const defaultHome = getDefaultHomeRoute();
+            if (defaultHome && defaultHome !== '/dashboard' && defaultHome !== '/non-autorise') {
+                return <Navigate to={defaultHome} replace />;
+            }
         }
         return <Navigate to="/non-autorise" replace />;
     }

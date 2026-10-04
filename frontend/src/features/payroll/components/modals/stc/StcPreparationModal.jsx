@@ -246,6 +246,10 @@ export default function StcPreparationModal({
                 title={modalTitle}
                 icon={<Calculator size={18} className="text-[var(--color-brand-600)]" />}
                 size="3xl"
+                closeOnBackdrop={false}
+                isDirty={step === 'SIMULATION' || Boolean(form.indemniteLicenciementManuelle || form.autresIndemnites || form.autresDeductions)}
+                dirtyWarningTitle="Calcul de STC en cours"
+                dirtyWarningMessage="Une préparation ou simulation de Solde de Tout Compte est en cours. Si vous quittez maintenant, les paramètres calculés seront réinitialisés. Voulez-vous vraiment quitter ?"
                 footer={
                     <div className="flex justify-between items-center w-full">
                         {step === 'PREPARATION' && (

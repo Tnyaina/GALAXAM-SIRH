@@ -37,9 +37,9 @@ import mg.galaxam.sirh.paie.domain.dto.PayrollBatchResult;
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
 import mg.galaxam.sirh.paie.domain.dto.PayrollAttendanceInput;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
-import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
-import mg.galaxam.sirh.pointage.domain.calculation.DaySpecialType;
-import mg.galaxam.sirh.pointage.domain.calculation.NightWorkType;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.DaySpecialType;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.NightWorkType;
 import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
 import mg.galaxam.sirh.paie.domain.engine.PayrollOvertimeSettlement;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
@@ -876,9 +876,9 @@ public class PayrollService {
                             rs.getBigDecimal("montant_deplacement"),
                             buckets,
                             finalHs50Minutes == null ? 0L : hs30Minutes - buckets.stream()
-                                .filter(b -> b.overtimeTier() == mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier.OVERTIME_30).mapToLong(mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket::minutes).sum(),
+                                .filter(b -> b.overtimeTier() == mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier.OVERTIME_30).mapToLong(mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket::minutes).sum(),
                             finalHs50Minutes == null ? 0L : hs50Minutes - buckets.stream()
-                                .filter(b -> b.overtimeTier() == mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier.OVERTIME_50).mapToLong(mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket::minutes).sum()));
+                                .filter(b -> b.overtimeTier() == mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier.OVERTIME_50).mapToLong(mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket::minutes).sum()));
                     if (rs.getInt("contrat_indemnites_version") >= 2) {
                         // Les anciens snapshots restent lisibles via les deux agrégats historiques.
                         // Les nouveaux figent toutes les indemnités, y compris un catalogue ajouté plus tard.

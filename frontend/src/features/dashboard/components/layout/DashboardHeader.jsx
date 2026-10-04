@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { RefreshCw, AlertTriangle, RotateCcw, CalendarClock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
+import { useNetworkStatus } from '@/context/networkStatus';
 import Button from '@/components/ui/forms/Button';
 import { Skeleton } from '@/components/ui/feedback/Skeleton';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
@@ -42,9 +43,11 @@ export default function DashboardHeader({
     // Contexte
     const { user, hasPermission } = useAuth();
     const toast = useToast();
+    const { online, serverReachable } = useNetworkStatus();
+    const isOnline = online && serverReachable;
+    const prevOnlineRef = useRef(isOnline);
 
     // État local
-    const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [periodContext, setPeriodContext] = useState(null);
     const [periodes, setPeriodes] = useState([]);
 
@@ -81,8 +84,7 @@ export default function DashboardHeader({
 
     // Surveille la connectivité afin d'actualiser le tableau de bord au retour du réseau.
     useEffect(() => {
-        const handleOnline = () => {
-            setIsOnline(true);
+        if (!prevOnlineRef.current && isOnline) {
             toast({
                 title: 'Connexion rétablie',
                 message: 'Vous êtes à nouveau connecté. Actualisation des données...',
@@ -90,20 +92,9 @@ export default function DashboardHeader({
                 duration: 3000
             });
             refresh();
-        };
-
-        const handleOffline = () => {
-            setIsOnline(false);
-        };
-
-        window.addEventListener('online', handleOnline);
-        window.addEventListener('offline', handleOffline);
-
-        return () => {
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        };
-    }, [refresh, toast]);
+        }
+        prevOnlineRef.current = isOnline;
+    }, [isOnline, refresh, toast]);
 
     // Actions utilisateur
     const handleRefresh = async () => {

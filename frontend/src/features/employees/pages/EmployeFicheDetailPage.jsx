@@ -55,10 +55,10 @@ export default function EmployeFicheDetailPage() {
     const canWrite = hasPermission('EMPLOYE_WRITE');
     const canValidate = hasPermission('EMPLOYE_VALIDATE');
     const canReadConges = hasPermission('CONGE_READ');
-    const canValidateConges = hasPermission('CONGE_VALIDATE') || hasPermission('ROLE_ADMIN');
+    const canValidateConges = hasPermission('CONGE_VALIDATE');
     const canReadPointages = hasPermission('POINTAGE_READ');
-    const canReadPaie = hasPermission('PAIE_READ') || hasPermission('ROLE_ADMIN');
-    const canWritePaie = hasPermission('PAIE_WRITE') || hasPermission('ROLE_ADMIN');
+    const canReadPaie = hasPermission('PAIE_READ');
+    const canWritePaie = hasPermission('PAIE_WRITE');
     const tabFromUrl = section || searchParams.get('tab');
 
     // Actions

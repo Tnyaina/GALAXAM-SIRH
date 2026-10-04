@@ -13,7 +13,7 @@ import SEO from '@/components/system/SEO';
 export default function Login() {
     // Contexte et navigation
     const navigate = useNavigate();
-    const { login, isAuthenticated, user, hasPermission } = useAuth();
+    const { login, isAuthenticated, user, getDefaultHomeRoute } = useAuth();
 
     // État local
     const [identifiant, setIdentifiant] = useState('');
@@ -26,14 +26,9 @@ export default function Login() {
     // Effets
     useEffect(() => {
         if (isAuthenticated && user) {
-            const redirectPath = hasPermission('EMPLOYE_READ')
-                ? '/dashboard'
-                : (hasPermission('POINTAGE_READ')
-                    ? '/pointages/saisie'
-                    : (hasPermission('CONGE_READ') ? '/conges' : '/dashboard'));
-            navigate(redirectPath, { replace: true });
+            navigate(getDefaultHomeRoute(), { replace: true });
         }
-    }, [isAuthenticated, user, hasPermission, navigate]);
+    }, [isAuthenticated, user, getDefaultHomeRoute, navigate]);
 
     // Actions
     const handleIdentifiantChange = (e) => {

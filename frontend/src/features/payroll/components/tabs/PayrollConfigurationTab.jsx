@@ -26,9 +26,9 @@ export default function PayrollConfigurationTab({ domaine = 'rubriques' }) {
     const navigate = useNavigate();
     const location = useLocation();
     const toast = useToast();
-    const { hasPermission } = useAuth();
+    const { hasPermission, hasRole } = useAuth();
     const isTypes = domaine === 'types';
-    const canWrite = hasPermission('ROLE_ADMIN') || (isTypes && hasPermission('PAIE_WRITE'));
+    const canWrite = (hasRole ? hasRole('ROLE_ADMIN') : hasPermission('ROLE_ADMIN')) || (isTypes && hasPermission('PAIE_WRITE'));
     const prefix = isTypes ? 'vt_' : 'rb_';
     const read = (key, fallback = '') => params.get(prefix + key) || fallback;
     const query = read('q');

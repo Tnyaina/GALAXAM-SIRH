@@ -46,9 +46,9 @@ function categorizeType(item) {
 export default function PayrollEngineMap() {
     const navigate = useNavigate();
     const [params, setParams] = useSearchParams();
-    const { hasPermission } = useAuth();
+    const { hasPermission, hasRole } = useAuth();
     const toast = useToast();
-    const canWriteRubrique = hasPermission('ROLE_ADMIN');
+    const canWriteRubrique = hasRole ? hasRole('ROLE_ADMIN') : hasPermission('ROLE_ADMIN');
     const canWriteType = canWriteRubrique || hasPermission('PAIE_WRITE');
 
     const mode = params.get('mode') === 'types' || params.get('vue') === 'types'

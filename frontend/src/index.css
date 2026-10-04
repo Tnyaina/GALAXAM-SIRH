@@ -219,7 +219,7 @@
   --color-print-gain: #047857;
   --color-print-deduction: #be123c;
   --color-print-brand: #07324a;
-  --color-focus-ring: color-mix(in oklab, var(--color-brand-500) 40%, transparent);
+  --color-focus-ring: var(--color-brand-600);
 }
 
 .dark {
@@ -248,7 +248,7 @@
   --color-accent-fg: #061820;
   --color-on-color: #ffffff;
   --color-overlay: #041f2f;
-  --color-focus-ring: color-mix(in oklab, #69b4d1 45%, transparent);
+  --color-focus-ring: #69b4d1;
   --color-bg-surface: var(--color-surface);
   --color-surface-subtle: var(--color-bg-subtle);
   --color-border-strong: var(--color-border);

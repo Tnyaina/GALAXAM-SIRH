@@ -1,5 +1,8 @@
 package mg.galaxam.sirh.pointage.domain.calculation;
 
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.DaySpecialType;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.NightWorkType;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier;
 import java.time.*;
 import java.util.*;
 import java.util.function.*;
@@ -7,6 +10,32 @@ import java.util.function.*;
 /** Pipeline temporel pur : intervalles, partition calendaire et projection HS. */
 public final class TemporalAttendanceEngine {
     private TemporalAttendanceEngine() {}
+
+    public record NightWindow(LocalTime start, LocalTime end) {
+        public NightWindow {
+            if (start == null || end == null || !start.isAfter(end))
+                throw new IllegalArgumentException("La plage de nuit doit traverser minuit.");
+        }
+    }
+
+    /** Même partition des minutes réelles pour la saisie, la synthèse et le gel. */
+    public static long nightMinutes(List<WorkInterval> intervals, LocalTime start, LocalTime end) {
+        return nightMinutes(intervals, start, end,
+                start == null && end == null ? null : new NightWindow(start, end));
+    }
+
+    public static long nightMinutes(List<WorkInterval> intervals, LocalTime start, LocalTime end,
+                                    NightWindow nextDayWindow) {
+        if (start == null && end == null && nextDayWindow == null) return 0;
+        if ((start == null) != (end == null))
+            throw new IllegalArgumentException("Les deux bornes de nuit doivent être configurées ensemble.");
+        NightWindow window = start == null ? null : new NightWindow(start, end);
+        LocalDate firstDate = intervals == null || intervals.isEmpty() ? null : intervals.get(0).start().toLocalDate();
+        return new AttendanceTemporalPartitioner(date -> false, date -> 1,
+                date -> firstDate != null && date.isAfter(firstDate) ? nextDayWindow : window)
+                .partition(intervals).stream().filter(TemporalBucket::isNight)
+                .mapToLong(TemporalBucket::minutes).sum();
+    }
 
     public record WorkInterval(
             LocalDateTime start,
@@ -175,13 +204,23 @@ public final class TemporalAttendanceEngine {
     
         private final Predicate<LocalDate> isPublicHoliday;
         private final Function<LocalDate, Integer> periodResolver;
+        private final Function<LocalDate, NightWindow> nightWindowResolver;
     
         public AttendanceTemporalPartitioner(
                 Predicate<LocalDate> isPublicHoliday,
                 Function<LocalDate, Integer> periodResolver
         ) {
+            this(isPublicHoliday, periodResolver, date -> new NightWindow(NIGHT_START, NIGHT_END));
+        }
+
+        public AttendanceTemporalPartitioner(
+                Predicate<LocalDate> isPublicHoliday,
+                Function<LocalDate, Integer> periodResolver,
+                Function<LocalDate, NightWindow> nightWindowResolver
+        ) {
             this.isPublicHoliday = isPublicHoliday != null ? isPublicHoliday : d -> false;
             this.periodResolver = periodResolver != null ? periodResolver : d -> 1;
+            this.nightWindowResolver = Objects.requireNonNull(nightWindowResolver);
         }
     
         /**
@@ -227,16 +266,12 @@ public final class TemporalAttendanceEngine {
                     cutPoints.add(midnight);
                 }
     
-                // Frontière 05:00 (fin de nuit légale)
-                LocalDateTime morning05 = current.atTime(NIGHT_END);
-                if (morning05.isAfter(start) && morning05.isBefore(end)) {
-                    cutPoints.add(morning05);
-                }
-    
-                // Frontière 22:00 (début de nuit légale)
-                LocalDateTime night22 = current.atTime(NIGHT_START);
-                if (night22.isAfter(start) && night22.isBefore(end)) {
-                    cutPoints.add(night22);
+                NightWindow window = nightWindowResolver.apply(current);
+                if (window != null) {
+                    LocalDateTime morningEnd = current.atTime(window.end());
+                    if (morningEnd.isAfter(start) && morningEnd.isBefore(end)) cutPoints.add(morningEnd);
+                    LocalDateTime nightStart = current.atTime(window.start());
+                    if (nightStart.isAfter(start) && nightStart.isBefore(end)) cutPoints.add(nightStart);
                 }
     
                 current = current.plusDays(1);
@@ -280,9 +315,11 @@ public final class TemporalAttendanceEngine {
                     dayType = DaySpecialType.STANDARD;
                 }
     
-                // Qualification horaire : nuit [22h00 - 05h00[
+                // Qualification horaire selon les bornes valides à la date civile du segment.
                 LocalTime startTime = segStart.toLocalTime();
-                boolean isNight = !startTime.isBefore(NIGHT_START) || startTime.isBefore(NIGHT_END);
+                NightWindow window = nightWindowResolver.apply(segDate);
+                boolean isNight = window != null
+                        && (!startTime.isBefore(window.start()) || startTime.isBefore(window.end()));
                 NightWorkType nightType = isNight ? NightWorkType.OCCASIONNEL : NightWorkType.NONE;
     
                 // Résolution de la période de paie

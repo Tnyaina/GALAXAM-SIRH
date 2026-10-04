@@ -22,6 +22,7 @@ import EmployeSearchSelect from '@/components/ui/forms/EmployeSearchSelect';
 import Badge from '@/components/ui/data-display/Badge';
 import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
+import useUnsavedChanges from '@/hooks/useUnsavedChanges';
 import paieService from '@/features/payroll/api/paieService';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import { formatMoneyAr } from '@/utils/moneyUtils';
@@ -232,8 +233,18 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
         }
     };
 
+    const isDirty = Boolean((!idEmploye && selectedEmpId) || montant || motif || modeReglement);
+    useUnsavedChanges(isDirty);
+
     return (
-        <Modal isOpen onClose={onClose} title="Demande d’acompte ou d’avance sur salaire" size="2xl">
+        <Modal
+            isOpen
+            onClose={onClose}
+            closeOnBackdrop={false}
+            isDirty={isDirty}
+            title="Demande d’acompte ou d’avance sur salaire"
+            size="2xl"
+        >
             <form onSubmit={submit} className="space-y-4 text-xs">
                 <p className="text-xs text-[var(--color-fg-muted)]">
                     Saisir une demande d'acompte ou d'avance — La demande sera enregistrée en attente d’approbation dans la campagne de paie sélectionnée.

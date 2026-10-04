@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-import mg.galaxam.sirh.pointage.domain.calculation.OvertimeTier;
-import mg.galaxam.sirh.pointage.domain.calculation.NightWorkType;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier;
+import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.NightWorkType;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.AttendanceTemporalPartitioner;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.OvertimeProjectionEngine;
@@ -46,5 +46,43 @@ class TemporalAttendanceEngineTest {
     void badgeIncompletNeCreePasDIntervalle() {
         assertTrue(WorkIntervalFactory.createIntervals(1, 10, LocalDate.of(2026, 9, 5),
                 LocalTime.of(8, 0), null, null, null, false, "TEST").isEmpty());
+    }
+
+    @Test void nuitOccasionnelleCompteUniquementLesMinutesTravaillees() {
+        LocalDate day = LocalDate.of(2026, 9, 5);
+        var intervals = WorkIntervalFactory.createIntervals(1, 10, day,
+                LocalTime.of(23, 0), null, null, LocalTime.of(2, 0), true, "TEST");
+        assertEquals(180, mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.nightMinutes(
+                intervals, LocalTime.of(22, 0), LocalTime.of(5, 0)));
+        assertEquals(120, mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.nightMinutes(
+                intervals, LocalTime.of(23, 0), LocalTime.of(1, 0)));
+    }
+
+    @Test void seuilNuitChangeAuPremierJourDuMoisSelonLaDateCivile() {
+        LocalDate september30 = LocalDate.of(2026, 9, 30);
+        var interval = WorkIntervalFactory.createIntervals(1, 10, september30,
+                LocalTime.of(21, 0), null, null, LocalTime.of(2, 0), true, "TEST");
+        var partitioner = new AttendanceTemporalPartitioner(day -> false, day -> 1,
+                day -> day.equals(september30)
+                        ? new mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.NightWindow(
+                                LocalTime.of(22, 0), LocalTime.of(5, 0))
+                        : new mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.NightWindow(
+                                LocalTime.of(23, 0), LocalTime.of(1, 0)));
+        var buckets = partitioner.partition(interval);
+        assertEquals(180, buckets.stream().filter(b -> b.isNight()).mapToLong(b -> b.minutes()).sum());
+        assertEquals(300, buckets.stream().mapToLong(b -> b.minutes()).sum());
+    }
+
+    @Test void pauseEtFinDeNuitNeCreentPasDeMinutesFictives() {
+        LocalDate day = LocalDate.of(2026, 9, 5);
+        var intervals = WorkIntervalFactory.createIntervals(1, 10, day,
+                LocalTime.of(20, 0), LocalTime.of(21, 0),
+                LocalTime.of(23, 0), LocalTime.of(2, 0), false, "TEST");
+        assertEquals(180, mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.nightMinutes(
+                intervals, LocalTime.of(22, 0), LocalTime.of(5, 0)));
+        var morning = WorkIntervalFactory.createIntervals(1, 11, day,
+                LocalTime.of(4, 0), null, null, LocalTime.of(6, 0), true, "TEST");
+        assertEquals(60, mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.nightMinutes(
+                morning, LocalTime.of(22, 0), LocalTime.of(5, 0)));
     }
 }

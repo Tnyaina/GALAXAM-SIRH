@@ -14,6 +14,8 @@ import PointageToolbar from '@/features/attendance/components/controls/PointageT
 import PointageGridTable from '@/features/attendance/components/views/PointageGridTable';
 import usePointageSaisie from '@/features/attendance/hooks/usePointageSaisie';
 import useDebounce from '@/hooks/useDebounce';
+import useUnsavedChanges from '@/hooks/useUnsavedChanges';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 
 const PointageRecapModal = lazy(() => import('@/features/attendance/components/modals/PointageRecapModal'));
 
@@ -23,6 +25,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [sites, setSites] = useState(() => sitesDisponibles || []);
+    const canWrite = hasPermission('POINTAGE_WRITE');
     const canValidate = hasPermission('POINTAGE_VALIDATE');
     const canReadConge = hasPermission('CONGE_READ');
 
@@ -108,6 +111,13 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     const [modifiedEmpIds, setModifiedEmpIds] = useState(new Set());
     const dirtyCount = modifiedEmpIds.size;
 
+    // Protection globale contre la fermeture d'onglet / rafraîchissement si pointages non enregistrés
+    useUnsavedChanges(dirtyCount > 0, `${dirtyCount} pointage(s) modifié(s) ne sont pas encore enregistrés.`);
+
+    // Navigation en attente de confirmation si données modifiées
+    const [pendingNav, setPendingNav] = useState(null); // { type: 'site' | 'date', value: ... }
+    const [showUnsavedNavConfirm, setShowUnsavedNavConfirm] = useState(false);
+
     // Recalcul temps réel du nombre exact de collaborateurs modifiés
     useEffect(() => {
         if (!initialGrilleData || initialGrilleData.length === 0) {
@@ -141,21 +151,18 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
         }
     }, [validSites, selectedSite, setSelectedSite, setSearchParams]);
 
-    // Changement de site ou de date
-    const handleSiteChange = (siteId) => {
-        const sid = Number(siteId);
-        if (sid > 0) {
-            setSelectedSite(sid);
-            setCurrentPage(1);
-            setSearchParams(prev => {
-                const next = new URLSearchParams(prev);
-                next.set('site', String(sid));
-                return next;
-            });
-        }
-    };
+    // Application effective des changements de filtre
+    const applySiteChange = useCallback((sid) => {
+        setSelectedSite(sid);
+        setCurrentPage(1);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('site', String(sid));
+            return next;
+        });
+    }, [setSelectedSite, setSearchParams]);
 
-    const handleDateChange = (dateStr) => {
+    const applyDateChange = useCallback((dateStr) => {
         setSelectedDate(dateStr);
         setCurrentPage(1);
         setSearchParams(prev => {
@@ -163,6 +170,28 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
             next.set('date', dateStr);
             return next;
         });
+    }, [setSelectedDate, setSearchParams]);
+
+    // Changement de site ou de date avec protection anti-perte de saisie
+    const handleSiteChange = (siteId) => {
+        const sid = Number(siteId);
+        if (sid <= 0 || sid === selectedSite) return;
+        if (dirtyCount > 0) {
+            setPendingNav({ type: 'site', value: sid });
+            setShowUnsavedNavConfirm(true);
+            return;
+        }
+        applySiteChange(sid);
+    };
+
+    const handleDateChange = (dateStr) => {
+        if (!dateStr || dateStr === selectedDate) return;
+        if (dirtyCount > 0) {
+            setPendingNav({ type: 'date', value: dateStr });
+            setShowUnsavedNavConfirm(true);
+            return;
+        }
+        applyDateChange(dateStr);
     };
 
     // Modales
@@ -300,8 +329,8 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     const isFuture = isDateInFuture(selectedDate);
 
     const isReadOnly = useMemo(
-        () => activePeriode?.availableActions?.EDIT_POINTAGE?.allowed !== true,
-        [activePeriode]
+        () => !canWrite || activePeriode?.availableActions?.EDIT_POINTAGE?.allowed !== true,
+        [canWrite, activePeriode]
     );
 
     const currentSiteObj = sites.find(s => s.idSite === selectedSite);
@@ -392,7 +421,17 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                     dirtyCount={dirtyCount}
                 />
 
-                {/* 1.bis Alert : Date future */}
+                {/* 1.bis Alert : Consultation seule si pas de droit d'écriture */}
+                {!canWrite && !loading && (
+                    <Alert
+                        type="info"
+                        title="Mode consultation seule"
+                    >
+                        <span>Vous visualisez la grille de pointage en lecture seule. La saisie et l'enregistrement de présences nécessitent les droits d'écriture (permission POINTAGE_WRITE).</span>
+                    </Alert>
+                )}
+
+                {/* 1.ter Alert : Date future */}
                 {isFuture && (
                     <Alert
                         type="warning"
@@ -517,6 +556,29 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                     />
                 </Suspense>
             )}
+
+            {/* Confirmation en cas de changement de filtre avec modifications en cours */}
+            <ConfirmDialog
+                isOpen={showUnsavedNavConfirm}
+                onClose={() => {
+                    setShowUnsavedNavConfirm(false);
+                    setPendingNav(null);
+                }}
+                onConfirm={() => {
+                    setShowUnsavedNavConfirm(false);
+                    if (pendingNav?.type === 'site') {
+                        applySiteChange(pendingNav.value);
+                    } else if (pendingNav?.type === 'date') {
+                        applyDateChange(pendingNav.value);
+                    }
+                    setPendingNav(null);
+                }}
+                title="Modifications non enregistrées"
+                message={`Vous avez ${dirtyCount} pointage(s) modifié(s) en attente. Si vous changez de ${pendingNav?.type === 'site' ? 'site' : 'date'} sans enregistrer, vos modifications seront définitivement perdues.`}
+                confirmLabel="Changer sans enregistrer"
+                cancelLabel="Rester et enregistrer"
+                variant="warning"
+            />
         </>
     );
 }

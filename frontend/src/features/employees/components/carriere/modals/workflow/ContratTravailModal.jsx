@@ -122,6 +122,8 @@ export default function ContratTravailModal({ isOpen, onClose, employe, contrat,
                 title={`${data?.codeTypeContrat || contrat?.libelleTypeContrat || 'Contrat'} · ${contrat?.numeroContrat || ''}`}
                 icon={<FileText size={18} />}
                 size="2xl"
+                closeOnBackdrop={false}
+                isDirty={editingSignatureDate}
                 footer={modalFooter}
             >
                 <div className="space-y-4">

@@ -38,11 +38,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 
 export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, mutationDisabledReason = '', periodStatus = '', onVariableChanged, onPendingCountChange }) {
-    const { hasPermission } = useAuth();
+    const { hasRole, hasPermission } = useAuth();
     const toast = useToast();
     const navigate = useNavigate();
     const location = useLocation();
-    const canConfigure = hasPermission('ROLE_ADMIN');
+    const canConfigure = hasRole ? hasRole('ROLE_ADMIN') : hasPermission?.('ROLE_ADMIN');
     const disabledExplanation = periodStatus === 'PAIE_VALIDEE'
         ? 'La paie de cette période est validée : les variables ne peuvent plus être ajoutées ou modifiées.'
         : mutationDisabledReason.includes('PAYROLL_ALREADY_VALIDATED')

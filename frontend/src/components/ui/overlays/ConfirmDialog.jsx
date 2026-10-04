@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
+import useFocusTrap from '@/hooks/useFocusTrap';
 
 /**
  * ConfirmDialog — Modale de confirmation réutilisable (désactivation, suppression, etc.)
- * Bordures nettes, pas d'arrondi, respect des tokens du design system.
+ * Bordures nettes, pas d'arrondi, respect des tokens du design system, piège du focus clavier WCAG AA.
  */
 export default function ConfirmDialog({
     isOpen,
@@ -18,7 +19,9 @@ export default function ConfirmDialog({
     loading = false,
     children
 }) {
-  // Effets, actions et rendu de la boîte de confirmation.
+    const dialogRef = useRef(null);
+    useFocusTrap(dialogRef, isOpen);
+
     // Fermeture sur la touche Échap
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -42,6 +45,7 @@ export default function ConfirmDialog({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-overlay)]/60 backdrop-blur-[2px] p-4">
             <div
+                ref={dialogRef}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="confirm-dialog-title"

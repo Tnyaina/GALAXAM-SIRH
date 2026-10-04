@@ -16,6 +16,7 @@ import ContratFieldsSection, { PeriodeEssaiFieldsSection } from '@/features/empl
 import AffectationFieldsSection from '@/features/employees/components/carriere/form/AffectationFieldsSection';
 
 import TransitionComparatifCard from '@/features/employees/components/carriere/preview/TransitionComparatifCard';
+import useUnsavedChanges from '@/hooks/useUnsavedChanges';
 
 export default function TransitionModal({
     isOpen,
@@ -42,11 +43,14 @@ export default function TransitionModal({
         avantSalaire,
         filiales, typesContrat, typesIntervenant, sites, departements,
         services, fonctions, categoriesPro, modesPaie, responsables,
-        lockTypeContrat, lockTypeIntervenant
+        lockTypeContrat, lockTypeIntervenant,
+        isDirty,
     } = useTransitionForm({
         isOpen, onClose, idEmploye, typeEvenement,
         affectationActive, contratActif, initialData, onSuccess
     });
+
+    useUnsavedChanges(isOpen && isDirty);
 
     if (!isOpen) return null;
 
@@ -81,6 +85,8 @@ export default function TransitionModal({
         <SlideOver
             isOpen={isOpen}
             onClose={onClose}
+            closeOnBackdrop={false}
+            isDirty={isDirty}
             title={isEditMode ? 'Modifier le brouillon d\'évolution' : (typeEvObj?.libelle || 'Évolution de situation')}
             subtitle={`Mouvement RH pour ${nomEmploye}`}
             icon={<RefreshCw size={18} />}

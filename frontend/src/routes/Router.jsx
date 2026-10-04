@@ -68,7 +68,7 @@ const SYSTEM_PAGES = {
     },
     unauthorized: {
         code: "403", icon: ShieldAlert, title: "Accès refusé (403)", tone: "danger",
-        description: "Vos droits d'accès actuels ne vous permettent pas d'accéder à cette page ou d'effectuer cette opération.", actionLabel: "Retour au tableau de bord", actionHref: "/dashboard"
+        description: "Vos droits d'accès actuels ne vous permettent pas d'accéder à cette page ou d'effectuer cette opération."
     },
     notFound: {
         code: "404", icon: HelpCircle, title: "Page introuvable", tone: "neutral",

@@ -22,9 +22,9 @@ import org.springframework.stereotype.Service;
 public class EmploymentContextResolver {
 
     public record Coverage(LocalDate firstDay, LocalDate lastDay, int days, int lastAssignmentId) {}
-    public record PointageDay(int siteId, boolean dispensePointage) {}
+    public record PointageDay(int siteId, boolean dispensePointage, boolean overtimeEligible) {}
     private record EmploymentSegment(int id, LocalDate start, LocalDate end) {}
-    private record SiteSegment(int id, Integer siteId, boolean dispensePointage,
+    private record SiteSegment(int id, Integer siteId, boolean dispensePointage, boolean overtimeEligible,
                                LocalDate start, LocalDate end) {}
 
     /** Sites applicables jour par jour, chargés en une requête pour les écrans et calculs de pointage. */
@@ -43,10 +43,12 @@ public class EmploymentContextResolver {
             throw new IllegalArgumentException("Bornes du contexte journalier invalides.");
         List<SiteSegment> segments = new ArrayList<>();
         String sql = "SELECT a.id_affectation, a.id_site, COALESCE(f.dispense_pointage,FALSE) AS dispense_pointage, "
+                + "cp.est_eligible_hs, "
                 + "GREATEST(a.date_debut, ct.date_debut) AS debut, "
                 + "LEAST(COALESCE(a.date_fin, ?), COALESCE(ct.date_fin, ?)) AS fin "
                 + "FROM employe_affectation_carriere a JOIN contrat_travail ct ON ct.id_contrat=a.id_contrat "
                 + "LEFT JOIN ref_fonction f ON f.id_fonction=a.id_fonction "
+                + "JOIN ref_categorie_professionnelle cp ON cp.id_categorie_professionnelle=a.id_categorie_professionnelle "
                 + "JOIN ref_statut_rh sa ON sa.id_statut_rh=a.id_statut_rh "
                 + "JOIN ref_statut_rh sc ON sc.id_statut_rh=ct.id_statut_rh "
                 + "WHERE a.id_employe=? AND sa.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') "
@@ -60,6 +62,7 @@ public class EmploymentContextResolver {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) segments.add(new SiteSegment(rs.getInt("id_affectation"),
                         (Integer) rs.getObject("id_site"), rs.getBoolean("dispense_pointage"),
+                        rs.getBoolean("est_eligible_hs"),
                         rs.getDate("debut").toLocalDate(),
                         rs.getDate("fin").toLocalDate()));
             }
@@ -76,7 +79,8 @@ public class EmploymentContextResolver {
                 Integer site = applicable.get(0).siteId();
                 if (site == null) throw new IllegalStateException(
                         "MISSING_CONFIGURATION: AFFECTATION_SITE employé=" + idEmploye + " au " + day);
-                sites.put(day, new PointageDay(site, applicable.get(0).dispensePointage()));
+                sites.put(day, new PointageDay(site, applicable.get(0).dispensePointage(),
+                        applicable.get(0).overtimeEligible()));
             }
         }
         return sites;
