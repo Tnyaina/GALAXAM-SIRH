@@ -27,6 +27,19 @@ class EmploymentContextResolverTest {
     private DataSource dataSource;
 
     @Test
+    void uneDateMetierEstObligatoirePourLesResolutionsHistoriques() {
+        assertThrows(NullPointerException.class,
+                () -> contextResolver.resolveContext(1, null, null));
+        assertThrows(NullPointerException.class,
+                () -> contextResolver.listActiveEmploymentContexts(null, LocalDate.of(2026, 1, 25), null));
+        assertThrows(NullPointerException.class,
+                () -> contextResolver.listActiveEmploymentContexts(LocalDate.of(2026, 1, 1), null, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> contextResolver.listActiveEmploymentContexts(LocalDate.of(2026, 2, 1),
+                        LocalDate.of(2026, 1, 25), null));
+    }
+
+    @Test
     void testResolveContextEmploye() throws Exception {
         try (Connection c = dataSource.getConnection()) {
             assertEquals("sirh_galaxam_test", currentDatabase(c));

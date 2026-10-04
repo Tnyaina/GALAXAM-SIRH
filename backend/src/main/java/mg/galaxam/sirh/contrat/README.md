@@ -1,9 +1,12 @@
 # Domaine Contrat & Gestion du Personnel
 
 `application/EmploymentContextResolver` porte la résolution commune contrat /
-affectation à une date ou sur une plage. Il bloque les chevauchements au lieu
-de choisir une ligne par ordre SQL. Les domaines clients délèguent cette
-résolution au service partagé ; ils gardent uniquement leurs règles propres.
+affectation à une date ou sur une plage. Les méthodes historiques exigent des
+dates métier explicites ; `resolveCurrent` est le seul raccourci pour aujourd'hui.
+Les contrats et affectations aujourd'hui clôturés restent résolus aux dates
+qu'ils couvraient. La résolution groupée des sites par jour charge les segments
+en une requête et bloque les chevauchements. Les domaines clients gardent leurs
+règles propres (tarifs, calendrier, cotisations).
 
 Ce dossier regroupe le cycle complet du personnel, des contrats et de l'évolution de carrière.
 

@@ -7,6 +7,7 @@ import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
 import mg.galaxam.sirh.pointage.domain.calculation.AttendanceEngine;
+import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -33,6 +34,8 @@ import java.util.Set;
 
 @Service
 public class PointageService {
+
+    private final EmploymentContextResolver employmentContextResolver = new EmploymentContextResolver();
 
     record DailyAllowanceTariff(int id, String code, String label, boolean fractionable,
             String periodicity, BigDecimal siteAmount) {}
@@ -1386,71 +1389,23 @@ public class PointageService {
             throw new IllegalStateException("Action interdite : Impossible d'enregistrer un pointage pour une date future (" + dtPtg + "). La date maximale autorisée est " + today + ".");
         }
 
-        // 2. Vérifier existence et statut actif
-        String sqlEmp = "SELECT est_actif FROM employe WHERE id_employe = ?";
-        boolean estActif = false;
-        try (PreparedStatement ps = c.prepareStatement(sqlEmp)) {
-            ps.setInt(1, idEmploye);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    estActif = rs.getBoolean("est_actif");
-                } else {
-                    throw new IllegalStateException("L'employé ID " + idEmploye + " est introuvable.");
-                }
-            }
+        // Contrat et affectation au jour réel du pointage : même résolution que les autres domaines.
+        var contexte = employmentContextResolver.resolveContext(idEmploye, dtPtg, c);
+        if (contexte == null) {
+            throw new IllegalStateException("L'employé ID " + idEmploye + " est introuvable.");
         }
-        if (!estActif) {
+        if (!contexte.estActifEmploye()) {
             throw new IllegalStateException("L'employé ID " + idEmploye + " est inactif.");
         }
 
-        // 3. Vérifier date d'embauche en Java
-        String sqlCt = "SELECT MIN(date_debut) AS date_embauche FROM contrat_travail WHERE id_employe = ?";
-        try (PreparedStatement ps = c.prepareStatement(sqlCt)) {
-            ps.setInt(1, idEmploye);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next() && rs.getDate("date_embauche") != null) {
-                    LocalDate dEmb = rs.getDate("date_embauche").toLocalDate();
-                    if (dtPtg.isBefore(dEmb)) {
-                        throw new IllegalStateException("L'employé ID " + idEmploye + " n'était pas encore embauché le " + datePointage + " (embauche : " + dEmb + ").");
-                    }
-                }
-            }
+        LocalDate dateEmbauche = contexte.dateEmbaucheInitiale();
+        if (dateEmbauche != null && dtPtg.isBefore(dateEmbauche)) {
+            throw new IllegalStateException("L'employé ID " + idEmploye + " n'était pas encore embauché le "
+                    + datePointage + " (embauche : " + dateEmbauche + ").");
         }
 
-        // 3. Vérifier affectation au site en Java par rapport à la date du pointage
-        String sqlAff = "SELECT a.id_affectation, a.date_debut, a.date_fin, a.id_site, rsa.code AS statut_code, " +
-                        "COALESCE(f.dispense_pointage, FALSE) AS dispense_pointage " +
-                        "FROM employe_affectation_carriere a " +
-                        "LEFT JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh " +
-                        "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
-                        "WHERE a.id_employe = ?";
-        List<AffCandidat> affsEmp = new ArrayList<>();
-        try (PreparedStatement ps = c.prepareStatement(sqlAff)) {
-            ps.setInt(1, idEmploye);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    int sId = rs.getInt("id_site");
-                    if (sId > 0) {
-                        AffCandidat aff = new AffCandidat();
-                        aff.idAffectation = rs.getInt("id_affectation");
-                        aff.idSite = sId;
-                        Date dDeb = rs.getDate("date_debut");
-                        Date dFin = rs.getDate("date_fin");
-                        aff.dateDebut = dDeb != null ? dDeb.toLocalDate() : null;
-                        aff.dateFin = dFin != null ? dFin.toLocalDate() : null;
-                        aff.codeStatut = rs.getString("statut_code");
-                        aff.dispensePointage = rs.getBoolean("dispense_pointage");
-                        affsEmp.add(aff);
-                    }
-                }
-            }
-        }
-
-        boolean rattacheAuSite = false;
-        AffCandidat affApplicable = trouverAffectationApplicable(affsEmp, dtPtg);
-        if (affApplicable != null && affApplicable.idSite == idSite) {
-            rattacheAuSite = true;
-        }
+        boolean rattacheAuSite = contexte.idAffectation() != null && contexte.idSite() != null
+                && contexte.idSite() == idSite;
 
         if (!rattacheAuSite) {
             // Vérifier si un pointage existe déjà pour ce salarié sur ce site à cette date

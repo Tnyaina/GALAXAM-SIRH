@@ -10,6 +10,7 @@ import mg.galaxam.sirh.conge.testutils.CongeTestFixtureHelper;
 import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
 import mg.galaxam.sirh.paie.application.*;
 import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
+import mg.galaxam.sirh.pointage.application.PointageService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -254,6 +255,58 @@ class PayrollLeaveYearBoundaryIntegrationTest {
                 date("2026-01-01"), new BigDecimal("450000"));
         decimal("300000", rates.obtenirSituationComplete(employee, date("2025-12-31"), c).getSalaireBase());
         decimal("450000", rates.obtenirSituationComplete(employee, date("2026-01-01"), c).getSalaireBase());
+    }
+
+    @Test void saisiePointageUtiliseLeSiteReelAuPassageAnnee() throws Exception {
+        int siteJanvier = temporalSite("PTG");
+        update("UPDATE employe_affectation_carriere SET date_fin='2025-12-31' WHERE id_affectation=?", assignment);
+        int nouvelleAffectation = CongeTestFixtureHelper.createAffectation(c, employee, contract,
+                date("2026-01-01"), new BigDecimal("400000"));
+        try (var ps = c.prepareStatement("UPDATE employe_affectation_carriere SET id_site=? WHERE id_affectation=?")) {
+            ps.setInt(1, siteJanvier);
+            ps.setInt(2, nouvelleAffectation);
+            ps.executeUpdate();
+        }
+        var pointage = new PointageService();
+        pointage.verifierEligibilitePointage(c, employee, 1, Date.valueOf("2025-12-31"));
+        pointage.verifierEligibilitePointage(c, employee, siteJanvier, Date.valueOf("2026-01-01"));
+        var sites = employmentContext.resolveSitesByDay(employee, date("2025-12-31"), date("2026-01-02"), c);
+        assertEquals(1, sites.get(date("2025-12-31")));
+        assertEquals(siteJanvier, sites.get(date("2026-01-01")));
+        assertTrue(assertThrows(IllegalStateException.class,
+                () -> pointage.verifierEligibilitePointage(c, employee, 1, Date.valueOf("2026-01-01")))
+                .getMessage().contains("n'est pas rattaché"));
+    }
+
+    @Test void contexteHistoriqueConserveLeContratCloture() throws Exception {
+        update("UPDATE contrat_travail SET date_fin='2025-12-31', id_statut_rh=7 WHERE id_contrat=?", contract);
+        update("UPDATE employe_affectation_carriere SET date_fin='2025-12-31', id_statut_rh=6 "
+                + "WHERE id_affectation=?", assignment);
+        var decembre = employmentContext.resolveContext(employee, date("2025-12-31"), c);
+        assertEquals(contract, decembre.idContrat());
+        assertEquals(assignment, decembre.idAffectation());
+        assertTrue(decembre.estEnPoste());
+        assertNull(employmentContext.resolveContext(employee, date("2026-01-01"), c).idContrat());
+    }
+
+    @Test void sitesJournaliersRefusentDeuxAffectationsChevauchantes() throws Exception {
+        CongeTestFixtureHelper.createAffectation(c, employee, contract,
+                date("2026-01-01"), new BigDecimal("400000"));
+        assertTrue(assertThrows(IllegalStateException.class,
+                () -> employmentContext.resolveSitesByDay(employee,
+                        date("2026-01-01"), date("2026-01-02"), c))
+                .getMessage().contains("AMBIGUOUS_CONFIGURATION"));
+    }
+
+    @Test void dispensePointageSuitLaFonctionDeChaqueJour() throws Exception {
+        update("UPDATE employe_affectation_carriere SET date_fin='2025-12-31' WHERE id_affectation=?", assignment);
+        int janvier = CongeTestFixtureHelper.createAffectation(c, employee, contract,
+                date("2026-01-01"), new BigDecimal("400000"));
+        update("UPDATE employe_affectation_carriere SET id_fonction=1 WHERE id_affectation=?", janvier);
+        var jours = employmentContext.resolvePointageDays(employee,
+                date("2025-12-31"), date("2026-01-01"), c);
+        assertFalse(jours.get(date("2025-12-31")).dispensePointage());
+        assertTrue(jours.get(date("2026-01-01")).dispensePointage());
     }
 
     @Test void referenceGlissanteHistoriqueBloqueRenouvellementAutomatiqueSansAlteration() throws Exception {
@@ -513,11 +566,18 @@ class PayrollLeaveYearBoundaryIntegrationTest {
     }
 
     @Test void pointageAutonomeUtiliseTarifEtSiteDeChaqueJour() throws Exception {
+        // Isoler le changement de site/tarif des jours fériés du référentiel de test.
+        try (var ps = c.prepareStatement("UPDATE ref_calendrier_ferie SET est_chome=FALSE "
+                + "WHERE date_ferie BETWEEN DATE '2025-12-26' AND DATE '2026-01-25'")) {
+            ps.executeUpdate();
+        }
         int firstSite=temporalSite("DA"),secondSite=temporalSite("DB");
+        update("UPDATE employe_affectation_carriere SET id_fonction=1 WHERE id_affectation=?", assignment);
         try(var ps=c.prepareStatement("UPDATE employe_affectation_carriere SET id_site=? WHERE id_affectation=?")) {
             ps.setInt(1,firstSite);ps.setInt(2,assignment);ps.executeUpdate();
         }
         int next=changeAssignment();
+        update("UPDATE employe_affectation_carriere SET id_fonction=1 WHERE id_affectation=?", next);
         try(var ps=c.prepareStatement("UPDATE employe_affectation_carriere SET id_site=? WHERE id_affectation=?")) {
             ps.setInt(1,secondSite);ps.setInt(2,next);ps.executeUpdate();
         }
@@ -527,10 +587,40 @@ class PayrollLeaveYearBoundaryIntegrationTest {
             ps.setInt(1,firstSite);ps.setInt(2,secondSite);assertEquals(2,ps.executeUpdate());
         }
         int period=bulletin("2025-12-26","2026-01-25");
+        var sitesAutonomes = employmentContext.resolveSitesByDay(employee,
+                date("2025-12-26"), date("2026-01-25"), c);
+        assertEquals(firstSite, sitesAutonomes.get(date("2025-12-26")));
+        assertEquals(secondSite, sitesAutonomes.get(date("2026-01-02")));
         var summary=new mg.galaxam.sirh.pointage.application.PointageSyntheseService().calculerSyntheseEmploye(
                 employee,"TEST","Temporal","Test",null,firstSite,"DA","DA","AGENT",false,true,
                 date("2025-12-26"),date("2026-01-25"),period,"TEST","TEST","EN_COURS",21,null,java.util.Map.of(),c);
         decimal("38000",summary.getMontantRepas()); // 4 jours décembre × 1000 + 17 jours janvier × 2000
+    }
+
+    @Test void syntheseActiveLaDispenseSeulementApresChangementDeFonction() throws Exception {
+        try (var ps = c.prepareStatement("UPDATE ref_calendrier_ferie SET est_chome=FALSE "
+                + "WHERE date_ferie BETWEEN DATE '2025-12-26' AND DATE '2026-01-25'")) {
+            ps.executeUpdate();
+        }
+        int siteJanvier = temporalSite("AUT");
+        int janvier = changeAssignment();
+        try (var ps = c.prepareStatement("UPDATE employe_affectation_carriere "
+                + "SET id_site=?, id_fonction=1 WHERE id_affectation=?")) {
+            ps.setInt(1, siteJanvier); ps.setInt(2, janvier); ps.executeUpdate();
+        }
+        try (var ps = c.prepareStatement("INSERT INTO site_indemnite_config "
+                + "(id_site,id_indemnite,periodicite,montant_reference,date_debut) "
+                + "SELECT ?,id_indemnite,'JOURNALIER',2000,DATE '2026-01-01' "
+                + "FROM ref_indemnite WHERE code='REPAS'")) {
+            ps.setInt(1, siteJanvier); assertEquals(1, ps.executeUpdate());
+        }
+        int period = bulletin("2025-12-26", "2026-01-25");
+        var summary = new mg.galaxam.sirh.pointage.application.PointageSyntheseService().calculerSyntheseEmploye(
+                employee, "TEST", "Temporal", "Test", null, 1, "TNR", "TNR", "AGENT", false, false,
+                date("2025-12-26"), date("2026-01-25"), period, "TEST", "TEST", "EN_COURS", 21,
+                null, java.util.Map.of(), c);
+        decimal("34000", summary.getMontantRepas());
+        assertTrue(summary.isDispensePointage());
     }
     int temporalSite(String prefix) throws Exception {
         try(var ps=c.prepareStatement("INSERT INTO ref_site(code_site,libelle) VALUES (?,?) RETURNING id_site")) {

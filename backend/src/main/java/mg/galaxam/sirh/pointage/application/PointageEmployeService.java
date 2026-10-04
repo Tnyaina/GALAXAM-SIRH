@@ -7,6 +7,7 @@ import mg.galaxam.sirh.pointage.api.dto.PointageTronconSemaineDTO;
 import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
+import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -56,6 +57,7 @@ public class PointageEmployeService {
     private final DataSource dataSource;
     private final PointageSyntheseService syntheseService;
     private final CalendrierOuvrableEngine calendrierEngine;
+    private final EmploymentContextResolver employmentContextResolver = new EmploymentContextResolver();
 
     @org.springframework.beans.factory.annotation.Autowired
     public PointageEmployeService(DataSource dataSource,
@@ -148,23 +150,13 @@ public class PointageEmployeService {
         result.setDateFin(endDate.toString());
         result.setStatutPeriode(resolvedStatutPeriode);
 
-        // 1. Récupération dynamique des règles du site et des métadonnées collaborateur
-        String sqlSite = "SELECT e.matricule, e.nom, e.prenom, " +
-                "s.id_site, s.code_site, COALESCE(s.libelle, 'Siège') AS site_nom, " +
+        // En-tête au dernier jour affiché ; les lignes quotidiennes utilisent leur propre date.
+        String sqlSite = "SELECT " +
                 "COALESCE(s.horaire_continu, FALSE) AS site_horaire_continu, " +
                 "s.heure_debut_matin, s.heure_fin_matin, " +
                 "s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
-                "CASE WHEN s.plancher_arrivee_actif = TRUE THEN s.heure_entree_minimale_valorisee ELSE NULL END AS heure_plafond, " +
-                "COALESCE(f.libelle, 'Collaborateur') AS fonction_nom, " +
-                "COALESCE(cp.code, '—') AS code_categorie " +
-                "FROM employe e " +
-                "LEFT JOIN employe_affectation_carriere c ON e.id_employe = c.id_employe " +
-                "     AND c.date_debut <= ? " +
-                "LEFT JOIN ref_site s ON c.id_site = s.id_site " +
-                "LEFT JOIN ref_fonction f ON c.id_fonction = f.id_fonction " +
-                "LEFT JOIN ref_categorie_professionnelle cp ON c.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
-                "WHERE e.id_employe = ? " +
-                "ORDER BY c.date_debut DESC LIMIT 1";
+                "CASE WHEN s.plancher_arrivee_actif = TRUE THEN s.heure_entree_minimale_valorisee ELSE NULL END AS heure_plafond " +
+                "FROM ref_site s WHERE s.id_site = ?";
 
         LocalTime hDebutMatin = null;
         LocalTime hFinMatin = null;
@@ -176,57 +168,39 @@ public class PointageEmployeService {
         String empNom = null;
         String empPrenom = null;
         String empNomComplet = "—";
-        String empSiteNom = "Siège";
+        String empSiteNom = "Aucun site à cette date";
         String empFonction = "Collaborateur";
         String empCategorie = "—";
 
-        try (Connection c = dataSource.getConnection();
-             PreparedStatement psSite = c.prepareStatement(sqlSite)) {
-            psSite.setDate(1, Date.valueOf(endDate));
-            psSite.setInt(2, idEmploye);
-            try (ResultSet rsSite = psSite.executeQuery()) {
-                if (rsSite.next()) {
-                    if (rsSite.getString("matricule") != null) empMatricule = rsSite.getString("matricule");
-                    empNom = rsSite.getString("nom");
-                    empPrenom = rsSite.getString("prenom");
-                    empNomComplet = ((empNom != null ? empNom : "") + " " + (empPrenom != null ? empPrenom : "")).trim();
-                    if (empNomComplet.isEmpty()) empNomComplet = "Collaborateur";
-                    if (rsSite.getString("site_nom") != null) empSiteNom = rsSite.getString("site_nom");
-                    if (rsSite.getString("fonction_nom") != null) empFonction = rsSite.getString("fonction_nom");
-                    if (rsSite.getString("code_categorie") != null) empCategorie = rsSite.getString("code_categorie");
-
-                    if (rsSite.getTime("heure_debut_matin") != null) hDebutMatin = rsSite.getTime("heure_debut_matin").toLocalTime();
-                    if (rsSite.getTime("heure_fin_matin") != null) hFinMatin = rsSite.getTime("heure_fin_matin").toLocalTime();
-                    if (rsSite.getTime("heure_debut_apres_midi") != null) hDebutAm = rsSite.getTime("heure_debut_apres_midi").toLocalTime();
-                    if (rsSite.getTime("heure_fin_apres_midi") != null) hFinAm = rsSite.getTime("heure_fin_apres_midi").toLocalTime();
-                    if (rsSite.getTime("heure_plafond") != null) hPlafondTolerance = rsSite.getTime("heure_plafond").toLocalTime();
-                    siteContinu = rsSite.getBoolean("site_horaire_continu");
-                }
+        try (Connection c = dataSource.getConnection()) {
+            var contexte = employmentContextResolver.resolveContext(idEmploye, endDate, c);
+            if (contexte != null) {
+                if (contexte.matricule() != null) empMatricule = contexte.matricule();
+                empNom = contexte.nom();
+                empPrenom = contexte.prenom();
+                empNomComplet = contexte.nomComplet() == null || contexte.nomComplet().isBlank()
+                        ? "Collaborateur" : contexte.nomComplet();
+                if (contexte.nomSite() != null) empSiteNom = contexte.nomSite();
+                if (contexte.fonctionNom() != null) empFonction = contexte.fonctionNom();
+                if (contexte.categorieProCode() != null) empCategorie = contexte.categorieProCode();
             }
-        } catch (Exception e) {
-            log.warn("[PointageEmployeService] Erreur récupération règles site pour employé {}: {}", idEmploye, e.getMessage());
-        }
-
-        // Si l'employé n'a pas d'affectation active à la date de fin (ex: inactif sur la période), charger le site par défaut
-        if (hDebutMatin == null) {
-            String sqlDefSite = "SELECT libelle, horaire_continu, heure_debut_matin, heure_fin_matin, " +
-                    "heure_debut_apres_midi, heure_fin_apres_midi FROM ref_site WHERE est_actif = TRUE ORDER BY id_site ASC LIMIT 1";
-            try (Connection cDef = dataSource.getConnection();
-                 PreparedStatement psDef = cDef.prepareStatement(sqlDefSite);
-                 ResultSet rsDef = psDef.executeQuery()) {
-                if (rsDef.next()) {
-                    if ("Siège".equals(empSiteNom) && rsDef.getString("libelle") != null) {
-                        empSiteNom = rsDef.getString("libelle");
+            if (contexte != null && contexte.idSite() != null) {
+                try (PreparedStatement psSite = c.prepareStatement(sqlSite)) {
+                    psSite.setInt(1, contexte.idSite());
+                    try (ResultSet rsSite = psSite.executeQuery()) {
+                        if (rsSite.next()) {
+                            if (rsSite.getTime("heure_debut_matin") != null) hDebutMatin = rsSite.getTime("heure_debut_matin").toLocalTime();
+                            if (rsSite.getTime("heure_fin_matin") != null) hFinMatin = rsSite.getTime("heure_fin_matin").toLocalTime();
+                            if (rsSite.getTime("heure_debut_apres_midi") != null) hDebutAm = rsSite.getTime("heure_debut_apres_midi").toLocalTime();
+                            if (rsSite.getTime("heure_fin_apres_midi") != null) hFinAm = rsSite.getTime("heure_fin_apres_midi").toLocalTime();
+                            if (rsSite.getTime("heure_plafond") != null) hPlafondTolerance = rsSite.getTime("heure_plafond").toLocalTime();
+                            siteContinu = rsSite.getBoolean("site_horaire_continu");
+                        }
                     }
-                    if (rsDef.getTime("heure_debut_matin") != null) hDebutMatin = rsDef.getTime("heure_debut_matin").toLocalTime();
-                    if (rsDef.getTime("heure_fin_matin") != null) hFinMatin = rsDef.getTime("heure_fin_matin").toLocalTime();
-                    if (rsDef.getTime("heure_debut_apres_midi") != null) hDebutAm = rsDef.getTime("heure_debut_apres_midi").toLocalTime();
-                    if (rsDef.getTime("heure_fin_apres_midi") != null) hFinAm = rsDef.getTime("heure_fin_apres_midi").toLocalTime();
-                    siteContinu = rsDef.getBoolean("horaire_continu");
                 }
-            } catch (Exception e) {
-                log.warn("[PointageEmployeService] Impossible de charger le site par défaut: {}", e.getMessage());
             }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Impossible de résoudre le contexte du salarié au " + endDate + ".", e);
         }
         if (hDebutMatin == null || hFinAm == null || (!siteContinu && (hFinMatin == null || hDebutAm == null))) {
             hDebutMatin = LocalTime.of(8, 0);
@@ -264,7 +238,6 @@ public class PointageEmployeService {
         // 1. Récupération des infos salarié (date embauche / fin de contrat robuste & statut autonome en code Java)
         LocalDate dateEmbauche = null;
         LocalDate dateDepart = null;
-        boolean isAutonome = false;
 
         // A. Contrats du salarié : date d'embauche et date de départ
         String sqlContrats = "SELECT ct.date_debut, ct.date_fin, rsc.code AS code_statut " +
@@ -308,10 +281,8 @@ public class PointageEmployeService {
         }
 
         // B. Affectations & Fonction : Détection de la dispense de pointage (Cadre autonome)
-        String sqlAffs = "SELECT a.date_debut, a.date_fin, " +
-                         "COALESCE(f.dispense_pointage, FALSE) AS dispense_pointage " +
+        String sqlAffs = "SELECT a.date_debut, a.date_fin " +
                          "FROM employe_affectation_carriere a " +
-                         "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
                          "WHERE a.id_employe = ? " +
                          "ORDER BY (a.date_fin IS NULL) DESC, a.date_debut DESC";
 
@@ -319,17 +290,11 @@ public class PointageEmployeService {
              PreparedStatement psA = c.prepareStatement(sqlAffs)) {
             psA.setInt(1, idEmploye);
             try (ResultSet rsA = psA.executeQuery()) {
-                boolean first = true;
                 while (rsA.next()) {
                     Date dDeb = rsA.getDate("date_debut");
-                    boolean disp = rsA.getBoolean("dispense_pointage");
 
                     if (dateEmbauche == null && dDeb != null) {
                         dateEmbauche = dDeb.toLocalDate();
-                    }
-                    if (first) {
-                        isAutonome = disp;
-                        first = false;
                     }
                 }
             }
@@ -345,25 +310,9 @@ public class PointageEmployeService {
             log.warn("[PointageEmployeService] Erreur récupération jours fériés pour employé {}: {}", idEmploye, e.getMessage());
         }
 
-        Map<LocalDate, Integer> siteByDate = new HashMap<>();
-        String siteHistory = "SELECT id_site, date_debut, date_fin FROM employe_affectation_carriere "
-                + "WHERE id_employe = ? AND date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) "
-                + "ORDER BY date_debut, id_affectation";
-        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(siteHistory)) {
-            ps.setInt(1, idEmploye);
-            ps.setDate(2, Date.valueOf(endDate));
-            ps.setDate(3, Date.valueOf(startDate));
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    LocalDate first = rs.getDate("date_debut").toLocalDate();
-                    Date end = rs.getDate("date_fin");
-                    LocalDate last = end == null ? endDate : end.toLocalDate();
-                    for (LocalDate current = first.isBefore(startDate) ? startDate : first;
-                            !current.isAfter(last) && !current.isAfter(endDate); current = current.plusDays(1)) {
-                        siteByDate.put(current, rs.getInt("id_site"));
-                    }
-                }
-            }
+        Map<LocalDate, EmploymentContextResolver.PointageDay> pointageByDate;
+        try (Connection c = dataSource.getConnection()) {
+            pointageByDate = employmentContextResolver.resolvePointageDays(idEmploye, startDate, endDate, c);
         } catch (SQLException error) {
             throw new IllegalStateException("Impossible de résoudre le site historique de l'employé.", error);
         }
@@ -572,8 +521,10 @@ public class PointageEmployeService {
         LocalDate today = LocalDate.now();
 
         for (LocalDate curr = startDate; !curr.isAfter(endDate); curr = curr.plusDays(1)) {
+            EmploymentContextResolver.PointageDay contexteJour = pointageByDate.get(curr);
+            boolean isAutonome = contexteJour != null && contexteJour.dispensePointage();
             boolean isWeekend = CalendrierOuvrableEngine.isWeekend(curr);
-            boolean isHorsContrat = !siteByDate.containsKey(curr);
+            boolean isHorsContrat = contexteJour == null;
             boolean isAvantEmbauche = (dateEmbauche != null && curr.isBefore(dateEmbauche)) || isHorsContrat;
             boolean isApresDepart = (dateDepart != null && curr.isAfter(dateDepart)) || isHorsContrat;
             boolean isFerie = feriesChomes != null && feriesChomes.contains(curr);
@@ -585,7 +536,7 @@ public class PointageEmployeService {
             PointageJourDTO dto = new PointageJourDTO();
             dto.setDate(curr.format(dayFormatter));
             dto.setDateComplete(curr.toString());
-            dto.setIdSite(siteByDate.get(curr));
+            dto.setIdSite(contexteJour == null ? null : contexteJour.siteId());
 
             String dayName = curr.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.FRENCH);
             if (dayName != null && !dayName.isEmpty()) {

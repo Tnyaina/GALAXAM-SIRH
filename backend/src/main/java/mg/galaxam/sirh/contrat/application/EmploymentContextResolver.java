@@ -9,6 +9,9 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
 import mg.galaxam.sirh.contrat.domain.EmploymentContext;
 import org.springframework.stereotype.Service;
 
@@ -20,13 +23,71 @@ import org.springframework.stereotype.Service;
 public class EmploymentContextResolver {
 
     public record Coverage(LocalDate firstDay, LocalDate lastDay, int days, int lastAssignmentId) {}
+    public record PointageDay(int siteId, boolean dispensePointage) {}
     private record EmploymentSegment(int id, LocalDate start, LocalDate end) {}
+    private record SiteSegment(int id, Integer siteId, boolean dispensePointage,
+                               LocalDate start, LocalDate end) {}
+
+    /** Sites applicables jour par jour, chargés en une requête pour les écrans et calculs de pointage. */
+    public Map<LocalDate, Integer> resolveSitesByDay(int idEmploye, LocalDate start, LocalDate end,
+                                                     Connection c) throws SQLException {
+        Map<LocalDate, Integer> sites = new LinkedHashMap<>();
+        resolvePointageDays(idEmploye, start, end, c)
+                .forEach((date, contexte) -> sites.put(date, contexte.siteId()));
+        return sites;
+    }
+
+    /** Site et dispense applicables par jour, sans requête SQL par journée. */
+    public Map<LocalDate, PointageDay> resolvePointageDays(int idEmploye, LocalDate start, LocalDate end,
+                                                            Connection c) throws SQLException {
+        if (start == null || end == null || end.isBefore(start))
+            throw new IllegalArgumentException("Bornes du contexte journalier invalides.");
+        List<SiteSegment> segments = new ArrayList<>();
+        String sql = "SELECT a.id_affectation, a.id_site, COALESCE(f.dispense_pointage,FALSE) AS dispense_pointage, "
+                + "GREATEST(a.date_debut, ct.date_debut) AS debut, "
+                + "LEAST(COALESCE(a.date_fin, ?), COALESCE(ct.date_fin, ?)) AS fin "
+                + "FROM employe_affectation_carriere a JOIN contrat_travail ct ON ct.id_contrat=a.id_contrat "
+                + "LEFT JOIN ref_fonction f ON f.id_fonction=a.id_fonction "
+                + "JOIN ref_statut_rh sa ON sa.id_statut_rh=a.id_statut_rh "
+                + "JOIN ref_statut_rh sc ON sc.id_statut_rh=ct.id_statut_rh "
+                + "WHERE a.id_employe=? AND sa.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') "
+                + "AND sc.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') "
+                + "AND a.date_debut<=? AND (a.date_fin IS NULL OR a.date_fin>=?) "
+                + "AND ct.date_debut<=? AND (ct.date_fin IS NULL OR ct.date_fin>=?)";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(end)); ps.setDate(2, Date.valueOf(end)); ps.setInt(3, idEmploye);
+            ps.setDate(4, Date.valueOf(end)); ps.setDate(5, Date.valueOf(start));
+            ps.setDate(6, Date.valueOf(end)); ps.setDate(7, Date.valueOf(start));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) segments.add(new SiteSegment(rs.getInt("id_affectation"),
+                        (Integer) rs.getObject("id_site"), rs.getBoolean("dispense_pointage"),
+                        rs.getDate("debut").toLocalDate(),
+                        rs.getDate("fin").toLocalDate()));
+            }
+        }
+        Map<LocalDate, PointageDay> sites = new LinkedHashMap<>();
+        for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
+            LocalDate target = day;
+            List<SiteSegment> applicable = segments.stream()
+                    .filter(segment -> !target.isBefore(segment.start()) && !target.isAfter(segment.end())).toList();
+            if (applicable.size() > 1) throw new IllegalStateException(
+                    "AMBIGUOUS_CONFIGURATION: AFFECTATION_SITE employé=" + idEmploye + " au " + day
+                            + "; versions=" + applicable);
+            if (applicable.size() == 1) {
+                Integer site = applicable.get(0).siteId();
+                if (site == null) throw new IllegalStateException(
+                        "MISSING_CONFIGURATION: AFFECTATION_SITE employé=" + idEmploye + " au " + day);
+                sites.put(day, new PointageDay(site, applicable.get(0).dispensePointage()));
+            }
+        }
+        return sites;
+    }
 
     /**
      * Résout l'état complet d'un collaborateur à une date de référence précise.
      */
     public EmploymentContext resolveContext(int idEmploye, LocalDate dateRef, Connection c) throws SQLException {
-        LocalDate ref = dateRef != null ? dateRef : LocalDate.now();
+        LocalDate ref = Objects.requireNonNull(dateRef, "La date métier du contexte employé est obligatoire.");
         verifierUniciteContexte(idEmploye, ref, c);
 
         String sql = "SELECT " +
@@ -36,7 +97,10 @@ public class EmploymentContextResolver {
                 "  ct.id_contrat, ct.numero_contrat, rtc.code AS code_type_ct, rtc.libelle AS lib_type_ct, " +
                 "  rsc.code AS code_statut_ct, ct.date_debut AS debut_ct, ct.date_fin AS fin_ct, " +
                 "  rf.raison_sociale AS filiale_nom, " +
-                "  (SELECT MIN(c_init.date_debut) FROM contrat_travail c_init WHERE c_init.id_employe = e.id_employe) AS debut_embauche_init, " +
+                "  (SELECT MIN(c_init.date_debut) FROM contrat_travail c_init "
+                + "JOIN ref_statut_rh si ON si.id_statut_rh=c_init.id_statut_rh "
+                + "WHERE c_init.id_employe=e.id_employe "
+                + "AND si.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU')) AS debut_embauche_init, " +
                 "  eac.id_affectation, eac.date_debut AS debut_aff, eac.date_fin AS fin_aff, eac.salaire_base, " +
                 "  s.id_site, s.code_site, s.libelle AS site_nom, " +
                 "  d.id_departement, d.libelle AS dept_nom, " +
@@ -51,14 +115,14 @@ public class EmploymentContextResolver {
                 "  COALESCE(tri.soumis_irsa, TRUE) AS soumis_irsa, " +
                 "  COALESCE(tri.soumis_isi_5, FALSE) AS soumis_isi_5 " +
                 "FROM employe e " +
-                // Contrat en vigueur à dateRef (priorité à ACTIF couvrant la date, sinon le plus récent)
+                // Un contrat clôturé aujourd'hui reste applicable aux dates qu'il couvrait.
                 "LEFT JOIN LATERAL (" +
                 "  SELECT ct_sub.* FROM contrat_travail ct_sub " +
                 "  JOIN ref_statut_rh r_st ON ct_sub.id_statut_rh = r_st.id_statut_rh " +
                 "  WHERE ct_sub.id_employe = e.id_employe " +
                 "    AND ct_sub.date_debut <= ? " +
                 "    AND (ct_sub.date_fin IS NULL OR ct_sub.date_fin >= ?) " +
-                "    AND r_st.code = 'ACTIF' " +
+                "    AND r_st.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') " +
                 "  ORDER BY ct_sub.date_debut DESC, ct_sub.id_contrat DESC LIMIT 1" +
                 ") ct ON TRUE " +
                 "LEFT JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
@@ -68,8 +132,10 @@ public class EmploymentContextResolver {
                 // Affectation en vigueur à dateRef
                 "LEFT JOIN LATERAL (" +
                 "  SELECT a.* FROM employe_affectation_carriere a " +
+                "  JOIN ref_statut_rh r_aff ON r_aff.id_statut_rh = a.id_statut_rh " +
                 "  WHERE a.id_employe = e.id_employe " +
-                "    AND (ct.id_contrat IS NULL OR a.id_contrat = ct.id_contrat) " +
+                "    AND a.id_contrat = ct.id_contrat " +
+                "    AND r_aff.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') " +
                 "    AND a.date_debut <= ? " +
                 "    AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
                 "  ORDER BY a.date_debut DESC, a.id_affectation DESC LIMIT 1" +
@@ -146,9 +212,13 @@ public class EmploymentContextResolver {
     private void verifierUniciteContexte(int idEmploye, LocalDate date, Connection c) throws SQLException {
         String sql = "SELECT "
                 + "(SELECT COUNT(*) FROM contrat_travail ct JOIN ref_statut_rh s ON s.id_statut_rh=ct.id_statut_rh "
-                + " WHERE ct.id_employe=? AND s.code='ACTIF' AND ct.date_debut<=? AND (ct.date_fin IS NULL OR ct.date_fin>=?)) AS contrats, "
+                + " WHERE ct.id_employe=? AND s.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') "
+                + "AND ct.date_debut<=? AND (ct.date_fin IS NULL OR ct.date_fin>=?)) AS contrats, "
                 + "(SELECT COUNT(*) FROM employe_affectation_carriere a JOIN contrat_travail ct ON ct.id_contrat=a.id_contrat "
-                + " JOIN ref_statut_rh s ON s.id_statut_rh=ct.id_statut_rh WHERE a.id_employe=? AND s.code='ACTIF' "
+                + " JOIN ref_statut_rh s ON s.id_statut_rh=ct.id_statut_rh "
+                + "JOIN ref_statut_rh sa ON sa.id_statut_rh=a.id_statut_rh WHERE a.id_employe=? "
+                + "AND s.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') "
+                + "AND sa.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') "
                 + " AND a.date_debut<=? AND (a.date_fin IS NULL OR a.date_fin>=?) AND ct.date_debut<=? "
                 + " AND (ct.date_fin IS NULL OR ct.date_fin>=?)) AS affectations";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -169,8 +239,9 @@ public class EmploymentContextResolver {
      * Résout la liste de tous les salariés en poste ou actifs sur une période [debut, fin].
      */
     public List<EmploymentContext> listActiveEmploymentContexts(LocalDate debut, LocalDate fin, Connection c) throws SQLException {
-        LocalDate dDebut = debut != null ? debut : LocalDate.now().withDayOfMonth(1);
-        LocalDate dFin = fin != null ? fin : LocalDate.now();
+        LocalDate dDebut = Objects.requireNonNull(debut, "La date de début du contexte employé est obligatoire.");
+        LocalDate dFin = Objects.requireNonNull(fin, "La date de fin du contexte employé est obligatoire.");
+        if (dFin.isBefore(dDebut)) throw new IllegalArgumentException("Bornes du contexte employé invalides.");
 
         String sql = "SELECT " +
                 "  e.id_employe, e.matricule, e.nom, e.prenom, " +
@@ -179,7 +250,10 @@ public class EmploymentContextResolver {
                 "  ct.id_contrat, ct.numero_contrat, rtc.code AS code_type_ct, rtc.libelle AS lib_type_ct, " +
                 "  rsc.code AS code_statut_ct, ct.date_debut AS debut_ct, ct.date_fin AS fin_ct, " +
                 "  rf.raison_sociale AS filiale_nom, " +
-                "  (SELECT MIN(c_init.date_debut) FROM contrat_travail c_init WHERE c_init.id_employe = e.id_employe) AS debut_embauche_init, " +
+                "  (SELECT MIN(c_init.date_debut) FROM contrat_travail c_init "
+                + "JOIN ref_statut_rh si ON si.id_statut_rh=c_init.id_statut_rh "
+                + "WHERE c_init.id_employe=e.id_employe "
+                + "AND si.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU')) AS debut_embauche_init, " +
                 "  eac.id_affectation, eac.date_debut AS debut_aff, eac.date_fin AS fin_aff, eac.salaire_base, " +
                 "  s.id_site, s.code_site, s.libelle AS site_nom, " +
                 "  d.id_departement, d.libelle AS dept_nom, " +
@@ -254,7 +328,7 @@ public class EmploymentContextResolver {
         LocalDate debutCt = dDebutCt != null ? dDebutCt.toLocalDate() : null;
         LocalDate finCt = dFinCt != null ? dFinCt.toLocalDate() : null;
 
-        boolean enPoste = estActifEmp && idContrat != null && "ACTIF".equals(statutCt)
+        boolean enPoste = idContrat != null && statutCt != null
                 && (debutCt == null || !dateRef.isBefore(debutCt))
                 && (finCt == null || !dateRef.isAfter(finCt));
 

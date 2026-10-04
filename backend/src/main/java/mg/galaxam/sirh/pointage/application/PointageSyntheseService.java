@@ -153,6 +153,9 @@ public class PointageSyntheseService {
     @Autowired
     private AttendanceEngine dailyAttendanceCalculator;
 
+    private final mg.galaxam.sirh.contrat.application.EmploymentContextResolver employmentContextResolver =
+            new mg.galaxam.sirh.contrat.application.EmploymentContextResolver();
+
     public PointageSyntheseService() {
         this.calendrierEngine = new CalendrierOuvrableEngine();
         this.weeklyAttendanceCalculator = new AttendanceEngine();
@@ -294,6 +297,8 @@ public class PointageSyntheseService {
             return emptyDto;
         }
         PointageTemporalConfigurationGuard.verify(idEmp, dateDebut, dateFin, c);
+        Map<LocalDate, mg.galaxam.sirh.contrat.application.EmploymentContextResolver.PointageDay> contextesJournaliers =
+                employmentContextResolver.resolvePointageDays(idEmp, dateDebut, dateFin, c);
         int joursOuvrablesReels = calendrierEngine.compterJoursOuvrables(dateDebut, dateFin, idSite, c);
         if (joursOuvrablesReels > 0) nbJoursOuvrablesPeriode = joursOuvrablesReels;
         BigDecimal seuilHsTranche1;
@@ -355,7 +360,8 @@ public class PointageSyntheseService {
         dto.setCodePeriode(codePeriode);
         dto.setLibellePeriode(libellePeriode);
         dto.setStatutPeriode(statutPeriode);
-        dto.setDispensePointage(estAutonome);
+        dto.setDispensePointage(contextesJournaliers.containsKey(dateFin)
+                && contextesJournaliers.get(dateFin).dispensePointage());
         dto.setEstCadre(isCadre);
         dto.setNbJoursOuvrables(nbJoursOuvrablesPeriode);
 
@@ -406,6 +412,8 @@ public class PointageSyntheseService {
             try (ResultSet rsPtg = psPtg.executeQuery()) {
                 while (rsPtg.next()) {
                     LocalDate dPointage = rsPtg.getDate("date_pointage").toLocalDate();
+                    boolean autonomeCeJour = contextesJournaliers.containsKey(dPointage)
+                            && contextesJournaliers.get(dPointage).dispensePointage();
                     datesAvecPointage.add(dPointage);
                     boolean isWeekend = CalendrierOuvrableEngine.isWeekend(dPointage);
                     boolean isSunday = (dPointage.getDayOfWeek() == DayOfWeek.SUNDAY);
@@ -413,7 +421,7 @@ public class PointageSyntheseService {
                     double th = rsPtg.getDouble("total_heures");
 
                     boolean isAbsenceOuConge = "CONGE".equals(stCode) || "ABSENCE_NON_JUSTIFIEE".equals(stCode) || "ABSENCE_JUSTIFIEE".equals(stCode) || "FERIE_CHOME".equals(stCode);
-                    if ("DISPENSE_POINTAGE".equals(stCode) || (estAutonome && !isAbsenceOuConge)) {
+                    if ("DISPENSE_POINTAGE".equals(stCode) || (autonomeCeJour && !isAbsenceOuConge)) {
                         if (isWeekend && th <= 0.0) {
                             th = 0.0;
                             stCode = "REPOS";
@@ -444,13 +452,13 @@ public class PointageSyntheseService {
                         nbAnomalies++;
                     }
 
-                    totalMinsRetard += (estAutonome ? 0 : ret);
+                    totalMinsRetard += (autonomeCeJour ? 0 : ret);
 
                     // Saisie quotidienne est la vérité finale depuis pointage_indemnite_jour
                     Object dynRepasObj = rsPtg.getObject("dyn_repas_accorde");
                     boolean repasEffectif = (dynRepasObj != null) && rsPtg.getBoolean("dyn_repas_accorde");
 
-                    boolean estPresentAutonome = estAutonome && !isWeekend && !isAbsenceOuConge && !"REPOS".equals(stCode);
+                    boolean estPresentAutonome = autonomeCeJour && !isWeekend && !isAbsenceOuConge && !"REPOS".equals(stCode);
                     boolean estTravailleOuPresent = ("PRESENT".equals(stCode) || "SAMEDI_TRAVAILLE".equals(stCode) 
                             || "DIMANCHE_TRAVAILLE".equals(stCode) || "FERIE_TRAVAILLE".equals(stCode)
                             || "DEMI_JOURNEE".equals(stCode)
@@ -484,7 +492,7 @@ public class PointageSyntheseService {
 
                     parSemaine.get(lundiSemaine).add(new AttendanceEngine.Result(
                             idEmp, dPointage, statusFromCode(stCode), workedMinutes, 0, workedMinutes,
-                            workedMinutes, estAutonome ? 0 : ret, 0, nightMinutes, isSunday,
+                            workedMinutes, autonomeCeJour ? 0 : ret, 0, nightMinutes, isSunday,
                             "FERIE_CHOME".equals(stCode) || "FERIE_TRAVAILLE".equals(stCode),
                             aPrisRepasCeJour ? 1 : 0, mealAmount, fractionJour, travelAmount, List.of()));
                 }
@@ -493,25 +501,15 @@ public class PointageSyntheseService {
 
         // Les journées autonomes sans badge sont des résultats journaliers calculés,
         // jamais une seconde formule de synthèse.
-        if (estAutonome) {
+        if (contextesJournaliers.values().stream().anyMatch(
+                mg.galaxam.sirh.contrat.application.EmploymentContextResolver.PointageDay::dispensePointage)) {
             for (LocalDate day = dateDebut; !day.isAfter(dateFin); day = day.plusDays(1)) {
                 if (datesAvecPointage.contains(day) || CalendrierOuvrableEngine.isWeekend(day)
                         || (dateDebutEmploi != null && day.isBefore(dateDebutEmploi))
                         || (dateFinEmploi != null && day.isAfter(dateFinEmploi))) continue;
-                int dailySite;
-                try (PreparedStatement assignment = c.prepareStatement(
-                        "SELECT a.id_site FROM employe_affectation_carriere a "
-                        + "JOIN contrat_travail ct ON ct.id_contrat=a.id_contrat "
-                        + "WHERE a.id_employe=? AND a.date_debut<=? AND (a.date_fin IS NULL OR a.date_fin>=?) "
-                        + "AND ct.date_debut<=? AND (ct.date_fin IS NULL OR ct.date_fin>=?)")) {
-                    assignment.setInt(1,idEmp);
-                    for (int index=2;index<=5;index++) assignment.setDate(index,Date.valueOf(day));
-                    try (ResultSet result=assignment.executeQuery()) {
-                        if (!result.next()) continue; // hors contrat : aucune présence fabriquée
-                        dailySite=result.getInt(1);
-                        if (result.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: AFFECTATION au " + day);
-                    }
-                }
+                var contexteJour = contextesJournaliers.get(day);
+                if (contexteJour == null || !contexteJour.dispensePointage()) continue;
+                int dailySite = contexteJour.siteId();
                 var allowanceStates = ParametreGlobal.loadEtatMapAtDate(Date.valueOf(day), c);
                 BigDecimal mealRate = BigDecimal.ZERO, dailyTravelReference = BigDecimal.ZERO;
                 boolean travelFound = false, mealFound = false;

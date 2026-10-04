@@ -60,6 +60,10 @@ class PointagePhase6IntegrationTest {
     @BeforeEach
     void setUp() throws Exception {
         try (Connection c = dataSource.getConnection()) {
+            try (var verification = c.createStatement(); var database = verification.executeQuery("SELECT current_database()")) {
+                assertTrue(database.next());
+                assertEquals("sirh_galaxam_test", database.getString(1));
+            }
             String suffix = Long.toString(System.nanoTime(), 36).toUpperCase();
             adminUserId = CongeTestFixtureHelper.createAdminUser(c, "adm_" + suffix.substring(0, Math.min(8, suffix.length())));
             String matricule = "E_" + suffix.substring(0, Math.min(6, suffix.length()));
