@@ -7,6 +7,8 @@
 -- =====================================================================
 
 -- 1. Nettoyage préalable des vues et tables (ordre inverse des dépendances)
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
 DROP VIEW IF EXISTS v_synthese_pointage_mensuelle CASCADE;
 DROP VIEW IF EXISTS v_hs_mensuelle CASCADE;
 DROP VIEW IF EXISTS v_pointage_semaine CASCADE;
@@ -101,7 +103,12 @@ CREATE TABLE site_indemnite_config (
     montant_reference NUMERIC(20,2) NOT NULL,
     date_debut DATE NOT NULL,
     date_fin DATE,
-    est_actif BOOLEAN DEFAULT TRUE
+    est_actif BOOLEAN DEFAULT TRUE,
+    CONSTRAINT uk_site_indemnite_temporal_overlap EXCLUDE USING gist (
+        id_site WITH =,
+        id_indemnite WITH =,
+        daterange(date_debut, COALESCE(date_fin, 'infinity'::date), '[]') WITH &&
+    ) WHERE (est_actif IS TRUE)
 );
 
 CREATE INDEX idx_site_indemnite_actif ON site_indemnite_config(id_site, id_indemnite) WHERE date_fin IS NULL AND est_actif IS TRUE;

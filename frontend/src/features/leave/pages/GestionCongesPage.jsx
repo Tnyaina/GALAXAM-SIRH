@@ -19,6 +19,7 @@ import { fmtDateInput } from '@/utils/dateUtils';
 // Sous-composants Onglets
 const SoldesOverviewTab     = lazy(() => import('@/features/leave/components/SoldesOverviewTab'));
 const DemandesValidationTab = lazy(() => import('@/features/leave/components/DemandesValidationTab'));
+const PeriodesReferenceTab  = lazy(() => import('@/features/leave/components/PeriodesReferenceTab'));
 
 export default function GestionCongesPage() {
   const { hasPermission } = useAuth();
@@ -38,10 +39,11 @@ export default function GestionCongesPage() {
 
   // Données dérivées
   const tabFromUrl = searchParams.get('tab');
-  const activeTab = tabFromUrl === 'demandes' ? 'demandes' : 'planning';
+  const activeTab = ['demandes', 'periodes'].includes(tabFromUrl) ? tabFromUrl : 'planning';
   const tabsList = [
     { id: 'planning', label: 'Planning des absences' },
-    { id: 'demandes', label: 'Demandes et décisions', badge: nbEnAttente > 0 ? nbEnAttente : undefined }
+    { id: 'demandes', label: 'Demandes et décisions', badge: nbEnAttente > 0 ? nbEnAttente : undefined },
+    { id: 'periodes', label: 'Contrôle des droits' }
   ];
 
   // Effets
@@ -122,8 +124,8 @@ export default function GestionCongesPage() {
       <Modal isOpen={showGrandRecap} onClose={() => setShowGrandRecap(false)} title="Grand récapitulatif des congés">
         <div className="space-y-4 p-4">
           <p className="text-sm text-[var(--color-fg-muted)]">
-            Solde avant la période, mouvements entre les deux dates et situation valorisée
-            au TCONGE applicable à la date de fin.
+            Solde avant la période, mouvements entre les deux dates et valeur du stock
+            restant calculée à partir des lots historiques au dernier jour choisi.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input label="Début de la période" type="date" value={dateDebut}
@@ -160,6 +162,13 @@ export default function GestionCongesPage() {
             <DemandesValidationTab
               referentiels={referentiels}
               onReload={loadGlobalData}
+            />
+          )}
+
+          {activeTab === 'periodes' && (
+            <PeriodesReferenceTab
+              initialIdEmploye={Number(searchParams.get('employe')) || null}
+              canValidate={hasPermission('CONGE_VALIDATE')}
             />
           )}
         </Suspense>

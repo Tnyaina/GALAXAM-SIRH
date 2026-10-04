@@ -30,19 +30,4 @@ public final class CongeSoldeRequests {
             BigDecimal valorisationSpecifique
     ) {}
 
-    public record InitialiserSoldeRequest(
-            Integer idEmploye,
-            BigDecimal soldeInitial,
-            LocalDate dateArrete,
-            Boolean inclutAcquisitionMoisArrete,
-            String motif,
-            BigDecimal tauxJournalierMigration
-    ) {}
-
-    public record TauxMigrationRequest(
-            Integer idEmploye,
-            BigDecimal tauxJournalier,
-            LocalDate dateEffet,
-            String commentaire
-    ) {}
 }

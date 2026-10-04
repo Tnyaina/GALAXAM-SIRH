@@ -53,9 +53,11 @@ public class ParametreGlobalController {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
+                verifierVersionFutureDecompteConges(request, null);
                 if (request.getCodeParametre() != null && request.getDateDebut() != null) {
                     ParametreGlobal.cloturerPrecedent(request.getCodeParametre(), request.getDateDebut(), c);
                 }
+                verifierAbsenceChevauchementFeries(request, null, c);
 
                 ParametreGlobal pg = new ParametreGlobal();
                 pg.setCodeParametre(request.getCodeParametre());
@@ -65,7 +67,8 @@ public class ParametreGlobalController {
                 pg.setDateDebut(request.getDateDebut());
                 pg.setDateFin(request.getDateFin());
                 pg.setEstActif(request.getEstActif() != null ? request.getEstActif() : true);
-                pg.setEstDesactivable(request.getEstDesactivable() != null ? request.getEstDesactivable() : false);
+                pg.setEstDesactivable("CONGE_DECOMPTE_FERIES".equalsIgnoreCase(request.getCodeParametre())
+                        || Boolean.TRUE.equals(request.getEstDesactivable()));
 
                 verifierDesactivationDocumentee(pg);
 
@@ -96,6 +99,9 @@ public class ParametreGlobalController {
                     throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Paramètre global non trouvé.");
                 }
 
+                verifierVersionFutureDecompteConges(request, existing);
+                verifierAbsenceChevauchementFeries(request, id, c);
+
                 if (request.getEstActif() != null && !request.getEstActif() && !Boolean.TRUE.equals(existing.getEstDesactivable())) {
                     throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Ce paramètre ne peut pas être désactivé.");
                 }
@@ -109,7 +115,9 @@ public class ParametreGlobalController {
                 if (request.getEstActif() != null) {
                     existing.setEstActif(request.getEstActif());
                 }
-                if (request.getEstDesactivable() != null) {
+                if ("CONGE_DECOMPTE_FERIES".equalsIgnoreCase(request.getCodeParametre())) {
+                    existing.setEstDesactivable(true);
+                } else if (request.getEstDesactivable() != null) {
                     existing.setEstDesactivable(request.getEstDesactivable());
                 }
 
@@ -130,6 +138,44 @@ public class ParametreGlobalController {
         }
     }
 
+    private static void verifierVersionFutureDecompteConges(ParametreGlobalRequest request, ParametreGlobal existing) {
+        boolean speciale = "CONGE_DECOMPTE_FERIES".equalsIgnoreCase(request.getCodeParametre())
+                || (existing != null && "CONGE_DECOMPTE_FERIES".equalsIgnoreCase(existing.getCodeParametre()));
+        if (!speciale) return;
+        java.time.LocalDate demain = java.time.LocalDate.now().plusDays(1);
+        if (request.getDateDebut() == null || request.getDateDebut().toLocalDate().isBefore(demain)
+                || (existing != null && (existing.getDateDebut() == null
+                    || existing.getDateDebut().toLocalDate().isBefore(demain)))
+                || (existing != null && !request.getDateDebut().equals(existing.getDateDebut()))
+                || !"CONGE_DECOMPTE_FERIES".equalsIgnoreCase(request.getCodeParametre())
+                || !("INCLUS".equals(request.getValeur()) || "EXCLUS".equals(request.getValeur()))) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                    "CONGE_DECOMPTE_FERIES : créez ou modifiez uniquement une version future de valeur "
+                    + "INCLUS ou EXCLUS. L'historique ne peut pas être réécrit.");
+        }
+    }
+
+    private static void verifierAbsenceChevauchementFeries(ParametreGlobalRequest request, Integer exclureId,
+            Connection c) throws java.sql.SQLException {
+        if (!"CONGE_DECOMPTE_FERIES".equalsIgnoreCase(request.getCodeParametre())) return;
+        if (request.getDateDebut() == null) throw new IllegalArgumentException("dateDebut obligatoire.");
+        String sql = "SELECT id_parametre FROM parametre_global WHERE code_parametre='CONGE_DECOMPTE_FERIES' "
+                + "AND date_debut <= COALESCE(?, DATE '9999-12-31') "
+                + "AND COALESCE(date_fin, DATE '9999-12-31') >= ? "
+                + (exclureId != null ? "AND id_parametre<>? " : "") + "FOR UPDATE";
+        try (var ps = c.prepareStatement(sql)) {
+            if (request.getDateFin() == null) ps.setNull(1, java.sql.Types.DATE);
+            else ps.setDate(1, request.getDateFin());
+            ps.setDate(2, request.getDateDebut());
+            if (exclureId != null) ps.setInt(3, exclureId);
+            try (var rs = ps.executeQuery()) {
+                if (rs.next()) throw new IllegalArgumentException("AMBIGUOUS_CONFIGURATION: CONGE_DECOMPTE_FERIES "
+                        + "chevauche la version " + rs.getInt(1) + "; bornez explicitement les versions.");
+            }
+        }
+    }
+
     @RequestMapping(value = "/{id}/toggle-actif", method = {RequestMethod.PATCH, RequestMethod.PUT})
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN') or hasAuthority('ORGANISATION_WRITE') or hasAuthority('POINTAGE_WRITE')")
     public ResponseEntity<?> toggleActif(@PathVariable int id, @RequestBody(required = false) java.util.Map<String, Boolean> body) {
@@ -142,6 +188,11 @@ public class ParametreGlobalController {
                     throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Paramètre global non trouvé.");
                 }
 
+                if ("CONGE_DECOMPTE_FERIES".equalsIgnoreCase(existing.getCodeParametre())) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                            "CONGE_DECOMPTE_FERIES se désactive par une version datée future, jamais par bascule immédiate.");
+                }
                 if (!Boolean.TRUE.equals(existing.getEstDesactivable())) {
                     throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Ce paramètre ne peut pas être désactivé.");
                 }

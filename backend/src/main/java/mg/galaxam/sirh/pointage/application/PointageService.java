@@ -417,7 +417,7 @@ public class PointageService {
             throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
                     "La sortie précède l'heure minimale comptabilisée du site.");
         }
-        Map<String, ParametreGlobal.ParametreEtat> params = ParametreGlobal.loadEtatMap(c);
+        Map<String, ParametreGlobal.ParametreEtat> params = ParametreGlobal.loadEtatMapAtDate(Date.valueOf(date), c);
         AttendanceEngine.Result result = dailyAttendanceCalculator.calculateDay(new AttendanceEngine.Context(
                 dto.getIdEmploye(), date, effectiveEntry,
                 toLocalTime(parseTime(dto.getHeureSortieMatin())), toLocalTime(parseTime(dto.getHeureEntreeAm())),
@@ -488,7 +488,7 @@ public class PointageService {
             String sqlPeriode = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, s.code AS statut_code, s.libelle AS statut_libelle " +
                                 "FROM periode_paie p " +
                                 "JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
-                                "WHERE ? BETWEEN p.date_debut AND p.date_fin LIMIT 1";
+                                "WHERE ? BETWEEN p.date_debut AND p.date_fin";
             try (PreparedStatement psP = c.prepareStatement(sqlPeriode)) {
                 psP.setDate(1, date);
                 try (ResultSet rsP = psP.executeQuery()) {
@@ -509,6 +509,7 @@ public class PointageService {
                             ouvrables = calendrierEngine.compterJoursOuvrables(dDeb.toLocalDate(), dFin.toLocalDate(), idSite > 0 ? idSite : null, c);
                         }
                         periodeInfo.put("nbJoursOuvrables", ouvrables > 0 ? ouvrables : null);
+                        if (rsP.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: PERIODE_PAIE au " + date);
                     }
                 }
             }
@@ -1485,11 +1486,9 @@ public class PointageService {
                     "Le champ dynamicIndemnites est obligatoire, même vide : les anciennes cases Repas/Déplacement ne sont plus une source de vérité.");
         }
 
-        Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMap(c);
-        LocalTime debutNuit = resolveOptionalTimeRule(etatMap, "SEUIL_NUIT_DEBUT");
-        LocalTime finNuit = resolveOptionalTimeRule(etatMap, "SEUIL_NUIT_FIN");
+        Map<LocalDate, Map<String, ParametreGlobal.ParametreEtat>> parametresParJour = new HashMap<>();
 
-        String sqlFindPer = "SELECT id_periode_paie, date_debut, date_fin FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin LIMIT 1";
+        String sqlFindPer = "SELECT id_periode_paie, date_debut, date_fin FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin";
         String sqlPerById = "SELECT date_debut, date_fin FROM periode_paie WHERE id_periode_paie = ?";
         String sqlCheckPer = "SELECT s.code FROM periode_paie p JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode WHERE p.id_periode_paie = ? FOR SHARE";
         String sqlCheckRow = "SELECT id_pointage, COALESCE(version, 1) AS version FROM pointage_jour WHERE id_employe = ? AND date_pointage = ?";
@@ -1567,6 +1566,12 @@ public class PointageService {
 
                 int idSiteRow = dto.getIdSite() != null ? dto.getIdSite() : 1;
                 Date dtPtg = Date.valueOf(dto.getDatePointage());
+                var etatMap = parametresParJour.computeIfAbsent(dtPtg.toLocalDate(),
+                        jour -> ParametreGlobal.loadEtatMapAtDate(Date.valueOf(jour), c));
+                LocalTime debutNuit = resolveOptionalTimeRule(etatMap, "SEUIL_NUIT_DEBUT");
+                LocalTime finNuit = resolveOptionalTimeRule(etatMap, "SEUIL_NUIT_FIN");
+
+                PointageTemporalConfigurationGuard.verify(dto.getIdEmploye(), dtPtg.toLocalDate(), dtPtg.toLocalDate(), c);
 
                 // 1. Contrôle P0-1 : Éligibilité stricte au pointage à l'écriture (Employé actif + Contrat ACTIF + Affectation ACTIVE sur le site)
                 verifierEligibilitePointage(c, dto.getIdEmploye(), idSiteRow, dtPtg);
@@ -1588,6 +1593,7 @@ public class PointageService {
                                 perFin = d2.toLocalDate();
                                 periodeBoundsCache.put(idPer, new LocalDate[]{perDebut, perFin});
                             }
+                            if (rsF.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: PERIODE_PAIE au " + dtPtg);
                         }
                     }
                 }
@@ -1626,11 +1632,13 @@ public class PointageService {
                 }
 
                 if (perDebut == null || perFin == null) {
-                    LocalDate ld = dtPtg.toLocalDate();
-                    perDebut = LocalDate.of(ld.getYear(), ld.getMonth(), 1);
-                    perFin = LocalDate.of(ld.getYear(), ld.getMonth(), ld.lengthOfMonth());
+                    throw new IllegalStateException("MISSING_CONFIGURATION: PERIODE_PAIE au " + dtPtg);
                 }
 
+                if (dtPtg.toLocalDate().isBefore(perDebut) || dtPtg.toLocalDate().isAfter(perFin)) {
+                    throw new IllegalStateException("PERIODE_PAIE_DATE_MISMATCH: jour=" + dtPtg
+                            + " campagne=[" + perDebut + ", " + perFin + "]");
+                }
                 LocalTime[] sH = siteHoraires.get(idSiteRow);
                 Boolean siteContinuConfig = siteHoraireContinuMap.get(idSiteRow);
                 if (siteContinuConfig == null) {

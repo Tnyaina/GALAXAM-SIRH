@@ -678,8 +678,28 @@ INSERT INTO employe_conjoint (id_conjoint, id_employe, nom, prenom, date_naissan
 
 INSERT INTO employe_conjoint (id_conjoint, id_employe, nom, prenom, date_naissance, lieu_naissance, societe, fonction) VALUES (2, 2, 'RANDRASANA', 'Eric Jean-Joel', '1966-02-14', 'Antananarivo', 'Galaxam Logistics', 'DG');
 
+-- Comptes bancaires fictifs (BNI Madagascar)
+INSERT INTO employe_compte_banque (id_compte_banque, id_employe, id_banque, agence, num_compte_rib, titulaire_compte, est_principal) VALUES
+(1, 1, 2, 'Antananarivo - Siège', '00005 01234 00010010001 88', 'RANDRASANA Eric Jean-Joel', TRUE),
+(2, 2, 2, 'Antananarivo - Siège', '00005 01234 00010010002 83', 'RALAMBOMANANA Tatamo Michele', TRUE);
+
+-- Enfants du couple (4 enfants : 2 mineurs à charge éligibles déduction fiscale IRSA, 2 majeurs autonomes)
+-- Rattachement fiscal des 2 enfants à charge sur le chef de famille (Eric, Emp 1)
+INSERT INTO employe_enfant (id_enfant, id_employe, nom, prenom, sexe, date_naissance, lieu_naissance, a_charge, est_etudiant, est_handicape, certificat_fourni) VALUES
+(1, 1, 'RANDRASANA', 'Ialy',    'M', '2008-04-10', 'Antananarivo', TRUE,  FALSE, FALSE, FALSE),
+(2, 1, 'RANDRASANA', 'Finoana', 'F', '2012-09-18', 'Antananarivo', TRUE,  FALSE, FALSE, FALSE),
+(3, 1, 'RANDRASANA', 'Andry',   'M', '1996-05-15', 'Antananarivo', FALSE, FALSE, FALSE, FALSE),
+(4, 1, 'RANDRASANA', 'Mialy',   'F', '1999-11-20', 'Antananarivo', FALSE, FALSE, FALSE, FALSE),
+-- Dossier RH de la mère (Tatamo, Emp 2) : enfants rattachés sans cumul de réduction fiscale
+(5, 2, 'RANDRASANA', 'Ialy',    'M', '2008-04-10', 'Antananarivo', FALSE, FALSE, FALSE, FALSE),
+(6, 2, 'RANDRASANA', 'Finoana', 'F', '2012-09-18', 'Antananarivo', FALSE, FALSE, FALSE, FALSE),
+(7, 2, 'RANDRASANA', 'Andry',   'M', '1996-05-15', 'Antananarivo', FALSE, FALSE, FALSE, FALSE),
+(8, 2, 'RANDRASANA', 'Mialy',   'F', '1999-11-20', 'Antananarivo', FALSE, FALSE, FALSE, FALSE);
+
 SELECT setval('employe_id_employe_seq', 2, TRUE);
 SELECT setval('contrat_travail_id_contrat_seq', 2, TRUE);
 SELECT setval('employe_affectation_carriere_id_affectation_seq', 2, TRUE);
 SELECT setval('workflow_rh_id_workflow_seq', 2, TRUE);
 SELECT setval('employe_conjoint_id_conjoint_seq', 2, TRUE);
+SELECT setval('employe_compte_banque_id_compte_banque_seq', 2, TRUE);
+SELECT setval('employe_enfant_id_enfant_seq', 8, TRUE);

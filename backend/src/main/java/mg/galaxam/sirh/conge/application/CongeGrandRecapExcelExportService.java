@@ -13,6 +13,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
+import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
+import mg.galaxam.sirh.contrat.domain.EmploymentContext;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
@@ -27,10 +29,13 @@ public class CongeGrandRecapExcelExportService {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private final DataSource dataSource;
     private final CongeLotValorisationService lots;
+    private final EmploymentContextResolver employmentContextResolver;
 
-    public CongeGrandRecapExcelExportService(DataSource dataSource, CongeLotValorisationService lots) {
+    public CongeGrandRecapExcelExportService(DataSource dataSource, CongeLotValorisationService lots,
+                                             EmploymentContextResolver employmentContextResolver) {
         this.dataSource = dataSource;
         this.lots = lots;
+        this.employmentContextResolver = employmentContextResolver;
     }
 
     public byte[] generer(LocalDate dateDebut, LocalDate dateFin) throws Exception {
@@ -143,7 +148,6 @@ public class CongeGrandRecapExcelExportService {
     private List<Ligne> chargerLignes(LocalDate dateDebut, LocalDate dateFin, Connection connection) throws SQLException {
         String sql = """
                 SELECT e.id_employe, e.matricule, e.nom, e.prenom,
-                       f.raison_sociale AS filiale, s.libelle AS site, fn.libelle AS poste,
                        COALESCE(m.ouverture, 0) AS ouverture,
                        COALESCE(m.acquis, 0) AS acquis,
                        COALESCE(m.bonification, 0) AS bonification,
@@ -153,7 +157,8 @@ public class CongeGrandRecapExcelExportService {
                        COALESCE(m.annulation, 0) AS annulation,
                        COALESCE(m.solde, 0) AS solde,
                        t.taux_journalier, t.taux_count,
-                       p.date_debut AS periode_debut, p.date_fin AS periode_fin, p.statut AS periode_statut
+                       p.date_debut AS periode_debut, p.date_fin AS periode_fin, p.statut AS periode_statut,
+                       p.periode_count
                 FROM employe e
                 LEFT JOIN LATERAL (
                     SELECT SUM(nb_jours) FILTER (WHERE date_mouvement < ?) AS ouverture,
@@ -167,22 +172,13 @@ public class CongeGrandRecapExcelExportService {
                     FROM mouvement_solde_conge WHERE id_employe = e.id_employe AND date_mouvement <= ?
                 ) m ON true
                 LEFT JOIN LATERAL (
-                    SELECT a.id_site, a.id_fonction, ct.id_filiale
-                    FROM employe_affectation_carriere a
-                    LEFT JOIN contrat_travail ct ON ct.id_contrat = a.id_contrat
-                    WHERE a.id_employe = e.id_employe AND a.date_debut <= ?
-                    ORDER BY a.date_debut DESC, a.id_affectation DESC LIMIT 1
-                ) a ON true
-                LEFT JOIN ref_filiale f ON f.id_filiale = a.id_filiale
-                LEFT JOIN ref_site s ON s.id_site = a.id_site
-                LEFT JOIN ref_fonction fn ON fn.id_fonction = a.id_fonction
-                LEFT JOIN LATERAL (
                     SELECT taux_journalier, COUNT(*) OVER () AS taux_count FROM conge_taux_applicable
                     WHERE id_employe = e.id_employe AND date_effet <= ? AND (date_fin IS NULL OR date_fin > ?)
                     ORDER BY date_effet DESC, id_taux_applicable DESC LIMIT 1
                 ) t ON true
                 LEFT JOIN LATERAL (
-                    SELECT date_debut, date_fin, statut FROM conge_periode_reference
+                    SELECT date_debut, date_fin, statut, COUNT(*) OVER () AS periode_count
+                    FROM conge_periode_reference
                     WHERE id_employe = e.id_employe AND date_debut <= ? AND date_fin >= ?
                     ORDER BY date_debut DESC, id_periode_reference DESC LIMIT 1
                 ) p ON true
@@ -196,11 +192,15 @@ public class CongeGrandRecapExcelExportService {
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int parameter = 1;
             for (int i = 0; i < 7; i++) statement.setDate(parameter++, Date.valueOf(dateDebut));
-            for (int i = 0; i < 8; i++) statement.setDate(parameter++, Date.valueOf(dateFin));
+            for (int i = 0; i < 7; i++) statement.setDate(parameter++, Date.valueOf(dateFin));
             try (ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
                     if (rs.getInt("taux_count") > 1) {
                         throw new IllegalStateException("TCONGE_APPLICABLE_AMBIGUOUS: plusieurs taux applicables pour le matricule "
+                                + rs.getString("matricule") + " à la date " + dateFin);
+                    }
+                    if (rs.getInt("periode_count") > 1) {
+                        throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: plusieurs périodes de référence congés pour le matricule "
                                 + rs.getString("matricule") + " à la date " + dateFin);
                     }
                     BigDecimal ouverture = rs.getBigDecimal("ouverture");
@@ -216,11 +216,13 @@ public class CongeGrandRecapExcelExportService {
                             : rs.getDate("periode_debut").toLocalDate().format(DATE_FORMAT) + " – "
                             + rs.getDate("periode_fin").toLocalDate().format(DATE_FORMAT);
                     int employe = rs.getInt("id_employe");
+                    EmploymentContext contexte = employmentContextResolver.resolveContext(employe, dateFin, connection);
                     BigDecimal valeurHistorique = lots.situation(employe, dateFin, connection).soldeValorisation();
                     lignes.add(new Ligne(employe, rs.getString("matricule"),
                             (rs.getString("nom") + " " + rs.getString("prenom")).trim(),
-                            textOrDash(rs.getString("filiale")), textOrDash(rs.getString("site")),
-                            textOrDash(rs.getString("poste")),
+                            contexte == null ? "—" : textOrDash(contexte.filialeNom()),
+                            contexte == null ? "—" : textOrDash(contexte.nomSite()),
+                            contexte == null ? "—" : textOrDash(contexte.fonctionNom()),
                             new BigDecimal[]{ouverture, acquis, bonification, ajustement, pris, expiration, annulation, solde},
                             taux, valeurHistorique,
                             periode, textOrDash(rs.getString("periode_statut"))));

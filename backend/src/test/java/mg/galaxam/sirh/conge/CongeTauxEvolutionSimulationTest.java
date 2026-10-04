@@ -34,9 +34,52 @@ class CongeTauxEvolutionSimulationTest {
     private int adminUserId;
     private int employeId;
 
+    private CongeTauxApplicableService.CutoverOpeningRequest reprise(LocalDate date) {
+        var req = new CongeTauxApplicableService.CutoverOpeningRequest();
+        req.setIdEmploye(employeId);
+        req.setDateCutover(date);
+        req.setReferenceArrete("DAF-TEST-REPRISE");
+        req.setDateDebutReference(date.withDayOfYear(1));
+        req.setSoldeJours(new BigDecimal("4.00"));
+        req.setValeurSoldeOuverture(new BigDecimal("40000.00"));
+        req.setTauxJournalierApplicable(new BigDecimal("10000.00"));
+        req.setModeReprise(CongeTauxApplicableService.CongeModeReprise.AGGREGATED_OPENING);
+        req.setCumulDroitsOuverture(BigDecimal.ZERO);
+        req.setCumulValorisationOuverture(BigDecimal.ZERO);
+        return req;
+    }
+
+    @Test
+    void repriseCutoverUniqueEtCivile() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            var req = reprise(LocalDate.of(2026, 1, 25));
+            assertTrue(congeTauxApplicableService.enregistrerCutoverSnapshot(req, adminUserId, c) > 0);
+            assertTrue(congeTauxApplicableService.acquisitionDejaReprise(employeId, LocalDate.of(2026, 1, 25), c));
+            assertFalse(congeTauxApplicableService.acquisitionDejaReprise(employeId, LocalDate.of(2026, 1, 26), c));
+            var duplicate = assertThrows(IllegalStateException.class,
+                    () -> congeTauxApplicableService.enregistrerCutoverSnapshot(req, adminUserId, c));
+            assertTrue(duplicate.getMessage().contains("CONGE_CUTOVER_ALREADY_INITIALIZED"));
+        }
+    }
+
+    @Test
+    void repriseRefuseUneReferenceGlissante() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            var req = reprise(LocalDate.of(2026, 1, 25));
+            req.setDateDebutReference(LocalDate.of(2025, 12, 26));
+            var erreur = assertThrows(IllegalArgumentException.class,
+                    () -> congeTauxApplicableService.enregistrerCutoverSnapshot(req, adminUserId, c));
+            assertTrue(erreur.getMessage().contains("CONGE_CUTOVER_REFERENCE_ANNUAL_BOUNDS_REQUIRED"));
+        }
+    }
+
     @BeforeEach
     void setUp() throws Exception {
         try (Connection c = dataSource.getConnection()) {
+            try (var statement = c.createStatement(); var rs = statement.executeQuery("SELECT current_database()")) {
+                assertTrue(rs.next());
+                assertEquals("sirh_galaxam_test", rs.getString(1));
+            }
             CongeTestFixtureHelper.cleanDatabase(c);
             adminUserId = CongeTestFixtureHelper.createAdminUser(c, "admin.simulation@galaxam.mg");
             employeId = CongeTestFixtureHelper.createEmploye(c, "EMP-SIM-200", "AGENT_X", "TMM");
@@ -64,6 +107,7 @@ class CongeTauxEvolutionSimulationTest {
             CongeTauxApplicableService.CutoverOpeningRequest req = new CongeTauxApplicableService.CutoverOpeningRequest();
             req.setIdEmploye(employeId);
             req.setDateCutover(dateCutover);
+            req.setReferenceArrete("DAF-KAJY-SEPT26");
             req.setDateDebutReference(dateCutover);
             req.setSoldeJours(soldeInitial);
             req.setValeurSoldeOuverture(new BigDecimal("96630.90"));
@@ -133,16 +177,15 @@ class CongeTauxEvolutionSimulationTest {
             System.out.println("  -> Cumul de la nouvelle période : 7.5 j | 80 833.33 Ar | moyenne 10 777.78 Ar/j");
 
             // ----------------------------------------------------------------------------------------
-            // ÉTAPE 5 : CLÔTURE MANUELLE ANTICIPÉE DE LA RÉFÉRENCE POUR TESTER LE CALCUL
+            // ÉTAPE 5 : la clôture manuelle anticipée doit être refusée.
             // ----------------------------------------------------------------------------------------
-            BigDecimal nouveauTconge = congeTauxApplicableService.cloturerPeriodeReference(idPeriodeRef, adminUserId, c);
-            assertNotNull(nouveauTconge);
-            assertEquals(0, new BigDecimal("10777.78").compareTo(nouveauTconge));
+            IllegalStateException refus = assertThrows(IllegalStateException.class,
+                    () -> congeTauxApplicableService.cloturerPeriodeReference(idPeriodeRef, adminUserId, c));
+            assertTrue(refus.getMessage().contains("TCONGE_REFERENCE_INCOMPLETE"));
 
-            System.out.println("\n[ÉTAPE 5 - CLÔTURE MANUELLE DE LA PÉRIODE DE RÉFÉRENCE]");
-            System.out.println("  -> Ancien TCONGE initial : " + tcongeInitial + " Ar/j");
-            System.out.println("  -> NOUVEAU TCONGE officiel calculé et scellé : " + nouveauTconge + " Ar/j");
-            System.out.println("  -> Ce nouveau taux ne devient applicable qu'après activation datée explicite.");
+            System.out.println("\n[ÉTAPE 5 - CLÔTURE ANTICIPÉE REFUSÉE]");
+            System.out.println("  -> TCONGE initial : " + tcongeInitial + " Ar/j");
+            System.out.println("  -> Le taux moyen du cycle reste indicatif jusqu'à l'acquisition de décembre.");
             System.out.println("======================================================================\n");
         }
     }

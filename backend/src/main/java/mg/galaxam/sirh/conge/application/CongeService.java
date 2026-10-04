@@ -99,7 +99,11 @@ public class CongeService {
     }
 
     private int getParamGlobalInt(String code, Connection c) {
-        return ParametreGlobal.requirePositiveInt(ParametreGlobal.loadActiveMap(c), code);
+        return getParamGlobalInt(code, LocalDate.now(), c);
+    }
+
+    private int getParamGlobalInt(String code, LocalDate dateMetier, Connection c) {
+        return ParametreGlobal.requirePositiveInt(ParametreGlobal.loadActiveMapAtDate(Date.valueOf(dateMetier), c), code);
     }
 
     /** Retourne null si le plafond est volontairement désactivé ; une configuration absente/invalide est bloquante. */
@@ -128,7 +132,7 @@ public class CongeService {
         LocalDate ref = LocalDate.now();
         LocalDate echeanceMax = dateEcheanceMax != null ? dateEcheanceMax : ref.plusDays(30);
         int delaiMois = ParametreGlobal.requirePositiveInt(
-                ParametreGlobal.loadActiveMap(c), "DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS");
+                ParametreGlobal.loadActiveMapAtDate(Date.valueOf(ref), c), "DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS");
         java.util.Map<Integer, java.util.List<PurgeFifoEngine.MouvementLedger>> mouvements = new java.util.HashMap<>();
         String sql = "SELECT id_employe, id_mouvement, type_mouvement, nb_jours, date_mouvement, id_demande_conge, commentaire "
                 + "FROM mouvement_solde_conge ORDER BY date_mouvement, id_mouvement";
@@ -167,7 +171,8 @@ public class CongeService {
         if (c != null) {
             try {
                 // 1. Taux légal mensuel actif
-                LocalDate d = (dateRef != null) ? dateRef : LocalDate.now();
+                if (dateRef == null) throw new IllegalArgumentException("La date métier d'acquisition est obligatoire.");
+                LocalDate d = dateRef;
                 mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale configLegale =
                         mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale.findActiveAt(c, d);
                 if (configLegale == null || configLegale.getAcquisitionCongeMensuelJours() == null) {
@@ -240,15 +245,9 @@ public class CongeService {
                     if (dtMvt != null) {
                         LocalDate dateArrete = dtMvt.toLocalDate();
                         String comm = rsCut.getString("commentaire");
-                        LocalDate moisVise = LocalDate.of(annee, mois, 1);
-                        LocalDate moisCutover = LocalDate.of(dateArrete.getYear(), dateArrete.getMonthValue(), 1);
-
-                        // Si le mois visé est strictement antérieur au mois de cutover, il est déjà absorbé dans le solde initial
-                        if (moisVise.isBefore(moisCutover)) {
-                            return BigDecimal.ZERO;
-                        }
-                        // Si le mois visé correspond au mois du cutover et que l'acquisition était explicitement incluse
-                        if (moisVise.equals(moisCutover) && comm != null && comm.contains("inclut acquisition")) {
+                        // L'arrêté couvre les clôtures antérieures à sa date réelle, pas tout son mois.
+                        if (finPeriode.isBefore(dateArrete)) return BigDecimal.ZERO;
+                        if (finPeriode.equals(dateArrete) && comm != null && comm.contains("inclut acquisition")) {
                             return BigDecimal.ZERO;
                         }
                     }
@@ -259,14 +258,14 @@ public class CongeService {
         LocalDate dateAcquisition = calculerDateEffetAcquisition(idEmploye, debutPeriode, finPeriode, c);
         String sqlCheck = "SELECT id_mouvement, nb_jours, date_mouvement FROM mouvement_solde_conge " +
                 "WHERE id_employe = ? AND type_mouvement = 'ACQUISITION' " +
-                "AND EXTRACT(YEAR FROM date_mouvement) = ? AND EXTRACT(MONTH FROM date_mouvement) = ? " +
+                "AND date_mouvement BETWEEN ? AND ? " +
                 "FOR UPDATE";
         Integer idMouvementExistant = null;
         BigDecimal ancienNbJours = null;
         try (PreparedStatement ps = c.prepareStatement(sqlCheck)) {
             ps.setInt(1, idEmploye);
-            ps.setInt(2, annee);
-            ps.setInt(3, mois);
+            ps.setDate(2, Date.valueOf(debutPeriode));
+            ps.setDate(3, Date.valueOf(finPeriode));
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     idMouvementExistant = rs.getInt("id_mouvement");
@@ -275,6 +274,8 @@ public class CongeService {
                         throw new IllegalStateException("ACQUISITION_DATE_CONFLICT: le mouvement existant du mois "
                                 + annee + "-" + mois + " doit être corrigé par une migration auditée.");
                     }
+                    if (rs.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: ACQUISITION employé="
+                            + idEmploye + " campagne=[" + debutPeriode + ", " + finPeriode + "]");
                 }
             }
         }
@@ -386,7 +387,7 @@ public class CongeService {
     public int executerBonificationMensuelle(LocalDate dateReference, Connection c) throws Exception {
         LocalDate ref = dateReference != null ? dateReference : LocalDate.now();
         boolean dernierJourMois = ref.plusDays(1).getMonth() != ref.getMonth();
-        java.util.Map<String, ParametreGlobal.ParametreEtat> params = ParametreGlobal.loadEtatMap(c);
+        java.util.Map<String, ParametreGlobal.ParametreEtat> params = ParametreGlobal.loadEtatMapAtDate(Date.valueOf(ref), c);
         BigDecimal plafond = resoudrePlafondCumulConges(params);
         String[] codesBonification = {"SEUIL_ANCIENNETE_BONIFICATION_ANS",
                 "PALIER_ANNEES_BONIFICATION", "JOURS_BONIFICATION_PAR_PALIER"};
@@ -455,13 +456,6 @@ public class CongeService {
             }
         }
         return employesTraites;
-    }
-
-    public BigDecimal simulerNombreJours(Date dateDebut, Date dateFin, boolean estDemiJournee) {
-        if (dateDebut == null || dateFin == null) {
-            throw new IllegalArgumentException("Les dates de début et de fin sont obligatoires pour la simulation.");
-        }
-        return calculateurEngine.calculerNombreJours(dateDebut.toLocalDate(), dateFin.toLocalDate(), estDemiJournee);
     }
 
     /**
@@ -654,7 +648,7 @@ public class CongeService {
             if (motif != null) dureeFixe = motif.getNbJoursAutorises();
         }
         if (extensionPathologiqueMaternite && "MATERNITE".equals(type.getCode())) {
-            dureeFixe = BigDecimal.valueOf(getParamGlobalInt("DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS", c));
+            dureeFixe = BigDecimal.valueOf(getParamGlobalInt("DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS", dateDebut.toLocalDate(), c));
         }
         LocalDate finCalculee = calculateurEngine.calculerDateFinFixe(dateDebut.toLocalDate(), dureeFixe);
         Date dateFinEffective = finCalculee != null ? Date.valueOf(finCalculee) : dateFin;
@@ -663,8 +657,11 @@ public class CongeService {
         }
 
         BigDecimal soldeAvant = BigDecimal.ZERO;
-        BigDecimal joursDemandes = calculateurEngine.calculerNombreJours(
-                dateDebut.toLocalDate(), dateFinEffective.toLocalDate(), estDemiJournee);
+        BigDecimal joursDemandes = type.isDecompteSoldeAcquis() && idEmploye != null
+                ? mg.galaxam.sirh.conge.application.CongeDecompteCalendaireResolver.calculer(
+                        idEmploye, dateDebut.toLocalDate(), dateFinEffective.toLocalDate(), estDemiJournee, c)
+                : calculateurEngine.calculerNombreJours(
+                        dateDebut.toLocalDate(), dateFinEffective.toLocalDate(), estDemiJournee);
         BigDecimal joursDebites = type.isDecompteSoldeAcquis() ? joursDemandes : BigDecimal.ZERO;
         if (idEmploye != null) {
             VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
@@ -1108,13 +1105,24 @@ public class CongeService {
 
     public java.util.Map<String, Object> verifierConflitsDemande(Integer idEmploye, Date dateDebut, Date dateFin,
             boolean estDemiJournee, String momentDemiJournee, Integer idDemandeExclue, Connection c) throws Exception {
+        return verifierConflitsDemande(idEmploye, null, dateDebut, dateFin,
+                estDemiJournee, momentDemiJournee, idDemandeExclue, c);
+    }
+
+    public java.util.Map<String, Object> verifierConflitsDemande(Integer idEmploye, Integer idTypeConge,
+            Date dateDebut, Date dateFin, boolean estDemiJournee,
+            String momentDemiJournee, Integer idDemandeExclue, Connection c) throws Exception {
         java.util.Map<String, Object> res = new java.util.HashMap<>();
         if (dateDebut == null || dateFin == null) {
             throw new IllegalArgumentException("Les dates de début et de fin sont obligatoires.");
         }
 
         // 1. Décompte de base
-        BigDecimal nbJours = calculateurEngine.calculerNombreJours(dateDebut.toLocalDate(), dateFin.toLocalDate(), estDemiJournee);
+        RefTypeConge typeDecompte = idTypeConge != null ? RefTypeConge.rechercherParId(idTypeConge, c) : null;
+        BigDecimal nbJours = typeDecompte != null && typeDecompte.isDecompteSoldeAcquis() && idEmploye != null
+                ? mg.galaxam.sirh.conge.application.CongeDecompteCalendaireResolver.calculer(
+                        idEmploye, dateDebut.toLocalDate(), dateFin.toLocalDate(), estDemiJournee, c)
+                : calculateurEngine.calculerNombreJours(dateDebut.toLocalDate(), dateFin.toLocalDate(), estDemiJournee);
         res.put("nbJoursDecomptes", nbJours);
         res.put("dateDebut", dateDebut);
         res.put("dateFin", dateFin);
@@ -1156,24 +1164,12 @@ public class CongeService {
             return res;
         }
 
-        // 2.bis Contrôle de couverture par un contrat actif
-        boolean actifSurPeriode = true;
-        String sqlCheckActif = "SELECT ct.id_contrat FROM contrat_travail ct "
-                + "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh "
-                + "WHERE ct.id_employe = ? AND rsc.code = 'ACTIF' "
-                + "AND ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?)";
-        try (PreparedStatement psAct = c.prepareStatement(sqlCheckActif)) {
-            psAct.setInt(1, idEmploye);
-            psAct.setDate(2, dateDebut);
-            psAct.setDate(3, dateFin);
-            try (ResultSet rsAct = psAct.executeQuery()) {
-                if (!rsAct.next()) {
-                    actifSurPeriode = false;
-                }
-            }
-        }
-        res.put("actifSurPeriode", actifSurPeriode);
-        if (!actifSurPeriode) {
+        // Contrat et affectation doivent couvrir chaque jour, pas seulement se chevaucher.
+        var continuite = new CongeContinuiteService().analyser(idEmploye,
+                dateDebut.toLocalDate(), dateFin.toLocalDate(), idDemandeExclue,
+                estDemiJournee, momentDemiJournee, c);
+        res.put("actifSurPeriode", continuite.actifSurPeriode());
+        if (!continuite.actifSurPeriode()) {
             res.put("alerteInactivite", "L'employé ne dispose d'aucun contrat actif couvrant l'intégralité de la période demandée.");
         }
 
@@ -1216,129 +1212,43 @@ public class CongeService {
         res.put("collisionPersonnelle", !colPerso.isEmpty());
         res.put("collisionsPersonnelles", colPerso);
 
-        // 4. Détection du poste, département et site de l'employé
-        String sqlPoste = "SELECT a.id_fonction, f.libelle AS nom_fonction, a.id_departement, d.libelle AS nom_departement, a.id_site, s.libelle AS nom_site " +
-                "FROM employe_affectation_carriere a " +
-                "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
-                "LEFT JOIN ref_departement d ON a.id_departement = d.id_departement " +
-                "LEFT JOIN ref_site s ON a.id_site = s.id_site " +
-                "WHERE a.id_employe = ? AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
-                "ORDER BY a.date_debut DESC LIMIT 1";
-        Integer idFonction = null;
-        Integer idSite = null;
-        String nomFonction = null;
-        String nomDepartement = null;
-        String nomSite = null;
-        try (PreparedStatement psP = c.prepareStatement(sqlPoste)) {
-            psP.setInt(1, idEmploye);
-            psP.setDate(2, dateFin);
-            psP.setDate(3, dateDebut);
-            try (ResultSet rsP = psP.executeQuery()) {
-                if (rsP.next()) {
-                    idFonction = (Integer) rsP.getObject("id_fonction");
-                    idSite = (Integer) rsP.getObject("id_site");
-                    nomFonction = rsP.getString("nom_fonction");
-                    nomDepartement = rsP.getString("nom_departement");
-                    nomSite = rsP.getString("nom_site");
-                }
-            }
-        }
-        res.put("idFonction", idFonction);
-        res.put("idSite", idSite);
-        res.put("nomFonction", nomFonction);
-        res.put("nomDepartement", nomDepartement);
-        res.put("nomSite", nomSite);
+        // Les affectations successives sont exposées sans choisir arbitrairement
+        // une seule affectation pour toute la demande.
+        var premierSegment = continuite.segments().isEmpty() ? null : continuite.segments().get(0);
+        res.put("idFonction", premierSegment != null ? premierSegment.idFonction() : null);
+        res.put("idSite", premierSegment != null ? premierSegment.idSite() : null);
+        res.put("nomFonction", premierSegment != null ? premierSegment.nomFonction() : null);
+        res.put("nomDepartement", premierSegment != null ? premierSegment.nomDepartement() : null);
+        res.put("nomSite", premierSegment != null ? premierSegment.nomSite() : null);
+        res.put("affectationsSurPeriode", continuite.segments());
 
-        // 5. Recherche des collègues du même poste et même site
         java.util.List<java.util.Map<String, Object>> colleguesAbsents = new java.util.ArrayList<>();
-        int totalEmployesMemePoste = 1;
-        if (idFonction != null) {
-            String sqlCount = "SELECT COUNT(DISTINCT a.id_employe) AS cnt " +
-                    "FROM employe_affectation_carriere a " +
-                    "JOIN employe e ON a.id_employe = e.id_employe " +
-                    "WHERE a.id_fonction = ? " +
-                    (idSite != null && idSite > 0 ? "AND a.id_site = ? " : "") +
-                    "AND e.est_actif = true " +
-                    "AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?)";
-            try (PreparedStatement psCnt = c.prepareStatement(sqlCount)) {
-                int pIdx = 1;
-                psCnt.setInt(pIdx++, idFonction);
-                if (idSite != null && idSite > 0) psCnt.setInt(pIdx++, idSite);
-                psCnt.setDate(pIdx++, dateFin);
-                psCnt.setDate(pIdx++, dateDebut);
-                try (ResultSet rsCnt = psCnt.executeQuery()) {
-                    if (rsCnt.next()) totalEmployesMemePoste = Math.max(1, rsCnt.getInt("cnt"));
-                }
-            }
-
-            String sqlCollegues = "SELECT e.id_employe, e.matricule, e.nom, e.prenom, e.photo_url, " +
-                    "dc.id_demande_conge, dc.date_debut, dc.date_fin, dc.est_demi_journee, dc.moment_demi_journee, " +
-                    "tc.libelle AS libelle_conge, sc.code AS code_statut " +
-                    "FROM demande_conge dc " +
-                    "JOIN employe e ON dc.id_employe = e.id_employe " +
-                    "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
-                    "JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
-                    "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
-                    "WHERE a.id_fonction = ? " +
-                    (idSite != null && idSite > 0 ? "AND a.id_site = ? " : "") +
-                    "AND dc.id_employe != ? " +
-                    "AND dc.id_demande_conge != COALESCE(?, -1) " +
-                    "AND sc.code NOT IN ('REFUSE', 'ANNULE', 'REJETE') " +
-                    "AND dc.date_debut <= ? AND dc.date_fin >= ? " +
-                    "AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
-                    "ORDER BY dc.date_debut ASC";
-            try (PreparedStatement psC = c.prepareStatement(sqlCollegues)) {
-                int pIdx = 1;
-                psC.setInt(pIdx++, idFonction);
-                if (idSite != null && idSite > 0) psC.setInt(pIdx++, idSite);
-                psC.setInt(pIdx++, idEmploye);
-                psC.setObject(pIdx++, idDemandeExclue != null ? idDemandeExclue : -1);
-                psC.setDate(pIdx++, dateFin);
-                psC.setDate(pIdx++, dateDebut);
-                psC.setDate(pIdx++, dateFin);
-                psC.setDate(pIdx++, dateDebut);
-                try (ResultSet rsC = psC.executeQuery()) {
-                    while (rsC.next()) {
-                        boolean cDemi = rsC.getBoolean("est_demi_journee");
-                        String cMoment = rsC.getString("moment_demi_journee");
-                        Date cDeb = rsC.getDate("date_debut");
-                        Date cFin = rsC.getDate("date_fin");
-
-                        // Exclusion : demi-journées complémentaires sur la même date
-                        if (estDemiJournee && cDemi && dateDebut.equals(dateFin) && cDeb.equals(cFin) && dateDebut.equals(cDeb)) {
-                            if (momentDemiJournee != null && cMoment != null && !momentDemiJournee.equalsIgnoreCase(cMoment)) {
-                                continue;
-                            }
-                        }
-
-                        java.util.Map<String, Object> col = new java.util.HashMap<>();
-                        col.put("idEmploye", rsC.getInt("id_employe"));
-                        col.put("matricule", rsC.getString("matricule"));
-                        col.put("nom", rsC.getString("nom"));
-                        col.put("prenom", rsC.getString("prenom"));
-                        col.put("photoUrl", rsC.getString("photo_url"));
-                        col.put("idDemandeConge", rsC.getInt("id_demande_conge"));
-                        col.put("typeConge", rsC.getString("libelle_conge"));
-                        col.put("dateDebut", cDeb);
-                        col.put("dateFin", cFin);
-                        col.put("statut", rsC.getString("code_statut"));
-                        colleguesAbsents.add(col);
-                    }
-                }
-            }
+        for (var collision : continuite.collisions()) {
+            java.util.Map<String, Object> col = new java.util.HashMap<>();
+            col.put("idEmploye", collision.idEmploye());
+            col.put("matricule", collision.matricule());
+            col.put("nom", collision.nom());
+            col.put("prenom", collision.prenom());
+            col.put("photoUrl", collision.photoUrl());
+            col.put("idDemandeConge", collision.idDemandeConge());
+            col.put("typeConge", collision.typeConge());
+            col.put("dateDebut", Date.valueOf(collision.dateDebut()));
+            col.put("dateFin", Date.valueOf(collision.dateFin()));
+            col.put("debutConflit", Date.valueOf(collision.debutConflit()));
+            col.put("finConflit", Date.valueOf(collision.finConflit()));
+            col.put("statut", collision.statut());
+            col.put("nomFonction", collision.nomFonction());
+            col.put("nomSite", collision.nomSite());
+            colleguesAbsents.add(col);
         }
-
         boolean conflitPoste = !colleguesAbsents.isEmpty();
-        res.put("totalEmployesPoste", totalEmployesMemePoste);
+        res.put("totalEmployesPoste", continuite.totalEmployesMemePoste());
         res.put("colleguesAbsents", colleguesAbsents);
         res.put("conflitPoste", conflitPoste);
-        if (conflitPoste) {
-            String siteInfo = (nomSite != null && !nomSite.isEmpty()) ? " sur le site " + nomSite : "";
-            res.put("messageAvertissement", colleguesAbsents.size() + " collaborateur(s) au même poste (" +
-                    nomFonction + siteInfo + ") sont déjà absents sur cette période.");
-        } else {
-            res.put("messageAvertissement", null);
-        }
+        res.put("messageAvertissement", conflitPoste
+                ? colleguesAbsents.size() + " collaborateur(s) au même poste et site sont déjà absents "
+                        + "sur les dates réellement communes."
+                : null);
 
         // 6. Solde actuel de congés du collaborateur
         VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
@@ -1651,62 +1561,14 @@ public class CongeService {
                     LocalDate finIntersection = dFin.isAfter(dateFinPeriode) ? dateFinPeriode : dFin;
 
                     if (!finIntersection.isBefore(debutIntersection)) {
-                        BigDecimal jours = calculateurEngine.calculerNbJoursCongeValorises(debutIntersection, finIntersection, estDemiJournee);
+                        BigDecimal jours = mg.galaxam.sirh.conge.application.CongeDecompteCalendaireResolver.calculer(
+                                idEmploye, debutIntersection, finIntersection, estDemiJournee, c);
                         total = total.add(jours);
                     }
                 }
             }
         }
         return total;
-    }
-
-    /**
-     * Délégation unitaire de valorisation calendaire.
-     */
-    public BigDecimal calculerNbJoursCongeValorises(LocalDate debut, LocalDate fin, boolean estDemiJournee) {
-        return calculateurEngine.calculerNbJoursCongeValorises(debut, fin, estDemiJournee);
-    }
-
-    /**
-     * Initialise le solde de congé historique d'un salarié (reprise de données / migration).
-     *
-     * Invariants RG-CONGE (Phase 2A-3B) :
-     * - Ne fabrique AUCUNE acquisition mensuelle artificielle passée (+2.5j par mois inventé).
-     * - Enregistre un mouvement unitaire du grand-livre de type AJUSTEMENT avec tag [SOLDE_INITIAL].
-     * - Enregistre la date d'effet (date d'arrêté) et indique formellement si l'acquisition du mois de cutover est incluse.
-     * - Protège contre toute double acquisition future lors des paies ultérieures.
-     */
-    public MouvementSoldeConge initialiserSoldeHistorique(
-            int idEmploye,
-            BigDecimal soldeInitial,
-            LocalDate dateArrete,
-            boolean inclutAcquisitionMoisArrete,
-            String motif,
-            Integer currentUserId,
-            Connection c) throws Exception {
-        if (soldeInitial == null) {
-            throw new IllegalArgumentException("Le solde initial est obligatoire.");
-        }
-        if (dateArrete == null) {
-            throw new IllegalArgumentException("La date d'arrêté du solde initial est obligatoire.");
-        }
-
-        String tagAcq = inclutAcquisitionMoisArrete
-                ? " (inclut acquisition " + dateArrete.getYear() + "-" + String.format("%02d", dateArrete.getMonthValue()) + ")"
-                : " (exclut acquisition " + dateArrete.getYear() + "-" + String.format("%02d", dateArrete.getMonthValue()) + ")";
-        String commentaire = "[SOLDE_INITIAL] Reprise historique arrêtée au " + dateArrete + tagAcq
-                + (motif != null && !motif.isBlank() ? " : " + motif.trim() : " : Reprise initiale sans historique détaillé");
-
-        MouvementSoldeConge mvt = new MouvementSoldeConge();
-        mvt.setIdEmploye(idEmploye);
-        mvt.setTypeMouvement("AJUSTEMENT");
-        mvt.setNbJours(soldeInitial);
-        mvt.setDateMouvement(Date.valueOf(dateArrete));
-        mvt.setCommentaire(commentaire);
-        mvt.setCreatedBy(currentUserId);
-        mvt.save(c);
-
-        return mvt;
     }
 
     /**

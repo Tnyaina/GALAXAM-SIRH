@@ -1,5 +1,28 @@
 # Registre des Migrations Incrémentales BDD
 
+`26-10-03-sp55-conge-decompte-feries-date.sql` fixe la règle Galaxam actuelle
+`INCLUS` dans un paramètre obligatoire et versionnable par date d'effet.
+Une version `EXCLUS` future changera le décompte à partir de chaque jour concerné,
+sans modifier les demandes déjà validées. Exécuter uniquement sur
+`sirh_galaxam_test` après contrôle de `current_database()`.
+
+`26-10-04-sp56-conge-decompte-feries-desactivable.sql` rend la règle
+`CONGE_DECOMPTE_FERIES` désactivable par version future. Une version inactive
+bloque les calculs concernés avec `CONFIGURATION_DISABLED` ; aucune ancienne
+valeur n'est reprise implicitement. Exécuter uniquement sur
+`sirh_galaxam_test` après contrôle de `current_database()`.
+
+`26-10-03-sp54-menu-controle-droits.sql` renomme le sous-menu existant
+`CONGES_PERIODES` en « Contrôle des droits ». Aucun objet métier ni droit
+d'accès n'est créé. Vérifier `current_database()` avant exécution ; le script
+a été appliqué uniquement à `sirh_galaxam_test` pendant ce chantier.
+
+Le script `26-10-03-sp53-conge-valorisation-mensuelle-correction.sql` ajoute
+l'historique des rectifications DAF de valorisation mensuelle. Vérifier
+`current_database()` avant toute exécution ; les essais et migrations de ce
+chantier sont réservés à `sirh_galaxam_test`. Son modèle est intégré aux
+schémas canoniques 04 et 06 (clé étrangère vers le journal après sa création).
+
 > **IMPORTANT :**
 > L'ensemble des modifications apportées par ces scripts incrémentaux a été **intégralement fusionné et consolidé** dans les **6 scripts canoniques principaux** situés dans `backend/conception/bdd/` :
 > 1. `01_schema_core_securite.sql`
@@ -78,6 +101,9 @@ incompatible fait échouer l'index unique et demande un arbitrage explicite.
 | `26-10-01-sp46-validite-conditions-rubriques.sql` | Ajoute validité, filiation et condition des rubriques manuelles ; interdit les chevauchements | `06_schema_paie.sql` |
 
 | `26-10-01-sp47-methodes-rubriques.sql` | Méthodes manuelles, arrondi, assiette FMFP séparée et précision des paramètres de ligne ; aucun ajout de table | `06_schema_paie.sql` |
+| `26-10-03-sp52-transitions-temporelles-et-menu-conges.sql` | Exclusions des chevauchements légaux, tarifs de site et références congés ; navigation des cycles | `01_schema_core_securite.sql`, `02_schema_referentiels_rh.sql`, `04_schema_conges.sql`, `05_schema_pointage.sql` |
+| `26-10-03-sp55-conge-decompte-feries-date.sql` | Règle datée `INCLUS`/`EXCLUS` des jours fériés débitant le solde acquis | `01_schema_core_securite.sql` |
+| `26-10-04-sp56-conge-decompte-feries-desactivable.sql` | Désactivation explicite de cette règle par version future | `01_schema_core_securite.sql` |
 
 ### Remarques Opérationnelles
 - Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 81 tables et 9 vues cohérentes.

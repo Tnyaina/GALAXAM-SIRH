@@ -83,7 +83,7 @@ public class DemandeCongeController {
             Date dateDebut = Date.valueOf(req.dateDebut());
             Date dateFin = Date.valueOf(req.dateFin());
             Map<String, Object> result = congeService.verifierConflitsDemande(
-                    req.idEmploye(), dateDebut, dateFin,
+                    req.idEmploye(), req.idTypeConge(), dateDebut, dateFin,
                     Boolean.TRUE.equals(req.estDemiJournee()),
                     req.momentDemiJournee(),
                     req.idDemandeConge(), c);

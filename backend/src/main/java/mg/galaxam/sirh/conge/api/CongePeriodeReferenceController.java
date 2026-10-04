@@ -9,6 +9,7 @@ import mg.galaxam.sirh.common.transaction.TransactionRunner;
 import mg.galaxam.sirh.conge.application.CongeAnnuelExcelExportService;
 import mg.galaxam.sirh.conge.application.CongeGrandRecapExcelExportService;
 import mg.galaxam.sirh.conge.application.CongeTauxApplicableService;
+import mg.galaxam.sirh.conge.application.CongeValorisationMensuelleService;
 import mg.galaxam.sirh.conge.domain.TcongeConfigurationDTO;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,7 @@ public class CongePeriodeReferenceController {
 
     public record CreerPeriodeReferenceRequest(Integer idEmploye, LocalDate dateDebut, LocalDate dateFin) {}
     public record ActiverTauxCalculeRequest(LocalDate dateEffet) {}
+    public record CorrigerValorisationRequest(BigDecimal nouvelleValeur, String motif) {}
 
     @Autowired
     private DataSource dataSource;
@@ -50,13 +52,46 @@ public class CongePeriodeReferenceController {
     private CongeGrandRecapExcelExportService congeGrandRecapExcelExportService;
 
     @Autowired
+    private CongeValorisationMensuelleService congeValorisationMensuelleService;
+
+    @Autowired
     private TransactionRunner transactionRunner;
+
+    @GetMapping("/{idPeriodeReference}/mois")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> listerMois(@PathVariable int idPeriodeReference) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            return ResponseEntity.ok(congeValorisationMensuelleService.lister(idPeriodeReference, c));
+        }
+    }
+
+    @GetMapping("/{idPeriodeReference}/corrections-valorisation")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> historiqueValorisations(@PathVariable int idPeriodeReference) throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            return ResponseEntity.ok(congeValorisationMensuelleService.historique(idPeriodeReference, c));
+        }
+    }
+
+    @PostMapping("/{idPeriodeReference}/mois/{idJournal}/corriger-valorisation")
+    @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> corrigerValorisation(@PathVariable int idPeriodeReference,
+            @PathVariable int idJournal, @RequestBody CorrigerValorisationRequest request) {
+        if (request == null) throw new IllegalArgumentException("Valeur et motif DAF obligatoires.");
+        return transactionRunner.required(c -> ResponseEntity.ok(congeValorisationMensuelleService.corriger(
+                idPeriodeReference, idJournal, request.nouvelleValeur(), request.motif(),
+                CustomUserDetails.getCurrentUserId(), c)));
+    }
 
     @PostMapping
     @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> creerPeriodeReference(@RequestBody CreerPeriodeReferenceRequest request) {
         if (request == null || request.idEmploye() == null || request.dateDebut() == null || request.dateFin() == null) {
             throw new IllegalArgumentException("idEmploye, dateDebut et dateFin sont obligatoires.");
+        }
+        if (request.dateDebut().getDayOfYear() != 1
+                || !request.dateFin().equals(request.dateDebut().withMonth(12).withDayOfMonth(31))) {
+            throw new IllegalArgumentException("TCONGE_REFERENCE_ANNUAL_BOUNDS_REQUIRED: période annuelle du 01/01 au 31/12.");
         }
 
         return transactionRunner.required(c -> {
@@ -112,7 +147,7 @@ public class CongePeriodeReferenceController {
     }
 
     @PostMapping("/{idPeriodeReference}/activer-taux")
-    @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> activerTauxCalcule(
             @PathVariable int idPeriodeReference,
             @RequestBody ActiverTauxCalculeRequest request) {

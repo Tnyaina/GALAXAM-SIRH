@@ -269,7 +269,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
               >
                 Bilan annuel Excel
               </Button>
-              {canWrite && (
+              {canValidateConges && !situationData?.periodeReference && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -280,9 +280,21 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
                   iconLeft={<SlidersHorizontal size={14} />}
                   className="justify-start text-xs rounded-none"
                 >
-                  Initialiser le solde
+                  Reprendre l'historique des congés
                 </Button>
               )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setMenuActionsOpen(false);
+                  navigate(`/conges?tab=periodes&employe=${idEmploye}`);
+                }}
+                iconLeft={<CalendarDays size={14} />}
+                className="justify-start text-xs rounded-none"
+              >
+                Contrôler les droits acquis
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -314,8 +326,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
         situationData={situationData}
         consommationPool={consommationPool}
         employe={employe}
-        canWrite={canWrite}
-        onOpenInitModal={() => setShowInitModal(true)}
+        onOpenPeriodesModal={() => navigate(`/conges?tab=periodes&employe=${idEmploye}`)}
       />
 
       <Suspense fallback={null}>
@@ -615,6 +626,7 @@ export default function CongesTab({ idEmploye, employe, canWrite = false, canVal
           />
         </Suspense>
       )}
+
     </div>
   );
 }

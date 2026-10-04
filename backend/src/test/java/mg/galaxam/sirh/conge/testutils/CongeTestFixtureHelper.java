@@ -9,8 +9,11 @@ public final class CongeTestFixtureHelper {
     private CongeTestFixtureHelper() {}
 
     public static void cleanDatabase(Connection c) throws SQLException {
-        if (!"sirh_galaxam_test".equals(c.getCatalog())) {
-            throw new SQLException("Nettoyage des fixtures interdit hors de sirh_galaxam_test.");
+        try (Statement verification = c.createStatement();
+             ResultSet database = verification.executeQuery("SELECT current_database()")) {
+            if (!database.next() || !"sirh_galaxam_test".equals(database.getString(1))) {
+                throw new SQLException("Nettoyage des fixtures interdit hors de sirh_galaxam_test.");
+            }
         }
         try (Statement st = c.createStatement()) {
             st.execute("DELETE FROM pointage_snapshot_jour");

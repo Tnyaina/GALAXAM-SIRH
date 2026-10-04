@@ -15,9 +15,7 @@ import mg.galaxam.sirh.conge.domain.CongeSituationEmployeDTO;
 import mg.galaxam.sirh.conge.domain.CongeSoldeRequests.AjustementSoldeRequest;
 import mg.galaxam.sirh.conge.domain.CongeSoldeRequests.ConfirmerExpirationRequest;
 import mg.galaxam.sirh.conge.domain.CongeSoldeRequests.CorrigerCutoverRequest;
-import mg.galaxam.sirh.conge.domain.CongeSoldeRequests.InitialiserSoldeRequest;
 import mg.galaxam.sirh.conge.domain.CongeSoldeRequests.ReporterExamenRequest;
-import mg.galaxam.sirh.conge.domain.CongeSoldeRequests.TauxMigrationRequest;
 import mg.galaxam.sirh.conge.persistence.MouvementSoldeConge;
 import mg.galaxam.sirh.conge.persistence.RefPoolCongeAnnuel;
 import mg.galaxam.sirh.conge.persistence.VSoldeCongeEmploye;
@@ -159,25 +157,13 @@ public class CongeSoldeController {
     public ResponseEntity<?> getSoldeEmploye(@PathVariable Integer idEmploye) {
         try (Connection c = dataSource.getConnection()) {
             VSoldeCongeEmploye solde = VSoldeCongeEmploye.rechercherParEmploye(idEmploye, c);
-            if (solde != null && congeTauxApplicableService != null) {
-                try {
-                    BigDecimal salaireBase = BigDecimal.ZERO;
-                    String sqlBase = "SELECT salaire_base FROM employe_affectation_carriere WHERE id_employe = ? ORDER BY date_debut DESC NULLS LAST LIMIT 1";
-                    try (java.sql.PreparedStatement psBase = c.prepareStatement(sqlBase)) {
-                        psBase.setInt(1, idEmploye);
-                        try (java.sql.ResultSet rsBase = psBase.executeQuery()) {
-                            if (rsBase.next() && rsBase.getBigDecimal("salaire_base") != null) {
-                                salaireBase = rsBase.getBigDecimal("salaire_base");
-                            }
-                        }
-                    }
-                    solde.setSalaireBase(salaireBase);
-                    var resTaux = congeTauxApplicableService.resoudreTauxCongeApplicable(idEmploye, LocalDate.now(), salaireBase, c);
-                    if (resTaux != null) {
-                        solde.setTauxJournalierConge(resTaux.getTauxJournalier());
-                        solde.setSourceTauxConge(resTaux.getSourceProvenance() != null ? resTaux.getSourceProvenance().name() : null);
-                    }
-                } catch (Exception ignored) {}
+            if (solde != null) {
+                var situation = congeTauxApplicableService.obtenirSituationComplete(idEmploye, LocalDate.now(), c);
+                solde.setSalaireBase(situation.getSalaireBase());
+                if (situation.getTauxApplicable() != null) {
+                    solde.setTauxJournalierConge(situation.getTauxApplicable().getMontant());
+                    solde.setSourceTauxConge(situation.getTauxApplicable().getSource());
+                }
             }
             return ResponseEntity.ok(solde);
         } catch (Exception e) {
@@ -245,42 +231,6 @@ public class CongeSoldeController {
         });
     }
 
-    @PostMapping("/solde/initialisation")
-    @PreAuthorize("hasAuthority('CONGE_VALIDATE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> initialiserSoldeHistorique(@RequestBody InitialiserSoldeRequest req) {
-        if (req == null || req.idEmploye() == null || req.soldeInitial() == null || req.dateArrete() == null) {
-            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
-                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
-                    "L'idEmploye, le soldeInitial et la dateArrete sont obligatoires pour l'initialisation de solde.");
-        }
-
-        return transactionRunner.required(c -> {
-            Integer currentUserId = CustomUserDetails.getCurrentUserId();
-            boolean inclutAcq = Boolean.TRUE.equals(req.inclutAcquisitionMoisArrete());
-
-            congeService.initialiserSoldeHistorique(
-                    req.idEmploye(), req.soldeInitial(), req.dateArrete(),
-                    inclutAcq, req.motif(), currentUserId, c);
-
-            if (req.tauxJournalierMigration() != null && req.tauxJournalierMigration().compareTo(BigDecimal.ZERO) > 0) {
-                congeTauxApplicableService.enregistrerOuMettreAJourTauxMigration(
-                        req.idEmploye(), req.tauxJournalierMigration(), req.dateArrete(), req.motif(), currentUserId, c);
-            }
-
-            VSoldeCongeEmploye soldeMisAJour = VSoldeCongeEmploye.rechercherParEmploye(req.idEmploye(), c);
-            if (soldeMisAJour != null && congeTauxApplicableService != null) {
-                try {
-                    var resTaux = congeTauxApplicableService.resoudreTauxCongeApplicable(req.idEmploye(), LocalDate.now(), null, c);
-                    if (resTaux != null) {
-                        soldeMisAJour.setTauxJournalierConge(resTaux.getTauxJournalier());
-                        soldeMisAJour.setSourceTauxConge(resTaux.getSourceProvenance() != null ? resTaux.getSourceProvenance().name() : null);
-                    }
-                } catch (Exception ignored) {}
-            }
-            return ResponseEntity.ok(soldeMisAJour);
-        });
-    }
-
     @GetMapping("/solde/employe/{idEmploye}/situation")
     @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getSituationEmploye(
@@ -308,7 +258,9 @@ public class CongeSoldeController {
         return transactionRunner.required(c -> {
             Integer currentUserId = CustomUserDetails.getCurrentUserId();
             if (req.getDateCutover() == null) {
-                req.setDateCutover(LocalDate.now());
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                        "dateCutover explicite obligatoire : aucune date système implicite pour une reprise historique.");
             }
             congeTauxApplicableService.enregistrerCutoverSnapshot(req, currentUserId, c);
 
@@ -318,27 +270,4 @@ public class CongeSoldeController {
         });
     }
 
-    @PostMapping("/taux-applicable/migration")
-    @PreAuthorize("hasAuthority('CONGE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> enregistrerTauxMigrationStandalone(@RequestBody TauxMigrationRequest req) {
-        if (req == null || req.idEmploye() == null || req.tauxJournalier() == null || req.dateEffet() == null) {
-            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
-                    mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
-                    "idEmploye, tauxJournalier et dateEffet sont obligatoires.");
-        }
-
-        return transactionRunner.required(c -> {
-            Integer currentUserId = CustomUserDetails.getCurrentUserId();
-            congeTauxApplicableService.enregistrerOuMettreAJourTauxMigration(
-                    req.idEmploye(), req.tauxJournalier(), req.dateEffet(), req.commentaire(), currentUserId, c);
-
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "idEmploye", req.idEmploye(),
-                    "tauxJournalier", req.tauxJournalier(),
-                    "dateEffet", req.dateEffet(),
-                    "sourceProvenance", "KAJY_MIGRATION"
-            ));
-        });
-    }
 }

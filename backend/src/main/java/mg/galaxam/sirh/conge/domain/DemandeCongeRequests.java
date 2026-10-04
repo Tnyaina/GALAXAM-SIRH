@@ -52,6 +52,7 @@ public final class DemandeCongeRequests {
 
     public record VerifierConflitsRequest(
             Integer idEmploye,
+            Integer idTypeConge,
             Integer idDemandeConge,
             LocalDate dateDebut,
             LocalDate dateFin,

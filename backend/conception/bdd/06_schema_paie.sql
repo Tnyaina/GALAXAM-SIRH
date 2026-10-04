@@ -576,6 +576,10 @@ CREATE INDEX idx_conge_journal_emp ON conge_journal_droit(id_employe);
 CREATE INDEX idx_conge_journal_periode ON conge_journal_droit(id_periode_paie);
 CREATE INDEX idx_conge_journal_ref ON conge_journal_droit(id_periode_reference);
 
+ALTER TABLE conge_valorisation_mensuelle_correction
+    ADD CONSTRAINT fk_conge_valorisation_correction_journal
+    FOREIGN KEY (id_journal) REFERENCES conge_journal_droit(id_journal);
+
 -- =====================================================================
 -- TRIGGERS DE SÉCURITÉ : IMMUTABILITÉ POST-CLÔTURE
 -- =====================================================================
@@ -756,6 +760,6 @@ INSERT INTO ref_type_mouvement_paie (id_type_mouvement, code, libelle, sens, cat
 (8, 'AUTIMP', 'Autre gain imposable', 'GAIN', 'PRIME', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'AUTIMP'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 80, 'Compatibilité historique pour un gain imposable qualifié'),
 (9, 'EXTRA_DEPLACEMENT', 'Déplacement exceptionnel', 'GAIN', 'EXTRA', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'EXTRA_DEPLACEMENT'), FALSE, FALSE, 'VARIABLE_DAF', 'DAF_PAIE', TRUE, TRUE, TRUE, 'VARIABLE_DAF', TRUE, 90, 'Exception motivée, distincte du déplacement ordinaire automatique'),
 (10, 'NOTE_DE_FRAIS', 'Remboursement de frais validés', 'GAIN', 'NOTE_DE_FRAIS', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REMBOURSEMENT_NOTE_FRAIS'), FALSE, FALSE, 'NOTE_DE_FRAIS', 'DAF_PAIE', TRUE, TRUE, TRUE, 'NOTE_DE_FRAIS', TRUE, 100, 'Remboursement hors brut avec justificatif obligatoire avant approbation'),
-(11, 'REGULARISATION_CONGE', 'Régularisation de congé antérieur', 'GAIN', 'REGULARISATION', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REGULARISATION_PAIE'), FALSE, FALSE, 'REGULARISATION', 'CONGE_PAIE', TRUE, TRUE, TRUE, 'CONGE', TRUE, 110, 'Motif obligatoire avec référence à la période ou correction concernée');
+(11, 'REGULARISATION_CONGE', 'Régularisation de congé antérieur', 'GAIN', 'REGULARISATION', (SELECT id_rubrique FROM paie_rubrique WHERE code = 'REGULARISATION_PAIE'), FALSE, FALSE, 'REGULARISATION', 'CONGE_PAIE', TRUE, TRUE, TRUE, 'CONGE', TRUE, 110, 'Complément DAF sur paie future ; motif justifié avec JOURNAL_CONGE#id obligatoire');
 
 SELECT setval('ref_type_mouvement_paie_id_type_mouvement_seq', (SELECT GREATEST(MAX(id_type_mouvement), 11) FROM ref_type_mouvement_paie));

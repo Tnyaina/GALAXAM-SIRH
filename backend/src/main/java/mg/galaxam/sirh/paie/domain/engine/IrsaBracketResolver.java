@@ -36,6 +36,7 @@ public final class IrsaBracketResolver {
                 int previousNumber = 0;
                 while (rs.next()) {
                     int number = rs.getInt(4);
+                    if (number <= previousNumber) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: IRSA tranche " + number + " au " + date);
                     if (number != previousNumber + 1) {
                         throw new IllegalStateException("IRSA_CONFIGURATION_INVALID: tranches absentes ou dupliquées à la date " + date);
                     }
@@ -44,7 +45,7 @@ public final class IrsaBracketResolver {
                 }
             }
         }
-        if (result.isEmpty()) throw new IllegalStateException("IRSA_CONFIGURATION_MISSING");
+        if (result.isEmpty()) throw new IllegalStateException("IRSA_CONFIGURATION_MISSING au " + date);
         return result;
     }
 }

@@ -116,16 +116,20 @@ public class DemandeConge extends ClassMere {
             this.momentDemiJournee = null;
         }
 
-        // 1. Calcul dynamique du décompte en jours calendaires stricts (sauf régularisation partielle explicite)
-        boolean isRegularisation = this.commentaire != null && this.commentaire.startsWith("[REGULARISATION_POINTAGE]");
-        if (!isRegularisation || this.nbJoursDecomptes == null || this.nbJoursDecomptes.compareTo(BigDecimal.ZERO) <= 0) {
-            this.nbJoursDecomptes = calculerNombreJoursDecomptes(dateDebut, dateFin, estDemiJournee);
-        }
-
-        // 2. Chargement du type de congé
+        // Résoudre le type avant le décompte : seuls les congés débitant les droits acquis
+        // suivent la politique datée des jours fériés.
         RefTypeConge typeConge = RefTypeConge.rechercherParId(idTypeConge, c);
         if (typeConge == null) {
             throw new IllegalArgumentException("Le type de congé spécifié n'existe pas.");
+        }
+
+        // 1. Décompte daté (sauf régularisation partielle explicite)
+        boolean isRegularisation = this.commentaire != null && this.commentaire.startsWith("[REGULARISATION_POINTAGE]");
+        if (!isRegularisation || this.nbJoursDecomptes == null || this.nbJoursDecomptes.compareTo(BigDecimal.ZERO) <= 0) {
+            this.nbJoursDecomptes = typeConge.isDecompteSoldeAcquis()
+                    ? mg.galaxam.sirh.conge.application.CongeDecompteCalendaireResolver.calculer(
+                            idEmploye, dateDebut.toLocalDate(), dateFin.toLocalDate(), estDemiJournee, c)
+                    : calculerNombreJoursDecomptes(dateDebut, dateFin, estDemiJournee);
         }
 
         // 2.bis Contrôle du solde disponible pour les types de congés entamant le solde acquis (ex: ANNUEL)
@@ -153,22 +157,13 @@ public class DemandeConge extends ClassMere {
             }
         }
 
-        // 2.ter Contrôle de l'existence d'un contrat de travail actif couvrant toute la période de congé
-        String sqlContrat = "SELECT ct.id_contrat FROM contrat_travail ct " +
-                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
-                "WHERE ct.id_employe = ? AND rsc.code = 'ACTIF' " +
-                "AND ct.date_debut <= ? AND (ct.date_fin IS NULL OR ct.date_fin >= ?)";
-        try (PreparedStatement psCt = c.prepareStatement(sqlContrat)) {
-            psCt.setInt(1, idEmploye);
-            psCt.setDate(2, dateDebut);
-            psCt.setDate(3, dateFin);
-            try (ResultSet rsCt = psCt.executeQuery()) {
-                if (!rsCt.next()) {
-                    throw new IllegalArgumentException(
-                            "L'employé ne dispose d'aucun contrat actif couvrant l'intégralité de la période de congé demandée (du "
-                                    + dateDebut + " au " + dateFin + ").");
-                }
-            }
+        // Contrat, affectation et continuité résolus sur chaque jour de la demande.
+        var continuite = new mg.galaxam.sirh.conge.application.CongeContinuiteService()
+                .analyser(idEmploye, dateDebut.toLocalDate(), dateFin.toLocalDate(),
+                        idDemandeConge, estDemiJournee, momentDemiJournee, c);
+        if (!continuite.actifSurPeriode()) {
+            throw new IllegalArgumentException("L'employé ne dispose pas d'un contrat actif et d'une affectation "
+                    + "sur chaque jour du congé demandé (du " + dateDebut + " au " + dateFin + ").");
         }
 
         // 3. Contrôle justificatif obligatoire
@@ -340,82 +335,14 @@ public class DemandeConge extends ClassMere {
             }
         }
 
-        // 9. Contrôle de Continuité de Service (anti-collision de poste sur le même site d'affectation)
-        String sqlPoste = "SELECT a.id_fonction, a.id_site, f.libelle AS nom_fonction, s.libelle AS nom_site " +
-                "FROM employe_affectation_carriere a " +
-                "JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
-                "LEFT JOIN ref_site s ON a.id_site = s.id_site " +
-                "WHERE a.id_employe = ? AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
-                "ORDER BY a.date_debut DESC LIMIT 1";
-        Integer idFonction = null;
-        Integer idSite = null;
-        String nomFonction = null;
-        String nomSite = null;
-        try (PreparedStatement psP = c.prepareStatement(sqlPoste)) {
-            psP.setInt(1, idEmploye);
-            psP.setDate(2, dateFin);
-            psP.setDate(3, dateDebut);
-            try (ResultSet rsP = psP.executeQuery()) {
-                if (rsP.next()) {
-                    idFonction = rsP.getInt("id_fonction");
-                    idSite = rsP.getInt("id_site");
-                    nomFonction = rsP.getString("nom_fonction");
-                    nomSite = rsP.getString("nom_site");
-                }
-            }
-        }
-
-        if (idFonction != null) {
-            String sqlCollegues = "SELECT e.nom, e.prenom, dc.date_debut, dc.date_fin, " +
-                    "dc.est_demi_journee, dc.moment_demi_journee, sc.code AS code_statut " +
-                    "FROM demande_conge dc " +
-                    "JOIN employe e ON dc.id_employe = e.id_employe " +
-                    "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
-                    "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
-                    "WHERE a.id_fonction = ? " +
-                    (idSite != null && idSite > 0 ? "AND a.id_site = ? " : "") +
-                    "AND dc.id_employe != ? " +
-                    "AND dc.id_demande_conge != COALESCE(?, -1) " +
-                    "AND sc.code NOT IN ('REFUSE', 'ANNULE', 'REJETE') " +
-                    "AND dc.date_debut <= ? AND dc.date_fin >= ? " +
-                    "AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?)";
-            try (PreparedStatement psC = c.prepareStatement(sqlCollegues)) {
-                int pIdx = 1;
-                psC.setInt(pIdx++, idFonction);
-                if (idSite != null && idSite > 0) {
-                    psC.setInt(pIdx++, idSite);
-                }
-                psC.setInt(pIdx++, idEmploye);
-                psC.setObject(pIdx++, idDemandeConge != null ? idDemandeConge : -1);
-                psC.setDate(pIdx++, dateFin);
-                psC.setDate(pIdx++, dateDebut);
-                psC.setDate(pIdx++, dateFin);
-                psC.setDate(pIdx++, dateDebut);
-                try (ResultSet rsC = psC.executeQuery()) {
-                    while (rsC.next()) {
-                        boolean cDemi = rsC.getBoolean("est_demi_journee");
-                        String cMoment = rsC.getString("moment_demi_journee");
-                        Date cDeb = rsC.getDate("date_debut");
-                        Date cFin = rsC.getDate("date_fin");
-
-                        // Exclusion : demi-journées complémentaires sur la même date
-                        if (this.estDemiJournee && cDemi && dateDebut.equals(dateFin) && cDeb.equals(cFin) && dateDebut.equals(cDeb)) {
-                            if (this.momentDemiJournee != null && cMoment != null &&
-                                    !this.momentDemiJournee.equalsIgnoreCase(cMoment)) {
-                                continue;
-                            }
-                        }
-
-                        if (!this.derogationContinuiteService) {
-                            String collegueNom = rsC.getString("prenom") + " " + rsC.getString("nom");
-                            String siteInfo = (nomSite != null && !nomSite.isEmpty()) ? " sur le site " + nomSite : "";
-                            throw new IllegalArgumentException("Conflit de continuité de service détecté : " +
-                                    collegueNom + " (même poste : " + nomFonction + siteInfo + ") est déjà en congé du " +
-                                    cDeb + " au " + cFin + ". Une dérogation expresse de continuité de service est requise.");
-                        }
-                    }
-                }
-            }
+        // 9. Une collision de poste/site réelle sur l'un des segments exige une dérogation.
+        if (!derogationContinuiteService && !continuite.collisions().isEmpty()) {
+            var collision = continuite.collisions().get(0);
+            throw new IllegalArgumentException("Conflit de continuité de service détecté : "
+                    + collision.prenom() + " " + collision.nom() + " (même poste : "
+                    + collision.nomFonction() + " sur le site " + collision.nomSite() + ") est déjà en congé "
+                    + "du " + collision.debutConflit() + " au " + collision.finConflit()
+                    + ". Une dérogation expresse de continuité de service est requise.");
         }
     }
 
@@ -427,7 +354,9 @@ public class DemandeConge extends ClassMere {
     }
 
     private int getParamGlobalInt(String code, Connection c) {
-        return ParametreGlobal.requirePositiveInt(ParametreGlobal.loadActiveMap(c), code);
+        LocalDate dateMetier = code.startsWith("DUREE_MAX_MATERNITE")
+                ? dateDebut.toLocalDate() : (dateDemande != null ? dateDemande.toLocalDate() : LocalDate.now());
+        return ParametreGlobal.requirePositiveInt(ParametreGlobal.loadActiveMapAtDate(Date.valueOf(dateMetier), c), code);
     }
 
     @Override

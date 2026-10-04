@@ -108,6 +108,16 @@ export default function ConflitsPostePreview({
       {/* Contenu actif */}
       {hasDates && !checkingConflits && (
         <div className="space-y-4 flex-1 flex flex-col">
+          {conflitReport?.affectationsSurPeriode?.length > 1 && (
+            <div className="text-[11px] text-[var(--color-fg-muted)] space-y-0.5">
+              <p className="font-semibold">Affectations prises en compte :</p>
+              {conflitReport.affectationsSurPeriode.map((segment, index) => (
+                <p key={`${segment.debut}-${index}`}>
+                  {formatDateFr(segment.debut)} → {formatDateFr(segment.fin)} · {segment.nomFonction || 'Poste inconnu'} · {segment.nomSite || 'Site inconnu'}
+                </p>
+              ))}
+            </div>
+          )}
           {/* Frise chronologique / Mini-Gantt comparatif fluide */}
           <div className="border border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xs w-full overflow-hidden">
             <div className="w-full">
@@ -204,15 +214,15 @@ export default function ConflitsPostePreview({
 
                       {/* Barre du congé collègue */}
                       {(() => {
-                        const sStr = fmtDateInput(col.dateDebut);
-                        const eStr = fmtDateInput(col.dateFin);
+                        const sStr = fmtDateInput(col.debutConflit || col.dateDebut);
+                        const eStr = fmtDateInput(col.finConflit || col.dateFin);
                         const pos = calculateBarPosition(sStr, eStr);
                         if (!pos.visible) return null;
                         return (
                           <div
                             className="absolute h-6 bg-[var(--color-warning-500)] text-[var(--color-on-color)] text-[10px] font-semibold px-1.5 flex items-center truncate shadow-2xs z-10 border border-[var(--color-warning-600)]"
                             style={{ left: `${pos.left}%`, width: `${Math.max(pos.width, 3)}%` }}
-                            title={`${col.prenom} ${col.nom} : ${col.typeConge || 'Congé'} du ${formatDateFr(col.dateDebut)} au ${formatDateFr(col.dateFin)}`}
+                            title={`${col.prenom} ${col.nom} : conflit au ${col.nomFonction || 'poste'}${col.nomSite ? ` · ${col.nomSite}` : ''} du ${formatDateFr(col.debutConflit || col.dateDebut)} au ${formatDateFr(col.finConflit || col.dateFin)}`}
                           >
                             <span className="truncate">
                               {col.typeConge || 'Congé'}
@@ -257,7 +267,7 @@ export default function ConflitsPostePreview({
                   <AlertTriangle className="w-4 h-4 shrink-0" />
                   <span>Absence simultanée au même poste</span>
                 </div>
-                {conflitReport.nomFonction && (
+                {conflitReport.nomFonction && conflitReport.affectationsSurPeriode?.length <= 1 && (
                   <Badge variant="warning" size="xs">
                     {conflitReport.nomFonction}
                   </Badge>
@@ -265,7 +275,7 @@ export default function ConflitsPostePreview({
               </div>
 
               <p className="text-[11px] leading-normal text-[var(--color-fg-muted)]">
-                {conflitReport.colleguesAbsents?.length || 1} collègue(s) également planifié(s) absent(s) sur cette période.
+                {conflitReport.colleguesAbsents?.length || 1} collègue(s) absent(s) aux mêmes dates, au même poste et sur le même site.
               </p>
 
               <label className="flex items-start gap-2 pt-1 border-t border-[var(--color-warning-500)]/30 cursor-pointer">

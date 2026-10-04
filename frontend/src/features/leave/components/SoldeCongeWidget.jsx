@@ -9,7 +9,7 @@ const formatJours = (value) => {
 };
 
 /** Présentation des valeurs servies par le backend ; aucune décision d'éligibilité ni valeur en dur ici. */
-export default function SoldeCongeWidget({ soldeData, situationData = null, consommationPool, employe, canWrite = false, onOpenInitModal }) {
+export default function SoldeCongeWidget({ soldeData, situationData = null, consommationPool, employe, onOpenPeriodesModal }) {
   if (!soldeData && !situationData) return null;
 
   const solde = situationData?.soldeJours ?? soldeData?.soldeActuel ?? soldeData?.soldeDisponible;
@@ -50,16 +50,20 @@ export default function SoldeCongeWidget({ soldeData, situationData = null, cons
                 </p>
               </div>
             </div>
-            {canWrite && onOpenInitModal && taux == null && (
-              <Button variant="outline" size="xs" onClick={onOpenInitModal}>Initialiser le taux</Button>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--color-fg-muted)]">
+            <p>
+              {cycle?.dateDebut && cycle?.dateFin
+                ? <>Cycle de référence : <strong className="text-[var(--color-fg)]">{cycle.dateDebut} → {cycle.dateFin}</strong></>
+                : 'Aucun cycle de référence actif'}
+              {employe?.ancienneteEffectiveTexte && <> · Ancienneté : {employe.ancienneteEffectiveTexte}</>}
+            </p>
+            {onOpenPeriodesModal && (
+              <Button variant="ghost" size="xs" onClick={onOpenPeriodesModal} className="text-xs text-[var(--color-brand-600)] hover:underline p-0 h-auto font-medium">
+                Contrôler les droits
+              </Button>
             )}
           </div>
-          <p className="text-xs text-[var(--color-fg-muted)]">
-            {cycle?.dateDebut && cycle?.dateFin
-              ? <>Cycle de référence : <strong className="text-[var(--color-fg)]">{cycle.dateDebut} → {cycle.dateFin}</strong></>
-              : 'Aucun cycle de référence actif'}
-            {employe?.ancienneteEffectiveTexte && <> · Ancienneté : {employe.ancienneteEffectiveTexte}</>}
-          </p>
         </div>
       </div>
 

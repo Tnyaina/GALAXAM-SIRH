@@ -214,20 +214,25 @@ public class StcService {
                 : BigDecimal.ZERO;
         prep.setSoldeCongesRestant(soldeJours);
 
-        // Taux journalier valorisé TCONGE issu du Grand-Livre (mutualisé avec résolution temporelle)
-        BigDecimal tauxConge = getTauxJournalierApplicable(idEmploye, dDep, salaireBase, c);
-        prep.setTauxJournalierConge(tauxConge);
-
+        // Un solde positif porte déjà la valeur historisée de ses lots FIFO.
+        // Le taux global ne doit pas bloquer ni revaloriser ces droits à la date du départ.
+        BigDecimal tauxConge;
         BigDecimal iccpEstimee;
-        if (soldeJours.signum() != 0) {
+        if (soldeJours.signum() > 0) {
             var situationLots = lotsConges.situation(idEmploye, dDep, c);
             if (situationLots.soldeJours().compareTo(soldeJours) != 0) {
                 throw new IllegalStateException("CONGE_STC_DATE_SOLDE_MISMATCH: rapprocher le solde à la date du départ.");
             }
             iccpEstimee = situationLots.soldeValorisation();
-        } else {
+            tauxConge = iccpEstimee.divide(soldeJours, 8, RoundingMode.HALF_UP);
+        } else if (soldeJours.signum() < 0) {
+            tauxConge = getTauxJournalierApplicable(idEmploye, dDep, salaireBase, c);
             iccpEstimee = MoneyRoundingPolicy.amount(soldeJours.multiply(tauxConge));
+        } else {
+            tauxConge = BigDecimal.ZERO;
+            iccpEstimee = BigDecimal.ZERO;
         }
+        prep.setTauxJournalierConge(tauxConge);
         prep.setIccpEstimee(iccpEstimee);
 
         // 6. Préavis suggéré et Indemnité de licenciement légale
@@ -391,29 +396,37 @@ public class StcService {
         BigDecimal tauxCnapsSal = null;
         BigDecimal tauxCnapsPat = null;
         String sqlCnaps = "SELECT taux_salarial, taux_patronal FROM ref_type_cotisation "
-                + "WHERE code = 'CNAPS' "
+                + "WHERE (code = 'CNAPS' OR categorie = 'PREVOYANCE') AND est_actif = TRUE "
                 + "AND (date_debut IS NULL OR date_debut <= ?) "
                 + "AND (date_fin IS NULL OR date_fin >= ?) "
-                + "ORDER BY date_debut DESC NULLS LAST LIMIT 1";
+                + "ORDER BY date_debut DESC";
         try (PreparedStatement psCn = c.prepareStatement(sqlCnaps)) {
             psCn.setDate(1, req.getDateDepart());
             psCn.setDate(2, req.getDateDepart());
             try (ResultSet rsCn = psCn.executeQuery()) {
-                if (rsCn.next()) { tauxCnapsSal = rsCn.getBigDecimal(1).movePointLeft(2); tauxCnapsPat = rsCn.getBigDecimal(2).movePointLeft(2); }
+                if (rsCn.next()) {
+                    tauxCnapsSal = rsCn.getBigDecimal(1).movePointLeft(2); tauxCnapsPat = rsCn.getBigDecimal(2).movePointLeft(2);
+                    if (rsCn.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: CNAPS au " + req.getDateDepart());
+                }
             }
         }
         if (tauxCnapsSal == null || tauxCnapsPat == null) throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: CNAPS pour date=" + req.getDateDepart());
         // FMFP : taux valides à la date de départ (P1-03 : filtre de date historique)
         BigDecimal tauxFmfp = null;
         String sqlFmfp = "SELECT taux_patronal FROM ref_type_cotisation "
-                + "WHERE code = 'FMFP' "
+                + "WHERE (code = 'FMFP' OR categorie = 'FORMATION') AND est_actif = TRUE "
                 + "AND (date_debut IS NULL OR date_debut <= ?) "
                 + "AND (date_fin IS NULL OR date_fin >= ?) "
-                + "ORDER BY date_debut DESC NULLS LAST LIMIT 1";
+                + "ORDER BY date_debut DESC";
         try (PreparedStatement psFm = c.prepareStatement(sqlFmfp)) {
             psFm.setDate(1, req.getDateDepart());
             psFm.setDate(2, req.getDateDepart());
-            try (ResultSet rsFm = psFm.executeQuery()) { if (rsFm.next() && rsFm.getBigDecimal(1) != null) tauxFmfp = rsFm.getBigDecimal(1).movePointLeft(2); }
+            try (ResultSet rsFm = psFm.executeQuery()) {
+                if (rsFm.next() && rsFm.getBigDecimal(1) != null) {
+                    tauxFmfp = rsFm.getBigDecimal(1).movePointLeft(2);
+                    if (rsFm.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: FMFP au " + req.getDateDepart());
+                }
+            }
         }
         if (tauxFmfp == null) throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: FMFP pour date=" + req.getDateDepart());
         SocialContributionCalculator.Result socialResult = new SocialContributionCalculator().calculate(
@@ -440,7 +453,7 @@ public class StcService {
         }
 
         if (tauxSanteSal == null || tauxSantePat == null) {
-            throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: santé");
+            throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: santé au " + req.getDateDepart());
         }
 
         var resSante = new SocialContributionCalculator().calculate(assietteSociale,
@@ -597,17 +610,18 @@ public class StcService {
         // Résolution dynamique de la période si non spécifiée
         Integer idPeriode = req.getIdPeriodePaie();
         if (idPeriode == null && req.getDateDepart() != null) {
-            String sqlPer = "SELECT id_periode_paie FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin LIMIT 1";
+            String sqlPer = "SELECT id_periode_paie FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin";
             try (PreparedStatement psPer = c.prepareStatement(sqlPer)) {
                 psPer.setDate(1, req.getDateDepart());
                 try (ResultSet rsPer = psPer.executeQuery()) {
                     if (rsPer.next()) {
                         idPeriode = rsPer.getInt(1);
+                        if (rsPer.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: PERIODE_PAIE au " + req.getDateDepart());
                     }
                 }
-            } catch (Exception ignored) {}
+            }
         }
-        if (idPeriode == null) idPeriode = 1;
+        if (idPeriode == null) throw new IllegalStateException("MISSING_CONFIGURATION: PERIODE_PAIE au " + req.getDateDepart());
         entity.setIdPeriodePaie(idPeriode);
         entity.setNumeroRecu(numRecu);
         entity.setDateDepart(req.getDateDepart());
@@ -1050,7 +1064,7 @@ public class StcService {
                 HealthContributionRate rate = new HealthContributionRate(result.getString("code"),
                         result.getBigDecimal("taux_salarial"), result.getBigDecimal("taux_patronal"));
                 if (result.next()) {
-                    throw new IllegalStateException("SOCIAL_CONFIGURATION_AMBIGUOUS: santé à la date=" + effectiveDate);
+                    throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: SOCIAL_CONFIGURATION_AMBIGUOUS: santé à la date=" + effectiveDate);
                 }
                 return rate;
             }

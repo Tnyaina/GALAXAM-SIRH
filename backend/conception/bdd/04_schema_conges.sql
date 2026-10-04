@@ -4,6 +4,8 @@
 -- Sources : 26-08-13-sp2-conges.sql, 26-09-16-sp8-indexes-foreign-keys.sql
 -- =====================================================================
 
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
 -- 1. Nettoyage préalable des vues et tables (ordre inverse des dépendances)
 DROP VIEW IF EXISTS v_demande_conge_cpl CASCADE;
 DROP VIEW IF EXISTS v_pool_conge_annuel_consommation CASCADE;
@@ -145,6 +147,20 @@ CREATE TABLE conge_cutover_correction (
 );
 CREATE INDEX idx_conge_cutover_correction_employe ON conge_cutover_correction(id_employe, date_correction);
 
+-- Rectification DAF d'une valorisation mensuelle : les jours et le bulletin restent figés.
+CREATE TABLE conge_valorisation_mensuelle_correction (
+    id_correction SERIAL PRIMARY KEY,
+    id_journal INT NOT NULL,
+    id_mouvement_acquisition INT NOT NULL REFERENCES mouvement_solde_conge(id_mouvement),
+    ancienne_valeur NUMERIC(20,2) NOT NULL,
+    nouvelle_valeur NUMERIC(20,2) NOT NULL CHECK (nouvelle_valeur >= 0),
+    motif TEXT NOT NULL CHECK (length(trim(motif)) > 0),
+    corrige_par INT NOT NULL REFERENCES utilisateur(id_utilisateur),
+    date_correction TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_conge_valorisation_correction_journal
+    ON conge_valorisation_mensuelle_correction(id_journal, date_correction);
+
 -- 4b. Décisions DAF relatives aux droits candidats à la prescription
 CREATE TABLE conge_expiration_examen (
     id_examen SERIAL PRIMARY KEY,
@@ -183,7 +199,11 @@ CREATE TABLE conge_periode_reference (
     created_by INT REFERENCES utilisateur(id_utilisateur),
     CONSTRAINT chk_periode_dates CHECK (date_fin >= date_debut),
     CONSTRAINT chk_statut_ref CHECK (statut IN ('OUVERTE', 'CLOTUREE', 'ARCHIVEE')),
-    CONSTRAINT chk_mode_reprise CHECK (mode_reprise IN ('FULL_HISTORY', 'AGGREGATED_OPENING', 'MINIMAL_OPENING', 'NEW_HIRE'))
+    CONSTRAINT chk_mode_reprise CHECK (mode_reprise IN ('FULL_HISTORY', 'AGGREGATED_OPENING', 'MINIMAL_OPENING', 'NEW_HIRE')),
+    CONSTRAINT uk_conge_reference_temporal_overlap EXCLUDE USING gist (
+        id_employe WITH =,
+        daterange(date_debut, date_fin, '[]') WITH &&
+    )
 );
 CREATE INDEX idx_conge_ref_emp_dates ON conge_periode_reference(id_employe, date_debut, date_fin);
 
@@ -326,3 +346,29 @@ INSERT INTO ref_statut_demande_conge (id_statut_demande_conge, code, libelle) VA
 (4, 'REFUSE',     'Refusée'),
 (5, 'ANNULE',     'Annulée');
 SELECT setval('ref_statut_demande_conge_id_statut_demande_conge_seq', (SELECT GREATEST(MAX(id_statut_demande_conge), 5) FROM ref_statut_demande_conge));
+
+-- =====================================================================
+-- REPRISE INITIALE / CUTOVER DE CONGÉS FICTIF (AU 25/12/2025)
+-- Préparation du démarrage des cycles 2026 (Période 2026-01 dès le 26/12/2025)
+-- =====================================================================
+
+-- 1. Cycles de référence annuels 2026 ouverts avec report des droits acquis
+INSERT INTO conge_periode_reference (id_periode_reference, id_employe, date_debut, date_fin, statut, mode_reprise, date_cutover, cumul_droits_ouverture, cumul_valorisation_ouverture) VALUES
+(1, 1, '2026-01-01', '2026-12-31', 'OUVERTE', 'AGGREGATED_OPENING', '2025-12-25', 15.0000, 2500000.00),
+(2, 2, '2026-01-01', '2026-12-31', 'OUVERTE', 'AGGREGATED_OPENING', '2025-12-25', 12.5000, 1458333.38);
+
+SELECT setval('conge_periode_reference_id_periode_reference_seq', (SELECT GREATEST(MAX(id_periode_reference), 2) FROM conge_periode_reference));
+
+-- 2. Taux journaliers initiaux applicables TCONGE (base salaire / 30)
+INSERT INTO conge_taux_applicable (id_taux_applicable, id_employe, taux_journalier, date_effet, date_fin, source_provenance, id_periode_reference, commentaire) VALUES
+(1, 1, 166666.67, '2025-12-25', NULL, 'REPRISE_CUTOVER', 1, 'Reprise cutover initial - Solde fictif arrêté au 25/12/2025'),
+(2, 2, 116666.67, '2025-12-25', NULL, 'REPRISE_CUTOVER', 2, 'Reprise cutover initial - Solde fictif arrêté au 25/12/2025');
+
+SELECT setval('conge_taux_applicable_id_taux_applicable_seq', (SELECT GREATEST(MAX(id_taux_applicable), 2) FROM conge_taux_applicable));
+
+-- 3. Mouvements de reprise de solde consommable (format canonique [SOLDE_INITIAL])
+INSERT INTO mouvement_solde_conge (id_mouvement, id_employe, type_mouvement, nb_jours, date_mouvement, commentaire, valeur_source) VALUES
+(1, 1, 'AJUSTEMENT', 15.00, '2025-12-25', '[SOLDE_INITIAL] Reprise cutover - Solde initial au 2025-12-25 (exclut acquisition 2026-01)', 2500000.00),
+(2, 2, 'AJUSTEMENT', 12.50, '2025-12-25', '[SOLDE_INITIAL] Reprise cutover - Solde initial au 2025-12-25 (exclut acquisition 2026-01)', 1458333.38);
+
+SELECT setval('mouvement_solde_conge_id_mouvement_seq', (SELECT GREATEST(MAX(id_mouvement), 2) FROM mouvement_solde_conge));

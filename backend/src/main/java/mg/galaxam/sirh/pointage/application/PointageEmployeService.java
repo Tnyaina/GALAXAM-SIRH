@@ -788,7 +788,7 @@ public class PointageEmployeService {
         PointageSyntheseMensuelleDTO synDto = null;
         Map<String, ParametreGlobal.ParametreEtat> parameterStates = Collections.emptyMap();
         try (Connection c = dataSource.getConnection()) {
-            Map<String, String> pMap = ParametreGlobal.loadActiveMap(c);
+            Map<String, String> pMap = ParametreGlobal.loadActiveMapAtDate(Date.valueOf(startDate), c);
 
             // Récupération des infos carrières de l'employé
             String sqlCarriere = "SELECT e.matricule, e.nom, e.prenom, e.photo_url, " +

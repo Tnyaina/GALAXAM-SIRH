@@ -39,6 +39,9 @@ public class ContratGlobalController {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private mg.galaxam.sirh.contrat.application.CarriereExportService carriereExportService;
+
     @GetMapping("/filtres")
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getFiltresContrats() throws Exception {
@@ -342,6 +345,14 @@ public class ContratGlobalController {
                 stats.put("doublonsPotentiels", rs.next() ? rs.getInt(1) : 0);
             }
 
+            // 6. Périodes d'essai actives
+            String sqlEssais = "SELECT COUNT(*) FROM contrat_travail ct " +
+                    "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
+                    "WHERE rsc.code = 'ACTIF' AND ct.date_fin_essai IS NOT NULL";
+            try (PreparedStatement ps = c.prepareStatement(sqlEssais); ResultSet rs = ps.executeQuery()) {
+                stats.put("essaisEnCours", rs.next() ? rs.getInt(1) : 0);
+            }
+
             return ResponseEntity.ok(stats);
         } catch (Exception e) {
             e.printStackTrace();
@@ -496,58 +507,9 @@ public class ContratGlobalController {
             response.setContentType("text/csv; charset=UTF-8");
             response.setHeader("Content-Disposition",
                     "attachment; filename=\"registre_contrats_" + LocalDate.now() + ".csv\"");
-
-            String sql = "SELECT e.matricule, e.nom, e.prenom, ct.numero_contrat, " +
-                    "rtc.libelle AS type_contrat, rsc.libelle AS statut_contrat, " +
-                    "ct.date_debut, ct.date_fin, ct.date_fin_essai, " +
-                    "rs.libelle AS site, rd.libelle AS departement, rf.libelle AS fonction " +
-                    "FROM contrat_travail ct " +
-                    "JOIN employe e ON ct.id_employe = e.id_employe " +
-                    "LEFT JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
-                    "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
-                    "LEFT JOIN LATERAL (" +
-                    "  SELECT id_site, id_departement, id_fonction FROM employe_affectation_carriere " +
-                    "  WHERE id_contrat = ct.id_contrat ORDER BY id_affectation DESC LIMIT 1" +
-                    ") eac ON TRUE " +
-                    "LEFT JOIN ref_site rs ON eac.id_site = rs.id_site " +
-                    "LEFT JOIN ref_departement rd ON eac.id_departement = rd.id_departement " +
-                    "LEFT JOIN ref_fonction rf ON eac.id_fonction = rf.id_fonction " +
-                    "ORDER BY e.matricule ASC, ct.date_debut DESC";
-
-            try (PreparedStatement ps = c.prepareStatement(sql);
-                    ResultSet rs = ps.executeQuery();
-                    PrintWriter writer = response.getWriter()) {
-
-                // BOM UTF-8 pour Excel
-                writer.write('\ufeff');
-                writer.println(
-                        "Matricule;Nom;Prénom;N° Contrat;Type Contrat;Statut;Date Début;Date Fin;Date Fin Essai;Site;Département;Fonction");
-
-                while (rs.next()) {
-                    writer.printf("%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s%n",
-                            safe(rs.getString("matricule")),
-                            safe(rs.getString("nom")),
-                            safe(rs.getString("prenom")),
-                            safe(rs.getString("numero_contrat")),
-                            safe(rs.getString("type_contrat")),
-                            safe(rs.getString("statut_contrat")),
-                            safe(rs.getString("date_debut")),
-                            safe(rs.getString("date_fin")),
-                            safe(rs.getString("date_fin_essai")),
-                            safe(rs.getString("site")),
-                            safe(rs.getString("departement")),
-                            safe(rs.getString("fonction")));
-                }
-                writer.flush();
-            }
+            carriereExportService.exportContratsCsv(response.getOutputStream(), c);
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    private String safe(String s) {
-        if (s == null)
-            return "";
-        return s.replace(";", ",");
     }
 }

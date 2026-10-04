@@ -262,8 +262,8 @@ public class DntsExportService {
         int moisFin = moisDebut + 2;
 
         String sqlPeriodes = "SELECT id_periode_paie FROM periode_paie " +
-                "WHERE EXTRACT(YEAR FROM date_debut) = ? " +
-                "AND EXTRACT(MONTH FROM date_debut) BETWEEN ? AND ? " +
+                "WHERE EXTRACT(YEAR FROM date_fin) = ? " +
+                "AND EXTRACT(MONTH FROM date_fin) BETWEEN ? AND ? " +
                 "ORDER BY date_debut ASC";
 
         List<Integer> idsPeriodes = new ArrayList<>();
@@ -280,13 +280,24 @@ public class DntsExportService {
 
         // Configuration légale pour les taux et le plafond CNaPS du trimestre
         LocalDate dateDebutTrimestre = LocalDate.of(annee, moisDebut, 1);
-        PaieConfigLegale config = PaieConfigLegale.findActiveAt(c, dateDebutTrimestre);
+        LocalDate dateResolution = dateDebutTrimestre;
+        if (!idsPeriodes.isEmpty()) {
+            try (PreparedStatement ps = c.prepareStatement("SELECT date_fin FROM periode_paie WHERE id_periode_paie=?")) {
+                ps.setInt(1, idsPeriodes.get(0));
+                try (ResultSet rs=ps.executeQuery()) { if (rs.next()) dateResolution=rs.getDate(1).toLocalDate(); }
+            }
+        }
+        PaieConfigLegale config = PaieConfigLegale.findActiveAt(c, dateResolution);
         if (config == null || config.getPlafondCotisationMensuel() == null || config.getPlafondCotisationMensuel().signum() <= 0)
             throw new IllegalStateException("Plafond CNaPS légal manquant pour le trimestre " + annee + " T" + trimestre + ".");
         BigDecimal plafondMensuel = config.getPlafondCotisationMensuel();
-        Rates rates = ratesAt(dateDebutTrimestre, c);
-        for (int month = moisDebut + 1; month <= moisFin; month++) {
-            LocalDate date = LocalDate.of(annee, month, 1);
+        Rates rates = ratesAt(dateResolution, c);
+        for (Integer periodId : idsPeriodes) {
+            LocalDate date;
+            try (PreparedStatement ps=c.prepareStatement("SELECT date_fin FROM periode_paie WHERE id_periode_paie=?")) {
+                ps.setInt(1,periodId);
+                try(ResultSet rs=ps.executeQuery()) { rs.next(); date=rs.getDate(1).toLocalDate(); }
+            }
             PaieConfigLegale monthConfig = PaieConfigLegale.findActiveAt(c, date);
             if (monthConfig == null || !plafondMensuel.equals(monthConfig.getPlafondCotisationMensuel()) || !rates.equals(ratesAt(date, c)))
                 throw new IllegalStateException("Plafond ou taux sociaux modifiés dans le trimestre : export DNTS à vérifier par période.");
@@ -367,7 +378,18 @@ public class DntsExportService {
     public String exporterDntsTrimestreCsv(int annee, int trimestre, Connection c) throws Exception {
         List<DntsRowDto> data = genererDonneesDntsTrimestre(annee, trimestre, c);
         var company = PayrollExportCompanyResolver.forQuarter(annee, trimestre, c);
-        Rates rates = ratesAt(LocalDate.of(annee, (trimestre - 1) * 3 + 1, 1), c);
+        LocalDate dateResolution = LocalDate.of(annee, (trimestre - 1) * 3 + 1, 1);
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT MIN(date_fin) FROM periode_paie WHERE EXTRACT(YEAR FROM date_fin)=? "
+                + "AND EXTRACT(MONTH FROM date_fin) BETWEEN ? AND ?")) {
+            ps.setInt(1, annee);
+            ps.setInt(2, (trimestre - 1) * 3 + 1);
+            ps.setInt(3, trimestre * 3);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getDate(1) != null) dateResolution = rs.getDate(1).toLocalDate();
+            }
+        }
+        Rates rates = ratesAt(dateResolution, c);
 
         StringBuilder sb = new StringBuilder();
         sb.append('\ufeff'); // BOM UTF-8

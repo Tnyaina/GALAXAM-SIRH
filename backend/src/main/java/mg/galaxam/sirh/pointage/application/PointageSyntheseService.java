@@ -293,6 +293,7 @@ public class PointageSyntheseService {
             emptyDto.setIdPeriodePaie(idPeriode);
             return emptyDto;
         }
+        PointageTemporalConfigurationGuard.verify(idEmp, dateDebut, dateFin, c);
         int joursOuvrablesReels = calendrierEngine.compterJoursOuvrables(dateDebut, dateFin, idSite, c);
         if (joursOuvrablesReels > 0) nbJoursOuvrablesPeriode = joursOuvrablesReels;
         BigDecimal seuilHsTranche1;
@@ -321,15 +322,18 @@ public class PointageSyntheseService {
         } else {
             String sqlSiteInd = "SELECT c.montant_reference FROM site_indemnite_config c " +
                                 "JOIN ref_indemnite i ON c.id_indemnite = i.id_indemnite " +
-                                "WHERE c.id_site = ? AND i.code IN ('DPLCT', 'DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE LIMIT 1";
+                                "WHERE c.id_site = ? AND i.code IN ('DPLCT', 'DEPLACEMENT', 'TRANSPORT') AND c.est_actif = TRUE AND c.date_debut<=? AND (c.date_fin IS NULL OR c.date_fin>=?)";
             try (PreparedStatement psSI = c.prepareStatement(sqlSiteInd)) {
                 psSI.setInt(1, idSite);
+                psSI.setDate(2, Date.valueOf(dateDebut));
+                psSI.setDate(3, Date.valueOf(dateDebut));
                 try (ResultSet rsSI = psSI.executeQuery()) {
                     if (rsSI.next()) {
                         refDeplacementSite = nullToZero(rsSI.getBigDecimal("montant_reference"));
+                        if (rsSI.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: DEPLACEMENT au " + dateDebut);
                     }
                 }
-            } catch (Exception ignored) {}
+            }
             refDeplacementSite = refDeplacementSite.max(BigDecimal.ZERO);
         }
 
@@ -490,34 +494,58 @@ public class PointageSyntheseService {
         // Les journées autonomes sans badge sont des résultats journaliers calculés,
         // jamais une seconde formule de synthèse.
         if (estAutonome) {
-            Map<String, ParametreGlobal.ParametreEtat> allowanceStates =
-                    ParametreGlobal.loadEtatMapAtDate(Date.valueOf(dateDebut), c);
-            BigDecimal mealRate = BigDecimal.ZERO;
-            try (PreparedStatement mealTariff = c.prepareStatement(
-                    "SELECT sic.montant_reference FROM site_indemnite_config sic "
-                            + "JOIN ref_indemnite ri ON ri.id_indemnite = sic.id_indemnite "
-                            + "WHERE sic.id_site = ? AND ri.code = 'REPAS' AND sic.est_actif = TRUE "
-                            + "AND sic.date_debut <= ? AND (sic.date_fin IS NULL OR sic.date_fin >= ?)")) {
-                mealTariff.setInt(1, idSite);
-                mealTariff.setDate(2, Date.valueOf(dateDebut));
-                mealTariff.setDate(3, Date.valueOf(dateDebut));
-                try (ResultSet mealResult = mealTariff.executeQuery()) {
-                    if (mealResult.next()) mealRate = nullToZero(mealResult.getBigDecimal(1));
-                }
-            }
-            boolean mealGrantedByDefault = mealRate.signum() > 0;
-            BigDecimal travelRate = tarifJourDeplacement;
-            BigDecimal travelReduction = requireAllowanceParameter(allowanceStates, "REDUCTION_DEPLACT_REPAS_MIDI", idSite, dateDebut, idEmp);
             for (LocalDate day = dateDebut; !day.isAfter(dateFin); day = day.plusDays(1)) {
-                if (datesAvecPointage.contains(day) || day.getDayOfWeek() == DayOfWeek.SATURDAY
-                        || day.getDayOfWeek() == DayOfWeek.SUNDAY) continue;
+                if (datesAvecPointage.contains(day) || CalendrierOuvrableEngine.isWeekend(day)
+                        || (dateDebutEmploi != null && day.isBefore(dateDebutEmploi))
+                        || (dateFinEmploi != null && day.isAfter(dateFinEmploi))) continue;
+                int dailySite;
+                try (PreparedStatement assignment = c.prepareStatement(
+                        "SELECT a.id_site FROM employe_affectation_carriere a "
+                        + "JOIN contrat_travail ct ON ct.id_contrat=a.id_contrat "
+                        + "WHERE a.id_employe=? AND a.date_debut<=? AND (a.date_fin IS NULL OR a.date_fin>=?) "
+                        + "AND ct.date_debut<=? AND (ct.date_fin IS NULL OR ct.date_fin>=?)")) {
+                    assignment.setInt(1,idEmp);
+                    for (int index=2;index<=5;index++) assignment.setDate(index,Date.valueOf(day));
+                    try (ResultSet result=assignment.executeQuery()) {
+                        if (!result.next()) continue; // hors contrat : aucune présence fabriquée
+                        dailySite=result.getInt(1);
+                        if (result.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: AFFECTATION au " + day);
+                    }
+                }
+                var allowanceStates = ParametreGlobal.loadEtatMapAtDate(Date.valueOf(day), c);
+                BigDecimal mealRate = BigDecimal.ZERO, dailyTravelReference = BigDecimal.ZERO;
+                boolean travelFound = false, mealFound = false;
+                try (PreparedStatement tariff = c.prepareStatement(
+                        "SELECT ri.code,sic.montant_reference FROM site_indemnite_config sic "
+                        + "JOIN ref_indemnite ri ON ri.id_indemnite=sic.id_indemnite "
+                        + "WHERE sic.id_site=? AND ri.code IN ('REPAS','DPLCT','DEPLACEMENT','TRANSPORT') "
+                        + "AND sic.est_actif=TRUE AND sic.periodicite<>'FIXE_MENSUEL' "
+                        + "AND sic.date_debut<=? AND (sic.date_fin IS NULL OR sic.date_fin>=?)")) {
+                    tariff.setInt(1,dailySite); tariff.setDate(2,Date.valueOf(day));tariff.setDate(3,Date.valueOf(day));
+                    try (ResultSet result=tariff.executeQuery()) {
+                        while (result.next()) {
+                            if ("REPAS".equals(result.getString(1))) {
+                                if (mealFound) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: REPAS au " + day);
+                                mealRate=nullToZero(result.getBigDecimal(2)); mealFound=true;
+                            } else {
+                                if (travelFound) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: DEPLACEMENT au " + day);
+                                dailyTravelReference=nullToZero(result.getBigDecimal(2)); travelFound=true;
+                            }
+                        }
+                    }
+                }
+                BigDecimal travelRate = calendrierEngine.calculerProrataJournalier(dailyTravelReference, nbJoursOuvrablesPeriode);
+                BigDecimal travelReduction = requireAllowanceParameter(allowanceStates,
+                        "REDUCTION_DEPLACT_REPAS_MIDI", dailySite, day, idEmp);
                 AttendanceEngine.Result autonomousDay = dailyAttendanceCalculator
                         .calculateDay(new AttendanceEngine.Context(
                                 idEmp, day, null, null, null, null,
                                 LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0),
-                                LocalTime.of(22, 0), LocalTime.of(5, 0), false, true, false,
+                                PointageService.resolveOptionalTimeRule(allowanceStates,"SEUIL_NUIT_DEBUT"),
+                                PointageService.resolveOptionalTimeRule(allowanceStates,"SEUIL_NUIT_FIN"),
+                                false, true, calendrierEngine.getJourChomeInfo(day,dailySite,c).estChome(),
                                 AttendanceEngine.Context.LeavePart.NONE,
-                                mealGrantedByDefault, mealRate, BigDecimal.ONE, travelRate, travelReduction,
+                                mealRate.signum()>0, mealRate, BigDecimal.ONE, travelRate, travelReduction,
                                 mealRate.signum() == 0));
                 LocalDate monday = day.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
                 parSemaine.computeIfAbsent(monday, ignored -> new ArrayList<>()).add(autonomousDay);
@@ -867,6 +895,7 @@ public class PointageSyntheseService {
     }
 
     Map<String, BigDecimal> estimateFixedMonthlyAmounts(int employeeId, int periodId, Connection c) throws SQLException {
+        PointageTemporalConfigurationGuard.verify(employeeId, periodId, c);
         Map<String, BigDecimal> amounts = new LinkedHashMap<>();
         String sql = "SELECT i.code, SUM(config.montant_reference / (periode.date_fin - periode.date_debut + 1)) "
                 + "FROM periode_paie periode "
@@ -1589,6 +1618,7 @@ public class PointageSyntheseService {
      */
     void enregistrerIndemnitesFixesMensuelles(int snapshotId, int employeeId, int periodId, Connection c)
             throws SQLException {
+        PointageTemporalConfigurationGuard.verify(employeeId, periodId, c);
         String sql = "SELECT i.id_indemnite, i.code, i.libelle, i.imposable_irsa, i.soumis_cotisation, "
                 + "COALESCE(i.code_rubrique_paie, 'INDEMNITE_' || i.code) AS code_rubrique_paie, "
                 + "SUM(config.montant_reference / (periode.date_fin - periode.date_debut + 1)) AS montant "
@@ -2106,7 +2136,7 @@ public class PointageSyntheseService {
         String sql = "SELECT cp.est_eligible_hs FROM employe_affectation_carriere a "
                 + "JOIN ref_categorie_professionnelle cp ON cp.id_categorie_professionnelle = a.id_categorie_professionnelle "
                 + "WHERE a.id_employe = ? AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) "
-                + "ORDER BY a.date_debut DESC LIMIT 1";
+                + "ORDER BY a.date_debut DESC";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, employeeId);
             statement.setDate(2, Date.valueOf(effectiveDate));
@@ -2119,6 +2149,7 @@ public class PointageSyntheseService {
                 if (result.wasNull()) {
                     return false;
                 }
+                if (result.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: CATEGORIE_HS au " + effectiveDate);
                 return eligible;
             }
         }

@@ -14,11 +14,16 @@ import java.util.Map;
 import mg.galaxam.sirh.paie.api.dto.PayrollPopulationMember;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
+import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /** Résolution canonique et datée de la population d'une campagne de paie. */
 @Service
 public class PayrollPopulationResolver {
+
+    @Autowired
+    private EmploymentContextResolver employmentContextResolver = new EmploymentContextResolver();
 
     public PayrollPopulation resolve(int periodId, Connection connection) throws SQLException {
         Period period = loadPeriod(periodId, connection);
@@ -54,9 +59,23 @@ public class PayrollPopulationResolver {
             }
         }
 
-        List<PayrollPopulationMember> members = rowsByEmployee.values().stream()
-                .map(this::decide)
-                .toList();
+        List<PayrollPopulationMember> members = new ArrayList<>();
+        for (List<Row> rows : rowsByEmployee.values()) {
+            if (rows.stream().noneMatch(row -> row.assignmentId() != null)) {
+                members.add(decide(rows));
+                continue;
+            }
+            try {
+                var coverage = employmentContextResolver.resolveCoverage(rows.get(0).employeeId(),
+                        period.startDate(), period.endDate(), connection);
+                Row last = rows.stream().filter(row -> row.assignmentId() != null
+                        && row.assignmentId() == coverage.lastAssignmentId()).findFirst().orElseThrow();
+                members.add(decide(List.of(last)));
+            } catch (RuntimeException error) {
+                members.add(member(rows.get(0), "BLOCKED", String.valueOf(error.getMessage()).startsWith("AMBIGUOUS_CONFIGURATION")
+                        ? "AMBIGUOUS_ASSIGNMENT" : "MISSING_TEMPORAL_ASSIGNMENT"));
+            }
+        }
         return new PayrollPopulation(period.id(), period.code(), period.startDate(), period.endDate(), members);
     }
 

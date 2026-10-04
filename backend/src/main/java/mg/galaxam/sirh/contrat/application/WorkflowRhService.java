@@ -1043,12 +1043,20 @@ public class WorkflowRhService {
                 src.cloturerContrat(dateEffet, null,
                         "Rupture / Fin de contrat : " + (workflow.getMotif() != null ? workflow.getMotif() : ""), c);
                 try (PreparedStatement psStat = c.prepareStatement(
-                        "UPDATE contrat_travail SET id_statut_rh = ?, date_fin = ?, updated_at = CURRENT_TIMESTAMP WHERE id_contrat = ?")) {
+                        "UPDATE contrat_travail SET id_statut_rh = ?, date_fin = ?, date_fin_essai = NULL, updated_at = CURRENT_TIMESTAMP WHERE id_contrat = ?")) {
                     psStat.setInt(1, idStatutRompu);
                     psStat.setDate(2, dateEffet);
                     psStat.setInt(3, workflow.getIdContratSource());
                     psStat.executeUpdate();
                 }
+            }
+            // Clôturer toute période d'essai encore EN_COURS sur le contrat rompu
+            String sqlUpdateEssai = "UPDATE contrat_periode_essai SET statut = 'ROMPUE', date_fin_reelle = ?, updated_at = CURRENT_TIMESTAMP "
+                    + "WHERE id_contrat = ? AND statut = 'EN_COURS'";
+            try (PreparedStatement psU = c.prepareStatement(sqlUpdateEssai)) {
+                psU.setDate(1, dateEffet);
+                psU.setInt(2, workflow.getIdContratSource());
+                psU.executeUpdate();
             }
         }
 
@@ -1524,6 +1532,11 @@ public class WorkflowRhService {
         try (var ps = c.prepareStatement(sql)) {
             ps.setInt(1, idContrat);
             ps.executeUpdate();
+        }
+        // Supprimer toute période d'essai enregistrée pour ce contrat brouillon annulé
+        try (var psPe = c.prepareStatement("DELETE FROM contrat_periode_essai WHERE id_contrat = ?")) {
+            psPe.setInt(1, idContrat);
+            psPe.executeUpdate();
         }
     }
 

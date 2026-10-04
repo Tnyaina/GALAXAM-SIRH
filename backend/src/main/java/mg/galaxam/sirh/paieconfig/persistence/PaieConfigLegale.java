@@ -246,7 +246,7 @@ public class PaieConfigLegale extends ClassMere {
                 PaieConfigLegale applicable = mapRow(rs);
                 if (rs.next()) {
                     throw new IllegalStateException(
-                            "Plusieurs configurations légales se chevauchent à la date du " + date + ".");
+                            "AMBIGUOUS_CONFIGURATION: plusieurs configurations légales se chevauchent à la date du " + date + ".");
                 }
                 return applicable;
             }

@@ -37,6 +37,7 @@ class CongeLotValorisationIntegrationTest {
             var reprise = new CongeTauxApplicableService.CutoverOpeningRequest();
             reprise.setIdEmploye(employe);
             reprise.setDateCutover(LocalDate.of(2026, 1, 1));
+            reprise.setReferenceArrete("DAF-LOT-001");
             reprise.setDateDebutReference(LocalDate.of(2026, 1, 1));
             reprise.setSoldeJours(new BigDecimal("1.00"));
             reprise.setValeurSoldeOuverture(new BigDecimal("9000.00"));
@@ -101,6 +102,7 @@ class CongeLotValorisationIntegrationTest {
             // Cycle de paie démarrant le 26 septembre 2026
             LocalDate dateCutover = LocalDate.of(2026, 9, 26);
             reprise.setDateCutover(dateCutover);
+            reprise.setReferenceArrete("DAF-CYCLE-26");
             reprise.setDateDebutReference(LocalDate.of(2026, 1, 1));
             reprise.setSoldeJours(new BigDecimal("12.00"));
             reprise.setValeurSoldeOuverture(new BigDecimal("120000.00"));

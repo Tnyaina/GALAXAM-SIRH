@@ -5,6 +5,8 @@
 -- =====================================================================
 
 -- 1. Nettoyage préalable (ordre inverse des dépendances)
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
 DROP TABLE IF EXISTS site_calendrier_ferie CASCADE;
 DROP TABLE IF EXISTS ref_calendrier_ferie CASCADE;
 DROP TABLE IF EXISTS ref_periode_chomee CASCADE;
@@ -236,7 +238,10 @@ CREATE TABLE paie_config_legale (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_dates_config CHECK (date_fin IS NULL OR date_fin > date_debut),
     CONSTRAINT chk_plafond_avance_pct CHECK (plafond_avance_employeur_pct BETWEEN 0 AND 100),
-    CONSTRAINT chk_quotite_cessible_pct CHECK (quotite_cessible_pct BETWEEN 0 AND 100)
+    CONSTRAINT chk_quotite_cessible_pct CHECK (quotite_cessible_pct BETWEEN 0 AND 100),
+    CONSTRAINT uk_config_legale_temporal_overlap EXCLUDE USING gist (
+        daterange(date_debut, COALESCE(date_fin, 'infinity'::date), '[]') WITH &&
+    )
 );
 
 CREATE INDEX idx_config_legale_actif ON paie_config_legale(date_debut, date_fin) WHERE date_fin IS NULL;
@@ -432,3 +437,32 @@ INSERT INTO paie_config_legale (
     'CGI_MADAGASCAR', 'Loi de finances 2026', '01.03.16', '2026-02-15'
 );
 SELECT setval('paie_config_legale_id_config_legale_seq', (SELECT GREATEST(MAX(id_config_legale), 3) FROM paie_config_legale));
+
+-- Calendrier officiel des jours fériés légaux à Madagascar (2025 - 2026)
+INSERT INTO ref_calendrier_ferie (id_ferie, date_ferie, libelle, est_chome, est_national, est_actif) VALUES
+(1,  '2025-12-25', 'Noël',                                   TRUE, TRUE, TRUE),
+(2,  '2026-01-01', 'Nouvel An',                              TRUE, TRUE, TRUE),
+(3,  '2026-03-08', 'Journée Internationale de la Femme',     TRUE, TRUE, TRUE),
+(4,  '2026-03-29', 'Commémoration des Événements de 1947',   TRUE, TRUE, TRUE),
+(5,  '2026-03-31', 'Fête de l''Id al-Fitr (Fin du Ramadan)', TRUE, TRUE, TRUE),
+(6,  '2026-04-06', 'Lundi de Pâques',                       TRUE, TRUE, TRUE),
+(7,  '2026-05-01', 'Fête du Travail',                        TRUE, TRUE, TRUE),
+(8,  '2026-05-14', 'Ascension',                              TRUE, TRUE, TRUE),
+(9,  '2026-05-25', 'Lundi de Pentecôte',                     TRUE, TRUE, TRUE),
+(10, '2026-06-07', 'Fête de l''Id al-Adha (Tabaski)',        TRUE, TRUE, TRUE),
+(11, '2026-06-26', 'Fête Nationale de l''Indépendance',      TRUE, TRUE, TRUE),
+(12, '2026-08-15', 'Assomption',                             TRUE, TRUE, TRUE),
+(13, '2026-11-01', 'Toussaint',                              TRUE, TRUE, TRUE),
+(14, '2026-12-25', 'Noël',                                   TRUE, TRUE, TRUE);
+
+SELECT setval('ref_calendrier_ferie_id_ferie_seq', (SELECT GREATEST(MAX(id_ferie), 14) FROM ref_calendrier_ferie));
+
+-- Rattachement automatique des jours fériés nationaux aux sites opérationnels (TNR = 1, TMM = 2)
+INSERT INTO site_calendrier_ferie (id_site, id_ferie)
+SELECT s.id_site, f.id_ferie
+FROM ref_site s
+CROSS JOIN ref_calendrier_ferie f
+WHERE f.est_national = TRUE
+ON CONFLICT (id_site, id_ferie) DO NOTHING;
+
+SELECT setval('site_calendrier_ferie_id_site_ferie_seq', (SELECT GREATEST(MAX(id_site_ferie), 1) FROM site_calendrier_ferie));

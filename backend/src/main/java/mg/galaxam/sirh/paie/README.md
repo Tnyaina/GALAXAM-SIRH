@@ -1,5 +1,10 @@
 # Domaine Paie
 
+Les campagnes délèguent la couverture temporelle contrat/affectation à
+`contrat.application.EmploymentContextResolver`. La paie conserve ses résolutions
+distinctes pour fiscalité, cotisations et paramètres légaux, dont les dates
+métier ne sont pas interchangeables avec celles du contrat.
+
 Ce dossier regroupe le moteur de paie, la préparation et le calcul des bulletins, les campagnes de paie, le solde de tout compte (STC) et les exports fiscaux/sociaux.
 
 - `api/` : contrôleurs REST (`PaieController`, `PaieAjustementController`, `PaieRubriqueController`, `StcController`)

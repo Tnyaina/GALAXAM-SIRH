@@ -48,6 +48,7 @@ import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import mg.galaxam.sirh.paie.domain.engine.TaxConfigurationResolver;
 import mg.galaxam.sirh.common.transaction.TransactionRunner;
 import mg.galaxam.sirh.paie.api.dto.PayrollPopulationMember;
+import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
 
 /**
  * Service d'orchestration de paie.
@@ -70,6 +71,9 @@ public class PayrollService {
 
     @Autowired
     private PayrollPopulationResolver payrollPopulationResolver;
+
+    @Autowired
+    private EmploymentContextResolver employmentContextResolver;
 
     @Autowired
     private TransactionRunner transactionRunner;
@@ -694,6 +698,9 @@ public class PayrollService {
         if (dateDebutPeriodeSql == null || dateFinPeriodeSql == null) {
             throw new IllegalStateException("Les dates de début et de fin de période sont obligatoires pour résoudre l'emploi.");
         }
+        var employmentCoverage = employmentContextResolver.resolveCoverage(idEmploye,
+                dateDebutPeriodeSql.toLocalDate(), dateFinPeriodeSql.toLocalDate(), c);
+        Date dateResolutionEmploi = Date.valueOf(employmentCoverage.lastDay());
         String sqlEmploye = "SELECT e.*, " +
                 "eac.salaire_base, eac.date_debut AS affectation_date_debut, eac.date_fin AS affectation_date_fin, " +
                 "ct.date_debut AS contrat_date_debut, ct.date_fin AS contrat_date_fin, " +
@@ -728,10 +735,10 @@ public class PayrollService {
 
         try (PreparedStatement ps = c.prepareStatement(sqlEmploye)) {
             ps.setInt(1, idEmploye);
-            ps.setDate(2, dateFinPeriodeSql);
-            ps.setDate(3, dateDebutPeriodeSql);
-            ps.setDate(4, dateFinPeriodeSql);
-            ps.setDate(5, dateDebutPeriodeSql);
+            ps.setDate(2, dateResolutionEmploi);
+            ps.setDate(3, dateResolutionEmploi);
+            ps.setDate(4, dateResolutionEmploi);
+            ps.setDate(5, dateResolutionEmploi);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     in.setMatricule(rs.getString("matricule"));
@@ -766,60 +773,14 @@ public class PayrollService {
                     in.setSalaireBaseContractuel(rs.getBigDecimal("salaire_base") != null ? rs.getBigDecimal("salaire_base") : BigDecimal.ZERO);
                     in.setDateEmbauche(rs.getDate("date_embauche_resolue") != null ? rs.getDate("date_embauche_resolue") : rs.getDate("date_declaration"));
 
-                    // Résolution canonique du tronçon contractuel pour le prorata temporis /30
-                    Date contratDebut = rs.getDate("contrat_date_debut");
-                    Date contratFin = rs.getDate("contrat_date_fin");
-                    Date affDebut = rs.getDate("affectation_date_debut");
-                    Date affFin = rs.getDate("affectation_date_fin");
-
-                    LocalDate dDebPer = in.getDateDebutPeriode().toLocalDate();
-                    LocalDate dFinPer = in.getDateFinPeriode().toLocalDate();
-
-                    LocalDate dDebEffectif = contratDebut != null ? contratDebut.toLocalDate() : null;
-                    if (affDebut != null) {
-                        LocalDate dAffDeb = affDebut.toLocalDate();
-                        if (dDebEffectif == null || dAffDeb.isAfter(dDebEffectif)) {
-                            dDebEffectif = dAffDeb;
-                        }
-                    }
-                    if (dDebEffectif == null) {
-                        dDebEffectif = dDebPer;
-                    }
-
-                    LocalDate dFinContratEffective = null;
-                    if (contratFin != null) {
-                        dFinContratEffective = contratFin.toLocalDate();
-                    }
-                    if (affFin != null) {
-                        LocalDate dAffFin = affFin.toLocalDate();
-                        if (dFinContratEffective == null || dAffFin.isBefore(dFinContratEffective)) {
-                            dFinContratEffective = dAffFin;
-                        }
-                    }
-
-                    LocalDate effectiveStart = dDebEffectif.isAfter(dDebPer) ? dDebEffectif : dDebPer;
-                    LocalDate effectiveEnd = (dFinContratEffective != null && dFinContratEffective.isBefore(dFinPer))
-                            ? dFinContratEffective
-                            : dFinPer;
-
-                    boolean entreeEnCours = dDebEffectif.isAfter(dDebPer);
-                    boolean sortieEnCours = dFinContratEffective != null && dFinContratEffective.isBefore(dFinPer);
-
-                    if (entreeEnCours || sortieEnCours) {
-                        in.setEntreeSortieEnCoursDeMois(true);
-                        if (effectiveEnd.isBefore(effectiveStart)) {
-                            in.setJoursSousContrat(BigDecimal.ZERO);
-                        } else {
-                            long jours = java.time.temporal.ChronoUnit.DAYS.between(effectiveStart, effectiveEnd) + 1;
-                            in.setJoursSousContrat(BigDecimal.valueOf(jours));
-                        }
-                    } else {
-                        in.setEntreeSortieEnCoursDeMois(false);
-                        in.setJoursSousContrat(null);
-                    }
+                    // Une mutation interne ne constitue pas une entrée du salarié.
+                    boolean partial = employmentCoverage.firstDay().isAfter(dateDebutPeriodeSql.toLocalDate())
+                            || employmentCoverage.lastDay().isBefore(dateFinPeriodeSql.toLocalDate());
+                    in.setEntreeSortieEnCoursDeMois(partial);
+                    in.setJoursSousContrat(partial ? BigDecimal.valueOf(employmentCoverage.days()) : null);
 
                     if (rs.next()) {
-                        throw new IllegalStateException("Plusieurs affectations concurrentes sont applicables à l'employé "
+                        throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: plusieurs affectations concurrentes sont applicables à l'employé "
                                 + idEmploye + " sur la période " + in.getDateDebutPeriode() + " au " + in.getDateFinPeriode() + ".");
                     }
                 } else {
@@ -951,15 +912,12 @@ public class PayrollService {
         // 5.1 Le TCONGE est nécessaire uniquement lorsqu'une prise est valorisée.
         // Sans congé sur la période, aucune ligne d'indemnité de congé n'est calculée.
         if (in.getNbJoursConges() != null && in.getNbJoursConges().signum() > 0) {
-            LocalDate refDateConge = in.getDateDebutPeriode().toLocalDate();
-            var resTC = congeTauxApplicableService.resoudreTauxCongeApplicable(
-                    idEmploye, refDateConge, in.getSalaireBaseContractuel(), c);
-            if (resTC != null && resTC.getTauxJournalier().compareTo(BigDecimal.ZERO) > 0) {
-                in.setTauxJournalierConge(resTC.getTauxJournalier());
-            }
-            in.setIndemniteCongeLots(congeLotValorisationService.valorisationPrisesSurPeriode(
+            // La date de début de campagne n'est pas la date du droit : les lots portent leur valeur historique.
+            BigDecimal indemnity = congeLotValorisationService.valorisationPrisesSurPeriode(
                     idEmploye, in.getDateDebutPeriode().toLocalDate(),
-                    in.getDateFinPeriode().toLocalDate(), c));
+                    in.getDateFinPeriode().toLocalDate(), c);
+            in.setIndemniteCongeLots(indemnity);
+            in.setTauxJournalierConge(indemnity.divide(in.getNbJoursConges(), 8, RoundingMode.HALF_UP));
         }
 
         // 6. Paramètres légaux et fiscaux (LF 2026 par défaut)
@@ -1359,6 +1317,14 @@ public class PayrollService {
             }
 
             int idEmp = bp.getIdEmploye();
+            // Un cutover est un arrêté des droits déjà repris par la DAF.
+            // La campagne dont la date d'acquisition est antérieure ou égale à cet arrêté
+            // ne doit pas recréer une acquisition présente dans les cumuls d'ouverture.
+            if (congeTauxApplicableService.acquisitionDejaReprise(idEmp, dateFinPaie, c)) {
+                log.info("Acquisition congés ignorée pour l'employé {} : clôture {} déjà comprise dans le cutover",
+                        idEmp, dateFinPaie);
+                continue;
+            }
             BigDecimal base = bp.getSalaireBase() != null ? bp.getSalaireBase() : BigDecimal.ZERO;
             BigDecimal jAbs = bp.getJoursAbsence() != null ? bp.getJoursAbsence() : BigDecimal.ZERO;
 
@@ -1368,11 +1334,11 @@ public class PayrollService {
             BigDecimal formule = congeService.calculerFormuleAcquisition(
                     idEmp, dateDebutPaie, dateFinPaie, absInjustifiees, bp.getJoursTravailles(), c);
 
-            var refActive = congeTauxApplicableService.resoudrePeriodeReferenceActive(idEmp, dateFinPaie, c);
-            if (refActive == null) {
-                throw new IllegalStateException("TCONGE_REFERENCE_PERIOD_MISSING: aucune période de référence active pour l'employé "
-                        + idEmp + " à la date " + dateFinPaie + ". La clôture doit être régularisée avant l'acquisition.");
-            }
+            // Garantir l'existence d'une période de référence congé avant résolution stricte.
+            // Idempotent : ne crée qu'une seule fois ; erreur bloquante si configuration ambiguë ou successeur manquant.
+            congeTauxApplicableService.ensureLeaveReferencePeriod(idEmp, dateFinPaie, c);
+
+            var refActive = congeTauxApplicableService.resoudrePeriodeReferenceStrict(idEmp, dateFinPaie, c);
 
             // Acquisition canonique unifiée (RG-CONGE, propriété du Domaine Congés)
             BigDecimal droitMois = congeService.enregistrerAcquisitionMensuelle(
@@ -1399,11 +1365,7 @@ public class PayrollService {
 
             // 2. Résolution de la période de référence bornée KAJY pour l'employé
             // Calcul du numéro de mois dans la référence à partir de la position calendaire
-            long monthsBetween = java.time.temporal.ChronoUnit.MONTHS.between(
-                    refActive.getDateDebut().withDayOfMonth(1),
-                    dateFinPaie.withDayOfMonth(1)
-            );
-            int numeroMoisRef = (int) monthsBetween + 1;
+            int numeroMoisRef = dateFinPaie.getMonthValue();
             if (numeroMoisRef < 1 || numeroMoisRef > dureeReferenceMax) {
                 throw new IllegalStateException("TCONGE_REFERENCE_CAPACITY_EXCEEDED: la date de paie " + dateFinPaie +
                         " correspond au mois " + numeroMoisRef + " de la référence [" + refActive.getDateDebut() + ", " +
@@ -1446,6 +1408,16 @@ public class PayrollService {
                     ? cumulVal.divide(cumulJours, 2, RoundingMode.HALF_UP)
                     : BigDecimal.ZERO; // Aucun droit valorisé : pas de TCONGE moyen inventé.
 
+            // Une rectification DAF historisée ne doit jamais être écrasée par une nouvelle clôture.
+            try (PreparedStatement guard = c.prepareStatement("SELECT 1 FROM conge_journal_droit j "
+                    + "JOIN conge_valorisation_mensuelle_correction x ON x.id_journal=j.id_journal "
+                    + "WHERE j.id_employe=? AND j.annee=? AND j.mois=? LIMIT 1")) {
+                guard.setInt(1, idEmp); guard.setInt(2, annee); guard.setInt(3, mois);
+                try (ResultSet rs = guard.executeQuery()) {
+                    if (rs.next()) throw new IllegalStateException(
+                            "CONGE_VALORISATION_CORRIGEE: régularisation DAF requise avant reclôture de la paie");
+                }
+            }
             String sqlUpsert = "INSERT INTO conge_journal_droit (" +
                     "id_employe, id_periode_paie, annee, mois, salaire_base, jours_travailles_formule, " +
                     "jours_droit_acquis, base_valorisation, valorisation_mensuelle, cumul_jours_droit, " +
@@ -1484,12 +1456,11 @@ public class PayrollService {
             try (PreparedStatement snapshot = c.prepareStatement(
                     "UPDATE mouvement_solde_conge SET valeur_source = ? "
                     + "WHERE id_employe = ? AND type_mouvement = 'ACQUISITION' "
-                    + "AND EXTRACT(YEAR FROM date_mouvement) = ? "
-                    + "AND EXTRACT(MONTH FROM date_mouvement) = ? AND valeur_source IS NULL")) {
+                    + "AND date_mouvement BETWEEN ? AND ? AND valeur_source IS NULL")) {
                 snapshot.setBigDecimal(1, valMois);
                 snapshot.setInt(2, idEmp);
-                snapshot.setInt(3, annee);
-                snapshot.setInt(4, mois);
+                snapshot.setDate(3, Date.valueOf(dateDebutPaie));
+                snapshot.setDate(4, Date.valueOf(dateFinPaie));
                 snapshot.executeUpdate();
             }
 

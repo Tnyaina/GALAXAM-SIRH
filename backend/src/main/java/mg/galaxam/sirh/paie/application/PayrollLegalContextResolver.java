@@ -32,7 +32,9 @@ public class PayrollLegalContextResolver {
         LocalDate targetDate = input.getDateFinPeriode().toLocalDate();
         PaieConfigLegale config = PaieConfigLegale.findActiveAt(connection, targetDate);
         if (config == null) {
-            throw PayrollConfigurationGuard.missing("CONFIGURATION_LEGALE", input.getIdEmploye(), targetDate.toString());
+            throw PayrollConfigurationGuard.missing("CONFIGURATION_LEGALE", input.getIdEmploye(),
+                    targetDate + "; versions=" + PaieConfigLegale.listAll(connection).stream()
+                            .map(cfg -> "[" + cfg.getDateDebut() + ", " + cfg.getDateFin() + "]").toList());
         }
 
         int configId = config.getIdConfigLegale();
@@ -84,10 +86,12 @@ public class PayrollLegalContextResolver {
                     String code = resultSet.getString("code");
                     String cat = resultSet.getString("categorie");
                     if ("CNAPS".equals(code) || "PREVOYANCE".equals(cat)) {
+                        if (cnapsFound) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: CNAPS au " + targetDate);
                         input.setTauxCnapsSalarial(toDecimalRate(resultSet.getBigDecimal("taux_salarial")));
                         input.setTauxCnapsPatronal(toDecimalRate(resultSet.getBigDecimal("taux_patronal")));
                         cnapsFound = true;
                     } else if ("FMFP".equals(code) || "FORMATION".equals(cat)) {
+                        if (fmfpFound) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: FMFP au " + targetDate);
                         input.setTauxFmfpPatronal(toDecimalRate(resultSet.getBigDecimal("taux_patronal")));
                         fmfpFound = true;
                     }
@@ -122,7 +126,7 @@ public class PayrollLegalContextResolver {
 
         input.setTemporalRateResolver(date -> {
             try {
-                int activeCfgId = resolveConfigIdAtDate(allConfigs, date, configId);
+                int activeCfgId = resolveConfigIdAtDate(allConfigs, date);
                 List<RefTauxMajoration> configRates = ratesByConfig.getOrDefault(activeCfgId, List.of());
 
                 BigDecimal hs30 = RefTauxMajoration.resolveApplicableFromList(configRates, "HS_30", date).getTaux();
@@ -144,16 +148,20 @@ public class PayrollLegalContextResolver {
         });
     }
 
-    private static int resolveConfigIdAtDate(List<PaieConfigLegale> configs, LocalDate date, int defaultId) {
-        if (date == null || configs == null) return defaultId;
-        for (PaieConfigLegale cfg : configs) {
-            LocalDate from = cfg.getDateDebut() != null ? cfg.getDateDebut().toLocalDate() : LocalDate.MIN;
-            LocalDate to = cfg.getDateFin() != null ? cfg.getDateFin().toLocalDate() : LocalDate.MAX;
-            if (!date.isBefore(from) && !date.isAfter(to)) {
-                return cfg.getIdConfigLegale();
-            }
+    static int resolveConfigIdAtDate(List<PaieConfigLegale> configs, LocalDate date) {
+        if (date == null || configs == null) {
+            throw new IllegalArgumentException("Date métier et configurations légales obligatoires.");
         }
-        return defaultId;
+        List<PaieConfigLegale> matches = configs.stream().filter(cfg ->
+                cfg.getDateDebut() != null && !date.isBefore(cfg.getDateDebut().toLocalDate())
+                && (cfg.getDateFin() == null || !date.isAfter(cfg.getDateFin().toLocalDate()))).toList();
+        String existing = configs.stream().map(cfg -> cfg.getIdConfigLegale() + ": ["
+                + cfg.getDateDebut() + ", " + cfg.getDateFin() + "]").toList().toString();
+        if (matches.isEmpty()) throw new IllegalStateException(
+                "MISSING_CONFIGURATION: CONFIGURATION_LEGALE au " + date + "; versions=" + existing);
+        if (matches.size() > 1) throw new IllegalStateException(
+                "AMBIGUOUS_CONFIGURATION: CONFIGURATION_LEGALE au " + date + "; versions=" + existing);
+        return matches.get(0).getIdConfigLegale();
     }
 
     void resolveHealthContribution(PayrollCalculationInput input, LocalDate targetDate,
@@ -184,13 +192,13 @@ public class PayrollLegalContextResolver {
                     found = true;
                     if (rs.next()) {
                         throw PayrollConfigurationGuard.missing(
-                                "COTISATION_SANTE_AMBIGUE", input.getIdEmploye(), input.getCodeSite());
+                                "AMBIGUOUS_CONFIGURATION:COTISATION_SANTE", input.getIdEmploye(), targetDate + " site=" + input.getCodeSite());
                     }
                 }
             }
         }
         if (input.isSoumisSante() && !found) {
-            throw PayrollConfigurationGuard.missing("COTISATION_SANTE", input.getIdEmploye(), input.getCodeSite());
+            throw PayrollConfigurationGuard.missing("COTISATION_SANTE", input.getIdEmploye(), targetDate + " site=" + input.getCodeSite());
         }
     }
 

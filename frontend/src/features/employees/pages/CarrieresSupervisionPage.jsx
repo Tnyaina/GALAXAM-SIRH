@@ -1,15 +1,16 @@
 import { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { getErrorMessage } from '@/api/apiClient';
-import { Briefcase, RefreshCw, Download, FileText, TrendingUp } from 'lucide-react';
+import { Briefcase, RefreshCw, Download, FileText, TrendingUp, Clock, AlertTriangle, FileCheck, CalendarClock, FileEdit } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import contratService from '@/features/employees/api/contratService';
 import organisationService from '@/features/organization/api/organisationService';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import Tabs from '@/components/ui/navigation/Tabs';
 import Button from '@/components/ui/forms/Button';
+import StatCard from '@/components/ui/data-display/StatCard';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Alert from '@/components/ui/feedback/Alert';
-import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import { SkeletonTable, SkeletonStatCard } from '@/components/ui/feedback/Skeleton';
 import Pagination from '@/components/ui/navigation/Pagination';
 import SEO from '@/components/system/SEO';
 import Loading from '@/components/ui/feedback/Loading';
@@ -49,10 +50,12 @@ export default function CarrieresSupervisionPage() {
     const [stats, setStats] = useState({
         totalContrats: 0,
         contratsActifs: 0,
+        essaisEnCours: 0,
         enAttenteSignature: 0,
         echeances60Jours: 0,
         doublonsPotentiels: 0
     });
+    const [statsLoading, setStatsLoading] = useState(true);
     const [alertesPrioritaires, setAlertesPrioritaires] = useState([]);
 
     // Filtres Contrats initialisés depuis l'URL si présents
@@ -89,6 +92,7 @@ export default function CarrieresSupervisionPage() {
 
     const fetchStatsAndAlerts = useCallback(async () => {
         try {
+            setStatsLoading(true);
             const [st, al] = await Promise.all([
                 contratService.getStatsSupervision().catch(() => ({})),
                 contratService.getAlertesPrioritaires().catch(() => ([]))
@@ -97,6 +101,8 @@ export default function CarrieresSupervisionPage() {
             if (Array.isArray(al)) setAlertesPrioritaires(al);
         } catch (err) {
             console.error('Erreur chargement stats/alertes:', err);
+        } finally {
+            setStatsLoading(false);
         }
     }, []);
 
@@ -245,13 +251,13 @@ export default function CarrieresSupervisionPage() {
     const tabsList = [
         {
             id: 'contrats',
-            label: 'Contrats',
+            label: 'Registre & Échéances',
             icon: FileText,
             badge: stats.totalContrats || undefined
         },
         {
             id: 'mouvements',
-            label: 'Mouvements',
+            label: 'Journal des Mouvements',
             icon: TrendingUp
         }
     ];
@@ -265,13 +271,13 @@ export default function CarrieresSupervisionPage() {
 
             {/* En-tête Format Standard Galaxam */}
             <PageHeader
-                title="Contrats et carrières"
-                subtitle="Contrats, échéances et mouvements RH des collaborateurs."
+                title="Tableau de bord Contrats & Carrières"
+                subtitle="Pilotage centralisé, suivi des échéances, périodes d'essai et mouvements RH des collaborateurs."
                 icon={Briefcase}
                 breadcrumbs={[
                     { label: 'Tableau de bord', href: '/dashboard' },
                     { label: 'Collaborateurs', href: '/employes' },
-                    { label: 'Supervision des Carrières' }
+                    { label: 'Contrats & Carrières' }
                 ]}
                 actions={
                     activeMainTab === 'contrats' ? <>
@@ -309,21 +315,64 @@ export default function CarrieresSupervisionPage() {
                     {/* Notifications d'Erreur */}
                     {error && <Alert type="error" onClose={() => setError(null)}>{error}</Alert>}
 
-                    {/* Repères compacts : les chiffres globaux restent distincts des résultats filtrés. */}
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-fg-muted)]">Repères globaux · cliquez pour filtrer</p>
-                    <div className="flex flex-wrap gap-2" aria-label="Filtres rapides des contrats">
-                        {[
-                            { label: 'Tous', value: stats.totalContrats, active: selectedStatut === 'ALL' && !doublonsOnly && !selectedEcheance, filter: { statut: 'ALL', doublons: false, echeance: '' } },
-                            { label: 'Actifs', value: stats.contratsActifs, active: selectedStatut === 'ACTIF' && !doublonsOnly && !selectedEcheance, filter: { statut: 'ACTIF', doublons: false, echeance: '' } },
-                            { label: 'À préparer', value: stats.enAttenteSignature, active: selectedStatut === 'PENDING' && !doublonsOnly, filter: { statut: 'PENDING', doublons: false, echeance: '' } },
-                            { label: 'Échéance < 60 j', value: stats.echeances60Jours, active: selectedEcheance === '60J', filter: { statut: 'ALL', doublons: false, echeance: '60J' } },
-                            { label: 'Doublons à vérifier', value: stats.doublonsPotentiels, active: doublonsOnly, filter: { statut: 'ALL', doublons: true, echeance: '' } },
-                        ].map(item => (
-                            <Button key={item.label} type="button" size="xs" variant={item.active ? 'primary' : 'outline'}
-                                aria-pressed={item.active} onClick={() => handleKpiFilterClick(item.filter)}>
-                                {item.label} <strong className="ml-1 font-data">{item.value ?? 0}</strong>
-                            </Button>
-                        ))}
+                    {/* Grille des Indicateurs Clés / Dashboard KPIs interactifs */}
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5" aria-label="Indicateurs clés et filtres rapides">
+                        {statsLoading ? (
+                            Array.from({ length: 5 }).map((_, i) => <SkeletonStatCard key={i} />)
+                        ) : (
+                            <>
+                                <StatCard
+                                    title="Contrats Actifs"
+                                    value={stats.contratsActifs ?? 0}
+                                    subtext={`Sur ${stats.totalContrats ?? 0} au registre`}
+                                    icon={<FileCheck size={18} />}
+                                    color="brand"
+                                    borderTop
+                                    active={selectedStatut === 'ACTIF' && !doublonsOnly && !selectedEcheance}
+                                    onClick={() => handleKpiFilterClick({ statut: 'ACTIF', doublons: false, echeance: '' })}
+                                />
+                                <StatCard
+                                    title="Périodes d'essai"
+                                    value={stats.essaisEnCours ?? 0}
+                                    subtext="En cours de titularisation"
+                                    icon={<Clock size={18} />}
+                                    color="info"
+                                    borderTop
+                                    active={selectedEcheance === 'ESSAI'}
+                                    onClick={() => handleKpiFilterClick({ statut: 'ALL', doublons: false, echeance: 'ESSAI' })}
+                                />
+                                <StatCard
+                                    title="Échéances < 60j"
+                                    value={stats.echeances60Jours ?? 0}
+                                    subtext="Fins de CDD & préavis"
+                                    icon={<CalendarClock size={18} />}
+                                    color={stats.echeances60Jours > 0 ? 'warning' : 'brand'}
+                                    borderTop
+                                    active={selectedEcheance === '60J'}
+                                    onClick={() => handleKpiFilterClick({ statut: 'ALL', doublons: false, echeance: '60J' })}
+                                />
+                                <StatCard
+                                    title="À préparer / Visa"
+                                    value={stats.enAttenteSignature ?? 0}
+                                    subtext="Brouillons & signatures"
+                                    icon={<FileEdit size={18} />}
+                                    color={stats.enAttenteSignature > 0 ? 'warning' : 'neutral'}
+                                    borderTop
+                                    active={selectedStatut === 'PENDING' && !doublonsOnly}
+                                    onClick={() => handleKpiFilterClick({ statut: 'PENDING', doublons: false, echeance: '' })}
+                                />
+                                <StatCard
+                                    title="Doublons & Alertes"
+                                    value={stats.doublonsPotentiels ?? 0}
+                                    subtext={stats.doublonsPotentiels > 0 ? 'À vérifier en priorité' : 'Aucun doublon détecté'}
+                                    icon={<AlertTriangle size={18} />}
+                                    color={stats.doublonsPotentiels > 0 ? 'danger' : 'neutral'}
+                                    borderTop
+                                    active={doublonsOnly}
+                                    onClick={() => handleKpiFilterClick({ statut: 'ALL', doublons: true, echeance: '' })}
+                                />
+                            </>
+                        )}
                     </div>
 
                     {/* Barre de Filtres Complète */}

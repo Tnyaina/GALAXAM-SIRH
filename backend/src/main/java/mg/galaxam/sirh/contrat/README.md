@@ -1,5 +1,10 @@
 # Domaine Contrat & Gestion du Personnel
 
+`application/EmploymentContextResolver` porte la résolution commune contrat /
+affectation à une date ou sur une plage. Il bloque les chevauchements au lieu
+de choisir une ligne par ordre SQL. Les domaines clients délèguent cette
+résolution au service partagé ; ils gardent uniquement leurs règles propres.
+
 Ce dossier regroupe le cycle complet du personnel, des contrats et de l'évolution de carrière.
 
 - `api/` : contrôleurs REST (`EmployeController`, `ContratTravailController`, `ContratGlobalController`, `WorkflowRhController`, `RefCarriereController`, `DocumentRhController`, `DocumentOfficielRhController`, `EmployePhotoController`, `RefTypeDocumentController`)

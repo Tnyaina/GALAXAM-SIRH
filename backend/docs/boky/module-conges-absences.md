@@ -148,7 +148,7 @@ Porte les règles de gestion intrinsèques à chaque typologie d'absence :
 - `id_type_conge` (PK), `code` (`ANNUEL`, `MALADIE`, `EXCEPTIONNEL`, `MATERNITE`, `PATERNITE`, `SANS_SOLDE`...)
 - `est_paye` (booléen de maintien de salaire)
 - `decompte_solde_acquis` (débit du solde annuel dans le ledger)
-- `exige_anciennete_min_mois` (12 mois pour l'annuel selon Art. 85)
+- `exige_anciennete_min_mois` (12 mois pour la jouissance du congé annuel selon l'article 130 du Code du travail 2024)
 - `duree_fixe_jours` (98j pour Maternité, 3j pour Paternité)
 - `plafond_jours_episode` (30j pour Maladie ordinaire selon Art. 13)
 - `id_type_conge_bascule` (FK vers `MALADIE_SANS_SOLDE` après 30 jours)
@@ -205,12 +205,13 @@ Périodes de 12 mois bornées et historisation du taux journalier `TCONGE` avec 
 - Exemple : congé à compter du vendredi 7, reprise le lundi 10 → `date_fin` dimanche 9, **3 jours débités**. Une reprise le samedi 8 débite seulement le vendredi.
 - Décompte standard : tous les jours calendaires inclus entre `date_debut` et `date_fin` sont décomptés :
   $$\text{nb\_jours\_decomptes} = (\text{date\_fin} - \text{date\_debut}) + 1$$
-  *(Les samedis, dimanches et jours fériés intercalés sont obligatoirement comptabilisés conformément à la base calendaire de l'Art. 85)*.
+  *(Convention opérationnelle Galaxam : samedis, dimanches et jours fériés intercalés sont comptés. L'article 127 de la loi malgache n°2024-014 exclut pourtant les jours fériés du congé payé ; cette divergence doit être validée juridiquement avant toute généralisation. Le logiciel conserve ici la règle métier explicitement demandée.)*
+  Source : [Code du travail 2024, articles 125 à 131](https://cnlegis.gov.mg/uploads/L2024-014-VF.pdf).
 - **Demi-journée** : Si `est_demi_journee = true`, alors $\text{date\_debut} = \text{date\_fin}$, $\text{nb\_jours\_decomptes} = 0{,}5$, et le moment doit être explicitement renseigné (`MATIN` ou `APRES_MIDI`).
 - Une demande existante est réaffichée avec `date_reprise = date_fin + 1 jour`. Le choix de la reprise est une aide à la saisie ; les calculs de solde, de valorisation et les exports continuent de lire l'intervalle inclusif enregistré.
 
 ### RG-CON-02 : Acquisition Mensuelle Légale & Idempotence
-- Base normale : **2,50 jours calendaires** par mois de service effectif (Art. 85), lue dans `paie_config_legale.acquisition_conge_mensuel_jours` selon le mois concerné. Une configuration absente ou illisible bloque l'acquisition.
+- Base normale : **2,50 jours calendaires** par mois de service effectif (article 125 du Code du travail 2024), lue dans `paie_config_legale.acquisition_conge_mensuel_jours` selon le mois concerné. Une configuration absente ou illisible bloque l'acquisition.
 - Proratisation : en présence d'absences injustifiées ou non rémunérées, le calcul s'applique sur la formule d'activité :
   $$D_m = 2{,}5 \times \frac{30 - J_{abs}}{30}$$
 - **Idempotence certifiée** : La clôture de paie enregistre ou corrige l'écriture du mois à partir des absences constatées. Le cron ne crédite plus le mois courant par anticipation. Tout rappel ultérieur préserve le solde sans générer de crédit double.
@@ -589,6 +590,15 @@ anticipés sans lot utilisent le TCONGE applicable à leur prise, figé dans
 le mouvement. Le récapitulatif collectif porte sur une
 période commune choisie par la DAF ; chaque état individuel reste attaché à la
 période de référence propre au salarié.
+
+À la clôture du cycle civil, le taux moyen est **calculé**, puis reste en
+attente d'une activation explicite par la DAF. L'écran « Références et
+acquisitions » affiche le taux calculé, l'état de son activation et le taux
+déjà applicable à la date d'effet choisie. La date proposée est le lendemain
+de la fin du cycle ou de la dernière acquisition clôturée si celle-ci est plus
+récente. Le backend refuse une activation qui recouvrirait une acquisition
+figée ; un éventuel écart antérieur se régularise dans la paie sans modifier
+les lots ni les bulletins validés.
 
 Le système produit un état individuel à partir du canevas interne (`templates/annuel/ETAT_CONGES_PAR_PERSONNE.xlsx`), lié à la période de référence du salarié (`conge_periode_reference`). Les fichiers historiques KAJY servent d'exemples de calcul, tandis que les montants exportés proviennent des calculs et écritures du SIRH.
 

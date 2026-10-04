@@ -687,6 +687,10 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
         setModalError(null);
 
         const todayStr = fmtDateInput(new Date());
+        const nextDay = new Date();
+        nextDay.setDate(nextDay.getDate() + 1);
+        const nextDayStr = fmtDateInput(nextDay);
+        const isHolidayLeaveRule = param.codeParametre === 'CONGE_DECOMPTE_FERIES';
 
         setFormData({
             idParametre: asNewVersion ? null : param.idParametre,
@@ -694,10 +698,10 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
             valeur: param.valeur || '',
             description: param.description || '',
             categorie: param.categorie || fixedCategory || 'PAIE',
-            dateDebut: asNewVersion ? todayStr : fmtDateInput(param.dateDebut),
+            dateDebut: asNewVersion ? (isHolidayLeaveRule ? nextDayStr : todayStr) : fmtDateInput(param.dateDebut),
             dateFin: asNewVersion ? '' : fmtDateInput(param.dateFin),
             estActif: param.estActif != null ? param.estActif : true,
-            estDesactivable: param.estDesactivable != null ? param.estDesactivable : false,
+            estDesactivable: isHolidayLeaveRule || (param.estDesactivable != null ? param.estDesactivable : false),
             effetDesactivation: param.effetDesactivation || '',
             historiqueNonConsomme: Boolean(param.historiqueNonConsomme)
         });

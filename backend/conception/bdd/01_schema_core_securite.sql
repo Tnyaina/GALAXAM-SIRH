@@ -128,7 +128,9 @@ CREATE TABLE parametre_global (
     date_fin DATE,
     est_actif BOOLEAN NOT NULL DEFAULT TRUE,
     est_desactivable BOOLEAN NOT NULL DEFAULT FALSE,
-    CONSTRAINT uq_parametre_global_code_date UNIQUE (code_parametre, date_debut)
+    CONSTRAINT uq_parametre_global_code_date UNIQUE (code_parametre, date_debut),
+    CONSTRAINT ck_conge_decompte_feries_valeur CHECK (code_parametre <> 'CONGE_DECOMPTE_FERIES'
+        OR (valeur IN ('INCLUS', 'EXCLUS') AND est_desactivable = TRUE))
 );
 
 CREATE INDEX idx_parametre_actif ON parametre_global(code_parametre) WHERE date_fin IS NULL;
@@ -191,7 +193,8 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 -- Congés
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
 ('CONGES_GENERAL',    'Vue Générale',                'Calendar',        '/conges?tab=planning',        1, 2, 'CONGES_MODULE'),
-('CONGES_DEMANDES',   'Demandes & Validation',       'ClipboardCheck',  '/conges?tab=demandes',      2, 2, 'CONGES_MODULE');
+('CONGES_DEMANDES',   'Demandes & Validation',       'ClipboardCheck',  '/conges?tab=demandes',      2, 2, 'CONGES_MODULE'),
+('CONGES_PERIODES',   'Contrôle des droits',          'CalendarRange',   '/conges?tab=periodes',      3, 2, 'CONGES_MODULE');
 
 -- Administration
 INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALUES
@@ -223,6 +226,7 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 (1, 'CONGES_MODULE'),
 (1, 'CONGES_GENERAL'),
 (1, 'CONGES_DEMANDES'),
+(1, 'CONGES_PERIODES'),
 (1, 'POINTAGE'),
 (1, 'POINTAGE_JOURNALIER'),
 (1, 'POINTAGE_SUIVI'),
@@ -292,4 +296,9 @@ INSERT INTO parametre_global (code_parametre, categorie, valeur, description, da
 VALUES ('DIVISEUR_JOURS_CALENDAIRE_CONGE', 'CONGE', '30',
         'Diviseur de la période de référence utilisé pour l acquisition et la valorisation des droits à congé.',
         '2001-07-01', TRUE, FALSE)
+ON CONFLICT (code_parametre, date_debut) DO NOTHING;
+INSERT INTO parametre_global (code_parametre, categorie, valeur, description, date_debut, est_actif, est_desactivable)
+VALUES ('CONGE_DECOMPTE_FERIES', 'CONGE', 'INCLUS',
+        'Décompte des jours fériés dans les congés débitant le solde acquis : INCLUS ou EXCLUS. Version datée obligatoire.',
+        '2001-07-01', TRUE, TRUE)
 ON CONFLICT (code_parametre, date_debut) DO NOTHING;

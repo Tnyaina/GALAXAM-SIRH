@@ -153,7 +153,14 @@ public class DocumentRhController {
                             "Format de fichier non autorisé (." + extension + "). Formats acceptés : " + allowedExtensions);
                 }
 
-                String uniqueFilename = UUID.randomUUID().toString() + "." + extension;
+                // Récupération de l'employé pour convention de nommage descriptive
+                mg.galaxam.sirh.contrat.persistence.Employe emp = new mg.galaxam.sirh.contrat.persistence.Employe().rechercherParId(idEmploye, c);
+                String mat = emp != null && emp.getMatricule() != null ? emp.getMatricule().replaceAll("[^a-zA-Z0-9_-]", "") : ("EMP" + idEmploye);
+                String typeCode = typeDoc.getLibelle().toUpperCase().replaceAll("[^A-Z0-9]+", "_");
+                String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+                String shortUuid = UUID.randomUUID().toString().substring(0, 8);
+                String uniqueFilename = "DOC_" + mat + "_" + typeCode + "_" + timestamp + "_" + shortUuid + "." + extension;
+
                 Path filePath = uploadPath.resolve(uniqueFilename);
                 storedFile = filePath;
                 try (var input = file.getInputStream()) {

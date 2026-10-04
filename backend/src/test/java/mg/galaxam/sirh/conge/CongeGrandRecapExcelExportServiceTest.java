@@ -12,6 +12,8 @@ import javax.sql.DataSource;
 import mg.galaxam.sirh.conge.application.CongeGrandRecapExcelExportService;
 import mg.galaxam.sirh.conge.application.CongeLotValorisationService;
 import mg.galaxam.sirh.conge.domain.CongeLotValorisationEngine;
+import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
+import mg.galaxam.sirh.contrat.domain.EmploymentContext;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 
@@ -24,11 +26,18 @@ import static org.mockito.Mockito.*;
 class CongeGrandRecapExcelExportServiceTest {
     private static CongeGrandRecapExcelExportService exporter(DataSource source, BigDecimal valeur)
             throws Exception {
+        return exporter(source, valeur, mock(EmploymentContext.class));
+    }
+    private static CongeGrandRecapExcelExportService exporter(DataSource source, BigDecimal valeur,
+                                                               EmploymentContext contexte) throws Exception {
         CongeLotValorisationService lots = mock(CongeLotValorisationService.class);
         when(lots.situation(anyInt(), any(LocalDate.class), any(Connection.class)))
                 .thenReturn(new CongeLotValorisationEngine.Situation(BigDecimal.ONE,
                         valeur, java.util.List.of(), java.util.List.of(), BigDecimal.ZERO));
-        return new CongeGrandRecapExcelExportService(source, lots);
+        EmploymentContextResolver contexts = mock(EmploymentContextResolver.class);
+        when(contexts.resolveContext(anyInt(), any(LocalDate.class), any(Connection.class)))
+                .thenReturn(contexte);
+        return new CongeGrandRecapExcelExportService(source, lots, contexts);
     }
     @Test
     void populationCanExceedTemplateCapacity() throws Exception {
@@ -39,6 +48,7 @@ class CongeGrandRecapExcelExportServiceTest {
         when(statement.executeQuery()).thenReturn(result);
         AtomicInteger position = new AtomicInteger();
         when(result.next()).thenAnswer(invocation -> position.incrementAndGet() <= 101);
+        position.set(0); // Mockito invoque next() une fois pendant la configuration du stub.
         when(result.getString("matricule")).thenAnswer(invocation -> "EMP-" + position.get());
         when(result.getString("nom")).thenReturn("RAKOTO");
         when(result.getString("prenom")).thenReturn("Soa");
@@ -46,6 +56,7 @@ class CongeGrandRecapExcelExportServiceTest {
         when(result.getBigDecimal("taux_journalier")).thenReturn(BigDecimal.ONE);
         byte[] bytes = exporter(mock(DataSource.class), BigDecimal.ONE)
                 .generer(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 9, 1), connection);
+        assertEquals(102, position.get());
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
             var sheet = workbook.getSheetAt(0);
             assertEquals("EMP-101", sheet.getRow(104).getCell(0).getStringCellValue());
@@ -104,7 +115,32 @@ class CongeGrandRecapExcelExportServiceTest {
             assertEquals("SUM(O5:O5)", sheet.getRow(5).getCell(14).getCellFormula());
             assertTrue(sheet.getRow(1).getCell(0).getStringCellValue().contains("01/09/2026"), sheet.getRow(1).getCell(0).getStringCellValue());
         }
-        verify(statement, times(15)).setDate(anyInt(), any(Date.class));
+        verify(statement, times(14)).setDate(anyInt(), any(Date.class));
+    }
+
+    @Test
+    void exportUsesDatedEmploymentContextForSiteAndJob() throws Exception {
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet result = mock(ResultSet.class);
+        when(connection.prepareStatement(anyString())).thenReturn(statement);
+        when(statement.executeQuery()).thenReturn(result);
+        when(result.next()).thenReturn(true, false);
+        when(result.getString("matricule")).thenReturn("0300");
+        when(result.getString("nom")).thenReturn("RAKOTO");
+        when(result.getString("prenom")).thenReturn("Soa");
+        EmploymentContext contexte = mock(EmploymentContext.class);
+        when(contexte.filialeNom()).thenReturn("Filiale janvier");
+        when(contexte.nomSite()).thenReturn("Site janvier");
+        when(contexte.fonctionNom()).thenReturn("Poste janvier");
+        byte[] bytes = exporter(mock(DataSource.class), BigDecimal.ZERO, contexte)
+                .generer(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 25), connection);
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
+            var row = workbook.getSheetAt(0).getRow(4);
+            assertEquals("Filiale janvier", row.getCell(2).getStringCellValue());
+            assertEquals("Site janvier", row.getCell(3).getStringCellValue());
+            assertEquals("Poste janvier", row.getCell(4).getStringCellValue());
+        }
     }
 
     @Test

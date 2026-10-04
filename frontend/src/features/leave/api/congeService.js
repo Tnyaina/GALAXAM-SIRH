@@ -155,22 +155,6 @@ const congeService = {
   },
 
   /**
-   * Initialise le solde historique d'un salarié (reprise de données / migration sans historique détaillé)
-   */
-  initialiserSoldeHistorique: async (data) => {
-    const response = await apiClient.post('/conges/solde/initialisation', data);
-    return response.data;
-  },
-
-  /**
-   * Enregistre ou ajuste un taux journalier de congé historique de migration (KAJY_MIGRATION)
-   */
-  enregistrerTauxMigration: async (data) => {
-    const response = await apiClient.post('/conges/taux-applicable/migration', data);
-    return response.data;
-  },
-
-  /**
    * Récupère la situation complète canonique d'un salarié (Solde, TCONGE applicable, Période & Accumulateurs)
    */
   getSituationEmploye: async (idEmploye, dateReference = null) => {
@@ -212,20 +196,32 @@ const congeService = {
     return response.data;
   },
 
-  /**
-   * Récupère la configuration et le taux TCONGE applicable d'un collaborateur
-   */
-  getTcongeConfiguration: async (idEmploye, dateReference = null) => {
-    const params = dateReference ? { dateReference } : {};
-    const response = await apiClient.get(`/conges/periodes-reference/employe/${idEmploye}/statut-configuration`, { params });
+  getPeriodesReferenceEmploye: async (idEmploye) => {
+    const response = await apiClient.get(`/conges/periodes-reference/employe/${idEmploye}`);
     return response.data;
   },
 
-  /**
-   * Récupère la liste des périodes de référence d'un collaborateur
-   */
-  getPeriodesReferenceEmploye: async (idEmploye) => {
-    const response = await apiClient.get(`/conges/periodes-reference/employe/${idEmploye}`);
+  activerTauxCalculeReference: async (idPeriodeReference, dateEffet) => {
+    const response = await apiClient.post(
+      `/conges/periodes-reference/${idPeriodeReference}/activer-taux`, { dateEffet }
+    );
+    return response.data;
+  },
+
+  getMoisReference: async (idPeriodeReference) => {
+    const response = await apiClient.get(`/conges/periodes-reference/${idPeriodeReference}/mois`);
+    return response.data;
+  },
+
+  getCorrectionsValorisation: async (idPeriodeReference) => {
+    const response = await apiClient.get(`/conges/periodes-reference/${idPeriodeReference}/corrections-valorisation`);
+    return response.data;
+  },
+
+  corrigerValorisationMois: async (idPeriodeReference, idJournal, payload) => {
+    const response = await apiClient.post(
+      `/conges/periodes-reference/${idPeriodeReference}/mois/${idJournal}/corriger-valorisation`, payload
+    );
     return response.data;
   },
 

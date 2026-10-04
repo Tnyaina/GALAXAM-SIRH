@@ -87,14 +87,6 @@ public class CongeCalculateurEngine {
     }
 
     /**
-     * Calcule le nombre de jours de congé valorisés en paie pour une tranche de dates (RG-CONGE-05).
-     * Règle actuelle : décompte calendaire strict (week-ends et fériés inclus).
-     */
-    public BigDecimal calculerNbJoursCongeValorises(LocalDate dateDebut, LocalDate dateFin, boolean estDemiJournee) {
-        return calculerNombreJours(dateDebut, dateFin, estDemiJournee);
-    }
-
-    /**
      * Calcule l'acquisition mensuelle de congés avec taux paramétrable.
      */
     public BigDecimal calculerAcquisitionMensuelle(int moisTravailles, BigDecimal tauxMensuel) {
@@ -229,7 +221,7 @@ public class CongeCalculateurEngine {
 
         LocalDate dateDemande = input.dateDemande() != null ? input.dateDemande() : LocalDate.now();
         int preavisConstate = Math.toIntExact(ChronoUnit.DAYS.between(dateDemande, input.dateDebut()));
-        int preavisRequis = calculerPreavisRequis(nbJours, input.soumisDelaiPreavis(),
+        int preavisRequis = calculerPreavisRequis(joursDemandes, input.soumisDelaiPreavis(),
                 input.seuilPreavisLong(), input.delaiPreavisCourt(), input.delaiPreavisLong());
 
         List<String> warnings = new ArrayList<>();

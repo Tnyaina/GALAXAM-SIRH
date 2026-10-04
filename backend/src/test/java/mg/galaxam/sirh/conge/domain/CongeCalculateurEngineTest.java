@@ -20,9 +20,15 @@ class CongeCalculateurEngineTest {
 
     @Test
     void congeDuLundiAuJeudiCompteQuatreJoursMemeSiLeMardiEstFerie() {
-        // Règle de décompte validée pour ce projet : la période approuvée reste calendaire.
+        // Convention actuelle Galaxam : la période approuvée reste calendaire.
         assertEquals(new BigDecimal("4.0"), engine.calculerNombreJours(
                 LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 8), false));
+    }
+
+    @Test
+    void congeVendrediRepriseLundiDebiteTroisJoursCalendaires() {
+        assertEquals(new BigDecimal("3.0"), engine.calculerNombreJours(
+                LocalDate.of(2026, 10, 2), LocalDate.of(2026, 10, 4), false));
     }
 
     @Test

@@ -8,7 +8,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -163,7 +162,7 @@ public class CongeLotValorisationService {
             throw new IllegalArgumentException("La période de paie des congés est invalide.");
         }
         Map<Integer, LinkedHashMap<Integer, CongeLotValorisationEngine.Imputation>> allocations = new HashMap<>();
-        for (var trace : situation(idEmploye, LocalDate.now(), c).imputations()) {
+        for (var trace : situation(idEmploye, fin, c).imputations()) {
             if (trace.idDemande() == null) continue;
             var sources = allocations.computeIfAbsent(trace.idDemande(), ignored -> new LinkedHashMap<>());
             var precedent = sources.get(trace.idSource());
@@ -191,11 +190,14 @@ public class CongeLotValorisationService {
                     boolean demi = rs.getBoolean("est_demi_journee");
                     LocalDate debutIntersection = debutConge.isBefore(debut) ? debut : debutConge;
                     LocalDate finIntersection = finConge.isAfter(fin) ? fin : finConge;
-                    BigDecimal ignorer = BigDecimal.valueOf(ChronoUnit.DAYS.between(debutConge,
-                            debutIntersection));
-                    BigDecimal prendre = BigDecimal.valueOf(ChronoUnit.DAYS.between(debutIntersection,
-                            finIntersection) + 1);
-                    if (demi) prendre = new BigDecimal("0.50");
+                    // Les offsets FIFO suivent les jours réellement débités, y compris une
+                    // éventuelle exclusion datée des jours fériés au changement d'année.
+                    BigDecimal ignorer = debutIntersection.isAfter(debutConge)
+                            ? CongeDecompteCalendaireResolver.calculer(idEmploye, debutConge,
+                                    debutIntersection.minusDays(1), demi, c)
+                            : BigDecimal.ZERO;
+                    BigDecimal prendre = CongeDecompteCalendaireResolver.calculer(idEmploye,
+                            debutIntersection, finIntersection, demi, c);
                     List<CongeLotValorisationEngine.Imputation> lots = new ArrayList<>(
                             allocations.getOrDefault(demande, new LinkedHashMap<>()).values());
                     for (var lot : lots) {
@@ -256,10 +258,10 @@ public class CongeLotValorisationService {
             ps.setDate(3, Date.valueOf(date));
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) throw new IllegalStateException(
-                        "CONGE_LOT_TCONGE_MISSING: mouvement " + mouvement);
+                        "CONGE_LOT_TCONGE_MISSING: mouvement " + mouvement + " au " + date);
                 BigDecimal taux = rs.getBigDecimal(1);
                 if (rs.next()) throw new IllegalStateException(
-                        "CONGE_LOT_TCONGE_AMBIGUOUS: mouvement " + mouvement);
+                        "AMBIGUOUS_CONFIGURATION: CONGE_LOT_TCONGE_AMBIGUOUS: mouvement " + mouvement + " au " + date);
                 return taux;
             }
         }

@@ -46,8 +46,8 @@ final class PayrollExportCompanyResolver {
     static Company forQuarter(int year, int quarter, Connection connection) throws Exception {
         List<Company> companies = new ArrayList<>();
         try (PreparedStatement ps = connection.prepareStatement(
-                "SELECT id_periode_paie FROM periode_paie WHERE EXTRACT(YEAR FROM date_debut)=? " +
-                "AND EXTRACT(MONTH FROM date_debut) BETWEEN ? AND ? ORDER BY date_debut")) {
+                "SELECT id_periode_paie FROM periode_paie WHERE EXTRACT(YEAR FROM date_fin)=? " +
+                "AND EXTRACT(MONTH FROM date_fin) BETWEEN ? AND ? ORDER BY date_debut")) {
             ps.setInt(1, year);
             ps.setInt(2, (quarter - 1) * 3 + 1);
             ps.setInt(3, (quarter - 1) * 3 + 3);

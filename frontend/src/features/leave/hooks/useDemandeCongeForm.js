@@ -189,6 +189,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
           try {
             const report = await congeService.verifierConflitsDemande({
               idEmploye: selectedEmployeId ? Number(selectedEmployeId) : null,
+              idTypeConge: idTypeConge ? Number(idTypeConge) : null,
               dateDebut,
               dateFin: estDemiJournee ? dateDebut : dateFin,
               estDemiJournee,
@@ -230,7 +231,7 @@ export function useDemandeCongeForm({ idEmployeProp, initialDemande, initialDate
       setConflitReport(null);
       setCheckingConflits(false);
     }
-  }, [dateDebut, dateFin, estDemiJournee, momentDemiJournee, selectedEmployeId, initialDemande?.idDemandeConge]);
+  }, [dateDebut, dateFin, estDemiJournee, momentDemiJournee, selectedEmployeId, idTypeConge, initialDemande?.idDemandeConge]);
 
   const handleSubmit = async (e, showToast) => {
     e.preventDefault();

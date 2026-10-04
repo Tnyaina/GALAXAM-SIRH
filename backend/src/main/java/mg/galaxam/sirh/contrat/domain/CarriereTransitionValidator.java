@@ -283,8 +283,12 @@ public final class CarriereTransitionValidator {
     }
 
     private static boolean periodeEssaiEnCours(Integer idContrat, Connection c) throws Exception {
-        try (PreparedStatement ps = c.prepareStatement(
-                "SELECT COUNT(*) FROM contrat_periode_essai WHERE id_contrat = ? AND statut = 'EN_COURS'")) {
+        String sql = "SELECT COUNT(*) FROM contrat_travail ct "
+                + "LEFT JOIN contrat_periode_essai pe ON pe.id_contrat = ct.id_contrat AND pe.statut = 'EN_COURS' "
+                + "JOIN ref_statut_rh s ON ct.id_statut_rh = s.id_statut_rh "
+                + "WHERE ct.id_contrat = ? AND s.code IN ('ACTIF', 'BROUILLON', 'PLANIFIE') "
+                + "AND (pe.id_periode_essai IS NOT NULL OR ct.date_fin_essai IS NOT NULL)";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idContrat);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() && rs.getInt(1) > 0;

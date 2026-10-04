@@ -19,9 +19,9 @@ public final class TaxConfigurationResolver {
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             Date d = Date.valueOf(date); ps.setDate(1, d); ps.setDate(2, d);
             try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) throw new IllegalStateException("TAX_CONFIGURATION_MISSING: ISI");
+                if (!rs.next()) throw new IllegalStateException("TAX_CONFIGURATION_MISSING: ISI au " + date);
                 BigDecimal rate = new BigDecimal(rs.getString(1));
-                if (rs.next()) throw new IllegalStateException("TAX_CONFIGURATION_AMBIGUOUS: ISI au " + date);
+                if (rs.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: TAX_CONFIGURATION_AMBIGUOUS: ISI au " + date);
                 return rate;
             }
         }

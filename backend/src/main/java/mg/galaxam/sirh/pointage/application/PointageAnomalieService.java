@@ -703,12 +703,13 @@ public class PointageAnomalieService {
             pointageSaisieService.verifierEligibilitePointage(c, idEmp, idSite, datePtg);
 
             if ((idPer == null || idPer <= 0) && datePtg != null) {
-                String sqlFindPer2 = "SELECT id_periode_paie FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin LIMIT 1";
+                String sqlFindPer2 = "SELECT id_periode_paie FROM periode_paie WHERE ? BETWEEN date_debut AND date_fin";
                 try (PreparedStatement psF2 = c.prepareStatement(sqlFindPer2)) {
                     psF2.setDate(1, datePtg);
                     try (ResultSet rsF2 = psF2.executeQuery()) {
                         if (rsF2.next()) {
                             idPer = rsF2.getInt("id_periode_paie");
+                            if (rsF2.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: PERIODE_PAIE au " + datePtg);
                         }
                     }
                 }
@@ -830,7 +831,7 @@ public class PointageAnomalieService {
                 }
                 emEffectif = effectiveEntry == null ? null : Time.valueOf(effectiveEntry);
                 Map<String, mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.ParametreEtat> parametresPointage =
-                        mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.loadEtatMap(c);
+                        mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal.loadEtatMapAtDate(datePtg, c);
                 AttendanceEngine.Result dailyResult = dailyAttendanceCalculator.calculateDay(new AttendanceEngine.Context(
                         idEmp, datePtg.toLocalDate(), effectiveEntry, local(sm), local(ea), local(sa),
                         siteDebM, siteFinM, siteDebA, siteFinA,

@@ -210,7 +210,7 @@ public class PaieAjustementController {
                     "FROM ref_type_mouvement_paie t " +
                     "LEFT JOIN paie_rubrique r ON r.id_rubrique = t.id_rubrique " +
                     "WHERE t.est_actif = TRUE AND t.saisie_manuelle_autorisee = TRUE " +
-                    "AND t.owner_code = 'DAF_PAIE' " +
+                    "AND (t.owner_code = 'DAF_PAIE' OR t.code = 'REGULARISATION_CONGE') " +
                     "ORDER BY t.ordre_affichage, t.libelle";
             try (PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -532,6 +532,25 @@ public class PaieAjustementController {
                 }
 
                 String codeType = typeMvt.getCode();
+                if ("REGULARISATION_CONGE".equals(codeType)) {
+                    if (req.getIdEmploye() == null) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                            "Le salarié est obligatoire pour une régularisation Congés.");
+                    String motif = req.getMotif() != null ? req.getMotif() : "";
+                    var reference = java.util.regex.Pattern.compile("(?:^|\\s)JOURNAL_CONGE#(\\d+)(?:\\s|$)")
+                            .matcher(motif);
+                    if (!reference.find()) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                            "Régularisation Congés : indiquez JOURNAL_CONGE#<id> dans le motif et justifiez le calcul DAF.");
+                    int idJournal = Integer.parseInt(reference.group(1));
+                    try (PreparedStatement preuve = c.prepareStatement(
+                            "SELECT 1 FROM conge_journal_droit WHERE id_journal=? AND id_employe=?")) {
+                        preuve.setInt(1, idJournal);
+                        preuve.setInt(2, req.getIdEmploye());
+                        try (ResultSet rs = preuve.executeQuery()) {
+                            if (!rs.next()) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                    "Le journal Congés cité n'appartient pas au salarié de la régularisation.");
+                        }
+                    }
+                }
                 String sens = typeMvt.getSens();
                 Integer idType = typeMvt.getIdTypeMouvement();
 

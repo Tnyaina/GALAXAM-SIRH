@@ -417,7 +417,7 @@ class CongeWorkflowIntegrationTest {
     @Test
     @DisplayName("M. Règle projet : un congé traversant un jour férié est décompté intégralement (calendaire strict)")
     void testCongeTraversantJourFerieCompteQuandMeme() throws Exception {
-        // Règle validée pour GALAXAM : le décompte est calendaire strict.
+        // Convention actuelle Galaxam : décompte calendaire strict ; conformité des fériés à arbitrer.
         // Un congé du lundi au vendredi couvrant un jour férié intermédiaire = 5 jours débités.
         // Le moteur utilise ChronoUnit.DAYS.between(debut, fin) + 1, sans exclusion des fériés.
         try (Connection c = dataSource.getConnection()) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, History, CheckCircle } from 'lucide-react';
 import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
@@ -10,29 +10,12 @@ import FormError from '@/components/ui/feedback/FormError';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 
-/**
- * Calcule automatiquement la date de fin déterministe d'une période de référence de 12 mois.
- * Règle légale : dateDebut + 12 mois - 1 jour.
- */
-function calculerDateFinAutomatique(dateDebutStr) {
-  if (!dateDebutStr) return '';
-  const d = new Date(dateDebutStr + 'T00:00:00');
-  if (isNaN(d.getTime())) return '';
-  d.setFullYear(d.getFullYear() + 1);
-  d.setDate(d.getDate() - 1);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
 
 export default function InitialisationSoldeModal({
   isOpen,
   onClose,
   onSuccess,
-  employe,
-  soldeData = null,
-  situationData = null
+  employe
 }) {
   // Contexte
   const toast = useToast();
@@ -42,7 +25,7 @@ export default function InitialisationSoldeModal({
   const [soldeJours, setSoldeJours] = useState('');
   const [valeurSoldeOuverture, setValeurSoldeOuverture] = useState('');
   const [tauxApplicable, setTauxApplicable] = useState('');
-  const [dateDebutReference, setDateDebutReference] = useState('');
+  const [referenceArrete, setReferenceArrete] = useState('');
   const [commentaire, setCommentaire] = useState('');
 
   // Données pour AGGREGATED_OPENING
@@ -53,50 +36,24 @@ export default function InitialisationSoldeModal({
   const [error, setError] = useState(null);
 
   // Données dérivées
-  const salaireBase = Number(
-    soldeData?.salaireBase ||
-    employe?.salaireBase ||
-    employe?.salaireBaseContractuel ||
-    employe?.dernierSalaireBase ||
-    0
-  );
-
-  const dateFinCalculee = useMemo(() => {
-    return calculerDateFinAutomatique(dateDebutReference);
-  }, [dateDebutReference]);
+  const dateDebutReference = dateCutover ? `${dateCutover.slice(0, 4)}-01-01` : '';
+  const dateFinCalculee = dateCutover ? `${dateCutover.slice(0, 4)}-12-31` : '';
 
   // Initialisation à chaque ouverture
   useEffect(() => {
     if (!isOpen) return;
 
-    const today = new Date();
-    const mois = String(today.getMonth() + 1).padStart(2, '0');
-    const jour = String(today.getDate()).padStart(2, '0');
-    setDateCutover(`${today.getFullYear()}-${mois}-${jour}`);
-
-    const anneeCourante = today.getFullYear();
-    setDateDebutReference(`${anneeCourante}-01-01`);
-
-    if (soldeData?.soldeActuel !== undefined && soldeData?.soldeActuel !== null) {
-      setSoldeJours(String(soldeData.soldeActuel));
-    } else {
-      setSoldeJours('0');
-    }
-
-    if (situationData?.tauxApplicable?.montant && Number(situationData.tauxApplicable.montant) > 0) {
-      setTauxApplicable(String(Number(situationData.tauxApplicable.montant).toFixed(2)));
-    } else if (soldeData?.tauxJournalierConge && Number(soldeData.tauxJournalierConge) > 0) {
-      setTauxApplicable(String(Number(soldeData.tauxJournalierConge).toFixed(2)));
-    } else {
-      setTauxApplicable('');
-    }
+    setDateCutover('');
+    setSoldeJours('');
+    setTauxApplicable('');
+    setReferenceArrete('');
 
     setValeurSoldeOuverture('');
     setCumulDroitsOuverture('');
     setCumulValorisationOuverture('');
-    setCommentaire('Initialisation du solde de congés');
+    setCommentaire('');
     setError(null);
-  }, [isOpen, soldeData, employe, salaireBase, situationData?.tauxApplicable?.montant]);
+  }, [isOpen]);
 
   // Validation et soumission
   const handleSubmit = async (e) => {
@@ -133,6 +90,10 @@ export default function InitialisationSoldeModal({
       setError("La date d'arrêté est obligatoire.");
       return;
     }
+    if (!referenceArrete.trim()) {
+      setError("Indiquez la référence de l'arrêté DAF utilisé pour ces valeurs.");
+      return;
+    }
 
     if (!dateDebutReference) {
       setError('La date de début de la période de référence est obligatoire.');
@@ -149,6 +110,10 @@ export default function InitialisationSoldeModal({
       setError('La valorisation déjà acquise sur la période est obligatoire (0 si aucune).');
       return;
     }
+    if ((cDroits === 0) !== (cValo === 0)) {
+      setError('Les cumuls de l’année doivent être tous deux nuls, ou tous deux positifs : jours acquis et leur valorisation.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -163,13 +128,14 @@ export default function InitialisationSoldeModal({
         cumulDroitsOuverture: cDroits,
         cumulValorisationOuverture: cValo,
         sourceReprise: 'REPRISE_CUTOVER',
-        commentaire: commentaire || 'Reprise du solde et des cumuls de congés'
+        referenceArrete: referenceArrete.trim(),
+        commentaire: commentaire.trim()
       };
 
       await congeService.cutoverOpening(payload);
 
       toast({
-        title: 'Initialisation enregistrée avec succès',
+        title: 'Reprise historique enregistrée',
         message: `Stock repris : ${sVal} j / ${formatMoneyAr(vVal)} ; TCONGE applicable : ${formatMoneyAr(tVal)}/j.`,
         type: 'success'
       });
@@ -187,7 +153,7 @@ export default function InitialisationSoldeModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Initialisation du solde de congés"
+      title="Reprise historique des congés"
       size="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4 font-sans text-sm">
@@ -196,13 +162,26 @@ export default function InitialisationSoldeModal({
         {/* Contexte d'usage */}
         <div className="p-2.5 border-l-4 border-[var(--color-brand-500)] bg-[var(--color-brand-500)]/6">
           <p className="text-xs text-[var(--color-fg-muted)]">
-            Reprise des droits et valorisations acquis avant l'entrée en gestion dans le SIRH.
+            Réservé aux salariés ayant un historique arrêté par la DAF avant leur entrée dans le SIRH.
+            Pour une nouvelle embauche sans droits antérieurs, ne saisissez rien ici : la première clôture de paie crée automatiquement la période civile et l'acquisition.
+            La date d'arrêté inclut les acquisitions déjà comptées dans les cumuls saisis ; les paies closes à cette date ou avant ne les recréent pas.
           </p>
         </div>
+        <details className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-3 py-2.5 text-xs">
+          <summary className="cursor-pointer font-semibold text-[var(--color-fg)]">Guide rapide : préparer la reprise avec les arrêtés DAF</summary>
+          <ol className="mt-2 ml-4 list-decimal space-y-1 text-[var(--color-fg-muted)]">
+            <li>Choisissez la date de la dernière clôture de paie dont les acquisitions figurent dans l'arrêté DAF (par exemple le 25/09/2026). La clôture suivante doit venir après cette date.</li>
+            <li>Saisissez le stock de jours encore disponible après les congés déjà pris, puis sa valeur monétaire restante. Exemple : 14,5 jours pour 240 000 Ar.</li>
+            <li>Le TCONGE est le dernier taux journalier applicable certifié par la DAF, pas le salaire actuel ni 240 000 ÷ 14,5 dans l'exemple.</li>
+            <li>Les cumuls annuels sont les droits acquis et leur valorisation depuis le 1er janvier jusqu'à cette clôture, même si certains droits ont déjà été consommés. Exemple : 22,5 jours acquis et 315 000 Ar ; ces chiffres diffèrent du stock restant.</li>
+            <li>La période civile est calculée automatiquement du 1er janvier au 31 décembre de l'année d'arrêté. Indiquez la référence identifiable de l'arrêté DAF qui justifie ces chiffres.</li>
+          </ol>
+          <p className="mt-2 text-[var(--color-fg-muted)]">Cette reprise actuelle enregistre un stock global et les cumuls de l'année ; elle n'importe pas le détail mensuel des anciens lots. Une nouvelle embauche sans antériorité ne passe pas par ce formulaire.</p>
+        </details>
         {/* Fiche d'identification du collaborateur */}
         <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] flex flex-wrap items-center justify-between gap-3 text-xs">
           <div>
-            <span className="text-[var(--color-fg-muted)]">Salarié :</span>{' '}
+              <span className="text-[var(--color-fg-muted)]">Salarié :</span>{' '}
             <strong className="text-[var(--color-fg)] text-sm">
               {employe?.nom} {employe?.prenom}
             </strong>{' '}
@@ -210,12 +189,6 @@ export default function InitialisationSoldeModal({
               (Matricule #{employe?.matricule || employe?.idEmploye})
             </span>
           </div>
-          {salaireBase > 0 && (
-            <div className="text-right">
-              <span className="text-[var(--color-fg-muted)]">Salaire de base :</span>{' '}
-              <strong className="text-[var(--color-fg)] text-sm">{formatMoneyAr(salaireBase)}</strong>
-            </div>
-          )}
         </div>
 
         {/* Situation arrêtée à la date de bascule */}
@@ -228,7 +201,7 @@ export default function InitialisationSoldeModal({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
-                Date de début de gestion SIRH <span className="text-[var(--color-danger-500)]">*</span>
+                Date de la dernière clôture de paie reprise <span className="text-[var(--color-danger-500)]">*</span>
               </label>
               <Input
                 type="date"
@@ -255,7 +228,7 @@ export default function InitialisationSoldeModal({
 
             <div>
               <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
-                TCONGE antérieur applicable (Ar / jour) <span className="text-[var(--color-danger-500)]">*</span>
+                Dernier TCONGE applicable certifié (Ar / jour) <span className="text-[var(--color-danger-500)]">*</span>
               </label>
               <MoneyInput
                 maxDecimals={2}
@@ -266,7 +239,7 @@ export default function InitialisationSoldeModal({
                 required
               />
               <span className="text-[10.5px] text-[var(--color-fg-muted)] mt-0.5 block">
-                Dernier taux journalier de congé clôturé.
+                Taux en vigueur à la date d'arrêté, indépendant de la valeur du stock restant.
               </span>
             </div>
           </div>
@@ -300,12 +273,9 @@ export default function InitialisationSoldeModal({
               <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
                 Date de début <span className="text-[var(--color-danger-500)]">*</span>
               </label>
-              <Input
-                type="date"
-                value={dateDebutReference}
-                onChange={(e) => setDateDebutReference(e.target.value)}
-                required
-              />
+              <div className="p-2 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] font-mono text-xs font-semibold text-[var(--color-fg)]">
+                {dateDebutReference || '-'}
+              </div>
             </div>
 
             <div>
@@ -330,7 +300,7 @@ export default function InitialisationSoldeModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
-                  Droits acquis sur la période (jours) <span className="text-[var(--color-danger-500)]">*</span>
+                  Total des jours acquis depuis le 1er janvier <span className="text-[var(--color-danger-500)]">*</span>
                 </label>
                 <Input
                   type="number"
@@ -342,13 +312,13 @@ export default function InitialisationSoldeModal({
                   required
                 />
                 <span className="text-[10.5px] text-[var(--color-fg-muted)] mt-0.5 block">
-                  Total des jours acquis depuis le début de la période
+                  Inclut les jours déjà pris ; ce n'est pas le solde restant.
                 </span>
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
-                  Valorisation financière cumulée (Ariary) <span className="text-[var(--color-danger-500)]">*</span>
+                  Valeur totale de ces jours acquis (Ariary) <span className="text-[var(--color-danger-500)]">*</span>
                 </label>
                 <MoneyInput
                   maxDecimals={2}
@@ -359,7 +329,7 @@ export default function InitialisationSoldeModal({
                   required
                 />
                 <span className="text-[10.5px] text-[var(--color-fg-muted)] mt-0.5 block">
-                  Cumul des valorisations mensuelles issu de la paie
+                  Cumul des valorisations des acquisitions de l'année, pas valeur du stock.
                 </span>
               </div>
             </div>
@@ -367,17 +337,23 @@ export default function InitialisationSoldeModal({
 
         </div>
 
-        {/* Motif ou référence */}
+        {/* Pièce source de la reprise et précision éventuelle */}
         <div>
           <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
-            Motif / Référence
+            Référence de l'arrêté DAF utilisé <span className="text-[var(--color-danger-500)]">*</span>
           </label>
           <Input
             type="text"
-            value={commentaire}
-            onChange={(e) => setCommentaire(e.target.value)}
-            placeholder="Ex. Initialisation solde reprise d'antériorité"
+            value={referenceArrete}
+            onChange={(e) => setReferenceArrete(e.target.value)}
+            placeholder="Ex. Arrêté congés DAF au 25/09/2026, dossier RH-2026-14"
+            required
           />
+          <span className="text-[10.5px] text-[var(--color-fg-muted)] mt-0.5 block">Nom ou numéro permettant de retrouver le document source. Aucun fichier n'est importé ici.</span>
+        </div>
+        <div>
+          <Input label="Précision complémentaire (facultative)" type="text"
+            value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
         </div>
 
         {/* Prévisualisation Récapitulative */}
@@ -398,6 +374,10 @@ export default function InitialisationSoldeModal({
             <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)] col-span-2">
               <span className="text-[var(--color-fg-muted)] block text-[10.5px]">Exercice de référence :</span>
               <strong className="font-mono text-xs">{dateDebutReference || '-'} → {dateFinCalculee || '-'}</strong>
+            </div>
+            <div className="bg-[var(--color-surface)] p-2 border border-[var(--color-border-subtle)] col-span-2">
+              <span className="text-[var(--color-fg-muted)] block text-[10.5px]">Acquisitions de l'année déjà reprises :</span>
+              <strong className="font-mono text-xs">{cumulDroitsOuverture || '0'} jours · {formatMoneyAr(cumulValorisationOuverture || 0)}</strong>
             </div>
           </div>
         </div>
