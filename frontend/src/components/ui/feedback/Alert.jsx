@@ -1,4 +1,5 @@
 import { CheckCircle, AlertTriangle, XCircle, Info, X } from 'lucide-react';
+import Button from '@/components/ui/forms/Button';
 
 const types = {
   success: {
@@ -27,7 +28,18 @@ const types = {
   },
 };
 
-export default function Alert({ type, variant, title, message, children, onClose, className = '' }) {
+export default function Alert({
+  type,
+  variant,
+  title,
+  message,
+  children,
+  onClose,
+  action,
+  actionLabel,
+  onAction,
+  className = ''
+}) {
   const severity = variant || type || 'info';
   const normalizedSeverity = severity === 'danger' ? 'error' : severity;
   const t = types[normalizedSeverity] || types.info;
@@ -44,12 +56,26 @@ export default function Alert({ type, variant, title, message, children, onClose
       <div className="flex-1 min-w-0">
         {title && <p className={`text-xs sm:text-[13px] font-bold ${t.title}`}>{title}</p>}
         {content && <div className={`text-xs sm:text-[13px] mt-0.5 ${t.text}`}>{content}</div>}
+        {action ? (
+          <div className="mt-2">{action}</div>
+        ) : actionLabel && onAction ? (
+          <div className="mt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={onAction}
+            >
+              {actionLabel}
+            </Button>
+          </div>
+        ) : null}
       </div>
       {onClose && (
         <button
           type="button"
           onClick={onClose}
-          className={`p-0.5 rounded-none hover:bg-[var(--color-overlay)]/5 dark:hover:bg-[var(--color-surface)]/10 ${t.text} flex-shrink-0 cursor-pointer`}
+          className={`p-0.5 rounded-none hover:bg-[var(--color-overlay)]/5 dark:hover:bg-[var(--color-surface)]/10 ${t.text} flex-shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)]`}
           aria-label="Fermer l'alerte"
         >
           <X size={14} />

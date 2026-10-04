@@ -76,24 +76,27 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={toast}>
       {children}
-      <div className="fixed top-5 right-5 z-[100] flex flex-col gap-2 w-80">
+      <div className="fixed top-5 right-5 z-[100] flex flex-col gap-2 w-80 max-w-[calc(100vw-2.5rem)]" role="region" aria-label="Notifications système">
         {toasts.map(t => (
           <div
             key={t.id}
+            role={t.type === 'error' ? 'alert' : 'status'}
+            aria-live={t.type === 'error' ? 'assertive' : 'polite'}
+            aria-atomic="true"
             className={`
               bg-[var(--color-surface)] border border-[var(--color-border-subtle)]
               rounded-none shadow-lg ${borders[t.type] || borders.info}
-              p-4 flex items-start gap-3   animate-in slide-in-from-right
+              p-3.5 sm:p-4 flex items-start gap-3 animate-in slide-in-from-right
             `}
           >
             {icons[t.type] || icons.info}
             <div className="flex-1 min-w-0">
-              {t.title && <p className="text-sm font-semibold text-[var(--color-fg)]">{t.title}</p>}
-              {t.message && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">{t.message}</p>}
+              {t.title && <p className="text-xs sm:text-sm font-semibold text-[var(--color-fg)]">{t.title}</p>}
+              {t.message && <p className="text-xs text-[var(--color-fg-muted)] mt-0.5 leading-relaxed">{t.message}</p>}
             </div>
             <button
               onClick={() => remove(t.id)}
-              className="p-0.5 text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)]  rounded-none"
+              className="p-1 text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)] rounded-none cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--color-brand-500)]"
               aria-label="Fermer la notification"
             >
               <X size={15} />

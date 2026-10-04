@@ -8,6 +8,7 @@ import {
     FileCheck
 } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import MoneyInput from '@/components/ui/forms/MoneyInput';
@@ -82,6 +83,7 @@ export default function StcPreparationModal({
 
     // Contrôle d'affichage de la quittance imprimable
     const [showRecuModal, setShowRecuModal] = useState(false);
+    const [showConfirmValider, setShowConfirmValider] = useState(false);
 
     // Formulaire des paramètres utilisateur (StcCalculRequest)
     const [form, setForm] = useState({
@@ -208,10 +210,7 @@ export default function StcPreparationModal({
 
     // 2. Déclenche la validation définitive et émission du reçu numéroté
     const handleValiderDefinitivement = async () => {
-        if (!window.confirm('ATTENTION : Cette action est irréversible.\n\nLe STC sera définitivement validé, un reçu officiel numéroté sera émis, et les éventuels prêts et avances du salarié seront intégralement soldés dans le GRH.\n\nConfirmez-vous la validation ?')) {
-            return;
-        }
-
+        setShowConfirmValider(false);
         setSubmitting(true);
         setErrorMsg(null);
         try {
@@ -283,7 +282,7 @@ export default function StcPreparationModal({
                                     type="button"
                                     variant="danger"
                                     size="sm"
-                                    onClick={handleValiderDefinitivement}
+                                    onClick={() => setShowConfirmValider(true)}
                                     loading={submitting}
                                     disabled={dateDepartFuture}
                                     iconLeft={<FileCheck size={15} />}
@@ -671,6 +670,17 @@ export default function StcPreparationModal({
                     idStc={calculResult.idStc}
                 />
             )}
+
+            <ConfirmDialog
+                isOpen={showConfirmValider}
+                onClose={() => setShowConfirmValider(false)}
+                onConfirm={handleValiderDefinitivement}
+                title="Validation définitive du STC"
+                message="ATTENTION : Cette action est irréversible. Le STC sera définitivement validé, un reçu officiel numéroté sera émis, et les éventuels prêts et avances du salarié seront intégralement soldés dans le GRH."
+                confirmLabel="Valider définitivement"
+                variant="danger"
+                loading={submitting}
+            />
         </>
     );
 }

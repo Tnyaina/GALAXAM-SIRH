@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { Edit2, Trash2, Calendar, MapPin, CheckCircle, Clock } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Badge from '@/components/ui/data-display/Badge';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { fmtDate } from '@/utils/dateUtils';
 
 export default function PeriodeChomeeList({ periodes, sites, onOpenCreate, onOpenEdit, onDelete }) {
+    const [deleteTarget, setDeleteTarget] = useState(null);
     if (!periodes || periodes.length === 0) {
         return (
             <EmptyState
@@ -106,11 +109,7 @@ export default function PeriodeChomeeList({ periodes, sites, onOpenCreate, onOpe
                                                 <Edit2 size={16} />
                                             </button>
                                             <button
-                                                onClick={() => {
-                                                    if (window.confirm("Supprimer cette période ?")) {
-                                                        onDelete(p.idPeriode);
-                                                    }
-                                                }}
+                                                onClick={() => setDeleteTarget(p)}
                                                 className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-fg-muted)] hover:text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
                                                 title="Supprimer"
                                                 aria-label={`Supprimer période ${p.libelle}`}
@@ -125,6 +124,22 @@ export default function PeriodeChomeeList({ periodes, sites, onOpenCreate, onOpe
                     </Tbody>
                 </Table>
             </div>
+
+            <ConfirmDialog
+                isOpen={Boolean(deleteTarget)}
+                onClose={() => setDeleteTarget(null)}
+                onConfirm={() => {
+                    if (deleteTarget) {
+                        onDelete(deleteTarget.idPeriode);
+                        setDeleteTarget(null);
+                    }
+                }}
+                title="Supprimer cette période ?"
+                message={deleteTarget ? `Voulez-vous vraiment supprimer la période exceptionnelle "${deleteTarget.libelle}" ?` : ''}
+                confirmLabel="Supprimer"
+                cancelLabel="Conserver"
+                variant="danger"
+            />
         </div>
     );
 }

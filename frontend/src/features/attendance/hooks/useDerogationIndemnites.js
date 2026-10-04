@@ -154,19 +154,6 @@ export function useDerogationIndemnites() {
         }
     };
 
-    const deleteDerogation = async (id) => {
-        if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette dérogation d'indemnité ?")) {
-            return;
-        }
-        try {
-            await pointageParametreService.deleteDerogation(id);
-            toast({ type: 'success', message: "Dérogation supprimée avec succès." });
-            await loadData();
-        } catch {
-            toast({ type: 'error', message: "Erreur lors de la suppression." });
-        }
-    };
-
     return {
         derogations: filteredDerogations,
         rawDerogationsCount: derogations.length,
@@ -189,7 +176,6 @@ export function useDerogationIndemnites() {
         openModal,
         closeModal,
         saveDerogation,
-        deleteDerogation,
         reload: loadData
     };
 }
