@@ -54,13 +54,12 @@ Dépendances directes hors dossier : `contrat/application/EmploymentContextResol
 | `components/modals/PointageDetailHebdoModal.jsx` | Explication d'une semaine | Garder si utilisée pour justifier la compensation. |
 | `components/modals/PointageRecapModal.jsx` | Récapitulatif de saisie | Vérifier si la vue principale le couvre déjà. |
 | `components/modals/PointageSoldePeriodeModal.jsx` | Détail du solde de période | Garder si nécessaire à l'arbitrage ; éviter le doublon avec la fiche. |
-| `hooks/usePointageSaisie.js` | État éditable, prévisualisation et enregistrement | Garder. |
+| `hooks/usePointageSaisie.js` | État éditable, prévisualisation, enregistrement et comparaison locale des lignes | Garder ; le comparateur à consommateur unique a été intégré ici. Aucun calcul métier n'est exécuté côté navigateur. |
 | `hooks/usePointageAnomalies.js` | Chargement/filtrage des anomalies | Garder. |
 | `hooks/usePeriodePaie.js` | Sélection de période et commandes | Garder si les consommateurs sont multiples. |
 | `hooks/useDerogationIndemnites.js` | Gestion des dérogations d'indemnités | Garder tant que la fonctionnalité est utilisée. |
 | `api/attendanceApi.js` | API groupée par intention + cache court de fiche | Garder ; retirer la reconstruction métier du précontrôle. |
 | `utils/attendanceDisplayUtils.jsx` | Formatage et libellés | Garder si purement visuel. |
-| `utils/pointageCalculations.js` | Détection d'une ligne modifiée | Garder, renommer éventuellement pour éviter l'impression d'un second moteur de calcul. |
 
 Hors dossier : `features/employees/components/tabs/PointageTab.jsx` expose la fiche depuis l'employé ; `routes/Router.jsx` conserve des alias d'URL ; `context/MenuContext.jsx` et `utils/menu.js` affichent les menus issus de `ref_menu`. La configuration `features/administration/api/pointageParametreService.js` concerne les paramètres de pointage. Les tests frontend dans `attendance/__tests__/` couvrent saisie, chargement, document et accessibilité : les garder et les compléter avant simplification.
 
@@ -153,3 +152,13 @@ La priorité est de caractériser les écarts de nuit et de vacation chevauchant
 - Le gel résout les jours fériés chômés selon le site applicable à chaque date.
 - La prévisualisation et l'écriture refusent immédiatement une vacation du dernier jour qui dépasse minuit ; le précontrôle signale aussi les anciennes saisies déjà présentes et interdit leur gel dans la campagne précédente. L'agent est guidé pour scinder la saisie entre les deux dates ; le workflow bloque transmission et approbation tant que ce cas existe. Le modèle actuel de snapshot par campagne ne permet pas encore une ventilation automatique fiable vers le prochain snapshot.
 - `DaySpecialType`, `NightWorkType` et `OvertimeTier` sont regroupés dans `QualifiedTimeBucket.java`, et `PeriodBalance` dans `AttendanceEngine.java`. Les valeurs enregistrées en base et les snapshots anciens sont inchangés.
+
+## Nettoyage complémentaire et plan restant
+
+Le seul fichier autonome sans frontière utile confirmée dans cette passe était `frontend/src/features/attendance/utils/pointageCalculations.js` : une fonction, un seul appelant. Elle vit désormais dans `usePointageSaisie.js`. Les modales Récapitulatif, Solde et Détail hebdomadaire ainsi que le Gantt ont des appels effectifs ; leur suppression ou fusion changerait le parcours utilisateur. Les quatre fichiers de document ont des rôles distincts : préparation et provenance, modèle commun, rendu PDF, rendu Excel. Le garde temporel est partagé entre saisie et gel ; le fusionner créerait deux copies ou une dépendance entre services.
+
+1. **Fiabiliser avant de réduire davantage** : caractériser les totaux de synthèse et les exports d'une campagne 26/12→25/01 avec changement de site, salaire ou catégorie au 01/01. Le site représentatif utilisé dans certaines métadonnées mensuelles ne doit pas orienter un montant journalier. Tester aussi les trous et chevauchements de tarifs d'indemnité. Ne modifier que les lectures donnant un résultat incorrect.
+2. **Terminer l'inventaire des consommateurs** : lister pour chaque route et champ DTO les usages frontend, Paie et export ; enlever les champs ou alias réellement sans appel après tests. Garder les vues SQL et migrations historiques tant que leurs consommateurs ou leur rôle de reprise ne sont pas établis.
+3. **Simplifier le parcours agent/DAF** : vérifier sur écran que le récapitulatif avant sauvegarde, le détail hebdomadaire, le solde de période et le Gantt répondent à des questions distinctes. Si deux vues apportent exactement la même décision, les fusionner en conservant saisie → anomalies → validation DAF et l'historique figé.
+4. **Questions métier à trancher avant changement de calcul** : que faire d'une catégorie qui modifie l'éligibilité HS le mercredi (maintenir le blocage et fixer la date au lundi/à la campagne suivante, ou définir une ventilation de la semaine) ? Une vacation 25→26 doit-elle toujours être scindée manuellement, comme le modèle de snapshot par campagne l'impose aujourd'hui ? Ces choix ne justifient aucune nouvelle table pour l'instant.
+5. **Contre-audit final** : exécuter les tests Pointage/Paie liés, les tests UI, le build, puis comparer des snapshots avant/après sur `sirh_galaxam_test` uniquement après vérification de `current_database()`. Aucun changement de règle ni recalcul historique sans décision explicite.
