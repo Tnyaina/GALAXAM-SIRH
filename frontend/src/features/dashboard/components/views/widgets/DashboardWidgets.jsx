@@ -67,9 +67,9 @@ export function AbsentsWidget({ loading, absentsAujourdhui = [], className = '' 
                                         </span>
                                     </p>
                                 </div>
-                                <span className="px-2 py-0.5 rounded-none text-[10px] font-data font-bold bg-[var(--color-info-500)]/10 text-[var(--color-info-500)] border border-[var(--color-info-500)]/20 shrink-0">
+                                <Badge variant="info" size="xs" className="font-data shrink-0">
                                     {absence.nbJoursDecomptes}j posés
-                                </span>
+                                </Badge>
                             </div>
                         )}
                     />

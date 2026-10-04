@@ -1,6 +1,5 @@
 package mg.galaxam.sirh.contrat.application;
 
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;

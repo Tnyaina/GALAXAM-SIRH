@@ -79,7 +79,7 @@ describe('Correction depuis le bulletin', () => {
     it('attend l’approbation puis une simulation avant le recalcul individuel', async () => {
         let status = 'EN_ATTENTE';
         paieService.listerAjustements.mockImplementation(async () => [{
-            idAvance: 9, idBulletin: null, nature: 'VARIABLE_DAF', typeLibelle: 'Prime exceptionnelle',
+            idAvance: 9, idBulletin: null, nature: 'VARIABLE_DAF', provenance: 'VARIABLE_DAF', typeLibelle: 'Prime exceptionnelle',
             typeMouvement: 'PRIME_EXCEPTIONNELLE', sens: 'GAIN', montant: 10000,
             motif: 'Prime justifiée', statut: status, version: 1, updatedAt: '2026-10-01T08:00:00Z',
         }]);

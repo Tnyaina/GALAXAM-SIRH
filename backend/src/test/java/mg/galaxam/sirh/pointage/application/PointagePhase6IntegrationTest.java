@@ -199,6 +199,42 @@ class PointagePhase6IntegrationTest {
     }
 
     @Test
+    @DisplayName("Préflight : la dispense de pointage s'applique uniquement aux jours de sa fonction")
+    void testPreflightDispenseChangePendantPeriode() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            int contrat;
+            int affectation;
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT id_contrat, id_affectation FROM employe_affectation_carriere WHERE id_employe = ?")) {
+                ps.setInt(1, employeId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    contrat = rs.getInt(1);
+                    affectation = rs.getInt(2);
+                }
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE employe_affectation_carriere SET date_fin = '2026-09-15' WHERE id_affectation = ?")) {
+                ps.setInt(1, affectation);
+                ps.executeUpdate();
+            }
+            int seconde = CongeTestFixtureHelper.createAffectation(c, employeId, contrat,
+                    LocalDate.of(2026, 9, 16), new BigDecimal("1000000"));
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE employe_affectation_carriere SET id_fonction = 1, id_site = ? WHERE id_affectation = ?")) {
+                ps.setInt(1, activeSiteId);
+                ps.setInt(2, seconde);
+                ps.executeUpdate();
+            }
+            var preflight = pointageSyntheseService.preflightPeriode(testPeriodId, c);
+            assertTrue(preflight.journeesManquantes().stream().anyMatch(jour -> jour.idEmploye() == employeId
+                    && jour.date().equals(LocalDate.of(2026, 9, 1))));
+            assertFalse(preflight.journeesManquantes().stream().anyMatch(jour -> jour.idEmploye() == employeId
+                    && jour.date().equals(LocalDate.of(2026, 9, 16))));
+        }
+    }
+
+    @Test
     @DisplayName("Les KPI heures et indemnités reprennent les totaux de la synthèse complète")
     void testKpisSyntheseAlignesSurToutesLesLignes() throws Exception {
         try (Connection c = dataSource.getConnection()) {

@@ -1,7 +1,7 @@
 import { it, expect, vi, beforeEach } from 'vitest';
 import apiClient from '@/api/apiClient';
 import { attendanceService } from '../api/attendanceApi';
-vi.mock('@/api/apiClient', () => ({ default: { get: vi.fn() } }));
+vi.mock('@/api/apiClient', () => ({ default: { get: vi.fn() }, getAccessToken: () => 'session-test' }));
 beforeEach(() => vi.clearAllMocks());
 it('récupère le PDF serveur avec le nom de fichier fourni et les filtres sélectionnés', async () => {
  const blob = new Blob(['PDF']);

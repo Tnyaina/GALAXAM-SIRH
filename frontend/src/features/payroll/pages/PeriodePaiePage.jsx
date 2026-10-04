@@ -688,36 +688,36 @@ export default function PeriodePaiePage() {
 
                     {/* Bloc Synthèse Dynamique Calculée Côté Serveur (Backend-Driven) */}
                     {simulating && (
-                        <div className="p-3 bg-ink-50 dark:bg-[var(--color-surface)]/40 border border-ink-200 dark:border-[var(--color-border-subtle)] text-xs text-ink-500 animate-pulse flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-brand-500 animate-ping"></span>
+                        <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-xs text-[var(--color-fg-muted)] animate-pulse flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-[var(--color-brand-500)] animate-ping"></span>
                             Calcul officiel des jours ouvrables par le serveur...
                         </div>
                     )}
 
                     {simulation && !simulating && (
-                        <div className="bg-brand-50/60 dark:bg-brand-950/30 border border-brand-200 dark:border-brand-800/50 p-3.5 flex items-center justify-between gap-4 text-xs">
+                        <div className="bg-[var(--color-brand-50)] dark:bg-[var(--color-brand-950)]/40 border border-[var(--color-brand-200)] dark:border-[var(--color-brand-800)]/50 p-3.5 flex items-center justify-between gap-4 text-xs">
                             <div>
-                                <span className="text-ink-600 dark:text-[var(--color-fg-muted)] block text-[11px] uppercase tracking-wider font-semibold">
+                                <span className="text-[var(--color-fg-muted)] block text-[11px] uppercase tracking-wider font-semibold">
                                     Jours Ouvrables Réels
                                 </span>
-                                <span className="font-bold text-lg text-brand-600 dark:text-brand-400 font-data">
+                                <span className="font-bold text-lg text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] font-data">
                                     {simulation.nbJoursOuvrables} jours
                                 </span>
-                                <span className="text-[10px] text-ink-500 block">
+                                <span className="text-[10px] text-[var(--color-fg-subtle)] block">
                                     (Lun - Ven hors fériés chômés)
                                 </span>
                             </div>
-                            <div className="text-right text-[11px] text-ink-600 dark:text-[var(--color-fg-muted)] space-y-0.5 border-l border-brand-200 dark:border-brand-800/40 pl-4">
-                                <div>Total calendaire : <strong className="font-data text-ink-900 dark:text-ink-100">{simulation.nbJoursCalendaires} j</strong></div>
-                                <div>Fériés chômés : <strong className="font-data text-ink-900 dark:text-ink-100">{simulation.nbJoursFeries} j</strong></div>
-                                <div>Week-ends : <strong className="font-data text-ink-900 dark:text-ink-100">{simulation.nbWeekends} j</strong></div>
+                            <div className="text-right text-[11px] text-[var(--color-fg-muted)] space-y-0.5 border-l border-[var(--color-brand-200)] dark:border-[var(--color-brand-800)]/40 pl-4">
+                                <div>Total calendaire : <strong className="font-data text-[var(--color-fg)]">{simulation.nbJoursCalendaires} j</strong></div>
+                                <div>Fériés chômés : <strong className="font-data text-[var(--color-fg)]">{simulation.nbJoursFeries} j</strong></div>
+                                <div>Week-ends : <strong className="font-data text-[var(--color-fg)]">{simulation.nbWeekends} j</strong></div>
                             </div>
                         </div>
                     )}
 
                     <p className="text-xs text-[var(--color-fg-muted)]">La campagne sera créée en <strong className="text-[var(--color-fg)]">brouillon</strong>. Vous pourrez ensuite ouvrir la saisie du pointage.</p>
 
-                    <div className="pt-4 flex justify-end gap-3 border-t border-ink-150 dark:border-[var(--color-border)]">
+                    <div className="pt-4 flex justify-end gap-3 border-t border-[var(--color-border-subtle)]">
                         <Button type="button" variant="ghost" size="sm" onClick={() => setIsCreateModalOpen(false)}>
                             Annuler
                         </Button>

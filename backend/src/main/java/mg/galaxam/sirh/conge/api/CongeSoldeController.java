@@ -1,6 +1,5 @@
 package mg.galaxam.sirh.conge.api;
 
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.time.LocalDate;
 import java.util.List;

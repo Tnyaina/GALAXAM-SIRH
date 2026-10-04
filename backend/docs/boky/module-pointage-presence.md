@@ -1,5 +1,13 @@
 # Module Pointage & Présence — Spécification Complète & Rapport de Référence
 
+> **Note de mise à jour (04/10/2026)** : ce document décrit le fonctionnement
+> historique du module, mais sa section juridique cite le Code du travail de
+> 2003. La référence législative actuelle est la [Loi n° 2024-014 portant Code
+> du travail](https://cnlegis.gov.mg/uploads/L2024-014-VF.pdf). Ne pas déduire
+> un changement de formule ou de taux de ce document seul : confronter les
+> textes d'application et les règles Galaxam validées. Le contre-audit et les
+> décisions actuelles figurent dans `audit_pointage_refactoring.md` à la racine.
+
 ## GALAXAM SIRH — Documentation Canonique & Ouvrage de Référence Métier / Technique
 
 ---

@@ -13,6 +13,7 @@ import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Ta
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import Modal from '@/components/ui/overlays/Modal';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { fmtDateInput } from '@/utils/dateUtils';
 
@@ -1305,47 +1306,29 @@ export default function ReglementationFiscaleTab() {
             />
 
             {/* ---- Modal de confirmation d'annulation ---- */}
-            {confirmAnnulation && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-overlay)]/60 backdrop-blur-[2px] p-4">
-                    <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xl p-6 max-w-md w-full mx-4">
-                        <div className="flex items-start gap-3 mb-4">
-                            <div className="p-2 bg-[var(--color-danger-500)]/10 shrink-0">
-                                <Trash2 size={20} className="text-[var(--color-danger-500)]" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-[var(--color-fg)] text-sm mb-1">
-                                    Annuler l'exercice programmé
-                                </h3>
-                                <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
-                                    Vous êtes sur le point d'annuler <strong className="text-[var(--color-fg)]">{confirmAnnulation.codeVersion}</strong>.
-                                    Cette action supprimera définitivement cet exercice et
-                                    l'exercice précédent sera remis <strong>en vigueur</strong> sans date de fin.
-                                </p>
-                                <p className="text-[11px] text-[var(--color-warning-600)] mt-2">
-                                    ⚠ Les barèmes IRSA et majorations associés seront également supprimés.
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                            <Button
-                                variant="ghost" size="sm"
-                                onClick={() => setConfirmAnnulation(null)}
-                                disabled={annulationLoading}
-                            >
-                                Conserver
-                            </Button>
-                            <Button
-                                variant="danger" size="sm"
-                                loading={annulationLoading}
-                                onClick={() => handleAnnuler(confirmAnnulation.id, confirmAnnulation.codeVersion)}
-                                icon={<Trash2 size={13} />}
-                            >
-                                Annuler la LF programmée
-                            </Button>
-                        </div>
+            <ConfirmDialog
+                isOpen={Boolean(confirmAnnulation)}
+                onClose={() => setConfirmAnnulation(null)}
+                onConfirm={() => handleAnnuler(confirmAnnulation.id, confirmAnnulation.codeVersion)}
+                title="Annuler l'exercice programmé"
+                confirmLabel="Annuler la LF programmée"
+                cancelLabel="Conserver"
+                variant="danger"
+                loading={annulationLoading}
+            >
+                {confirmAnnulation && (
+                    <div className="space-y-2">
+                        <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                            Vous êtes sur le point d'annuler <strong className="text-[var(--color-fg)]">{confirmAnnulation.codeVersion}</strong>.
+                            Cette action supprimera définitivement cet exercice et
+                            l'exercice précédent sera remis <strong>en vigueur</strong> sans date de fin.
+                        </p>
+                        <p className="text-[11px] text-[var(--color-warning-600)]">
+                            ⚠ Les barèmes IRSA et majorations associés seront également supprimés.
+                        </p>
                     </div>
-                </div>
-            )}
+                )}
+            </ConfirmDialog>
         </div>
     );
 }

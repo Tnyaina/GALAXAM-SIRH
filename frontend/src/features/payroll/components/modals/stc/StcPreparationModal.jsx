@@ -14,6 +14,7 @@ import MoneyInput from '@/components/ui/forms/MoneyInput';
 import Select from '@/components/ui/forms/Select';
 import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
+import { Table, Thead, Th, Tbody, Tr, Td, Tfoot } from '@/components/ui/data-display/Table';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { fmtDate } from '@/utils/dateUtils';
 import stcService from '@/features/payroll/api/stcService';
@@ -568,96 +569,94 @@ export default function StcPreparationModal({
                                 )}
 
                                 {/* Tableau décomposé du calcul STC */}
-                                <div className="border border-[var(--color-border-subtle)] overflow-hidden">
-                                    <table className="w-full text-left text-xs border-collapse">
-                                        <thead>
-                                            <tr className="bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] text-[10px] text-[var(--color-fg-muted)] uppercase">
-                                                <th className="p-2">Élément de Liquidation STC</th>
-                                                <th className="p-2 text-right">Montant</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-[var(--color-border-subtle)] font-mono text-[11px]">
-                                            {Number(calculResult.salaireProrata) > 0 && (
-                                                <tr>
-                                                    <td className="p-2 font-sans">
-                                                        Salaire du dernier mois (Prorata {calculResult.joursTravaillesDernierMois || 0} j)
-                                                    </td>
-                                                    <td className="p-2 text-right">{formatMoneyAr(calculResult.salaireProrata)}</td>
-                                                </tr>
-                                            )}
-                                            <tr>
-                                                <td className="p-2 font-sans">
-                                                    Indemnité de Congés Payés (ICCP)
-                                                    <span className="text-[10px] text-[var(--color-fg-muted)] block font-normal">
-                                                        {calculResult.soldeCongesRestant} jours × {formatMoneyAr(calculResult.tauxJournalierConge)}
-                                                    </span>
-                                                </td>
-                                                <td className="p-2 text-right">{formatMoneyAr(calculResult.indemniteCongesPayes)}</td>
-                                            </tr>
-                                            {Number(calculResult.indemnitePreavis) > 0 && (
-                                                <tr>
-                                                    <td className="p-2 font-sans">Indemnité de Préavis ({calculResult.moisPreavis} mois)</td>
-                                                    <td className="p-2 text-right">{formatMoneyAr(calculResult.indemnitePreavis)}</td>
-                                                </tr>
-                                            )}
-                                            {Number(calculResult.indemniteLicenciement) > 0 && (
-                                                <tr>
-                                                    <td className="p-2 font-sans">Indemnité de Licenciement</td>
-                                                    <td className="p-2 text-right">{formatMoneyAr(calculResult.indemniteLicenciement)}</td>
-                                                </tr>
-                                            )}
-                                            {Number(calculResult.autresIndemnites) > 0 && (
-                                                <tr>
-                                                    <td className="p-2 font-sans">Autres indemnités ({calculResult.motifAutresIndemnites || 'Complément'})</td>
-                                                    <td className="p-2 text-right">{formatMoneyAr(calculResult.autresIndemnites)}</td>
-                                                </tr>
-                                            )}
-                                            <tr className="bg-[var(--color-bg-subtle)]/50 font-bold">
-                                                <td className="p-2 font-sans uppercase">TOTAL BRUT DU STC</td>
-                                                <td className="p-2 text-right">{formatMoneyAr(calculResult.totalBrutStc ?? calculResult.totalBrut)}</td>
-                                            </tr>
-                                            <tr>
-                                                <td className="p-2 font-sans text-[var(--color-fg-muted)]">- Cotisations Sociales (CNaPS + Santé)</td>
-                                                <td className="p-2 text-right text-[var(--color-danger-600)]">-{formatMoneyAr(calculResult.totalCotisationsSociales)}</td>
-                                            </tr>
-                                            <tr>
-                                                <td className="p-2 font-sans text-[var(--color-fg-muted)]">- Retenue Fiscale IRSA</td>
-                                                <td className="p-2 text-right text-[var(--color-danger-600)]">-{formatMoneyAr(calculResult.irsaNet)}</td>
-                                            </tr>
-                                            {Number(calculResult.soldePretsDeduit) > 0 && (
-                                                <tr>
-                                                    <td className="p-2 font-sans text-[var(--color-fg-muted)]">- Apurement Prêts d'Entreprise</td>
-                                                    <td className="p-2 text-right text-[var(--color-danger-600)]">-{formatMoneyAr(calculResult.soldePretsDeduit)}</td>
-                                                </tr>
-                                            )}
-                                            {Number(calculResult.soldeAvancesDeduit) > 0 && (
-                                                <tr>
-                                                    <td className="p-2 font-sans text-[var(--color-fg-muted)]">- Solde Avances / Acomptes en attente</td>
-                                                    <td className="p-2 text-right text-[var(--color-danger-600)]">-{formatMoneyAr(calculResult.soldeAvancesDeduit)}</td>
-                                                </tr>
-                                            )}
-                                            {Number(calculResult.autresDeductions) > 0 && (
-                                                <tr>
-                                                    <td className="p-2 font-sans text-[var(--color-fg-muted)]">- Autres Déductions ({calculResult.motifAutresDeductions || 'Retenues'})</td>
-                                                    <td className="p-2 text-right text-[var(--color-danger-600)]">-{formatMoneyAr(calculResult.autresDeductions)}</td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr className="bg-[var(--color-ink-950)] text-[var(--color-on-color)] font-bold">
-                                                <td className="p-3 font-sans uppercase tracking-wider text-xs">
-                                                    NET À PAYER AU SALARIÉ
-                                                    <span className="text-[10px] text-[var(--color-ink-200)] block font-normal">
-                                                        Arrondi légal à la dizaine d'Ariary
-                                                    </span>
-                                                </td>
-                                                <td className="p-3 text-right text-lg font-mono font-black">
-                                                    {formatMoneyAr(calculResult.netAPayerStc ?? calculResult.netAPayer)}
-                                                </td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
+                                <Table density="compact" bordered className="overflow-hidden">
+                                    <Thead>
+                                        <Tr>
+                                            <Th>Élément de Liquidation STC</Th>
+                                            <Th className="text-right">Montant</Th>
+                                        </Tr>
+                                    </Thead>
+                                    <Tbody className="font-mono text-[11px]">
+                                        {Number(calculResult.salaireProrata) > 0 && (
+                                            <Tr>
+                                                <Td className="font-sans">
+                                                    Salaire du dernier mois (Prorata {calculResult.joursTravaillesDernierMois || 0} j)
+                                                </Td>
+                                                <Td className="text-right">{formatMoneyAr(calculResult.salaireProrata)}</Td>
+                                            </Tr>
+                                        )}
+                                        <Tr>
+                                            <Td className="font-sans">
+                                                Indemnité de Congés Payés (ICCP)
+                                                <span className="text-[10px] text-[var(--color-fg-muted)] block font-normal">
+                                                    {calculResult.soldeCongesRestant} jours × {formatMoneyAr(calculResult.tauxJournalierConge)}
+                                                </span>
+                                            </Td>
+                                            <Td className="text-right">{formatMoneyAr(calculResult.indemniteCongesPayes)}</Td>
+                                        </Tr>
+                                        {Number(calculResult.indemnitePreavis) > 0 && (
+                                            <Tr>
+                                                <Td className="font-sans">Indemnité de Préavis ({calculResult.moisPreavis} mois)</Td>
+                                                <Td className="text-right">{formatMoneyAr(calculResult.indemnitePreavis)}</Td>
+                                            </Tr>
+                                        )}
+                                        {Number(calculResult.indemniteLicenciement) > 0 && (
+                                            <Tr>
+                                                <Td className="font-sans">Indemnité de Licenciement</Td>
+                                                <Td className="text-right">{formatMoneyAr(calculResult.indemniteLicenciement)}</Td>
+                                            </Tr>
+                                        )}
+                                        {Number(calculResult.autresIndemnites) > 0 && (
+                                            <Tr>
+                                                <Td className="font-sans">Autres indemnités ({calculResult.motifAutresIndemnites || 'Complément'})</Td>
+                                                <Td className="text-right">{formatMoneyAr(calculResult.autresIndemnites)}</Td>
+                                            </Tr>
+                                        )}
+                                        <Tr className="bg-[var(--color-bg-subtle)]/50 font-bold">
+                                            <Td className="font-sans uppercase">TOTAL BRUT DU STC</Td>
+                                            <Td className="text-right">{formatMoneyAr(calculResult.totalBrutStc ?? calculResult.totalBrut)}</Td>
+                                        </Tr>
+                                        <Tr>
+                                            <Td className="font-sans text-[var(--color-fg-muted)]">- Cotisations Sociales (CNaPS + Santé)</Td>
+                                            <Td className="text-right text-[var(--color-danger-600)]">-{formatMoneyAr(calculResult.totalCotisationsSociales)}</Td>
+                                        </Tr>
+                                        <Tr>
+                                            <Td className="font-sans text-[var(--color-fg-muted)]">- Retenue Fiscale IRSA</Td>
+                                            <Td className="text-right text-[var(--color-danger-600)]">-{formatMoneyAr(calculResult.irsaNet)}</Td>
+                                        </Tr>
+                                        {Number(calculResult.soldePretsDeduit) > 0 && (
+                                            <Tr>
+                                                <Td className="font-sans text-[var(--color-fg-muted)]">- Apurement Prêts d'Entreprise</Td>
+                                                <Td className="text-right text-[var(--color-danger-600)]">-{formatMoneyAr(calculResult.soldePretsDeduit)}</Td>
+                                            </Tr>
+                                        )}
+                                        {Number(calculResult.soldeAvancesDeduit) > 0 && (
+                                            <Tr>
+                                                <Td className="font-sans text-[var(--color-fg-muted)]">- Solde Avances / Acomptes en attente</Td>
+                                                <Td className="text-right text-[var(--color-danger-600)]">-{formatMoneyAr(calculResult.soldeAvancesDeduit)}</Td>
+                                            </Tr>
+                                        )}
+                                        {Number(calculResult.autresDeductions) > 0 && (
+                                            <Tr>
+                                                <Td className="font-sans text-[var(--color-fg-muted)]">- Autres Déductions ({calculResult.motifAutresDeductions || 'Retenues'})</Td>
+                                                <Td className="text-right text-[var(--color-danger-600)]">-{formatMoneyAr(calculResult.autresDeductions)}</Td>
+                                            </Tr>
+                                        )}
+                                    </Tbody>
+                                    <Tfoot>
+                                        <Tr className="bg-[var(--color-ink-950)] text-[var(--color-on-color)] font-bold">
+                                            <Td className="p-3 font-sans uppercase tracking-wider text-xs text-inherit">
+                                                NET À PAYER AU SALARIÉ
+                                                <span className="text-[10px] text-[var(--color-ink-200)] block font-normal">
+                                                    Arrondi légal à la dizaine d'Ariary
+                                                </span>
+                                            </Td>
+                                            <Td className="p-3 text-right text-lg font-mono font-black text-inherit">
+                                                {formatMoneyAr(calculResult.netAPayerStc ?? calculResult.netAPayer)}
+                                            </Td>
+                                        </Tr>
+                                    </Tfoot>
+                                </Table>
                             </div>
                         )}
                     </div>

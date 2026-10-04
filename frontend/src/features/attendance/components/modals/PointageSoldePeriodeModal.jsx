@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { pointageSyntheseService, attendanceService } from '@/features/attendance/api/attendanceApi';
 import { getErrorMessage } from '@/api/apiClient';
 import { formatHeuresMinutes, formatHeuresDecimal, formatDate } from '@/features/attendance/utils/attendanceDisplayUtils';
@@ -188,71 +189,83 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                         })()}
                     </div>
                 </section>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left border-collapse min-w-[900px]">
-                        <thead><tr className="border-b border-[var(--color-border-subtle)]"><th className="py-2">Semaine</th><th>Objectif</th><th>Travaillé</th><th>Déficit</th><th>HS 30 %</th><th>HS 50 %</th><th>Nuit</th><th>Dimanche</th><th>Jour férié</th></tr></thead>
-                        <tbody>{semaines.map((week, index) => (
-                            <tr key={`${week.debutSemaine}-${index}`} className="border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors">
-                                <td className="py-2 font-medium">{formatDate(week.debutSemaine)} → {formatDate(week.finSemaine)}</td>
-                                <td className="font-mono text-[var(--color-fg-muted)]">{Number(week.seuilHeuresTroncon || 0).toFixed(2)} h</td>
-                                <td className="font-mono">
-                                    {Number(week.totalHeuresTravaillees || 0) < Number(week.seuilHeuresTroncon || 0) ? (
-                                        <span className="font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]">
-                                            {Number(week.totalHeuresTravaillees || 0).toFixed(2)} h
-                                        </span>
-                                    ) : Number(week.totalHeuresTravaillees || 0) > Number(week.seuilHeuresTroncon || 0) ? (
-                                        <span className="font-semibold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
-                                            {Number(week.totalHeuresTravaillees || 0).toFixed(2)} h
-                                        </span>
-                                    ) : (
-                                        <span>{Number(week.totalHeuresTravaillees || 0).toFixed(2)} h</span>
-                                    )}
-                                </td>
-                                <td className="font-mono">
-                                    {Number(week.heuresDeficit || 0) > 0 ? (
-                                        <span className="font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
-                                            −{Number(week.heuresDeficit).toFixed(2)} h
-                                        </span>
-                                    ) : (
-                                        <span className="text-[var(--color-fg-muted)]">-</span>
-                                    )}
-                                </td>
-                                <td className="font-mono">
-                                    {Number(week.heuresHs30 || 0) > 0 ? (
-                                        <span className="font-semibold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
-                                            +{Number(week.heuresHs30).toFixed(2)} h
-                                        </span>
-                                    ) : (
-                                        <span className="text-[var(--color-fg-muted)]">-</span>
-                                    )}
-                                </td>
-                                <td className="font-mono">
-                                    {Number(week.heuresHs50 || 0) > 0 ? (
-                                        <span className="font-semibold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
-                                            +{Number(week.heuresHs50).toFixed(2)} h
-                                        </span>
-                                    ) : (
-                                        <span className="text-[var(--color-fg-muted)]">-</span>
-                                    )}
-                                </td>
-                                {[week.heuresNuit, week.heuresDimanche, week.heuresFerie].map((hours, qualificationIndex) => {
-                                    const value = Number(hours || 0);
-                                    return (
-                                        <td key={qualificationIndex} className="whitespace-nowrap font-mono">
-                                            {value > 0 ? (
-                                                <span className="font-semibold text-[var(--color-fg)]">
-                                                    {formatHeuresMinutes(value)} <span className="text-[var(--color-fg-muted)] font-normal">({formatHeuresDecimal(value)})</span>
-                                                </span>
-                                            ) : (
-                                                <span className="text-[var(--color-fg-muted)]">-</span>
-                                            )}
-                                        </td>
-                                    );
-                                })}
-                            </tr>
-                        ))}</tbody>
-                    </table>
-                </div>
+                    <Table density="compact" bordered={false} tableClassName="min-w-[900px] text-xs">
+                        <Thead>
+                            <Tr>
+                                <Th>Semaine</Th>
+                                <Th>Objectif</Th>
+                                <Th>Travaillé</Th>
+                                <Th>Déficit</Th>
+                                <Th>HS 30 %</Th>
+                                <Th>HS 50 %</Th>
+                                <Th>Nuit</Th>
+                                <Th>Dimanche</Th>
+                                <Th>Jour férié</Th>
+                            </Tr>
+                        </Thead>
+                        <Tbody>
+                            {semaines.map((week, index) => (
+                                <Tr key={`${week.debutSemaine}-${index}`}>
+                                    <Td className="font-medium">{formatDate(week.debutSemaine)} → {formatDate(week.finSemaine)}</Td>
+                                    <Td className="font-mono text-[var(--color-fg-muted)]">{Number(week.seuilHeuresTroncon || 0).toFixed(2)} h</Td>
+                                    <Td className="font-mono">
+                                        {Number(week.totalHeuresTravaillees || 0) < Number(week.seuilHeuresTroncon || 0) ? (
+                                            <span className="font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]">
+                                                {Number(week.totalHeuresTravaillees || 0).toFixed(2)} h
+                                            </span>
+                                        ) : Number(week.totalHeuresTravaillees || 0) > Number(week.seuilHeuresTroncon || 0) ? (
+                                            <span className="font-semibold text-[var(--color-success-700)] dark:text-[var(--color-success-400)]">
+                                                {Number(week.totalHeuresTravaillees || 0).toFixed(2)} h
+                                            </span>
+                                        ) : (
+                                            <span>{Number(week.totalHeuresTravaillees || 0).toFixed(2)} h</span>
+                                        )}
+                                    </Td>
+                                    <Td className="font-mono">
+                                        {Number(week.heuresDeficit || 0) > 0 ? (
+                                            <span className="font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                                                −{Number(week.heuresDeficit).toFixed(2)} h
+                                            </span>
+                                        ) : (
+                                            <span className="text-[var(--color-fg-muted)]">-</span>
+                                        )}
+                                    </Td>
+                                    <Td className="font-mono">
+                                        {Number(week.heuresHs30 || 0) > 0 ? (
+                                            <span className="font-semibold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
+                                                +{Number(week.heuresHs30).toFixed(2)} h
+                                            </span>
+                                        ) : (
+                                            <span className="text-[var(--color-fg-muted)]">-</span>
+                                        )}
+                                    </Td>
+                                    <Td className="font-mono">
+                                        {Number(week.heuresHs50 || 0) > 0 ? (
+                                            <span className="font-semibold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
+                                                +{Number(week.heuresHs50).toFixed(2)} h
+                                            </span>
+                                        ) : (
+                                            <span className="text-[var(--color-fg-muted)]">-</span>
+                                        )}
+                                    </Td>
+                                    {[week.heuresNuit, week.heuresDimanche, week.heuresFerie].map((hours, qualificationIndex) => {
+                                        const value = Number(hours || 0);
+                                        return (
+                                            <Td key={qualificationIndex} className="whitespace-nowrap font-mono">
+                                                {value > 0 ? (
+                                                    <span className="font-semibold text-[var(--color-fg)]">
+                                                        {formatHeuresMinutes(value)} <span className="text-[var(--color-fg-muted)] font-normal">({formatHeuresDecimal(value)})</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[var(--color-fg-muted)]">-</span>
+                                                )}
+                                            </Td>
+                                        );
+                                    })}
+                                </Tr>
+                            ))}
+                        </Tbody>
+                    </Table>
                 <section className="space-y-2">
                 <h3 className="font-semibold">Rapprochement du solde</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs items-stretch">

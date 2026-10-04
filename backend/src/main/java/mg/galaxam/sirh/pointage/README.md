@@ -18,3 +18,10 @@ en une seule requête groupée par salarié, avec détection des chevauchements.
 tarifs et jours chômés continuent d'être résolus par le domaine Pointage aux
 dates réelles. Les requêtes de synthèse en masse restent SQL pour éviter une
 résolution complète salarié par salarié et jour par jour.
+
+Le précontrôle de gel lit la dispense et le site de chaque journée via le même
+contexte daté que la synthèse. Une date de paie appartient à une seule période :
+la base interdit les chevauchements de campagnes, avec bornes inclusives. La
+compensation reste hebdomadaire selon l'objectif de la semaine ; l'ajustement
+motivé du solde final est distinct d'une correction de badge. Les snapshots
+déjà consommés par la Paie restent historiques.

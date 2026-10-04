@@ -55,11 +55,11 @@ class PayrollPointageToBulletinIntegrationTest {
                     statement.executeUpdate();
                 }
                 int contractId = CongeTestFixtureHelper.createContratActif(connection, employeeId,
-                        LocalDate.of(2026, 9, 24));
+                        LocalDate.of(2026, 10, 26));
                 CongeTestFixtureHelper.createAffectation(connection, employeeId, contractId,
-                        LocalDate.of(2026, 9, 24), new BigDecimal("350000"));
+                        LocalDate.of(2026, 10, 26), new BigDecimal("350000"));
                 int periodId = CongeTestFixtureHelper.createPeriodePaie(connection,
-                        "E2E-" + employeeId, LocalDate.of(2026, 9, 24), LocalDate.of(2026, 9, 25), "VALIDEE");
+                        "E2E-" + employeeId, LocalDate.of(2026, 10, 26), LocalDate.of(2026, 10, 27), "VALIDEE");
                 try (PreparedStatement statement = connection.prepareStatement(
                         "INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, "
                                 + "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, "
@@ -68,9 +68,9 @@ class PayrollPointageToBulletinIntegrationTest {
                                 + "'08:00', '12:00', '13:00', '17:00', '08:00', 8, 1)")) {
                     statement.setInt(1, employeeId);
                     statement.setInt(2, periodId);
-                    statement.setDate(3, Date.valueOf("2026-09-24"));
+                    statement.setDate(3, Date.valueOf("2026-10-26"));
                     statement.executeUpdate();
-                    statement.setDate(3, Date.valueOf("2026-09-25"));
+                    statement.setDate(3, Date.valueOf("2026-10-27"));
                     statement.executeUpdate();
                 }
                 if (complementDaf) {
@@ -101,7 +101,7 @@ class PayrollPointageToBulletinIntegrationTest {
                     statement.executeUpdate();
                 }
                 try (PreparedStatement statement = connection.prepareStatement(
-                        "UPDATE paie_avance_acompte SET date_paiement = '2026-09-24', " +
+                        "UPDATE paie_avance_acompte SET date_paiement = '2026-10-26', " +
                         "versement_confirme_at = CURRENT_TIMESTAMP, reference_versement = 'RECETTE-E2E' " +
                         "WHERE id_employe = ? AND type_mouvement = 'ACOMPTE_15'")) {
                     statement.setInt(1, employeeId);
@@ -113,7 +113,7 @@ class PayrollPointageToBulletinIntegrationTest {
                         "sens, montant, montant_initial, solde_restant, motif, statut, date_paiement, " +
                         "versement_confirme_at, reference_versement) " +
                         "SELECT ?, ?, code, id_type_mouvement, sens, 100000, 100000, 100000, " +
-                        "'Avance versée pour recette', 'APPROUVE', '2026-09-24', CURRENT_TIMESTAMP, 'RECETTE-AVANCE' " +
+                        "'Avance versée pour recette', 'APPROUVE', '2026-10-26', CURRENT_TIMESTAMP, 'RECETTE-AVANCE' " +
                         "FROM ref_type_mouvement_paie WHERE code = 'AVANCE_SPECIALE' RETURNING id_avance")) {
                     statement.setInt(1, employeeId);
                     statement.setInt(2, periodId);
@@ -134,7 +134,7 @@ class PayrollPointageToBulletinIntegrationTest {
                 try (PreparedStatement statement = connection.prepareStatement(
                         "INSERT INTO paie_pret (id_employe, reference_pret, montant_total, montant_mensualite, "
                         + "nb_echeances, date_premiere_echeance, capital_restant_du, statut, motif) "
-                        + "VALUES (?, ?, 12000, 12000, 1, '2026-09-25', 12000, 'EN_COURS', 'Recette recalcul') "
+                        + "VALUES (?, ?, 12000, 12000, 1, '2026-10-27', 12000, 'EN_COURS', 'Recette recalcul') "
                         + "RETURNING id_pret")) {
                     statement.setInt(1, employeeId);
                     statement.setString(2, "LOAN-E2E-" + employeeId);
@@ -143,7 +143,7 @@ class PayrollPointageToBulletinIntegrationTest {
                 try (PreparedStatement statement = connection.prepareStatement(
                         "INSERT INTO paie_pret_echeance (id_pret, numero_echeance, date_echeance, "
                         + "montant_echeance, capital_restant_apres, montant_restant_echeance) "
-                        + "VALUES (?, 1, '2026-09-25', 12000, 0, 12000)")) {
+                        + "VALUES (?, 1, '2026-10-27', 12000, 0, 12000)")) {
                     statement.setInt(1, loanId);
                     statement.executeUpdate();
                 }
@@ -213,12 +213,12 @@ class PayrollPointageToBulletinIntegrationTest {
                         rows.next();
                         imputePremierePeriode = rows.getBigDecimal("montant_impute");
                         assertTrue(imputePremierePeriode.signum() > 0 && imputePremierePeriode.compareTo(new BigDecimal("100000")) < 0);
-                        assertEquals(Date.valueOf("2026-09-24"), rows.getDate("date_paiement"),
+                        assertEquals(Date.valueOf("2026-10-26"), rows.getDate("date_paiement"),
                                 "Le calcul ne doit pas remplacer la date du versement réel");
                     }
                 }
                 int nextPeriod = CongeTestFixtureHelper.createPeriodePaie(connection,
-                        "E2E-SUIV-" + employeeId, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 2), "VALIDEE");
+                        "E2E-SUIV-" + employeeId, LocalDate.of(2026, 11, 2), LocalDate.of(2026, 11, 3), "VALIDEE");
                 try (PreparedStatement statement = connection.prepareStatement(
                         "INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, " +
                         "heure_entree_matin, heure_sortie_matin, heure_entree_am, heure_sortie_am, " +
@@ -226,8 +226,8 @@ class PayrollPointageToBulletinIntegrationTest {
                         "VALUES (?, ?, 1, ?, (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'PRESENT'), " +
                         "'08:00', '12:00', '13:00', '17:00', '08:00', 8, 1)")) {
                     statement.setInt(1, employeeId); statement.setInt(2, nextPeriod);
-                    statement.setDate(3, Date.valueOf("2026-10-01")); statement.executeUpdate();
-                    statement.setDate(3, Date.valueOf("2026-10-02")); statement.executeUpdate();
+                    statement.setDate(3, Date.valueOf("2026-11-02")); statement.executeUpdate();
+                    statement.setDate(3, Date.valueOf("2026-11-03")); statement.executeUpdate();
                 }
                 assertTrue(pointageSyntheseService.preflightPeriode(nextPeriod, connection).pret());
                 pointageSyntheseService.gelerPeriode(nextPeriod, null, connection);
@@ -285,7 +285,7 @@ class PayrollPointageToBulletinIntegrationTest {
                     statement.setInt(2, sortant);
                     statement.executeUpdate();
                 }
-                LocalDate monday = LocalDate.of(2026, 9, 21);
+                LocalDate monday = LocalDate.of(2026, 10, 19);
                 int entrantContract = CongeTestFixtureHelper.createContratActif(connection, entrant, monday.plusDays(1));
                 int entrantAssignment = CongeTestFixtureHelper.createAffectation(connection, entrant, entrantContract,
                         monday.plusDays(1), new BigDecimal("350000"));
@@ -357,7 +357,7 @@ class PayrollPointageToBulletinIntegrationTest {
                 }
 
                 int periodId = CongeTestFixtureHelper.createPeriodePaie(connection,
-                        "E2E-" + employeeId, LocalDate.of(2026, 9, 24), LocalDate.of(2026, 9, 25), "VALIDEE");
+                        "E2E-" + employeeId, LocalDate.of(2026, 10, 26), LocalDate.of(2026, 10, 27), "VALIDEE");
 
                 // 1. preparerInput doit lever SirhBusinessException avec PAYROLL_EMPLOYEE_INACTIVE
                 mg.galaxam.sirh.common.exception.SirhBusinessException ex = assertThrows(

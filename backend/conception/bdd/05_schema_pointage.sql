@@ -53,7 +53,8 @@ CREATE TABLE periode_paie (
     version INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_periode_dates CHECK (date_fin > date_debut)
+    CONSTRAINT chk_periode_dates CHECK (date_fin > date_debut),
+    CONSTRAINT ex_periode_paie_dates EXCLUDE USING gist (daterange(date_debut, date_fin, '[]') WITH &&)
 );
 
 CREATE INDEX idx_periode_paie_statut ON periode_paie(id_statut_periode);

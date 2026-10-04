@@ -299,6 +299,13 @@ public class PointageSyntheseService {
         PointageTemporalConfigurationGuard.verify(idEmp, dateDebut, dateFin, c);
         Map<LocalDate, mg.galaxam.sirh.contrat.application.EmploymentContextResolver.PointageDay> contextesJournaliers =
                 employmentContextResolver.resolvePointageDays(idEmp, dateDebut, dateFin, c);
+        Map<Integer, Set<LocalDate>> joursChomesParSite = new HashMap<>();
+        Set<LocalDate> joursChomesEmploye = new HashSet<>();
+        for (var contexte : contextesJournaliers.entrySet()) {
+            Set<LocalDate> joursChomesSite = joursChomesParSite.computeIfAbsent(contexte.getValue().siteId(),
+                    site -> calendrierEngine.getDatesFeriesEtChomees(dateDebut, dateFin, site, c));
+            if (joursChomesSite.contains(contexte.getKey())) joursChomesEmploye.add(contexte.getKey());
+        }
         int joursOuvrablesReels = calendrierEngine.compterJoursOuvrables(dateDebut, dateFin, idSite, c);
         if (joursOuvrablesReels > 0) nbJoursOuvrablesPeriode = joursOuvrablesReels;
         BigDecimal seuilHsTranche1;
@@ -504,9 +511,7 @@ public class PointageSyntheseService {
         if (contextesJournaliers.values().stream().anyMatch(
                 mg.galaxam.sirh.contrat.application.EmploymentContextResolver.PointageDay::dispensePointage)) {
             for (LocalDate day = dateDebut; !day.isAfter(dateFin); day = day.plusDays(1)) {
-                if (datesAvecPointage.contains(day) || CalendrierOuvrableEngine.isWeekend(day)
-                        || (dateDebutEmploi != null && day.isBefore(dateDebutEmploi))
-                        || (dateFinEmploi != null && day.isAfter(dateFinEmploi))) continue;
+                if (datesAvecPointage.contains(day) || CalendrierOuvrableEngine.isWeekend(day)) continue;
                 var contexteJour = contextesJournaliers.get(day);
                 if (contexteJour == null || !contexteJour.dispensePointage()) continue;
                 int dailySite = contexteJour.siteId();
@@ -564,10 +569,6 @@ public class PointageSyntheseService {
         List<AttendanceEngine.WeekResult> weeklyResults = new ArrayList<>();
         int semIndex = 1;
 
-        Set<LocalDate> feriesChomesTroncon = (calendrierEngine != null) 
-                ? calendrierEngine.getDatesFeriesEtChomees(dateDebut, dateFin, idSite, c)
-                : Collections.emptySet();
-
         for (Map.Entry<LocalDate, List<AttendanceEngine.Result>> entry : parSemaine.entrySet()) {
             LocalDate lundi = entry.getKey();
             List<AttendanceEngine.Result> jours = entry.getValue();
@@ -579,28 +580,20 @@ public class PointageSyntheseService {
             }
             LocalDate debutTroncon = lundi.isBefore(dateDebut) ? dateDebut : lundi;
 
-            LocalDate debutActifTroncon = dateDebutEmploi != null && dateDebutEmploi.isAfter(debutTroncon)
-                    ? dateDebutEmploi : debutTroncon;
-            LocalDate finActifTroncon = dateFinEmploi != null && dateFinEmploi.isBefore(finTroncon)
-                    ? dateFinEmploi : finTroncon;
-            boolean emploiActifDansTroncon = !debutActifTroncon.isAfter(finActifTroncon);
-            int joursOuvresTroncon = !emploiActifDansTroncon ? 0 : (calendrierEngine != null
-                    ? calendrierEngine.compterJoursOuvrables(debutActifTroncon, finActifTroncon, idSite, c)
-                    : CalendrierOuvrableEngine.calculerJoursOuvrables(debutActifTroncon, finActifTroncon));
+            int joursOuvresTroncon = 0;
             int joursFerieTroncon = 0;
-            for (LocalDate cur = debutActifTroncon; emploiActifDansTroncon && !cur.isAfter(finActifTroncon); cur = cur.plusDays(1)) {
-                if (!CalendrierOuvrableEngine.isWeekend(cur) && feriesChomesTroncon.contains(cur)) {
-                    joursFerieTroncon++;
-                }
+            for (LocalDate cur = debutTroncon; !cur.isAfter(finTroncon); cur = cur.plusDays(1)) {
+                if (!contextesJournaliers.containsKey(cur) || CalendrierOuvrableEngine.isWeekend(cur)) continue;
+                if (joursChomesEmploye.contains(cur)) joursFerieTroncon++;
+                else joursOuvresTroncon++;
             }
 
             // Décompter les congés validés sur les jours ouvrés non fériés du tronçon
             // (évite le cumul : un jour férié chômé ne peut pas être décompté deux fois)
             double joursCongeTroncon = 0.0;
             for (AttendanceEngine.Result j : jours) {
-                if (!emploiActifDansTroncon || j.date().isBefore(debutActifTroncon)
-                        || j.date().isAfter(finActifTroncon)) continue;
-                if (!CalendrierOuvrableEngine.isWeekend(j.date()) && !feriesChomesTroncon.contains(j.date())) {
+                if (!contextesJournaliers.containsKey(j.date())) continue;
+                if (!CalendrierOuvrableEngine.isWeekend(j.date()) && !joursChomesEmploye.contains(j.date())) {
                     if (j.status() == AttendanceEngine.Result.Status.LEAVE) {
                         joursCongeTroncon += 1.0;
                     } else if (j.status() == AttendanceEngine.Result.Status.HALF_DAY) {
@@ -621,13 +614,20 @@ public class PointageSyntheseService {
                     .multiply(BigDecimal.valueOf(60)).setScale(0, RoundingMode.HALF_UP).longValueExact();
             long firstBandMinutes = AttendanceEngine.prorateFirstOvertimeBand(
                     configuredFirstBandMinutes, expectedMinutes, nominalWeekMinutes);
+            LocalDate premierJourEmploi = null;
+            for (LocalDate day = debutTroncon; !day.isAfter(finTroncon); day = day.plusDays(1)) {
+                if (contextesJournaliers.containsKey(day)) {
+                    premierJourEmploi = day;
+                    break;
+                }
+            }
             // Règle métier confirmée GALAXAM (Phase 1B) :
             // Les périodes de paie sont strictement étanches pour le calcul des HS et des absences.
             // Aucune compensation ordinaire (HS <-> déficit) ne traverse une frontière de période.
             // Chaque tronçon est calculé avec son propre seuil et sa propre compensation autonome.
             AttendanceEngine.WeekResult res = weeklyAttendanceCalculator.calculateWeek(
                     new AttendanceEngine.WeekContext(lundi, expectedMinutes, firstBandMinutes,
-                            emploiActifDansTroncon && resolveOvertimeEligibility(idEmp, debutActifTroncon, c),
+                            premierJourEmploi != null && resolveOvertimeEligibility(idEmp, premierJourEmploi, c),
                             seuilHeuresJour.multiply(BigDecimal.valueOf(60)).longValueExact()), jours);
             weeklyResults.add(res);
 
@@ -899,15 +899,21 @@ public class PointageSyntheseService {
                 + "FROM periode_paie periode "
                 + "CROSS JOIN LATERAL generate_series(periode.date_debut, periode.date_fin, interval '1 day') AS jour(date_jour) "
                 + "JOIN LATERAL (SELECT a.id_site FROM employe_affectation_carriere a "
+                + "JOIN contrat_travail ct ON ct.id_contrat=a.id_contrat "
+                + "JOIN ref_statut_rh sa ON sa.id_statut_rh=a.id_statut_rh "
+                + "JOIN ref_statut_rh sc ON sc.id_statut_rh=ct.id_statut_rh "
                 + "WHERE a.id_employe = ? AND a.date_debut <= jour.date_jour::date "
                 + "AND (a.date_fin IS NULL OR a.date_fin >= jour.date_jour::date) "
-                + "ORDER BY a.date_debut DESC, a.id_affectation DESC LIMIT 1) affectation ON TRUE "
+                + "AND ct.date_debut <= jour.date_jour::date AND (ct.date_fin IS NULL OR ct.date_fin >= jour.date_jour::date) "
+                + "AND sa.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') "
+                + "AND sc.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') "
+                + ") affectation ON TRUE "
                 + "JOIN ref_indemnite i ON i.est_actif = TRUE "
                 + "JOIN LATERAL (SELECT sic.montant_reference, sic.periodicite, sic.est_actif FROM site_indemnite_config sic "
                 + "WHERE sic.id_site = affectation.id_site AND sic.id_indemnite = i.id_indemnite "
                 + "AND sic.date_debut <= jour.date_jour::date "
                 + "AND (sic.date_fin IS NULL OR sic.date_fin >= jour.date_jour::date) "
-                + "ORDER BY sic.date_debut DESC, sic.id_site_indemnite DESC LIMIT 1) config ON TRUE "
+                + "AND sic.est_actif = TRUE) config ON TRUE "
                 + "WHERE periode.id_periode_paie = ? AND config.montant_reference > 0 "
                 + "AND config.periodicite = 'FIXE_MENSUEL' AND config.est_actif = TRUE GROUP BY i.code";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
@@ -1480,12 +1486,6 @@ public class PointageSyntheseService {
         }
     }
 
-    private record AffectationOuvrable(LocalDate debut, LocalDate fin, int siteId) {
-        boolean couvre(LocalDate jour) {
-            return !jour.isBefore(debut) && (fin == null || !jour.isAfter(fin));
-        }
-    }
-
     private List<PointagePreflight.JourneeManquante> journeesOuvrablesSansStatut(int periodId,
             List<PointageSyntheseMensuelleDTO> synthese, Connection c) throws SQLException {
         LocalDate debut;
@@ -1508,40 +1508,22 @@ public class PointageSyntheseService {
                         .add(rs.getDate(2).toLocalDate());
             }
         }
-        Map<Integer, List<AffectationOuvrable>> affectations = new HashMap<>();
-        try (PreparedStatement ps = c.prepareStatement(
-                "SELECT a.id_employe, a.date_debut, a.date_fin, a.id_site "
-                + "FROM employe_affectation_carriere a JOIN ref_statut_rh s ON s.id_statut_rh = a.id_statut_rh "
-                + "WHERE s.code = 'ACTIF' AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?)")) {
-            ps.setDate(1, Date.valueOf(fin));
-            ps.setDate(2, Date.valueOf(debut));
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Date finAffectation = rs.getDate(3);
-                    affectations.computeIfAbsent(rs.getInt(1), ignored -> new ArrayList<>())
-                            .add(new AffectationOuvrable(rs.getDate(2).toLocalDate(),
-                                    finAffectation == null ? null : finAffectation.toLocalDate(), rs.getInt(4)));
-                }
-            }
-        }
         Map<Integer, Set<LocalDate>> feriesParSite = new HashMap<>();
         List<PointagePreflight.JourneeManquante> manquantes = new ArrayList<>();
         for (PointageSyntheseMensuelleDTO employe : synthese) {
-            if (employe.isDispensePointage()) continue;
             Set<LocalDate> saisies = datesSaisies.getOrDefault(employe.getIdEmploye(), Set.of());
-            List<AffectationOuvrable> carrieres = affectations.getOrDefault(employe.getIdEmploye(), List.of());
+            var joursEmploi = employmentContextResolver.resolvePointageDays(employe.getIdEmploye(), debut, fin, c);
             for (LocalDate jour = debut; !jour.isAfter(fin); jour = jour.plusDays(1)) {
                 if (CalendrierOuvrableEngine.isWeekend(jour) || saisies.contains(jour)) continue;
-                LocalDate jourControle = jour;
-                AffectationOuvrable active = carrieres.stream().filter(a -> a.couvre(jourControle)).findFirst().orElse(null);
-                if (active == null) continue;
-                Set<LocalDate> feries = feriesParSite.get(active.siteId());
+                var emploiDuJour = joursEmploi.get(jour);
+                if (emploiDuJour == null || emploiDuJour.dispensePointage()) continue;
+                Set<LocalDate> feries = feriesParSite.get(emploiDuJour.siteId());
                 if (feries == null) {
-                    feries = calendrierEngine.getDatesFeriesEtChomees(debut, fin, active.siteId(), c);
-                    feriesParSite.put(active.siteId(), feries);
+                    feries = calendrierEngine.getDatesFeriesEtChomees(debut, fin, emploiDuJour.siteId(), c);
+                    feriesParSite.put(emploiDuJour.siteId(), feries);
                 }
                 if (!feries.contains(jour)) manquantes.add(new PointagePreflight.JourneeManquante(
-                        employe.getIdEmploye(), employe.getMatricule(), employe.getNom(), employe.getPrenom(), jour, active.siteId()));
+                        employe.getIdEmploye(), employe.getMatricule(), employe.getNom(), employe.getPrenom(), jour, emploiDuJour.siteId()));
             }
         }
         return manquantes;
@@ -1623,15 +1605,21 @@ public class PointageSyntheseService {
                 + "FROM periode_paie periode "
                 + "CROSS JOIN LATERAL generate_series(periode.date_debut, periode.date_fin, interval '1 day') AS jour(date_jour) "
                 + "JOIN LATERAL (SELECT a.id_site FROM employe_affectation_carriere a "
+                + "JOIN contrat_travail ct ON ct.id_contrat=a.id_contrat "
+                + "JOIN ref_statut_rh sa ON sa.id_statut_rh=a.id_statut_rh "
+                + "JOIN ref_statut_rh sc ON sc.id_statut_rh=ct.id_statut_rh "
                 + "WHERE a.id_employe = ? AND a.date_debut <= jour.date_jour::date "
                 + "AND (a.date_fin IS NULL OR a.date_fin >= jour.date_jour::date) "
-                + "ORDER BY a.date_debut DESC, a.id_affectation DESC LIMIT 1) affectation ON TRUE "
+                + "AND ct.date_debut <= jour.date_jour::date AND (ct.date_fin IS NULL OR ct.date_fin >= jour.date_jour::date) "
+                + "AND sa.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') "
+                + "AND sc.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') "
+                + ") affectation ON TRUE "
                 + "JOIN ref_indemnite i ON i.est_actif = TRUE "
                 + "JOIN LATERAL (SELECT sic.montant_reference, sic.periodicite, sic.est_actif FROM site_indemnite_config sic "
                 + "WHERE sic.id_site = affectation.id_site AND sic.id_indemnite = i.id_indemnite "
                 + "AND sic.date_debut <= jour.date_jour::date "
                 + "AND (sic.date_fin IS NULL OR sic.date_fin >= jour.date_jour::date) "
-                + "ORDER BY sic.date_debut DESC, sic.id_site_indemnite DESC LIMIT 1) config ON TRUE "
+                + "AND sic.est_actif = TRUE) config ON TRUE "
                 + "WHERE periode.id_periode_paie = ? AND config.montant_reference > 0 "
                 + "AND config.periodicite = 'FIXE_MENSUEL' AND config.est_actif = TRUE "
                 + "GROUP BY i.id_indemnite, i.code, i.libelle, i.imposable_irsa, i.soumis_cotisation, i.code_rubrique_paie";

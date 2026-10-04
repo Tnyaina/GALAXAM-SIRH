@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Archive, ArrowRight, CalendarDays, Download, FileSpreadsheet, FileText, FolderOpen } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import PageHeader from '@/components/ui/navigation/PageHeader';
+import Tabs from '@/components/ui/navigation/Tabs';
 import Button from '@/components/ui/forms/Button';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Badge from '@/components/ui/data-display/Badge';
@@ -180,11 +181,12 @@ export default function DeclarationsSortiesPage() {
                 </CardBody>
             </Card>
 
-            <nav aria-label="Périodicité des documents" className="flex border-b border-[var(--color-border-subtle)] gap-1">
-                {TABS.map(tab => <button key={tab.id} type="button" onClick={() => changeParam('vue', tab.id)}
-                    aria-current={activeTab === tab.id ? 'page' : undefined}
-                    className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${activeTab === tab.id ? 'border-[var(--color-brand-600)] text-[var(--color-brand-700)]' : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'}`}>{tab.label}</button>)}
-            </nav>
+            <Tabs
+                tabs={TABS}
+                activeTab={activeTab}
+                onChange={(id) => changeParam('vue', id)}
+                className="mt-2"
+            />
 
             {activeTab !== 'mensuel' && <Card shadow="none">
                 <CardHeader><CardTitle size="sm">{activeTab === 'trimestriel' ? `Couverture de ${selectedQuarter.slice(5)} ${selectedQuarter.slice(0, 4)}` : `Couverture de ${selectedYear}`} · {validatedMonthCount}/{coveredMonths.length} périodes validées</CardTitle></CardHeader>
@@ -195,7 +197,7 @@ export default function DeclarationsSortiesPage() {
                             const state = monthStatus(item);
                             return <div key={key} className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-3 min-w-0">
                                 <div className="flex items-center justify-between gap-2"><span className="text-sm font-semibold">{MONTH_NAMES[Number(key.slice(5)) - 1]} {key.slice(0, 4)}</span><Badge variant={state.variant} size="xs">{state.label}</Badge></div>
-                                {item && <button type="button" className="mt-2 text-xs font-semibold text-[var(--color-brand-700)] hover:underline" onClick={() => navigate(`/paie/periodes/${item.idPeriodePaie || item.id}/sorties`)}>Voir la campagne →</button>}
+                                {item && <Button variant="link" size="xs" className="mt-2 p-0 h-auto font-semibold" onClick={() => navigate(`/paie/periodes/${item.idPeriodePaie || item.id}/sorties`)}>Voir la campagne →</Button>}
                             </div>;
                         })}
                     </div>

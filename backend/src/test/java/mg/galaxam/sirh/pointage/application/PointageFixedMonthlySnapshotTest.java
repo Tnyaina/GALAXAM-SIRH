@@ -27,6 +27,7 @@ class PointageFixedMonthlySnapshotTest {
     @Test
     void prorataMensuelUtiliseLeTarifDeChaqueSiteEtNeRepliePasUneRegleDesactivee() throws Exception {
         try (Connection c = dataSource.getConnection()) {
+            verifyTestDatabase(c);
             c.setAutoCommit(false);
             try {
                 String suffix = Long.toString(System.nanoTime(), 36);
@@ -90,6 +91,7 @@ class PointageFixedMonthlySnapshotTest {
     @Test
     void montantFixeMensuelEstRepartiParJoursCalendairesEntreDeuxSites() throws Exception {
         try (Connection c = dataSource.getConnection()) {
+            verifyTestDatabase(c);
             c.setAutoCommit(false);
             try {
                 int site2;
@@ -131,8 +133,15 @@ class PointageFixedMonthlySnapshotTest {
                     ps.setInt(3, site2);
                     ps.executeUpdate();
                 }
-                int period = CongeTestFixtureHelper.createPeriodePaie(c, "FX-" + suffix,
-                        LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), "EN_COURS");
+                int period;
+                try (PreparedStatement ps = c.prepareStatement(
+                        "SELECT id_periode_paie FROM periode_paie WHERE date_debut = '2026-09-01' "
+                                + "AND date_fin = '2026-09-30'")) {
+                    try (ResultSet rs = ps.executeQuery()) {
+                        period = rs.next() ? rs.getInt(1) : CongeTestFixtureHelper.createPeriodePaie(c,
+                                "FX-" + suffix, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), "EN_COURS");
+                    }
+                }
                 int allowance;
                 try (PreparedStatement ps = c.prepareStatement(
                         "INSERT INTO ref_indemnite (code, libelle, imposable_irsa, soumis_cotisation, est_actif) "
@@ -212,6 +221,13 @@ class PointageFixedMonthlySnapshotTest {
             } finally {
                 c.rollback();
             }
+        }
+    }
+
+    private static void verifyTestDatabase(Connection c) throws Exception {
+        try (var statement = c.createStatement(); var result = statement.executeQuery("SELECT current_database()")) {
+            assertTrue(result.next());
+            assertEquals("sirh_galaxam_test", result.getString(1));
         }
     }
 }

@@ -346,9 +346,9 @@ export default function EmployeFicheDetailPage() {
                     <ArrowLeft size={16} />
                     Retour au Répertoire du personnel
                 </Link>
-                <div className="bg-[var(--color-surface)] dark:bg-ink-900 border border-ink-150 dark:border-ink-700 p-8 text-center space-y-3">
-                    <XCircle size={40} className="mx-auto text-danger-500" />
-                    <p className="text-base font-bold text-ink-900 dark:text-[var(--color-on-color)]">{error || "Employé non trouvé"}</p>
+                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-8 text-center space-y-3">
+                    <XCircle size={40} className="mx-auto text-[var(--color-danger-500)]" />
+                    <p className="text-base font-bold text-[var(--color-fg)]">{error || "Employé non trouvé"}</p>
                     <Button onClick={() => navigate('/employes')} variant="outline" size="sm">
                         Retour au Répertoire
                     </Button>

@@ -2077,90 +2077,23 @@ public class PointageService {
         public boolean dispensePointage;
     }
 
-    /**
-     * Détermine de manière canonique l'affectation active d'un collaborateur à une date donnée.
-     * Gère les transitions successives : si une ancienne affectation a une date_fin NULL,
-     * sa date de fin effective est automatiquement déduite comme étant la veille de l'affectation suivante.
-     */
     private static BigDecimal zeroIfNull(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
     }
 
+    /** Affectation de lecture applicable au jour demandé, sans repli sur un ancien site. */
     public static AffCandidat trouverAffectationApplicable(List<AffCandidat> affs, LocalDate targetDate) {
+        if (targetDate == null) throw new IllegalArgumentException("Date de pointage obligatoire.");
         if (affs == null || affs.isEmpty()) return null;
-
-        // 1. Filtrer les statuts non effectifs (annulés, brouillons, rejetés)
-        List<AffCandidat> valides = new ArrayList<>();
-        for (AffCandidat a : affs) {
-            if (a.codeStatut != null && ("ANNULE".equalsIgnoreCase(a.codeStatut)
-                    || "BROUILLON".equalsIgnoreCase(a.codeStatut)
-                    || "REJETE".equalsIgnoreCase(a.codeStatut))) {
-                continue;
-            }
-            valides.add(a);
-        }
-        if (valides.isEmpty()) return null;
-
-        // 2. Trier par dateDebut ASC, en plaçant ACTIF en dernier en cas d'égalité, puis par idAffectation ASC
-        valides.sort((a, b) -> {
-            LocalDate d1 = a.dateDebut != null ? a.dateDebut : LocalDate.MIN;
-            LocalDate d2 = b.dateDebut != null ? b.dateDebut : LocalDate.MIN;
-            int c = d1.compareTo(d2);
-            if (c != 0) return c;
-            boolean aActif = "ACTIF".equalsIgnoreCase(a.codeStatut);
-            boolean bActif = "ACTIF".equalsIgnoreCase(b.codeStatut);
-            if (aActif != bActif) return aActif ? 1 : -1;
-            return Integer.compare(a.idAffectation, b.idAffectation);
-        });
-
-        // 3. Évaluer les intervalles [dateDebut, dateFinEffective]
-        AffCandidat retenue = null;
-        for (int i = 0; i < valides.size(); i++) {
-            AffCandidat cur = valides.get(i);
-            LocalDate start = cur.dateDebut != null ? cur.dateDebut : LocalDate.MIN;
-            LocalDate end = cur.dateFin;
-
-            if (end == null && i + 1 < valides.size()) {
-                AffCandidat next = valides.get(i + 1);
-                if (next.dateDebut != null && !next.dateDebut.isBefore(start)) {
-                    end = next.dateDebut.minusDays(1);
-                }
-            }
-
-            boolean apresDebut = (targetDate == null) || !targetDate.isBefore(start);
-            boolean avantFin = (targetDate == null) || (end == null || !targetDate.isAfter(end));
-
-            if (apresDebut && avantFin) {
-                retenue = cur;
-            }
-        }
-
-        // 4. Si aucune affectation ne couvre précisément (ex : targetDate dans le futur par rapport à une affectation clôturée),
-        // retenir la plus récente commencée avant targetDate
-        if (retenue == null && targetDate != null) {
-            for (int i = valides.size() - 1; i >= 0; i--) {
-                AffCandidat a = valides.get(i);
-                LocalDate start = a.dateDebut != null ? a.dateDebut : LocalDate.MIN;
-                if (!targetDate.isBefore(start)) {
-                    retenue = a;
-                    break;
-                }
-            }
-        }
-
-        // 5. Repli de secours : l'affectation active (ACTIF), sinon la dernière de la liste
-        if (retenue == null) {
-            for (AffCandidat a : valides) {
-                if ("ACTIF".equalsIgnoreCase(a.codeStatut)) {
-                    retenue = a;
-                    break;
-                }
-            }
-            if (retenue == null && !valides.isEmpty()) {
-                retenue = valides.get(valides.size() - 1);
-            }
-        }
-
-        return retenue;
+        List<AffCandidat> applicables = affs.stream()
+                .filter(a -> a.dateDebut != null && !targetDate.isBefore(a.dateDebut)
+                        && (a.dateFin == null || !targetDate.isAfter(a.dateFin)))
+                .filter(a -> List.of("ACTIF", "HISTORISE", "CLOTURE", "ROMPU")
+                        .contains(a.codeStatut == null ? "" : a.codeStatut.toUpperCase(java.util.Locale.ROOT)))
+                .toList();
+        if (applicables.size() > 1) throw new IllegalStateException(
+                "AMBIGUOUS_CONFIGURATION: AFFECTATION_SITE au " + targetDate + "; versions="
+                        + applicables.stream().map(a -> a.idAffectation).toList());
+        return applicables.isEmpty() ? null : applicables.get(0);
     }
 }

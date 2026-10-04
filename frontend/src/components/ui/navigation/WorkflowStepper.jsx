@@ -107,10 +107,10 @@ export default function WorkflowStepper({ steps = [], currentStep, onStepClick, 
                         isCloturee
                             ? 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border-[var(--color-border)]'
                             : isValidee
-                                ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] border-[var(--color-brand-500)]/30'
+                                ? 'bg-[var(--color-success-500)]/10 text-[var(--color-success-700)] dark:text-[var(--color-success-400)] border-[var(--color-success-500)]/30'
                                 : isTransmis
                                     ? 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] border-[var(--color-warning-500)]/30'
-                                    : 'bg-[var(--color-success-500)]/10 text-[var(--color-success-700)] dark:text-[var(--color-success-400)] border-[var(--color-success-500)]/30'
+                                    : 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] border-[var(--color-brand-500)]/30'
                     }`}>
                         {activePeriode.statutLibelle || activePeriode.statutCode || 'En cours'}
                     </span>

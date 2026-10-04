@@ -103,9 +103,7 @@ const attendanceApi = {
         getWeekDetail: async ({ idPeriodePaie, dateDebut, dateFin, idSite }) => (await apiClient.get('/pointages/synthese/semaine-detail', { params: { idPeriodePaie, dateDebut, dateFin, idSite: cleanSite(idSite) } })).data,
         getPreflight: async ({ idPeriodePaie }) => {
             const data = (await apiClient.get('/pointages/synthese/preflight', { params: { idPeriodePaie } })).data;
-            if (data && data.pret === undefined) {
-                data.pret = Boolean(!data.blocages?.length && !data.journeesManquantes?.length && (data.nombreEmployes > 0));
-            }
+            if (typeof data?.pret !== 'boolean') throw new Error('Précontrôle Pointage invalide : décision serveur absente.');
             return data;
         },
         getAdjustments: async ({ idPeriodePaie, idEmploye }) => (await apiClient.get('/pointages/synthese/ajustements', { params: { idPeriodePaie, idEmploye } })).data,

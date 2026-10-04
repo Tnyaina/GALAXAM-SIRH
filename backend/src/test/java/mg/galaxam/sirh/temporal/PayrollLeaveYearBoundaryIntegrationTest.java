@@ -622,6 +622,29 @@ class PayrollLeaveYearBoundaryIntegrationTest {
         decimal("34000", summary.getMontantRepas());
         assertTrue(summary.isDispensePointage());
     }
+
+    @Test void objectifHebdomadaireCouvreLesDeuxAffectationsAutourDuPremierJanvier() throws Exception {
+        try (var ps = c.prepareStatement("UPDATE ref_calendrier_ferie SET est_chome=FALSE "
+                + "WHERE date_ferie BETWEEN DATE '2025-12-26' AND DATE '2026-01-25'")) {
+            ps.executeUpdate();
+        }
+        int janvier = changeAssignment();
+        int nouveauSite = temporalSite("WK");
+        try (var ps = c.prepareStatement("UPDATE employe_affectation_carriere SET id_site=? WHERE id_affectation=?")) {
+            ps.setInt(1, nouveauSite); ps.setInt(2, janvier); ps.executeUpdate();
+        }
+        int period = bulletin("2025-12-26", "2026-01-25");
+        var summary = new mg.galaxam.sirh.pointage.application.PointageSyntheseService().calculerSyntheseEmploye(
+                employee, "TEST", "Temporal", "Test", null, 1, "TNR", "TNR", "AGENT", false, false,
+                date("2025-12-26"), date("2026-01-25"), period, "TEST", "TEST", "EN_COURS", 21,
+                null, java.util.Map.of(), c);
+        var transition = summary.getTronconsSemaine().stream()
+                .filter(week -> "2025-12-29".equals(week.getDebutSemaine()))
+                .findFirst().orElseThrow();
+        // 29-31 décembre (ancienne affectation) et 1-2 janvier (nouvelle) : cinq jours requis.
+        assertEquals(5, transition.getNbJoursTroncon());
+        assertEquals(40.0, transition.getSeuilHeuresTroncon(), 0.001);
+    }
     int temporalSite(String prefix) throws Exception {
         try(var ps=c.prepareStatement("INSERT INTO ref_site(code_site,libelle) VALUES (?,?) RETURNING id_site")) {
             ps.setString(1,prefix+employee);ps.setString(2,prefix+employee);

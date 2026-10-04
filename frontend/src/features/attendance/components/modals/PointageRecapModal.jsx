@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
-import { CheckCircle2, AlertTriangle, Clock, Calendar, Users, Gift } from 'lucide-react';
+import { CheckCircle2, Clock, Calendar, Users, Gift } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
+import Alert from '@/components/ui/feedback/Alert';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { formatHeuresMinutes, formatHeuresDecimal } from '@/features/attendance/utils/attendanceDisplayUtils';
@@ -152,27 +153,30 @@ export default function PointageRecapModal({
                     {previewErrors.length > 0 && ` · ${previewErrors.length} calcul(s) échoué(s)`}
                 </p>
                 {previewErrors.length > 0 && (
-                    <div role="alert" className="p-3 text-xs text-[var(--color-danger-600)] border border-[var(--color-danger-500)] bg-[var(--color-danger-500)]/10">
-                        Corrigez ou relancez la saisie des lignes dont la prévisualisation a échoué avant de confirmer.
-                        {previewErrors.map(row => <div key={row.idEmploye}>{row.nom} {row.prenom} : {row._previewError}</div>)}
-                    </div>
+                    <Alert variant="danger">
+                        <div>
+                            <p className="font-bold">Corrigez ou relancez la saisie des lignes dont la prévisualisation a échoué avant de confirmer :</p>
+                            {previewErrors.map(row => <div key={row.idEmploye} className="mt-0.5">{row.nom} {row.prenom} : {row._previewError}</div>)}
+                        </div>
+                    </Alert>
                 )}
 
                 {/* 3. Alerte Anomalies si présentes */}
                 {anomalies.length > 0 && (
-                    <div className="p-3.5 bg-[var(--color-warning-500)]/10 border-l-4 border-l-[var(--color-warning-500)] flex items-start gap-2.5 text-xs text-[var(--color-warning-900)] dark:text-[var(--color-warning-200)]">
-                        <AlertTriangle size={17} className="text-[var(--color-warning-600)] shrink-0 mt-0.5" />
-                        <div>
-                            <p className="font-bold">{anomalies.length} anomalie(s) de saisie constatée(s) :</p>
+                    <Alert
+                        variant="warning"
+                        title={`${anomalies.length} anomalie(s) de saisie constatée(s) :`}
+                    >
+                        <div className="space-y-1 mt-1">
                             {anomalies.map(row => (
-                                <p key={row.idEmploye} className="text-[11.5px] mt-1">
+                                <p key={row.idEmploye} className="text-[11.5px]">
                                     {row.nom} {row.prenom} : {row.validationMessages?.length
                                         ? row.validationMessages.join(' · ')
                                         : 'Statut d’anomalie enregistré ; modifiez la ligne pour relancer le calcul.'}
                                 </p>
                             ))}
                         </div>
-                    </div>
+                    </Alert>
                 )}
 
                 {/* 4. Tableau Synthétique Complet et Confortable */}

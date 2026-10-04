@@ -57,6 +57,8 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState('');
     const [preflight, setPreflight] = useState(null);
+    const [preflightError, setPreflightError] = useState('');
+    const [preflightRevision, setPreflightRevision] = useState(0);
     const loadSequence = useRef(0);
     const [loadedQuery, setLoadedQuery] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -203,15 +205,22 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     useEffect(() => {
         if (!selectedPeriode) {
             setPreflight(null);
+            setPreflightError('');
             return undefined;
         }
         setPreflight(null);
+        setPreflightError('');
         let cancelled = false;
         pointageSyntheseService.getPreflight({ idPeriodePaie: selectedPeriode })
             .then(result => { if (!cancelled) setPreflight(result); })
-            .catch(() => { if (!cancelled) setPreflight(null); });
+            .catch(error => {
+                if (!cancelled) {
+                    setPreflight(null);
+                    setPreflightError(getErrorMessage(error, 'Précontrôle indisponible.'));
+                }
+            });
         return () => { cancelled = true; };
-    }, [selectedPeriode]);
+    }, [selectedPeriode, preflightRevision]);
 
     // Données dérivées
     const currentPeriodeObj = useMemo(() =>
@@ -226,13 +235,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const periodActions = String(activePeriode?.idPeriodePaie) === String(selectedPeriode)
         ? activePeriode.availableActions || {} : currentPeriodeObj?.availableActions || {};
     const isPendingDaf = ['A_VALIDER', 'TRANSMIS_DAF'].includes(currentPeriodeObj?.statutCode);
-    const isPreflightPret = Boolean(
-        preflight && (
-            preflight.pret !== undefined
-                ? preflight.pret
-                : (!preflight.blocages?.length && !preflight.journeesManquantes?.length && (preflight.nombreEmployes > 0))
-        )
-    );
+    const isPreflightPret = preflight?.pret === true;
     const canApprove = !loading && !loadError && isPreflightPret && periodActions.APPROVE?.allowed === true;
     const canReject = periodActions.REJECT?.allowed === true;
     const approvalBlockCode = periodActions.APPROVE?.reasonCodes?.[0];
@@ -368,6 +371,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 const list = await periodePaieService.getAllPeriodes();
                 if (list) setPeriodes(list);
                 await loadData();
+                setPreflightRevision(value => value + 1);
             }
         } catch (err) {
             toast({ title: 'Erreur', message: getErrorMessage(err, 'Impossible de valider la période.'), type: 'error' });
@@ -391,6 +395,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 const list = await periodePaieService.getAllPeriodes();
                 if (list) setPeriodes(list);
                 await loadData();
+                setPreflightRevision(value => value + 1);
             }
         } catch (err) {
             toast({ title: 'Erreur', message: getErrorMessage(err, 'Impossible de renvoyer la période.'), type: 'error' });
@@ -414,6 +419,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 const updatedList = await periodePaieService.getAllPeriodes();
                 if (updatedList) setPeriodes(updatedList);
                 await loadData();
+                setPreflightRevision(value => value + 1);
             } else {
                 toast({ title: 'Erreur', message: res?.message || 'Erreur lors de la transmission.', type: 'error' });
             }
@@ -442,6 +448,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                     type: 'success'
                 });
                 await loadData();
+                setPreflightRevision(value => value + 1);
                 if (selectedSemaine) {
                     await loadGanttData(selectedSemaine);
                 }
@@ -562,6 +569,9 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                     <span>{loadError} Les données précédentes ont été masquées.</span>
                     <Button type="button" variant="outline" size="sm" onClick={loadData}>Réessayer</Button>
                 </div>}
+                {!loadError && preflightError && <div role="alert" className="border border-[var(--color-danger-300)] bg-[var(--color-danger-50)] p-3 text-sm text-[var(--color-danger-800)]">
+                    {preflightError} La validation reste bloquée jusqu’à ce que le contrôle serveur soit disponible.
+                </div>}
                 {!loadError && isPendingDaf && preflight && !isPreflightPret && (
                     <div role="status" aria-live="polite" className="border border-[var(--color-warning-300)] bg-[var(--color-warning-50)] p-4 text-sm text-[var(--color-warning-900)] space-y-2">
                         <strong>Validation en attente de correction</strong>
@@ -619,7 +629,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             {isPeriodLocked
                                 ? 'Le pointage est scellé. Les données figées alimentent le calcul de la paie.'
                                 : isPendingDaf
-                                    ? 'La période est transmise pour arbitrage. Après validation, le pointage sera gelé et les heures, absences et indemnités consolidées seront utilisées par la paie.'
+                                    ? 'La période est transmise pour arbitrage. Vérifiez les soldes hebdomadaires, corrigez les journées ou ajustez le solde final avec un motif si nécessaire. La validation scelle une version utilisée par la paie.'
                                     : canSubmit
                                         ? 'La transmission ouvre l’examen DAF. Le gel définitif intervient après la décision de validation.'
                                         : 'La période ne peut pas encore être transmise. Consultez les prérequis et les motifs de blocage ci-dessus.'}
@@ -1257,6 +1267,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             setSelectedEmployeToAdjust(null);
                             setAdjustInitialDate(null);
                             loadData();
+                            setPreflightRevision(value => value + 1);
                             if (selectedSemaine) loadGanttData(selectedSemaine);
                         }}
                     />
@@ -1287,7 +1298,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         idPeriodePaie={Number(selectedPeriode)}
                         readOnly={!isDaf || isPeriodLocked}
                         onClose={() => setSelectedEmployeForSolde(null)}
-                        onChanged={loadData}
+                        onChanged={() => {
+                            loadData();
+                            setPreflightRevision(value => value + 1);
+                        }}
                     />
                 </Suspense>
             )}

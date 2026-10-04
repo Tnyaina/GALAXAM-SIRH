@@ -12,6 +12,7 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Badge from '@/components/ui/data-display/Badge';
 import { Card } from '@/components/ui/data-display/Card';
 import StatCard from '@/components/ui/data-display/StatCard';
+import Pagination from '@/components/ui/navigation/Pagination';
 import { Tr, Td } from '@/components/ui/data-display/Table';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
@@ -480,25 +481,12 @@ export default function CalculStepPage() {
                                     </div>
                                     {/* Pagination salariés bloqués */}
                                     {blockedPageCount > 1 && (
-                                        <div className="flex items-center justify-between gap-2 border-t border-[var(--color-warning-500)]/30 bg-[var(--color-surface)] px-4 py-2.5">
-                                            <span className="text-[11px] text-[var(--color-fg-muted)]">Page {blockedPageSafe} / {blockedPageCount} · {blockedFiltered.length} salarié(s)</span>
-                                            <div className="flex items-center gap-1">
-                                                <Button variant="outline" size="xs" disabled={blockedPageSafe <= 1} onClick={() => setBlockedPage(p => Math.max(1, p - 1))}>‹ Préc.</Button>
-                                                {Array.from({ length: blockedPageCount }, (_, i) => i + 1).map(p => (
-                                                    <button
-                                                        key={p}
-                                                        type="button"
-                                                        onClick={() => setBlockedPage(p)}
-                                                        className={`w-6 h-6 text-[11px] font-semibold border cursor-pointer transition-colors ${
-                                                            p === blockedPageSafe
-                                                                ? 'bg-[var(--color-brand-500)] text-white border-[var(--color-brand-500)]'
-                                                                : 'bg-[var(--color-surface)] text-[var(--color-fg-muted)] border-[var(--color-border)] hover:bg-[var(--color-bg-subtle)]'
-                                                        }`}
-                                                    >{p}</button>
-                                                ))}
-                                                <Button variant="outline" size="xs" disabled={blockedPageSafe >= blockedPageCount} onClick={() => setBlockedPage(p => Math.min(blockedPageCount, p + 1))}>Suiv. ›</Button>
-                                            </div>
-                                        </div>
+                                        <Pagination
+                                            currentPage={blockedPageSafe}
+                                            totalItems={blockedFiltered.length}
+                                            pageSize={BLOCKED_PAGE_SIZE}
+                                            onPageChange={setBlockedPage}
+                                        />
                                     )}
                                 </section>
                             );

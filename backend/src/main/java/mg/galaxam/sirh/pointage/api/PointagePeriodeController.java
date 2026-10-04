@@ -95,13 +95,14 @@ public class PointagePeriodeController {
     @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<PeriodePaieDTO> getCurrentPeriode(@RequestParam(required = false) String date)
             throws SQLException {
-        String targetDate = (date != null && !date.trim().isEmpty()) ? date : java.time.LocalDate.now().toString();
+        String targetDate = (date != null && !date.trim().isEmpty()) ? date
+                : java.time.LocalDate.now(java.time.ZoneId.of("Indian/Antananarivo")).toString();
         String sql = "SELECT p.id_periode_paie, p.code, p.libelle, p.date_debut, p.date_fin, " +
                      "p.id_statut_periode, s.code AS statut_code, s.libelle AS statut_libelle, p.motif_rejet, p.version " +
                      "FROM periode_paie p " +
                      "JOIN ref_statut_periode_paie s ON p.id_statut_periode = s.id_statut_periode " +
                      "WHERE ? BETWEEN p.date_debut AND p.date_fin " +
-                     "ORDER BY p.date_debut DESC LIMIT 1";
+                     "ORDER BY p.date_debut DESC LIMIT 2";
 
         try (Connection c = dataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
@@ -129,6 +130,8 @@ public class PointagePeriodeController {
                         dto.setNbJoursCalendaires(calendrierEngine.compterJoursCalendaires(dDeb.toLocalDate(), dFin.toLocalDate()));
                         dto.setNbJoursFeries(calendrierEngine.compterJoursFeriesChomes(dDeb.toLocalDate(), dFin.toLocalDate(), null, c));
                     }
+                    if (rs.next()) throw new SirhBusinessException(SirhErrorCode.POINTAGE_PERIOD_CONTEXT_AMBIGUOUS,
+                            "Plusieurs périodes de paie couvrent le " + targetDate + ".");
                     return ResponseEntity.ok(dto);
                 }
             }
@@ -203,13 +206,24 @@ public class PointagePeriodeController {
             throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
                     "Le code, la date de début et la date de fin sont requis.");
         }
+        java.time.LocalDate debut;
+        java.time.LocalDate fin;
+        try {
+            debut = java.time.LocalDate.parse(dateDebut);
+            fin = java.time.LocalDate.parse(dateFin);
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                    "Les dates de période doivent être au format AAAA-MM-JJ.");
+        }
+        if (!fin.isAfter(debut)) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                "La date de fin de période doit suivre la date de début.");
 
         // Une création ne rend jamais la saisie modifiable par elle-même :
         // l'ouverture explicite (OPEN) constitue la première transition auditée.
         String statutInitial = (String) payload.getOrDefault("statutCode", "BROUILLON");
-        if (!"BROUILLON".equals(statutInitial) && !"EN_COURS".equals(statutInitial)) {
-            statutInitial = "EN_COURS";
-        }
+        if (!"BROUILLON".equals(statutInitial)) throw new SirhBusinessException(
+                SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED,
+                "La période doit être créée en brouillon puis ouverte par la commande OPEN.");
 
         String sql = "INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode) " +
                      "VALUES (?, ?, ?, ?, (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = ?))";
@@ -218,8 +232,8 @@ public class PointagePeriodeController {
              PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setString(1, code);
                 ps.setString(2, libelle != null ? libelle : code);
-                ps.setDate(3, java.sql.Date.valueOf(dateDebut));
-                ps.setDate(4, java.sql.Date.valueOf(dateFin));
+                ps.setDate(3, java.sql.Date.valueOf(debut));
+                ps.setDate(4, java.sql.Date.valueOf(fin));
                 ps.setString(5, statutInitial);
                 ps.executeUpdate();
 
@@ -229,8 +243,11 @@ public class PointagePeriodeController {
         } catch (SQLException e) {
             if ("23505".equals(e.getSQLState())) {
                 throw new SirhBusinessException(SirhErrorCode.DATA_DUPLICATE,
-                        "Une période possédant ce code ou ces dates existe déjà.");
+                        "Une période possédant ce code existe déjà.");
             }
+            if ("23P01".equals(e.getSQLState())) throw new SirhBusinessException(
+                    SirhErrorCode.POINTAGE_PERIOD_CONTEXT_AMBIGUOUS,
+                    "Une période de paie couvre déjà une partie du " + debut + " au " + fin + ".");
             throw new SirhBusinessException(SirhErrorCode.PERSISTENCE_ERROR);
         }
     }
