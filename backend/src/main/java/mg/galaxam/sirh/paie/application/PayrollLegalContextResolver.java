@@ -4,8 +4,6 @@ package mg.galaxam.sirh.paie.application;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +18,7 @@ import mg.galaxam.sirh.paie.domain.engine.TaxConfigurationResolver;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import mg.galaxam.sirh.paieconfig.persistence.RefTauxMajoration;
+import mg.galaxam.sirh.paieconfig.application.SocialContributionContextResolver;
 
 /** Résout, à la date métier de la période, l'unique contexte légal consommé par le moteur de paie. */
 @Component
@@ -38,6 +37,15 @@ public class PayrollLegalContextResolver {
         }
 
         int configId = config.getIdConfigLegale();
+        if (config.getSmeNational() == null || config.getSmeNational().signum() <= 0)
+            throw PayrollConfigurationGuard.missing("SME_NATIONAL", input.getIdEmploye(), targetDate.toString());
+        if (config.getPlafondAvanceEmployeurPct() == null)
+            throw PayrollConfigurationGuard.missing("PLAFOND_AVANCE_EMPLOYEUR", input.getIdEmploye(), targetDate.toString());
+        if (config.getQuotiteCessiblePct() == null)
+            throw PayrollConfigurationGuard.missing("QUOTITE_CESSIBLE", input.getIdEmploye(), targetDate.toString());
+        if (input.isSoumisIrsa() && (config.getMinimumPerceptionIrsa() == null
+                || config.getDeductionChargeFamille() == null))
+            throw PayrollConfigurationGuard.missing("PARAMETRES_IRSA", input.getIdEmploye(), targetDate.toString());
         input.setSmeNational(config.getSmeNational());
         if (config.getPlafondCotisationMensuel() == null || config.getPlafondCotisationMensuel().signum() <= 0)
             throw PayrollConfigurationGuard.missing("PLAFOND_COTISATION_MENSUEL", input.getIdEmploye(), targetDate.toString());
@@ -46,10 +54,10 @@ public class PayrollLegalContextResolver {
         input.setQuotiteCessible(config.getQuotiteCessiblePct().movePointLeft(2));
         input.setMinimumPerceptionIrsa(config.getMinimumPerceptionIrsa());
         input.setDeductionParEnfant(config.getDeductionChargeFamille());
-        if (config.getDiviseurMensuelHeures() != null
-                && config.getDiviseurMensuelHeures().compareTo(BigDecimal.ZERO) > 0) {
-            input.setDiviseurMensuelHeures(config.getDiviseurMensuelHeures());
-        }
+        if (config.getDiviseurMensuelHeures() == null
+                || config.getDiviseurMensuelHeures().compareTo(BigDecimal.ZERO) <= 0)
+            throw PayrollConfigurationGuard.missing("DIVISEUR_MENSUEL_HEURES", input.getIdEmploye(), targetDate.toString());
+        input.setDiviseurMensuelHeures(config.getDiviseurMensuelHeures());
         Boolean exoActive = config.getExonerationHsIrsaActive();
         boolean estActif = Boolean.TRUE.equals(exoActive);
         input.setExonerationHsIrsaActive(estActif);
@@ -72,39 +80,11 @@ public class PayrollLegalContextResolver {
 
     private void resolveCompanySocialContributions(
             PayrollCalculationInput input, LocalDate targetDate, Connection connection) throws Exception {
-        String sql = "SELECT code, categorie, taux_salarial, taux_patronal FROM ref_type_cotisation "
-                + "WHERE (code IN ('CNAPS', 'FMFP') OR categorie IN ('PREVOYANCE', 'FORMATION')) AND est_actif = true "
-                + "AND date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) ORDER BY code";
-        boolean cnapsFound = false;
-        boolean fmfpFound = false;
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            Date date = Date.valueOf(targetDate);
-            statement.setDate(1, date);
-            statement.setDate(2, date);
-            try (ResultSet resultSet = statement.executeQuery()) {
-                while (resultSet.next()) {
-                    String code = resultSet.getString("code");
-                    String cat = resultSet.getString("categorie");
-                    if ("CNAPS".equals(code) || "PREVOYANCE".equals(cat)) {
-                        if (cnapsFound) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: CNAPS au " + targetDate);
-                        input.setTauxCnapsSalarial(toDecimalRate(resultSet.getBigDecimal("taux_salarial")));
-                        input.setTauxCnapsPatronal(toDecimalRate(resultSet.getBigDecimal("taux_patronal")));
-                        cnapsFound = true;
-                    } else if ("FMFP".equals(code) || "FORMATION".equals(cat)) {
-                        if (fmfpFound) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: FMFP au " + targetDate);
-                        input.setTauxFmfpPatronal(toDecimalRate(resultSet.getBigDecimal("taux_patronal")));
-                        fmfpFound = true;
-                    }
-                }
-            }
-        }
-        if (input.isSoumisCnaps() && (!cnapsFound || !fmfpFound)) {
-            throw PayrollConfigurationGuard.missing("COTISATIONS_ENTREPRISE", input.getIdEmploye(), targetDate.toString());
-        }
-    }
-
-    private static BigDecimal toDecimalRate(BigDecimal percentage) {
-        return percentage == null ? null : percentage.movePointLeft(2);
+        if (!input.isSoumisCnaps()) return;
+        var rates = new SocialContributionContextResolver().companyRates(targetDate, connection);
+        input.setTauxCnapsSalarial(rates.cnapsEmployee());
+        input.setTauxCnapsPatronal(rates.cnapsEmployer());
+        input.setTauxFmfpPatronal(rates.fmfpEmployer());
     }
 
     private void resolveOvertimeRates(
@@ -166,40 +146,15 @@ public class PayrollLegalContextResolver {
 
     void resolveHealthContribution(PayrollCalculationInput input, LocalDate targetDate,
             Connection connection) throws Exception {
-        String sql = "SELECT tc.code, tc.taux_salarial, tc.taux_patronal, sc.est_plafonne_sante " +
-                "FROM site_cotisation sc " +
-                "JOIN ref_site s ON sc.id_site = s.id_site " +
-                "JOIN ref_type_cotisation tc ON sc.id_type_cotisation = tc.id_type_cotisation " +
-                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) " +
-                "AND (tc.categorie = 'SANTE' OR tc.code IN ('OSTIE', 'OMSI')) " +
-                "AND sc.est_actif = true AND tc.date_debut <= ? " +
-                "AND (tc.date_fin IS NULL OR tc.date_fin >= ?) " +
-                "ORDER BY tc.code, sc.id_site_cotisation LIMIT 2";
-        boolean found = false;
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            bindSite(input, ps);
-            Date effectiveDate = Date.valueOf(targetDate);
-            ps.setDate(3, effectiveDate);
-            ps.setDate(4, effectiveDate);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    input.setCodeSanteOrgane(rs.getString("code"));
-                    BigDecimal employeeRate = rs.getBigDecimal("taux_salarial");
-                    BigDecimal employerRate = rs.getBigDecimal("taux_patronal");
-                    input.setTauxSanteSalarial(employeeRate == null ? null : employeeRate.movePointLeft(2));
-                    input.setTauxSantePatronal(employerRate == null ? null : employerRate.movePointLeft(2));
-                    input.setEstPlafonneSante(rs.getBoolean("est_plafonne_sante"));
-                    found = true;
-                    if (rs.next()) {
-                        throw PayrollConfigurationGuard.missing(
-                                "AMBIGUOUS_CONFIGURATION:COTISATION_SANTE", input.getIdEmploye(), targetDate + " site=" + input.getCodeSite());
-                    }
-                }
-            }
-        }
-        if (input.isSoumisSante() && !found) {
-            throw PayrollConfigurationGuard.missing("COTISATION_SANTE", input.getIdEmploye(), targetDate + " site=" + input.getCodeSite());
-        }
+        if (!input.isSoumisSante()) return;
+        var rate = new SocialContributionContextResolver().healthRate(input.getCodeSite(), targetDate, connection);
+        if (rate == null)
+            throw PayrollConfigurationGuard.missing("COTISATION_SANTE", input.getIdEmploye(),
+                    targetDate + " site=" + input.getCodeSite());
+        input.setCodeSanteOrgane(rate.code());
+        input.setTauxSanteSalarial(rate.employee());
+        input.setTauxSantePatronal(rate.employer());
+        input.setEstPlafonneSante(rate.capped());
     }
 
     private void resolveDynamicParameters(
@@ -219,12 +174,7 @@ public class PayrollLegalContextResolver {
             input.setPrimeAssiduiteForfait(nonNegativeDecimal(montantAssiduite, "MONTANT_PRIME_ASSIDUITE"));
         } else if (montantAssiduite.isDisabled()) {
             input.setPrimeAssiduiteForfait(BigDecimal.ZERO);
-        } else {
-            // Si non trouvé (missing) : pas de fallback, on ne donne pas (0 Ar)
-            if (input.getPrimeAssiduiteForfait() == null) {
-                input.setPrimeAssiduiteForfait(BigDecimal.ZERO);
-            }
-        }
+        } else throw missingParameter("MONTANT_PRIME_ASSIDUITE");
 
         String[] malusCodes = {"SEUIL_RETARD_PENALITE_PP_MIN", "SEUIL_CONGES_PENALITE_PP_JOURS", "TAUX_PENALITE_PP"};
         boolean malusActive = true;
@@ -292,8 +242,4 @@ public class PayrollLegalContextResolver {
         return new IllegalStateException("Paramètre de paie actif invalide : " + code);
     }
 
-    private void bindSite(PayrollCalculationInput input, PreparedStatement statement) throws Exception {
-        statement.setString(1, input.getCodeSite() != null ? input.getCodeSite() : "");
-        statement.setString(2, "%" + (input.getNomSite() != null ? input.getNomSite().toUpperCase() : "") + "%");
-    }
 }

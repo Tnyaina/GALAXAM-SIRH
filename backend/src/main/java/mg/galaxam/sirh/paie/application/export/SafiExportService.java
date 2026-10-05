@@ -1,5 +1,7 @@
 package mg.galaxam.sirh.paie.application.export;
 
+import java.time.LocalDate;
+
 
 import mg.galaxam.sirh.paie.persistence.BulletinPaie;
 import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
@@ -379,52 +381,13 @@ public class SafiExportService {
         return sb.toString();
     }
 
-    private String chercherDateFinContrat(Integer idEmploye, Date dateDebutPeriode, Date dateFinPeriode, Connection c) {
-        // 1. Détection prioritaire via Solde de Tout Compte (indispensable pour les CDI dont ct.date_fin est NULL)
-        String sqlStc = "SELECT date_depart FROM paie_stc WHERE id_employe = ? ORDER BY date_depart DESC LIMIT 1";
-        try (PreparedStatement psStc = c.prepareStatement(sqlStc)) {
-            psStc.setInt(1, idEmploye);
-            try (ResultSet rsStc = psStc.executeQuery()) {
-                if (rsStc.next() && rsStc.getDate("date_depart") != null) {
-                    Date dateDepart = rsStc.getDate("date_depart");
-                    if (dateDebutPeriode != null && dateFinPeriode != null) {
-                        if (!dateDepart.before(dateDebutPeriode) && !dateDepart.after(dateFinPeriode)) {
-                            return DATE_FMT.format(dateDepart.toLocalDate());
-                        }
-                    } else {
-                        return DATE_FMT.format(dateDepart.toLocalDate());
-                    }
-                }
-            }
-        } catch (Exception ignored) {}
-
-        // 2. Recherche standard sur contrat_travail (échéances CDD)
-        String sql = "SELECT ct.date_fin, rsa.code AS statut_rh " +
-                     "FROM contrat_travail ct " +
-                     "LEFT JOIN employe_affectation_carriere eac ON ct.id_contrat = eac.id_contrat " +
-                     "LEFT JOIN ref_statut_rh rsa ON eac.id_statut_rh = rsa.id_statut_rh " +
-                     "WHERE ct.id_employe = ? ORDER BY ct.date_debut DESC LIMIT 1";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, idEmploye);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next() && rs.getDate("date_fin") != null) {
-                    Date dateFin = rs.getDate("date_fin");
-                    String statutRh = rs.getString("statut_rh");
-
-                    // Échéance future : pas encore débauché
-                    if (dateFinPeriode != null && dateFin.after(dateFinPeriode)) {
-                        return "";
-                    }
-                    if (dateDebutPeriode != null && dateFin.before(dateDebutPeriode)) {
-                        if ("ACTIF".equalsIgnoreCase(statutRh)) {
-                            return "";
-                        }
-                    }
-                    return DATE_FMT.format(dateFin.toLocalDate());
-                }
-            }
-        } catch (Exception ignored) {}
-        return "";
+    private String chercherDateFinContrat(Integer idEmploye, Date dateDebutPeriode,
+            Date dateFinPeriode, Connection c) throws Exception {
+        if (dateDebutPeriode == null || dateFinPeriode == null)
+            throw new IllegalStateException("Bornes de campagne manquantes pour l'export.");
+        LocalDate departure = PayrollExportDepartureResolver.forPeriod(idEmploye,
+                dateDebutPeriode.toLocalDate(), dateFinPeriode.toLocalDate(), c);
+        return departure == null ? "" : DATE_FMT.format(departure);
     }
 
     private String escape(String s) {

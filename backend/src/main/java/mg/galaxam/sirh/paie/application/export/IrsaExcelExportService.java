@@ -144,29 +144,17 @@ public class IrsaExcelExportService {
     }
 
     private static Header loadHeader(Integer periodId, Connection c) throws Exception {
-        String sql = "SELECT p.code, p.date_fin, rf.raison_sociale, rf.nif, rf.adresse_siege " +
-                "FROM periode_paie p JOIN bulletin_paie b ON b.id_periode_paie = p.id_periode_paie " +
-                "LEFT JOIN LATERAL (SELECT f.raison_sociale, f.nif, f.adresse_siege " +
-                "FROM contrat_travail ct JOIN ref_filiale f ON f.id_filiale = ct.id_filiale " +
-                "WHERE ct.id_employe = b.id_employe AND ct.date_debut <= p.date_fin " +
-                "ORDER BY ct.date_debut DESC, ct.id_contrat DESC LIMIT 1) rf ON TRUE " +
-                "WHERE p.id_periode_paie = ?";
-        Header header = null;
+        String sql = "SELECT code,date_fin FROM periode_paie p WHERE id_periode_paie=? "
+                + "AND EXISTS (SELECT 1 FROM bulletin_paie b WHERE b.id_periode_paie=p.id_periode_paie)";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, periodId);
             try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    if (rs.getString("raison_sociale") == null) throw new IllegalStateException("Filiale manquante pour un bulletin IRSA.");
-                    Header current = new Header(rs.getString("code"), rs.getDate("date_fin").toLocalDate(),
-                            rs.getString("raison_sociale"), rs.getString("nif"), rs.getString("adresse_siege"));
-                    if (header != null && (!header.company().equals(current.company()) || !java.util.Objects.equals(header.nif(), current.nif()))) {
-                        throw new IllegalStateException("Plusieurs filiales dans cette période : générer un état IRSA par filiale.");
-                    }
-                    header = current;
-                }
+                if (!rs.next()) throw new IllegalStateException("Aucun bulletin pour cette période.");
+                var company = PayrollExportCompanyResolver.forPeriod(periodId, c);
+                return new Header(rs.getString("code"), rs.getDate("date_fin").toLocalDate(),
+                        company.name(), company.nif(), company.address());
             }
         }
-        if (header == null) throw new IllegalStateException("Aucun bulletin pour cette période.");
-        return header;
     }
+
 }

@@ -107,7 +107,8 @@ public class AncienneteEngine {
             dateOrigineChaine = c.dateDebut();
 
             LocalDate debut = c.dateDebut();
-            LocalDate fin = (c.dateFin() != null) ? c.dateFin() : refDate;
+            LocalDate fin = c.dateFin() != null && c.dateFin().isBefore(refDate)
+                    ? c.dateFin() : refDate;
 
             // Si la date de début est bien avant ou égale à la fin
             if (!debut.isAfter(fin)) {

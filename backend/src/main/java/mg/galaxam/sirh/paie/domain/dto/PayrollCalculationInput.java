@@ -15,7 +15,8 @@ import mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy;
 import mg.galaxam.sirh.paie.domain.engine.TemporalRateResolver;
 
 /**
- * Objet d'entrée complet et immuable pour le calcul déterministe d'un bulletin de paie.
+ * Entrée unique d'un bulletin, renseignée par PayrollCalculationContextAssembler avant le calcul.
+ * Mutable pendant l'assemblage ; le moteur la lit sans la modifier.
  */
 public class PayrollCalculationInput {
 

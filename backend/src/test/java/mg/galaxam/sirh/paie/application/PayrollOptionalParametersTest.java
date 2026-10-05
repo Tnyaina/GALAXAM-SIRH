@@ -95,14 +95,19 @@ class PayrollOptionalParametersTest {
 
     @Test
     void missingOrInvalidActiveParameterDoesNotBecomeDisabled() {
-        var params = parameters();
-        params.remove("SEUIL_RETARD_ASSIDUITE_MIN");
+        var missingThreshold = parameters();
+        missingThreshold.remove("SEUIL_RETARD_ASSIDUITE_MIN");
         assertThrows(IllegalStateException.class,
-                () -> PayrollLegalContextResolver.applyDynamicParameters(primeInput(), params));
-        params.put("SEUIL_RETARD_ASSIDUITE_MIN", new ParametreGlobal.ParametreEtat(
+                () -> PayrollLegalContextResolver.applyDynamicParameters(primeInput(), missingThreshold));
+        var missingAmount = parameters();
+        missingAmount.remove("MONTANT_PRIME_ASSIDUITE");
+        assertThrows(IllegalStateException.class,
+                () -> PayrollLegalContextResolver.applyDynamicParameters(primeInput(), missingAmount));
+        var invalidThreshold = parameters();
+        invalidThreshold.put("SEUIL_RETARD_ASSIDUITE_MIN", new ParametreGlobal.ParametreEtat(
                 "SEUIL_RETARD_ASSIDUITE_MIN", "oops", true, true));
         assertThrows(IllegalStateException.class,
-                () -> PayrollLegalContextResolver.applyDynamicParameters(primeInput(), params));
+                () -> PayrollLegalContextResolver.applyDynamicParameters(primeInput(), invalidThreshold));
     }
 
     private static PayrollCalculationInput primeInput() {

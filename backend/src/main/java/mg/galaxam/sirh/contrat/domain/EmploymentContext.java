@@ -16,6 +16,8 @@ public record EmploymentContext(
         String prenom,
         String nomComplet,
         String cinNumero,
+        LocalDate cinDateDelivrance,
+        String cinLieuDelivrance,
         String numAffiliationCnaps,
         LocalDate dateNaissance,
         boolean estActifEmploye,

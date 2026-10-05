@@ -112,21 +112,7 @@ public class GrandLivrePaieExportService {
         }
     }
     static Map<Integer, String> loadFiliales(Integer periodId, Connection connection) throws Exception {
-        Map<Integer, String> result = new HashMap<>();
-        String sql = "SELECT b.id_bulletin, f.raison_sociale FROM bulletin_paie b " +
-                "JOIN periode_paie p ON p.id_periode_paie = b.id_periode_paie " +
-                "LEFT JOIN LATERAL (SELECT rf.raison_sociale FROM contrat_travail ct " +
-                "JOIN ref_filiale rf ON rf.id_filiale = ct.id_filiale " +
-                "WHERE ct.id_employe = b.id_employe AND ct.date_debut <= p.date_fin " +
-                "ORDER BY ct.date_debut DESC, ct.id_contrat DESC LIMIT 1) f ON TRUE " +
-                "WHERE b.id_periode_paie = ?";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setInt(1, periodId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) result.put(rs.getInt(1), rs.getString(2));
-            }
-        }
-        return result;
+        return PayrollExportCompanyResolver.namesByBulletin(periodId, connection);
     }
     private static void writeSummary(Sheet sheet, int rowIndex, BulletinPaie b, List<BulletinPaieLigne> lines,
                                      String filiale, Styles s) {

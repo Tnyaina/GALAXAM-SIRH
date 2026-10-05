@@ -17,3 +17,10 @@ Ce dossier regroupe l'ensemble des règles de configuration légale, des barème
 - `domain/` : invariants métier
 
 Toutes les routes d'origine restent préservées sans régression côté frontend.
+# Résolution datée des cotisations
+
+`application.SocialContributionContextResolver` est la source de résolution pour les
+taux CNaPS, FMFP et Santé par site. Il prend une date métier explicite : fin de campagne
+pour le bulletin mensuel, date de départ pour le STC. Une version manquante ou
+chevauchante bloque le calcul. Le résolveur ne calcule ni assiette ni montant ; ces
+opérations appartiennent aux moteurs des domaines consommateurs.

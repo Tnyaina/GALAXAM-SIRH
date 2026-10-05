@@ -5,6 +5,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.time.LocalDate;
+import mg.galaxam.sirh.contrat.application.EmployerIdentityContextResolver;
 
 /** Identité légale de l'employeur portée par les bulletins de la période. */
 final class PayrollExportCompanyResolver {
@@ -14,27 +18,43 @@ final class PayrollExportCompanyResolver {
         String nifCompact() { return nif.replaceAll("\\s+", ""); }
     }
 
+    static Company forEmployee(int employeeId, LocalDate start, LocalDate end,
+            Connection connection) throws Exception {
+        var employer = new EmployerIdentityContextResolver().resolve(employeeId, start, end, connection);
+        return new Company(employer.name(), employer.nif(), employer.address());
+    }
+
+    static Map<Integer, String> namesByBulletin(int periodId, Connection connection) throws Exception {
+        Map<Integer, String> result = new LinkedHashMap<>();
+        String sql = "SELECT b.id_bulletin,b.id_employe,p.date_debut,p.date_fin FROM bulletin_paie b "
+                + "JOIN periode_paie p ON p.id_periode_paie=b.id_periode_paie WHERE b.id_periode_paie=?";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, periodId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) result.put(rs.getInt(1), forEmployee(rs.getInt(2),
+                        rs.getDate(3).toLocalDate(), rs.getDate(4).toLocalDate(), connection).name());
+            }
+        }
+        return result;
+    }
+
     static Company forPeriod(int periodId, Connection connection) throws Exception {
-        String sql = "SELECT DISTINCT f.id_filiale, f.raison_sociale, f.nif, f.adresse_siege " +
-                "FROM bulletin_paie b JOIN periode_paie p ON p.id_periode_paie=b.id_periode_paie " +
-                "LEFT JOIN LATERAL (SELECT ct.id_filiale FROM contrat_travail ct " +
-                "WHERE ct.id_employe=b.id_employe AND ct.date_debut<=p.date_fin " +
-                "ORDER BY ct.date_debut DESC, ct.id_contrat DESC LIMIT 1) ct ON TRUE " +
-                "LEFT JOIN ref_filiale f ON f.id_filiale=ct.id_filiale WHERE b.id_periode_paie=?";
+        String sql = "SELECT b.id_employe,p.date_debut,p.date_fin FROM bulletin_paie b "
+                + "JOIN periode_paie p ON p.id_periode_paie=b.id_periode_paie "
+                + "WHERE b.id_periode_paie=? ORDER BY b.id_employe";
         List<Company> companies = new ArrayList<>();
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setInt(1, periodId);
             try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) companies.add(new Company(rs.getString("raison_sociale"), rs.getString("nif"), rs.getString("adresse_siege")));
+                while (rs.next()) {
+                    Company company = forEmployee(rs.getInt(1), rs.getDate(2).toLocalDate(),
+                            rs.getDate(3).toLocalDate(), connection);
+                    if (!companies.contains(company)) companies.add(company);
+                }
             }
         }
-        if (companies.isEmpty()) {
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "SELECT raison_sociale,nif,adresse_siege FROM ref_filiale WHERE est_actif=TRUE ORDER BY id_filiale" );
-                 ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) companies.add(new Company(rs.getString(1), rs.getString(2), rs.getString(3)));
-            }
-        }
+        if (companies.isEmpty()) throw new IllegalStateException(
+                "Export impossible : aucun bulletin ne permet de déterminer la filiale de la période " + periodId + ".");
         if (companies.size() != 1) throw new IllegalStateException(
                 "Export impossible : sélectionnez une seule filiale employeur pour cette période.");
         Company company = companies.get(0);
@@ -58,7 +78,8 @@ final class PayrollExportCompanyResolver {
                 }
             }
         }
-        if (companies.isEmpty()) return forPeriod(-1, connection);
+        if (companies.isEmpty()) throw new IllegalStateException(
+                "Export impossible : aucune période ne permet de déterminer la filiale du trimestre.");
         if (companies.size() != 1) throw new IllegalStateException(
                 "Export impossible : plusieurs filiales employeurs figurent dans le trimestre.");
         return companies.get(0);

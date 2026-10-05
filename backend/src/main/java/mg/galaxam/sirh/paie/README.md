@@ -7,6 +7,67 @@ métier ne sont pas interchangeables avec celles du contrat.
 
 Ce dossier regroupe le moteur de paie, la préparation et le calcul des bulletins, les campagnes de paie, le solde de tout compte (STC) et les exports fiscaux/sociaux.
 
+## Contexte d'un bulletin
+
+`PayrollCalculationContextAssembler` construit l'unique `PayrollCalculationInput` transmis à
+`PayrollExecutionEngine`. Sa méthode `assemble` appelle, dans l'ordre, les lectures de période,
+emploi, salaire et ancienneté datés, banque, famille fiscale, snapshot Pointage, congés et lots historiques,
+configuration légale, mouvements approuvés et prêt actif. Les méthodes unitaires partagent la
+même connexion et la même transaction. `PayrollService.preparerInput` reste la façade publique.
+Avant le retour, l'assembleur contrôle la couverture salariale, le snapshot, la configuration
+légale, le site, la catégorie, le mode de calcul et les taux obligatoires selon l'assujettissement.
+Une configuration absente bloque le calcul ; elle ne devient pas un site, une catégorie ou un
+paramètre inventé.
+
+La date de fin de campagne résout les paramètres mensuels ; les heures majorées utilisent la
+date de chaque tranche de pointage, le salaire suit ses jours d'effet, et les congés consommés
+conservent la valeur de leurs lots. L'assembleur prépare les valeurs ; le moteur calcule sans SQL.
+En calcul réel, la préparation verrouille les mouvements et peut actualiser le montant d'une
+rubrique dérivée dans la transaction. La simulation annule ces effets à son point de sauvegarde.
+Ce contexte appartient au bulletin mensuel. Le STC, le journal des acquisitions congé et les
+déclarations ont leurs propres dates métier et consomment des résultats ou résolveurs du domaine.
+L'entrée reste mutable pendant l'assemblage ; son immutabilité stricte n'est pas encore imposée.
+
+### Inventaire des contextes et limite de l'unification
+
+Trois objets portent des données de contexte utiles au bulletin : `EmploymentContext`
+est une vue contrat/affectation **à une date**, `PayrollLegalContextResolver` résout
+les référentiels légaux **à la fin de campagne** (et les majorations au jour de la
+tranche), et `PayrollCalculationInput` réunit leurs résultats avec pointage figé,
+congés, mouvements et prêt pour **un bulletin mensuel**. Le premier et le deuxième
+sont des sources de résolution spécialisées ; seul le troisième est remis au moteur.
+L'assembleur utilise désormais `EmploymentContextResolver.resolveContext` à la date du
+dernier jour couvert par l'emploi : identité, contrat, affectation, site, catégorie,
+régime et salaire de clôture viennent de cette projection unique. La couverture et le
+salaire journalier appliquent les mêmes statuts admissibles. Les indicateurs sociaux
+manquants sont bloquants et ne deviennent plus des valeurs implicites.
+
+Ce regroupement ne constitue pas une garantie d'exhaustivité globale : les exports et
+le STC ont des dates métier distinctes, et `PayrollCalculationInput` reste mutable avec
+quelques valeurs par défaut historiques. Ces parcours doivent être audités avant de
+prétendre à une source d'exécution unique pour tout le domaine Paie.
+La préparation STC réutilise maintenant cette projection Emploi à la date de départ ;
+la santé du STC résout le code exact du site et son diviseur horaire doit être configuré
+à cette date. Les autres traitements de calcul et les exports STC restent distincts
+du contexte du bulletin mensuel.
+Les cotisations CNaPS, FMFP et Santé sont résolues par
+`paieconfig.application.SocialContributionContextResolver`, appelé par le bulletin à
+la fin de campagne et par le STC à la date de départ. L'assiette et le calcul restent
+dans leurs moteurs respectifs ; aucune valeur de taux n'est recopiée entre contextes.
+L'export DNTS utilise le même résolveur pour ses libellés de taux et son contrôle
+trimestriel. Sa régularisation trimestrielle existante reste une règle de déclaration
+distincte du calcul mensuel figé.
+Les exports obtiennent l'identité de la filiale employeur auprès de
+`contrat.application.EmployerIdentityContextResolver`, sur la plage de campagne ;
+un contrat futur ne peut plus changer l'employeur affiché sur une ancienne campagne.
+DNTS et SAFI partagent `PayrollExportDepartureResolver` pour ne déclarer un départ
+que dans la campagne concernée. Une exportation sans bulletin ne devine plus la
+filiale à partir de la première fiche active.
+L'identité légale de l'employeur n'est toutefois pas figée dans `bulletin_paie` : une
+modification rétroactive d'un contrat ou de `ref_filiale` peut encore modifier une
+réimpression historique. Résoudre ce dernier cas demande une décision de conservation
+des données d'émission avant toute migration de schéma.
+
 - `api/` : contrôleurs REST (`PaieController`, `PaieAjustementController`, `PaieRubriqueController`, `StcController`)
 - `api/dto/` : contrats DTO (`PayrollCampaignStep`, `CalculPeriodeRequest`, `stc/*`, etc.)
 - `application/` : services applicatifs (`PayrollService`, `StcService`, `workflow/`, `export/`)

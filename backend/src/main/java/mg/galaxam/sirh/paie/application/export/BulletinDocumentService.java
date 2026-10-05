@@ -42,21 +42,19 @@ public class BulletinDocumentService {
     private record Rubrique(String libelle, BigDecimal base, BigDecimal taux, BigDecimal gain, BigDecimal retenue) {}
 
     public Context context(BulletinPaieComplet complet, Connection connection) throws Exception {
-        String sql = "SELECT p.code, p.date_debut, p.date_fin, f.raison_sociale, f.adresse_siege, f.nif, f.stat " +
-                "FROM periode_paie p LEFT JOIN LATERAL (SELECT rf.raison_sociale, rf.adresse_siege, rf.nif, rf.stat " +
-                "FROM contrat_travail ct JOIN ref_filiale rf ON rf.id_filiale = ct.id_filiale " +
-                "WHERE ct.id_employe = ? AND ct.date_debut <= p.date_fin " +
-                "ORDER BY ct.date_debut DESC, ct.id_contrat DESC LIMIT 1) f ON TRUE WHERE p.id_periode_paie = ?";
+        String sql = "SELECT code, date_debut, date_fin FROM periode_paie WHERE id_periode_paie=?";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setInt(1, complet.getBulletin().getIdEmploye());
-            ps.setInt(2, complet.getBulletin().getIdPeriodePaie());
+            ps.setInt(1, complet.getBulletin().getIdPeriodePaie());
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) throw new IllegalStateException("Période de paie introuvable");
+                var start = rs.getDate("date_debut").toLocalDate();
+                var end = rs.getDate("date_fin").toLocalDate();
+                var employer = new mg.galaxam.sirh.contrat.application.EmployerIdentityContextResolver()
+                        .resolve(complet.getBulletin().getIdEmploye(), start, end, connection);
                 DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                String dates = rs.getDate("date_debut").toLocalDate().format(dateFormat) + " au "
-                        + rs.getDate("date_fin").toLocalDate().format(dateFormat);
-                return new Context(n(rs.getString("code")), dates, n(rs.getString("raison_sociale")),
-                        n(rs.getString("adresse_siege")), n(rs.getString("nif")), n(rs.getString("stat")));
+                String dates = start.format(dateFormat) + " au " + end.format(dateFormat);
+                return new Context(n(rs.getString("code")), dates, n(employer.name()),
+                        n(employer.address()), n(employer.nif()), n(employer.stat()));
             }
         }
     }

@@ -22,12 +22,12 @@ import mg.galaxam.sirh.paie.persistence.BulletinPaie;
 import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
 import mg.galaxam.sirh.paie.persistence.PaiePret;
 import mg.galaxam.sirh.paie.persistence.PaieStc;
-import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
 import mg.galaxam.sirh.paie.domain.engine.SocialContributionCalculator;
 import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator;
 import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
 import mg.galaxam.sirh.paie.domain.engine.IsiCalculator;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
+import mg.galaxam.sirh.paieconfig.application.SocialContributionContextResolver;
 import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche;
 import mg.galaxam.sirh.paie.api.dto.stc.StcCalculRequest;
 import mg.galaxam.sirh.paie.api.dto.stc.StcCalculResultDTO;
@@ -83,63 +83,39 @@ public class StcService {
         prep.setDateDepart(dateDepartEffective);
         prep.setMotifRupture(motif != null ? motif : "DEMISSION");
 
-        // 1. Informations de l'employé et affectation
-        String sqlEmp = "SELECT e.matricule, e.nom, e.prenom, e.cin_numero, e.cin_date_delivrance, e.cin_lieu_delivrance, e.num_affiliation_cnaps, " +
-                "eac.salaire_base, f.libelle AS fonction_nom, d.libelle AS dept_nom, s.libelle AS site_nom, s.code_site, " +
-                "cat.code AS cat_code, COALESCE(c_emb.date_embauche_initiale, ct.date_debut) AS date_embauche " +
-                "FROM employe e " +
-                "JOIN employe_affectation_carriere eac ON e.id_employe = eac.id_employe " +
-                "LEFT JOIN (SELECT id_employe, MIN(date_debut) AS date_embauche_initiale FROM contrat_travail GROUP BY id_employe) c_emb ON e.id_employe = c_emb.id_employe " +
-                "LEFT JOIN contrat_travail ct ON eac.id_contrat = ct.id_contrat " +
-                "LEFT JOIN ref_fonction f ON eac.id_fonction = f.id_fonction " +
-                "LEFT JOIN ref_departement d ON eac.id_departement = d.id_departement " +
-                "LEFT JOIN ref_site s ON eac.id_site = s.id_site " +
-                "LEFT JOIN ref_categorie_professionnelle cat ON eac.id_categorie_professionnelle = cat.id_categorie_professionnelle " +
-                "WHERE e.id_employe = ? AND eac.date_debut <= ? " +
-                "AND (eac.date_fin IS NULL OR eac.date_fin >= ?) " +
-                "ORDER BY eac.date_debut DESC, eac.id_affectation DESC LIMIT 2";
-
-        Date dateEmbauche = null;
-        BigDecimal salaireBase = BigDecimal.ZERO;
-        String catPro = "AGENT";
-
-        boolean foundEmp = false;
-        try (PreparedStatement ps = c.prepareStatement(sqlEmp)) {
-            ps.setInt(1, idEmploye);
-            ps.setDate(2, dateDepartEffective);
-            ps.setDate(3, dateDepartEffective);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    foundEmp = true;
-                    prep.setMatricule(rs.getString("matricule"));
-                    String nom = rs.getString("nom");
-                    String prenom = rs.getString("prenom");
-                    prep.setNomComplet(((nom != null ? nom : "") + " " + (prenom != null ? prenom : "")).trim());
-                    prep.setCinNumero(rs.getString("cin_numero"));
-                    prep.setCinDateDelivrance(rs.getDate("cin_date_delivrance"));
-                    prep.setCinLieuDelivrance(rs.getString("cin_lieu_delivrance"));
-                    prep.setNumeroCnaps(rs.getString("num_affiliation_cnaps"));
-                    prep.setIntitulePoste(rs.getString("fonction_nom") != null ? rs.getString("fonction_nom") : "Collaborateur");
-                    prep.setDepartement(rs.getString("dept_nom"));
-                    prep.setSite(rs.getString("site_nom"));
-                    prep.setCodeSite(rs.getString("code_site"));
-                    catPro = rs.getString("cat_code") != null ? rs.getString("cat_code") : "AGENT";
-                    prep.setCategorieProfessionnelle(catPro);
-                    prep.setRegimeFiscal(catPro != null && catPro.toUpperCase().contains("CONSULT") ? "ISI" : "IRSA");
-                    salaireBase = rs.getBigDecimal("salaire_base") != null ? rs.getBigDecimal("salaire_base") : BigDecimal.ZERO;
-                    prep.setSalaireBase(salaireBase);
-                    dateEmbauche = rs.getDate("date_embauche");
-                    prep.setDateEmbauche(dateEmbauche);
-                    if (rs.next()) {
-                        throw new IllegalStateException("Plusieurs affectations couvrent la date de départ " + dateDepartEffective + ".");
-                    }
-                }
-            }
+        // La date de départ est la date métier du contexte Emploi pour le STC.
+        var emploi = new mg.galaxam.sirh.contrat.application.EmploymentContextResolver()
+                .resolveContext(idEmploye, dateDepartEffective.toLocalDate(), c);
+        if (emploi == null || emploi.idContrat() == null || emploi.idAffectation() == null) {
+            throw PayrollConfigurationGuard.missing("AFFECTATION_CONTRAT", idEmploye,
+                    dateDepartEffective.toString());
         }
-
-        if (!foundEmp) {
-            throw new IllegalArgumentException("Dossier de carrière introuvable pour l'employé ID: " + idEmploye);
-        }
+        prep.setMatricule(emploi.matricule());
+        prep.setNomComplet(emploi.nomComplet());
+        prep.setCinNumero(emploi.cinNumero());
+        prep.setCinDateDelivrance(emploi.cinDateDelivrance() == null ? null : Date.valueOf(emploi.cinDateDelivrance()));
+        prep.setCinLieuDelivrance(emploi.cinLieuDelivrance());
+        prep.setNumeroCnaps(emploi.numAffiliationCnaps());
+        prep.setIntitulePoste(emploi.fonctionNom() == null ? "Collaborateur" : emploi.fonctionNom());
+        prep.setDepartement(emploi.departementNom());
+        prep.setSite(emploi.nomSite());
+        prep.setCodeSite(emploi.codeSite());
+        String catPro = emploi.categorieProCode();
+        if (catPro == null || catPro.isBlank())
+            throw PayrollConfigurationGuard.missing("CATEGORIE_PROFESSIONNELLE", idEmploye,
+                    dateDepartEffective.toString());
+        prep.setCategorieProfessionnelle(catPro);
+        prep.setRegimeFiscal(emploi.soumisIsi5() ? "ISI" : "IRSA");
+        BigDecimal salaireBase = emploi.salaireBase();
+        if (salaireBase == null || salaireBase.signum() <= 0)
+            throw PayrollConfigurationGuard.missing("SALAIRE", idEmploye, dateDepartEffective.toString());
+        prep.setSalaireBase(salaireBase);
+        Date dateEmbauche = emploi.dateEmbaucheInitiale() == null ? null
+                : Date.valueOf(emploi.dateEmbaucheInitiale());
+        if (dateEmbauche == null)
+            throw PayrollConfigurationGuard.missing("DATE_EMBAUCHE", idEmploye,
+                    dateDepartEffective.toString());
+        prep.setDateEmbauche(dateEmbauche);
 
         // Nombre d'enfants à charge éligibles à la déduction IRSA
         try {
@@ -152,9 +128,10 @@ public class StcService {
 
         // Taux horaire légal résolu depuis la configuration légale applicable
         PaieConfigLegale cfgLegale = chargerConfigLegale(dateDepartEffective, c);
-        BigDecimal diviseurHoraire = (cfgLegale != null && cfgLegale.getDiviseurMensuelHeures() != null)
-                ? cfgLegale.getDiviseurMensuelHeures()
-                : PayrollExecutionEngine.DIVISEUR_HEURES_MENSUELLES;
+        BigDecimal diviseurHoraire = cfgLegale.getDiviseurMensuelHeures();
+        if (diviseurHoraire == null || diviseurHoraire.signum() <= 0)
+            throw PayrollConfigurationGuard.missing("DIVISEUR_MENSUEL_HEURES", idEmploye,
+                    dateDepartEffective.toString());
         BigDecimal tauxHoraire = salaireBase.divide(diviseurHoraire, 4, RoundingMode.HALF_UP);
         prep.setTauxHoraire(tauxHoraire);
 
@@ -392,43 +369,12 @@ public class StcService {
         if (plafondCotisation == null || plafondCotisation.signum() <= 0)
             throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: plafond de cotisation mensuel au départ");
 
-        // CNaPS : taux valides à la date de départ (P1-03 : filtre de date historique)
-        BigDecimal tauxCnapsSal = null;
-        BigDecimal tauxCnapsPat = null;
-        String sqlCnaps = "SELECT taux_salarial, taux_patronal FROM ref_type_cotisation "
-                + "WHERE (code = 'CNAPS' OR categorie = 'PREVOYANCE') AND est_actif = TRUE "
-                + "AND (date_debut IS NULL OR date_debut <= ?) "
-                + "AND (date_fin IS NULL OR date_fin >= ?) "
-                + "ORDER BY date_debut DESC";
-        try (PreparedStatement psCn = c.prepareStatement(sqlCnaps)) {
-            psCn.setDate(1, req.getDateDepart());
-            psCn.setDate(2, req.getDateDepart());
-            try (ResultSet rsCn = psCn.executeQuery()) {
-                if (rsCn.next()) {
-                    tauxCnapsSal = rsCn.getBigDecimal(1).movePointLeft(2); tauxCnapsPat = rsCn.getBigDecimal(2).movePointLeft(2);
-                    if (rsCn.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: CNAPS au " + req.getDateDepart());
-                }
-            }
-        }
-        if (tauxCnapsSal == null || tauxCnapsPat == null) throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: CNAPS pour date=" + req.getDateDepart());
-        // FMFP : taux valides à la date de départ (P1-03 : filtre de date historique)
-        BigDecimal tauxFmfp = null;
-        String sqlFmfp = "SELECT taux_patronal FROM ref_type_cotisation "
-                + "WHERE (code = 'FMFP' OR categorie = 'FORMATION') AND est_actif = TRUE "
-                + "AND (date_debut IS NULL OR date_debut <= ?) "
-                + "AND (date_fin IS NULL OR date_fin >= ?) "
-                + "ORDER BY date_debut DESC";
-        try (PreparedStatement psFm = c.prepareStatement(sqlFmfp)) {
-            psFm.setDate(1, req.getDateDepart());
-            psFm.setDate(2, req.getDateDepart());
-            try (ResultSet rsFm = psFm.executeQuery()) {
-                if (rsFm.next() && rsFm.getBigDecimal(1) != null) {
-                    tauxFmfp = rsFm.getBigDecimal(1).movePointLeft(2);
-                    if (rsFm.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: FMFP au " + req.getDateDepart());
-                }
-            }
-        }
-        if (tauxFmfp == null) throw new IllegalStateException("SOCIAL_CONFIGURATION_MISSING: FMFP pour date=" + req.getDateDepart());
+        // Même référentiel social que le bulletin, résolu ici à la date de départ.
+        var socialRates = new SocialContributionContextResolver()
+                .companyRates(req.getDateDepart().toLocalDate(), c);
+        BigDecimal tauxCnapsSal = socialRates.cnapsEmployee();
+        BigDecimal tauxCnapsPat = socialRates.cnapsEmployer();
+        BigDecimal tauxFmfp = socialRates.fmfpEmployer();
         SocialContributionCalculator.Result socialResult = new SocialContributionCalculator().calculate(
                 assietteSociale, new SocialContributionCalculator.Rules(tauxCnapsSal, tauxCnapsPat,
                         BigDecimal.ZERO, BigDecimal.ZERO, tauxFmfp, plafondCotisation, true));
@@ -1044,31 +990,9 @@ public class StcService {
     HealthContributionRate resolveHealthContributionRate(String codeSite, String siteName,
             LocalDate effectiveDate, Connection connection) throws Exception {
         if (effectiveDate == null) throw new IllegalArgumentException("La date métier Santé du STC est obligatoire.");
-        String sql = "SELECT tc.code, tc.taux_salarial, tc.taux_patronal " +
-                "FROM site_cotisation sc " +
-                "JOIN ref_site s ON sc.id_site = s.id_site " +
-                "JOIN ref_type_cotisation tc ON sc.id_type_cotisation = tc.id_type_cotisation " +
-                "WHERE (s.code_site = ? OR UPPER(s.libelle) LIKE ?) " +
-                "AND (tc.categorie = 'SANTE' OR tc.code IN ('OSTIE', 'OMSI')) " +
-                "AND sc.est_actif = true AND tc.date_debut <= ? " +
-                "AND (tc.date_fin IS NULL OR tc.date_fin >= ?) " +
-                "ORDER BY tc.code, sc.id_site_cotisation LIMIT 2";
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, codeSite != null ? codeSite : "");
-            statement.setString(2, "%" + (siteName != null ? siteName.toUpperCase() : "") + "%");
-            Date effective = Date.valueOf(effectiveDate);
-            statement.setDate(3, effective);
-            statement.setDate(4, effective);
-            try (ResultSet result = statement.executeQuery()) {
-                if (!result.next()) return null;
-                HealthContributionRate rate = new HealthContributionRate(result.getString("code"),
-                        result.getBigDecimal("taux_salarial"), result.getBigDecimal("taux_patronal"));
-                if (result.next()) {
-                    throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: SOCIAL_CONFIGURATION_AMBIGUOUS: santé à la date=" + effectiveDate);
-                }
-                return rate;
-            }
-        }
+        var rate = new SocialContributionContextResolver().healthRate(codeSite, effectiveDate, connection);
+        return rate == null ? null : new HealthContributionRate(rate.code(),
+                rate.employee().movePointRight(2), rate.employer().movePointRight(2));
     }
 
     private String convertirEnLettres(BigDecimal montant) {

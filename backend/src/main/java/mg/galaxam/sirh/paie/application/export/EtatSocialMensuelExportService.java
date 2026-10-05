@@ -169,18 +169,7 @@ public class EtatSocialMensuelExportService {
         }
     }
     private static Map<Integer, String> loadFiliales(Integer id, Connection c) throws Exception {
-        String sql = "SELECT b.id_bulletin, f.raison_sociale FROM bulletin_paie b JOIN periode_paie p ON p.id_periode_paie = b.id_periode_paie " +
-                "LEFT JOIN LATERAL (SELECT rf.raison_sociale FROM contrat_travail ct JOIN ref_filiale rf ON rf.id_filiale = ct.id_filiale " +
-                "WHERE ct.id_employe = b.id_employe AND ct.date_debut <= p.date_fin " +
-                "ORDER BY ct.date_debut DESC, ct.id_contrat DESC LIMIT 1) f ON TRUE WHERE b.id_periode_paie = ?";
-        Map<Integer, String> result = new LinkedHashMap<>();
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) result.put(rs.getInt(1), n(rs.getString(2)));
-            }
-        }
-        return result;
+        return PayrollExportCompanyResolver.namesByBulletin(id, c);
     }
     private static void heading(Sheet sheet, int row, String value, CellStyle style) { cell(sheet, row, 0, style).setCellValue(value); }
     private static void banner(Sheet sheet, String value, int lastColumn, CellStyle style) {

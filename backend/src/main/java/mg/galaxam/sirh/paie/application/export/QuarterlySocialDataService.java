@@ -60,14 +60,14 @@ public class QuarterlySocialDataService {
         public List<Person> ostie() { return people.stream().filter(Person::hasOstie).toList(); }
         public List<Person> omsi() { return people.stream().filter(Person::hasOmsi).toList(); }
     }
-    private record Period(int id, String code, LocalDate end) {}
+    private record Period(int id, String code, LocalDate start, LocalDate end) {}
 
     public Data load(int year, int quarter, Connection connection) throws Exception {
         if (year < 2000 || year > 2100 || quarter < 1 || quarter > 4) throw new IllegalArgumentException("Trimestre invalide.");
         String[] months = new String[3];
         for (int i = 0; i < 3; i++) months[i] = "%04d-%02d".formatted(year, (quarter - 1) * 3 + i + 1);
         Map<String, Period> periods = new LinkedHashMap<>();
-        String sql = "SELECT p.id_periode_paie, p.code, p.date_fin, s.code AS statut " +
+        String sql = "SELECT p.id_periode_paie, p.code, p.date_debut, p.date_fin, s.code AS statut " +
                 "FROM periode_paie p JOIN ref_statut_periode_paie s ON s.id_statut_periode = p.id_statut_periode " +
                 "WHERE p.code IN (?, ?, ?)";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -79,7 +79,8 @@ public class QuarterlySocialDataService {
                         throw new IllegalStateException("La paie " + rs.getString("code") + " doit être validée avant la consolidation.");
                     }
                     Period previous = periods.put(rs.getString("code"), new Period(rs.getInt("id_periode_paie"),
-                            rs.getString("code"), rs.getDate("date_fin").toLocalDate()));
+                            rs.getString("code"), rs.getDate("date_debut").toLocalDate(),
+                            rs.getDate("date_fin").toLocalDate()));
                     if (previous != null) throw new IllegalStateException("Plusieurs campagnes portent le code " + rs.getString("code") + ".");
                 }
             }
@@ -99,7 +100,7 @@ public class QuarterlySocialDataService {
                 if (!"VALIDE".equals(b.getStatut()) && !"CLOTURE".equals(b.getStatut())) {
                     throw new IllegalStateException("Bulletin non validé dans " + period.code() + ".");
                 }
-                PersonMetadata metadata = metadata(b.getIdEmploye(), period.end(), connection);
+                PersonMetadata metadata = metadata(b.getIdEmploye(), period.start(), period.end(), connection);
                 if (metadata.employer() == null || metadata.employer().id() == null) {
                     throw new IllegalStateException("Filiale non renseignée pour le salarié " + b.getMatricule() + ".");
                 }
@@ -152,21 +153,18 @@ public class QuarterlySocialDataService {
 
     private record PersonMetadata(String name, String firstNames, String sex, LocalDate birth,
                                   String phone, String email, Employer employer) {}
-    private static PersonMetadata metadata(int employeeId, LocalDate at, Connection c) throws Exception {
-        String sql = "SELECT e.nom, e.prenom, e.sexe, e.date_naissance, e.telephone, e.email, " +
-                "f.id_filiale, f.raison_sociale, f.nif, f.stat, f.adresse_siege, f.telephone AS f_phone, f.email AS f_email " +
-                "FROM employe e LEFT JOIN LATERAL (SELECT rf.* FROM contrat_travail ct " +
-                "JOIN ref_filiale rf ON rf.id_filiale = ct.id_filiale " +
-                "WHERE ct.id_employe = e.id_employe AND ct.date_debut <= ? " +
-                "ORDER BY ct.date_debut DESC, ct.id_contrat DESC LIMIT 1) f ON TRUE WHERE e.id_employe = ?";
+    private static PersonMetadata metadata(int employeeId, LocalDate start, LocalDate end,
+            Connection c) throws Exception {
+        var company = new mg.galaxam.sirh.contrat.application.EmployerIdentityContextResolver()
+                .resolve(employeeId, start, end, c);
+        String sql = "SELECT nom,prenom,sexe,date_naissance,telephone,email FROM employe WHERE id_employe=?";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setDate(1, Date.valueOf(at)); ps.setInt(2, employeeId);
+            ps.setInt(1, employeeId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) throw new IllegalStateException("Salarié introuvable : " + employeeId);
                 Date birth = rs.getDate("date_naissance");
-                Integer id = rs.getObject("id_filiale", Integer.class);
-                Employer employer = id == null ? null : new Employer(id, rs.getString("raison_sociale"), rs.getString("nif"),
-                        rs.getString("stat"), rs.getString("adresse_siege"), rs.getString("f_phone"), rs.getString("f_email"));
+                Employer employer = new Employer(company.id(), company.name(), company.nif(),
+                        company.stat(), company.address(), company.phone(), company.email());
                 return new PersonMetadata(rs.getString("nom"), rs.getString("prenom"), rs.getString("sexe"),
                         birth == null ? null : birth.toLocalDate(), rs.getString("telephone"), rs.getString("email"), employer);
             }

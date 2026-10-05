@@ -96,7 +96,7 @@ public class EmploymentContextResolver {
         verifierUniciteContexte(idEmploye, ref, c);
 
         String sql = "SELECT " +
-                "  e.id_employe, e.matricule, e.nom, e.prenom, " +
+                "  e.id_employe, e.matricule, e.nom, e.prenom, e.cin_date_delivrance, e.cin_lieu_delivrance, " +
                 "  TRIM(COALESCE(e.nom, '') || ' ' || COALESCE(e.prenom, '')) AS nom_complet, " +
                 "  e.cin_numero, e.num_affiliation_cnaps, e.date_naissance, e.est_actif AS est_actif_emp, " +
                 "  ct.id_contrat, ct.numero_contrat, rtc.code AS code_type_ct, rtc.libelle AS lib_type_ct, " +
@@ -115,10 +115,7 @@ public class EmploymentContextResolver {
                 "  cat.est_eligible_hs, cat.est_cadre, cat.est_eligible_exoneration_hs, " +
                 "  mcp.id_mode_calcul_paie, mcp.code AS mcp_code, " +
                 "  tri.code AS regime_code, " +
-                "  COALESCE(tri.soumis_cnaps, TRUE) AS soumis_cnaps, " +
-                "  COALESCE(tri.soumis_sante, TRUE) AS soumis_sante, " +
-                "  COALESCE(tri.soumis_irsa, TRUE) AS soumis_irsa, " +
-                "  COALESCE(tri.soumis_isi_5, FALSE) AS soumis_isi_5 " +
+                "  tri.soumis_cnaps, tri.soumis_sante, tri.soumis_irsa, tri.soumis_isi_5 " +
                 "FROM employe e " +
                 // Un contrat clôturé aujourd'hui reste applicable aux dates qu'il couvrait.
                 "LEFT JOIN LATERAL (" +
@@ -180,8 +177,12 @@ public class EmploymentContextResolver {
         String sql = "SELECT a.id_affectation, GREATEST(a.date_debut, ct.date_debut) AS debut, "
                 + "LEAST(COALESCE(a.date_fin, ?), COALESCE(ct.date_fin, ?)) AS fin "
                 + "FROM employe_affectation_carriere a JOIN contrat_travail ct ON ct.id_contrat=a.id_contrat "
+                + "JOIN ref_statut_rh sa ON sa.id_statut_rh=a.id_statut_rh "
+                + "JOIN ref_statut_rh sc ON sc.id_statut_rh=ct.id_statut_rh "
                 + "WHERE a.id_employe=? AND a.date_debut<=? AND (a.date_fin IS NULL OR a.date_fin>=?) "
-                + "AND ct.date_debut<=? AND (ct.date_fin IS NULL OR ct.date_fin>=?)";
+                + "AND ct.date_debut<=? AND (ct.date_fin IS NULL OR ct.date_fin>=?) "
+                + "AND sa.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') "
+                + "AND sc.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU')";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setDate(1, Date.valueOf(end)); ps.setDate(2, Date.valueOf(end)); ps.setInt(3, idEmploye);
             ps.setDate(4, Date.valueOf(end)); ps.setDate(5, Date.valueOf(start));
@@ -289,7 +290,7 @@ public class EmploymentContextResolver {
         if (dFin.isBefore(dDebut)) throw new IllegalArgumentException("Bornes du contexte employé invalides.");
 
         String sql = "SELECT " +
-                "  e.id_employe, e.matricule, e.nom, e.prenom, " +
+                "  e.id_employe, e.matricule, e.nom, e.prenom, e.cin_date_delivrance, e.cin_lieu_delivrance, " +
                 "  TRIM(COALESCE(e.nom, '') || ' ' || COALESCE(e.prenom, '')) AS nom_complet, " +
                 "  e.cin_numero, e.num_affiliation_cnaps, e.date_naissance, e.est_actif AS est_actif_emp, " +
                 "  ct.id_contrat, ct.numero_contrat, rtc.code AS code_type_ct, rtc.libelle AS lib_type_ct, " +
@@ -308,10 +309,7 @@ public class EmploymentContextResolver {
                 "  cat.est_eligible_hs, cat.est_cadre, cat.est_eligible_exoneration_hs, " +
                 "  mcp.id_mode_calcul_paie, mcp.code AS mcp_code, " +
                 "  tri.code AS regime_code, " +
-                "  COALESCE(tri.soumis_cnaps, TRUE) AS soumis_cnaps, " +
-                "  COALESCE(tri.soumis_sante, TRUE) AS soumis_sante, " +
-                "  COALESCE(tri.soumis_irsa, TRUE) AS soumis_irsa, " +
-                "  COALESCE(tri.soumis_isi_5, FALSE) AS soumis_isi_5 " +
+                "  tri.soumis_cnaps, tri.soumis_sante, tri.soumis_irsa, tri.soumis_isi_5 " +
                 "FROM employe e " +
                 "JOIN contrat_travail ct ON ct.id_employe = e.id_employe " +
                 "  AND ct.date_debut <= ? " +
@@ -389,6 +387,8 @@ public class EmploymentContextResolver {
                 rs.getString("prenom"),
                 rs.getString("nom_complet"),
                 rs.getString("cin_numero"),
+                rs.getDate("cin_date_delivrance") != null ? rs.getDate("cin_date_delivrance").toLocalDate() : null,
+                rs.getString("cin_lieu_delivrance"),
                 rs.getString("num_affiliation_cnaps"),
                 dNaiss != null ? dNaiss.toLocalDate() : null,
                 estActifEmp,
@@ -425,17 +425,27 @@ public class EmploymentContextResolver {
                 rs.getString("cat_lib"),
                 rs.getBoolean("est_eligible_hs"),
                 rs.getBoolean("est_cadre"),
-                rs.getBoolean("est_eligible_exoneration_hs"),
+                rs.getObject("est_eligible_exoneration_hs") == null
+                        ? rs.getBoolean("est_eligible_hs") && !rs.getBoolean("est_cadre")
+                        : rs.getBoolean("est_eligible_exoneration_hs"),
                 (Integer) rs.getObject("id_mode_calcul_paie"),
                 rs.getString("mcp_code"),
 
                 rs.getString("regime_code"),
-                rs.getBoolean("soumis_cnaps"),
-                rs.getBoolean("soumis_sante"),
-                rs.getBoolean("soumis_irsa"),
-                rs.getBoolean("soumis_isi_5"),
+                requiredFlag(rs, "soumis_cnaps", idEmp, dateRef),
+                requiredFlag(rs, "soumis_sante", idEmp, dateRef),
+                requiredFlag(rs, "soumis_irsa", idEmp, dateRef),
+                requiredFlag(rs, "soumis_isi_5", idEmp, dateRef),
 
                 enPoste
         );
+    }
+
+    private boolean requiredFlag(ResultSet rs, String column, int idEmploye, LocalDate date) throws SQLException {
+        Object value = rs.getObject(column);
+        if (value == null && rs.getObject("id_contrat") != null)
+            throw new IllegalStateException("MISSING_CONFIGURATION: TYPE_INTERVENANT " + column
+                    + " employé=" + idEmploye + " au " + date);
+        return Boolean.TRUE.equals(value);
     }
 }

@@ -439,10 +439,91 @@ class PayrollLeaveYearBoundaryIntegrationTest {
         int period=bulletin("2025-12-26","2026-01-25");
         snapshotVide(period);
         var input=payroll.preparerInput(employee,period,true,c);
+        var emploiJanvier=employmentContext.resolveContext(employee,date("2026-01-25"),c);
+        assertEquals(emploiJanvier.codeSite(),input.getCodeSite());
+        assertEquals(emploiJanvier.categorieProCode(),input.getCategorieProfessionnelle());
+        assertEquals(emploiJanvier.modeCalculPaieCode(),input.getModeCalculPaie());
+        assertEquals(emploiJanvier.cinNumero(),input.getCinNumero());
         decimal("400000",input.getSalaireBaseContractuel());
+        assertEquals(12,input.getAncienneteMois());
         assertFalse(input.isEntreeSortieEnCoursDeMois());
         decimal("380645.16",new mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine()
                 .calculerSalaireBase(input,new mg.galaxam.sirh.paie.persistence.BulletinPaie(),new java.util.ArrayList<>()));
+    }
+
+    @Test void preparationStcUtiliseLeContexteEmploiDeLaDateDeDepart() throws Exception {
+        changeAssignment();
+        var contexte=employmentContext.resolveContext(employee,date("2026-01-25"),c);
+        var stc=new StcService().preparerStc(employee,Date.valueOf("2026-01-25"),"DEMISSION",c);
+        assertEquals(contexte.codeSite(),stc.getCodeSite());
+        assertEquals(contexte.categorieProCode(),stc.getCategorieProfessionnelle());
+        decimal("400000",stc.getSalaireBase());
+    }
+
+    @Test void exportDntsMensuelUtiliseLesTauxSociauxDeLaFinDeCampagne() throws Exception {
+        int period=bulletin("2025-12-26","2026-01-25");
+        var rates=new mg.galaxam.sirh.paieconfig.application.SocialContributionContextResolver()
+                .companyRates(date("2026-01-25"),c);
+        String csv=new mg.galaxam.sirh.paie.application.export.DntsExportService()
+                .exporterDntsCsv(period,c);
+        assertTrue(csv.contains(rates.cnapsEmployee().movePointRight(2).stripTrailingZeros().toPlainString()+"%"));
+        assertTrue(csv.contains(rates.fmfpEmployer().movePointRight(2).stripTrailingZeros().toPlainString()+"%"));
+    }
+
+    @Test void exportsDntsEtSafiBornentLaDateDeDebauchageALaCampagne() throws Exception {
+        int period=bulletin("2025-12-26","2026-01-25");
+        update("UPDATE contrat_travail SET date_fin='2025-12-31' WHERE id_contrat=?",contract);
+        update("UPDATE employe_affectation_carriere SET date_fin='2025-12-31' WHERE id_affectation=?",assignment);
+        var dnts=new mg.galaxam.sirh.paie.application.export.DntsExportService();
+        var safi=new mg.galaxam.sirh.paie.application.export.SafiExportService();
+        assertEquals("31/12/2025",dnts.genererDonneesDnts(period,c).get(0).getDateDebauchage());
+        assertEquals("31/12/2025",safi.genererDonneesSafi(period,c).get(0).getDateDebauchage());
+
+        int nouveauContrat=CongeTestFixtureHelper.createContratActif(c,employee,date("2026-01-01"));
+        CongeTestFixtureHelper.createAffectation(c,employee,nouveauContrat,date("2026-01-01"),new BigDecimal("400000"));
+        assertEquals("",dnts.genererDonneesDnts(period,c).get(0).getDateDebauchage());
+        assertEquals("",safi.genererDonneesSafi(period,c).get(0).getDateDebauchage());
+    }
+
+    @Test void identiteEmployeurExportSuitLeContratDansLaCampagneSansPrendreUnContratFutur() throws Exception {
+        var resolver=new mg.galaxam.sirh.contrat.application.EmployerIdentityContextResolver();
+        var oldEmployer=resolver.resolve(employee,date("2025-12-26"),date("2026-01-25"),c);
+        int futureContract=CongeTestFixtureHelper.createContratActif(c,employee,date("2026-02-01"));
+        int futureEmployer;
+        try (var ps=c.prepareStatement("INSERT INTO ref_filiale(code_filiale,raison_sociale,nif) "
+                + "VALUES (?,?,?) RETURNING id_filiale")) {
+            ps.setString(1,"TF"+employee);ps.setString(2,"Employeur futur " + employee);
+            ps.setString(3,"NIF"+employee);
+            try(var rs=ps.executeQuery()){rs.next();futureEmployer=rs.getInt(1);}
+        }
+        try(var ps=c.prepareStatement("UPDATE contrat_travail SET id_filiale=? WHERE id_contrat=?")) {
+            ps.setInt(1,futureEmployer);ps.setInt(2,futureContract);ps.executeUpdate();
+        }
+        assertEquals(oldEmployer.id(),resolver.resolve(employee,date("2025-12-26"),date("2026-01-25"),c).id());
+        int period=bulletin("2025-12-26","2026-01-25");
+        String csv=new mg.galaxam.sirh.paie.application.export.DntsExportService().exporterDntsCsv(period,c);
+        assertTrue(csv.contains(oldEmployer.name()));
+        assertFalse(csv.contains("Employeur futur " + employee));
+        var header=new mg.galaxam.sirh.paie.persistence.BulletinPaie();
+        header.setIdEmploye(employee);header.setIdPeriodePaie(period);
+        var document=new mg.galaxam.sirh.paie.application.export.BulletinDocumentService()
+                .context(new mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet(header,java.util.List.of()),c);
+        assertEquals(oldEmployer.name(),document.entreprise());
+    }
+
+    @Test void exportSansBulletinNeDevinePasLaFilialeEmployeur() throws Exception {
+        int period=CongeTestFixtureHelper.createPeriodePaie(c,"TY"+System.nanoTime(),
+                date("2025-12-26"),date("2026-01-25"),"BROUILLON");
+        assertTrue(assertThrows(IllegalStateException.class,
+                () -> new mg.galaxam.sirh.paie.application.export.DntsExportService()
+                        .exporterDntsCsv(period,c)).getMessage().contains("aucun bulletin"));
+    }
+
+    @Test void ancienneteAuVingtCinqJanvierNInclutPasLaFinFutureDuContrat() throws Exception {
+        update("UPDATE contrat_travail SET date_fin='2026-12-31' WHERE id_contrat=?", contract);
+        int period=bulletin("2025-12-26","2026-01-25");
+        snapshotVide(period);
+        assertEquals(12,payroll.preparerInput(employee,period,true,c).getAncienneteMois());
     }
 
     @Test void salaireInchangeVautUnMoisCompletMalgreLesJoursDeCampagne() throws Exception {
