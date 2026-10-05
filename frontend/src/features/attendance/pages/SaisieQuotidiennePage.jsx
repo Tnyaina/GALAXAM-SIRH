@@ -184,7 +184,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
         applySiteChange(sid);
     };
 
-    const handleDateChange = (dateStr) => {
+    const handleDateChange = useCallback((dateStr) => {
         if (!dateStr || dateStr === selectedDate) return;
         if (dirtyCount > 0) {
             setPendingNav({ type: 'date', value: dateStr });
@@ -192,7 +192,33 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
             return;
         }
         applyDateChange(dateStr);
-    };
+    }, [applyDateChange, dirtyCount, selectedDate]);
+
+    // Raccourci de navigation journalière : Cmd sur macOS, Ctrl ailleurs.
+    // Ne capte pas les flèches quand l'utilisateur édite un champ ou navigue dans la grille.
+    useEffect(() => {
+        const handleGlobalDateShortcut = (event) => {
+            if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+            const target = event.target;
+            if (target instanceof HTMLElement && target.closest(
+                'input, textarea, select, button, [contenteditable="true"], [role="textbox"]'
+            )) return;
+            if (!selectedDate) return;
+            event.preventDefault();
+
+            const [year, month, day] = selectedDate.split('-').map(Number);
+            const offset = event.key === 'ArrowLeft' ? -1 : 1;
+            const nextDay = new Date(year, month - 1, day + offset);
+            const nextDate = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
+            if (isDateInFuture(nextDate)) return;
+
+            handleDateChange(nextDate);
+        };
+
+        window.addEventListener('keydown', handleGlobalDateShortcut);
+        return () => window.removeEventListener('keydown', handleGlobalDateShortcut);
+    }, [handleDateChange, selectedDate]);
 
     // Modales
     const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
@@ -329,7 +355,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     const isFuture = isDateInFuture(selectedDate);
 
     const isReadOnly = useMemo(
-        () => !canWrite || activePeriode?.availableActions?.EDIT_POINTAGE?.allowed !== true,
+        () => !activePeriode || !canWrite || activePeriode?.availableActions?.EDIT_POINTAGE?.allowed !== true,
         [canWrite, activePeriode]
     );
 

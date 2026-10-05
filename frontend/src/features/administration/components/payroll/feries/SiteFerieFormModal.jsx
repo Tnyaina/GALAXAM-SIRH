@@ -1,5 +1,5 @@
 import { MapPin } from 'lucide-react';
-import { Select } from '@/components/ui/forms/Input';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import FormModal from '@/components/ui/overlays/FormModal';
 import { fmtDate } from '@/utils/dateUtils';
 
@@ -16,6 +16,14 @@ export default function SiteFerieFormModal({
     setFieldErrors,
     submitting = false,
 }) {
+    const siteOptions = sites
+        .filter(s => (s.estActif !== false && s.actif !== false) || String(s.idSite) === String(formData.idSite))
+        .map(s => ({ value: s.idSite, label: `${s.codeSite} — ${s.libelle}` }));
+
+    const ferieOptions = feries
+        .filter(f => !f.estNational)
+        .map(f => ({ value: f.idFerie, label: `${fmtDate(f.dateFerie)} — ${f.libelle}` }));
+
     return (
         <FormModal
             isOpen={isOpen}
@@ -29,49 +37,35 @@ export default function SiteFerieFormModal({
             error={actionError}
         >
             <div className="space-y-4">
-                <Select
+                <SearchSelect
                     label="Site d'Exploitation"
                     required
+                    placeholder="Choisir un site…"
                     value={formData.idSite}
-                    onChange={(e) => {
-                        setFormData({ ...formData, idSite: e.target.value });
+                    onChange={(val) => {
+                        setFormData({ ...formData, idSite: val });
                         if (fieldErrors.idSite && setFieldErrors) {
                             setFieldErrors(prev => ({ ...prev, idSite: undefined }));
                         }
                     }}
+                    options={siteOptions}
                     error={fieldErrors.idSite}
-                >
-                    <option value="">-- Choisir un site --</option>
-                    {sites
-                        .filter(s => (s.estActif !== false && s.actif !== false) || String(s.idSite) === String(formData.idSite))
-                        .map((s) => (
-                            <option key={s.idSite} value={s.idSite}>
-                                {s.codeSite} — {s.libelle}
-                            </option>
-                        ))}
-                </Select>
+                />
 
-                <Select
+                <SearchSelect
                     label="Jour Férié Régional / Local"
                     required
+                    placeholder="Choisir un jour férié…"
                     value={formData.idFerie}
-                    onChange={(e) => {
-                        setFormData({ ...formData, idFerie: e.target.value });
+                    onChange={(val) => {
+                        setFormData({ ...formData, idFerie: val });
                         if (fieldErrors.idFerie && setFieldErrors) {
                             setFieldErrors(prev => ({ ...prev, idFerie: undefined }));
                         }
                     }}
+                    options={ferieOptions}
                     error={fieldErrors.idFerie}
-                >
-                    <option value="">-- Choisir un jour férié --</option>
-                    {feries
-                        .filter(f => !f.estNational)
-                        .map((f) => (
-                            <option key={f.idFerie} value={f.idFerie}>
-                                {fmtDate(f.dateFerie)} — {f.libelle}
-                            </option>
-                        ))}
-                </Select>
+                />
             </div>
         </FormModal>
     );

@@ -192,6 +192,11 @@ public class DocumentRhService {
 
     /** Une DAF active de la filiale, sans confondre compte administrateur et personne. */
     Map<String, String> rechercherDafSignataire(Integer idFiliale, Connection c) throws Exception {
+        return rechercherDafSignataire(idFiliale, LocalDate.now(), c);
+    }
+
+    Map<String, String> rechercherDafSignataire(Integer idFiliale, LocalDate dateRef, Connection c) throws Exception {
+        LocalDate ref = dateRef != null ? dateRef : LocalDate.now();
         String sql = "SELECT DISTINCT e.id_employe, concat_ws(' ', e.nom, e.prenom) AS nom, f.libelle AS fonction " +
                 "FROM employe e JOIN employe_affectation_carriere a ON a.id_employe = e.id_employe " +
                 "JOIN ref_fonction f ON f.id_fonction = a.id_fonction " +
@@ -199,15 +204,17 @@ public class DocumentRhService {
                 "JOIN contrat_travail ct ON ct.id_contrat = a.id_contrat " +
                 "JOIN ref_statut_rh sc ON sc.id_statut_rh = ct.id_statut_rh " +
                 "WHERE f.code_fonction = 'DAF' AND s.code = 'ACTIF' AND sc.code = 'ACTIF' " +
-                "AND ct.id_filiale = ? AND a.date_debut <= CURRENT_DATE " +
-                "AND (a.date_fin IS NULL OR a.date_fin >= CURRENT_DATE)";
+                "AND ct.id_filiale = ? AND a.date_debut <= ? " +
+                "AND (a.date_fin IS NULL OR a.date_fin >= ?)";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idFiliale);
+            ps.setDate(2, java.sql.Date.valueOf(ref));
+            ps.setDate(3, java.sql.Date.valueOf(ref));
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return Map.of();
                 String nom = rs.getString("nom"), fonction = rs.getString("fonction");
                 if (rs.next()) {
-                    log.warn("Plusieurs DAF actives pour la filiale {} : signataire automatique indéterminé", idFiliale);
+                    log.warn("Plusieurs DAF actives pour la filiale {} à la date {} : signataire automatique indéterminé", idFiliale, ref);
                     return Map.of();
                 }
                 Map<String, String> values = new HashMap<>();
@@ -229,20 +236,11 @@ public class DocumentRhService {
         }
         var config = mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale.findActiveAt(
                 c, contrat.getDateDebut().toLocalDate());
-        if (config == null || config.getDureeHebdoLegale() == null
-                || config.getDureeHebdoLegale().signum() <= 0) {
-            // Repli de sécurité : recherche de la première configuration connue ou constante légale de référence (40h)
-            try (PreparedStatement ps = c.prepareStatement(
-                    "SELECT duree_hebdo_legale FROM paie_config_legale WHERE duree_hebdo_legale > 0 ORDER BY date_debut ASC LIMIT 1")) {
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next() && rs.getBigDecimal(1) != null) {
-                        return rs.getBigDecimal(1).stripTrailingZeros().toPlainString() + " heures par semaine";
-                    }
-                }
-            }
-            return "40 heures par semaine";
+        if (config != null && config.getDureeHebdoLegale() != null && config.getDureeHebdoLegale().signum() > 0) {
+            return config.getDureeHebdoLegale().stripTrailingZeros().toPlainString() + " heures par semaine";
         }
-        return config.getDureeHebdoLegale().stripTrailingZeros().toPlainString() + " heures par semaine";
+        // Règle générale explicite : durée légale standard de travail à Madagascar (40 heures par semaine)
+        return "40 heures par semaine";
     }
 
     private static String dateContrat(java.sql.Date date) {

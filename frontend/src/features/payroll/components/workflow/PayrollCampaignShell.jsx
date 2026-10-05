@@ -196,10 +196,10 @@ export default function PayrollCampaignShell({
                 {children}
             </main>
 
-            {/* 6. Navigation après le contenu de l'étape. */}
+            {/* 6. Navigation persistante en bas de l'étape. */}
             {(prevStep || primaryAction || nextStep || footerCenter) && (
-            <nav aria-label="Navigation de la campagne" className="mt-auto pt-5">
-                <div className="border-t border-[var(--color-border-subtle)] pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <nav aria-label="Navigation de la campagne" className="sticky bottom-0 z-20 mt-auto pt-3 pb-3 px-4 sm:px-6 -mx-2 sm:-mx-4 bg-[var(--color-surface)]/95 backdrop-blur-md border-t border-[var(--color-border-subtle)] shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-2">
                         {prevStep && (
                             <Button variant="outline" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate(prevStep.destination)}>

@@ -50,17 +50,18 @@
   --color-warning-950: #451a03;
 
   /* ---- Indigo / Bleu — information non bloquante --------------------- */
-  --color-info-50: #f0f3ff;
-  --color-info-100: #e0e7ff;
-  --color-info-200: #c7d2fe;
-  --color-info-300: #a5b4fc;
-  --color-info-400: #818cf8;
-  --color-info-500: #6366f1;
-  --color-info-600: #4f46e5;
-  --color-info-700: #4338ca;
-  --color-info-800: #3730a3;
-  --color-info-900: #312e81;
-  --color-info-950: #1e1b4b;
+  /* Information — bleu distinct de la marque et moins saturé que les CTA. */
+  --color-info-50: #eff7fa;
+  --color-info-100: #dceef4;
+  --color-info-200: #b9dce8;
+  --color-info-300: #8fc2d4;
+  --color-info-400: #64a7bf;
+  --color-info-500: #438ba7;
+  --color-info-600: #34738d;
+  --color-info-700: #2d5e73;
+  --color-info-800: #294e5f;
+  --color-info-900: #254250;
+  --color-info-950: #152b36;
 
   /* ---- Sky — informations de planning ------------------------------- */
   --color-sky-50: #f0f9ff;
@@ -185,7 +186,7 @@
   --color-sidebar-fg-active: #ffffff;
   --color-sidebar-active-bg: rgba(255, 255, 255, 0.11);
   --color-sidebar-hover-bg: rgba(255, 255, 255, 0.06);
-  --color-sidebar-brand: #dce9ef;
+  --color-sidebar-brand: #5598b3;
 
   --color-fg: #18242d;
   --color-fg-muted: #62717a;
@@ -206,6 +207,9 @@
   --color-error: var(--color-danger-500);
   --color-info: var(--color-info-500);
   --color-info-subtle: var(--color-info-50);
+  --color-info-surface: #eff7fa;
+  --color-info-border: #b9dce8;
+  --color-info-text: #2d5e73;
   --color-accent-fg: #ffffff;
   --color-on-color: #ffffff;
   --color-overlay: #101820;
@@ -235,7 +239,7 @@
   --color-sidebar-fg-active: #ffffff;
   --color-sidebar-active-bg: rgba(255, 255, 255, 0.11);
   --color-sidebar-hover-bg: rgba(255, 255, 255, 0.06);
-  --color-sidebar-brand: #dce9ef;
+  --color-sidebar-brand: #5598b3;
 
   --color-fg: #edf4f7;
   --color-fg-muted: #bac8ce;
@@ -257,7 +261,10 @@
   --color-success: var(--color-success-500);
   --color-error: var(--color-danger-500);
   --color-info: var(--color-info-500);
-  --color-info-subtle: var(--color-info-50);
+  --color-info-subtle: #132f3b;
+  --color-info-surface: #132f3b;
+  --color-info-border: #2d5e73;
+  --color-info-text: #b9dce8;
 }
 
 /* ============================================================================

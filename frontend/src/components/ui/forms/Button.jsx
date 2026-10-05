@@ -2,7 +2,7 @@ const variants = {
   primary:
     'bg-[var(--color-brand-500)] hover:bg-[var(--color-brand-hover)] text-[var(--color-on-color)] border border-[var(--color-brand-500)] hover:border-[var(--color-brand-hover)]',
   secondary:
-    'bg-[var(--color-fg)] hover:bg-[var(--color-fg-muted)] text-[var(--color-bg)] border border-[var(--color-fg)]',
+    'bg-[var(--color-surface)] hover:bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border border-[var(--color-border)]',
   outline:
     'border border-[var(--color-border)] text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] bg-transparent',
   ghost:
@@ -67,7 +67,7 @@ export default function Button({
       className={`
         inline-flex flex-row items-center justify-center font-semibold tracking-wide uppercase text-[0.75em]
         rounded-none transition-all duration-200 ease-in-out select-none ${wrapLabel ? 'whitespace-normal' : 'whitespace-nowrap'} leading-none
-        focus:outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)] focus:ring-offset-0
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)]
         ${!isDisabled ? 'active:scale-[0.98] cursor-pointer' : 'opacity-50 cursor-not-allowed shadow-none pointer-events-none disabled:pointer-events-none'}
         ${loading ? 'animate-pulse' : ''}
         ${variants[variant]}

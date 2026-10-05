@@ -5,7 +5,8 @@ import referentielService from '@/features/administration/api/referentielService
 import Card from '@/components/ui/data-display/Card';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
-import Input, { Select, Textarea } from '@/components/ui/forms/Input';
+import Input, { Textarea } from '@/components/ui/forms/Input';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -258,7 +259,7 @@ export default function UserManagementTab() {
                     />
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1.5 hover:bg-[var(--color-bg-subtle)] rounded-none whitespace-nowrap min-h-[34px]">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer px-2 py-1.5 hover:bg-[var(--color-bg-subtle)] rounded-none whitespace-nowrap min-h-[30px]">
                         <input
                             type="checkbox"
                             checked={showInactive}
@@ -271,7 +272,7 @@ export default function UserManagementTab() {
                     <Button
                         onClick={handleOpenCreateModal}
                         variant="primary"
-                        size="md"
+                        size="sm"
                         iconLeft={<UserPlus size={15} />}
                     >
                         Nouvel Utilisateur
@@ -415,23 +416,22 @@ export default function UserManagementTab() {
                         }}
                         placeholder="Répétez le mot de passe"
                     />
-                    <Select
+                    <SearchSelect
                         label="Rôle et Habilitations"
                         required
+                        placeholder="-- Sélectionner un rôle --"
                         value={formData.idRole}
                         error={fieldErrors.idRole}
-                        onChange={(e) => {
-                            setFormData({ ...formData, idRole: e.target.value });
+                        options={roles.map((role) => ({
+                            value: String(role.idRole),
+                            label: role.libelle,
+                            sublabel: role.codeRole
+                        }))}
+                        onChange={(val) => {
+                            setFormData({ ...formData, idRole: val });
                             if (fieldErrors.idRole) setFieldErrors(prev => ({ ...prev, idRole: undefined }));
                         }}
-                    >
-                        <option value="">-- Sélectionner un rôle --</option>
-                        {roles.map((role) => (
-                            <option key={role.idRole} value={role.idRole}>
-                                {role.libelle} ({role.codeRole})
-                            </option>
-                        ))}
-                    </Select>
+                    />
                 </form>
             </Modal>
 

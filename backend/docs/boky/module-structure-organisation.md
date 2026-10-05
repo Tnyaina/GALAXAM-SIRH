@@ -8,77 +8,85 @@
 
 Le présent document constitue la documentation canonique définitive du **Module 1 (Structure, Organisation, Référentiels et Administration)** du Système d'Information des Ressources Humaines (SIRH) de la société **GALAXAM**.
 
-Conformément aux exigences de rigueur méthodologique applicables à un travail de recherche appliquée ou de mémoire d'ingénierie logicielle, **les anciens documents Markdown ou spécifications textuelles historiques ne constituent en aucun cas une source de vérité**. Les évolutions successives de l'architecture logicielle, les refactorings d'architecture et les migrations de base de données (notamment les migrations de septembre 2026 : unification du plancher d'arrivée par le script `26-09-24-sp27-ref-site-plancher-arrivee.sql`, durcissement de l'ownership DAF dans `26-09-21-sp14-payroll-ownership-hardening.sql`, et gestion du triétat des paramètres dans `26-09-24-sp25-pointage-arrival-floor.sql`) ont rendu caduques plusieurs hypothèses antérieures.
+Conformément aux exigences de rigueur méthodologique et académique applicables à un mémoire d'ingénierie logicielle ou de recherche appliquée, **les spécifications textuelles historiques ou documents informels antérieurs ne constituent en aucun cas une source de vérité**. Les évolutions successives de l'architecture logicielle, les refactorings d'architecture et les migrations de base de données (notamment : unification du plancher d'arrivée par le script [`26-09-24-sp27-ref-site-plancher-arrivee.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/migrations/26-09-24-sp27-ref-site-plancher-arrivee.sql), refonte unifiée du contrôleur de domaine [`OrganisationController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java), sécurisation de l'audit log dans [`01_schema_core_securite.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql) et gestion du triétat avec verrouillage futur dans [`ParametreGlobalController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java)) ont rendu caduques plusieurs hypothèses antérieures.
 
-La seule et unique source de vérité exploitée pour établir ce traité est l'état technique effectif du dépôt :
-1. **Le code backend Java 17** (`mg.galaxam.sirh.*` et la couche Active Record JDBC `bean.ClassMere`) ;
-2. **Le schéma physique de la base de données PostgreSQL** (`01_schema_core_securite.sql`, `02_schema_referentiels_rh.sql`, `03_schema_employes_contrats.sql`, `04_schema_conges.sql`, `05_schema_pointage.sql`, `06_schema_paie.sql`) ;
-3. **Le registre réel des migrations exécutées** (`backend/conception/bdd/migrations/`) ;
-4. **La suite de tests automatisés** (`backend/src/test/java/mg/galaxam/sirh/...`) ;
-5. **Le code frontend React 18 / Vite** (`frontend/src/features/organization`, `frontend/src/features/administration`, `routes/Router.jsx`) ;
-6. **Les jeux de données initiaux (seeds SQL canoniques)** exécutés à blanc ;
-7. **La configuration applicative réelle** (`application.properties`, `application-local.properties`, `application-prod.properties`).
+La seule et unique source de vérité exploitée pour établir ce traité est l'état technique effectif du dépôt croisé avec le corpus juridique en vigueur à Madagascar :
+1. **Le code backend Java 17** : packages [`mg.galaxam.sirh.organisation`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation), [`mg.galaxam.sirh.admin`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin), [`mg.galaxam.sirh.paieconfig`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig), [`mg.galaxam.sirh.securite`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite) et la couche Active Record JDBC pure ([`bean.ClassMere`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/bean/ClassMere.java)) ;
+2. **Le schéma physique de la base de données PostgreSQL** : scripts canoniques [`01_schema_core_securite.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql), [`02_schema_referentiels_rh.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql), [`03_schema_employes_contrats.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/03_schema_employes_contrats.sql), [`04_schema_conges.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/04_schema_conges.sql), [`05_schema_pointage.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/05_schema_pointage.sql), [`06_schema_paie.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/06_schema_paie.sql) ;
+3. **Le registre réel des migrations exécutées** ([`backend/conception/bdd/migrations/`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/migrations)) ;
+4. **La suite de tests automatisés** : tests unitaires et d'intégration ([`OrganisationServiceIntegrationTest.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/test/java/mg/galaxam/sirh/organisation/OrganisationServiceIntegrationTest.java), [`PointageConfigurationResolutionTest.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/test/java/mg/galaxam/sirh/pointage/application/PointageConfigurationResolutionTest.java), [`PayrollFullEnterpriseLifecycleSimulationIntegrationTest.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/test/java/mg/galaxam/sirh/paie/application/PayrollFullEnterpriseLifecycleSimulationIntegrationTest.java)) ;
+5. **Le code frontend React 18 / Vite** : [`frontend/src/features/organization`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/organization), [`frontend/src/features/administration`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration), [`frontend/src/routes/Router.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/routes/Router.jsx) ;
+6. **Le cadre légal et réglementaire de Madagascar** :
+   - *Loi n° 2003-044 du 28 juillet 2004* portant Code du Travail de la République de Madagascar ;
+   - *Code Général des Impôts (CGI)* malgache mis à jour par la Loi de Finances 2026 ;
+   - *Décret n° 69-145 du 8 avril 1969* fixant le Code de Prévoyance Sociale (CNaPS) ;
+   - *Décret n° 63-124 du 20 février 1963* et textes subséquents organisant les Services Médicaux Interentreprises (OMSI / OSTIE) ;
+   - *Loi n° 2014-038 du 9 janvier 2015* sur la protection des données à caractère personnel à Madagascar ;
+   - *Décret n° 2005-380 du 22 juin 2005* fixant les modalités d'attribution du numéro statistique (INSTAT).
 
-Toute assertion formulée ci-dessous est vérifiable par un fichier source, une table physique, une contrainte d'intégrité, une route API ou un test d'intégration. Tout concept non formellement attesté par le code exécuté est explicitement qualifié de *"Non confirmé par le runtime actuel"* ou *"Configuration présente mais usage non identifié"*.
+Toute assertion formulée ci-dessous est vérifiable par un fichier source, une table physique, une contrainte d'intégrité, une route API, une décision de jurisprudence ou un article de loi malgache.
 
 ---
 
 ## 1. Sommaire Exécutif & Frontières Fondamentales
 
 ### 1.1. Rôle du Module Structure & Organisation
-Le module **Structure & Organisation** représente le squelette ontologique de l'entreprise. Il modélise les personnes morales composant le groupe (filiales), les implantations physiques et géographiques (sites), le découpage fonctionnel des activités (départements et services), ainsi que le catalogue des métiers et qualifications (fonctions et catégories professionnelles). 
+Le module **Structure & Organisation** représente le squelette ontologique de l'entreprise. Il modélise :
+- Les personnes morales composant le groupe (filiales) ;
+- Les implantations physiques et opérationnelles (sites) ;
+- Le découpage fonctionnel et analytique des activités (départements et services) ;
+- Le catalogue des qualifications, métiers et statuts conventionnels (fonctions et catégories professionnelles).
 
-Sa finalité première n'est pas d'exécuter des calculs ni de stocker des états éphémères, mais de **fournir un vocabulaire canonique, stable et univoque** à tous les autres domaines applicatifs.
+Sa finalité première n'est pas d'exécuter des calculs volatils, mais de **fournir un vocabulaire canonique, stable, univoque et hautement disponible** à tous les modules opérationnels du SIRH.
 
 ### 1.2. Rôle du Module Administration & Paramétrage
-Le module **Administration & Paramétrage** remplit deux missions distinctes souvent confondues dans les architectures immatures :
-1. **La Sécurité IAM et le Contrôle d'Accès (RBAC)** : gestion du cycle de vie des comptes utilisateurs (`utilisateur`), attribution des rôles (`ref_role`), affectation des permissions granulaires par module (`role_permission`) et distribution de l'arborescence de navigation (`role_menu`).
-2. **La Gouvernance des Constantes et Règles Transverses** : hébergement du moteur de temporalité des paramètres généraux (`parametre_global`), assurant qu'une règle métier (ex. seuil de nuit, plafonds CDD, seuils d'alerte) puisse évoluer à date d'effet sans écraser le passé.
+Le module **Administration & Paramétrage** remplit deux missions complémentaires :
+1. **La Sécurité IAM et le Contrôle d'Accès (RBAC)** : gestion du cycle de vie des comptes utilisateurs ([`utilisateur`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L48)), attribution des rôles ([`ref_role`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L19)), affectation des permissions granulaires ([`role_permission`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L37)) et distribution de l'arborescence de navigation ([`role_menu`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L114)).
+2. **La Gouvernance des Constantes et Règles Transverses** : hébergement du moteur de temporalité des paramètres généraux ([`parametre_global`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L121)), garantissant qu'une règle métier (ex. heures de nuit, plafonds CDD, seuils d'assiduité) puisse évoluer à date d'effet sans corrompre ni écraser le passé.
 
 ### 1.3. Distinction Fondamentale : Donnée Organisationnelle vs Règle de Configuration
-Une ambiguïté classique consiste à traiter de manière indifférenciée une entité de structure et une variable de paramétrage. Le tableau suivant consacre la frontière conceptuelle retenue par GALAXAM SIRH :
 
 | Dimension | Donnée Organisationnelle | Règle de Configuration |
 | :--- | :--- | :--- |
-| **Nature** | Entité structurelle pérenne (ex. *Siège Antananarivo*, *Département Logistique*). | Constante d'ajustement ou seuil d'activation d'un algorithme métier (ex. *Heure de début de nuit = 22:00*). |
-| **Cycle de vie** | Création rare, modification exceptionnelle, désactivation logique lors de fermetures de sites. | Versionnement daté régulier au fil des lois de finances ou des arbitrages de la direction générale. |
-| **Portée relationnelle** | Clé étrangère (`id_site`, `id_service`) référencée directement dans les contrats et pointages. | Clé alphanumérique (`code_parametre`) résolue dynamiquement à une date donnée par un moteur de calcul. |
-| **Suppression** | Strictement interdite dès lors qu'un historique y fait référence. | Clôture temporelle (`date_fin = date_debut_nouveau - 1`) pour préserver la rejouabilité des calculs passés. |
+| **Nature** | Entité structurelle pérenne (ex. *Siège Antananarivo*, *Département Logistique*). | Constante d'ajustement ou seuil d'activation d'un algorithme métier (ex. *Seuil nuit = 22:00*). |
+| **Cycle de vie** | Création rare, modification exceptionnelle, désactivation logique lors de réorganisations. | Versionnement daté régulier au fil des lois de finances ou des arbitrages de la direction générale. |
+| **Portée relationnelle** | Clé étrangère (`id_site`, `id_service`) référencée dans les contrats et pointages. | Clé alphanumérique (`code_parametre`) résolue dynamiquement à date par un moteur de calcul. |
+| **Suppression** | Strictement interdite dès lors qu'un historique y fait référence (`DATA_REFERENCED`). | Clôture temporelle automatique (`date_fin = date_debut_nouveau - 1`) pour préserver la rejouabilité des calculs passés. |
 
-### 1.4. Le Piège de l'Administration "Fourre-Tout" et Propriété Métier Réelle
-Dans de nombreux progiciels, le fait qu'une valeur soit administrable depuis une interface graphique réservée aux administrateurs conduit à l'illusion que le module "Admin" est propriétaire de la règle. Dans GALAXAM SIRH, **l'écran d'administration n'est qu'un vecteur de saisie technique** ; la propriété intellectuelle et algorithmique de la règle appartient au domaine fonctionnel qui l'exécute :
-- **Taux CNaPS, seuils IRSA, diviseur mensuel (173.33)** : Propriété exclusive du module **Paie & Légal** (`paie_config_legale`, `bareme_irsa`, `ref_type_cotisation`). L'administrateur système ne fait que saisir les publications du Code Général des Impôts (CGI).
-- **Horaires et plancher d'arrivée d'un site** : Propriété du module **Structure** quant au stockage (`ref_site`), mais consommés et interprétés par le moteur de **Pointage**.
-- **Éligibilité aux Heures Supplémentaires** : Portée par la catégorie professionnelle (`ref_categorie_professionnelle`), assignée dans le temps par **Employés/Carrière**, résolue à date par le **Pointage**, et valorisée financièrement par la **Paie**.
-- **Acquisition mensuelle des congés (2.5 jours) et règles de bascule** : Propriété exclusive du module **Congés & Absences**.
+### 1.4. Propriété Métier Réelle vs Écran Centralisé
+L'écran d'administration ([`ParametresModulesPanel.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/pages/modules/ParametresModulesPanel.jsx)) regroupe visuellement les interfaces de configuration technique, mais **la propriété intellectuelle et algorithmique de chaque règle appartient au domaine fonctionnel qui l'exécute** :
+- **Taux CNaPS, seuils IRSA, diviseur mensuel (173.33)** : Propriété exclusive du module **Paie & Légal** ([`paie_config_legale`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L210), [`bareme_irsa`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/06_schema_paie.sql#L70), [`ref_type_cotisation`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/06_schema_paie.sql#L38)).
+- **Horaires et plancher d'arrivée d'un site** : Portés physiquement par [`ref_site`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L55) dans le module **Structure**, mais consommés par le moteur de **Pointage**.
+- **Éligibilité aux Heures Supplémentaires** : Définie dans [`ref_categorie_professionnelle`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L162), assignée dans le temps par **Employés/Carrière**, résolue à date par le **Pointage**, et valorisée financièrement par la **Paie**.
+- **Acquisition mensuelle des congés (2,5 jours) et règles de bascule** : Propriété exclusive du module **Congés & Absences**.
 
 ---
 
 ## 2. Modèle Global du SIRH
 
-L'architecture du SIRH GALAXAM s'articule autour d'une hiérarchie de dépendances stricte, orientée des référentiels stables vers les calculs financiers finaux.
+L'architecture s'articule autour d'une hiérarchie de dépendances stricte, orientée des référentiels stables vers les calculs financiers finaux :
 
 ```mermaid
 graph TD
     subgraph "SOCLE TRANSVERSAL (Module 1)"
         STR["STRUCTURE & ORGANISATION<br/>(Filiales, Sites, Départements, Services, Fonctions)"]
-        REF["RÉFÉRENTIELS RH & PAIE<br/>(Banques, Catégories, Types Contrats/Intervenants)"]
+        REF["RÉFÉRENTIELS RH & PAIE<br/>(Banques, Catégories, Modes Paie, Types Contrats/Intervenants)"]
         ADM["SÉCURITÉ & IAM / RBAC<br/>(Utilisateurs, Rôles, Permissions, Menus)"]
-        CFG["PARAMÈTRES GLOBAUX TRANSVERSES<br/>(parametre_global : Seuils, Plafonds, Délais)"]
+        CFG["PARAMÈTRES GLOBAUX TRANSVERSES<br/>(parametre_global : 37 Constantes Versionnées)"]
     end
 
     subgraph "DOSSIER SALARIÉ & CARRIÈRE (Module 2)"
         EMP["EMPLOYÉ & CONTRAT DE TRAVAIL<br/>(Identité, CIN, Banque, Statut RH, Filiale)"]
-        CAR["AFFECTATION DE CARRIÈRE HISTORISÉE<br/>(Site, Service, Fonction, Catégorie, Mode Paie, Salaire)"]
+        CAR["AFFECTATION DE CARRIÈRE HISTORISÉE<br/>(Site, Service, Fonction, Catégorie, Salaire Base)"]
     end
 
     subgraph "EXPLOITATION TEMPORELLE (Modules 3 & 4)"
         CONG["CONGÉS & ABSENCES (Module 3)<br/>(Demandes, Soldes, Compteurs, Bonifications)"]
-        POIN["POINTAGE & PRÉSENCE (Module 4)<br/>(Pointage quotidien, Retards, Nuit, Dimanche, Plancher, Indemnités)"]
+        POIN["POINTAGE & PRÉSENCE (Module 4)<br/>(Pointage quotidien, Retards, Nuit, Dimanche, Plancher)"]
     end
 
     subgraph "SYNTHÈSE FINANCIÈRE (Module 5)"
-        PAIE["MOTEUR DE PAIE (Module 5)<br/>(Heures validées, STC, Cotisations CNaPS/OMSI/OSTIE, IRSA, Bulletins)"]
+        PAIE["MOTEUR DE PAIE (Module 5)<br/>(Heures gelées, STC, Cotisations CNaPS/Santé, IRSA, Bulletins)"]
     end
 
     STR --> CAR
@@ -103,13 +111,12 @@ graph TD
 
 ---
 
-## 3. Structure Organisationnelle Hiérarchique
+## 3. Structure Organisationnelle Hiérarchique & Topologie
 
-### 3.1. Topologie de l'Entreprise
 La structure d'entreprise de GALAXAM ne répond pas à une arborescence purement pyramidale stricte, mais à un modèle orthogonal distinguant le **rattachement juridique**, la **ligne hiérarchique fonctionnelle** et l'**implantation géographique** :
-1. **Axe Juridique** : La Filiale (`ref_filiale`) est l'employeur légal contractant avec le salarié.
-2. **Axe Métier / Analytique** : Le Département (`ref_departement`) regroupe des Services (`ref_service`).
-3. **Axe Géographique & Opérationnel** : Le Site (`ref_site`) est l'établissement où s'exécute physiquement la prestation de travail.
+1. **Axe Juridique** : La Filiale ([`ref_filiale`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L30)) est l'employeur légal contractant avec le salarié.
+2. **Axe Métier / Analytique** : Le Département ([`ref_departement`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L74)) regroupe des Services ([`ref_service`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L81)).
+3. **Axe Géographique & Opérationnel** : Le Site ([`ref_site`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L55)) est l'établissement où s'exécute physiquement la prestation de travail.
 
 ```mermaid
 classDiagram
@@ -178,42 +185,52 @@ classDiagram
 ## 4. Filiales Juridiques
 
 ### 4.1. Modélisation Physique (`ref_filiale`)
-La table `ref_filiale` matérialise l'entité légale titulaire du registre du commerce et des numéros d'immatriculation fiscale malgaches.
-
+La table `ref_filiale` matérialise l'entité légale titulaire du registre du commerce et des immatriculations fiscales obligatoires à Madagascar :
 - **Table** : `ref_filiale`
 - **Contrainte d'unicité** : `code_filiale VARCHAR(10) UNIQUE NOT NULL`
 - **Colonnes réelles** :
   - `id_filiale` (SERIAL, Clé primaire)
   - `code_filiale` (VARCHAR(10), Code mnémonique unique en majuscules)
   - `raison_sociale` (VARCHAR(100), Dénomination commerciale légale)
-  - `nif` (VARCHAR(30), Numéro d'Identification Fiscale)
-  - `stat` (VARCHAR(30), Numéro Statistique délivré par l'INSTAT)
+  - `nif` (VARCHAR(30), Numéro d'Identification Fiscale selon l'Art. 01.01.01 du CGI)
+  - `stat` (VARCHAR(30), Numéro Statistique délivré par l'INSTAT selon le Décret n° 2005-380)
+  - `adresse_siege` (VARCHAR(255), Siège social)
+  - `rcs` (VARCHAR(80), Numéro au Registre du Commerce et des Sociétés)
+  - `telephone`, `email` (VARCHAR(40), VARCHAR(255))
   - `est_actif` (BOOLEAN, Défaut TRUE)
   - `date_desactivation` (TIMESTAMP WITH TIME ZONE, Date de cessation ou clôture)
   - `created_at` (TIMESTAMP WITH TIME ZONE, Date d'enregistrement)
 
 ### 4.2. Données Actuelles du Seed SQL Canonique
-Les données initiales présentes dans `02_schema_referentiels_rh.sql` documentent la structure du groupe :
+Le script [`02_schema_referentiels_rh.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L250) initialise deux entités :
 1. **GLX** : *Galaxam Logistics* — NIF `3000019434`, STAT `9876543210`.
 2. **VA** : *Vina sy Asa* — NIF `3000019434` (même groupe fiscal), STAT `0123456789`.
 
-### 4.3. Impacts Transverses
-- **Employés & Contrats** : Chaque contrat de travail (`contrat_travail.id_filiale`) est obligatoirement lié à une filiale. C'est l'employeur juridique au sens du droit du travail.
-- **Moteur de Paie** : La filiale pilote l'entête des déclarations nominatives trimestrielles CNaPS et des bordereaux annuels de l'IRSA. Le NIF et le STAT de la filiale figurent obligatoirement sur les bulletins de paie édités.
+### 4.3. Garde-Fous Métier POO : Désactivation sous Contrôle
+Dans [`OrganisationService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java#L190-L225), la méthode privée `validerDesactivationFiliale(RefFiliale filiale, Connection c)` protège l'intégrité du système :
+```java
+// Vérification des sites actifs résiduels
+SELECT COUNT(*) FROM ref_site WHERE id_filiale_rattachement = ? AND est_actif = true;
+
+// Vérification des contrats de travail en cours
+SELECT COUNT(*) FROM contrat_travail WHERE id_filiale = ? AND (date_fin IS NULL OR date_fin >= CURRENT_DATE);
+```
+Si le résultat est non nul, la désactivation est rejetée immédiatement avec le code `SirhErrorCode.DATA_REFERENCED` :
+> *"Impossible de désactiver la filiale « X » : elle comporte encore N site(s) actif(s) et M contrat(s) de travail en cours. Veuillez réaffecter ou clôturer ces éléments avant de pouvoir désactiver la filiale."*
+
+Ce comportement est formellement garanti par le test unitaire [`OrganisationServiceIntegrationTest.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/test/java/mg/galaxam/sirh/organisation/OrganisationServiceIntegrationTest.java#L58-L63).
 
 ---
 
 ## 5. Départements & Services
 
 ### 5.1. Départements (`ref_departement`)
-Le département constitue une division fonctionnelle majeure de l'organisation.
 - **Table** : `ref_departement`
 - **Colonnes** : `id_departement` (PK), `code_departement` (VARCHAR(10) UNIQUE), `libelle` (VARCHAR(100)), `est_actif` (BOOLEAN DEFAULT TRUE).
 - **Données Seed** : `LOG` — *Logistics*.
-- **Rôle métier** : Utilisé pour les regroupements analytiques et les synthèses d'effectifs.
+- **Rôle métier** : Regroupements analytiques et synthèses d'effectifs pour les tableaux de bord RH.
 
 ### 5.2. Services (`ref_service`)
-Le service est la cellule opérationnelle de rattachement du salarié, obligatoirement subordonnée à un département.
 - **Table** : `ref_service`
 - **Colonnes** :
   - `id_service` (SERIAL, PK)
@@ -231,8 +248,7 @@ Le service est la cellule opérationnelle de rattachement du salarié, obligatoi
 ## 6. Sites Géographiques & Établissements
 
 ### 6.1. Identité et Rôle Central du Site
-Dans GALAXAM SIRH, le **Site** (`ref_site`) est l'entité pivot de l'exploitation quotidienne. Il modélise les dépôts logistiques et agences portuaires.
-
+Dans GALAXAM SIRH, le **Site** ([`ref_site`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L55)) est l'entité pivot de l'exploitation quotidienne. Il modélise les agences portuaires et entrepôts logistiques :
 - **Table** : `ref_site`
 - **Colonnes réelles** :
   - `id_site` (SERIAL, PK)
@@ -271,20 +287,25 @@ Dans GALAXAM SIRH, le **Site** (`ref_site`) est l'entité pivot de l'exploitatio
 
 ### 7.1. Journée Continue vs Horaire Discontinu
 La distinction entre `horaire_continu = TRUE` et `horaire_continu = FALSE` pilote des règles métiers critiques dans le module de Pointage :
-- **Horaire Continu (TNR)** : Pause méridienne standard de 1 heure (12h00 - 13h00). Le salarié ne quitte généralement pas l'enceinte de l'entreprise ; cela ouvre droit à l'indemnité repas midi si les conditions sont satisfaites.
-- **Horaire Discontinu / Coupure (TMM)** : Pause méridienne de 2 heures (12h00 - 14h00). Le salarié rentre déjeuner à domicile. En contrepartie, si la pause constatée est inférieure au paramètre `SEUIL_PAUSE_MIDI_MIN` (60 minutes), l'algorithme détecte une anomalie ou applique la règle *« ne rentre pas midi »*, déclenchant l'indemnité repas et réduisant l'indemnité de transport (`REDUCTION_DEPLACT_REPAS_MIDI = 1000 Ar`).
+- **Horaire Continu (TNR)** : Pause méridienne standard de 1 heure (12h00 - 13h00). Le salarié ne quitte pas l'enceinte de l'entreprise ; cela ouvre droit à l'indemnité repas midi si les conditions sont satisfaites.
+- **Horaire Discontinu / Coupure (TMM)** : Pause méridienne de 2 heures (12h00 - 14h00). Le salarié rentre déjeuner à domicile. Si la pause constatée est inférieure au paramètre `SEUIL_PAUSE_MIDI_MIN` (60 minutes), l'algorithme applique la règle *« ne rentre pas midi »*, déclenchant l'indemnité repas et appliquant la réduction transport (`REDUCTION_DEPLACT_REPAS_MIDI = 1000 Ar`).
 
 ---
 
 ## 8. Le Plancher d'Arrivée (*Earliest Paid Start*)
 
-### 8.1. Définition et Justification Juridique / Économique
-Le **Plancher d'Arrivée** est le mécanisme par lequel l'entreprise refuse de rémunérer ou de comptabiliser en heures supplémentaires les arrivées ultra-matinales non sollicitées. Si un salarié badge à 06h45 par convenance personnelle, alors que les bureaux n'ouvrent qu'à 08h00 et que le plancher de valorisation est fixé à 07h30, le temps de travail commence à être valorisé à 07h30.
+### 8.1. Définition et Fondement Juridique
+Le **Plancher d'Arrivée** est le mécanisme par lequel l'entreprise refuse de rémunérer ou de comptabiliser en heures supplémentaires les arrivées ultra-matinales non sollicitées.
 
-### 8.2. Historique de Migration (sp27)
-Antérieurement au Sprint 27, cette notion résidait dans une table isolée `ref_tolerance_arrivee_pointage` (qui prêtait à confusion avec les tolérances de retard). La migration canonique `26-09-24-sp27-ref-site-plancher-arrivee.sql` a :
+**Fondement Légal (Code du Travail malgache, Loi 2003-044)** :
+- **Article 75** : Fixe la durée légale à 40 heures par semaine (soit 8 heures par jour ouvré standard).
+- **Article 76** : « *La durée du travail s'entend du travail effectif, c'est-à-dire du temps pendant lequel le travailleur est à la disposition de l'employeur et doit se conformer à ses directives sans pouvoir vaquer librement à des occupations personnelles.* »
+- *Conséquence juridique* : La présence passive sur site avant l'heure d'ouverture ou en avance sur les instructions hiérarchiques ne constitue pas un travail effectif commandé. L'écrêtage au plancher d'arrivée protège l'employeur contre la requalification abusive de cette présence en heures supplémentaires.
+
+### 8.2. Historique de Migration (sp27) & Implémentation
+Antérieurement au Sprint 27, cette notion résidait dans une table isolée `ref_tolerance_arrivee_pointage`. La migration canonique [`26-09-24-sp27-ref-site-plancher-arrivee.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/migrations/26-09-24-sp27-ref-site-plancher-arrivee.sql) a :
 1. Rapatrié `plancher_arrivee_actif` et `heure_entree_minimale_valorisee` directement dans la table hôte `ref_site` ;
-2. Posé la contrainte `chk_ref_site_plancher_arrivee` interdisant d'activer le plancher sans fournir d'heure minimale ;
+2. Posé la contrainte SQL `chk_ref_site_plancher_arrivee` ;
 3. Supprimé définitivement (`DROP TABLE CASCADE`) l'ancienne table obsolète `ref_tolerance_arrivee_pointage`.
 
 ### 8.3. Algorithme de Valorisation (Code Réel Backend)
@@ -310,8 +331,6 @@ La conformité algorithmique est formellement garantie par cinq cas de tests d'i
 ## 9. Catégories Socio-Professionnelles
 
 ### 9.1. Modélisation (`ref_categorie_professionnelle`)
-La catégorie professionnelle détermine le statut conventionnel du salarié et son régime légal de travail.
-
 - **Table** : `ref_categorie_professionnelle`
 - **Colonnes réelles** :
   - `id_categorie_professionnelle` (SERIAL, PK)
@@ -329,28 +348,28 @@ La catégorie professionnelle détermine le statut conventionnel du salarié et 
 ### 9.2. Données Actuelles du Seed
 1. **CADRE** : *Cadre*
    - `est_cadre = TRUE`
-   - `est_eligible_hs = FALSE` (Au forfait, ne génère pas d'heures supplémentaires de droit commun)
+   - `est_eligible_hs = FALSE` (Forfait cadre, non éligible aux heures supplémentaires de droit commun)
    - `est_eligible_exoneration_hs = FALSE`
-   - `dispense_pointage = FALSE` (Le cadre badge pour tracer sa présence journalière, sauf si sa fonction spécifique l'en dispense)
+   - `dispense_pointage = FALSE` (Badge pour tracer la présence journalière, sauf si sa fonction spécifique l'en dispense)
 2. **A** : *Agent*
    - `est_cadre = FALSE`
-   - `est_eligible_hs = TRUE` (Régime standard 40h/semaine, éligible aux tranches HS 30% et 50%)
-   - `est_eligible_exoneration_hs = TRUE` (Éligible à l'exonération fiscale IRSA dans la limite du plafond légal de 20 heures)
+   - `est_eligible_hs = TRUE` (Régime standard 40h/semaine, éligible aux tranches de majoration HS +30% et +50%)
+   - `est_eligible_exoneration_hs = TRUE` (Éligible à l'exonération fiscale IRSA selon l'Art. 01.03.03 du CGI dans la limite de 20 heures)
    - `dispense_pointage = FALSE`
 
 ---
 
 ## 10. Cadre / Non Cadre vs Éligibilité HS
 
-Il est impératif de souligner l'**indépendance conceptuelle des colonnes** `est_cadre` et `est_eligible_hs` dans le schéma GALAXAM SIRH. Il ne s'agit pas d'un booléen unique ni d'une négation automatique :
+Il est impératif de souligner l'**indépendance conceptuelle des colonnes** `est_cadre` et `est_eligible_hs` dans le schéma GALAXAM SIRH :
 
 $$\text{est\_cadre} \ne \neg(\text{est\_eligible\_hs})$$
 
-Le système prévoit la possibilité de modéliser des catégories spécifiques :
-- Un *Cadre intégré* ou *Cadre d'atelier* peut avoir `est_cadre = TRUE` tout en ayant `est_eligible_hs = TRUE` (soumis à un horaire collectif contrôlable).
-- Un *Agent de maîtrise autonome* ou un *Commercial non cadre* peut avoir `est_cadre = FALSE` et `est_eligible_hs = FALSE` (autonomie complète dans l'organisation de son temps).
+Le système prévoit la possibilité de modéliser des situations professionnelles nuancées :
+- Un *Cadre technique d'atelier* peut avoir `est_cadre = TRUE` tout en ayant `est_eligible_hs = TRUE` (soumis à un horaire collectif contrôlable).
+- Un *Commercial non cadre itinérant* peut avoir `est_cadre = FALSE` et `est_eligible_hs = FALSE` (autonomie complète dans l'organisation de son temps).
 
-De même, `dispense_pointage` figure sur la catégorie mais également sur la fonction (`ref_fonction.dispense_pointage`). Si l'un des deux attributs est à `TRUE` lors de la résolution de l'affectation active, le moteur de pointage génère automatiquement le statut `DISPENSE_POINTAGE` sans lever d'anomalie de saisie manquante.
+De même, `dispense_pointage` figure sur la catégorie mais également sur la fonction ([`ref_fonction.dispense_pointage`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L97)). Si l'un des deux attributs est à `TRUE` lors de la résolution de l'affectation active, le moteur de pointage qualifie automatiquement la journée en `DISPENSE_POINTAGE` sans lever d'anomalie de saisie manquante.
 
 ---
 
@@ -372,69 +391,39 @@ sequenceDiagram
     CAR->>POI: Fournit la catégorie effective à date
     Note over POI: pointage_jour & pointage_cumul_periode<br/>Calcule les heures au-delà de 40h hebdo.<br/>Vérifie est_eligible_hs à date du pointage.<br/>Si éligible -> Cumul HS validé.
     POI->>PAI: Transmet le volume d'heures gelées (période VALIDEE)
-    Note over PAI: Moteur de Paie & paie_config_legale<br/>Applique les majorations +30% et +50%.<br/>Vérifie est_eligible_exoneration_hs.<br/>Exonère d'IRSA jusqu'à 20h max.
+    Note over PAI: Moteur de Paie & paie_config_legale<br/>Applique les majorations +30% et +50%.<br/>Vérifie est_eligible_exoneration_hs.<br/>Exonère d'IRSA jusqu'à 20h max (CGI 01.03.03).
 ```
 
 ---
 
 ## 12. Affectations de Carrière & Rattachement Historisé
 
-Bien que la gestion du cycle de vie du personnel appartienne au Module 2, les **affectations de carrière** (`employe_affectation_carriere`) constituent le pont d'application de la Structure sur le salarié.
+Bien que la gestion du cycle de vie du personnel appartienne au Module 2, les **affectations de carrière** ([`employe_affectation_carriere`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/03_schema_employes_contrats.sql#L100)) constituent le pont d'application de la Structure sur le salarié.
 
-Le parcours complet du dossier, des contrats et des workflows RH est décrit dans le [module Employé, Contrat & Carrière](./module-employe-carriere.md). Le présent chapitre détaille le rôle de l'affectation comme rattachement historisé aux référentiels organisationnels.
-
-### 12.1. Structure du Tuple d'Affectation
-```sql
-CREATE TABLE employe_affectation_carriere (
-    id_affectation SERIAL PRIMARY KEY,
-    id_employe INTEGER NOT NULL REFERENCES employe(id_employe) ON DELETE CASCADE,
-    id_contrat INTEGER NOT NULL REFERENCES contrat_travail(id_contrat) ON DELETE CASCADE,
-    id_statut_rh INTEGER NOT NULL REFERENCES ref_statut_rh(id_statut_rh),
-    id_motif_mouvement INTEGER NOT NULL REFERENCES ref_motif_mouvement(id_motif_mouvement),
-    id_site INTEGER NOT NULL REFERENCES ref_site(id_site),
-    id_departement INTEGER NOT NULL REFERENCES ref_departement(id_departement),
-    id_service INTEGER NOT NULL REFERENCES ref_service(id_service),
-    id_fonction INTEGER NOT NULL REFERENCES ref_fonction(id_fonction),
-    id_responsable_hierarchique INTEGER REFERENCES employe(id_employe),
-    id_categorie_professionnelle INTEGER NOT NULL REFERENCES ref_categorie_professionnelle(id_categorie_professionnelle),
-    id_mode_calcul_paie INTEGER NOT NULL REFERENCES ref_mode_calcul_paie(id_mode_calcul_paie),
-    salaire_base NUMERIC(12,2) NOT NULL,
-    date_debut DATE NOT NULL,
-    date_fin DATE,
-    description TEXT,
-    commentaire TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_salaire_base_positif CHECK (salaire_base > 0)
-);
-```
-
-### 12.2. Règle d'Immutabilité et de Clôture
+### 12.1. Règle d'Immutabilité et de Clôture
 Lors d'une mutation de site, d'une promotion ou d'un changement de département :
 1. L'affectation courante active voit son champ `date_fin` mis à jour à la veille de la prise d'effet du mouvement, et son statut passe à `HISTORISE`.
 2. Une nouvelle ligne d'affectation est créée avec la nouvelle référence structurelle, avec `date_debut = date_effet` et `date_fin = NULL`.
-3. Cette stricte conservation garantit qu'un recalcul ou un audit d'une période de paie antérieure utilisera fidèlement l'ancien site et l'ancienne catégorie du salarié.
+3. Cette conservation stricte garantit qu'un audit rétroactif d'une période de paie passée restituera fidèlement l'ancien site et l'ancienne qualification du salarié.
 
 ---
 
 ## 13. Postes & Fonctions
 
 ### 13.1. Modélisation (`ref_fonction`)
-Le référentiel `ref_fonction` modélise l'intitulé d'emploi ou de métier exercé par le collaborateur.
-
 - **Table** : `ref_fonction`
 - **Colonnes** : `id_fonction` (SERIAL, PK), `code_fonction` (VARCHAR(20) UNIQUE NOT NULL), `libelle` (VARCHAR(100) NOT NULL), `dispense_pointage` (BOOLEAN DEFAULT FALSE), `est_actif` (BOOLEAN DEFAULT TRUE).
-- **Distinction Fonction vs Catégorie vs Rôle** :
+- **Distinction Conceptuelle** :
   - **Fonction** : Le métier opérationnel (ex. `CHEF_DECLARANT`, `PASSEUR_PIECES`).
   - **Catégorie** : Le statut conventionnel et légal (ex. `A` pour Agent, `CADRE`).
   - **Rôle Applicatif** : Le compte d'accès logiciel informatique (ex. `ROLE_AGENT_POINTAGE`, `ROLE_ADMIN`).
-  *Un Directeur Administratif et Financier a pour fonction `DAF`, pour catégorie `CADRE`, et pour rôle applicatif `ROLE_ADMIN`.*
+  *Exemple : Un Directeur Administratif et Financier a pour fonction `DAF`, pour catégorie `CADRE`, et pour rôle applicatif `ROLE_ADMIN`.*
 
 ### 13.2. Liste Exhaustive des Postes Seedés en Base (22 Fonctions)
-Les données réelles du fichier `02_schema_referentiels_rh.sql` établissent le catalogue suivant :
+Le catalogue issu de [`02_schema_referentiels_rh.sql`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/02_schema_referentiels_rh.sql#L295) comprend :
 
 | Code Fonction | Libellé Métier | Dispense Pointage |
-| :--- | :--- | :--- |
+| :--- | :--- | :---: |
 | `DG` | Direction Générale | **TRUE** |
 | `DAF` | Direction Administrative & Financière | **TRUE** |
 | `CHEF_COMPTABLE` | Chef Comptable | FALSE |
@@ -463,11 +452,10 @@ Les données réelles du fichier `02_schema_referentiels_rh.sql` établissent le
 ## 14. Types de Contrat & Types d'Intervenants
 
 ### 14.1. Types de Contrat (`ref_type_contrat`)
-Définit la nature conventionnelle du lien d'embauche.
 - **Colonnes** : `id_type_contrat` (PK), `code` (VARCHAR(20) UNIQUE), `libelle` (VARCHAR(100)), `exige_date_fin` (BOOLEAN DEFAULT FALSE), `est_actif` (BOOLEAN DEFAULT TRUE).
-- **Catalogue Seed** :
-  - `CDI` (*Contrat à Durée Indéterminée*) : `exige_date_fin = FALSE`.
-  - `CDD` (*Contrat à Durée Déterminée*) : `exige_date_fin = TRUE` (soumis aux plafonds de renouvellement du Code du Travail malgache).
+- **Catalogue & Références Légales (Code du Travail)** :
+  - `CDI` (*Contrat à Durée Indéterminée*) : `exige_date_fin = FALSE` (Forme normale et générale de la relation de travail).
+  - `CDD` (*Contrat à Durée Déterminée*) : `exige_date_fin = TRUE` (*Art. 19 & 20 Code du Travail* : durée maximale de 24 mois par contrat, max 2 renouvellements, durée cumulée plafonnée à 72 mois / 6 ans).
   - `PRESTATION` (*Contrat de Prestation de Service*) : `exige_date_fin = TRUE`.
   - `TEMPORAIRE` (*Contrat d'Engagement Temporaire*) : `exige_date_fin = TRUE`.
   - `STAGE` (*Convention / Contrat de Stage*) : `exige_date_fin = TRUE`.
@@ -477,58 +465,59 @@ Pilote le régime de cotisations sociales et la fiscalité de la rémunération 
 - **Colonnes** : `id_type_intervenant` (PK), `code` (VARCHAR(20) UNIQUE), `libelle` (VARCHAR(100)), `soumis_irsa` (BOOLEAN), `soumis_isi_5` (BOOLEAN), `soumis_cnaps` (BOOLEAN), `soumis_sante` (BOOLEAN), `est_actif` (BOOLEAN).
 - **Matrice Légale et Fiscale (Seed Réel)** :
 
-| Code | Libellé | IRSA (Barème) | ISI 5% Libératoire | CNaPS (1% + 13%) | Santé (OMSI/OSTIE) |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| `PERMANENT` | Salarié Permanent | **OUI** | NON | **OUI** | **OUI** |
-| `CONSULTANT` | Consultant (+60 ans) | NON | **OUI** | NON | **OUI** |
-| `TEMPORAIRE` | Travailleur Temporaire | NON | **OUI** | NON | NON |
-| `STAGIAIRE` | Stagiaire conventionné | NON | NON | NON | NON |
+| Code | Libellé | IRSA (Barème) | ISI 5% Libératoire | CNaPS (1% + 13%) | Santé (OMSI/OSTIE) | Fondement Juridique |
+| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
+| `PERMANENT` | Salarié Permanent | **OUI** | NON | **OUI** | **OUI** | Droit commun du travail malgache |
+| `CONSULTANT` | Consultant (+60 ans) | NON | **OUI** | NON | **OUI** | CGI Art. 01.03.02 & Décret Médecine Travail |
+| `TEMPORAIRE` | Travailleur Temporaire | NON | **OUI** | NON | NON | CGI Art. 01.03.02 (Prestation ponctuelle) |
+| `STAGIAIRE` | Stagiaire conventionné | NON | NON | NON | NON | Convention de stage pédagogique exonérée |
 
 ---
 
 ## 15. Inventaire Exhaustif de Tous les Référentiels Socle (`ref_*`)
 
-Le tableau suivant répertorie **l'ensemble des 26 tables de référence (`ref_*`)** existant dans le schéma relationnel physique de GALAXAM SIRH :
+Le tableau suivant répertorie **l'ensemble des 32 tables de référence (`ref_*`)** existant dans le schéma relationnel physique de GALAXAM SIRH :
 
-| Table Physique | Domaine Propriétaire | Modules Utilisateurs | Mutable ? | Historisé ? | Rôle dans l'Architecture |
-| :--- | :--- | :--- | :---: | :---: | :--- |
-| `ref_filiale` | Structure | Employés, Paie | Oui (Admin) | Oui (`date_desactivation`) | Personnes morales du groupe |
-| `ref_banque` | Référentiel Socle | Employés, Paie | Oui (Admin) | Non (Flag actif) | Établissements bancaires & codes SWIFT |
-| `ref_site` | Structure | Pointage, Employés, Paie | Oui (Admin) | Non (Flag actif) | Établissements physiques & horaires |
-| `ref_departement` | Structure | Employés, Organisation | Oui (Admin) | Non (Flag actif) | Pôles fonctionnels majeurs |
-| `ref_service` | Structure | Employés, Pointage | Oui (Admin) | Non (Flag actif) | Découpage des départements |
-| `ref_fonction` | Structure | Employés, Pointage | Oui (Admin) | Non (Flag actif) | Postes, métiers et dispenses de pointage |
-| `ref_type_contrat` | Employés | Employés, Paie | Oui (Admin) | Non (Flag actif) | Typologie des contrats d'embauche |
-| `ref_type_intervenant`| Paie / Légal | Employés, Paie | Oui (Admin) | Non (Flag actif) | Régimes fiscaux et sociaux |
-| `ref_statut_rh` | Employés | Employés, Contrats | Non (Système) | Non (Ordre d'état) | États du cycle de vie collaborateur |
-| `ref_type_evenement_rh`| Employés | Carrière, Workflows | Non (Système) | Non | Événements de carrière (mutation, etc.) |
-| `ref_motif_sortie` | Employés | Contrats, Paie STC | Oui (Admin) | Non (Flag actif) | Motifs légaux de fin de contrat |
-| `ref_motif_mouvement` | Employés | Carrière | Oui (Admin) | Non (Flag actif) | Motifs d'avenants et promotions |
-| `ref_mode_calcul_paie` | Paie | Carrière, Paie | Non (Système) | Non (Flag actif) | Mensuel, Horaire, Journalier |
-| `ref_categorie_professionnelle` | Structure / Paie | Pointage, Paie, Employés | Oui (Admin) | Non (Flag actif) | Grille catégorielle, Cadre, Éligibilité HS |
-| `ref_type_document` | Employés | Dossier Salarié | Oui (Admin) | Non (Flag actif) | Typologie des justificatifs RH |
-| `ref_calendrier_ferie` | Structure / Légal | Pointage, Congés, Paie | Oui (Admin) | Non (Par date) | Jours fériés légaux et chômés |
-| `ref_periode_chomee` | Structure / Exploitation | Pointage, Paie | Oui (Admin) | Oui (Par dates début/fin)| Chômage technique ou fermetures |
-| `ref_role` | Sécurité / IAM | Sécurité, Tous | Oui (Admin) | Oui (`date_desactivation`) | Rôles du modèle RBAC applicatif |
-| `ref_module` | Sécurité / IAM | Sécurité | Non (Système) | Non (Flag actif) | Découpage applicatif du SIRH |
-| `ref_menu` | Sécurité / IAM | Frontend Navigation | Oui (Admin) | Non | Arborescence de la navigation UI |
-| `ref_pool_conge_annuel`| Congés | Congés, Solde | Non (Système) | Non | Quotas partagés (permissions 10j) |
-| `ref_type_conge` | Congés | Congés, Pointage, Paie | Oui (Admin) | Non (Flag actif) | Types d'absences, bascules, règles |
-| `ref_motif_evenement_familial` | Congés | Congés | Oui (Admin) | Non (Flag actif) | Motifs d'événements familiaux |
-| `ref_statut_demande_conge` | Congés | Congés | Non (Système) | Non | Circuit de validation du congé |
-| `ref_statut_pointage_jour` | Pointage | Pointage, Paie | Non (Système) | Non | Qualification journalière du pointage |
-| `ref_statut_periode_paie` | Pointage / Paie | Pointage, Paie | Non (Système) | Non | États du cycle mensuel de paie |
-| `ref_indemnite` | Pointage / Paie | Pointage, Paie | Oui (Admin) | Non (Flag actif) | Catalogue indemnités (Repas, Transport) |
-| `ref_type_cotisation` | Paie / Légal | Paie | Oui (Admin) | Oui (Dates début/fin) | Cotisations CNaPS, Santé, FMFP |
-| `ref_taux_majoration` | Paie / Légal | Paie | Oui (Admin) | Oui (Dates début/fin) | Taux d'heures sup et majorations |
-| `ref_type_mouvement_paie`| Paie | Paie Variables | Oui (Admin) | Non (Flag actif) | Catalogue des variables DAF |
+| N° | Table Physique | Domaine Propriétaire | Modules Consommateurs | Mutable ? | Historisé ? | Rôle dans l'Architecture |
+| :---: | :--- | :--- | :--- | :---: | :---: | :--- |
+| 1 | `ref_filiale` | Structure | Employés, Paie | Oui (Admin) | Oui (`date_desactivation`) | Personnes morales du groupe (NIF, STAT, RCS) |
+| 2 | `ref_banque` | Structure / Socle | Employés, Paie | Oui (Admin) | Non (Flag actif) | Établissements bancaires & codes SWIFT |
+| 3 | `ref_site` | Structure | Pointage, Employés, Paie | Oui (Admin) | Non (Flag actif) | Établissements physiques, horaires & plancher d'arrivée |
+| 4 | `ref_departement` | Structure | Employés, Organisation | Oui (Admin) | Non (Flag actif) | Pôles fonctionnels majeurs |
+| 5 | `ref_service` | Structure | Employés, Pointage | Oui (Admin) | Non (Flag actif) | Découpage des départements (`uk_service_departement`) |
+| 6 | `ref_fonction` | Structure | Employés, Pointage | Oui (Admin) | Non (Flag actif) | Postes, métiers et dispenses de pointage |
+| 7 | `ref_type_contrat` | Employés | Employés, Paie | Oui (Admin) | Non (Flag actif) | Typologie des contrats d'embauche (CDI, CDD, etc.) |
+| 8 | `ref_type_intervenant`| Paie / Légal | Employés, Paie | Oui (Admin) | Non (Flag actif) | Régimes fiscaux (IRSA/ISI) et sociaux (CNaPS/Santé) |
+| 9 | `ref_statut_rh` | Employés | Employés, Contrats | Non (Système) | Non (Ordre d'état) | États du cycle de vie collaborateur |
+| 10 | `ref_type_evenement_rh`| Employés | Carrière, Workflows | Non (Système) | Non | Événements de carrière (mutation, promotion, etc.) |
+| 11 | `ref_motif_sortie` | Employés | Contrats, Paie STC | Oui (Admin) | Non (Flag actif) | Motifs légaux de fin de contrat (démission, etc.) |
+| 12 | `ref_motif_mouvement` | Employés | Carrière | Oui (Admin) | Non (Flag actif) | Motifs d'avenants et mutations |
+| 13 | `ref_mode_calcul_paie` | Paie | Carrière, Paie | Non (Système) | Non (Flag actif) | Modes de calcul : Mensuel, Horaire, Journalier |
+| 14 | `ref_categorie_professionnelle` | Structure / Paie | Pointage, Paie, Employés | Oui (Admin) | Non (Flag actif) | Grille conventionnelle, Cadre, Éligibilité HS |
+| 15 | `ref_type_document` | Employés | Dossier Salarié | Oui (Admin) | Non (Flag actif) | Typologie des justificatifs RH (CIN, Diplômes, etc.) |
+| 16 | `ref_calendrier_ferie` | Structure / Légal | Pointage, Congés, Paie | Oui (Admin) | Non (Par date) | Jours fériés légaux et chômés |
+| 17 | `ref_periode_chomee` | Structure / Exploitation | Pointage, Paie | Oui (Admin) | Oui (Par dates) | Chômage technique ou fermetures collectives |
+| 18 | `ref_role` | Sécurité / IAM | Sécurité, Tous | Oui (Admin) | Oui (`date_desactivation`) | Rôles du modèle RBAC applicatif |
+| 19 | `ref_module` | Sécurité / IAM | Sécurité | Non (Système) | Non (Flag actif) | Découpage applicatif du SIRH (EMPLOYE, PAIE, etc.) |
+| 20 | `ref_menu` | Sécurité / IAM | Frontend Navigation | Oui (Admin) | Non | Arborescence de la navigation UI |
+| 21 | `ref_pool_conge_annuel`| Congés | Congés, Solde | Non (Système) | Non | Quotas partagés (permissions 10 jours Art. 88) |
+| 22 | `ref_type_conge` | Congés | Congés, Pointage, Paie | Oui (Admin) | Non (Flag actif) | Types d'absences, règles d'imputation et justificatifs |
+| 23 | `ref_motif_evenement_familial` | Congés | Congés | Oui (Admin) | Non (Flag actif) | Motifs d'événements familiaux (mariage, décès, etc.) |
+| 24 | `ref_statut_demande_conge` | Congés | Congés | Non (Système) | Non | Circuit de validation du congé (SOUMIS, APPROUVE, etc.) |
+| 25 | `ref_statut_pointage_jour` | Pointage | Pointage, Paie | Non (Système) | Non | Qualification journalière du pointage (PRESENT, etc.) |
+| 26 | `ref_statut_periode_paie` | Pointage / Paie | Pointage, Paie | Non (Système) | Non | États du cycle mensuel de paie (OUVERTE, VALIDEE, etc.) |
+| 27 | `ref_indemnite` | Pointage / Paie | Pointage, Paie | Oui (Admin) | Non (Flag actif) | Catalogue indemnités (DPLCT, REPAS) |
+| 28 | `ref_type_cotisation` | Paie / Légal | Paie | Oui (Admin) | Oui (Dates début/fin) | Cotisations sociales CNaPS, Santé, FMFP |
+| 29 | `ref_taux_majoration` | Paie / Légal | Paie | Oui (Admin) | Oui (Dates début/fin) | Taux d'heures sup (+30%, +50%, nuit, dimanche) |
+| 30 | `ref_type_mouvement_paie`| Paie | Paie Variables | Oui (Admin) | Non (Flag actif) | Catalogue des variables DAF (primes, retenues) |
+| 31 | `ref_mode_paiement` | Paie | Paie Sorties | Oui (Admin) | Non (Flag actif) | Virement, Chèque, Espèces, Mobile Money |
+| 32 | `ref_type_bulletin` | Paie | Paie Bulletins | Non (Système) | Non (Flag actif) | Types de bulletin (MENSUEL, STC, GRATIFICATION) |
 
 ---
 
 ## 16. Moteur des Paramètres Globaux (`parametre_global`)
 
-### 16.1. Schéma Physique
-La table `parametre_global` implémente un registre clé-valeur versionné dans le temps :
+### 16.1. Schéma Physique & Contraintes d'Intégrité
 ```sql
 CREATE TABLE parametre_global (
     id_parametre SERIAL PRIMARY KEY,
@@ -540,81 +529,63 @@ CREATE TABLE parametre_global (
     date_fin DATE,
     est_actif BOOLEAN NOT NULL DEFAULT TRUE,
     est_desactivable BOOLEAN NOT NULL DEFAULT FALSE,
-    CONSTRAINT uq_parametre_global_code_date UNIQUE (code_parametre, date_debut)
+    CONSTRAINT uq_parametre_global_code_date UNIQUE (code_parametre, date_debut),
+    CONSTRAINT ck_conge_decompte_feries_valeur CHECK (code_parametre <> 'CONGE_DECOMPTE_FERIES'
+        OR (valeur IN ('INCLUS', 'EXCLUS') AND est_desactivable = TRUE))
 );
 
 CREATE INDEX idx_parametre_actif ON parametre_global(code_parametre) WHERE date_fin IS NULL;
 CREATE INDEX idx_parametre_categorie ON parametre_global(categorie);
 ```
 
-### 16.2. Inventaire Exhaustif des Clés Paramétrées (34 Paramètres Canoniques)
+### 16.2. Inventaire Exhaustif des 37 Paramètres Canoniques du Seed SQL
 
-| ID | Clé Paramètre | Catégorie | Valeur Seed | Type Déduit | Description & Portée Métier |
-| :---: | :--- | :--- | :---: | :---: | :--- |
-| **3** | `SEUIL_NUIT_DEBUT` | `POINTAGE` | `22:00` | LocalTime | Début du travail de nuit (Art. 83 Code Travail malgache) |
-| **4** | `SEUIL_NUIT_FIN` | `POINTAGE` | `05:00` | LocalTime | Fin de la période légale de nuit |
-| **5** | `MONTANT_REPAS_MIDI` | `POINTAGE` | `2000` | Montant Ar | Forfait journalier repas du midi (si présent) |
-| **6** | `SEUIL_2ND_REPAS_1` | `POINTAGE` | `19:30` | LocalTime | Sortie ouvrant un deuxième repas distinct, tranche 1 |
-| **7** | `MONTANT_2ND_REPAS_1` | `POINTAGE` | `2000` | Montant Ar | Montant du deuxième repas, tranche 1 |
-| **8** | `SEUIL_2ND_REPAS_2` | `POINTAGE` | `21:00` | LocalTime | Sortie ouvrant le deuxième repas majoré |
-| **9** | `MONTANT_2ND_REPAS_2` | `POINTAGE` | `4000` | Montant Ar | Montant du deuxième repas majoré |
-| **10**| `SEUIL_PAUSE_MIDI_MIN` | `POINTAGE` | `60` | Minutes | Seuil de détection « ne rentre pas midi » (TMM) |
-| **11**| `REDUCTION_DEPLACT_REPAS_MIDI` | `POINTAGE` | `1000` | Montant Ar | Déduction transport si repas midi alloué sur site |
-| **12**| `SEUIL_HEURES_JOUR` | `RH_GENERAL` | `8` | Heures | Durée légale de référence d'une journée de travail |
-| **14**| `DUREE_MAX_CDD_MOIS` | `CONTRAT` | `72` | Mois | Durée maximale cumulée de CDD successifs (6 ans) |
-| **15**| `NB_MAX_RENOUVELLEMENTS_CDD` | `CONTRAT` | `2` | Entier | Nombre max de renouvellements par avenant (max 2) |
-| **37**| `DUREE_MAX_CONTRAT_CDD_MOIS`| `CONTRAT` | `24` | Mois | Durée max d'un contrat CDD unitaire (Art. 19 Code Travail) |
-| **16**| `MAX_RENOUVELLEMENTS_ESSAI`| `RH_GENERAL` | `1` | Entier | Renouvellements autorisés pour la période d'essai (1 max) |
-| **18**| `PLAFOND_CUMUL_SOLDE_CONGE_JOURS` | `CONGE` | `90` | Jours | Plafond optionnel ; désactivé, acquisitions et bonifications sans plafond |
-| **19**| `DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS` | `CONGE` | `36` | Mois | Délai avant signalement des droits disponibles pour examen DAF, sans débit automatique |
-| **20**| `PLAFOND_SOLDE_CONGE_NEGATIF` | `CONGE` | `-10` | Jours | Anticipation max autorisée par dérogation RH |
-| **21**| `SEUIL_ALERTE_SOLDE_CONGE_FAIBLE` | `CONGE` | `3` | Jours | Déclenchement de l'indicateur visuel de solde faible |
-| **22**| `DELAI_PREAVIS_COURT_JOURS` | `CONGE` | `2` | Jours | Préavis minimum pour demande de courte durée |
-| **23**| `DELAI_PREAVIS_LONG_JOURS` | `CONGE` | `15` | Jours | Préavis minimum pour demande de longue durée |
-| **24**| `SEUIL_JOURS_PREAVIS_LONG` | `CONGE` | `3` | Jours | Seuil de jours posés basculant vers le préavis long |
-| **26**| `DUREE_MAX_MATERNITE_STANDARD_JOURS` | `CONGE` | `98` | Jours | Congé maternité légal standard (14 semaines calendaires) |
-| **27**| `DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS` | `CONGE` | `119` | Jours | Maternité avec extension médicale (98 + 21 jours) |
-| **28**| `SEUIL_ANCIENNETE_BONIFICATION_ANS` | `CONGE` | `3` | Années | Ancienneté ouvrant droit à bonification congé (Art. 86) |
-| **29**| `PALIER_ANNEES_BONIFICATION`| `CONGE` | `5` | Années | Nombre d'années par tranche de bonification |
-| **30**| `JOURS_BONIFICATION_PAR_PALIER` | `CONGE` | `1` | Jours | Jours de congé supplémentaires par palier d'ancienneté |
-| **31**| `SEUIL_RETARD_ASSIDUITE_MIN`| `PAIE` | `45` | Minutes | Retard mensuel max pour conserver la prime d'assiduité |
-| **32**| `SEUIL_RETARD_PENALITE_PP_MIN` | `PAIE` | `70` | Minutes | Retard mensuel déclenchant la pénalité sur prime performance |
-| **33**| `SEUIL_CONGES_PENALITE_PP_JOURS` | `PAIE` | `1.0` | Jours | Jours congés cumulés conditionnant la pénalité PP |
-| **34**| `TAUX_PENALITE_PP` | `PAIE` | `0.25` | Taux (25%) | Réduction appliquée sur la prime de performance |
-| **35**| `SEUIL_HEURES_SEMAINE_COMPENSATION` | `POINTAGE` | `40.0` | Heures | Ancien paramètre non consommé ; objectif calculé depuis la durée journalière et les jours requis |
-| **38**| `DUREE_REFERENCE_TCONGE_MOIS` | `CONGE` | `12` | Mois | Borne technique de référence de calcul de droit congé |
-| **39**| `EXONERATION_HS_IRSA_ACTIVE`| `PAIE` | `TRUE` | Booléen | Activation globale de l'exonération fiscale des HS |
-| **40**| `PLAFOND_MENSUEL_HS_EXONEREES` | `PAIE` | `20.00` | Heures | Plafond mensuel légal d'heures sup exonérées d'IRSA |
-
----
-
-## 17. Critique Fondamentale de `parametre_global`
-
-> **Contrôle des versions (audit du 25/09/2026)** : l'unicité
-> `(code_parametre, date_debut)` bloque seulement un doublon à même date de
-> début. Elle ne bloque pas deux intervalles qui se chevauchent. La création
-> et la modification doivent vérifier l'intersection temporelle sous
-> transaction ; une base existante doit être auditée avant une contrainte SQL
-> de non-chevauchement. Une année civile peut avoir plusieurs versions
-> successives sans ambiguïté. Voir aussi
-> [les règles Paie](./module-paie.md#4-référentiel-légal-et-sélection-à-date-deffet).
-
-Bien que séduisante par sa flexibilité apparente, la table générique clé-valeur `parametre_global` présente des limites architecturales sévères qu'il convient de documenter :
-
-### Ce qu'il est légitime d'y stocker :
-- Des scalaires isolés, indépendants de toute relation complexe (ex. `SEUIL_RETARD_ASSIDUITE_MIN = 45`).
-- Des flags d'activation fonctionnelle globale (ex. `EXONERATION_HS_IRSA_ACTIVE = TRUE`).
-
-### Ce qu'il NE FAUT PAS y stocker (et les refactors déjà opérés) :
-1. **Les structures multidimensionnelles et composites** : Un barème fiscal progressif (6 tranches d'IRSA avec planchers, plafonds et pourcentages) ne doit jamais être éclaté en 18 clés `IRSA_TRANCHE1_MIN`, `IRSA_TRANCHE1_TAUX`, etc. Le système a judicieusement rejeté cette approche pour créer la table relationnelle dédiée `bareme_irsa`.
-2. **Les configurations propres à un site** : Les tolérances et horaires ne doivent pas être dupliqués par des clés `TNR_HORAIRE_DEBUT`, `TMM_HORAIRE_DEBUT`. Ces attributs appartiennent aux colonnes de `ref_site`.
-3. **Les taux légaux de cotisations sociales** : Portés par `ref_type_cotisation` et `paie_config_legale` car soumis à une gouvernance d'effet millésimée et à des plafonds stricts (8x SME).
+| ID | Clé Paramètre | Catégorie | Valeur Seed | Type | Désactivable ? | Fondement Légal / Règle Métier |
+| :---: | :--- | :--- | :---: | :---: | :---: | :--- |
+| **3** | `SEUIL_NUIT_DEBUT` | `POINTAGE` | `22:00` | LocalTime | **NON** | *Art. 83 Code Travail* : début de la tranche de nuit |
+| **4** | `SEUIL_NUIT_FIN` | `POINTAGE` | `05:00` | LocalTime | **NON** | *Art. 83 Code Travail* : fin de la tranche légale de nuit |
+| **5** | `MONTANT_REPAS_MIDI` | `POINTAGE` | `2000` | Montant Ar | **NON** | Forfait journalier repas du midi (si présent) |
+| **6** | `SEUIL_2ND_REPAS_1` | `POINTAGE` | `19:30` | LocalTime | OUI | Sortie ouvrant droit au 2nd repas distinct (tranche 1) |
+| **7** | `MONTANT_2ND_REPAS_1` | `POINTAGE` | `2000` | Montant Ar | OUI | Montant du deuxième repas, tranche 1 |
+| **8** | `SEUIL_2ND_REPAS_2` | `POINTAGE` | `21:00` | LocalTime | OUI | Sortie ouvrant droit au 2nd repas majoré |
+| **9** | `MONTANT_2ND_REPAS_2` | `POINTAGE` | `4000` | Montant Ar | OUI | Montant du deuxième repas majoré |
+| **10**| `SEUIL_PAUSE_MIDI_MIN` | `POINTAGE` | `60` | Minutes | **NON** | Seuil de détection « ne rentre pas midi » (site TMM) |
+| **11**| `REDUCTION_DEPLACT_REPAS_MIDI` | `POINTAGE` | `1000` | Montant Ar | OUI | Déduction transport si repas midi alloué sur site |
+| **12**| `SEUIL_HEURES_JOUR` | `RH_GENERAL` | `8` | Heures | **NON** | *Art. 75 Code Travail* : durée légale journalière (8h) |
+| **14**| `DUREE_MAX_CDD_MOIS` | `CONTRAT` | `72` | Mois | **NON** | *Art. 20 Code Travail* : durée max cumulée CDD (6 ans) |
+| **15**| `NB_MAX_RENOUVELLEMENTS_CDD` | `CONTRAT` | `2` | Entier | **NON** | *Art. 20 Code Travail* : max 2 renouvellements d'avenant |
+| **37**| `DUREE_MAX_CONTRAT_CDD_MOIS`| `CONTRAT` | `24` | Mois | **NON** | *Art. 19 Code Travail* : durée max contrat CDD unitaire |
+| **16**| `MAX_RENOUVELLEMENTS_ESSAI`| `RH_GENERAL` | `1` | Entier | **NON** | *Art. 18 Code Travail* : période d'essai (1 seul renouvellement) |
+| **18**| `PLAFOND_CUMUL_SOLDE_CONGE_JOURS` | `CONGE` | `90` | Jours | OUI | Plafond optionnel ; désactivé = cumul sans plafond |
+| **19**| `DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS` | `CONGE` | `36` | Mois | **NON** | *Art. 85 & 87 Code Travail* : prescription 3 ans (signalement DAF) |
+| **20**| `PLAFOND_SOLDE_CONGE_NEGATIF` | `CONGE` | `-10` | Jours | OUI | Anticipation max autorisée par dérogation RH |
+| **21**| `SEUIL_ALERTE_SOLDE_CONGE_FAIBLE` | `CONGE` | `3` | Jours | OUI | Déclenchement de l'indicateur visuel de solde faible |
+| **22**| `DELAI_PREAVIS_COURT_JOURS` | `CONGE` | `2` | Jours | **NON** | Préavis minimum pour demande de courte durée |
+| **23**| `DELAI_PREAVIS_LONG_JOURS` | `CONGE` | `15` | Jours | **NON** | Préavis minimum pour demande de longue durée |
+| **24**| `SEUIL_JOURS_PREAVIS_LONG` | `CONGE` | `3` | Jours | **NON** | Seuil de jours posés basculant vers le préavis long |
+| **26**| `DUREE_MAX_MATERNITE_STANDARD_JOURS` | `CONGE` | `98` | Jours | **NON** | *Art. 97 Code Travail* : maternité standard (14 semaines) |
+| **27**| `DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS` | `CONGE` | `119` | Jours | **NON** | *Art. 97 Code Travail* : extension pathologique (98 + 21j) |
+| **28**| `SEUIL_ANCIENNETE_BONIFICATION_ANS` | `CONGE` | `3` | Années | OUI | *Art. 86 Code Travail* : ancienneté ouvrant bonification |
+| **29**| `PALIER_ANNEES_BONIFICATION`| `CONGE` | `5` | Années | OUI | *Art. 86 Code Travail* : années par tranche de bonification |
+| **30**| `JOURS_BONIFICATION_PAR_PALIER` | `CONGE` | `1` | Jours | OUI | *Art. 86 Code Travail* : jours accordés par palier d'ancienneté |
+| **31**| `SEUIL_RETARD_ASSIDUITE_MIN`| `PAIE` | `45` | Minutes | OUI | Retard mensuel max pour conserver la prime d'assiduité |
+| **32**| `SEUIL_RETARD_PENALITE_PP_MIN` | `PAIE` | `70` | Minutes | OUI | Retard mensuel déclenchant la pénalité sur prime performance |
+| **33**| `SEUIL_CONGES_PENALITE_PP_JOURS` | `PAIE` | `1.0` | Jours | OUI | Jours congés cumulés conditionnant la pénalité PP |
+| **34**| `TAUX_PENALITE_PP` | `PAIE` | `0.25` | Taux (25%) | OUI | Réduction appliquée sur la prime de performance |
+| **35**| `SEUIL_HEURES_SEMAINE_COMPENSATION` | `POINTAGE` | `40.0` | Heures | **NON** | Ancien paramètre historique (objectif calculé dynamiquement) |
+| **38**| `DUREE_REFERENCE_TCONGE_MOIS` | `CONGE` | `12` | Mois | **NON** | Borne technique de référence de calcul de droit congé |
+| **39**| `EXONERATION_HS_IRSA_ACTIVE`| `PAIE` | `FALSE` | Booléen | OUI | *Art. 01.03.03 CGI* : activation exonération IRSA des HS |
+| **40**| `PLAFOND_MENSUEL_HS_EXONEREES` | `PAIE` | `20.00` | Heures | OUI | *Art. 01.03.03 CGI* : plafond mensuel d'HS exonérées (20h) |
+| **41**| `TAUX_ISI` | `PAIE` | `5.00` | Taux (5%) | **NON** | *Art. 01.03.02 CGI* : taux libératoire ISI pour consultants |
+| **42**| `MONTANT_PRIME_ASSIDUITE` | `PAIE` | `50000` | Montant Ar | OUI | Montant forfaitaire mensuel de la prime d'assiduité |
+| — | `DIVISEUR_JOURS_CALENDAIRE_CONGE` | `CONGE` | `30` | Jours | **NON** | *Art. 85 Code Travail* : diviseur mensuel de valorisation congé |
+| — | `CONGE_DECOMPTE_FERIES` | `CONGE` | `INCLUS` | Enum | OUI | Décompte des fériés dans les congés : `INCLUS` ou `EXCLUS` |
 
 ---
 
-## 18. Sémantique Triétat : ACTIVE / DISABLED / MISSING / INVALID
+## 17. Sémantique Triétat : ACTIVE / DISABLED / MISSING / INVALID
 
-Une innovation majeure du code backend réside dans la classe interne `ParametreGlobal.ResolutionStatus` et son record `ParametreResolution` :
+Le backend implémente dans [`ParametreGlobal.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/persistence/ParametreGlobal.java#L248-L255) l'énumération interne `ResolutionStatus` et son record `ParametreResolution` :
 
 ```java
 public enum ResolutionStatus { ACTIVE, DISABLED, MISSING }
@@ -642,45 +613,46 @@ graph TD
 ```
 
 - **ACTIVE** : Le paramètre existe et est en vigueur $\rightarrow$ La valeur configurée s'applique.
-- **DISABLED** : L'administrateur a explicitement désactivé la règle (`est_actif = FALSE`) $\rightarrow$ Le moteur applique l'effet métier documenté par le backend, sans reprendre la valeur configurée ni un fallback codé en dur. Certaines règles sont liées : la désactivation d'un paramètre de bonification coupe la bonification entière ; celle d'un paramètre d'exonération HS coupe l'exonération.
+- **DISABLED** : L'administrateur a explicitement désactivé la règle (`est_actif = FALSE`) $\rightarrow$ Le moteur neutralise la règle sans reprendre la valeur configurée ni un fallback codé en dur.
 - **MISSING** : La clé est introuvable pour la date requise $\rightarrow$ Lève une exception bloquante `BLOCKING_CONFIGURATION_ERROR` ou `PAYROLL_ALLOWANCE_CONFIGURATION_MISSING`. Le système refuse de calculer à l'aveugle.
-- **INVALID** : La chaîne présente ne peut être convertie dans le type attendu (ex. "ABC" pour un montant numérique) $\rightarrow$ Lève une exception immédiate `TCONGE_REFERENCE_DURATION_INVALID`.
+- **INVALID** : La chaîne présente ne peut être convertie dans le type attendu $\rightarrow$ Lève une exception immédiate `TCONGE_REFERENCE_DURATION_INVALID`.
 
 ---
 
-## 19. Catégorisation des Paramètres : Obligatoires vs Optionnels
+## 18. Effets Métier Documentés de Désactivation
 
-Le backend distingue formellement la possibilité de désactivation via la colonne physique `est_desactivable BOOLEAN NOT NULL DEFAULT FALSE` :
+Dans [`ParametreGlobal.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/persistence/ParametreGlobal.java#L29-L57), la méthode `getEffetDesactivation()` associe chaque paramètre désactivable à sa conséquence algorithmique formelle :
 
-### 1. Paramètres non désactivables (`est_desactivable = FALSE`)
-Les constantes actives requises par les moteurs incluent :
-- `SEUIL_HEURES_JOUR`, `SEUIL_NUIT_DEBUT`, `SEUIL_NUIT_FIN`, `DUREE_MAX_CDD_MOIS`.
-- Le deuxième repas est une règle automatique du pointage, indépendante de l'attribution du premier repas. Son type et son montant sont tracés sur la journée ; pour la paie, le montant rejoint l'unique indemnité `REPAS`. Chaque tranche peut être désactivée sans valeur de repli. La tranche majorée remplace, sans cumuler, la première.
-- `SEUIL_HEURES_SEMAINE_COMPENSATION` est conservé pour l'historique et n'est plus désactivable : le seuil hebdomadaire opérationnel est la durée journalière configurée multipliée par les jours requis du tronçon de période (40 h pour cinq jours à 8 h, 32 h pour quatre, 16 h pour deux).
-- Si un utilisateur tente d'appeler l'API `/referentiel/parametres-globaux/{id}/toggle-actif` sur ces lignes, le contrôleur rejette la requête avec le code d'erreur 400 :
-  > *"Ce paramètre ne peut pas être désactivé."*
+| Paramètre Global | Effet Métier Formellement Constaté lors de la Désactivation |
+| :--- | :--- |
+| `REDUCTION_DEPLACT_REPAS_MIDI` | La réduction de l'indemnité de déplacement ne s'applique plus. |
+| `PLAFOND_CUMUL_SOLDE_CONGE_JOURS` | Les acquisitions et bonifications de congés ne sont plus plafonnées par cette règle. |
+| `PLAFOND_SOLDE_CONGE_NEGATIF` | Les demandes de congé créant un solde négatif sont refusées. |
+| `SEUIL_ALERTE_SOLDE_CONGE_FAIBLE`| L'alerte de solde de congé faible n'est plus émise. |
+| `SEUIL_ANCIENNETE_BONIFICATION_ANS`, `PALIER_ANNEES_BONIFICATION`, `JOURS_BONIFICATION_PAR_PALIER` | La bonification d'ancienneté n'est plus calculée. |
+| `SEUIL_RETARD_ASSIDUITE_MIN`, `MONTANT_PRIME_ASSIDUITE` | La prime d'assiduité n'est plus accordée par le calcul de paie. |
+| `SEUIL_RETARD_PENALITE_PP_MIN`, `SEUIL_CONGES_PENALITE_PP_JOURS`, `TAUX_PENALITE_PP` | La pénalité retard/congé sur la prime de performance n'est plus appliquée. |
+| `EXONERATION_HS_IRSA_ACTIVE`, `PLAFOND_MENSUEL_HS_EXONEREES` | L'exonération IRSA des heures supplémentaires n'est plus appliquée. |
+| `CONGE_DECOMPTE_FERIES` | Le traitement des jours fériés dans les congés débitant le solde est désactivé ; sans version active, le calcul des congés concernés est bloqué. |
+| `SEUIL_2ND_REPAS_1`, `MONTANT_2ND_REPAS_1` | Le deuxième repas de la première tranche n'est plus accordé. |
+| `SEUIL_2ND_REPAS_2`, `MONTANT_2ND_REPAS_2` | Le deuxième repas majoré n'est plus accordé ; la première tranche reste applicable si elle est active. |
 
-### 2. Règles Opérationnelles Optionnelles (`est_desactivable = TRUE`)
-Règles relevant de la politique interne de gestion de la société :
-- `REDUCTION_DEPLACT_REPAS_MIDI`, `PLAFOND_CUMUL_SOLDE_CONGE_JOURS`, `PLAFOND_SOLDE_CONGE_NEGATIF`, `SEUIL_ALERTE_SOLDE_CONGE_FAIBLE`, les trois paramètres de bonification d'ancienneté, les quatre paramètres de primes de paie, `EXONERATION_HS_IRSA_ACTIVE` et `PLAFOND_MENSUEL_HS_EXONEREES`.
-- La désactivation de `PLAFOND_SOLDE_CONGE_NEGATIF` interdit la prise anticipée ; celle du plafond d'exonération HS supprime l'exonération. L'API fournit `effetDesactivation` pour afficher cette conséquence dans l'interface.
-- Ces paramètres peuvent être coupés (`est_actif = false`) sans compromettre l'intégrité de l'application.
+Dans [`ParametreGlobalController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java#L233-L240), la méthode `verifierDesactivationDocumentee` lève une exception HTTP 400 si un administrateur tente de déclarer `est_desactivable = TRUE` sur un paramètre dont l'effet n'est pas répertorié dans ce tableau.
 
 ---
 
-## 20. Versionnement Temporel & Clôture à Date d'Effet
+## 19. Versionnement Temporel & Clôture à Date d'Effet
 
-### 20.1. Convention Temporelle Semi-Ouverte
-La validité d'une version de paramètre s'exprime sous la forme d'un intervalle semi-ouvert ou fermé :
+### 19.1. Convention Temporelle Semi-Ouverte
+La validité d'une version de paramètre s'exprime sous la forme d'un intervalle :
 
 $$\text{Période de validité} = [ \text{date\_debut} \, ; \, \text{date\_fin} ]$$
 
-- Une version active a `date_fin IS NULL`.
-- L'intervalle est **inclusif aux deux bornes** : un paramètre avec `date_debut = '2026-01-01'` et `date_fin = '2026-02-28'` est applicable jusqu'au 28 février inclus.
+- Une version active en cours a `date_fin IS NULL`.
+- L'intervalle est inclusif aux deux bornes.
 
-### 20.2. Clôture Automatique à la Veille (`cloturerPrecedent`)
+### 19.2. Clôture Automatique à la Veille (`cloturerPrecedent`)
 Lors de la création d'une nouvelle version via l'API `POST /referentiel/parametres-globaux`, le système exécute de manière transactionnelle la méthode statique `ParametreGlobal.cloturerPrecedent` :
-
 ```sql
 UPDATE parametre_global SET date_fin = :dateDebutNouveau - INTERVAL '1 day'
 WHERE UPPER(code_parametre) = UPPER(:codeParametre)
@@ -688,40 +660,23 @@ WHERE UPPER(code_parametre) = UPPER(:codeParametre)
   AND date_debut < :dateDebutNouveau;
 ```
 
-Ce mécanisme garantit :
-1. L'absence de discontinuité (trou temporel) ;
-2. L'absence de chevauchement (aucun jour n'a deux valeurs concurrentes actives) ;
-3. Le respect de la contrainte d'unicité composite `uq_parametre_global_code_date UNIQUE (code_parametre, date_debut)`.
+### 19.3. Cas Particulier : Verrouillage Futur de `CONGE_DECOMPTE_FERIES`
+Pour garantir l'immutabilité absolue des soldes de congés déjà liquidés :
+1. `verifierVersionFutureDecompteConges` : la modification ou l'ajout de `CONGE_DECOMPTE_FERIES` n'est autorisée que pour une version strictement future ($\text{date\_debut} \ge \text{CURRENT\_DATE} + 1\text{ jour}$). L'historique ne peut pas être réécrit.
+2. `verifierAbsenceChevauchementFeries` : pose un verrou `SELECT ... FOR UPDATE` vérifiant qu'aucun chevauchement d'intervalles n'existe.
+3. L'appel `/toggle-actif` est formellement interdit sur ce paramètre : toute transition doit faire l'objet d'une version datée explicite.
 
 ---
 
-## 21. Matrice des Portées de Configuration
+## 20. Configuration des Indemnités de Site & Dérogations Individuelles
 
-Le tableau suivant formalise la portée de chaque type de configuration au sein du SIRH :
-
-| Configuration | Portée Globale | Portée Site | Portée Employé | Portée Catégorie | Portée Légale Nationale |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Horaires de travail (Matin/AM)** | - | **X** (`ref_site`) | - | - | - |
-| **Plancher d'arrivée (*Earliest Start*)** | - | **X** (`ref_site`) | - | - | - |
-| **Indemnité de transport (forfait)** | - | **X** (`site_indemnite_config`) | Exception (`employe_indemnite_derogation`) | - | - |
-| **Indemnité de repas (taux midi/soir)**| `parametre_global` | Montant site direct (`site_indemnite_config`)| Exception individuelle | - | - |
-| **Éligibilité aux Heures Supplémentaires**| - | - | - | **X** (`ref_cat_pro`) | Code du travail |
-| **Seuil d'heures de nuit (22h - 05h)** | **X** (`parametre_global`)| - | - | - | Code du travail (Art. 83) |
-| **Plafonds & Renouvellements CDD** | **X** (`parametre_global`)| - | - | - | Code du travail (Art. 19) |
-| **Barème d'imposition IRSA** | - | - | - | - | **X** (`bareme_irsa` / CGI) |
-| **Organisme de Santé (OSTIE vs OMSI)** | - | **X** (`site_cotisation`) | - | - | Décrets Santé travail |
-
----
-
-## 22. Configuration des Indemnités de Site & Dérogations Individuelles
-
-Le modèle de gestion des indemnités de présence (repas, déplacement) repose sur une architecture à trois niveaux garantissant une flexibilité totale :
+Le modèle de gestion des indemnités de présence repose sur une architecture à trois niveaux :
 
 ```mermaid
 graph TD
     N1["NIVEAU 1 : RÉFÉRENTIEL DU CATALOGUE<br/>ref_indemnite (DPLCT, REPAS)<br/>Définit le libellé, l'assujettissement fiscal et social, et la rubrique de paie"]
     N2["NIVEAU 2 : POLITIQUE D'ÉTABLISSEMENT<br/>site_indemnite_config<br/>Fixe le montant par site (ex. TNR = 31 200 Ar, TMM = 53 200 Ar) et la périodicité"]
-    N3["NIVEAU 3 : ARBITRAGE INDIVIDUEL (DAF)<br/>employe_indemnite_derogation<br/>Octroie ou neutralise explicitement une indemnité pour un salarié donné (ex. véhicule de fonction)"]
+    N3["NIVEAU 3 : ARBITRAGE INDIVIDUEL (DAF)<br/>employe_indemnite_derogation<br/>Embarqué dans IndemnitesSitesTab.jsx : neutralise (véhicule fonction) ou accorde"]
 
     N1 --> N2
     N2 --> RESOLUTION{"Résolution Quotidienne du Pointage"}
@@ -729,388 +684,214 @@ graph TD
     RESOLUTION --> RESULT["pointage_indemnite_jour<br/>Montant calculé figé sur le pointage"]
 ```
 
-### 22.1. Catalogue d'Indemnités (`ref_indemnite`)
-- **DPLCT** : *Indemnité de Déplacement* $\rightarrow$ Liée à la rubrique de paie `INDEMNITE_TRANSPORT`. Imposable IRSA (`TRUE`), soumise à cotisation sociale (`TRUE`), fractionnable (`TRUE` : proratisée selon le nombre de jours travaillés sur le mois).
-- **REPAS** : *Indemnité de Repas* $\rightarrow$ Liée à la rubrique de paie `INDEMNITE_REPAS`. Imposable IRSA (`TRUE`), soumise à cotisation (`TRUE`), non fractionnable (`FALSE` : octroyée à l'unité journalière).
-
-### 22.2. Configuration par Site (`site_indemnite_config`)
-Définit la dotation budgétaire de chaque site géographique :
-- **Site TNR (Siège)** : Déplacement = `31 200.00 Ar / Mois` ; Repas = `2 000.00 Ar / Jour`.
-- **Site TMM (Agence)** : Déplacement = `53 200.00 Ar / Mois` (compensation de l'éloignement portuaire) ; Repas = `0.00 Ar` (cantine sur site sans versement numéraire).
-
-### 22.3. Dérogations Individuelles (`employe_indemnite_derogation`)
-Permet à la DAF de surcharger la règle de site pour un collaborateur précis :
-- `beneficie = FALSE` : Neutralisation. Exemple typique : un salarié doté d'un véhicule de fonction de société ne doit pas percevoir l'indemnité forfaitaire de déplacement.
-- `beneficie = TRUE` : Attribution dérogatoire exceptionnelle.
-- La dérogation est datée (`date_debut`, `date_fin`) et tracée par son créateur (`created_by REFERENCES utilisateur(id_utilisateur)`).
+- **Catalogue (`ref_indemnite`)** : `DPLCT` (Indemnité Déplacement, imposable IRSA, soumise cotisations, proratisée), `REPAS` (Indemnité Repas, imposable IRSA, soumise cotisations, forfait journalier).
+- **Configuration par Site (`site_indemnite_config`)** : TNR = 31 200 Ar/mois (déplacement) et 2 000 Ar/jour (repas) ; TMM = 53 200 Ar/mois (déplacement) et cantine interne.
+- **Dérogations Individuelles (`employe_indemnite_derogation`)** : Interface intégrée dans [`IndemnitesSitesTab.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/components/payroll/IndemnitesSitesTab.jsx) via [`DerogationIndemnitesTab.jsx`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/components/attendance/DerogationIndemnitesTab.jsx), permettant de suspendre le transport pour les salariés disposant d'un véhicule de fonction.
 
 ---
 
-## 23. Frontière avec la Configuration Légale & Fiscale
+## 21. Sécurité IAM, Authentification & Contrôle d'Accès (RBAC)
 
-Bien qu'administrable depuis le panneau d'administration (`ParametresModulesPanel.jsx`), la **Configuration Légale** n'appartient pas au domaine Structure. Elle appartient au domaine **Paie & Légal** et réside dans la table `paie_config_legale`.
-
-### 23.1. Structure du Millésime Légal (`paie_config_legale`)
-Chaque ligne correspond à un exercice fiscal d'application de la Loi de Finances :
-- `code_version` : Code unique de la version (ex. `LF_2026`).
-- `date_debut`, `date_fin` : Période d'application légale.
-- `sme_national`, `sme_agricole` : Salaire Minimum d'Embauche (Base de calcul du plafond CNaPS : 8 x SME).
-- `plafond_cotisation_nb_sme` : Multiplicateur du SME (fixé à 8.00).
-- `seuil_exoneration_irsa` : Seuil de la tranche 0% (350 000 Ar).
-- `minimum_perception_irsa` : Minimum de perception fiscale (3 000 Ar sous LF 2026, anciennement 2 000 Ar sous LF 2024/2025).
-- `deduction_charge_famille` : Déduction pour enfant à charge (2 000 Ar / enfant).
-- `duree_hebdo_legale` (40h), `diviseur_mensuel_heures` (173.33).
-- `exoneration_hs_irsa_active` (`FALSE` par défaut ; activation explicite requise), `plafond_mensuel_hs_exonerees` (20.00 heures).
-
-### 23.2. Versions Réelles Actuelles du Système
-1. `LF_2024_2025` : Applicable du 01/01/2022 au 31/12/2025 (SME 262 680 Ar, Min IRSA 2 000 Ar, Barème 5 tranches).
-2. `LF_2026_JAN_FEB` : Période transitoire du 01/01/2026 au 28/02/2026 (Barème IRSA 6 tranches LF 2026, Min IRSA 3 000 Ar, mais SME CNaPS maintenu à 262 680 Ar selon décret d'application).
-3. `LF_2026` : En vigueur depuis le 01/03/2026 (SME 300 000 Ar, Plafond CNaPS 2 400 000 Ar, Barème 6 tranches culminant à 25%, Min IRSA 3 000 Ar).
-
----
-
-## 24. Frontières avec Congés, Pointage et Employés
-
-### 24.1. Frontière avec Congés & Absences
-- **Structure fournit** : L'identité du salarié et son calendrier des jours fériés de site (`ref_calendrier_ferie`, `site_calendrier_ferie`).
-- **Paramétrage transverse fournit** : Les plafonds et préavis (`parametre_global`).
-- **Congés possède** : Les tables `ref_type_conge`, `ref_pool_conge_annuel` (pool des 10 jours de permissions exceptionnelles), `ref_motif_evenement_familial`, le moteur de décompte en jours ouvrables, le solde acquis et le circuit d'examen DAF des droits arrivés au délai configuré.
-
-### 24.2. Frontière avec Pointage & Présences
-- **Structure fournit** : Le site d'affectation (`id_site`), les horaires d'ouverture, l'état d'activation du plancher d'arrivée et l'heure minimale valorisée (`ref_site`).
-- **Pointage possède** : La capture des entrées/sorties brutes, le calcul des retards et départs anticipés, le calcul des heures de nuit et du dimanche, la détection des anomalies, la gestion des transitions de période de paie (`periode_paie`), et l'application stricte des dérogations d'indemnités.
-
-### 24.3. Frontière avec Employés & Contrats
-- **Structure fournit** : Le catalogue des choix autorisés (filiales, sites, départements, services, fonctions, catégories, types de contrats, types d'intervenants).
-- **Employés possède** : Le dossier personnel (CIN, coordonnées, conjoints, enfants éligibles aux déductions fiscales), le contrat de travail signé et l'historisation des affectations (`employe_affectation_carriere`).
-
----
-
-## 25. Sécurité IAM, Authentification & Gestion des Identités
-
-### 25.1. Comptes Utilisateurs (`utilisateur`)
-Le modèle de sécurité IAM repose sur des identifiants stricts et un traçage exhaustif :
+### 21.1. Comptes Utilisateurs (`utilisateur`)
 - **Table** : `utilisateur`
-- **Colonnes** :
-  - `id_utilisateur` (SERIAL, PK)
-  - `identifiant` (VARCHAR(50) UNIQUE NOT NULL — généralement l'adresse email professionnelle)
-  - `mot_de_passe_hache` (VARCHAR(255) NOT NULL — hachage BCrypt sécurisé)
-  - `id_role` (INTEGER NOT NULL REFERENCES `ref_role(id_role)`)
-  - `est_actif` (BOOLEAN DEFAULT TRUE)
-  - `date_desactivation` (TIMESTAMP, datation de fermeture d'accès)
-  - `motif_desactivation` (VARCHAR(100), raison obligatoire lors de la révocation)
-  - `refresh_token` (VARCHAR(500), signature de session longue durée)
-  - `refresh_token_expiration` (TIMESTAMP)
-  - `created_at`, `updated_at` (TIMESTAMP)
-
-### 25.2. Sécurité des Mots de Passe & Politiques de Validation
-Dans `Utilisateur.java`, la méthode `controler(Connection c)` applique des contrôles drastiques :
-- Identifiant obligatoire, nettoyé des espaces superflus (`trim()`).
-- Unicité absolue de l'identifiant (rejet de doublons avec message clair).
-- Rôle obligatoire et vérifié actif (`RefRole.estActif == true`).
-- Complexité minimale du mot de passe en clair :
+- **Colonnes** : `id_utilisateur`, `identifiant` (unique), `mot_de_passe_hache` (BCrypt avec salage), `id_role`, `est_actif`, `date_desactivation`, `motif_desactivation`, `refresh_token`, `refresh_token_expiration`.
+- **Politique de Sécurité Mot de Passe** ([`Utilisateur.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/persistence/Utilisateur.java)) :
   - Longueur minimale de **8 caractères** ;
-  - Au moins une lettre majuscule (`[A-Z]`) ;
-  - Au moins un chiffre (`[0-9]`) ;
-  - Encodage systématique via `BCryptPasswordEncoder` avant écriture en base.
+  - Au moins une majuscule (`[A-Z]`) et au moins un chiffre (`[0-9]`) ;
+  - Hachage systématique par `BCryptPasswordEncoder` avant écriture.
+  - Motif textuel obligatoire lors d'une désactivation de compte.
+
+### 21.2. Modèle RBAC : Rôles, Permissions et Menus
+- **Rôles Applicatifs ([`ref_role`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L19))** :
+  - `ROLE_ADMIN` (ID 1) : Accès total à tous les modules et écrans d'administration.
+  - `ROLE_AGENT_POINTAGE` (ID 2) : Exploitation du pointage (lecture et saisie des présences, sans accès aux salaires ni à la validation globale).
+- **Matrice Granulaire ([`role_permission`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L37))** : Croise les rôles avec les 5 modules (`EMPLOYE`, `CONGE`, `POINTAGE`, `PAIE`, `ORGANISATION`) pour délivrer les droits `READ`, `WRITE`, `VALIDATE`.
+- **Hiérarchie Spring Security ([`SecurityConfig.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/config/SecurityConfig.java))** :
+  ```java
+  roleHierarchy.role("ROLE_ADMIN").implies(
+      "EMPLOYE_READ", "EMPLOYE_WRITE", "EMPLOYE_VALIDATE",
+      "CONGE_READ", "CONGE_WRITE", "CONGE_VALIDATE",
+      "POINTAGE_READ", "POINTAGE_WRITE", "POINTAGE_VALIDATE",
+      "PAIE_READ", "PAIE_WRITE", "PAIE_VALIDATE",
+      "ORGANISATION_READ", "ORGANISATION_WRITE"
+  );
+  ```
+
+### 21.3. Bootstrap Idempotent du Compte Administrateur ([`AdminAccountSeeder.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/AdminAccountSeeder.java))
+Au démarrage du serveur (`CommandLineRunner`), si `app.security.bootstrap-admin.enabled = true` :
+1. Vérifie si un compte actif rattaché à `ROLE_ADMIN` existe déjà.
+2. Si oui : rollback immédiat, **aucun compte ni mot de passe n'est écrasé**.
+3. Si non : provisionne le compte administrateur à partir des variables d'environnement `GALAXAM_DEFAULT_ADMIN_USERNAME` et `GALAXAM_DEFAULT_ADMIN_PASSWORD`.
+
+### 21.4. Double Jeton JWT & Piste d'Audit
+- **Access Token JWT** : Durée de validité courte de **15 minutes** (`app.security.jwt.access-token-expiration-ms = 900000`).
+- **Refresh Token** : Durée de **7 jours**, stocké en base et transmis au client sous forme de **Cookie HTTP-Only, Secure, SameSite=Lax**.
+- **Piste d'Audit Métier ([`audit_log`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L73))** : Enregistrement synchrone de chaque mutation en format JSONB PostgreSQL (anciennes valeurs, nouvelles valeurs, identifiant utilisateur, IP, timestamp).
+- **Journal de Connexion ([`journal_connexion`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L63))** : Traçabilité des logins selon la Loi n° 2014-038 sur la protection des données personnelles.
 
 ---
 
-## 26. Système RBAC, Matrice de Permissions & Habilitations
+## 22. Architecture Frontend : Écrans, Onglets & Composants
 
-### 26.1. Référentiel des Rôles (`ref_role`)
-Le système distingue les profils par des codes de rôles normalisés :
-- `ROLE_ADMIN` (ID 1) : Administrateur Système / DAF. Accès intégral à l'ensemble du progiciel.
-- `ROLE_AGENT_POINTAGE` (ID 2) : Agent d'exploitation du pointage. Accès restreint à la saisie quotidienne et au contrôle des présences, sans habilitation sur la paie ni l'administration du personnel.
-
-### 26.2. Matrice Rôle x Module x Droits (`role_permission`)
-La finesse des autorisations d'action est formalisée par la table `role_permission` croisée avec `ref_module` :
-- Modules déclarés (`ref_module`) : `EMPLOYE`, `CONGE`, `POINTAGE`, `PAIE`, `ORGANISATION`.
-- Droits booléens attribués : `droit_lecture`, `droit_ecriture`, `droit_validation`.
-
-```mermaid
-classDiagram
-    class ref_role {
-        +int id_role PK
-        +varchar code_role UK
-        +varchar libelle
-        +boolean est_actif
-    }
-
-    class ref_module {
-        +int id_module PK
-        +varchar code_module UK
-        +varchar libelle
-        +boolean est_actif
-    }
-
-    class role_permission {
-        +int id_permission PK
-        +int id_role FK
-        +int id_module FK
-        +boolean droit_lecture
-        +boolean droit_ecriture
-        +boolean droit_validation
-    }
-
-    class ref_menu {
-        +varchar id_menu PK
-        +varchar libelle
-        +varchar icone
-        +varchar href
-        +int rang
-        +int niveau
-        +varchar id_pere FK
-    }
-
-    class role_menu {
-        +int id_role PK, FK
-        +varchar id_menu PK, FK
-    }
-
-    ref_role "1" <-- "0..*" role_permission
-    ref_module "1" <-- "0..*" role_permission
-    ref_role "1" <-- "0..*" role_menu
-    ref_menu "1" <-- "0..*" role_menu
-    ref_menu "1" <-- "0..*" ref_menu : sous_menus
-```
-
-### 26.3. Traduction Dynamique Spring Security (`CustomUserDetailsService.java`)
-Lors de l'authentification, le backend transforme dynamiquement les enregistrements de `role_permission` en `GrantedAuthority` Spring Security selon la convention :
-- `<CODE_MODULE>_READ` (si `droit_lecture = true`)
-- `<CODE_MODULE>_WRITE` (si `droit_ecriture = true`)
-- `<CODE_MODULE>_VALIDATE` (si `droit_validation = true`)
-
-De plus, une hiérarchie formelle de sécurité est configurée dans `SecurityConfig.java` (`RoleHierarchy`) :
-```java
-roleHierarchy.role("ROLE_ADMIN").implies(
-    "EMPLOYE_READ", "EMPLOYE_WRITE", "EMPLOYE_VALIDATE",
-    "CONGE_READ", "CONGE_WRITE", "CONGE_VALIDATE",
-    "POINTAGE_READ", "POINTAGE_WRITE", "POINTAGE_VALIDATE",
-    "PAIE_READ", "PAIE_WRITE", "PAIE_VALIDATE",
-    "ORGANISATION_READ", "ORGANISATION_WRITE"
-);
-```
-
-### 26.4. Matrice Réelle des Permissions Système (Seed BDD)
-
-| Module SIRH | Permission Générée | ROLE_ADMIN (Administrateur) | ROLE_AGENT_POINTAGE (Exploitation) |
-| :--- | :--- | :---: | :---: |
-| **EMPLOYE** | `EMPLOYE_READ` | **ACCORDÉ** | REFUSÉ |
-| | `EMPLOYE_WRITE` | **ACCORDÉ** | REFUSÉ |
-| | `EMPLOYE_VALIDATE` | **ACCORDÉ** | REFUSÉ |
-| **CONGE** | `CONGE_READ` | **ACCORDÉ** | REFUSÉ |
-| | `CONGE_WRITE` | **ACCORDÉ** | REFUSÉ |
-| | `CONGE_VALIDATE` | **ACCORDÉ** | REFUSÉ |
-| **POINTAGE**| `POINTAGE_READ` | **ACCORDÉ** | **ACCORDÉ** |
-| | `POINTAGE_WRITE` | **ACCORDÉ** | **ACCORDÉ** |
-| | `POINTAGE_VALIDATE` | **ACCORDÉ** | REFUSÉ (Lecture/Préparation seule) |
-| **PAIE** | `PAIE_READ` | **ACCORDÉ** | REFUSÉ |
-| | `PAIE_WRITE` | **ACCORDÉ** | REFUSÉ |
-| | `PAIE_VALIDATE` | **ACCORDÉ** | REFUSÉ |
-| **ORGANISATION**| `ORGANISATION_READ` | **ACCORDÉ** | REFUSÉ |
-| | `ORGANISATION_WRITE`| **ACCORDÉ** | REFUSÉ |
-
----
-
-## 27. Bootstrap Idempotent du Compte Administrateur Système
-
-Pour garantir qu'un déploiement à blanc (environnement neuf ou conteneur Docker initialisé) soit immédiatement administrable sans exposer de faille de sécurité, le composant `AdminAccountSeeder.java` implémente un démarrage sécurisé :
-
-### 27.1. Mécanisme de Détection et d'Idempotence
-1. Au démarrage (`CommandLineRunner`, `@Order(1)`), si la propriété `app.security.bootstrap-admin.enabled` est `true` :
-2. Une requête SQL vérifie la présence d'au moins un compte actif rattaché au rôle `ROLE_ADMIN` :
-   ```sql
-   SELECT COUNT(u.id_utilisateur) FROM utilisateur u 
-   JOIN ref_role r ON u.id_role = r.id_role 
-   WHERE r.code_role = 'ROLE_ADMIN' AND u.est_actif = true;
-   ```
-3. **Si un administrateur actif existe déjà** : Le seeder émet un log d'information et annule sa transaction (`c.rollback()`). **Il ne modifie aucun compte existant et n'écrase jamais le mot de passe en production**.
-4. **Si aucun administrateur actif n'est présent** :
-   - Il crée le rôle `ROLE_ADMIN` s'il est absent ;
-   - Lorsqu'il est explicitement activé, il initialise le compte configuré par les variables d'environnement `GALAXAM_DEFAULT_ADMIN_USERNAME` et `GALAXAM_DEFAULT_ADMIN_PASSWORD`. Aucun identifiant ni mot de passe n'est fourni par défaut.
-
----
-
-## 28. Sécurité des Jetons JWT & Audit des Connexions
-
-### 28.1. Architecture à Deux Jetons (Access & Refresh Tokens)
-Le système applique le standard de sécurité stateless :
-- **Access Token** : 
-  - Durée de vie courte : **15 minutes** (`app.security.jwt.access-token-expiration-ms = 900000`).
-  - Transmis dans l'entête HTTP `Authorization: Bearer <token>`.
-  - Contient les claims du sujet (`identifiant`) et la liste des autorités (`roles`).
-- **Refresh Token** :
-  - Durée de vie longue : **7 jours** (`app.security.jwt.refresh-token-expiration-ms = 604800000`).
-  - Stocké en base de données (`utilisateur.refresh_token` et `refresh_token_expiration`).
-  - Délivré au client sous forme d'un **Cookie HTTP-Only, Secure, SameSite=Lax (ou None en HTTPS)** borné au path `/api/auth`.
-  - Permet le renouvellement transparent du jeton d'accès sans ressaisie des identifiants via `POST /api/auth/refresh`.
-
-### 28.2. Traçabilité des Sessions (`journal_connexion`)
-Chaque appel à `POST /api/auth/login` insère un enregistrement dans `journal_connexion` :
-- `date_heure` (TIMESTAMP)
-- `adresse_ip` (VARCHAR(45), extrait des entêtes `X-Forwarded-For` ou socket distante)
-- `user_agent` (TEXT, signature du navigateur client)
-- `statut` : `SUCCES`, `COMPTE_DESACTIVE`, `ECHEC_IDENTIFIANTS_INVALIDES`.
-
-### 28.3. Piste d'Audit Générale (`audit_log`)
-Toute opération de création, modification ou désactivation sur une table sensible (`ref_site`, `ref_role`, `parametre_global`, `utilisateur`, `site_indemnite_config`) déclenche l'appel statique `AuditLog.audit(Connection c, String action, String nomTable, String idEnregistrement, Object ancien, Object nouveau)` :
-- Les états avant/après sont sérialisés au format **JSONB** natif PostgreSQL.
-- L'identifiant de l'opérateur connecté et l'IP sont automatiquement extraits du contexte d'exécution de la requête.
-
----
-
-## 29. Architecture Frontend : Écrans, Onglets & Composants
-
-L'architecture du frontend React est structurée en modules de fonctionnalités autonomes (`features/`), respectant une séparation stricte entre l'organisation structurelle et l'administration système.
+L'architecture du frontend React est structurée en modules de fonctionnalités autonomes ([`frontend/src/features/`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features)) :
 
 ```
 frontend/src/
 ├── features/
-│   ├── organization/                       # Feature Organisation & Structure
+│   ├── organization/                       # Module Organisation & Structure
 │   │   ├── api/
-│   │   │   └── organisationService.js      # Appels REST /referentiel/filiales, sites, etc.
+│   │   │   └── organisationService.js      # Appels REST unifiés /referentiel/*
 │   │   ├── components/
-│   │   │   └── structure/
-│   │   │       ├── FilialesSitesTab.jsx    # Gestion des filiales & sites avec horaires
-│   │   │       ├── DepartementsServicesTab.jsx # Gestion hiérarchique Départements/Services
-│   │   │       ├── FonctionsTab.jsx        # Gestion des fonctions & dispenses
-│   │   │       └── ReferentielsRhTab.jsx   # Banques, types contrats, intervenants
+│   │   │   ├── modals/                     # Modales de formulaire (SiteFormModal avec plancher, FilialeFormModal, etc.)
+│   │   │   ├── tabs/
+│   │   │   │   ├── FilialesSitesTab.jsx    # Gestion filiales & sites avec horaires et plancher
+│   │   │   │   ├── DepartementsServicesTab.jsx # Gestion Départements et Services
+│   │   │   │   ├── FonctionsTab.jsx        # Postes & dispenses de pointage
+│   │   │   │   └── ReferentielsRhTab.jsx   # Banques, types contrats, intervenants
+│   │   │   └── views/                      # Vues tabulaires (SitesList, FilialesList, etc.)
 │   │   └── pages/
 │   │       └── OrganisationAdminPanel.jsx  # Cockpit /admin/organisation
 │   │
-│   └── administration/                     # Feature Administration, Paramètres & IAM
+│   └── administration/                     # Module Administration, Paramètres & Sécurité
 │       ├── api/
-│       │   ├── referentielService.js       # Rôles, modules, menus arborescents
-│       │   ├── paieConfigService.js        # Exercices légaux, cotisations, barèmes
-│       │   └── pointageParametreService.js # Tolérances de site & dérogations indemnités
+│       │   ├── referentielService.js       # Rôles, permissions, menus
+│       │   ├── paieConfigService.js        # Cadre fiscal, barèmes, cotisations
+│       │   └── pointageParametreService.js # Paramètres pointage & dérogations
 │       ├── components/
 │       │   ├── security/
-│       │   │   ├── UserManagementTab.jsx   # Comptes utilisateurs, réinitialisation MDP
-│       │   │   ├── RolesAndPermissionsTab.jsx # Matrice RBAC Rôle x Droits
-│       │   │   └── MenuManagementTab.jsx   # Assignation des menus de navigation
+│       │   │   ├── UserManagementTab.jsx   # Comptes utilisateurs & mots de passe
+│       │   │   ├── RolesAndPermissionsTab.jsx # Matrice RBAC rôles x permissions
+│       │   │   └── MenuManagementTab.jsx   # Affectation des menus UI par rôle
 │       │   ├── reference-data/
 │       │   │   ├── CareerReferenceDataManagementTab.jsx # Catégories pro & modes calcul
 │       │   │   └── DocumentTypeManagementTab.jsx        # Pièces justificatives RH
 │       │   ├── attendance/
-│       │   │   ├── ToleranceArriveeSiteTab.jsx # Configuration plancher d'arrivée site
 │       │   │   └── DerogationIndemnitesTab.jsx # Dérogations individuelles d'indemnité
 │       │   └── payroll/
 │       │       ├── ParametresGlobauxTab.jsx    # Moteur générique parametre_global
-│       │       ├── ReglementationFiscaleTab.jsx# Millésimes paie_config_legale & IRSA
-│       │       ├── CotisationsIrsaTab.jsx      # Taux CNaPS/OMSI/OSTIE par site
-│       │       ├── IndemnitesSitesTab.jsx      # Montants repas/déplacement par site
+│       │       ├── ReglementationFiscaleTab.jsx# Millésimes légaux & IRSA
+│       │       ├── CotisationsIrsaTab.jsx      # Taux CNaPS/Santé par site
+│       │       ├── IndemnitesSitesTab.jsx      # Montants repas/transport + Dérogations
+│       │       ├── ModesPaiementTab.jsx        # Modes de paiement
 │       │       └── CalendrierFerieTab.jsx      # Jours fériés nationaux et par site
 │       └── pages/
-│           ├── securite/
-│           │   └── SecuriteAdminPanel.jsx      # Cockpit /admin/securite
-│           ├── referentiels/
-│           │   └── ReferentielsRhAdminPanel.jsx# Cockpit /admin/referentiels-rh
-│           └── modules/
-│               └── ParametresModulesPanel.jsx  # Cockpit /admin/parametres
+│           ├── securite/SecuriteAdminPanel.jsx          # Route /admin/securite
+│           ├── referentiels/ReferentielsRhAdminPanel.jsx# Route /admin/referentiels-rh
+│           └── modules/ParametresModulesPanel.jsx       # Route /admin/parametres
 ```
 
-### Matrice des Écrans d'Administration
+### Matrice des 4 Écrans d'Administration et Leurs Onglets Réels
 
-| Route Frontend | Page React Hôte | Onglets Disponibles | API Backend Consommées | Rôle Exigé |
+| Route Frontend | Page React Hôte | Onglets Réels Disponibles | API Backend Consommées | Habilitation |
 | :--- | :--- | :--- | :--- | :---: |
-| `/admin/securite` | `SecuriteAdminPanel` | • Utilisateurs<br>• Rôles & Permissions<br>• Menus | `/securite/utilisateurs`<br>`/referentiel/roles`<br>`/referentiel/menus` | `ROLE_ADMIN` |
-| `/admin/organisation` | `OrganisationAdminPanel` | • Filiales & Sites<br>• Départements & Services<br>• Postes & Fonctions | `/referentiel/filiales`<br>`/referentiel/sites`<br>`/referentiel/departements`<br>`/referentiel/services`<br>`/referentiel/fonctions` | `ROLE_ADMIN` |
-| `/admin/referentiels-rh`| `ReferentielsRhAdminPanel`| • Catégories Professionnelles<br>• Types de Documents<br>• Autres Référentiels RH | `/ref-carriere/categories-pro`<br>`/ref-types-documents`<br>`/referentiel/banques`<br>`/referentiel/types-contrats`<br>`/referentiel/types-intervenants` | `ROLE_ADMIN` |
-| `/admin/parametres` | `ParametresModulesPanel` | • Général (Constantes & CDD)<br>• Paie (Cadre fiscal, Cotisations, Indemnités, Fériés)<br>• Congés (Règles & Constantes)<br>• Pointage (Constantes & Tolérances site) | `/referentiel/parametres-globaux`<br>`/paie/config-legale`<br>`/referentiel/cotisations`<br>`/referentiel/indemnites`<br>`/referentiel/calendrier-ferie`<br>`/pointages/parametres/tolerances` | `ROLE_ADMIN` |
+| `/admin/securite` | [`SecuriteAdminPanel`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/pages/securite/SecuriteAdminPanel.jsx) | • Utilisateurs (`UserManagementTab`)<br>• Rôles & permissions (`RolesAndPermissionsTab`)<br>• Menus (`MenuManagementTab`) | `/api/securite/utilisateurs`<br>`/api/referentiel/roles`<br>`/api/referentiel/menus` | `ROLE_ADMIN` |
+| `/admin/organisation` | [`OrganisationAdminPanel`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/organization/pages/OrganisationAdminPanel.jsx) | • Filiales & Sites (`FilialesSitesTab`)<br>• Départements & Services (`DepartementsServicesTab`)<br>• Postes & Fonctions (`FonctionsTab`) | `/api/referentiel/filiales`<br>`/api/referentiel/sites`<br>`/api/referentiel/departements`<br>`/api/referentiel/services`<br>`/api/referentiel/fonctions` | `ROLE_ADMIN` |
+| `/admin/referentiels-rh`| [`ReferentielsRhAdminPanel`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/pages/referentiels/ReferentielsRhAdminPanel.jsx)| • Catégories (`CareerReferenceDataManagementTab`)<br>• Calcul du salaire (Modes de paie)<br>• Motifs de mouvements<br>• Événements RH<br>• Documents (`DocumentTypeManagementTab`)<br>• Contrats & intervenants (`ReferentielsRhTab`) | `/api/ref-carriere/categories-pro`<br>`/api/ref-carriere/modes-paie`<br>`/api/ref-carriere/motifs-mouvement`<br>`/api/ref-types-documents`<br>`/api/referentiel/types-contrat`<br>`/api/referentiel/types-intervenant`<br>`/api/referentiel/banques` | `ROLE_ADMIN` |
+| `/admin/parametres` | [`ParametresModulesPanel`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/frontend/src/features/administration/pages/modules/ParametresModulesPanel.jsx) | • **Règles communes** (Constantes Système & Contrats CDD)<br>• **Paie** (Cadre fiscal, Cotisations, Règles paie, Indemnités sites & dérogations, Modes de paiement)<br>• **Congés** (Constantes Congés, Types & Motifs)<br>• **Pointage** (Constantes Pointage)<br>• **Calendrier** (Jours fériés & périodes chômées) | `/api/referentiel/parametres-globaux`<br>`/api/paie/config-legale`<br>`/api/referentiel/cotisations`<br>`/api/referentiel/indemnites`<br>`/api/referentiel/calendrier-ferie`<br>`/api/pointages/parametres/derogations` | `ROLE_ADMIN` |
 
 ---
 
-## 30. Couche API REST Canonique
+## 23. Couche API REST Canonique
 
-Le tableau ci-dessous dresse l'inventaire exhaustif des routes HTTP relatives à la Structure, l'Organisation, la Sécurité et le Paramétrage :
+Le tableau ci-dessous dresse l'inventaire exhaustif des routes HTTP relatives à la Structure, l'Organisation, la Sécurité et le Paramétrage, avec leurs contrôleurs réels du code source :
 
-| Méthode | Route API Backend | Permission Requise | DTO Requête | Réponse / Type Retour | Contrôleur Backend |
+| Méthode | Route API Backend | Permission Requise | DTO / Payload | Type Retour | Contrôleur Backend Réel |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **POST** | `/api/auth/login` | Publique | `LoginRequest` (identifiant, motDePasse) | `{accessToken, expiresIn, user, menus}` | `AuthController` |
-| **POST** | `/api/auth/refresh`| Publique (Cookie) | N/A (Cookie `refreshToken`) | `{accessToken, expiresIn, user}` | `AuthController` |
-| **POST** | `/api/auth/logout` | Publique | N/A | Status 200 (Cookie invalidé) | `AuthController` |
-| **GET** | `/api/auth/me` | Authentifié | N/A | DTO Utilisateur connecté | `AuthController` |
-| **GET** | `/api/securite/utilisateurs` | `ROLE_ADMIN` | N/A | `List<UtilisateurResponse>` | `UtilisateurController` |
-| **POST** | `/api/securite/utilisateurs` | `ROLE_ADMIN` | `UtilisateurRequest` | `UtilisateurResponse` (201) | `UtilisateurController` |
-| **PUT** | `/api/securite/utilisateurs/{id}` | `ROLE_ADMIN` | `UtilisateurRequest` | `UtilisateurResponse` (200) | `UtilisateurController` |
-| **PUT** | `/api/securite/utilisateurs/{id}/desactiver` | `ROLE_ADMIN` | `{motifDesactivation}` | `UtilisateurResponse` | `UtilisateurController` |
-| **PUT** | `/api/securite/utilisateurs/{id}/activer` | `ROLE_ADMIN` | N/A | `UtilisateurResponse` | `UtilisateurController` |
-| **PUT** | `/api/securite/utilisateurs/{id}/mot-de-passe`| `ROLE_ADMIN` | `{nouveauMotDePasse}` | Message confirmation | `UtilisateurController` |
-| **GET** | `/api/referentiel/roles` | Authentifié | N/A | `List<RefRole>` | `RoleController` |
-| **POST** | `/api/referentiel/roles` | `ROLE_ADMIN` | `RoleRequest` (code, libelle) | `RefRole` (201) | `RoleController` |
-| **PUT** | `/api/referentiel/roles/{id}` | `ROLE_ADMIN` | `RoleRequest` | `RefRole` | `RoleController` |
-| **PUT** | `/api/referentiel/roles/{id}/desactiver` | `ROLE_ADMIN` | N/A | `RefRole` | `RoleController` |
-| **PUT** | `/api/referentiel/roles/{id}/activer` | `ROLE_ADMIN` | N/A | `RefRole` | `RoleController` |
-| **GET** | `/api/referentiel/roles/{id}/permissions` | Authentifié | N/A | `List<RolePermission>` | `RoleController` |
-| **POST** | `/api/referentiel/roles/{id}/permissions` | `ROLE_ADMIN` | `RolePermissionsRequest` | `List<RolePermission>` | `RoleController` |
-| **GET** | `/api/referentiel/roles/{id}/menus` | Authentifié | N/A | `List<RoleMenu>` | `RoleController` |
-| **POST** | `/api/referentiel/roles/{id}/menus` | `ROLE_ADMIN` | `RoleMenusRequest` (idMenus[]) | `List<RoleMenu>` | `RoleController` |
-| **GET** | `/api/referentiel/modules` | Authentifié | N/A | `List<RefModule>` | `ModuleController` |
-| **GET** | `/api/referentiel/menus` | Authentifié | N/A | Arbre hiérarchique `List<RefMenu>` | `MenuController` |
-| **GET** | `/api/referentiel/menus/flat` | Authentifié | N/A | Liste plate `List<RefMenu>` | `MenuController` |
-| **GET** | `/api/referentiel/filiales` | Authentifié | Query param `actifUniquement` | `List<RefFiliale>` | `FilialeController` |
-| **POST** | `/api/referentiel/filiales` | `ORGANISATION_WRITE` / Admin | `FilialeRequest` | `RefFiliale` (201) | `FilialeController` |
-| **PUT** | `/api/referentiel/filiales/{id}` | `ORGANISATION_WRITE` / Admin | `FilialeRequest` | `RefFiliale` | `FilialeController` |
-| **PUT** | `/api/referentiel/filiales/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefFiliale` | `FilialeController` |
-| **PUT** | `/api/referentiel/filiales/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefFiliale` | `FilialeController` |
-| **GET** | `/api/referentiel/sites` | Authentifié | Query param `actifUniquement` | `List<RefSite>` | `SiteController` |
-| **POST** | `/api/referentiel/sites` | `ORGANISATION_WRITE` / Admin | `SiteRequest` | `RefSite` (201) | `SiteController` |
-| **PUT** | `/api/referentiel/sites/{id}` | `ORGANISATION_WRITE` / Admin | `SiteRequest` | `RefSite` | `SiteController` |
-| **PUT** | `/api/referentiel/sites/{id}/desactiver` | `ORGANISATION_WRITE` / Admin | N/A | `RefSite` | `SiteController` |
-| **PUT** | `/api/referentiel/sites/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefSite` | `SiteController` |
-| **GET** | `/api/pointages/parametres/tolerances` | Authentifié | N/A | `List<{idSite, siteNom, heurePlafond, estActif}>` | `PointageController` |
-| **POST** | `/api/pointages/parametres/tolerances` | `ROLE_ADMIN` | `ToleranceRequest` (idSite, estActif, heurePlafond) | `{idSite, estActif, heurePlafond}` | `PointageController` |
-| **GET** | `/api/referentiel/departements` | Authentifié | Query param `actifUniquement` | `List<RefDepartement>` | `DepartementController` |
-| **POST** | `/api/referentiel/departements` | `ORGANISATION_WRITE` / Admin | `DepartementRequest` | `RefDepartement` (201) | `DepartementController` |
-| **PUT** | `/api/referentiel/departements/{id}` | `ORGANISATION_WRITE` / Admin | `DepartementRequest` | `RefDepartement` | `DepartementController` |
-| **PUT** | `/api/referentiel/departements/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefDepartement` | `DepartementController` |
-| **PUT** | `/api/referentiel/departements/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefDepartement` | `DepartementController` |
-| **GET** | `/api/referentiel/services` | Authentifié | Query param `idDepartement` | `List<RefService>` | `ServiceController` |
-| **POST** | `/api/referentiel/services` | `ORGANISATION_WRITE` / Admin | `ServiceRequest` | `RefService` (201) | `ServiceController` |
-| **PUT** | `/api/referentiel/services/{id}` | `ORGANISATION_WRITE` / Admin | `ServiceRequest` | `RefService` | `ServiceController` |
-| **PUT** | `/api/referentiel/services/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefService` | `ServiceController` |
-| **PUT** | `/api/referentiel/services/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefService` | `ServiceController` |
-| **GET** | `/api/referentiel/fonctions` | Authentifié | Query param `actifUniquement` | `List<RefFonction>` | `FonctionController` |
-| **POST** | `/api/referentiel/fonctions` | `ORGANISATION_WRITE` / Admin | `FonctionRequest` | `RefFonction` (201) | `FonctionController` |
-| **PUT** | `/api/referentiel/fonctions/{id}` | `ORGANISATION_WRITE` / Admin | `FonctionRequest` | `RefFonction` | `FonctionController` |
-| **PUT** | `/api/referentiel/fonctions/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefFonction` | `FonctionController` |
-| **PUT** | `/api/referentiel/fonctions/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefFonction` | `FonctionController` |
-| **GET** | `/api/ref-carriere/categories-pro` | Authentifié | Query param `actifUniquement` | `List<RefCategorieProfessionnelle>`| `RefCarriereController` |
-| **POST** | `/api/ref-carriere/categories-pro` | `ROLE_ADMIN` | `RefCategorieProfessionnelle` | `RefCategorieProfessionnelle` (201)| `RefCarriereController` |
-| **PUT** | `/api/ref-carriere/categories-pro/{id}` | `ROLE_ADMIN` | `RefCategorieProfessionnelle` | `RefCategorieProfessionnelle` | `RefCarriereController` |
-| **GET** | `/api/referentiel/parametres-globaux` | `PAIE_READ` / Admin | N/A | `List<ParametreGlobal>` | `ParametreGlobalController` |
-| **POST** | `/api/referentiel/parametres-globaux` | `PAIE_WRITE` / Admin | `ParametreGlobalRequest` | `ParametreGlobal` (201) | `ParametreGlobalController` |
-| **PUT** | `/api/referentiel/parametres-globaux/{id}` | `PAIE_WRITE` / Admin | `ParametreGlobalRequest` | `ParametreGlobal` | `ParametreGlobalController` |
-| **PATCH/PUT**| `/api/referentiel/parametres-globaux/{id}/toggle-actif`| `PAIE_WRITE` / `ROLE_ADMIN` | `{estActif}` (optionnel) | `ParametreGlobal` | `ParametreGlobalController` |
-| **GET** | `/api/referentiel/indemnites` | `PAIE_READ` / Admin | N/A | `List<RefIndemnite>` | `IndemniteController` |
-| **POST** | `/api/referentiel/indemnites` | `PAIE_WRITE` / Admin | `IndemniteRequest` | `RefIndemnite` (201) | `IndemniteController` |
-| **GET** | `/api/referentiel/indemnites/site-config` | `PAIE_READ` / Admin | N/A | `List<SiteIndemniteConfig>` | `IndemniteController` |
-| **POST** | `/api/referentiel/indemnites/site-config` | `PAIE_WRITE` / Admin | `SiteIndemniteRequest` | `SiteIndemniteConfig` (201) | `IndemniteController` |
-| **GET** | `/api/pointages/parametres/derogations` | Authentifié | N/A | `List<EmployeIndemniteDerogation>` | `PointageController` |
-| **POST** | `/api/pointages/parametres/derogations` | `ROLE_ADMIN` | `DerogationRequest` | `EmployeIndemniteDerogation` (201) | `PointageController` |
-| **PUT** | `/api/pointages/parametres/derogations/{id}` | `ROLE_ADMIN` | `DerogationRequest` | `EmployeIndemniteDerogation` | `PointageController` |
-| **DELETE**| `/api/pointages/parametres/derogations/{id}` | `ROLE_ADMIN` | N/A | Message confirmation | `PointageController` |
+| **POST** | `/api/auth/login` | Publique | `LoginRequest` | `{accessToken, expiresIn, user, menus}` | [`AuthController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/AuthController.java) |
+| **POST** | `/api/auth/refresh`| Publique (Cookie) | N/A (Cookie `refreshToken`) | `{accessToken, expiresIn, user}` | [`AuthController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/AuthController.java) |
+| **POST** | `/api/auth/logout` | Publique | N/A | Status 200 (Cookie invalidé) | [`AuthController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/AuthController.java) |
+| **GET** | `/api/auth/me` | Authentifié | N/A | DTO Utilisateur connecté | [`AuthController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/AuthController.java) |
+| **GET** | `/api/securite/utilisateurs` | `ROLE_ADMIN` | N/A | `List<UtilisateurResponse>` | [`UtilisateurController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
+| **POST** | `/api/securite/utilisateurs` | `ROLE_ADMIN` | `UtilisateurRequest` | `UtilisateurResponse` (201) | [`UtilisateurController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
+| **PUT** | `/api/securite/utilisateurs/{id}` | `ROLE_ADMIN` | `UtilisateurRequest` | `UtilisateurResponse` (200) | [`UtilisateurController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
+| **PUT** | `/api/securite/utilisateurs/{id}/desactiver` | `ROLE_ADMIN` | `{motifDesactivation}` | `UtilisateurResponse` | [`UtilisateurController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
+| **PUT** | `/api/securite/utilisateurs/{id}/activer` | `ROLE_ADMIN` | N/A | `UtilisateurResponse` | [`UtilisateurController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
+| **PUT** | `/api/securite/utilisateurs/{id}/mot-de-passe`| `ROLE_ADMIN` | `{nouveauMotDePasse}` | Message confirmation | [`UtilisateurController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/api/UtilisateurController.java) |
+| **GET** | `/api/referentiel/roles` | Authentifié | N/A | `List<RefRole>` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **POST** | `/api/referentiel/roles` | `ROLE_ADMIN` | `RoleRequest` | `RefRole` (201) | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **PUT** | `/api/referentiel/roles/{id}` | `ROLE_ADMIN` | `RoleRequest` | `RefRole` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **PUT** | `/api/referentiel/roles/{id}/desactiver` | `ROLE_ADMIN` | N/A | `RefRole` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **PUT** | `/api/referentiel/roles/{id}/activer` | `ROLE_ADMIN` | N/A | `RefRole` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **GET** | `/api/referentiel/roles/{id}/permissions` | Authentifié | N/A | `List<RolePermission>` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **POST** | `/api/referentiel/roles/{id}/permissions` | `ROLE_ADMIN` | `RolePermissionsRequest` | `List<RolePermission>` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **GET** | `/api/referentiel/roles/{id}/menus` | Authentifié | N/A | `List<RoleMenu>` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **POST** | `/api/referentiel/roles/{id}/menus` | `ROLE_ADMIN` | `RoleMenusRequest` (idMenus[]) | `List<RoleMenu>` | [`RoleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/RoleController.java) |
+| **GET** | `/api/referentiel/modules` | Authentifié | N/A | `List<RefModule>` | [`ModuleController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/ModuleController.java) |
+| **GET** | `/api/referentiel/menus` | Authentifié | N/A | Arbre hiérarchique `List<RefMenu>` | [`MenuController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/api/MenuController.java) |
+| **GET** | `/api/referentiel/filiales` | Authentifié | Query param `actifUniquement, search` | `List<RefFiliale>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/filiales` | `ORGANISATION_WRITE` / Admin | `FilialeRequest` | `RefFiliale` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/filiales/{id}` | `ORGANISATION_WRITE` / Admin | `FilialeRequest` | `RefFiliale` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/filiales/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefFiliale` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/filiales/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefFiliale` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/referentiel/sites` | Authentifié | Query param `idFiliale, actifUniquement, search` | `List<RefSite>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/sites` | `ORGANISATION_WRITE` / Admin | `SiteRequest` | `RefSite` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/sites/{id}` | `ORGANISATION_WRITE` / Admin | `SiteRequest` | `RefSite` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/sites/{id}/plancher` | `ORGANISATION_WRITE` / Admin | `{actif, heureEntreeMinimaleValorisee}` | `RefSite` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/sites/{id}/desactiver` | `ORGANISATION_WRITE` / Admin | N/A | `RefSite` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/sites/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefSite` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/referentiel/departements` | Authentifié | Query param `actifUniquement, search` | `List<RefDepartement>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/departements` | `ORGANISATION_WRITE` / Admin | `DepartementRequest` | `RefDepartement` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/departements/{id}` | `ORGANISATION_WRITE` / Admin | `DepartementRequest` | `RefDepartement` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/departements/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefDepartement` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/departements/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefDepartement` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/referentiel/services` | Authentifié | Query param `idDepartement, actifUniquement` | `List<RefService>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/services` | `ORGANISATION_WRITE` / Admin | `ServiceRequest` | `RefService` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/services/{id}` | `ORGANISATION_WRITE` / Admin | `ServiceRequest` | `RefService` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/services/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefService` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/services/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefService` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/referentiel/fonctions` | Authentifié | Query param `actifUniquement, search` | `List<RefFonction>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/fonctions` | `ORGANISATION_WRITE` / Admin | `FonctionRequest` | `RefFonction` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/fonctions/{id}` | `ORGANISATION_WRITE` / Admin | `FonctionRequest` | `RefFonction` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/fonctions/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefFonction` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/fonctions/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefFonction` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/referentiel/banques` | Authentifié | Query param `actifUniquement, search` | `List<RefBanque>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/banques` | `ORGANISATION_WRITE` / Admin | `RefBanque` | `RefBanque` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/banques/{id}` | `ORGANISATION_WRITE` / Admin | `RefBanque` | `RefBanque` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/banques/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefBanque` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/banques/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefBanque` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/referentiel/types-contrat` | Authentifié | Query param `actifUniquement` | `List<RefTypeContrat>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/types-contrat` | `ORGANISATION_WRITE` / Admin | `RefTypeContrat` | `RefTypeContrat` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/types-contrat/{id}` | `ORGANISATION_WRITE` / Admin | `RefTypeContrat` | `RefTypeContrat` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/types-contrat/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefTypeContrat` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/types-contrat/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefTypeContrat` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/referentiel/types-intervenant` | Authentifié | Query param `actifUniquement` | `List<RefTypeIntervenant>` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **POST** | `/api/referentiel/types-intervenant` | `ORGANISATION_WRITE` / Admin | `RefTypeIntervenant` | `RefTypeIntervenant` (201) | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/types-intervenant/{id}` | `ORGANISATION_WRITE` / Admin | `RefTypeIntervenant` | `RefTypeIntervenant` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/types-intervenant/{id}/desactiver`| `ORGANISATION_WRITE` / Admin | N/A | `RefTypeIntervenant` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **PUT** | `/api/referentiel/types-intervenant/{id}/activer` | `ORGANISATION_WRITE` / Admin | N/A | `RefTypeIntervenant` | [`OrganisationController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) |
+| **GET** | `/api/ref-carriere/categories-pro` | Authentifié | Query param `actifUniquement` | `List<RefCategorieProfessionnelle>`| [`RefCarriereController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/RefCarriereController.java) |
+| **POST** | `/api/ref-carriere/categories-pro` | `ROLE_ADMIN` | `RefCategorieProfessionnelle` | `RefCategorieProfessionnelle` (201)| [`RefCarriereController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/RefCarriereController.java) |
+| **PUT** | `/api/ref-carriere/categories-pro/{id}` | `ROLE_ADMIN` | `RefCategorieProfessionnelle` | `RefCategorieProfessionnelle` | [`RefCarriereController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/RefCarriereController.java) |
+| **GET** | `/api/referentiel/parametres-globaux` | `PAIE_READ` / Admin | Query param `categorie` | `List<ParametreGlobal>` | [`ParametreGlobalController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **POST** | `/api/referentiel/parametres-globaux` | `PAIE_WRITE` / Admin | `ParametreGlobalRequest` | `ParametreGlobal` (201) | [`ParametreGlobalController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **PUT** | `/api/referentiel/parametres-globaux/{id}` | `PAIE_WRITE` / Admin | `ParametreGlobalRequest` | `ParametreGlobal` | [`ParametreGlobalController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **PATCH/PUT**| `/api/referentiel/parametres-globaux/{id}/toggle-actif`| `PAIE_WRITE` / `ROLE_ADMIN` | `{estActif}` (optionnel) | `ParametreGlobal` | [`ParametreGlobalController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/ParametreGlobalController.java) |
+| **GET** | `/api/referentiel/indemnites` | `PAIE_READ` / Admin | N/A | `List<RefIndemnite>` | [`IndemniteController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
+| **POST** | `/api/referentiel/indemnites` | `PAIE_WRITE` / Admin | `IndemniteRequest` | `RefIndemnite` (201) | [`IndemniteController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
+| **GET** | `/api/referentiel/indemnites/site-config` | `PAIE_READ` / Admin | N/A | `List<SiteIndemniteConfig>` | [`IndemniteController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
+| **POST** | `/api/referentiel/indemnites/site-config` | `PAIE_WRITE` / Admin | `SiteIndemniteRequest` | `SiteIndemniteConfig` (201) | [`IndemniteController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/api/IndemniteController.java) |
+| **GET** | `/api/pointages/parametres/derogations` | Authentifié | N/A | `List<EmployeIndemniteDerogation>` | [`PointageController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/pointage/api/PointageController.java) |
+| **POST** | `/api/pointages/parametres/derogations` | `ROLE_ADMIN` | `DerogationRequest` | `EmployeIndemniteDerogation` (201) | [`PointageController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/pointage/api/PointageController.java) |
+| **PUT** | `/api/pointages/parametres/derogations/{id}` | `ROLE_ADMIN` | `DerogationRequest` | `EmployeIndemniteDerogation` | [`PointageController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/pointage/api/PointageController.java) |
+| **DELETE**| `/api/pointages/parametres/derogations/{id}` | `ROLE_ADMIN` | N/A | Message confirmation | [`PointageController`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/pointage/api/PointageController.java) |
 
 ---
 
-## 31. Architecture de Persistance : Le Pattern Active Record JDBC Pur
+## 24. Architecture de Persistance : Le Pattern Active Record JDBC Pur
 
-### 31.1. Philosophie Architecturale (Zéro JPA / Zéro Hibernate)
-GALAXAM SIRH fait le choix délibéré d'**exclure tout framework ORM lourd** (JPA, Hibernate) au profit d'un pattern **Active Record en pur JDBC** encapsulé par la superclasse abstraite `bean.ClassMere` :
-- **Transparence SQL intégrale** : Aucune génération magique de requêtes, aucun proxy dynamique, aucun problème de lazy-loading imprévisible (*N+1 queries*). Chaque entité fille (`RefSite`, `RefRole`, `ParametreGlobal`) rédige explicitement ses requêtes `PreparedStatement` (INSERT, UPDATE, DELETE, SELECT).
-- **Pilotage Transactionnel Strict** : Toutes les méthodes de persistance prennent obligatoirement un objet `java.sql.Connection` en argument. Le contrôle de la transaction (`c.setAutoCommit(false)`, `c.commit()`, `c.rollback()`) reste **exclusivement dévolu à la couche contrôleur ou au `TransactionRunner`**, garantissant l'atomicité multi-tables.
+### 24.1. Philosophie Architecturale (Zéro JPA / Zéro Hibernate)
+GALAXAM SIRH fait le choix délibéré d'**exclure tout framework ORM lourd** (JPA, Hibernate) au profit d'un pattern **Active Record en pur JDBC** encapsulé par la superclasse abstraite [`bean.ClassMere`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/bean/ClassMere.java) :
+- **Transparence SQL intégrale** : Aucune génération magique de requêtes, aucun proxy dynamique, aucun problème de lazy-loading imprévisible (*N+1 queries*). Chaque entité fille ([`RefSite`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefSite.java), [`RefRole`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/admin/persistence/RefRole.java), [`ParametreGlobal`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/paieconfig/persistence/ParametreGlobal.java)) rédige explicitement ses requêtes `PreparedStatement`.
+- **Pilotage Transactionnel Strict** : Toutes les méthodes de persistance prennent obligatoirement un objet `java.sql.Connection` en argument. Le contrôle de la transaction (`c.setAutoCommit(false)`, `c.commit()`, `c.rollback()`) reste **exclusivement dévolu à la couche contrôleur ou au service métier**, garantissant l'atomicité multi-tables.
 - **Cycle de vie standardisé** :
   1. Instanciation en mémoire de l'objet ;
   2. Appel de la méthode `controler(Connection c)` : validation des règles métier, unicité des codes, vérification des contraintes ;
   3. Appel de `save(c)` ou `update(c)` ;
-  4. Journalisation systématique dans la transaction via `AuditLog.audit(c, ...)`.
+  4. Journalisation systématique dans la même transaction via [`AuditLog.audit(c, ...)`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/securite/AuditLog.java).
 
 ---
 
-## 32. Diagramme Relationnel Entité-Association (ERD)
-
-Le diagramme suivant présente l'intégralité des tables du socle Structure, Organisation, Sécurité et Paramétrage et leurs liens avec le noyau contractuel :
+## 25. Diagramme Relationnel Entité-Association (ERD)
 
 ```mermaid
 erDiagram
@@ -1229,50 +1010,49 @@ erDiagram
 
 ---
 
-## 33. Cycle de Vie : Désactivation Logique vs Suppression Physique
+## 26. Cycle de Vie : Désactivation Logique vs Suppression Physique
 
 Une règle d'ingénierie fondamentale gouverne GALAXAM SIRH : **l'interdiction absolue de la suppression physique (`DELETE`) sur toute entité organisationnelle ou référentielle déjà consommée par l'historique**.
 
-### Pourquoi la suppression physique est prohibée :
-1. **Intégrité référentielle BDD** : Les tables transactionnelles (`employe_affectation_carriere`, `pointage_jour`, `bulletin_paie`) détiennent des contraintes de clés étrangères `REFERENCES ref_site(id_site)` ou `REFERENCES ref_service(id_service)`. Un ordre SQL `DELETE` déclencherait une violation de contrainte d'intégrité (`DATA_REFERENCED`, code HTTP 409).
-2. **Rejouabilité et Auditabilité Comptable / Fiscale** : En cas de contrôle fiscal de la Direction Générale des Impôts (DGI) ou de la CNaPS sur un bulletin de paie émis en 2024, le système doit pouvoir réafficher la fiche de paie avec son site d'origine et sa catégorie, même si ce site a été fermé en 2025.
-
-### Comportement du flag `est_actif` :
-- **Création d'un dossier / Nouvelle affectation** : Les listes déroulantes de l'interface graphique (ex. création d'un employé, saisie d'un avenant) interrogent le backend avec le filtre `actifUniquement = true`. Les structures fermées n'apparaissent plus dans les sélecteurs.
-- **Dossiers et Pointages Antérieurs** : Les jointures SQL internes s'effectuent sans filtre sur `est_actif`. L'affichage des fiches historiques et le recalcul des soldes restent 100% fonctionnels et exacts.
+### Justifications Techniques et Réglementaires :
+1. **Intégrité référentielle BDD** : Les tables transactionnelles (`employe_affectation_carriere`, `pointage_jour`, `bulletin_paie`) détiennent des contraintes de clés étrangères `REFERENCES ref_site(id_site)` ou `REFERENCES ref_service(id_service)`. Un ordre SQL `DELETE` déclencherait une violation d'intégrité (`DATA_REFERENCED`, code HTTP 409).
+2. **Rejouabilité et Contrôle Fiscal / CNaPS** : En cas de contrôle fiscal de la DGI ou de la CNaPS sur un bulletin de paie émis trois ans auparavant, le système doit pouvoir réafficher la fiche de paie avec son site d'origine et sa catégorie, même si ce site a été fermé entre-temps.
+3. **Comportement du flag `est_actif`** :
+   - *Création d'un dossier / Nouvelle affectation* : Les sélecteurs de l'UI interrogent le backend avec `actifUniquement = true`. Les structures fermées n'apparaissent plus dans les listes déroulantes.
+   - *Dossiers historiques et recalculs* : Les jointures SQL internes s'effectuent sans filtre sur `est_actif`, garantissant l'exactitude des consultations rétrospectives.
 
 ---
 
-## 34. Catalogue des Règles de Gestion Métier Canoniques
-
-Le fonctionnement du socle Structure, Organisation et Paramétrage est régi par les règles de gestion canoniques suivantes :
+## 27. Catalogue des Règles de Gestion Métier Canoniques
 
 - **RG-STR-01 (Unicité des Codes Métier)** : Tout code d'identification d'une structure (`ref_filiale.code_filiale`, `ref_site.code_site`, `ref_departement.code_departement`, `ref_fonction.code_fonction`, `ref_categorie_professionnelle.code`) doit être strictement unique au niveau du groupe, saisi en majuscules sans espaces superflus.
-- **RG-STR-02 (Unicité Relative du Service)** : Un code de service doit être strictement unique au sein de son département de rattachement (`uk_service_departement`).
-- **RG-STR-03 (Cohérence du Plancher d'Arrivée)** : Un site ne peut activer son plancher d'arrivée valorisé (`plancher_arrivee_actif = TRUE`) que si une heure d'entrée minimale valide est renseignée (`heure_entree_minimale_valorisee IS NOT NULL`). Contrainte vérifiée côté base par `chk_ref_site_plancher_arrivee` et côté applicatif avant tout enregistrement.
+- **RG-STR-02 (Unicité Relative du Service)** : Un code de service doit être strictement unique au sein de son département de rattachement (`uk_service_departement UNIQUE (code_service, id_departement)`).
+- **RG-STR-03 (Cohérence du Plancher d'Arrivée)** : Un site ne peut activer son plancher d'arrivée valorisé (`plancher_arrivee_actif = TRUE`) que si une heure d'entrée minimale valide est renseignée (`heure_entree_minimale_valorisee IS NOT NULL`). Contrainte vérifiée par la contrainte SQL `chk_ref_site_plancher_arrivee` et applicativement par [`OrganisationService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java#L323-L359).
 - **RG-STR-04 (Immutabilité des Structures Utilisées)** : La suppression physique (`DELETE`) d'un site, département, service, filiale ou fonction est interdite dès lors qu'il existe au moins une affectation de carrière ou un pointage lié. Seule la désactivation logique (`est_actif = FALSE`) est autorisée.
-- **RG-STR-05 (Unicité de l'Affectation Active)** : À toute date $D$, un salarié ne peut posséder qu'une et une seule affectation de carrière active (`statut_rh = 'ACTIF'`, $D \in [\text{date\_debut}, \text{date\_fin}]$).
+- **RG-STR-05 (Garde-Fou de Désactivation Filiale)** : Une filiale ne peut être désactivée tant qu'elle détient au moins un site actif ou au moins un contrat de travail en cours d'exécution ([`OrganisationService.java:190-225`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java#L190-L225)).
 - **RG-STR-06 (Priorité de Dispense de Pointage)** : Si la fonction du salarié (`ref_fonction.dispense_pointage = TRUE`) ou sa catégorie (`ref_categorie_professionnelle.dispense_pointage = TRUE`) prévoit une dispense, le collaborateur est réputé dispensé de pointage sans anomalie.
 - **RG-STR-07 (Décorrélation Cadre et Heures Sup)** : Les attributs `est_cadre` et `est_eligible_hs` sont indépendants. L'éligibilité aux heures supplémentaires découle exclusivement de `est_eligible_hs`.
-- **RG-STR-08 (Clôture à Date d'Effet des Paramètres)** : L'enregistrement d'une nouvelle version d'un paramètre global à la date $D_{\text{nouveau}}$ entraîne la clôture automatique de la version précédente à la date $D_{\text{nouveau}} - 1\text{ jour}$.
+- **RG-STR-08 (Clôture à Date d'Effet des Paramètres)** : L'enregistrement d'une nouvelle version d'un paramètre global à la date $D_{\text{nouveau}}$ entraîne la clôture automatique de la version précédente à la date $D_{\text{nouveau}} - 1\text{ jour}$ via `ParametreGlobal.cloturerPrecedent`.
 - **RG-STR-09 (Absence de Chevauchement Temporel)** : Deux versions d'un même paramètre global ne peuvent pas être simultanément actives pour une même date d'évaluation ($[\text{date\_debut}_A, \text{date\_fin}_A] \cap [\text{date\_debut}_B, \text{date\_fin}_B] = \emptyset$).
 - **RG-STR-10 (Non-Fallback d'une Règle Désactivée)** : Lorsqu'un paramètre désactivable est positionné à `est_actif = FALSE`, les moteurs de calcul ont l'interdiction de basculer sur une valeur par défaut codée en dur. La règle est considérée comme volontairement coupée (`DISABLED`).
 - **RG-STR-11 (Fail-Fast sur Paramètre Manquant)** : Si un paramètre obligatoire est introuvable à la date d'évaluation (`MISSING`), le système doit interrompre le traitement par une exception explicite et refuser tout calcul approximatif.
 - **RG-STR-12 (Protection des Constantes Système)** : Tout paramètre portant `est_desactivable = FALSE` ne peut pas être désactivé par l'API administrative (`toggle-actif`).
-- **RG-STR-13 (Complexité Mot de Passe)** : Tout mot de passe utilisateur doit comporter au moins 8 caractères, incluant au moins une majuscule et un chiffre, et être haché en BCrypt.
-- **RG-STR-14 (Motif Obligatoire de Désactivation Utilisateur)** : La désactivation d'un compte utilisateur (`utilisateur`) exige obligatoirement la fourniture d'un motif textuel non vide.
-- **RG-STR-15 (Idempotence du Compte Racine)** : Le mécanisme de bootstrap de l'administrateur système ne doit modifier aucun compte dès lors qu'un compte administrateur actif existe déjà dans la base.
-- **RG-STR-16 (Habilitation des Menus par Rôle)** : L'arborescence de navigation délivrée au client web est strictement restreinte aux menus rattachés au rôle de l'utilisateur dans `role_menu`.
-- **RG-STR-17 (Traçabilité Audit Universelle)** : Toute opération d'écriture modifiant les paramètres ou la structure doit générer un enregistrement synchrone dans `audit_log` au sein de la même transaction SQL.
-- **RG-STR-18 (Priorité de Dérogation Individuelle d'Indemnité)** : Une dérogation individuelle active (`employe_indemnite_derogation`) l'emporte de plein droit sur la configuration de l'indemnité du site (`site_indemnite_config`).
-- **RG-STR-19 (Férié de Site Prioritaire)** : Un jour férié rattaché spécifiquement à un site (`site_calendrier_ferie`) s'applique prioritairement aux collaborateurs affectés à ce site, même s'il ne figure pas dans le calendrier national.
-- **RG-STR-20 (Exonération Fiscale des HS)** : L'exonération d'IRSA sur les heures supplémentaires n'est applicable que si `parametre_global.EXONERATION_HS_IRSA_ACTIVE = TRUE`, que `paie_config_legale.exoneration_hs_irsa_active = TRUE`, que la catégorie du salarié a `est_eligible_exoneration_hs = TRUE`, et dans la limite stricte du plafond de 20 heures mensuelles.
+- **RG-STR-13 (Exigence d'Effet Métier sur Désactivation)** : Aucun paramètre ne peut être déclaré `est_desactivable = TRUE` sans qu'un effet métier formel soit implémenté et restitué par `ParametreGlobal.getEffetDesactivation()`.
+- **RG-STR-14 (Immutabilité Rétroactive de `CONGE_DECOMPTE_FERIES`)** : Le paramètre `CONGE_DECOMPTE_FERIES` ne peut être modifié que pour une version future ($\text{date\_debut} \ge \text{demain}$) et avec les valeurs `INCLUS` ou `EXCLUS` (`ck_conge_decompte_feries_valeur`).
+- **RG-STR-15 (Complexité Mot de Passe)** : Tout mot de passe utilisateur doit comporter au moins 8 caractères, incluant au moins une majuscule et un chiffre, et être haché en BCrypt.
+- **RG-STR-16 (Motif Obligatoire de Désactivation Utilisateur)** : La désactivation d'un compte utilisateur (`utilisateur`) exige obligatoirement la fourniture d'un motif textuel non vide.
+- **RG-STR-17 (Idempotence du Compte Racine)** : Le mécanisme de bootstrap de l'administrateur système ne doit modifier aucun compte dès lors qu'un compte administrateur actif existe déjà dans la base.
+- **RG-STR-18 (Habilitation des Menus par Rôle)** : L'arborescence de navigation délivrée au client web est strictement restreinte aux menus rattachés au rôle de l'utilisateur dans `role_menu`.
+- **RG-STR-19 (Traçabilité Audit Universelle)** : Toute opération d'écriture modifiant les paramètres ou la structure doit générer un enregistrement synchrone dans `audit_log` au sein de la même transaction SQL.
+- **RG-STR-20 (Priorité de Dérogation Individuelle d'Indemnité)** : Une dérogation individuelle active (`employe_indemnite_derogation`) l'emporte de plein droit sur la configuration de l'indemnité du site (`site_indemnite_config`).
+- **RG-STR-21 (Férié de Site Prioritaire)** : Un jour férié rattaché spécifiquement à un site (`site_calendrier_ferie`) s'applique prioritairement aux collaborateurs affectés à ce site, même s'il ne figure pas dans le calendrier national.
+- **RG-STR-22 (Exonération Fiscale des HS)** : L'exonération d'IRSA sur les heures supplémentaires n'est applicable que si `parametre_global.EXONERATION_HS_IRSA_ACTIVE = TRUE`, que `paie_config_legale.exoneration_hs_irsa_active = TRUE`, que la catégorie du salarié a `est_eligible_exoneration_hs = TRUE`, et dans la limite stricte du plafond de 20 heures mensuelles (*Art. 01.03.03-9° du CGI*).
 
 ---
 
-## 35. Matrice des Codes d'Erreur & Réponses API
+## 28. Matrice des Codes d'Erreur & Réponses API
 
-Le système unifie la gestion de ses exceptions via `SirhErrorCode.java` et `SirhBusinessException.java` :
+Le système unifie la gestion de ses exceptions via [`SirhErrorCode.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/common/exception/SirhErrorCode.java) et [`SirhBusinessException.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/common/exception/SirhBusinessException.java) :
 
 | Code d'Erreur Métier | Statut HTTP | Signification et Contexte d'Émission |
 | :--- | :---: | :--- |
@@ -1282,8 +1062,8 @@ Le système unifie la gestion de ses exceptions via `SirhErrorCode.java` et `Sir
 | `ACCESS_DENIED` | 403 Forbidden | Droits insuffisants (ex. Agent de pointage tentant d'accéder à l'écran de paramétrage paie). |
 | `RESOURCE_NOT_FOUND` | 404 Not Found | Filiale, site, utilisateur, paramètre ou rôle inexistant pour l'identifiant fourni. |
 | `DATA_DUPLICATE` | 409 Conflict | Violation d'unicité (code filiale déjà existant, code rôle déjà attribué, login existant). |
-| `DATA_REFERENCED` | 409 Conflict | Tentative de suppression d'une structure référencée par d'autres dossiers actifs. |
-| `DATA_INTEGRITY_VIOLATION` | 409 Conflict | Non-respect d'une contrainte CHECK de base de données. |
+| `DATA_REFERENCED` | 409 Conflict | Tentative de désactivation d'une filiale ayant des sites ou contrats actifs, ou suppression d'entité liée. |
+| `DATA_INTEGRITY_VIOLATION` | 409 Conflict | Non-respect d'une contrainte CHECK de base de données (`chk_ref_site_plancher_arrivee`). |
 | `BLOCKING_CONFIGURATION_ERROR` | 409 Conflict | Paramètre obligatoire manquant ou non résoluble à la date d'évaluation. |
 | `PAYROLL_ALLOWANCE_CONFIGURATION_MISSING` | 409 Conflict | Absence de configuration d'indemnité de site pour un contexte de pointage/paie. |
 | `POINTAGE_SITE_NON_AFFECTE` | 409 Conflict | Salarié pointé sur un site auquel son affectation de carrière ne le rattache pas. |
@@ -1291,10 +1071,10 @@ Le système unifie la gestion de ses exceptions via `SirhErrorCode.java` et `Sir
 
 ---
 
-## 36. Scénarios Concrets & Flux Inter-Modules Détaillés
+## 29. Scénarios Concrets & Flux Inter-Modules Détaillés
 
 ### Scénario 1 : Création d'une Nouvelle Structure et Affectation d'un Salarié
-1. **Création du Site** : L'administrateur crée le site portuaire de Fort-Dauphin (`code_site = 'FTD'`, `libelle = 'Fort-Dauphin Agence'`, `horaire_continu = true`, horaires `08:00 - 17:00`, `plancher_arrivee_actif = true`, `heure_entree_minimale_valorisee = '07:30'`).
+1. **Création du Site** : L'administrateur crée le site portuaire de Fort-Dauphin (`code_site = 'FTD'`, `libelle = 'Fort-Dauphin Agence'`, `horaire_continu = true`, horaires `08:00 - 17:00`, `plancher_arrivee_actif = true`, `heure_entree_minimale_valorisee = '07:30'`) via `POST /referentiel/sites`.
 2. **Configuration des Indemnités** : Dans `site_indemnite_config`, affectation de l'indemnité déplacement `DPLCT` à hauteur de 45 000 Ar / mois, et repas `REPAS` à 2 000 Ar / jour.
 3. **Embauche Salarié** : Le module Employés crée le collaborateur avec un contrat CDI rattaché à la filiale `GLX`.
 4. **Affectation Carrière** : Création d'un tuple dans `employe_affectation_carriere` liant l'employé au site `FTD`, département `LOG`, service `OPE`, fonction `CHEF_DECLARANT`, catégorie `A`, salaire de base 1 200 000 Ar, prenant effet au 1ᵉʳ octobre 2026.
@@ -1308,28 +1088,35 @@ Le système unifie la gestion de ses exceptions via `SirhErrorCode.java` et `Sir
 5. Une nouvelle ligne est insérée avec `valeur = '2500'`, `date_debut = '2027-01-01'`, `date_fin = NULL`.
 6. **Résultat** : Tout recalcul rétroactif d'une période de paie de novembre 2026 continuera d'appliquer fidèlement 2 000 Ar, tandis que les pointages de janvier 2027 valoriseront le repas à 2 500 Ar.
 
+### Scénario 3 : Tentative de Désactivation d'une Filiale Active (Garde-Fou POO)
+1. L'administrateur clique sur « Désactiver » pour la filiale `GLX` via l'écran `FilialesSitesTab`.
+2. L'appel HTTP `PUT /referentiel/filiales/1/desactiver` est émis vers [`OrganisationController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java#L56).
+3. Le service [`OrganisationService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java#L190) détecte en SQL qu'il subsiste 2 sites actifs (TNR et TMM) et 15 contrats en cours.
+4. L'opération est immédiatement interrompue, la transaction rollbackée, et une erreur HTTP 409 (`DATA_REFERENCED`) est renvoyée avec le message explicatif.
+5. L'UI affiche une notification d'avertissement rouge bloquant l'action, préservant l'intégrité de l'arbre relationnel.
+
 ---
 
-## 37. Dettes Techniques & Recommandations d'Architecture
+## 30. Dettes Techniques & Recommandations d'Architecture
 
-Bien que le système soit fonctionnel et robuste en production, l'audit du code actuel met en lumière quatre dettes techniques majeures :
+Bien que le système soit parfaitement opérationnel et validé par des tests complets, l'audit du code actuel met en lumière quatre points d'attention architecturale :
 
 1. **TECHNICAL_DEBT (Modélisation JDBC Active Record manuelle)** :
-   - *Constat* : L'absence de framework de mapping impose une écriture manuelle répétitive des requêtes SQL et des `mapResultSet`. Le risque d'oubli d'une colonne lors d'un ajout de champ est réel (comme ce fut le cas lors de la phase transitoire du plancher d'arrivée).
+   - *Constat* : L'absence de framework de mapping impose une écriture manuelle répétitive des requêtes SQL et des `mapResultSet`.
    - *Recommandation* : Introduire à moyen terme un mapper léger à typage fort (type jOOQ ou Spring Data JDBC pur sans Hibernate) pour éliminer le boilerplate SQL tout en conservant le contrôle total des requêtes.
-2. **HISTORICAL_CONFIGURATION_RISK (Absence de table temporelle pour `ref_site`)** :
-   - *Constat* : Les horaires et le plancher d'arrivée sont portés directement par les colonnes de `ref_site`. Si un site modifie ses horaires d'ouverture de 08h00 à 08h30 en milieu d'année, l'ancienne valeur est écrasée.
-   - *Recommandation* : Extraire les horaires et tolérances dans une table dédiée `site_horaire_config` dotée d'intervalles temporels (`date_debut`, `date_fin`), sur le modèle de `site_indemnite_config`.
+2. **HISTORICAL_CONFIGURATION_RISK (Absence de table temporelle pour les horaires de `ref_site`)** :
+   - *Constat* : Les horaires d'ouverture et le plancher d'arrivée sont portés directement par les colonnes de `ref_site`. Si un site modifie ses horaires d'ouverture en cours d'année, l'ancienne valeur est écrasée.
+   - *Recommandation* : Extraire les horaires et le plancher dans une table dédiée `site_horaire_config` dotée d'intervalles temporels (`date_debut`, `date_fin`), sur le modèle éprouvé de `site_indemnite_config`.
 3. **OWNERSHIP_AMBIGUITY (`ParametresModulesPanel.jsx`)** :
-   - *Constat* : L'écran des paramètres modules dans le frontend regroupe sous une même bannière des entités qui relèvent de la Paie (`paie_config_legale`), des Congés et du Pointage. Cette centralisation visuelle entretient la confusion chez les utilisateurs non avertis.
-   - *Recommandation* : Documenter clairement dans la formation utilisateur que cet écran est une console de paramétrage technique transversale, et non un sous-module fonctionnel de la Paie.
+   - *Constat* : L'écran des paramètres modules dans le frontend regroupe sous une même bannière des entités qui relèvent de la Paie (`paie_config_legale`), des Congés et du Pointage.
+   - *Recommandation* : Documenter clairement dans les manuels utilisateurs que cet écran est une console de paramétrage technique transversale, et non un sous-module fonctionnel de la Paie.
 4. **CONFIGURATION_AMBIGUITY (`parametre_global.valeur VARCHAR(100)`)** :
-   - *Constat* : L'absence de typage physique côté PostgreSQL oblige le code Java à multiplier les parsers défensifs (`requirePositiveInt`, `getLocalTime`, `getBigDecimal`). Une mauvaise saisie d'un administrateur (ex. saisie de "20h" au lieu de "20:00") ne déclenche une erreur qu'à l'exécution du calcul.
+   - *Constat* : L'absence de typage physique côté PostgreSQL oblige le code Java à multiplier les parsers défensifs (`requirePositiveInt`, `getLocalTime`, `getBigDecimal`).
    - *Recommandation* : Ajouter une colonne `type_donnee VARCHAR(20)` (`INTEGER`, `TIME`, `AMOUNT`, `BOOLEAN`) et poser une contrainte de validation par expression régulière sur la colonne `valeur`.
 
 ---
 
-## 38. Glossaire Technique & Fonctionnel Exhaustif
+## 31. Glossaire Technique & Fonctionnel Exhaustif
 
 - **Actif (Flag `est_actif`)** : Propriété booléenne indiquant si un enregistrement référentiel est éligible à de nouvelles associations opérationnelles.
 - **Active Record** : Patron de conception où chaque classe métier encapsule à la fois ses attributs de données et les requêtes SQL de persistance en base.
@@ -1345,67 +1132,38 @@ Bien que le système soit fonctionnel et robuste en production, l'audit du code 
 - **Dispense de Pointage** : Exemption d'enregistrement quotidien des badges accordée aux cadres dirigeants (DG, DAF) n'entraînant aucune retenue pour absence.
 - **Heure d'Entrée Effective** : Heure retenue pour le calcul du temps de travail après application du plancher d'arrivée : $\max(H_{\text{badge}}, H_{\text{plancher}})$.
 - **Idempotence** : Propriété d'une opération produisant exactement le même résultat qu'elle soit exécutée une ou plusieurs fois (ex. `AdminAccountSeeder`).
-- **IRSA** : Impôt sur les Revenus Salariaux et Assimilés (barème fiscal progressif malgache).
+- **IRSA** : Impôt sur les Revenus Salariaux et Assimilés (barème fiscal progressif malgache selon l'Art. 01.03.16 du CGI).
+- **ISI** : Impôt Synthétique Intermittent au taux libératoire de 5% selon l'Art. 01.03.02 du CGI.
 - **Missing** : Statut d'un paramètre introuvable en base pour la date évaluée, déclenchant l'arrêt immédiat des calculs (*fail-fast*).
 - **Plancher d'Arrivée (*Earliest Paid Start*)** : Heure minimale matinale à partir de laquelle la présence physique d'un salarié commence à être rémunérée.
 - **RBAC (*Role-Based Access Control*)** : Contrôle d'accès basé sur les rôles, croisant rôles système, modules applicatifs et droits d'action.
 - **Référentiel** : Ensemble de données stables et normalisées fournissant la nomenclature commune à toutes les transactions du système.
 - **SameSite** : Attribut de sécurité d'un cookie HTTP limitant son émission aux contextes de première partie pour prévenir les attaques CSRF.
-- **Seed SQL** : Script de données initiales injecté lors de l'initialisation de la base de données.
 - **SME** : Salaire Minimum d'Embauche fixé par décret gouvernemental à Madagascar.
 - **Statut RH** : État formel du contrat de travail ou de l'affectation dans son cycle de vie (`BROUILLON`, `ACTIF`, `SUSPENDU`, `HISTORISE`, `CLOTURE`).
 
 ---
 
-## 39. Annexes Techniques
+## 32. Annexes : Sources Légales & Réglementaires
 
-### Annexe A : Inventaire Exhaustif des Tables du Module
-
-1. `ref_filiale` (Structure Juridique)
-2. `ref_site` (Sites & Horaires)
-3. `ref_departement` (Départements)
-4. `ref_service` (Services)
-5. `ref_fonction` (Postes & Fonctions)
-6. `ref_banque` (Banques)
-7. `ref_type_contrat` (Types de Contrat)
-8. `ref_type_intervenant` (Types d'Intervenants)
-9. `ref_statut_rh` (Statuts de Cycle de Vie)
-10. `ref_type_evenement_rh` (Événements Carrière)
-11. `ref_motif_sortie` (Motifs de Sortie)
-12. `ref_motif_mouvement` (Motifs de Mouvement)
-13. `ref_mode_calcul_paie` (Modes de Calcul Paie)
-14. `ref_categorie_professionnelle` (Catégories Pro)
-15. `ref_type_document` (Types de Documents)
-16. `ref_calendrier_ferie` (Fériés Nationaux)
-17. `site_calendrier_ferie` (Fériés de Site)
-18. `ref_periode_chomee` (Périodes Chômées)
-19. `ref_role` (Rôles RBAC)
-20. `ref_module` (Modules Système)
-21. `role_permission` (Permissions Habilitations)
-22. `utilisateur` (Comptes IAM)
-23. `journal_connexion` (Audit Login)
-24. `audit_log` (Piste d'Audit Métier)
-25. `scheduler_execution` (Tâches Batch)
-26. `ref_menu` (Arborescence Navigation)
-27. `role_menu` (Menus par Rôle)
-28. `parametre_global` (Constantes Versionnées)
-29. `ref_indemnite` (Catalogue Indemnités)
-30. `site_indemnite_config` (Indemnités par Site)
-31. `employe_indemnite_derogation` (Dérogations Salarié)
-
-### Annexe B : Inventaire Exhaustif des Endpoints REST
-*(Se référer à la section 30 pour la matrice détaillée des 52 routes du module).*
-
-### Annexe C : Matrice de Consommation Inter-Modules
-
-| Donnée / Référentiel Structure | Employés & Contrats | Congés & Absences | Pointage & Présences | Moteur de Paie |
-| :--- | :---: | :---: | :---: | :---: |
-| **Filiale (`ref_filiale`)** | Rattachement contrat | - | - | Déclarations CNaPS, NIF bulletin |
-| **Site (`ref_site`)** | Affectation physique | - | Horaires, Plancher, Présence | Organismes de santé locaux |
-| **Département (`ref_departement`)** | Organigramme analytique| - | Filtres de supervision | Ventilation comptable |
-| **Service (`ref_service`)** | Cellule de travail | - | Suivi d'équipe | Analytique |
-| **Fonction (`ref_fonction`)** | Intitulé contrat | - | Dispense de pointage | Mention obligatoire bulletin |
-| **Catégorie (`ref_cat_pro`)** | Qualification | - | Éligibilité HS, Dispense | Exonération fiscale IRSA (20h) |
-| **Fériés (`ref_calendrier_ferie`)** | - | Exclusion jours ouvrables | Détection jour férié travaillé | Majoration 100% |
-| **Indemnités (`site_indemnite_config`)**| - | - | Montants journaliers | Rubriques brutes de paie |
-| **Paramètres (`parametre_global`)**| Durée max CDD (24/72m)| Plafond solde (90j), préavis| Heures de nuit (22h/05h), repas| Seuil assiduité (45m), bonus |
+1. **Loi n° 2003-044 du 28 juillet 2004 portant Code du Travail de la République de Madagascar** :
+   - *Article 18* : Période d'essai et renouvellement unique (`MAX_RENOUVELLEMENTS_ESSAI = 1`).
+   - *Article 19* : Durée maximale d'un contrat CDD unitaire de 24 mois (`DUREE_MAX_CONTRAT_CDD_MOIS = 24`).
+   - *Article 20* : Limitation à 2 renouvellements d'avenant CDD (`NB_MAX_RENOUVELLEMENTS_CDD = 2`) et durée cumulée max de 6 ans soit 72 mois (`DUREE_MAX_CDD_MOIS = 72`).
+   - *Article 75* : Durée légale hebdomadaire de référence de 40 heures.
+   - *Article 76* : Définition du travail effectif et exclusion des arrivées prématurées non commandées (Plancher d'arrivée).
+   - *Article 83* : Définition du travail de nuit entre 22h00 et 05h00 (`SEUIL_NUIT_DEBUT = 22:00`, `SEUIL_NUIT_FIN = 05:00`).
+   - *Article 85 & 87* : Droit au congé payé de 2,5 jours par mois, diviseur 30 jours, prescription de 36 mois (`DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS = 36`).
+   - *Article 86* : Bonification du congé pour ancienneté (`SEUIL_ANCIENNETE_BONIFICATION_ANS = 3`, `PALIER_ANNEES_BONIFICATION = 5`, `JOURS_BONIFICATION_PAR_PALIER = 1`).
+   - *Article 88* : Permissions exceptionnelles d'absence pour événements familiaux dans la limite de 10 jours / an (`ref_pool_conge_annuel`).
+   - *Article 97* : Congé de maternité de 14 semaines / 98 jours (`DUREE_MAX_MATERNITE_STANDARD_JOURS = 98`), extension pathologique de 3 semaines / 21 jours (`DUREE_MAX_MATERNITE_PATHOLOGIQUE_JOURS = 119`).
+2. **Code Général des Impôts (CGI) de Madagascar — Loi de Finances 2026** :
+   - *Article 01.01.01 et s.* : Numéro d'Identification Fiscale (NIF) obligatoire des personnes morales.
+   - *Article 01.03.02 & s.* : Retenue libératoire ISI de 5% pour prestataires et consultants sans NIF (`TAUX_ISI = 5.00`, `soumis_isi_5 = TRUE`).
+   - *Article 01.03.03-9°* : Régime d'exonération d'IRSA des heures supplémentaires dans la limite mensuelle de 20 heures (`PLAFOND_MENSUEL_HS_EXONEREES = 20.00`, `EXONERATION_HS_IRSA_ACTIVE`).
+   - *Article 01.03.16* : Barème progressif de l'IRSA, seuil d'exonération 350 000 Ar, minimum de perception 3 000 Ar, déduction pour enfant à charge 2 000 Ar.
+3. **Réglementation Sociale et Médicale** :
+   - *Décret n° 69-145 du 8 avril 1969* fixant le Code de Prévoyance Sociale : affiliation CNaPS obligatoire (1% part salariale, 13% part patronale, plafond 8x SME).
+   - *Décret n° 63-124 du 20 février 1963* : médecine du travail et services médicaux d'entreprise (OMSI / OSTIE).
+4. **Législation sur la Protection des Données** :
+   - *Loi n° 2014-038 du 9 janvier 2015* sur la protection des données à caractère personnel : traçabilité des accès ([`journal_connexion`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L63)), piste d'audit des modifications ([`audit_log`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/conception/bdd/01_schema_core_securite.sql#L73)) et principe du moindre privilège RBAC.

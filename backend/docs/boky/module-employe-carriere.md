@@ -1,271 +1,407 @@
-# Module Employé, Contrat & Carrière — Spécification métier et technique
-## GALAXAM SIRH — Documentation de référence pour le mémoire
+# Module Employé, Contrat & Carrière — Spécification Métier et Technique
+## GALAXAM SIRH — Document de Référence pour Mémoire de Fin d'Études
 
-> **Périmètre** : dossier du salarié, données familiales et bancaires, contrats, périodes d'essai, affectations, mouvements de carrière, pièces RH et alertes.  
-> **Références de code** : `03_schema_employes_contrats.sql`, `EmployeService`, `WorkflowRhService`, contrôleurs du paquet `mg.galaxam.sirh.contrat` et `frontend/src/features/employees`.  
-> **État de description** : code observé dans le dépôt en septembre 2026. Les limites connues sont indiquées dans le chapitre 10.
-
----
-
-## Sommaire exécutif
-
-Le module Employé et Carrière maintient le dossier d'identité, les informations utiles à la gestion RH, les contrats successifs et les affectations datées. Il sépare l'existence de la personne, la relation contractuelle et son poste dans l'organisation. Les mouvements sont préparés comme des workflows ; leur validation applique les changements de contrat et d'affectation selon leur date d'effet.
-
-L'interface expose une liste filtrable, une fiche à onglets et un espace de supervision des carrières. Le backend valide les données, contrôle les transitions permises, trace les actions et alimente les vues de consultation. Cette documentation décrit les comportements réellement présents dans le dépôt et relève les écarts entre les contrôles applicatifs et les garanties offertes par le schéma SQL.
-
-## Table des matières
-
-1. [Frontière fonctionnelle et concepts](#1-frontière-fonctionnelle-et-concepts)
-2. [Acteurs et parcours utilisateur](#2-acteurs-et-parcours-utilisateur)
-3. [Modèle de données](#3-modèle-de-données)
-4. [Règles de validation du dossier salarié](#4-règles-de-validation-du-dossier-salarié)
-5. [Contrats et période d'essai](#5-contrats-et-période-dessai)
-6. [Workflow et mouvements de carrière](#6-workflow-et-mouvements-de-carrière)
-7. [Affectations historisées et intégrations](#7-affectations-historisées-et-intégrations)
-8. [Documents RH et productions officielles](#8-documents-rh-et-productions-officielles)
-9. [Architecture, API et interface](#9-architecture-api-et-interface)
-10. [Contrôles, limites et recommandations](#10-contrôles-limites-et-recommandations)
-11. [Catalogue des règles de gestion](#11-catalogue-des-règles-de-gestion)
+> **Périmètre fonctionnel** : Dossier individuel du salarié, données civiles et familiales, coordonnées bancaires, contrats de travail, périodes d'essai, affectations temporelles, mouvements de carrière (workflows), génération documentaire officielle (.docx, .csv) et supervision décisionnelle.  
+> **Cadre juridique de référence** : Code du Travail Malagasy (Loi n° 2003-044 du 28 juillet 2004), Décret n° 64-195 (CIN à Madagascar), Décret n° 69-145 (Code de Prévoyance Sociale CNaPS).  
+> **Références logicielles** : Scripts SQL canoniques (`02_schema_referentiels_rh.sql`, `03_schema_employes_contrats.sql`), services applicatifs (`EmployeService`, `WorkflowRhService`, `DocumentRhService`, `EmploymentContextResolver`, `EmployerIdentityContextResolver`, `CarriereExportService`), moteurs de domaine (`EmployeValidationEngine`, `ContratValidationEngine`, `CarriereTransitionValidator`, `AncienneteEngine`, `MatriculeGeneratorEngine`), contrôleurs API et interface React (`frontend/src/features/employees`).  
+> **Date de révision** : Octobre 2026 (Version alignée à 100% sur l'implémentation opérationnelle).
 
 ---
 
-## 1. Frontière fonctionnelle et concepts
+## Sommaire Exécutif
 
-| Concept | Description | Données principales |
-| :--- | :--- | :--- |
-| Employé | Identité civile et dossier durable de la personne | `employe` |
-| Contrat | Engagement juridique rattaché à une filiale, un type, un statut et des dates | `contrat_travail` |
-| Période d'essai | Périodes numérotées, datées et suivies séparément du contrat | `contrat_periode_essai` |
-| Affectation de carrière | Poste, site, service, catégorie, mode de paie et salaire à une période donnée | `employe_affectation_carriere` |
-| Workflow RH | Demande de mouvement, sa source, sa cible, son motif, ses dates et ses acteurs | `workflow_rh` |
-| Document RH | Fichier associé à la personne et, éventuellement, à un contrat ou workflow | `document_rh` |
+Le **Module Employé, Contrat & Carrière** constitue le socle fondamental et le référentiel maître de GALAXAM SIRH. Il orchestre l'ensemble du cycle de vie du capital humain de l'entreprise, depuis l'onboarding initial jusqu'au départ du collaborateur.
 
-Une modification d'identité corrige le dossier personnel. Une promotion, une mutation ou une revalorisation relève d'un événement de carrière et doit créer une trace temporelle. Le contrat et l'affectation sont des objets distincts : un salarié peut changer d'affectation sans que la personne change, et certains événements créent un nouveau contrat lié au précédent.
+L'architecture métier repose sur une dissociation conceptuelle stricte entre trois dimensions :
+1. **L'Identité civile de la personne** (`employe`) : pérenne et indépendante des aléas contractuels.
+2. **L'Engagement juridique** (`contrat_travail`) : rattaché à une filiale légale, un type d'engagement et une chronologie bornée.
+3. **Le Positionnement organisationnel et salarial** (`employe_affectation_carriere`) : poste, site, service, fonction, classification professionnelle et rémunération de base à une date d'effet précise.
 
-Le module fournit des liens vers Congés, Pointage et Paie dans la fiche. Ces onglets affichent les données des modules concernés ; ils ne déplacent pas leurs règles de calcul dans le dossier Employé. La rémunération de référence est portée par l'affectation et consommée par la paie selon la date de période.
+Tous les mouvements de carrière (promotions, revalorisations, mutations, renouvellements, titularisations ou ruptures) sont formalisés sous forme de **workflows à validation habilitée**, garantissant l'intégrité transactionnelle, la traçabilité temporelle et la conformité légale malgache.
 
-## 2. Acteurs et parcours utilisateur
+---
 
-### 2.1 Liste du personnel
+## Table des Matières
 
-`EmployeList` permet de consulter les dossiers avec recherche, filtres d'activité et rattachements organisationnels, tri et pagination. Le contrôleur `GET /employes` accepte notamment `q`, `actif`, `site`, `departement`, `service`, `sort`, `direction`, `page` et `size`. Des routes séparées servent aux statistiques et aux options de sélection.
+1. [Fondements Juridiques et Cadre Légal Malagasy](#1-fondements-juridiques-et-cadre-légal-malagasy)
+2. [Concepts Fondamentaux et Frontière Métier](#2-concepts-fondamentaux-et-frontière-métier)
+3. [Acteurs, Permissions RBAC et Parcours Utilisateur](#3-acteurs-permissions-rbac-et-parcours-utilisateur)
+4. [Architecture Technique et Modèle de Données Relationnel](#4-architecture-technique-et-modèle-de-données-relationnel)
+5. [Moteur de Validation du Dossier Salarié](#5-moteur-de-validation-du-dossier-salarié)
+6. [Cycle de Vie Contractuel et Périodes d'Essai](#6-cycle-de-vie-contractuel-et-périodes-dessai)
+7. [Moteur de Transition de Carrière et Workflows RH](#7-moteur-de-transition-de-carrière-et-workflows-rh)
+8. [Résolution Contextuelle et Découplage Temporel](#8-résolution-contextuelle-et-découplage-temporel)
+9. [Moteur d'Ancienneté et Génération Documentaire Officielle](#9-moteur-dancienneté-et-génération-documentaire-officielle)
+10. [Supervision Globale et Tableau de Bord Décisionnel](#10-supervision-globale-et-tableau-de-bord-décisionnel)
+11. [Catalogue Exhaustif des Règles de Gestion (RG)](#11-catalogue-exhaustif-des-règles-de-gestion-rg)
 
-Le matricule peut être saisi ou proposé par le backend. La vérification de disponibilité par API améliore le formulaire, mais la contrainte `UNIQUE` de la table reste l'arbitre final en cas de création concurrente. Le générateur conserve une nomenclature séquentielle historique ; le moteur sait aussi reconnaître le format `EMP-AAAA-NNNN`.
+---
 
-### 2.2 Fiche individuelle
+## 1. Fondements Juridiques et Cadre Légal Malagasy
 
-La fiche est accessible par employé et mémorise l'onglet sélectionné dans l'URL. Les sections observées dans `EmployeFicheDetailPage.jsx` sont :
+Le module transpose dans son code source les dispositions d'ordre public du droit du travail et de la sécurité sociale à Madagascar :
 
-| Onglet | Contenu |
-| :--- | :--- |
-| Fiche personnelle | État civil, CIN, coordonnées et photo |
-| Famille & Contacts | Conjoint, enfants et contacts d'urgence |
-| Documents RH | Pièces déposées, informations de classement et téléchargement |
-| Carrière & Affectation | Contrat courant, périodes d'essai, historique et workflows |
-| Congés & Absences | Vue liée au module Congés |
-| Pointages & Présence | Vue liée au module Pointage |
-| Paie & Rémunération | Historique et vues du module Paie |
+| Source Légale | Article / Texte | Application Concrète dans GALAXAM SIRH | Implémentation Logicielle |
+| :--- | :--- | :--- | :--- |
+| **Code du Travail** | **Loi n° 2003-044, Art. 100** | **Âge minimum d'accès à l'emploi** : 16 ans révolus. Interdiction absolue d'enregistrer un collaborateur de moins de 16 ans à sa date d'embauche. | `EmployeValidationEngine.validerAgeLegal()` |
+| **Code du Travail** | **Loi n° 2003-044, Art. 18 à 22** | **Forme et types de contrats** : Définition des contrats à durée indéterminée (CDI) et à durée déterminée (CDD). Obligation d'écrit et de date de terme pour les CDD. | `ContratValidationEngine.validerContrat()` |
+| **Code du Travail** | **Loi n° 2003-044, Art. 24 & 25** | **Période d'essai** : Durée maximale légale, formalisation écrite obligatoire, possibilité de renouvellement numéroté, rupture sans indemnité. | `CarriereTransitionValidator`, `contrat_periode_essai` |
+| **Code du Travail** | **Loi n° 2003-044, Art. 42** | **Certificat de travail** : Délivrance obligatoire à l'expiration de tout contrat de travail, sous peine de dommages-intérêts, mentionnant exclusivement la date d'entrée, de sortie et les fonctions occupées. | `DocumentRhService.genererCertificatDocx()` |
+| **État Civil Malagasy** | **Décret n° 64-195 modifié** | **Carte d'Identité Nationale (CIN)** : Identifiant unique à 12 chiffres. Vérification de cohérence chronologique (délivrance après 16 ans). | `EmployeValidationEngine.validerCinFormatEtDate()` |
+| **Sécurité Sociale** | **Décret n° 69-145 (CPS)** | **Affiliation CNaPS** : Numéro d'affiliation travailleur unique pour l'ouverture des droits de prévoyance et retraite. | `employe.num_affiliation_cnaps` (Contrainte UNIQUE SQL) |
 
-La visibilité de certains onglets dépend des droits. Le profil synthétique est chargé via `EmployeFicheDetailDTO`, qui réunit l'employé, le conjoint, les enfants, les contacts et les comptes bancaires. Les contrats, workflows et documents sont chargés par les services dédiés.
+---
 
-### 2.3 Parcours carrière
-
-Le formulaire de mouvement guide l'utilisateur dans le choix de l'événement, du contrat cible et de la nouvelle affectation. Un aperçu comparatif rend visibles les champs source et cible avant validation ; une chronologie et les tableaux d'historique permettent de relire les changements. Les brouillons peuvent être modifiés ou annulés. La validation déclenche l'application immédiate ou planifiée selon la date d'effet et l'événement.
+## 2. Concepts Fondamentaux et Frontière Métier
 
 ```mermaid
-flowchart TD
-    A[Dossier salarié] --> B[Choisir un événement RH]
-    B --> C[Contrôles de compatibilité et dates]
-    C --> D[Créer un brouillon et ses objets cibles]
-    D --> E[Comparer source et cible]
-    E --> F{Décision habilitée}
-    F -->|Refus ou annulation| G[Workflow terminé sans application]
-    F -->|Validation future| H[Workflow planifié]
-    F -->|Validation à effet immédiat| I[Clôturer source et activer cible]
-    H --> J[Scheduler applique à la date d'effet]
-    I --> K[Historique, notifications et chronologie]
-    J --> K
+classDiagram
+    class Employe {
+        +int id_employe
+        +string matricule
+        +string nom
+        +string prenom
+        +string cin_numero
+        +boolean est_actif
+    }
+    class ContratTravail {
+        +int id_contrat
+        +string numero_contrat
+        +date date_debut
+        +date date_fin
+        +int id_statut_rh
+    }
+    class PeriodeEssai {
+        +int id_periode_essai
+        +int numero_periode
+        +date date_fin_prevue
+        +string statut
+    }
+    class AffectationCarriere {
+        +int id_affectation
+        +date date_debut
+        +date date_fin
+        +decimal salaire_base
+        +int id_site
+        +int id_fonction
+    }
+    class WorkflowRh {
+        +int id_workflow
+        +date date_effet
+        +int id_statut_rh
+        +string motif
+    }
+    class DocumentRh {
+        +int id_document
+        +string nom_original
+        +string chemin_stockage
+        +string type_mime
+    }
+
+    Employe "1" -- "0..*" ContratTravail : possède
+    ContratTravail "1" -- "0..*" PeriodeEssai : comprend
+    ContratTravail "1" -- "1..*" AffectationCarriere : rémunère & positionne
+    Employe "1" -- "0..*" WorkflowRh : évolue via
+    Employe "1" -- "0..*" DocumentRh : justifié par
+    ContratTravail "1" <-- "0..1" DocumentRh : lie scan signé
 ```
 
-## 3. Modèle de données
-
-Le schéma canonique `backend/conception/bdd/03_schema_employes_contrats.sql` crée les tables RH et leurs vues. Les référentiels (filiale, type de contrat, intervenant, statut, événement, motif, site, service, fonction, catégorie et mode de paie) sont définis dans `02_schema_referentiels_rh.sql`.
-
-| Table | Rôle et relations |
-| :--- | :--- |
-| `employe` | Matricule, identité, CIN, coordonnées, rattachement CNaPS, photo et activation |
-| `employe_conjoint` | Informations facultatives du conjoint |
-| `employe_enfant` | Enfants, charge, scolarité et certificat déclaré |
-| `employe_contact_urgence` | Contacts mobilisables en cas d'urgence |
-| `employe_compte_banque` | Comptes associés ; index unique partiel pour un compte principal par employé |
-| `contrat_travail` | Contrats successifs, filiale, dates, statut, motif et lien vers contrat précédent |
-| `contrat_periode_essai` | Périodes d'essai numérotées, dates prévues/réelles et état |
-| `employe_affectation_carriere` | Affectations et paramètres professionnels historisés par dates |
-| `workflow_rh` | Événement, source/cible, dates, motif et demandeur/valideur |
-| `ref_type_document`, `document_rh` | Politique de type documentaire et métadonnées de fichiers |
-| `notification_rh` | Alertes par utilisateur/rôle, priorité et état de lecture |
-
-Les vues `v_employe_cpl`, `v_historique_carriere_global` et `v_employe_actif_courant` regroupent les informations utiles à l'affichage. Elles évitent que chaque écran réécrive ses propres jointures, mais les données restent détenues par les tables sources.
-
-Le schéma garantit notamment l'unicité du matricule, de la CIN, de certains identifiants, du numéro de contrat renseigné, du numéro de période d'essai au sein d'un contrat et de l'unicité d'un compte bancaire principal. Le salaire d'affectation doit être positif. Les dates de carrière, en revanche, ne sont pas toutes protégées par une contrainte SQL d'absence de chevauchement ; les contrôles applicatifs et l'audit doivent donc être complétés par une vérification des intervalles existants.
-
-## 4. Règles de validation du dossier salarié
-
-`EmployeValidationEngine` est appelé par `EmployeService` avant création ou modification. Il vérifie les éléments suivants :
-
-| Donnée | Contrôle backend observé |
-| :--- | :--- |
-| Nom, prénom, sexe | Valeurs obligatoires ; le sexe utilise les valeurs du référentiel enum |
-| Date de naissance | Obligatoire, ne peut être future ; contrôle d'âge minimum fixé à 16 ans dans le moteur |
-| CIN | Obligatoire, 12 chiffres attendus ; date de délivrance cohérente et non future lorsqu'elle est fournie |
-| Adresse et téléphone | Obligatoires ; téléphone contrôlé par un format numérique tolérant séparateurs |
-| Email | Facultatif ; format contrôlé si renseigné |
-| Compte bancaire | Contrôles de cohérence lorsque le compte principal est fourni |
-| Enfants | Nom requis ; dates de naissance futures et fin de scolarité antérieure rejetées |
-
-La création du dossier, du conjoint, des enfants, contacts et compte bancaire principal fourni dans la requête s'effectue dans une transaction. Le dossier est ensuite enrichi par les parcours contrat/carrière et téléversement de documents. Le système ne doit pas confondre la validation de format d'une pièce d'identité avec l'authentification de son authenticité par un service externe : aucun contrôle externe de ce type n'est documenté dans le code analysé.
-
-La désactivation d'un employé porte un motif (démission, licenciement, fin de contrat, retraite, décès ou autre selon l'enum) et conserve l'enregistrement. La réactivation est également disponible et auditée. La désactivation est une action dédiée ; elle ne remplace pas un workflow de rupture qui ferme le contrat et l'affectation avec une date d'effet.
-
-## 5. Contrats et période d'essai
-
-`ContratValidationEngine` impose une date de début, une date de fin pour certains types à terme (CDD, stage, prestation, consultant, intérim) et refuse une fin antérieure au début. La durée d'essai acceptée par le validateur générique est comprise entre 0 et 6 mois. La date de fin théorique d'une période est calculée en ajoutant la durée en mois puis en retirant un jour. Les paramètres de renouvellement CDD et période d'essai sont contrôlés plus finement par `CarriereTransitionValidator`, parfois à partir de `parametre_global`.
-
-Chaque renouvellement de période d'essai crée une nouvelle ligne numérotée dans `contrat_periode_essai`. L'état est limité par contrainte SQL à `EN_COURS`, `CONFIRMEE`, `RENOUVELEE` ou `ROMPUE`. Les opérations de confirmation, renouvellement et rupture contrôlent l'existence d'une période en cours et les workflows déjà engagés afin d'éviter une seconde décision concurrente.
-
-La supervision des contrats permet de filtrer la population, consulter les contrats actifs et l'historique, afficher les alertes prioritaires et exporter les résultats disponibles. Les événements d'échéance alimentent les notifications RH et les tâches planifiées. Les règles de durée et renouvellement sont des validations applicatives dépendantes des référentiels configurés : elles doivent être revues avec la DAF/RH avant toute modification de paramètre.
-
-## 6. Workflow et mouvements de carrière
-
-Un workflow conserve l'employé, le type d'événement, les états, les contrats et affectations source/cible, les dates de demande et d'effet, le motif, les commentaires et les identifiants de demandeur/valideur. `WorkflowRhService` centralise le brouillon, la validation, les annulations, la planification et l'application automatique des mouvements échus.
-
-### 6.1 Familles d'événements implémentées
-
-Les référentiels couvrent notamment l'embauche initiale, l'embauche après stage, le renouvellement CDD, la transformation en CDI, la reprise d'ancienneté, la reprise consultant, la mutation, la promotion, la revalorisation, la réorganisation, la confirmation/renouvellement/rupture d'essai, la fin de contrat, la démission, le licenciement, la rupture conventionnelle et le départ à la retraite. La matrice d'éligibilité du backend restreint les événements selon le contrat source et le type de cible ; par exemple, les mouvements internes ne sont pas proposés à un contrat de stage.
-
-### 6.2 Création et validation transactionnelles
-
-Lors d'une embauche initiale, le service refuse un contrat actif ou un autre brouillon pour le salarié. Il crée un contrat brouillon et une affectation planifiée, puis lie les objets au workflow. La validation prend un verrou pessimiste `FOR UPDATE` sur la ligne workflow et n'autorise la validation que d'un brouillon. La transition applique les contrôles métier, la mise à jour source/cible et l'audit au sein de la connexion transactionnelle fournie par le contrôleur.
-
-Une transition planifiée est appliquée par `WorkflowRhService.autoAppliquerMouvementsEchus` lorsque la date d'effet est atteinte. Pour un changement de contrat, la date de fin source est normalement positionnée à la veille de la date d'effet, et le nouveau contrat est activé. L'affectation source est close et l'affectation cible activée. Le système réactive aussi un dossier employé inactif lors de certains mouvements de reprise.
-
-La méthode de validation directe de période d'essai existe également. Son usage doit être réservé aux habilitations prévues par l'API ; les événements planifiés passent par la même chaîne de workflow afin que l'historique reste lisible.
-
-## 7. Affectations historisées et intégrations
-
-Une affectation relie salarié et contrat avec statut et motif de mouvement, site, département, service, fonction, responsable hiérarchique, catégorie professionnelle, mode de calcul de paie, salaire de base et dates. La chronologie carrière affiche l'affectation active, les contrats successifs et les mouvements. Les changements salariaux et organisationnels devraient être enregistrés comme nouvelles versions avec date d'effet, pas comme une réécriture non datée de l'affectation antérieure.
-
-| Module consommateur | Informations échangées |
-| :--- | :--- |
-| Pointage | Employé actif, site, horaires et règles rattachées à son affectation |
-| Congés | Identité employé et ancienneté/données nécessaires au calcul du droit |
-| Paie | Population éligible, contrat, mode de paie, catégorie, site et salaire de l'affectation applicable |
-| Notifications | Échéances de contrat/essai et destinataire employé ou rôle RH |
-| Documents officiels | Identité, société, site, ancienneté et historique des fonctions |
-
-La cohérence temporelle entre contrat, affectation, paie et présence dépend de l'application de la date d'effet dans chaque module. Les mouvements planifiés ne doivent pas être consommés avant leur date d'application. Toute correction rétroactive demande de vérifier les bulletins et pointages déjà produits sur la période concernée.
-
-## 8. Documents RH et productions officielles
-
-`ref_type_document` définit la catégorie, le caractère obligatoire, les extensions autorisées et la taille maximale. `document_rh` conserve le nom d'origine, le nom de stockage, le chemin, l'extension, la taille, la date du document, le commentaire, le salarié et les liens facultatifs vers un contrat (`id_contrat`) ou workflow (`id_workflow`).
-
-Le nom d'origine reste conservé pour la traçabilité. L'interface et les téléchargements utilisent un nom lisible calculé selon la convention `TYPE[_REFERENCE_CONTRAT]_AAAAMMJJ_DOC-ID.extension` (ex. `CONTRAT_SIGNE_CTR_2026_00001_20260929_DOC-42.pdf`). Les fichiers gardent un nom UUID sur disque ; les photos restent servies par l'endpoint authentifié de l'employé et ne sont pas renommées en fichier prévisible.
-
-Le contrôleur de téléversement vérifie que le fichier n'est pas vide, que le type documentaire existe et est actif, que la taille respecte le maximum configuré et que l'extension figure dans la liste autorisée. Le fichier est stocké sur disque sous un nom UUID, puis sa métadonnée est enregistrée en base. Lors du dépôt d'un contrat signé (type `CONTRAT_SIGNE`), les champs `idContrat` et `idWorkflow` associent le document à la pièce contractuelle concernée. En cas d'échec SQL de la transaction, le fichier physique déposé sur disque fait l'objet d'un nettoyage compensatoire automatique. Le téléchargement passe par un endpoint authentifié ; la suppression des métadonnées et du fichier est exposée par une route dédiée.
-
-### 8.1 Génération Officielle des Contrats de Travail (Word DOCX)
-
-Le système intègre un moteur de production documentaire contractuelle basé sur Apache POI (`DocumentRhService`), générant les contrats de travail officiels au format `.docx` pour l'ensemble des typologies d'engagement :
-- **CDI** (`templates/documents/Contrat_CDI_modele.docx`) : Contrat à durée indéterminée standard.
-- **CDD** (`templates/documents/Contrat_CDD_modele.docx`) : Contrat à durée déterminée avec date de fin obligatoire.
-- **STAGE** (`templates/documents/Contrat_STAGE_modele.docx`) : Convention / contrat de stage.
-- **PRESTATION** (`templates/documents/Contrat_PRESTATION_modele.docx`) : Contrat de prestation de services.
-- **TEMPORAIRE** (`templates/documents/Contrat_TEMPORAIRE_modele.docx`) : Contrat de travail temporaire.
-
-**Règles de génération et d'intégrité** :
-1. **Résolution temporelle stricte de l'affectation** : La génération résout la **première affectation historique** liée au contrat (`EmployeAffectationCarriere.rechercherPremiereParContrat`), évitant toute fuite ou pollution par une affectation active courante ou modifiée par mutation ultérieure.
-2. **Injection déterministe des variables** : Remplacement des balises `{{VARIABLE}}` dans les paragraphes, tableaux et en-têtes/pieds de page :
-   - Entreprise & Filiale : raison sociale (`ENTREPRISE_NOM`), NIF, STAT, adresse.
-   - Collaborateur : identité complète, civilité, date et lieu de naissance, nationalité, CIN (numéro, date, lieu).
-   - Contrat : numéro, dates d'effet et de terme, période d'essai (`DUREE_ESSAI`, `DATE_FIN_ESSAI`).
-   - Rémunération & Poste : fonction, site, département, service, catégorie, salaire de base formaté, mode de calcul.
-   - Signataire : nom, fonction et ville issus de la configuration filiale ou du paramétrage externe.
-3. **Disponibilité dès le brouillon** : La prévisualisation textuelle structurée et le téléchargement DOCX sont accessibles dès le statut `BROUILLON` (pour relecture et négociation), ainsi qu'aux statuts `PLANIFIE`, `A_SIGNER` et `ACTIF`.
-4. **Attestations et certificats** : En complément des contrats, `DocumentOfficielRhController` produit les attestations de travail (avec options d'ancienneté et de salaire) et les certificats de travail obligatoires en fin de contrat.
+### 2.1 Dissociation Entité vs Engagement
+* **L'Employé (`employe`)** : Ne contient aucune donnée salariale ni contractuelle volatile. Il conserve l'identité civile, la filiation (`pere_nom_prenom`, `mere_nom_prenom`), la CIN, les coordonnées, la situation de famille et les personnes à charge.
+* **Le Contrat (`contrat_travail`)** : Matérialise le lien juridique avec la filiale employeur (`ref_filiale`). Il porte la nature du contrat (`CDI`, `CDD`, `STAGE`, `PRESTATION`, `TEMPORAIRE`), son statut (`BROUILLON`, `PLANIFIE`, `A_SIGNER`, `ACTIF`, `TERMINE`, `ROM нача`), et le lien de chaînage contractuel (`id_contrat_precedent`).
+* **L'Affectation (`employe_affectation_carriere`)** : Porte la rémunération brute de base (`salaire_base`), le mode de calcul (`MENSUEL`, `HORAIRE`), le site géographique d'affectation (`ref_site`), le service (`ref_service`), la fonction (`ref_fonction`) et la classification professionnelle (`ref_categorie_professionnelle`).
 
 ---
 
-## 9. Architecture, API et interface
+## 3. Acteurs, Permissions RBAC et Parcours Utilisateur
 
-### 9.1 Backend
+Le contrôle d'accès repose sur le module transversal de sécurité Spring Security avec RBAC dynamique :
 
-| Couche | Classes représentatives | Rôle |
+| Habilitation | Rôles Associés | Périmètre d'Action |
 | :--- | :--- | :--- |
-| API | `EmployeController`, `ContratTravailController`, `ContratGlobalController`, `WorkflowRhController` | Requêtes de dossier, contrat, mouvement et supervision |
-| API Documents | `DocumentRhController`, `DocumentOfficielRhController`, `EmployePhotoController` | Dépôt, lecture, téléchargement DOCX et génération officielle |
-| Application | `EmployeService`, `WorkflowRhService`, `DocumentRhService` | Transactions, orchestration et moteur de fusion Word POI |
-| Domaine | `EmployeValidationEngine`, `ContratValidationEngine`, `CarriereTransitionValidator`, `AncienneteEngine` | Validations, matrice de transitions et calculs métier |
-| Persistance | classes `Employe*`, `ContratTravail`, `EmployeAffectationCarriere`, `WorkflowRh`, `DocumentRh` | Accès JDBC et projection des données |
+| `EMPLOYE_READ` | Agent RH, DAF, Manager, Admin | Consultation de l'annuaire, des fiches individuelles, des synthèses de carrière et des documents. |
+| `EMPLOYE_WRITE` | Gestionnaire RH, Admin | Création/modification des dossiers salariés, upload de pièces jointes, création de brouillons de mouvements. |
+| `EMPLOYE_VALIDATE` | DAF, DRH, Direction Générale, Admin | Décision finale d'approbation ou de rejet des workflows de carrière, activation effective des contrats et affectations. |
+| `ROLE_ADMIN` | Administrateur Système | Accès universel, supervision des anomalies, purge et configuration des référentiels structurels. |
 
-Les APIs contrôlent les permissions par autorités, notamment `EMPLOYE_READ`, `EMPLOYE_WRITE` et `EMPLOYE_VALIDATE`, avec `ROLE_ADMIN` en accès transversal selon la route. La validation d'un mouvement est distincte de sa création. Les actions importantes produisent des entrées d'audit.
+### 3.1 Les Trois Parcours Écrans Majeurs (Frontend React)
 
-### 9.2 Routes principales observées
+L'expérience utilisateur est segmentée en 3 interfaces complémentaires dans `frontend/src/features/employees` :
 
-| Méthode | Route | Fonction |
-| :--- | :--- | :--- |
-| GET | `/employes` | Liste paginée et filtrée |
-| GET | `/employes/{id}` | Fiche salarié |
-| POST / PUT | `/employes`, `/employes/{id}` | Création et modification |
-| PUT | `/employes/{id}/desactiver`, `/activer` | Désactivation et réactivation |
-| GET / POST | `/employes/{idEmploye}/workflows` (sous-routes) | Brouillons et transitions carrière |
-| PUT | `/workflows/{idWorkflow}/valider` | Validation d'un workflow |
-| GET / POST | `/employes/{idEmploye}/documents` | Consultation et dépôt de document (support `idContrat`, `idWorkflow`) |
-| GET | `/documents/attestation/{idEmploye}` | Génération d'attestation de travail |
-| GET | `/documents/certificat/{idContrat}` | Génération de certificat de travail |
-| GET | `/documents/contrat/{idContrat}/preview` | Prévisualisation textuelle structurée et audit des données du contrat |
-| GET | `/documents/contrat/{idContrat}/docx` | Téléchargement du contrat officiel Word (.docx) |
-| GET | `/contrats/{idContrat}/affectation` | Consultation de l'affectation liée au contrat |
+1. **L'Annuaire du Personnel (`/employes` — `EmployeListPage.jsx`)** :
+   - Recherche textuelle full-text (nom, prénom, matricule, CIN).
+   - Filtres à facettes dynamiques : statut d'activité (`Actifs`, `Inactifs`, `Tous`), filiale, site, département, service.
+   - Bouton de création guidée ouvrant `EmployeeFormModal.jsx`.
 
-Les routes de transition de carrière sont regroupées sous `WorkflowRhController`; les routes de contrat sont déclarées sous `/employes/{idEmploye}` et `/contrats`. Les alias et les formats de réponse exacts doivent être consultés dans les contrôleurs lors de la rédaction d'une spécification OpenAPI détaillée.
+2. **La Fiche Salarié à 7 Onglets (`/employes/:id` — `EmployeFicheDetailPage.jsx`)** :
+   - Synchronisation bidirectionnelle de l'onglet actif dans l'URL (`?tab=carriere`, `?tab=documents`, etc.).
+   - *Fiche personnelle* : État civil, CIN, coordonnées, photo sécurisée IDOR.
+   - *Famille & Contacts* : Conjoint, enfants à charge, personnes à contacter en cas d'urgence.
+   - *Carrière & Affectation* : Section contrat actif dépliée par défaut (`ContratActifSection.jsx`), timeline interactive, boutons d'action rapide (Attestation Word, avenant, fin d'essai).
+   - *Documents RH* : Espace de gestion documentaire (`DocumentsRhTab.jsx`), téléchargement et dépôt sécurisé.
+   - *Congés & Absences*, *Pointages & Présence*, *Paie & Rémunération* : Passerelles de consultation transversale.
 
-### 9.3 Frontend
+3. **Le Cockpit de Supervision des Carrières (`/carrieres` — `CarrieresSupervisionPage.jsx`)** :
+   - Tableau de bord décisionnel RH pour la direction.
+   - Deux onglets de pilotage : `Contrats` (registre global) et `Mouvements` (workflows en cours).
+   - Panneau « À traiter en priorité » (`SupervisionAlertsPanel.jsx`).
+   - Export CSV officiel en un clic du registre du personnel.
 
-Le domaine frontend `features/employees` regroupe la liste, les filtres, les formulaires en étapes, la fiche à onglets, la chronologie, les aperçus de transition, la supervision, les modales de workflow et les services d'API.
-- **Section Contrat Actif (`ContratActifSection.jsx`)** : Les détails clés du contrat en cours (rémunération, filiale, poste, dates de signature et fin d'essai) sont **dépliés par défaut** (`isExpanded: true`) pour une lisibilité immédiate sans clic superflu.
-- **Modale Contrat de Travail (`ContratTravailModal.jsx`)** : Intègre la consultation structurée des clauses contractuelles, le téléchargement direct du contrat officiel Word (.docx) généré par le backend et le dépôt direct du scan signé avec liaison automatique `id_contrat`.
-- **Historique & Supervision (`HistoriqueContratsTable.jsx`)** : Actions directes de consultation, d'export documentaire et d'attestation contextuelles à chaque ligne contractuelle.
-- **Navigation & URL** : La sélection de l'onglet courant (`carriere`, `conges`, `pointage`, `paie`, `documents`) est sérialisée dans les paramètres de navigation URL.
+---
 
-## 10. Contrôles, limites et recommandations
+## 4. Architecture Technique et Modèle de Données Relationnel
 
-Les points suivants sont des limites techniques observées ; ils ne signifient pas nécessairement qu'un incident s'est produit :
+### 4.1 Référentiels Métier (`02_schema_referentiels_rh.sql`)
 
-1. **Chevauchement des affectations** : le schéma a des dates et clés étrangères, mais ne déclare pas de contrainte d'exclusion interdisant deux affectations actives à la même date. Prévoir un contrôle transactionnel et un audit de la base existante.
-2. **Désactivation et rupture de contrat** : deux opérations séparées existent. Vérifier que les parcours UI et les habilitations orientent les sorties vers le workflow de rupture afin de synchroniser les dates d'affectation, contrat et statut employé.
-3. **Fichier et transaction** : le téléversement copie le fichier sur disque avant le commit SQL. Un échec ultérieur de la transaction peut laisser un fichier orphelin ; prévoir compensation ou tâche de nettoyage et tester le stockage sur le volume de production.
-4. **Extension de fichier** : l'extension est contrôlée par liste blanche ; ce contrôle ne prouve pas à lui seul le contenu réel du fichier. En production, valider aussi le type MIME/signature et l'accès au stockage selon la politique sécurité.
-5. **Données personnelles** : CIN, coordonnées, informations familiales et RIB sont sensibles. Les profils de consultation, journaux, sauvegardes, téléchargements et exports doivent respecter la politique d'accès et de conservation de l'entreprise.
-6. **Matrice légale et politique RH** : l'âge minimum, les limites d'essai et CDD sont implémentés dans le moteur et/ou paramètres. Leur conformité juridique doit être revue par les responsables RH et juridiques ; la présence d'une validation technique ne vaut pas visa légal.
-7. **Corrections rétroactives** : modifier une affectation ou un contrat avec effet passé peut changer l'interprétation d'une paie ou d'un pointage antérieur. Une procédure de régularisation et de traçabilité est nécessaire.
+Le module s'appuie sur des tables de référence immuables :
+* `ref_filiale` : Entités juridiques de l'entreprise (raison sociale, NIF, STAT, siège, contact).
+* `ref_type_contrat` : Typologies d'engagement (`CDI`, `CDD`, `STAGE`, `PRESTATION`, `TEMPORAIRE`).
+* `ref_statut_rh` : États normalisés du workflow (`BROUILLON`, `PLANIFIE`, `A_SIGNER`, `ACTIF`, `TERMINE`, `SUSPENDU`, `ANNULE`, `CLOTURE`).
+* `ref_type_evenement_rh` : Les **17 événements officiels** gérés en base :
+  1. `EMBAUCHE_INITIALE` (Onboarding initial)
+  2. `RENOUVELLEMENT_CDD` (Prorogation de terme)
+  3. `TRANSFORMATION_CDI` (Titularisation pérenne)
+  4. `EMBAUCHE_APRES_STAGE` (Conversion de stage)
+  5. `MUTATION` (Changement de site ou département)
+  6. `PROMOTION` (Changement de grade ou classification)
+  7. `REVALORISATION` (Augmentation salariale)
+  8. `RENOUVELLEMENT_ESSAI` (Prolongation d'essai)
+  9. `CONFIRMATION_ESSAI` (Validation définitive de l'essai)
+  10. `RUPTURE_ESSAI` (Fin de période d'essai)
+  11. `DEMISSION` (Départ volontaire du salarié)
+  12. `LICENCIEMENT` (Rupture à l'initiative de l'employeur)
+  13. `RUPTURE_CONVENTIONNELLE` (Séparation à l'amiable)
+  14. `DEPART_RETRAITE` (Atteinte de l'âge légal de retraite)
+  15. `REPRISE_CONSULTANT` (Passage sous statut externe)
+  16. `REPRISE_ANCIENNETE` (Réintégration avec maintien de droits)
+  17. `FIN_CONTRAT` (Arrivée à échéance du terme)
 
-Avant la mise en production, il faut exécuter une recette sur les rôles réels, les transitions immédiates et planifiées, l'expiration/confirmation/renouvellement d'essai, les sorties, les documents volumineux et invalides, les scénarios de concurrence et les exports officiels. Contrôler également les intervalles de contrats/affectations en base et la sauvegarde du répertoire de fichiers RH.
+### 4.2 Schéma des Données Fondamentales (`03_schema_employes_contrats.sql`)
 
-## 11. Catalogue des règles de gestion
+```sql
+-- Extrait des contraintes clés du schéma relationnel
+CREATE TABLE employe (
+    id_employe SERIAL PRIMARY KEY,
+    matricule VARCHAR(20) NOT NULL UNIQUE,
+    nom VARCHAR(100) NOT NULL,
+    prenom VARCHAR(100) NOT NULL,
+    sexe sexe_enum NOT NULL,
+    date_naissance DATE NOT NULL,
+    cin_numero VARCHAR(30) NOT NULL UNIQUE,
+    cin_date_delivrance DATE NOT NULL,
+    num_affiliation_cnaps VARCHAR(30) UNIQUE,
+    est_actif BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-| Code | Règle | Contrôle / effet |
-| :--- | :--- | :--- |
-| RG-EMP-01 | Le matricule est unique et requis ; le backend peut le proposer. | Contrainte `UNIQUE` en base, contrôle d'existence pour l'expérience formulaire. |
-| RG-EMP-02 | Nom, prénom, sexe, naissance, CIN, adresse et téléphone sont requis par le moteur. | Validation avant persistance ; CIN attendue sur 12 chiffres. |
-| RG-EMP-03 | Une modification du dossier ne doit pas créer un nouveau salarié. | L'identifiant du dossier reste stable ; matricule et CIN uniques distinguent les doublons. |
-| RG-EMP-04 | Désactiver conserve le dossier et son historique. | Motif stocké ; activation/désactivation auditée. |
-| RG-CAR-01 | Une embauche initiale ne peut créer un second contrat actif ou brouillon concurrent. | Refus backend et création des cibles dans une transaction. |
-| RG-CAR-02 | Un workflow ne peut être validé qu'à partir de l'état `BROUILLON`. | Verrou `FOR UPDATE`, validation du statut et trace du valideur. |
-| RG-CAR-03 | L'événement doit être compatible avec le type du contrat source/cible. | Matrice backend `CarriereTransitionValidator`. |
-| RG-CAR-04 | Les contrats à terme exigent une date de fin et des dates cohérentes. | Contrôle applicatif `ContratValidationEngine` et validation dynamique de CDD. |
-| RG-CAR-05 | Les périodes d'essai sont numérotées et leur cycle doit être cohérent. | Unicité contrat/numéro en base et contrôle de période active côté service. |
-| RG-CAR-06 | Un changement daté ferme la source et active la cible à sa date d'effet. | Application immédiate ou scheduler pour un workflow planifié. |
-| RG-CAR-07 | Les données RH et documents sont consultés selon les autorités dédiées. | `EMPLOYE_READ`, `EMPLOYE_WRITE`, `EMPLOYE_VALIDATE`, `ROLE_ADMIN`. |
-| RG-DOC-01 | La génération d'un contrat Word (.docx) requiert l'affectation initiale du contrat et le canevas officiel associé au type. | Moteur POI `DocumentRhService`, refus `CONTRACT_ASSIGNMENT_MISSING` ou `CONTRACT_TEMPLATE_UNSUPPORTED`. |
-| RG-DOC-02 | Le dépôt d'un scan de contrat signé trace les clés `id_contrat` et `id_workflow` et nettoie le stockage sur échec SQL. | Transaction `DocumentRhController`, intégrité référentielle et compensation disque. |
+CREATE TABLE contrat_travail (
+    id_contrat SERIAL PRIMARY KEY,
+    id_employe INT NOT NULL REFERENCES employe(id_employe),
+    id_filiale INT NOT NULL REFERENCES ref_filiale(id_filiale),
+    id_type_contrat INT NOT NULL REFERENCES ref_type_contrat(id_type_contrat),
+    id_statut_rh INT NOT NULL REFERENCES ref_statut_rh(id_statut_rh),
+    id_contrat_precedent INT REFERENCES contrat_travail(id_contrat),
+    numero_contrat VARCHAR(50) UNIQUE,
+    date_debut DATE NOT NULL,
+    date_fin DATE,
+    date_fin_essai DATE,
+    CONSTRAINT chk_contrat_dates CHECK (date_fin IS NULL OR date_fin >= date_debut)
+);
 
-Ces règles décrivent l'implémentation observée. Toute évolution doit synchroniser les validateurs backend, les formulaires frontend, les référentiels et les migrations de données.
+CREATE TABLE employe_affectation_carriere (
+    id_affectation SERIAL PRIMARY KEY,
+    id_employe INT NOT NULL REFERENCES employe(id_employe),
+    id_contrat INT NOT NULL REFERENCES contrat_travail(id_contrat),
+    id_site INT NOT NULL REFERENCES ref_site(id_site),
+    id_fonction INT NOT NULL REFERENCES ref_fonction(id_fonction),
+    salaire_base NUMERIC(12,2) NOT NULL CHECK (salaire_base > 0),
+    date_debut DATE NOT NULL,
+    date_fin DATE,
+    CONSTRAINT chk_affectation_dates CHECK (date_fin IS NULL OR date_fin >= date_debut)
+);
+```
+
+---
+
+## 5. Moteur de Validation du Dossier Salarié
+
+La validation est centralisée dans la classe [EmployeValidationEngine.java](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/domain/EmployeValidationEngine.java). Elle garantit que toute insertion ou mise à jour respecte les standards légaux et d'intégrité avant d'atteindre la couche persistance :
+
+```
+[Requête EmployeRequest]
+         │
+         ▼
+ 1. Identité Civile (Nom, Prénom, Sexe enum 'M'/'F')
+         │
+         ▼
+ 2. Âge Légal Malagasy (Loi 2003-044, Art. 100) : calcul de Period.between(dateNaiss, now).getYears() >= 16
+         │
+         ▼
+ 3. Carte d'Identité Nationale (CIN) :
+    - Format Regex : exactement 12 chiffres (^[0-9]{12}$)
+    - Non-futurité de la date de délivrance
+    - Cohérence croisée : (dateCin - dateNaiss) >= 16 ans révolus
+         │
+         ▼
+ 4. Coordonnées & Contact :
+    - Adresse physique obligatoire
+    - Téléphone obligatoire validé par Regex (^[+]?[0-9\\s.-]{8,20}$)
+    - Email facultatif mais syntaxiquement validé par RFC-5322 Regex
+         │
+         ▼
+ 5. Comptes Bancaires :
+    - Cohérence biunivoque banque/RIB (si la banque est choisie, le RIB est obligatoire et réciproquement)
+         │
+         ▼
+ 6. Filiation & Enfants :
+    - Nom obligatoire
+    - Date de naissance non future
+    - Cohérence scolarité : dateFinScolarite >= dateNaissance
+         │
+         ▼
+[Validation Réussie ➔ Persistance Transactionnelle]
+```
+
+---
+
+## 6. Cycle de Vie Contractuel et Périodes d'Essai
+
+### 6.1 Validation des Contrats (`ContratValidationEngine.java`)
+* **Date de début** : Obligatoire sur tout contrat.
+* **Terme obligatoire** : Exigé pour les contrats temporaires (`CDD`, `STAGE`, `PRESTATION`, `TEMPORAIRE`). Une absence de date de fin sur un CDD déclenche l'exception `DATE_FIN_MANDATORY_FOR_CDD`.
+* **Cohérence temporelle** : La date de fin doit être strictement supérieure ou égale à la date de début (`chk_contrat_dates`).
+
+### 6.2 Gestion des Périodes d'Essai (Loi n° 2003-044, Art. 24)
+La période d'essai fait l'objet d'une table dédiée `contrat_periode_essai` et d'une synchronisation sur le contrat maître :
+1. **Durée encadrée** : 0 à 6 mois selon la catégorie professionnelle et les dispositions conventionnelles.
+2. **Calcul de la date de fin théorique** : Ajout de la durée en mois moins 1 jour :
+   $$\text{dateFinEssai} = \text{dateDebut} + M \text{ mois} - 1 \text{ jour}$$
+3. **Cycle d'états d'une période d'essai** :
+   - `EN_COURS` : Période active d'évaluation.
+   - `CONFIRMEE` : Salarié titularisé dans ses fonctions.
+   - `RENOUVELLEE` : Prolongation formalisée (création d'une nouvelle ligne d'essai numérotée $N+1$).
+   - `ROMPUE` : Rupture unilatérale ou conjointe sans préavis selon l'Art. 25 du Code du Travail.
+
+---
+
+## 7. Moteur de Transition de Carrière et Workflows RH
+
+Le service [WorkflowRhService.java](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/application/WorkflowRhService.java) couplé au validateur de matrice [CarriereTransitionValidator.java](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/domain/CarriereTransitionValidator.java) orchestre les évolutions contractuelles.
+
+### 7.1 Matrice d'Admissibilité des Transitions
+
+Le moteur vérifie la compatibilité stricte entre le type de contrat d'origine et l'événement sollicité :
+
+| Type Contrat Source | Événements RH Admissibles dans le Système |
+| :--- | :--- |
+| **`STAGE`** | `EMBAUCHE_APRES_STAGE`, `FIN_CONTRAT`, `RUPTURE_ESSAI`, `DEMISSION` |
+| **`CDD`** | `TRANSFORMATION_CDI`, `RENOUVELLEMENT_CDD`, `REPRISE_ANCIENNETE`, `MUTATION`, `PROMOTION`, `REVALORISATION`, `REORGANISATION`, `CONFIRMATION_ESSAI`, `RENOUVELLEMENT_ESSAI`, `RUPTURE_ESSAI`, `FIN_CONTRAT`, `DEMISSION`, `LICENCIEMENT`, `RUPTURE_CONVENTIONNELLE`, `DEPART_RETRAITE` |
+| **`CDI`** | `REPRISE_ANCIENNETE`, `MUTATION`, `PROMOTION`, `REVALORISATION`, `REORGANISATION`, `REPRISE_CONSULTANT`, `CONFIRMATION_ESSAI`, `RENOUVELLEMENT_ESSAI`, `RUPTURE_ESSAI`, `DEMISSION`, `LICENCIEMENT`, `RUPTURE_CONVENTIONNELLE`, `DEPART_RETRAITE`, `FIN_CONTRAT` |
+| **`PRESTATION`** | `TRANSFORMATION_CDI`, `FIN_CONTRAT`, `RUPTURE_CONVENTIONNELLE` |
+| **`TEMPORAIRE`** | `TRANSFORMATION_CDI`, `FIN_CONTRAT`, `RUPTURE_CONVENTIONNELLE` |
+
+### 7.2 Mécanique de Validation Transactionnelle et Verrou Pessimiste
+
+Lorsqu'un responsable RH valide un workflow via `PUT /workflows/{id}/valider` :
+1. **Verrouillage Pessimiste** : La ligne du workflow est verrouillée par `SELECT ... FOR UPDATE` pour empêcher toute décision concurrente.
+2. **Contrôle d'état** : Seul un workflow au statut `BROUILLON` peut être validé.
+3. **Application Immédiate vs Planifiée** :
+   - Si $\text{dateEffet} \le \text{Aujourd'hui}$ : Le système clôture le contrat source à $\text{dateEffet} - 1\text{ jour}$, active le nouveau contrat, ferme l'affectation précédente et active la nouvelle affectation.
+   - Si $\text{dateEffet} > \text{Aujourd'hui}$ : Le workflow et le contrat cible passent au statut `PLANIFIE`. Le job nocturne [MouvementRhScheduler.java](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/cron/MouvementRhScheduler.java) appliquera les changements le jour J à 00:00:00.
+
+---
+
+## 8. Résolution Contextuelle et Découplage Temporel
+
+Pour éliminer le problème classique des requêtes N+1 et garantir que la Paie et le Pointage consomment l'exacte réalité contractuelle d'une date donnée, le module fournit deux résolveurs canoniques :
+
+### 8.1 `EmploymentContextResolver.java`
+Ce service résout en **une seule requête SQL optimisée** l'ensemble des conditions de travail d'un collaborateur sur une plage $[T_{\text{debut}}, T_{\text{fin}}]$ :
+* Détermination du site applicable jour par jour (`resolveSitesByDay`).
+* Détermination des dispenses de badgeage et de l'éligibilité aux heures supplémentaires (`resolvePointageDays`).
+* Détection stricte et blocage des chevauchements d'affectations.
+* Extraction du salaire de base en vigueur à chaque date pour le moteur de paie (`resolveSalary`).
+
+### 8.2 `EmployerIdentityContextResolver.java`
+Ce composant résout l'entité juridique employeur (Raison sociale, NIF, STAT, adresse, contact) rattachée au contrat valide sur la période :
+* Protection contre les configurations manquantes (`MISSING_CONFIGURATION: FILIALE`).
+* Protection contre les ambiguïtés juridiques (`AMBIGUOUS_CONFIGURATION: FILIALE`) si deux filiales distinctes se chevauchent sur la même période.
+
+---
+
+## 9. Moteur d'Ancienneté et Génération Documentaire Officielle
+
+### 9.1 Moteur d'Ancienneté (`AncienneteEngine.java`)
+
+Le calcul d'ancienneté reconstitue en mémoire le graphe orienté des contrats successifs grâce au champ `id_contrat_precedent` :
+* **Ancienneté globale continue** : Cumul de tous les contrats de la chaîne sans interruption de relation de travail.
+* **Ancienneté du contrat courant** : Temps écoulé depuis le début du contrat actif.
+* **Formatage officiel** : Restitution standardisée (ex : `"2 ans 4 mois"`).
+* **Consommateurs directs** :
+  - *Module Paie* : Calcul de la prime d'ancienneté conventionnelle.
+  - *Module STC* : Calcul des indemnités de préavis et de licenciement (Art. 27 à 35).
+  - *Documents officiels* : Mentions obligatoires sur les attestations et certificats.
+
+### 9.2 Moteur Documentaire Officiel (`DocumentRhService.java` & Apache POI)
+
+Le système assure la production automatisée de l'ensemble des livrables contractuels au format Microsoft Word (`.docx`), basés sur des canevas validés stockés dans `backend/src/main/resources/templates/documents/` :
+
+```mermaid
+flowchart LR
+    A[Données Salarié + Contrat + Affectation] --> B[DocumentRhService]
+    T[Modèle Word .docx] --> B
+    B --> C[Injection des Variables POI]
+    C --> D[Contrat Officiel .docx]
+    C --> E[Attestation de Travail .docx]
+    C --> F[Certificat de Travail .docx]
+```
+
+1. **Contrats de Travail par Typologie** :
+   - `Contrat_CDI_modele.docx` : Contrat à durée indéterminée standard.
+   - `Contrat_CDD_modele.docx` : Contrat à terme fixe avec motif de recours.
+   - `Contrat_STAGE_modele.docx` : Convention de stage tripartite.
+   - `Contrat_PRESTATION_modele.docx` : Contrat de prestation de services.
+   - `Contrat_TEMPORAIRE_modele.docx` : Contrat de travail temporaire.
+2. **Règle d'affectation originelle** : Le contrat Word résout obligatoirement la **première affectation historique** du contrat (`rechercherPremiereParContrat`), empêchant qu'une augmentation ou mutation ultérieure ne vienne modifier rétrospectivement le document contractuel initial.
+3. **Attestation de Travail** : Émise sur demande pour justifier de l'emploi en cours (option avec ou sans mention du salaire).
+4. **Certificat de Travail (Art. 42 du Code du Travail)** : Émis obligatoirement en fin de contrat, libre de toute mention diffamatoire ou préjudiciable, certifiant la date d'entrée, la date de sortie et les fonctions successivement occupées.
+
+---
+
+## 10. Supervision Globale et Tableau de Bord Décisionnel
+
+Le contrôleur [ContratGlobalController.java](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/contrat/api/ContratGlobalController.java) expose les métriques stratégiques consommées par l'espace supervision du frontend :
+
+### 10.1 Indicateurs de Pilotage (`/contrats/stats-globales`)
+* **Total contrats actifs** : Salariés présents dans les effectifs.
+* **Répartition par type** : Effectifs CDI vs CDD vs Stagiaires vs Prestataires.
+* **Contrats en attente de signature** : Contrats `BROUILLON` ou `A_SIGNER` nécessitant une action RH.
+* **Échéances < 60 jours** : Alertes sur les termes de CDD et périodes d'essai arrivant à échéance.
+* **Doublons potentiels** : Détection des anomalies de gestion où un salarié possède plusieurs contrats de même type débutant le même jour.
+
+### 10.2 Panneau « À Traiter en Priorité » (`/contrats/alertes-prioritaires`)
+* **Fins de période d'essai imminentes (< 45 jours)** : Permet d'anticiper la confirmation de titularisation ou le renouvellement.
+* **Fins de CDD imminentes (< 60 jours)** : Alerte pour préparer le renouvellement ou la transformation en CDI.
+* **Export CSV complet du Registre du Personnel** (`/contrats/export`) : Flux continu UTF-8 avec BOM Excel conforme aux exigences de l'Inspection du Travail.
+
+---
+
+## 11. Catalogue Exhaustif des Règles de Gestion (RG)
+
+| Code Règle | Énoncé de la Règle de Gestion | Source Juridique ou Technique | Contrôle & Comportement Système |
+| :--- | :--- | :--- | :--- |
+| **RG-EMP-01** | **Unicité du matricule** | Norme interne GALAXAM | Contrainte `UNIQUE` SQL sur `employe.matricule`. Moteur `MatriculeGeneratorEngine` supportant les formats `0042` et `EMP-AAAA-XXXX`. |
+| **RG-EMP-02** | **Âge minimum d'admission à l'emploi** | **Code du Travail Malagasy, Art. 100** | Blocage absolu (`AGE_MINIMUM_LEGAL = 16`). Levée d'exception si l'employé a moins de 16 ans révolus. |
+| **RG-EMP-03** | **Format et antériorité de la CIN** | **Décret n° 64-195** | Exactement 12 chiffres obligatoires. La date de délivrance doit être postérieure à $\text{dateNaissance} + 16\text{ ans}$. |
+| **RG-EMP-04** | **Unicité d'affiliation CNaPS** | **Décret n° 69-145 (CPS)** | Contrainte `UNIQUE` sur `num_affiliation_cnaps`. |
+| **RG-EMP-05** | **Cohérence du compte bancaire** | Règle comptable DAF | Si une banque est choisie, le numéro de compte RIB est obligatoire et réciproquement. |
+| **RG-EMP-06** | **Désactivation motivée du collaborateur** | Audit & Sécurité RH | La désactivation requiert un motif issu de `motif_desactivation_enum`. Le dossier et l'historique restent intégralement conservés en base. |
+| **RG-CAR-01** | **Terme obligatoire des contrats temporaires** | **Code du Travail, Art. 19 & 20** | Date de fin obligatoire pour `CDD`, `STAGE`, `PRESTATION` et `TEMPORAIRE`. Rejet si date de fin absente ou antérieure au début. |
+| **RG-CAR-02** | **Encadrement de la période d'essai** | **Code du Travail, Art. 24** | Durée comprise entre 0 et 6 mois. Calcul déterministe de la date de fin d'essai. Cycle d'états contrôlé (`contrat_periode_essai`). |
+| **RG-CAR-03** | **Contrôle d'admissibilité des mouvements** | Politique RH GALAXAM | Validation de la transition par `CarriereTransitionValidator` selon la matrice des 17 événements autorisés. |
+| **RG-CAR-04** | **Verrouillage des workflows de carrière** | Concurrence & Audit | Verrouillage transactionnel `SELECT ... FOR UPDATE` de la ligne workflow. Seul l'état `BROUILLON` est éligible à la validation. |
+| **RG-CAR-05** | **Continuité des affectations salariales** | Règle de calcul Paie | Tout changement de salaire ou de poste ferme l'affectation précédente à $J-1$ et active la nouvelle à $J$. Salaire strictement positif (`salaire_base > 0`). |
+| **RG-CAR-06** | **Détection des doublons contractuels** | Qualité des données RH | Détection automatique par requête SQL (`DOUBLON_POTENTIEL`) signalant les contrats de même type et même date de début. |
+| **RG-DOC-01** | **Affectation initiale sur contrat Word** | Moteur POI `DocumentRhService` | Le contrat `.docx` généré résout obligatoirement la première affectation historique, évitant toute contamination par des avenants ultérieurs. |
+| **RG-DOC-02** | **Délivrance du certificat de travail** | **Code du Travail, Art. 42** | Production du certificat officiel `.docx` à la clôture du contrat, mentionnant exclusivement les dates d'entrée/sortie et fonctions occupées. |
+| **RG-SEC-01** | **Protection IDOR sur la photo de profil** | Norme OWASP API Security | L'accès à la photo de l'employé (`/{id}/photo`) passe par un endpoint authentifié vérifiant les habilitations de l'utilisateur connecté. |

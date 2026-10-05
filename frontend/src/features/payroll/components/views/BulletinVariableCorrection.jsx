@@ -8,7 +8,7 @@ import Button from '@/components/ui/forms/Button';
 import { useToast } from '@/components/ui/feedback/Toast';
 import Input, { Textarea } from '@/components/ui/forms/Input';
 import MoneyInput from '@/components/ui/forms/MoneyInput';
-import Select from '@/components/ui/forms/Select';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 import { formatMoneyAr } from '@/utils/moneyUtils';
@@ -218,8 +218,13 @@ export default function BulletinVariableCorrection({ bulletin, onBulletinUpdated
             )}
 
             {showForm && <form onSubmit={submit} className="space-y-3 border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3">
-                <Select label="Type de variable" value={form.typeMouvement} onChange={value => setForm(current => ({ ...current, typeMouvement: value }))}
-                    options={[{ value: '', label: 'Choisir un type' }, ...types.map(type => ({ value: type.code, label: type.libelle }))]} />
+                <SearchSelect
+                    label="Type de variable"
+                    placeholder="Choisir un type"
+                    value={form.typeMouvement}
+                    onChange={value => setForm(current => ({ ...current, typeMouvement: value }))}
+                    options={types.map(type => ({ value: type.code, label: type.libelle }))}
+                />
                 <ManualVariableValueFields type={selectedType} form={form} onChange={(name, value) => setForm(current => ({ ...current, [name]: value }))} />
                 {manualMethod(selectedType) === 'MONTANT' && <MoneyInput label="Montant (Ar)" placeholder="Ex. 100 000,50" value={form.montant} onValueChange={value => setForm(current => ({ ...current, montant: value }))} min={0} maxDecimals={2} />}
                 <Textarea label="Motif" placeholder="Ex. Prime de performance du mois" value={form.motif} onChange={event => setForm(current => ({ ...current, motif: event.target.value }))} rows={2} />

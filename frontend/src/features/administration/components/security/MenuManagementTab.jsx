@@ -7,7 +7,8 @@ import IconPicker from '@/components/ui/forms/IconPicker';
 import Card from '@/components/ui/data-display/Card';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
-import Input, { Select } from '@/components/ui/forms/Input';
+import Input from '@/components/ui/forms/Input';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -372,15 +373,17 @@ export default function MenuManagementTab() {
                         placeholder="Ex: Gestion des congés"
                     />
                     <div className="grid grid-cols-2 gap-3">
-                        <Select
+                        <SearchSelect
                             label="Niveau"
                             required
-                            value={formData.niveau}
-                            onChange={(e) => setFormData({ ...formData, niveau: parseInt(e.target.value) })}
-                        >
-                            <option value={1}>1 (Racine)</option>
-                            <option value={2}>2 (Sous-menu)</option>
-                        </Select>
+                            value={String(formData.niveau)}
+                            onChange={(val) => setFormData({ ...formData, niveau: parseInt(val) || 1 })}
+                            options={[
+                                { value: '1', label: '1 (Racine)' },
+                                { value: '2', label: '2 (Sous-menu)' }
+                            ]}
+                            placeholder="-- Choisir le niveau --"
+                        />
                         <Input
                             label="Rang (Ordre)"
                             type="number"
@@ -390,23 +393,21 @@ export default function MenuManagementTab() {
                         />
                     </div>
                     {formData.niveau > 1 && (
-                        <Select
+                        <SearchSelect
                             label="Menu Père"
                             required
-                            value={formData.idPere}
+                            value={String(formData.idPere || '')}
                             error={fieldErrors.idPere}
-                            onChange={(e) => {
-                                setFormData({ ...formData, idPere: e.target.value });
+                            onChange={(val) => {
+                                setFormData({ ...formData, idPere: val });
                                 if (fieldErrors.idPere) setFieldErrors(prev => ({ ...prev, idPere: undefined }));
                             }}
-                        >
-                            <option value="">-- Sélectionner un menu parent --</option>
-                            {potentialParents.map((parent) => (
-                                <option key={parent.idMenu} value={parent.idMenu}>
-                                    {parent.libelle} ({parent.idMenu})
-                                </option>
-                            ))}
-                        </Select>
+                            options={potentialParents.map((parent) => ({
+                                value: String(parent.idMenu),
+                                label: `${parent.libelle} (${parent.idMenu})`
+                            }))}
+                            placeholder="-- Sélectionner un menu parent --"
+                        />
                     )}
                     <Input
                         label="Chemin (Route Href)"

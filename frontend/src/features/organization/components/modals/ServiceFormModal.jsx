@@ -2,7 +2,8 @@ import FormError from '@/components/ui/feedback/FormError';
 import { Layers } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
-import Input, { Select } from '@/components/ui/forms/Input';
+import Input from '@/components/ui/forms/Input';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 
 export default function ServiceFormModal({
     isOpen,
@@ -38,27 +39,25 @@ export default function ServiceFormModal({
             <form id="service-form" onSubmit={onSubmit} className="space-y-4">
                 {actionError && <FormError message={actionError} />}
 
-                <Select
+                <SearchSelect
                     label="Département Parent de Rattachement"
                     required
                     value={formData.idDepartement}
-                    onChange={(e) => {
-                        setFormData({ ...formData, idDepartement: e.target.value });
+                    onChange={(val) => {
+                        setFormData({ ...formData, idDepartement: val });
                         if (fieldErrors.idDepartement && setFieldErrors) {
                             setFieldErrors(prev => ({ ...prev, idDepartement: undefined }));
                         }
                     }}
                     error={fieldErrors.idDepartement}
-                >
-                    <option value="">-- Sélectionner un département --</option>
-                    {departements
+                    placeholder="-- Sélectionner un département --"
+                    options={departements
                         .filter(d => d.estActif !== false && d.actif !== false || String(d.idDepartement) === String(formData.idDepartement))
-                        .map((d) => (
-                            <option key={d.idDepartement} value={d.idDepartement}>
-                                {d.libelle} ({d.codeDepartement})
-                            </option>
-                        ))}
-                </Select>
+                        .map((d) => ({
+                            value: String(d.idDepartement),
+                            label: `${d.libelle} (${d.codeDepartement})`
+                        }))}
+                />
 
                 <Input
                     label="Code Service"

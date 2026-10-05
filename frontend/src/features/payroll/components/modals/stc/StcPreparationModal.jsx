@@ -12,7 +12,7 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import MoneyInput from '@/components/ui/forms/MoneyInput';
-import Select from '@/components/ui/forms/Select';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
 import { Table, Thead, Th, Tbody, Tr, Td, Tfoot } from '@/components/ui/data-display/Table';
@@ -406,11 +406,11 @@ export default function StcPreparationModal({
                                         value={form.dateDepart}
                                         onChange={(e) => handleFormChange('dateDepart', e.target.value)}
                                     />
-                                    <Select
+                                    <SearchSelect
                                         label="Motif Légal de Rupture"
                                         required
                                         value={form.motifRupture}
-                                        onChange={(e) => handleFormChange('motifRupture', e.target.value)}
+                                        onChange={(val) => handleFormChange('motifRupture', val)}
                                         options={MOTIFS_RUPTURE}
                                     />
                                 </div>
@@ -437,11 +437,11 @@ export default function StcPreparationModal({
                                             onChange={(e) => handleFormChange('moisPreavis', e.target.value)}
                                         />
                                     )}
-                                    <Select
+                                    <SearchSelect
                                         label="Mode de Règlement"
                                         required
                                         value={form.modeReglement}
-                                        onChange={(e) => handleFormChange('modeReglement', e.target.value)}
+                                        onChange={(val) => handleFormChange('modeReglement', val)}
                                         options={MODES_REGLEMENT}
                                     />
                                 </div>

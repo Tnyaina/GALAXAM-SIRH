@@ -24,7 +24,11 @@ public class ParametreGlobalController {
     public ResponseEntity<?> getAllParametresGlobaux(@RequestParam(required = false) String categorie) {
         try (Connection c = dataSource.getConnection()) {
             List<ParametreGlobal> list = ParametreGlobal.listAll(c);
-            return ResponseEntity.ok(list.stream().filter(p -> categorie == null || categorie.isBlank() || categorie.equals(p.getCategorie())).toList());
+            return ResponseEntity.ok(list.stream()
+                    .filter(p -> !"EXONERATION_HS_IRSA_ACTIVE".equalsIgnoreCase(p.getCodeParametre())
+                              && !"PLAFOND_MENSUEL_HS_EXONEREES".equalsIgnoreCase(p.getCodeParametre()))
+                    .filter(p -> categorie == null || categorie.isBlank() || categorie.equals(p.getCategorie()))
+                    .toList());
         } catch (Exception e) {
             e.printStackTrace();
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
@@ -236,6 +240,39 @@ public class ParametreGlobalController {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                     mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
                     "La désactivation de ce paramètre n'a aucun effet métier vérifié. Corrigez d'abord son consommateur backend.");
+        }
+    }
+
+    /**
+     * Annulation d'une version PROGRAMMÉE (date_debut > aujourd'hui).
+     * Interdit sur les versions EN_VIGUEUR ou ARCHIVÉE.
+     * Restaure automatiquement le date_fin=NULL de la version précédente.
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> annulerProgramme(@PathVariable int id) {
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                ParametreGlobal pg = new ParametreGlobal();
+                ParametreGlobal cible = (ParametreGlobal) pg.rechercherParId(id, c);
+                if (cible == null) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Paramètre global non trouvé.");
+                }
+                ParametreGlobal.annulerProgramme(id, c);
+                AuditLog.audit(c, "ANNULATION_PROGRAMME", "parametre_global", String.valueOf(id), cible, null);
+                c.commit();
+                return ResponseEntity.ok("La version programmée du paramètre \"" + cible.getCodeParametre() + "\" a été annulée et la version précédente a été réactivée.");
+            } catch (IllegalStateException ex) {
+                c.rollback();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
+            } catch (Exception ex) {
+                c.rollback();
+                throw ex;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
         }
     }
 }

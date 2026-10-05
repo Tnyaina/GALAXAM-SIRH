@@ -129,7 +129,12 @@ public class CongeService {
 
     public java.util.Map<Integer, Double> calculerExpirationsPotentielles(
             LocalDate dateEcheanceMax, Connection c) throws Exception {
-        LocalDate ref = LocalDate.now();
+        return calculerExpirationsPotentielles(LocalDate.now(), dateEcheanceMax, c);
+    }
+
+    public java.util.Map<Integer, Double> calculerExpirationsPotentielles(
+            LocalDate dateReference, LocalDate dateEcheanceMax, Connection c) throws Exception {
+        LocalDate ref = dateReference != null ? dateReference : LocalDate.now();
         LocalDate echeanceMax = dateEcheanceMax != null ? dateEcheanceMax : ref.plusDays(30);
         int delaiMois = ParametreGlobal.requirePositiveInt(
                 ParametreGlobal.loadActiveMapAtDate(Date.valueOf(ref), c), "DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS");
@@ -678,9 +683,10 @@ public class CongeService {
             consommationPool = consommation != null ? consommation.getJoursEngages() : BigDecimal.ZERO;
         }
 
-        int seuilLong = getParamGlobalInt("SEUIL_JOURS_PREAVIS_LONG", c);
-        int delaiCourt = getParamGlobalInt("DELAI_PREAVIS_COURT_JOURS", c);
-        int delaiLong = getParamGlobalInt("DELAI_PREAVIS_LONG_JOURS", c);
+        LocalDate dateRefMetier = dateDebut.toLocalDate();
+        int seuilLong = getParamGlobalInt("SEUIL_JOURS_PREAVIS_LONG", dateRefMetier, c);
+        int delaiCourt = getParamGlobalInt("DELAI_PREAVIS_COURT_JOURS", dateRefMetier, c);
+        int delaiLong = getParamGlobalInt("DELAI_PREAVIS_LONG_JOURS", dateRefMetier, c);
         return calculateurEngine.simuler(new CongeCalculateurEngine.SimulationInput(
                 dateDebut.toLocalDate(), dateFinEffective.toLocalDate(), estDemiJournee,
                 soldeAvant, type.isDecompteSoldeAcquis(), joursDebites, joursDemandes, derogationSoldeNegatif,
@@ -928,6 +934,8 @@ public class CongeService {
             BigDecimal disponible = solde != null && solde.getSoldeActuel() != null
                     ? solde.getSoldeActuel() : BigDecimal.ZERO;
             BigDecimal projete = calculateurEngine.calculerSoldeProjete(disponible, d.getNbJoursDecomptes(), true);
+            // Paramètres lus à la date courante (règles applicatives au moment de la validation,
+            // pas à la date de la période de congé) — comportement intentionnel.
             java.util.Map<String, ParametreGlobal.ParametreEtat> params = ParametreGlobal.loadEtatMap(c);
             if (projete.signum() < 0) {
                 throw new IllegalArgumentException("Solde de congé insuffisant : aucune prise par anticipation n'est autorisée.");

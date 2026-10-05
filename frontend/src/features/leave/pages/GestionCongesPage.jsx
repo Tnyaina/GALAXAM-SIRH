@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CalendarDays, FileSpreadsheet } from 'lucide-react';
+import { CalendarDays, FileSpreadsheet, CheckCircle2, Circle, Clock3 } from 'lucide-react';
 import congeService from '@/features/leave/api/congeService';
 import { getErrorMessage } from '@/api/apiClient';
 
 // Composants UI du Design System Galaxam
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import Tabs from '@/components/ui/navigation/Tabs';
-import WorkflowStepper from '@/components/ui/navigation/WorkflowStepper';
 import Alert from '@/components/ui/feedback/Alert';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
@@ -49,28 +48,7 @@ export default function GestionCongesPage() {
     { id: 'periodes', label: 'Contrôle des droits', badge: nbTauxAActiver > 0 ? nbTauxAActiver : undefined }
   ];
 
-  const currentStep = activeTab === 'periodes' ? 'periodes' : 'planning';
-  const workflowSteps = [
-    {
-      id: 'planning',
-      label: '1. Demandes & Planning',
-      sublabel: nbEnAttente > 0 ? `${nbEnAttente} en attente` : 'Au fil de l’eau',
-      status: (activeTab === 'planning' || activeTab === 'demandes') ? 'active' : 'done'
-    },
-    {
-      id: 'paie_info',
-      label: '2. Clôture mensuelle',
-      sublabel: 'Acquisition 2,5 j/m',
-      status: 'pending',
-      lockReason: 'Alimentation automatique par les bulletins de paie validés'
-    },
-    {
-      id: 'periodes',
-      label: '3. Contrôle annuel DAF',
-      sublabel: nbTauxAActiver > 0 ? `${nbTauxAActiver} à activer` : 'Bascule TCONGE',
-      status: activeTab === 'periodes' ? 'active' : (nbTauxAActiver > 0 ? 'active' : 'pending')
-    }
-  ];
+  const leaveCycleAtControl = activeTab === 'periodes';
 
   // Effets
   const loadGlobalData = useCallback(async () => {
@@ -143,16 +121,38 @@ export default function GestionCongesPage() {
         <Alert type="error" message={typeof error === 'string' ? error : JSON.stringify(error)} />
       )}
 
-      {/* Guide visuel du cycle de vie des congés */}
-      <WorkflowStepper
-        steps={workflowSteps}
-        currentStep={currentStep}
-        onStepClick={(stepId) => {
-          if (stepId === 'planning' || stepId === 'periodes') {
-            handleTabChange(stepId);
-          }
-        }}
-      />
+      {/* Indicateur informatif du cycle : la navigation entre les vues reste dans les onglets. */}
+      <section aria-label="Cycle de gestion des congés" className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] px-4 py-3">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-3">
+          <div aria-current={!leaveCycleAtControl ? 'step' : undefined} className="flex items-center gap-2">
+            {!leaveCycleAtControl
+              ? <CheckCircle2 size={17} className="shrink-0 text-[var(--color-brand-600)]" aria-hidden="true" />
+              : <Circle size={17} className="shrink-0 text-[var(--color-fg-muted)]" aria-hidden="true" />}
+            <div>
+              <p className={`text-xs font-semibold ${!leaveCycleAtControl ? 'text-[var(--color-brand-700)]' : 'text-[var(--color-fg-muted)]'}`}>Demandes & planning</p>
+              <p className="text-[11px] text-[var(--color-fg-muted)]">{nbEnAttente > 0 ? `${nbEnAttente} demande(s) en attente` : 'Gestion au fil de l’eau'}</p>
+            </div>
+          </div>
+          <span className="hidden md:block h-px bg-[var(--color-border)]" aria-hidden="true" />
+          <div className="flex items-center gap-2">
+            <Clock3 size={17} className="shrink-0 text-[var(--color-info-600)]" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-semibold text-[var(--color-fg)]">Acquisition mensuelle <span className="ml-1 text-[10px] uppercase tracking-wide text-[var(--color-info-700)]">Automatique</span></p>
+              <p className="text-[11px] text-[var(--color-fg-muted)]">Après validation de la paie</p>
+            </div>
+          </div>
+          <span className="hidden md:block h-px bg-[var(--color-border)]" aria-hidden="true" />
+          <div aria-current={leaveCycleAtControl ? 'step' : undefined} className="flex items-center gap-2">
+            {leaveCycleAtControl
+              ? <CheckCircle2 size={17} className="shrink-0 text-[var(--color-brand-600)]" aria-hidden="true" />
+              : <Circle size={17} className="shrink-0 text-[var(--color-fg-muted)]" aria-hidden="true" />}
+            <div>
+              <p className={`text-xs font-semibold ${leaveCycleAtControl ? 'text-[var(--color-brand-700)]' : 'text-[var(--color-fg-muted)]'}`}>Contrôle annuel DAF</p>
+              <p className="text-[11px] text-[var(--color-fg-muted)]">Contrôle des droits</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Barre d'onglets sobre de premier niveau */}
       <Tabs
@@ -162,8 +162,8 @@ export default function GestionCongesPage() {
         variant="underline"
       />
 
-      <Modal isOpen={showGrandRecap} onClose={() => setShowGrandRecap(false)} title="Grand récapitulatif des congés">
-        <div className="space-y-4 p-4">
+      <Modal isOpen={showGrandRecap} onClose={() => setShowGrandRecap(false)} title="Grand récapitulatif des congés" size="lg">
+        <div className="space-y-4">
           <p className="text-sm text-[var(--color-fg-muted)]">
             Solde avant la période, mouvements entre les deux dates et valeur du stock
             restant calculée à partir des lots historiques au dernier jour choisi.

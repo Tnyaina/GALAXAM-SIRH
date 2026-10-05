@@ -7,6 +7,7 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -110,20 +111,9 @@ public class ContratTravailController {
             final Integer activeContratId = contrat.getIdContrat();
 
             // ── Lire le paramètre configurable de renouvellements max ──
-            int maxRenouvellements = 1;
-            try (var psParam = c.prepareStatement(
-                    "SELECT valeur FROM parametre_global WHERE code_parametre = 'MAX_RENOUVELLEMENTS_ESSAI' " +
-                            "AND date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) ORDER BY date_debut DESC LIMIT 1")) {
-                try (var rsParam = psParam.executeQuery()) {
-                    if (rsParam.next()) {
-                        try {
-                            maxRenouvellements = Integer.parseInt(rsParam.getString(1).trim());
-                        } catch (NumberFormatException ignored) {
-                        }
-                    }
-                }
-            } catch (Exception ignored) {
-            }
+            LocalDate refDate = contrat.getDateDebut() != null ? contrat.getDateDebut().toLocalDate() : LocalDate.now();
+            int maxRenouvellements = mg.galaxam.sirh.contrat.domain.CarriereTransitionValidator.resolveParametreGlobalInt(
+                    "MAX_RENOUVELLEMENTS_ESSAI", refDate, 1, c);
 
             // ── Lire la période d'essai active depuis contrat_periode_essai ──
             int periodeActuelle = 0;

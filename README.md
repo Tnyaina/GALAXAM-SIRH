@@ -1,155 +1,199 @@
 # GALAXAM-SIRH
 
-Système Intégré de Gestion des Ressources Humaines et de la Paie pour **GALAXAM LOGISTICS**.
-L'application web centralise la gestion multi-filiales du personnel, simplifie le suivi des pointages et des heures supplémentaires, orchestre les droits et soldes de congés sur grand-livre immuable (ledger FIFO), et intègre un moteur de paie complet avec génération des bulletins PDF et déclaratifs légaux malagasy (IRSA, CNaPS, OSTIE/OMSI, FMFP).
+Système Intégré de Gestion des Ressources Humaines, du Pointage, des Congés et de la Paie pour le groupe **GALAXAM LOGISTICS**.
+
+L'application centralise la gestion multi-filiales du personnel, le suivi opérationnel des présences et des heures majorées, l'administration des congés sur grand-livre comptable immuable (ledger FIFO), l'exécution du moteur de paie malagasy et l'édition automatique des déclaratifs légaux et fiscaux.
 
 ---
 
-## 📖 Contexte du Projet
+## 1. Contexte et Objectifs du Système
 
-Ce projet est réalisé par **ANDRIAMALALA Rivo Ny Aina Tojonirina**, étudiant à **IT University**, dans le cadre d'un stage de fin d'études de Licence Informatique & Développement (période du 06 Juillet au 06 Octobre 2026).
+Ce système remplace l'ancienne gestion dispersée sur tableurs par une plateforme d'entreprise unifiée, déterministe, auditable et strictement alignée sur le cadre légal et réglementaire de Madagascar :
 
-L'objectif fondamental est de remplacer une gestion RH historiquement dispersée sur de multiples classeurs Excel par une solution web unifiée, auditable, transactionnellement robuste et strictement conforme au cadre légal et réglementaire de Madagascar :
 - **Code du Travail malgache** (Loi n° 2003-044 du 28 juillet 2004) ;
-- **Durée légale du travail** (Décret n° 2007-563, base 40h/semaine = 173,33h/mois) ;
-- **Réglementation fiscale et sociale** (CGI, IRSA SAFI/e-Hetra, CNaPS, FMFP, OSTIE/OMSI) ;
-- **Modèle canonique d'acquisition et valorisation de congés** (`OHATRA KAJY DROITS CONGES-given on sept26.xls`).
+- **Réglementation de la durée du travail** (Décret n° 2007-563, base hebdomadaire de 40 heures = 173,33 heures par mois) ;
+- **Réglementation fiscale et sociale** (Code Général des Impôts, barème progressif IRSA, déclarations SAFI / e-Hetra, CNaPS, FMFP, organismes sanitaires interentreprises OSTIE, AMIT, FUNHECE) ;
+- **Valorisation financière des congés** : Modèle canonique `OHATRA KAJY DROITS CONGES` avec calcul du taux journalier unitaire `TCONGE` et imputation chronologique FIFO.
+
+Le système est conçu pour une **durabilité pluriannuelle autonome** (exercices 2025, 2026, 2027 et suivants) sans nécessiter de modification de code, de duplication manuelle de constantes ou d'interventions techniques lors des changements d'année.
 
 ---
 
-## 🚀 Périmètre Fonctionnel & Modules Métier
+## 2. Périmètre Fonctionnel
 
-*   **Gestion Multi-Entités & Carrières :**
-    Rattachement des employés aux filiales du groupe (GALAXAM, Vina sy Asa, LMD). Historisation stricte des parcours professionnels (salaires de base, affectations de postes, sites et départements) avec maintien de la traçabilité continue de l'ancienneté.
-*   **Gestion des Contrats & Statuts :**
-    Prise en charge des salariés permanents (régime général IRSA + CNaPS/OSTIE), des consultants retraités (régime ISI 5% + OSTIE) et du personnel temporaire ou prestataire (régime horaire ISI 5%).
-*   **Pointage & Gestion des Temps (Présence) :**
-    Interface de saisie et de supervision des présences (remplaçant les exports de pointeuses physiques). Calcul automatique des heures majorées (30%, 50%, nuit, dimanche, jours fériés) pour les agents non-cadres.
-*   **Congés & Absences (Certifié Sprint 3 — Verdict `CERTIFIED`) :**
-    *   Acquisition mensuelle légale à **2,5 jours calendaires par mois** de service effectif (Art. 85), proratisée au trentième en cas d'absences injustifiées.
-    *   **Grand-livre comptable (Ledger)** sur `mouvement_solde_conge` : traçabilité intégrale de chaque débit (`PRISE`) et crédit (`ACQUISITION`, `BONIFICATION`, `ANNULATION`, `EXPIRATION`).
-    *   **Purge triennale FIFO autonome (`PurgeFifoEngine`)** : prescription des droits au bout de 36 mois conformément à l'Article 85.
-    *   **Pool partagé d'événements familiaux (10j/an)** : gestion du quota partagé de l'Article 88 (mariage, naissance, décès) avec contrôle cumulatif et exemption stricte du congé de paternité (3 jours — Art. 134).
-    *   **Valorisation financière canonique `TCONGE`** : source de vérité unique pour la valorisation en paie et la liquidation au Solde de Tout Compte (STC).
-*   **Moteur de Paie Dual & STC :**
-    Calcul automatisé selon le statut fiscal de l'employé (IRSA progressif à 6 tranches ou ISI 5%), calcul des retenues au trentième et indemnités congés, déductions d'acomptes/prêts et édition des bulletins individuels au format PDF.
-*   **Sécurité & Habilitations (RBAC) :**
-    Cloisonnement strict des accès par rôles (`ROLE_USER`, `ROLE_ADMIN`, `CONGE_VALIDATE`, `POINTAGE_AGENT`...) et protection des opérations sensibles (périodes de paie clôturées verrouillant toute modification rétroactive).
+### Gestion des Collaborateurs et Multi-Filiales
+- Gestion multi-entités : GALAXAM LOGISTICS, Vina sy Asa, LMD.
+- Dossiers administratifs complets : état civil, CIN, coordonnées bancaires (RIB/IBAN), personnes à charge éligibles fiscalement (règle des 21 ans).
+- Historisation continue de la carrière : affectations de postes, départements, sites géographiques et évolutions des salaires de base avec conservation inaltérable de l'ancienneté.
+
+### Gestion des Contrats de Travail et Événements RH
+- Types de contrats supportés : Contrat à Durée Indéterminée (CDI), Contrat à Durée Déterminée (CDD), Consultants et Prestataires (régimes journalier ou horaire).
+- Suivi du cycle de vie contractuel : gestion des périodes d'essai, renouvellements encadrés par la réglementation, ruptures conventionnelles, démissions, licenciements et départs à la retraite.
+- Génération automatisée de documents officiels au format DOCX/PDF : contrats d'embauche personnalisés, attestations de travail, certificats de fin de travail, avec résolution temporelle du signataire habilité (DAF en fonction à la date de signature).
+
+### Pointage et Gestion des Temps (GTA)
+- Modalités de saisie : saisie quotidienne, saisie hebdomadaire groupée, pointage terrain via badges ou QR codes.
+- Moteur de calcul des temps : détection automatique des retards, pauses, absences injustifiées et dispenses autorisées.
+- Ventilation auditable des heures majorées : heures supplémentaires à 30 % (huit premières heures au-delà de 40h), heures supplémentaires à 50 % (au-delà de 48h), travail de nuit, dimanches et jours fériés chômés et payés.
+- Indemnités opérationnelles : gestion des paniers repas et indemnités de déplacement/chantier rattachées aux sites d'affectation.
+- Scellement mensuel : génération d'un snapshot de pointage figé (`GELE` puis `CONSOMME`), ventilé par tranches horaires auditables (`pointage_snapshot_bucket`) servant de base inviolable au calcul de la paie.
+
+### Congés et Absences (Certification Grand-Livre FIFO)
+- Acquisition légale : **2,5 jours calendaires par mois** de travail effectif, proratisée au trentième en cas d'absences injustifiées.
+- Grand-livre comptable (`mouvement_solde_conge`) : chaque opération constitue une écriture signée et inaltérable (`ACQUISITION`, `PRISE`, `BONIFICATION`, `ANNULATION`, `EXPIRATION`, `REGULARISATION`).
+- Traitement de fin d'exercice : purge triennale automatique des droits prescrits (36 mois conformément à l'Article 85).
+- Événements familiaux : pool annuel partagé de 10 jours ouvrables (Article 88) avec contrôle cumulatif strict et exclusion du congé de paternité légal de 3 jours (Article 134).
+- Résolution temporelle `TCONGE` : détermination unitaire du taux journalier applicable pour l'indemnisation de congé payé et la liquidation en Solde de Tout Compte.
+- Renouvellement automatique : méthode `ensureReferencePeriod` garantissant l'ouverture idempotente de chaque exercice annuel (du 01/01/N au 31/12/N) sans duplication.
+
+### Moteur de Paie Dual et Immutabilité
+- Régimes fiscaux traités :
+  - **Régime Général des Salariés :** cotisations salariales et patronales CNaPS (plafonné à 8 fois le SME), FMFP (1 %), organisme de santé (1 % salarié / 5 % à 6 % employeur selon barème de site), déduction de l'IRSA progressif par tranches avec minimum de perception légal.
+  - **Régime des Prestataires et Consultants Retraités :** retenue à la source ISI (5 %) et couverture sanitaire obligatoire.
+- Traitement des variables : intégration automatique des acomptes sur salaire, retenues sur prêts en cours, primes et gratifications exceptionnelles.
+- Périodes de paie chevauchantes (ex. 26/12/2025 au 25/01/2026) : résolution journalière des salaires contractuels multiples au prorata temporis exact.
+- Règle d'immutabilité : tout bulletin validé (`VALIDE`) est sanctuarisé contre tout recalcul automatisé silencieux. Les réouvertures requièrent une action tracée avec audit trail.
+- Reproductibilité absolue : la réouverture d'un bulletin historique face à de nouveaux barèmes fiscaux ou sociaux garantit un **écart de calcul strictement nul**.
+
+### Solde de Tout Compte (STC)
+- Calcul événementiel déclenché à la date de fin de contrat ou de départ effectif.
+- Décomposition complète : salaire au prorata des jours travaillés du dernier mois, indemnité compensatrice de préavis non effectué, indemnité compensatrice de congés payés non pris valorisée au `TCONGE`, indemnité légale de licenciement selon l'ancienneté acquise, déduction du solde restant dû sur prêts.
+- Numérotation officielle des reçus pour solde (`STC-AAAA-XXXX`) indexée sur l'année de départ effectif.
+
+### Déclarations Légales et Fiscales
+- **IRSA & SAFI / e-Hetra :** génération de la déclaration fiscale mensuelle au format conforme aux exigences de la Direction Générale des Impôts (DGI).
+- **CNaPS (DNTS) :** déclaration nominative trimestrielle des salaires et cotisations.
+- **FMFP :** état récapitulatif trimestriel pour le Fonds Malgache de Formation Professionnelle.
+- **Organismes Sanitaires :** états nominatifs périodiques pour OSTIE, AMIT ou FUNHECE selon l'organisme assigné à chaque site.
+- **Fichiers de Virement Bancaire :** génération des fichiers d'ordres de virement conformes aux formats bancaires interbancaires.
+- Principe de découplage : les déclarations agrègent les montants scellés des bulletins validés sans déclencher de recalcul sous-jacent.
 
 ---
 
-## 🛠 Architecture Technique & Choix Conceptuels
+## 3. Architecture Technique
 
-Le projet est conçu en **monorepo**. Toutes les règles de gestion et calculs critiques sont portés par le backend Java ; PostgreSQL assure le stockage relationnel, l'intégrité transactionnelle et les projections analytiques.
+Le projet est structuré sous forme de monorepo intégrant les composants suivants :
 
 ### Frontend
-- **Framework :** React 19 propulsé par **Vite**.
-- **Abonnement Backend-Driven :** Les composants React ne réimplémentent aucune règle métier. Les formulaires et boutons d'action s'appuient exclusivement sur les contrats fournis par les endpoints backend (`/simuler`, `availableActions`).
-- **Organisation :** Architecture modulaire par fonctionnalités (`src/features/leave`, `src/features/administration`, `src/pages`, `src/components`).
+- **Socle :** React 19, Vite, Tailwind CSS et Vanilla CSS.
+- **Architecture Applicative :** Découpage modulaire par domaine fonctionnel (`features/employees`, `features/attendance`, `features/leave`, `features/payroll`, `features/contracts`, `features/dashboard`).
+- **Principe Backend-Driven :** L'interface utilisateur ne duplique aucune logique métier ni barème légal. Les états, montants simulés et actions autorisées sont fournis par les endpoints de l'API REST.
 
-### Backend (Java 17 / Spring Boot)
-- **Zero ORM / JPA / Hibernate :** Accès aux données 100% JDBC direct natif, garantissant un contrôle rigoureux du SQL généré, des plans d'exécution et des temps de réponse.
-- **Transactions Centralisées :** Utilisation systématique de `TransactionRunner` pour garantir l'atomicité complète des parcours critiques (validation, annulation, acquisition, purge).
-- **Verrouillage Pessimiste (`SELECT ... FOR UPDATE`) :** Protection contre les accès concurrentiels lors de la validation des congés ou de la génération des débits de solde.
-- **Moteurs Purs de Domaine :**
-  - `CongeCalculateurEngine` : calculs calendaires stricts, seuils de préavis (2j court / 15j long), bonification d'ancienneté (+1j par palier de 5 ans), bascule maladie > 30 jours (Art. 13).
-  - `PurgeFifoEngine` : algorithme mathématique d'imputation FIFO chronologique et prescription triennale des droits.
-  - `CongeTauxApplicableService` : moteur canonique de résolution temporelle du taux journalier `TCONGE` avec convention $[date\_effet, date\_fin[$.
-  - `DailyAttendanceCalculator`, `WeeklyAttendanceCalculator`, `AttendancePeriodCalculator` : composition canonique des pointages.
-  - `PayrollExecutionEngine` : composition unitaire de la paie individuelle et exécution du batch mensuel.
+### Backend
+- **Socle :** Java 17, Spring Boot, Spring Security (authentification par JWT et contrôle d'accès basé sur les rôles RBAC).
+- **Accès aux Données :** Accès direct via JDBC natif (`java.sql.*`) avec pool de connexions HikariCP. Aucun framework ORM lourd (JPA/Hibernate) n'est employé afin de garantir la maîtrise des requêtes SQL, l'absence de requêtes N+1 et l'auditabilité des verrous de concurrence.
+- **Gestion des Concurrences :** Utilisation systématique de verrous pessimistes (`SELECT ... FOR UPDATE`) sur les opérations de débit de soldes et d'allocation de périodes.
+- **Tâches Automatiques & Schedulers :** Rattrapage quotidien autonome, acquisition périodique des congés, notification des alertes d'échéances de contrats et d'essais.
 
-### Base de Données (PostgreSQL 15)
-- Schémas canoniques partitionnés dans `backend/conception/bdd/` (Core, Référentiels, Employés, Congés, Pointage, Paie).
-- Contraintes relationnelles fortes, contraintes `CHECK`, et index partiels uniques anti-doublon (`idx_uniq_mouvement_prise_demande`, `idx_uniq_mouvement_annulation_demande`).
-- Vues SQL de projection temps réel : `v_solde_conge_employe`, `v_demande_conge_cpl`, `v_pool_conge_annuel_consommation`.
+### Base de Données
+- **Système :** PostgreSQL 15.
+- **Partitionnement Logique :** Scripts SQL versionnés organisés dans `backend/conception/bdd/` couvrant les schémas Core, Référentiels, Collaborateurs, Pointages, Congés, Paie et STC.
+- **Intégrité Relationnelle :** Contraintes d'exclusion temporelle (`daterange`), contraintes d'unicité partielles, clés étrangères strictes et vues de projection analytique temps réel.
 
 ---
 
-## 📚 Cartographie de la Documentation
-
-Pour appréhender immédiatement et exhaustivement le projet, voici les documents de référence classés par périmètre :
-
-### 1. Ouvrages de Référence & Spécifications Métier ("Boky")
-| Document | Emplacement | Périmètre & Description |
-| :--- | :--- | :--- |
-| **Sommaire Général Boky** | [`backend/docs/boky/INDEX.md`](backend/docs/boky/INDEX.md) | Index général des manuels techniques et fonctionnels du SIRH. |
-| **Manuel Congés & Absences** | [`backend/docs/boky/module-conges-absences.md`](backend/docs/boky/module-conges-absences.md) | **Spécification juridique et mathématique complète** : Code du Travail (Art. 85 à 98, 13, 134), modèle Excel `OHATRA KAJY DROITS CONGES`, grand-livre ledger, architecture des 18 classes Java, intégrations Pointage/Paie/STC. |
-| **Manuel Contrats RH** | [`backend/docs/boky/module-contrat.md`](backend/docs/boky/module-contrat.md) | Spécification des types de contrats (CDI, CDD, consultants), périodes d'essai et avenants. |
-| **Manuel Employé & Carrière** | [`backend/docs/boky/module-employe.md`](backend/docs/boky/module-employe.md) | Gestion des dossiers collaborateurs, matricules, CIN, RIB et affectations. |
-| **Manuel Moteur de Paie** | [`backend/docs/boky/module-paie.md`](backend/docs/boky/module-paie.md) | Pipeline de paie, assiettes de cotisations CNaPS/OSTIE, barème IRSA à 6 tranches. |
-| **Réglementation Fiscale Paie** | [`backend/docs/boky/module-paie-reglementation-fiscale.md`](backend/docs/boky/module-paie-reglementation-fiscale.md) | Cadre fiscal malgache, barèmes officiels DGI et déclarations SAFI / e-Hetra. |
-
-### 2. Rapports de Certification & Architecture
-| Document | Emplacement | Périmètre & Description |
-| :--- | :--- | :--- |
-| **Rapport de Certification Congés** | [`CONGE_CERTIFICATION_REPORT.md`](CONGE_CERTIFICATION_REPORT.md) | **Verdict `CERTIFIED`** : Certification d'intégration réelle sur PostgreSQL (32 tests JUnit 5 + 4 tests Vitest verts, tests de concurrence `FOR UPDATE`, idempotence, Pointage, Paie, STC). |
-| **Dictionnaire Métier & Scénarios** | [`docs/GUIDE_REGLES_METIER_ET_MODIFICATIONS.md`](docs/GUIDE_REGLES_METIER_ET_MODIFICATIONS.md) | Répertoire exhaustif des règles de gestion et guide pas à pas pour 19 scénarios de modification. |
-| **Conception Architecture Paie** | [`docs/CONCEPTION_ARCHITECTURE_MODULE_PAIE.md`](docs/CONCEPTION_ARCHITECTURE_MODULE_PAIE.md) | Dossier technique du moteur de paie, modèle relationnel (`bulletin_paie`, `stc`) et exports. |
-| **Guide Opérationnel Paie** | [`docs/GUIDE_COMPLET_MODULE_PAIE_GALAXAM.md`](docs/GUIDE_COMPLET_MODULE_PAIE_GALAXAM.md) | Guide utilisateur RH et DAF : clôture de pointage, génération de paie, acomptes, prêts et PDF. |
-| **Architecture Frontend** | [`frontend/docs/ARCHITECTURE_GUIDE.md`](frontend/docs/ARCHITECTURE_GUIDE.md) | Architecture React 19 / Vite, contrats backend-driven, gestion des états et requêtes. |
-
----
-
-## 📁 Structure du Monorepo
+## 4. Organisation du Répertoire
 
 ```text
 GALAXAM-SIRH/
-├── frontend/                                # Application Web React 19 / Vite
+├── frontend/                                # Application Web React 19
 │   ├── src/
-│   │   ├── features/leave/                  # Module Congés & Absences (Backend-Driven)
-│   │   │   ├── components/                  # Modales de saisie, widgets soldes, validation
-│   │   │   ├── api/congeService.js          # Client Axios vers /api/conges/*
-│   │   │   └── __tests__/                   # Tests Vitest du contrat backend-driven
-│   │   ├── features/administration/         # Gestion des référentiels (types, motifs, barèmes)
-│   │   ├── pages/                           # Cockpit RH, Paie, Pointage, Employés
-│   │   ├── components/                      # Design System & UI globale
-│   │   └── utils/                           # Formatters & utilitaires dates
-├── backend/                                 # API REST Spring Boot (Java 17 / Maven)
+│   │   ├── features/                        # Modules fonctionnels par domaine
+│   │   │   ├── attendance/                  # Pointage, présences et feuilles de temps
+│   │   │   ├── contracts/                   # Contrats, avenants et alertes d'échéances
+│   │   │   ├── dashboard/                   # Tableaux de bord RH et supervision
+│   │   │   ├── employees/                   # Dossiers du personnel et carrières
+│   │   │   ├── leave/                       # Demandes de congés, soldes et grand-livre
+│   │   │   └── payroll/                     # Paie, variables, STC, déclaratifs
+│   │   ├── components/                      # Composants d'interface transverses
+│   │   └── services/                        # Clients HTTP et gestion réseau
+├── backend/                                 # API REST Spring Boot (Java 17)
 │   ├── src/main/java/mg/galaxam/sirh/
-│   │   ├── conge/                           # Module Congés & Absences (18 fichiers consolidés)
-│   │   │   ├── api/                         # 4 Contrôleurs REST (Demande, Solde, Ref, PeriodeRef)
-│   │   │   ├── application/                 # CongeService & CongeTauxApplicableService
-│   │   │   ├── domain/                      # CongeCalculateurEngine & PurgeFifoEngine
-│   │   │   └── persistence/                 # Modèles JDBC directs (Demande, Mouvement, Ref, Vues)
-│   │   ├── model/                           # Domaines Employés, Contrats, Pointage, Référentiels
-│   │   ├── paie/                            # Moteur de Paie, STC, Cotisations, Fiscalité & Exports
-│   │   ├── cron/                            # Schedulers nocturnes (Acquisition, Purge, Alertes RH)
-│   │   └── securite/                        # Spring Security, JWT, Refresh Cookies & RBAC
-│   ├── conception/bdd/                      # Scripts SQL ordonnancés (01 à 06) et migrations
-│   ├── docs/boky/                           # Collection des manuels de référence exhaustifs
-│   └── src/test/java/mg/galaxam/sirh/conge/ # Suites de certification d'intégration PostgreSQL
-├── docker-compose.yml                       # Conteneur PostgreSQL 15 & services locaux
-├── CONGE_CERTIFICATION_REPORT.md            # Rapport officiel de certification du module Congés
-└── README.md                                # Point d'entrée et documentation principale
+│   │   ├── conge/                           # Domaine Congés & Absences
+│   │   ├── contrat/                         # Domaine Contrats, Carrières et Documents
+│   │   ├── cron/                            # Schedulers et rattrapages automatisés
+│   │   ├── dashboard/                       # Indicateurs clés et reporting
+│   │   ├── employe/                         # Gestion administrative du collaborateur
+│   │   ├── paie/                            # Moteur de paie, fiscalité IRSA/ISI, STC
+│   │   ├── pointage/                        # Saisie des temps, snapshots et indemnités
+│   │   └── securite/                        # Authentification, habilitations et audit
+│   ├── src/main/resources/                  # Configuration Spring et modèles de documents
+│   ├── conception/bdd/                      # Schémas relationnels et scripts DDL/DML
+│   └── src/test/java/mg/galaxam/sirh/       # Suites de tests unitaires et d'intégration
+├── docs/                                    # Documentation technique et réglementaire
+│   ├── TEMPORAL_RULES.md                    # Référentiel central des règles temporelles
+│   ├── TEMPORAL_DURABILITY_AUDIT.md         # Rapport d'audit de durabilité temporelle
+│   └── CAHIER_DES_CHARGES_GALAXAM.md        # Spécifications initiales du projet
+├── docker-compose.yml                       # Définition des conteneurs locaux (PostgreSQL)
+└── README.md                                # Document principal de présentation
 ```
 
 ---
 
-## ⚡ Commandes Utiles
+## 5. Guides et Références Documentaires
+
+Les règles de gestion, protocoles de calcul et spécifications techniques sont détaillés dans les documents suivants :
+
+- [docs/TEMPORAL_RULES.md](docs/TEMPORAL_RULES.md) : Standardisation des règles temporelles, dates métiers canoniques, résolution des versions actives et garanties d'immutabilité.
+- [docs/TEMPORAL_DURABILITY_AUDIT.md](docs/TEMPORAL_DURABILITY_AUDIT.md) : Rapport d'audit de durabilité, matrice de conformité par module et résultats des tests de non-régression.
+- [CONGE_CERTIFICATION_REPORT.md](CONGE_CERTIFICATION_REPORT.md) : Rapport de certification du grand-livre des congés et de l'algorithme FIFO triennal.
+- [docs/CONCEPTION_ARCHITECTURE_MODULE_PAIE.md](docs/CONCEPTION_ARCHITECTURE_MODULE_PAIE.md) : Architecture du moteur de paie et modélisation des flux financiers.
+- [docs/GUIDE_COMPLET_MODULE_PAIE_GALAXAM.md](docs/GUIDE_COMPLET_MODULE_PAIE_GALAXAM.md) : Manuel d'exploitation opérationnelle à destination des gestionnaires RH et DAF.
+
+---
+
+## 6. Environnement et Commandes d'Exploitation
+
+### Prérequis
+- Java Development Kit (JDK) 17 ou supérieur.
+- Node.js version 18 ou supérieure avec npm.
+- Docker et Docker Compose.
+
+### Commandes Backend
 
 ```bash
-# 1. Démarrer la base de données PostgreSQL conteneurisée
+# Démarrage de l'instance PostgreSQL
 docker compose up -d
 
-# 2. Exécuter la suite complète de tests Backend (JUnit 5 / Spring Boot)
-cd backend && ./mvnw test
+# Compilation complète du backend
+mvn -f backend/pom.xml clean compile
 
-# 3. Exécuter les tests ciblés de certification Congés (PostgreSQL réel)
-cd backend && ./mvnw test -Dtest=Conge*Test
+# Exécution de l'ensemble des tests automatisés sur la base sirh_galaxam_test
+mvn -f backend/pom.xml test
 
-# 4. Lancer l'API Spring Boot en local
-cd backend && ./mvnw spring-boot:run
+# Exécution ciblée des tests de durabilité temporelle et de reproductibilité
+mvn -f backend/pom.xml test -Dtest=TemporalDurabilityReproducibilityIntegrationTest
 
-# 5. Exécuter les tests Frontend (Vitest)
+# Exécution de la simulation exhaustive du cycle de vie d'entreprise
+mvn -f backend/pom.xml test -Dtest=PayrollFullEnterpriseLifecycleSimulationIntegrationTest
+
+# Lancement de l'application Spring Boot en local
+mvn -f backend/pom.xml spring-boot:run
+```
+
+### Commandes Frontend
+
+```bash
+# Installation des dépendances
+cd frontend && npm install
+
+# Lancement du serveur de développement local (Vite)
+cd frontend && npm run dev
+
+# Exécution des tests unitaires et fonctionnels (Vitest)
 cd frontend && npm test
 
-# 6. Vérifier la qualité du code Frontend (ESLint)
+# Contrôle qualité et conformité du code (ESLint)
 cd frontend && npm run lint
 
-# 7. Générer le bundle de production Frontend (Vite)
+# Génération du bundle optimisé pour la production
 cd frontend && npm run build
 ```
 
 ---
 
-*GALAXAM SIRH — Vérifier les paramètres légaux, les données reprises et les bulletins de référence avant chaque mise en production.*
+## 7. Directives d'Exploitation en Production
+
+1. **Isolation des Environnements :** Les suites de tests d'intégration automatisés s'exécutent impérativement sur la base `sirh_galaxam_test`. L'exécution de scripts destructifs sur la base de production `sirh_galaxam` est formellement bloquée au niveau applicatif.
+2. **Évolution Légale :** Toute révision future des barèmes officiels (revalorisation du SME, révision des tranches IRSA ou ajustement des taux de cotisations) s'effectue par insertion d'une nouvelle ligne datée (`date_debut_effet`) dans les référentiels applicables, sans modifier les enregistrements historiques.
+3. **Clôture Périodique :** La clôture définitive d'une période de paie scelle l'ensemble des bulletins associés. Aucune modification d'état civil, d'affectation ou de salaire postérieur à la date de clôture ne peut rétroagir sur une période close.

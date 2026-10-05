@@ -260,14 +260,16 @@ export default function PointageGanttView({
                 )}
             </div>
 
-            {/* Legende */}
+            {/* Légende distincte et accessible */}
             {!loadingGantt && employees.length > 0 && (
-                <div className="flex flex-wrap items-center gap-3 px-1 text-[10px] text-[var(--color-fg-muted)]">
-                    <span className="font-semibold text-[var(--color-fg)]">Legende :</span>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 p-2 px-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-xs text-[var(--color-fg)]">
+                    <span className="font-bold text-[var(--color-fg)] uppercase tracking-wider text-[10px] mr-1">
+                        Légende :
+                    </span>
                     {GANTT_STATUTS.map(s => (
-                        <div key={s.code} className="flex items-center gap-1.5">
-                            <div className={`h-3 w-5 border ${s.bg} ${s.border}`} />
-                            <span>{s.label}</span>
+                        <div key={s.code} className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-2xs">
+                            <span className={`w-2.5 h-2.5 shrink-0 ${s.dot}`} />
+                            <span className="text-[11px] font-medium text-[var(--color-fg)]">{s.label}</span>
                         </div>
                     ))}
                 </div>
@@ -486,14 +488,14 @@ function getStatutStyle(cellData, day) {
     const weekend = isWeekend(day);
     const hasWorked = Number(cellData?.totalHeures || 0) > 0;
 
-    // Dimanche travaillé (avec majoration)
+    // Dimanche travaillé (avec majoration) -> VIOLET (PURPLE) pour distinction immédiate
     if (isSunday(day) && hasWorked) {
-        return { bg: 'bg-[var(--color-info-500)]/15', border: 'border-[var(--color-info-500)]/50', text: 'text-[var(--color-info-800)] dark:text-[var(--color-info-200)] font-bold' };
+        return { bg: 'bg-[var(--color-purple-500)]/15', border: 'border-[var(--color-purple-500)]/50', text: 'text-[var(--color-purple-800)] dark:text-[var(--color-purple-200)] font-bold' };
     }
 
-    // Samedi travaillé
+    // Samedi travaillé -> SKY
     if (isSaturday(day) && hasWorked) {
-        return { bg: 'bg-[var(--color-success-500)]/15', border: 'border-[var(--color-success-500)]/50', text: 'text-[var(--color-success-800)] dark:text-[var(--color-success-200)] font-bold' };
+        return { bg: 'bg-[var(--color-sky-500)]/15', border: 'border-[var(--color-sky-500)]/50', text: 'text-[var(--color-sky-800)] dark:text-[var(--color-sky-200)] font-bold' };
     }
 
     // Weekend sans travail = Repos légal (y compris cadres autonomes)
@@ -503,17 +505,17 @@ function getStatutStyle(cellData, day) {
 
     if (!cellData) return { bg: 'bg-[var(--color-bg-subtle)]/30', border: 'border-[var(--color-border-subtle)]', text: 'text-[var(--color-fg-muted)]' };
     if (cellData.codeStatut === 'REPOS' || cellData.repos) return { bg: 'bg-[var(--color-bg-subtle)]/40', border: 'border-[var(--color-border-subtle)]', text: 'text-[var(--color-fg-muted)] opacity-55' };
-    if (cellData.ferieJour) return { bg: 'bg-[var(--color-bg-subtle)]', border: 'border-[var(--color-border)]', text: 'text-[var(--color-fg-muted)]' };
-    if (cellData.absenceNonJustifiee || cellData.codeStatut === 'ABSENCE_NON_JUSTIFIEE') return { bg: 'bg-[var(--color-danger-500)]/10', border: 'border-[var(--color-danger-500)]/40', text: 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' };
-    if (cellData.conge || cellData.absenceJustifiee || cellData.codeStatut === 'CONGE') return { bg: 'bg-[var(--color-sky-500)]/10', border: 'border-[var(--color-sky-500)]/40', text: 'text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)]' };
+    if (cellData.ferieJour) return { bg: 'bg-[var(--color-bg-subtle)]', border: 'border-[var(--color-border)]', text: 'text-[var(--color-fg)] font-medium' };
+    if (cellData.absenceNonJustifiee || cellData.codeStatut === 'ABSENCE_NON_JUSTIFIEE') return { bg: 'bg-[var(--color-danger-500)]/15', border: 'border-[var(--color-danger-500)]/50', text: 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)] font-bold' };
+    if (cellData.conge || cellData.absenceJustifiee || cellData.codeStatut === 'CONGE') return { bg: 'bg-[var(--color-sky-500)]/12', border: 'border-[var(--color-sky-500)]/45', text: 'text-[var(--color-sky-800)] dark:text-[var(--color-sky-200)] font-semibold' };
 
     if (cellData.dispensePointage && !weekend) {
         if (cellData.planifie) return { bg: 'bg-[var(--color-bg-subtle)]', border: 'border-dashed border-[var(--color-border-subtle)]', text: 'text-[var(--color-fg-muted)]' };
-                return { bg: 'bg-[var(--color-info-500)]/10', border: 'border-[var(--color-info-500)]/40', text: 'text-[var(--color-info-700)] dark:text-[var(--color-info-300)]' };
+        return { bg: 'bg-[var(--color-info-surface)]', border: 'border-[var(--color-info-border)]', text: 'text-[var(--color-info-text)] font-semibold' };
     }
 
-    if (cellData.retard && cellData.minutesRetard > 0) return { bg: 'bg-[var(--color-warning-500)]/10', border: 'border-[var(--color-warning-500)]/40', text: 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]' };
-    if (cellData.present || hasWorked) return { bg: 'bg-[var(--color-success-500)]/10', border: 'border-[var(--color-success-500)]/40', text: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' };
+    if (cellData.retard && cellData.minutesRetard > 0) return { bg: 'bg-[var(--color-warning-500)]/15', border: 'border-[var(--color-warning-500)]/50', text: 'text-[var(--color-warning-800)] dark:text-[var(--color-warning-300)] font-semibold' };
+    if (cellData.present || hasWorked) return { bg: 'bg-[var(--color-success-500)]/12', border: 'border-[var(--color-success-500)]/45', text: 'text-[var(--color-success-700)] dark:text-[var(--color-success-300)] font-semibold' };
 
     return { bg: 'bg-[var(--color-bg-subtle)]', border: 'border-[var(--color-border-subtle)]', text: 'text-[var(--color-fg-muted)]' };
 }
@@ -568,12 +570,12 @@ function getTimeString(cellData, day) {
 }
 
 const GANTT_STATUTS = [
-    { code: 'PRESENT', label: 'Présent', bg: 'bg-[var(--color-success-500)]/10', border: 'border-[var(--color-success-500)]/40' },
-    { code: 'DIMANCHE', label: 'Dimanche (Majoré)', bg: 'bg-[var(--color-info-500)]/15', border: 'border-[var(--color-info-500)]/50' },
-    { code: 'AUTONOME', label: 'Autonome', bg: 'bg-[var(--color-info-500)]/10', border: 'border-[var(--color-info-500)]/40' },
-    { code: 'RETARD', label: 'Retard', bg: 'bg-[var(--color-warning-500)]/10', border: 'border-[var(--color-warning-500)]/40' },
-    { code: 'CONGE', label: 'Congé', bg: 'bg-[var(--color-sky-500)]/10', border: 'border-[var(--color-sky-500)]/40' },
-    { code: 'ABSENT_NJ', label: 'Abs. N.J.', bg: 'bg-[var(--color-danger-500)]/10', border: 'border-[var(--color-danger-500)]/40' },
-    { code: 'FERIE', label: 'Férié', bg: 'bg-[var(--color-bg-subtle)]', border: 'border-[var(--color-border)]' },
-    { code: 'REPOS', label: 'Repos', bg: 'bg-[var(--color-bg-subtle)]/40', border: 'border-[var(--color-border-subtle)]' },
+    { code: 'PRESENT', label: 'Présent', dot: 'bg-[var(--color-success-500)]' },
+    { code: 'DIMANCHE', label: 'Dimanche (Majoré)', dot: 'bg-[var(--color-purple-500)]' },
+    { code: 'AUTONOME', label: 'Autonome', dot: 'bg-[var(--color-info-500)]' },
+    { code: 'RETARD', label: 'Retard', dot: 'bg-[var(--color-warning-500)]' },
+    { code: 'CONGE', label: 'Congé', dot: 'bg-[var(--color-sky-500)]' },
+    { code: 'ABSENT_NJ', label: 'Abs. N.J.', dot: 'bg-[var(--color-danger-500)]' },
+    { code: 'FERIE', label: 'Férié', dot: 'bg-[var(--color-ink-500)]' },
+    { code: 'REPOS', label: 'Repos', dot: 'bg-[var(--color-border)]' },
 ];

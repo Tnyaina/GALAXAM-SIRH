@@ -59,7 +59,9 @@ public class ParametreGlobal extends ClassMere {
     public boolean isHistoriqueNonConsomme() {
         if (codeParametre == null) return false;
         return switch (codeParametre.toUpperCase()) {
-            case "SEUIL_HEURES_SEMAINE_COMPENSATION" -> true;
+            case "SEUIL_HEURES_SEMAINE_COMPENSATION",
+                 "EXONERATION_HS_IRSA_ACTIVE",
+                 "PLAFOND_MENSUEL_HS_EXONEREES" -> true;
             default -> false;
         };
     }
@@ -271,6 +273,11 @@ public class ParametreGlobal extends ClassMere {
     /**
      * Charge l'état complet de tous les paramètres en vigueur à ce jour.
      */
+    /**
+     * Charge les paramètres <b>à la date courante du système</b>.
+     * Uniquement pour les contextes d'action en temps réel (validation métier, affichage dashboard).
+     * Pour tout calcul historique ou de campagne, utiliser {@link #loadEtatMapAtDate(Date, Connection)}.
+     */
     public static java.util.Map<String, ParametreEtat> loadEtatMap(Connection c) {
         return loadEtatMapAtDate(new Date(System.currentTimeMillis()), c);
     }
@@ -336,6 +343,11 @@ public class ParametreGlobal extends ClassMere {
     /**
      * Charge les paramètres actifs (valeur uniquement) sous forme de Map clé-valeur.
      * Tout paramètre désactivé (est_actif = FALSE) est exclu.
+     */
+    /**
+     * Charge les paramètres actifs <b>à la date courante du système</b>.
+     * Réservé aux contrôles opérationnels en temps réel (prescription de solde, seuils de validation).
+     * Pour tout calcul portant sur une date historique, utiliser {@link #loadActiveMapAtDate(Date, Connection)}.
      */
     public static java.util.Map<String, String> loadActiveMap(Connection c) {
         return loadActiveMapAtDate(new Date(System.currentTimeMillis()), c);
@@ -441,7 +453,62 @@ public class ParametreGlobal extends ClassMere {
     }
 
     /**
+     * Annule une version PROGRAMMÉE (date_debut > aujourd'hui) :
+     * 1. Vérifie que la version n'est pas encore en vigueur.
+     * 2. Réouvre le date_fin de la version précédente (la remet à NULL).
+     * 3. Supprime la version programmée.
+     * La transaction est gérée par l'appelant.
+     */
+    public static void annulerProgramme(int idParametre, Connection c) throws Exception {
+        ParametreGlobal item = new ParametreGlobal();
+        ParametreGlobal cible = (ParametreGlobal) item.rechercherParId(idParametre, c);
+        if (cible == null) {
+            throw new IllegalArgumentException("Paramètre global introuvable : " + idParametre);
+        }
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (cible.getDateDebut() == null || !cible.getDateDebut().toLocalDate().isAfter(today)) {
+            throw new IllegalStateException(
+                "Seule une version PROGRAMMÉE (date_debut dans le futur) peut être annulée. "
+                + "Ce paramètre est déjà en vigueur ou archivé.");
+        }
+        java.sql.Date veille = java.sql.Date.valueOf(cible.getDateDebut().toLocalDate().minusDays(1));
+        String reopenSql = "UPDATE parametre_global SET date_fin = NULL "
+                + "WHERE UPPER(code_parametre) = UPPER(?) AND id_parametre != ? AND date_fin = ?";
+        try (PreparedStatement ps = c.prepareStatement(reopenSql)) {
+            ps.setString(1, cible.getCodeParametre());
+            ps.setInt(2, idParametre);
+            ps.setDate(3, veille);
+            int reopened = ps.executeUpdate();
+            if (reopened == 0) {
+                String fallbackReopen = "UPDATE parametre_global SET date_fin = NULL "
+                        + "WHERE id_parametre = ("
+                        + "  SELECT id_parametre FROM parametre_global "
+                        + "  WHERE UPPER(code_parametre) = UPPER(?) AND id_parametre != ? AND date_debut < ? "
+                        + "  ORDER BY date_debut DESC LIMIT 1"
+                        + ")";
+                try (PreparedStatement ps2 = c.prepareStatement(fallbackReopen)) {
+                    ps2.setString(1, cible.getCodeParametre());
+                    ps2.setInt(2, idParametre);
+                    ps2.setDate(3, cible.getDateDebut());
+                    ps2.executeUpdate();
+                }
+            }
+        }
+        String deleteSql = "DELETE FROM parametre_global WHERE id_parametre = ?";
+        try (PreparedStatement ps = c.prepareStatement(deleteSql)) {
+            ps.setInt(1, idParametre);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
      * Retourne la valeur active d'un paramètre global à ce jour.
+     */
+    /**
+     * Retourne la valeur active d'un paramètre global <b>à la date du jour</b>.
+     * Usage exclusif : affichage UI, vérifications administratives en temps réel.
+     * Ne jamais utiliser dans un moteur de calcul daté (paie, STC, congés) :
+     * utiliser {@link #loadEtatMapAtDate(Date, Connection)} avec la date métier concernée.
      */
     public static String getActiveValue(String codeParametre, Connection c) {
         if (codeParametre == null || codeParametre.isBlank()) return null;

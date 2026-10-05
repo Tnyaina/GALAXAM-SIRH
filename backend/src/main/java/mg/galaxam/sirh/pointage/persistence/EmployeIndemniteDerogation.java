@@ -179,10 +179,18 @@ public class EmployeIndemniteDerogation extends ClassMere {
      * @throws Exception en cas d'erreur SQL
      */
     public static int cloturerParIndemnite(int idIndemnite, Connection c) throws Exception {
-        String sql = "UPDATE employe_indemnite_derogation SET date_fin = CURRENT_DATE " +
-                     "WHERE id_indemnite = ? AND (date_fin IS NULL OR date_fin > CURRENT_DATE)";
+        return cloturerParIndemnite(idIndemnite, java.time.LocalDate.now(), c);
+    }
+
+    public static int cloturerParIndemnite(int idIndemnite, java.time.LocalDate dateEffet, Connection c) throws Exception {
+        java.time.LocalDate target = dateEffet != null ? dateEffet : java.time.LocalDate.now();
+        String sql = "UPDATE employe_indemnite_derogation SET date_fin = ? " +
+                     "WHERE id_indemnite = ? AND (date_fin IS NULL OR date_fin > ?)";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, idIndemnite);
+            java.sql.Date d = java.sql.Date.valueOf(target);
+            ps.setDate(1, d);
+            ps.setInt(2, idIndemnite);
+            ps.setDate(3, d);
             return ps.executeUpdate();
         }
     }

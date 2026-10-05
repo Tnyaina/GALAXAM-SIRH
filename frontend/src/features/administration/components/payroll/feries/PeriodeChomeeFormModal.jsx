@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
-import { Select } from '@/components/ui/forms/Input';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
 
@@ -112,18 +112,19 @@ export default function PeriodeChomeeFormModal({
                     </div>
 
                     {isSite && (
-                        <Select
+                        <SearchSelect
                             label="Site concerné"
                             value={formData.idSite}
-                            onChange={(e) => handleChange('idSite', e.target.value)}
-                        >
-                            <option value="">-- Sélectionner un site --</option>
-                            {(sites || [])
+                            onChange={(val) => handleChange('idSite', val)}
+                            placeholder="-- Sélectionner un site --"
+                            options={(sites || [])
                                 .filter(s => s.estActif !== false && s.actif !== false || String(s.idSite) === String(formData.idSite))
-                                .map(s => (
-                                    <option key={s.idSite} value={s.idSite}>{s.libelle}</option>
-                                ))}
-                        </Select>
+                                .map(s => ({
+                                    value: String(s.idSite),
+                                    label: s.libelle,
+                                    sublabel: s.codeSite
+                                }))}
+                        />
                     )}
                 </div>
 

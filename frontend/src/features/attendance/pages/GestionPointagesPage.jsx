@@ -95,14 +95,18 @@ export default function GestionPointagesPage() {
                     organisationService.getSites().catch(() => [])
                 ]);
                 if (!isMounted) return;
+                setAllSites(sites || []);
                 if (!list || list.length === 0) {
-                    setError('Aucune période de paie disponible.');
+                    setAllPeriodes([]);
+                    setActivePeriode(null);
+                    setError(activeStep === 'saisie' ? null : 'Aucune période de paie disponible.');
+                    loadedRefresh.current = refreshVersion;
                     setLoading(false);
                     return;
                 }
                 loadedRefresh.current = refreshVersion;
                 setAllPeriodes(list);
-                setAllSites(sites || []);
+                setError(null);
 
                 const today = getTodayDateString();
                 const target = (paramPeriodeId ? list.find(p => String(p.idPeriodePaie) === String(paramPeriodeId)) : null)
@@ -206,7 +210,7 @@ export default function GestionPointagesPage() {
                     <SkeletonTable rows={8} columns={8} />
                 ) : (
                     <Suspense fallback={<SkeletonTable rows={6} columns={6} />}>
-                        {activeStep === 'saisie' && activePeriode && (
+                        {activeStep === 'saisie' && (
                             <SaisieQuotidiennePage
                                 activePeriode={activePeriode}
                                 sitesDisponibles={allSites}

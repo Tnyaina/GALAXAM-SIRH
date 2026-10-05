@@ -184,7 +184,53 @@ public class PaieConfigLegaleController {
                 if (updated.getCodeVersion() == null || updated.getCodeVersion().isBlank()) {
                     updated.setCodeVersion(existing.getCodeVersion());
                 }
-                updated.update(c);
+                Date oldDateDebut = existing.getDateDebut();
+                Date newDateDebut = updated.getDateDebut();
+                boolean dateDebutChanged = (oldDateDebut != null && newDateDebut != null && !oldDateDebut.equals(newDateDebut));
+
+                PaieConfigLegale predecessor = findPredecessor(id, oldDateDebut, c);
+                PaieConfigLegale successor = findSuccessor(id, oldDateDebut, c);
+
+                if (successor != null) {
+                    Date succDebut = successor.getDateDebut();
+                    if (newDateDebut != null && !newDateDebut.toLocalDate().isBefore(succDebut.toLocalDate())) {
+                        throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                            "La date de début (" + newDateDebut + ") ne peut pas dépasser ou égaler celle de l'exercice suivant (" + succDebut + ")."
+                        );
+                    }
+                    if (updated.getDateFin() == null) {
+                        updated.setDateFin(Date.valueOf(succDebut.toLocalDate().minusDays(1)));
+                    } else if (updated.getDateFin().toLocalDate().isAfter(succDebut.toLocalDate().minusDays(1))) {
+                        throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                            "La date de fin (" + updated.getDateFin() + ") ne peut pas empiéter sur l'exercice suivant (" + succDebut + ")."
+                        );
+                    }
+                }
+
+                if (predecessor != null && dateDebutChanged) {
+                    Date predDebut = predecessor.getDateDebut();
+                    if (!newDateDebut.toLocalDate().isAfter(predDebut.toLocalDate())) {
+                        throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                            "La date de début (" + newDateDebut + ") ne peut pas être antérieure ou égale à celle de l'exercice précédent (" + predDebut + ")."
+                        );
+                    }
+
+                    Date newVeille = Date.valueOf(newDateDebut.toLocalDate().minusDays(1));
+                    boolean movingEarlier = newDateDebut.toLocalDate().isBefore(oldDateDebut.toLocalDate());
+
+                    if (movingEarlier) {
+                        ajusterFinExercice(predecessor.getIdConfigLegale(), newVeille, c);
+                        updated.update(c);
+                    } else {
+                        updated.update(c);
+                        ajusterFinExercice(predecessor.getIdConfigLegale(), newVeille, c);
+                    }
+                } else {
+                    updated.update(c);
+                }
 
                 if (request.getTranchesIrsa() != null && !request.getTranchesIrsa().isEmpty()) {
                     // Nettoyer les tranches existantes pour cet exercice
@@ -207,10 +253,26 @@ public class PaieConfigLegaleController {
                         b.setDateFin(updated.getDateFin());
                         b.save(c);
                     }
+                } else if (dateDebutChanged) {
+                    String updIrsa = "UPDATE bareme_irsa SET date_debut = ?, date_fin = ? WHERE id_config_legale = ?";
+                    try (PreparedStatement ps = c.prepareStatement(updIrsa)) {
+                        ps.setDate(1, updated.getDateDebut());
+                        ps.setDate(2, updated.getDateFin());
+                        ps.setInt(3, id);
+                        ps.executeUpdate();
+                    }
                 }
 
                 if (request.getMajorations() != null && !request.getMajorations().isEmpty()) {
                     enregistrerMajorations(id, updated.getDateDebut(), updated.getDateFin(), request.getMajorations(), c);
+                } else if (dateDebutChanged) {
+                    String updMaj = "UPDATE ref_taux_majoration SET date_debut = ?, date_fin = ? WHERE id_config_legale = ?";
+                    try (PreparedStatement ps = c.prepareStatement(updMaj)) {
+                        ps.setDate(1, updated.getDateDebut());
+                        ps.setDate(2, updated.getDateFin());
+                        ps.setInt(3, id);
+                        ps.executeUpdate();
+                    }
                 }
 
                 AuditLog.audit(c, "CORRECTION", "paie_config_legale", String.valueOf(id), existing, updated);
@@ -360,5 +422,60 @@ public class PaieConfigLegaleController {
         p.setExonerationHsIrsaActive(exoActive);
         p.setPlafondMensuelHsExonerees(exoActive && r.getPlafondMensuelHsExonerees() != null ? r.getPlafondMensuelHsExonerees() : BigDecimal.ZERO);
         return p;
+    }
+
+    private PaieConfigLegale findPredecessor(int currentId, Date currentDebut, Connection c) throws Exception {
+        if (currentDebut == null) return null;
+        String sql = "SELECT * FROM paie_config_legale " +
+                     "WHERE id_config_legale != ? AND date_debut < ? " +
+                     "ORDER BY date_debut DESC LIMIT 1";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, currentId);
+            ps.setDate(2, currentDebut);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return PaieConfigLegale.findById(rs.getInt("id_config_legale"), c);
+                }
+            }
+        }
+        return null;
+    }
+
+    private PaieConfigLegale findSuccessor(int currentId, Date currentDebut, Connection c) throws Exception {
+        if (currentDebut == null) return null;
+        String sql = "SELECT * FROM paie_config_legale " +
+                     "WHERE id_config_legale != ? AND date_debut > ? " +
+                     "ORDER BY date_debut ASC LIMIT 1";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, currentId);
+            ps.setDate(2, currentDebut);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return PaieConfigLegale.findById(rs.getInt("id_config_legale"), c);
+                }
+            }
+        }
+        return null;
+    }
+
+    private void ajusterFinExercice(int idConfig, Date nouvelleDateFin, Connection c) throws Exception {
+        String updConfig = "UPDATE paie_config_legale SET date_fin = ?, updated_at = NOW() WHERE id_config_legale = ?";
+        try (PreparedStatement ps = c.prepareStatement(updConfig)) {
+            ps.setDate(1, nouvelleDateFin);
+            ps.setInt(2, idConfig);
+            ps.executeUpdate();
+        }
+        String updIrsa = "UPDATE bareme_irsa SET date_fin = ? WHERE id_config_legale = ?";
+        try (PreparedStatement ps = c.prepareStatement(updIrsa)) {
+            ps.setDate(1, nouvelleDateFin);
+            ps.setInt(2, idConfig);
+            ps.executeUpdate();
+        }
+        String updMaj = "UPDATE ref_taux_majoration SET date_fin = ? WHERE id_config_legale = ?";
+        try (PreparedStatement ps = c.prepareStatement(updMaj)) {
+            ps.setDate(1, nouvelleDateFin);
+            ps.setInt(2, idConfig);
+            ps.executeUpdate();
+        }
     }
 }

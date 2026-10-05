@@ -90,7 +90,8 @@ public class PaieStc extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         if (this.numeroRecu == null || this.numeroRecu.isBlank()) {
-            this.numeroRecu = genererNumeroRecu(c);
+            LocalDate dDep = this.dateDepart != null ? this.dateDepart.toLocalDate() : null;
+            this.numeroRecu = genererNumeroRecu(dDep, c);
         }
 
         String sql = "INSERT INTO paie_stc (" +
@@ -291,7 +292,11 @@ public class PaieStc extends ClassMere {
     }
 
     public static String genererNumeroRecu(Connection c) throws Exception {
-        int annee = LocalDate.now().getYear();
+        return genererNumeroRecu(null, c);
+    }
+
+    public static String genererNumeroRecu(LocalDate dateReference, Connection c) throws Exception {
+        int annee = dateReference != null ? dateReference.getYear() : LocalDate.now().getYear();
         String sqlSeq = "SELECT nextval('seq_numero_recu_stc')";
         long nextId = 1;
         try (PreparedStatement ps = c.prepareStatement(sqlSeq);

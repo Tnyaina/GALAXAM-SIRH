@@ -23,9 +23,7 @@ class PayrollOptionalParametersTest {
                 "MONTANT_PRIME_ASSIDUITE", "500",
                 "SEUIL_RETARD_PENALITE_PP_MIN", "70",
                 "SEUIL_CONGES_PENALITE_PP_JOURS", "1.0",
-                "TAUX_PENALITE_PP", "0.25",
-                "EXONERATION_HS_IRSA_ACTIVE", "TRUE",
-                "PLAFOND_MENSUEL_HS_EXONEREES", "20.00").entrySet()) {
+                "TAUX_PENALITE_PP", "0.25").entrySet()) {
             result.put(entry.getKey(), new ParametreGlobal.ParametreEtat(entry.getKey(), entry.getValue(), true, true));
         }
         return result;
@@ -80,17 +78,14 @@ class PayrollOptionalParametersTest {
     }
 
     @Test
-    void disablingEitherExemptionParameterCancelsLegalExemption() {
-        for (String code : List.of("EXONERATION_HS_IRSA_ACTIVE", "PLAFOND_MENSUEL_HS_EXONEREES")) {
-            var params = parameters();
-            disable(params, code);
-            var input = primeInput();
-            input.setExonerationHsIrsaActive(true); // configuration légale déjà chargée
-            input.setPlafondMensuelHsExonerees(new BigDecimal("20"));
-            PayrollLegalContextResolver.applyDynamicParameters(input, params);
-            assertFalse(input.isAppliquerExonerationHs(), code);
-            assertEquals(0, input.getPlafondMensuelHsExonerees().compareTo(BigDecimal.ZERO), code);
-        }
+    void dynamicParametersDoNotOverrideLegalExemptionFromLoiDeFinances() {
+        var params = parameters();
+        var input = primeInput();
+        input.setExonerationHsIrsaActive(true); // configuration légale issue de la Loi de Finances
+        input.setPlafondMensuelHsExonerees(new BigDecimal("20"));
+        PayrollLegalContextResolver.applyDynamicParameters(input, params);
+        assertTrue(input.isExonerationHsIrsaActive());
+        assertEquals(0, input.getPlafondMensuelHsExonerees().compareTo(new BigDecimal("20")));
     }
 
     @Test

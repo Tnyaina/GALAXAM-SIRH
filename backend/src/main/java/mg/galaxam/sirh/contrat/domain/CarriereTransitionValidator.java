@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -191,7 +192,8 @@ public final class CarriereTransitionValidator {
                     "Aucune période d'essai EN_COURS trouvée pour ce contrat. Impossible de renouveler une période déjà terminée, confirmée ou inexistante.");
         }
 
-        int maxRenouvellements = resolveParametreGlobalInt("MAX_RENOUVELLEMENTS_ESSAI", 1, c);
+        LocalDate refDate = dateDecision != null ? dateDecision.toLocalDate() : LocalDate.now();
+        int maxRenouvellements = resolveParametreGlobalInt("MAX_RENOUVELLEMENTS_ESSAI", refDate, 1, c);
         Date finEssaiEnCours = null;
         String sql = "SELECT COUNT(*), MAX(date_fin_prevue) FROM contrat_periode_essai " +
                 "WHERE id_contrat = ? AND numero_periode > 1";
@@ -247,7 +249,8 @@ public final class CarriereTransitionValidator {
             throw new IllegalArgumentException(
                     "Un CDD doit avoir une durée minimale d'un mois selon le Code du travail malgache.");
         }
-        int maxDureeIndividuelle = resolveParametreGlobalInt("DUREE_MAX_CONTRAT_CDD_MOIS", 24, c);
+        LocalDate refDate = dateDebut.toLocalDate();
+        int maxDureeIndividuelle = resolveParametreGlobalInt("DUREE_MAX_CONTRAT_CDD_MOIS", refDate, 24, c);
         if (dateFin.toLocalDate().isAfter(dateDebut.toLocalDate().plusMonths(maxDureeIndividuelle))) {
             throw new IllegalArgumentException(
                     "Chaque CDD, renouvellement compris, ne peut excéder " + maxDureeIndividuelle
@@ -264,7 +267,8 @@ public final class CarriereTransitionValidator {
         exigerContrat(idContrat, "Le renouvellement de CDD nécessite un contrat source.");
         validerDureeContratCDD(dateDebut, dateFin, c);
 
-        int maxRenouvellements = resolveParametreGlobalInt("NB_MAX_RENOUVELLEMENTS_CDD", 2, c);
+        LocalDate refDate = dateDebut.toLocalDate();
+        int maxRenouvellements = resolveParametreGlobalInt("NB_MAX_RENOUVELLEMENTS_CDD", refDate, 2, c);
         int nbExistants = compterRenouvellementsCDD(idContrat, c);
         if (nbExistants >= maxRenouvellements) {
             throw new IllegalArgumentException(
@@ -272,7 +276,7 @@ public final class CarriereTransitionValidator {
                             + maxRenouvellements + "). Au-delà, le contrat doit être requalifié en CDI.");
         }
 
-        int maxMoisCumule = resolveParametreGlobalInt("DUREE_MAX_CDD_MOIS", 72, c);
+        int maxMoisCumule = resolveParametreGlobalInt("DUREE_MAX_CDD_MOIS", refDate, 72, c);
         double dureeCumuleeMois = calculerDureeCumuleeCDD(idContrat, dateDebut, dateFin, c);
         if (dureeCumuleeMois > maxMoisCumule) {
             throw new IllegalArgumentException(
@@ -383,21 +387,29 @@ public final class CarriereTransitionValidator {
     }
 
     public static int resolveParametreGlobalInt(String code, int defaultValue, Connection c) throws Exception {
-        try (PreparedStatement ps = c.prepareStatement(
-                "SELECT valeur FROM parametre_global WHERE code_parametre = ? AND est_actif = TRUE " +
-                "ORDER BY (CASE WHEN date_debut <= CURRENT_DATE AND (date_fin IS NULL OR date_fin >= CURRENT_DATE) THEN 0 ELSE 1 END), date_debut DESC LIMIT 1")) {
+        return resolveParametreGlobalInt(code, LocalDate.now(), defaultValue, c);
+    }
+
+    public static int resolveParametreGlobalInt(String code, LocalDate dateRef, int defaultValue, Connection c) throws Exception {
+        LocalDate target = dateRef != null ? dateRef : LocalDate.now();
+        String sql = "SELECT valeur FROM parametre_global WHERE code_parametre = ? AND est_actif = TRUE " +
+                "AND date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) " +
+                "ORDER BY date_debut DESC";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, code);
+            ps.setDate(2, Date.valueOf(target));
+            ps.setDate(3, Date.valueOf(target));
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    try {
-                        return Integer.parseInt(rs.getString(1).trim());
-                    } catch (NumberFormatException ignored) {
-                        // fallback below
+                    String val = rs.getString(1);
+                    if (rs.next()) {
+                        throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: Plusieurs configurations actives pour " + code + " au " + target);
+                    }
+                    if (val != null && !val.isBlank()) {
+                        return Integer.parseInt(val.trim());
                     }
                 }
             }
-        } catch (Exception ignored) {
-            // fallback below
         }
         return defaultValue;
     }

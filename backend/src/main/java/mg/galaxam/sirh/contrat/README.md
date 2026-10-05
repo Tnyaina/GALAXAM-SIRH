@@ -10,9 +10,9 @@ règles propres (tarifs, calendrier, cotisations).
 
 Ce dossier regroupe le cycle complet du personnel, des contrats et de l'évolution de carrière.
 
-- `api/` : contrôleurs REST (`EmployeController`, `ContratTravailController`, `ContratGlobalController`, `WorkflowRhController`, `RefCarriereController`, `DocumentRhController`, `DocumentOfficielRhController`, `EmployePhotoController`, `RefTypeDocumentController`)
+- `api/` : contrôleurs REST (`EmployeController`, `ContratTravailController`, `ContratGlobalController`, `WorkflowRhController`, `RefCarriereController`, `DocumentRhController`)
 - `api/dto/` : contrats DTO (`EmployeRequest`, `ContratTravailGlobalDTO`, `ContratTravailDocumentDTO`, `EmbaucheInitialeRequest`, `TransitionCarriereRequest`, `ValiderWorkflowRequest`, etc.)
-- `application/` : services applicatifs (`EmployeService`, `WorkflowRhService`, `DocumentRhService` - moteur de génération contractuelle Word .docx via Apache POI)
+- `application/` : services applicatifs (`EmployeService`, `WorkflowRhService`, `DocumentRhService` - moteur de génération contractuelle Word .docx via Apache POI, `EmploymentContextResolver`, `EmployerIdentityContextResolver`, `CarriereExportService`)
 - `domain/` : moteurs et règles métier (`CarriereTransitionValidator`, `ContratValidationEngine`, `AncienneteEngine`, `EmployeValidationEngine`, `MatriculeGeneratorEngine`)
 - `persistence/` : entités Active Record et requêtes SQL (`Employe`, `EmployeCPL`, `ContratTravail`, `WorkflowRh`, `DocumentRh`, `DocumentRhCPL`, `EmployeConjoint`, `EmployeEnfant`, etc.)
 

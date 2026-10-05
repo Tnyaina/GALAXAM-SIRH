@@ -2,7 +2,8 @@ import FormError from '@/components/ui/feedback/FormError';
 import { MapPin, Clock, Sun, Sunset } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
-import Input, { Select, Checkbox } from '@/components/ui/forms/Input';
+import Input, { Checkbox } from '@/components/ui/forms/Input';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 
 export default function SiteFormModal({
     isOpen,
@@ -79,26 +80,25 @@ export default function SiteFormModal({
                         </div>
                     </div>
 
-                    <Select
+                    <SearchSelect
                         label="Filiale de Rattachement Juridique"
+                        placeholder="-- Sélectionner une filiale --"
                         value={formData.idFilialeRattachement}
-                        onChange={(e) => {
-                            setFormData({ ...formData, idFilialeRattachement: e.target.value });
+                        onChange={(val) => {
+                            setFormData({ ...formData, idFilialeRattachement: val });
                             if (fieldErrors.idFilialeRattachement && setFieldErrors) {
                                 setFieldErrors(prev => ({ ...prev, idFilialeRattachement: undefined }));
                             }
                         }}
                         error={fieldErrors.idFilialeRattachement}
-                    >
-                        <option value="">-- Sélectionner une filiale --</option>
-                        {filiales
-                            .filter(f => f.estActif !== false && f.actif !== false || String(f.idFiliale) === String(formData.idFilialeRattachement))
-                            .map((f) => (
-                                <option key={f.idFiliale} value={f.idFiliale}>
-                                    {f.raisonSociale} ({f.codeFiliale})
-                                </option>
-                            ))}
-                    </Select>
+                        options={filiales
+                            .filter(f => (f.estActif !== false && f.actif !== false) || String(f.idFiliale) === String(formData.idFilialeRattachement))
+                            .map((f) => ({
+                                value: String(f.idFiliale),
+                                label: f.raisonSociale,
+                                sublabel: f.codeFiliale,
+                            }))}
+                    />
                 </div>
 
                 {/* Section 2 : Régime & Plages Horaires */}

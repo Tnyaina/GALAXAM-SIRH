@@ -693,6 +693,9 @@ public class PayrollService {
             if ("CLOTURE".equalsIgnoreCase(existant.getStatut())) {
                 throw new IllegalStateException("Le bulletin " + existant.getReferenceBulletin() + " est clôturé et strictement immuable.");
             }
+            if ("VALIDE".equalsIgnoreCase(existant.getStatut())) {
+                throw new IllegalStateException("Le bulletin " + existant.getReferenceBulletin() + " est validé et immuable. Une réouverture préalable est obligatoire avant tout recalcul.");
+            }
             // Réutilisation de l'id existant
             bp.setIdBulletin(existant.getIdBulletin());
             bp.setReferenceBulletin(existant.getReferenceBulletin());

@@ -200,7 +200,7 @@ export default function InitialisationSoldeModal({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
+              <label className="block h-10 sm:h-12 text-xs font-medium text-[var(--color-fg)] mb-1 leading-tight">
                 Date de la dernière clôture de paie reprise <span className="text-[var(--color-danger-500)]">*</span>
               </label>
               <Input
@@ -212,7 +212,7 @@ export default function InitialisationSoldeModal({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
+              <label className="block h-10 sm:h-12 text-xs font-medium text-[var(--color-fg)] mb-1 leading-tight">
                 Solde disponible (jours) <span className="text-[var(--color-danger-500)]">*</span>
               </label>
               <Input
@@ -227,7 +227,7 @@ export default function InitialisationSoldeModal({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[var(--color-fg)] mb-1">
+              <label className="block h-10 sm:h-12 text-xs font-medium text-[var(--color-fg)] mb-1 leading-tight">
                 Dernier TCONGE applicable certifié (Ar / jour) <span className="text-[var(--color-danger-500)]">*</span>
               </label>
               <MoneyInput

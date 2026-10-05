@@ -43,7 +43,7 @@ export default function WorkflowStepper({ steps = [], currentStep, onStepClick, 
                                             : 'cursor-default'
                                     }
                                     ${isActive
-                                        ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] border-[var(--color-brand-500)] shadow-sm'
+                                        ? 'bg-[var(--color-brand-500)]/[0.08] text-[var(--color-brand-800)] dark:text-[var(--color-brand-200)] border-[var(--color-brand-500)]/50 shadow-none'
                                         : isDone
                                             ? 'bg-[var(--color-success-500)]/10 text-[var(--color-success-600)] dark:text-[var(--color-success-400)] border-[var(--color-success-500)]/40'
                                             : isLocked
@@ -62,7 +62,7 @@ export default function WorkflowStepper({ steps = [], currentStep, onStepClick, 
                                 ) : (
                                     <span className={`flex items-center justify-center w-4 h-4 text-[9px] font-black border rounded-full shrink-0 ${
                                         isActive
-                                            ? 'bg-[var(--color-surface)]/20 border-[var(--color-on-color)]/40 text-[var(--color-on-color)]'
+                                            ? 'bg-[var(--color-brand-500)]/15 border-[var(--color-brand-500)]/35 text-[var(--color-brand-800)] dark:text-[var(--color-brand-200)]'
                                             : isDone
                                                 ? 'bg-[var(--color-success-500)]/20 border-[var(--color-success-500)]/40 text-[var(--color-success-600)]'
                                                 : 'bg-[var(--color-bg-subtle)] border-[var(--color-border)] text-[var(--color-fg-muted)]'
@@ -78,7 +78,7 @@ export default function WorkflowStepper({ steps = [], currentStep, onStepClick, 
                                 {step.sublabel && isActive && (
                                     <span className={`text-[9px] font-bold px-1.5 py-0.5 border ${
                                         isActive
-                                            ? 'bg-[var(--color-surface)]/15 border-[var(--color-on-color)]/30 text-[var(--color-on-color)]'
+                                            ? 'bg-[var(--color-surface)]/10 border-[var(--color-brand-500)]/35 text-[var(--color-brand-800)] dark:text-[var(--color-brand-200)]'
                                             : 'bg-[var(--color-bg-subtle)] border-[var(--color-border)] text-[var(--color-fg-muted)]'
                                     }`}>
                                         {step.sublabel}

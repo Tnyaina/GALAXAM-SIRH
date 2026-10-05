@@ -7,7 +7,7 @@ import paieConfigService from '@/features/administration/api/paieConfigService';
 import organisationService from '@/features/organization/api/organisationService';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
-import Input, { Select, Checkbox } from '@/components/ui/forms/Input';
+import Input, { Checkbox } from '@/components/ui/forms/Input';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import MoneyInput from '@/components/ui/forms/MoneyInput';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -54,7 +54,6 @@ export default function IndemnitesSitesTab() {
     // Modale Indemnité
     const [showIndemniteModal, setShowIndemniteModal] = useState(false);
     const [editingIndemnite, setEditingIndemnite] = useState(null);
-    const [qualificationGuide, setQualificationGuide] = useState('');
     const [indemniteFormData, setIndemniteFormData] = useState({
         code: '', libelle: '', codeRubriquePaie: '', imposableIrsa: '', soumisCotisation: '', fractionnable: false
     });
@@ -266,7 +265,6 @@ export default function IndemnitesSitesTab() {
                         <Button
                             onClick={() => {
                                 setEditingIndemnite(null);
-                                setQualificationGuide('');
                                 setIndemniteFormData({ code: '', libelle: '', codeRubriquePaie: '', imposableIrsa: '', soumisCotisation: '', fractionnable: false });
                                 setActionError(null);
                                 setShowIndemniteModal(true);
@@ -299,7 +297,6 @@ export default function IndemnitesSitesTab() {
                                             actionLabel="Créer une indemnité"
                                             onAction={() => {
                                                 setEditingIndemnite(null);
-                                                setQualificationGuide('');
                                                 setIndemniteFormData({ code: '', libelle: '', codeRubriquePaie: '', imposableIrsa: '', soumisCotisation: '', fractionnable: false });
                                                 setActionError(null);
                                                 setShowIndemniteModal(true);
@@ -338,7 +335,6 @@ export default function IndemnitesSitesTab() {
                                                     <button
                                                         onClick={() => {
                                                             setEditingIndemnite(ind);
-                                                            setQualificationGuide('');
                                                             setIndemniteFormData({
                                                                 code: ind.code,
                                                                 libelle: ind.libelle,
@@ -586,63 +582,30 @@ export default function IndemnitesSitesTab() {
                             <h3 className="text-xs font-bold text-[var(--color-fg)]">Traitement en paie</h3>
                             <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">Paramètres appliqués au montant calculé par le pointage.</p>
                         </div>
-                        <Select
-                            label="Aide : que représente ce versement ?"
-                            value={qualificationGuide}
-                            onChange={(e) => setQualificationGuide(e.target.value)}
-                            hint="Cette aide oriente le choix ; la qualification doit correspondre aux faits et aux pièces disponibles."
-                        >
-                            <option value="">-- Choisir un cas --</option>
-                            <option value="remuneration">Complément de rémunération</option>
-                            <option value="frais">Remboursement de frais engagés</option>
-                            <option value="mixte">Montant mêlant frais et rémunération</option>
-                            <option value="autre">Autre fondement à vérifier</option>
-                        </Select>
-                        {qualificationGuide === 'remuneration' && (
-                            <div className="text-xs text-[var(--color-fg-muted)] space-y-2">
-                                <p>Traitement proposé : IRSA et assiette sociale. Vérifiez le régime propre au versement.</p>
-                                <button type="button" className="font-semibold text-[var(--color-brand-600)] underline cursor-pointer" onClick={() => setIndemniteFormData(p => ({ ...p, imposableIrsa: true, soumisCotisation: true }))}>
-                                    Appliquer cette proposition
-                                </button>
-                            </div>
-                        )}
-                        {qualificationGuide === 'frais' && (
-                            <p className="text-xs text-[var(--color-warning-800)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-3">
-                                Conservez la preuve des frais réellement engagés. Si ce versement est un remboursement ponctuel, utilisez le circuit de notes de frais avec justificatif ; ne qualifiez pas un forfait de frais sans vérifier ce qu'il couvre.
-                            </p>
-                        )}
-                        {qualificationGuide === 'mixte' && (
-                            <p className="text-xs text-[var(--color-warning-800)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-3">
-                                Séparez la part remboursant les frais de la part constituant une rémunération : cette fiche applique un seul traitement à tout son montant.
-                            </p>
-                        )}
-                        {qualificationGuide === 'autre' && (
-                            <p className="text-xs text-[var(--color-warning-800)] bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] p-3">
-                                Vérifiez le texte applicable et les justificatifs avant de qualifier l'IRSA et les cotisations.
-                            </p>
-                        )}
-                        <Select
+                        <SearchSelect
                             label="Imposable à l'IRSA"
                             required
-                            value={indemniteFormData.imposableIrsa}
-                            onChange={(e) => setIndemniteFormData({ ...indemniteFormData, imposableIrsa: e.target.value === '' ? '' : e.target.value === 'true' })}
+                            value={indemniteFormData.imposableIrsa === '' ? '' : String(indemniteFormData.imposableIrsa)}
+                            onChange={(val) => setIndemniteFormData({ ...indemniteFormData, imposableIrsa: val === '' ? '' : val === 'true' })}
+                            options={[
+                                { value: 'true', label: 'Oui — imposable' },
+                                { value: 'false', label: 'Non — hors assiette IRSA' }
+                            ]}
+                            placeholder="-- À qualifier --"
                             hint="Un complément de salaire est en principe imposable ; vérifiez la nature réelle d'un remboursement de frais."
-                        >
-                            <option value="">-- À qualifier --</option>
-                            <option value="true">Oui — imposable</option>
-                            <option value="false">Non — hors assiette IRSA</option>
-                        </Select>
-                        <Select
+                        />
+                        <SearchSelect
                             label="Soumise aux cotisations sociales"
                             required
-                            value={indemniteFormData.soumisCotisation}
-                            onChange={(e) => setIndemniteFormData({ ...indemniteFormData, soumisCotisation: e.target.value === '' ? '' : e.target.value === 'true' })}
+                            value={indemniteFormData.soumisCotisation === '' ? '' : String(indemniteFormData.soumisCotisation)}
+                            onChange={(val) => setIndemniteFormData({ ...indemniteFormData, soumisCotisation: val === '' ? '' : val === 'true' })}
+                            options={[
+                                { value: 'true', label: 'Oui' },
+                                { value: 'false', label: 'Non' }
+                            ]}
+                            placeholder="-- À qualifier --"
                             hint="Selon la nature du paiement : rémunération ou remboursement de frais. Ce choix pilote CNaPS, Santé et FMFP."
-                        >
-                            <option value="">-- À qualifier --</option>
-                            <option value="true">Oui</option>
-                            <option value="false">Non</option>
-                        </Select>
+                        />
                         <div className="border-t border-[var(--color-border-subtle)] pt-3" aria-live="polite">
                             <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)]">Aperçu du traitement</p>
                             <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-2 mt-2 text-xs">
@@ -712,18 +675,14 @@ export default function IndemnitesSitesTab() {
                         placeholder="-- Choisir une indemnité --"
                     />
                     <div className="grid grid-cols-2 gap-3">
-                        <Select
+                        <SearchSelect
                             label="Périodicité"
                             required
                             value={siteIndemniteFormData.periodicite}
-                            onChange={(e) => setSiteIndemniteFormData({ ...siteIndemniteFormData, periodicite: e.target.value })}
-                        >
-                            {periodiciteOptions.map((p) => (
-                                <option key={p.value} value={p.value}>
-                                    {p.label}
-                                </option>
-                            ))}
-                        </Select>
+                            onChange={(val) => setSiteIndemniteFormData({ ...siteIndemniteFormData, periodicite: val })}
+                            options={periodiciteOptions}
+                            placeholder="-- Choisir une périodicité --"
+                        />
                         <MoneyInput
                             label="Montant (Ar)"
                             min="0"

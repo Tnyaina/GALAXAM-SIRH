@@ -447,23 +447,23 @@ export default function CarrieresSupervisionPage() {
                         </div>
                     )}
 
-                    {/* Légende locale : elle n'est utile que sur cet écran de supervision. */}
-                    <div className="flex items-center gap-4 flex-wrap text-xs text-[var(--color-fg-muted)] px-1 pt-2">
-                        <span className="font-extrabold uppercase tracking-wider text-[var(--color-fg)]">
-                            Repère couleur :
+                    {/* Légende locale : repères de vigilance carrière */}
+                    <div className="flex items-center gap-3 sm:gap-4 flex-wrap text-xs text-[var(--color-fg-muted)] p-2.5 px-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] mt-2">
+                        <span className="font-bold uppercase tracking-wider text-[10px] text-[var(--color-fg)] mr-1">
+                            Légende :
                         </span>
-                        <span className="inline-flex items-center gap-1.5">
-                            <span className="w-3 h-1 bg-[var(--color-brand-500)] inline-block" />
-                            En attente de signature
-                        </span>
-                        <span className="inline-flex items-center gap-1.5">
-                            <span className="w-3 h-1 bg-[var(--color-warning-500)] inline-block" />
-                            Échéance proche (&lt; 60 j)
-                        </span>
-                        <span className="inline-flex items-center gap-1.5">
-                            <span className="w-3 h-1 bg-[var(--color-danger-500)] inline-block" />
-                            Doublon potentiel à vérifier
-                        </span>
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-2xs">
+                            <span className="w-2.5 h-2.5 bg-[var(--color-purple-500)] shrink-0 inline-block" />
+                            <span className="text-[11px] font-medium text-[var(--color-fg)]">En attente de signature</span>
+                        </div>
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-2xs">
+                            <span className="w-2.5 h-2.5 bg-[var(--color-warning-500)] shrink-0 inline-block" />
+                            <span className="text-[11px] font-medium text-[var(--color-fg)]">Échéance proche (&lt; 60 j)</span>
+                        </div>
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-2xs">
+                            <span className="w-2.5 h-2.5 bg-[var(--color-danger-500)] shrink-0 inline-block" />
+                            <span className="text-[11px] font-medium text-[var(--color-fg)]">Doublon potentiel à vérifier</span>
+                        </div>
                     </div>
 
                     {/* Modale de Comparaison des Doublons */}

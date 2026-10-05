@@ -11,6 +11,7 @@ import congeService from '../api/congeService';
 vi.mock('../api/congeService', () => ({ default: {
   getAllDemandes: vi.fn(),
   getAllReferentiels: vi.fn(),
+  getPeriodesEnAttenteActivation: vi.fn(),
   telechargerGrandRecapCongesExcel: vi.fn(),
 } }));
 vi.mock('@/components/system/SEO', () => ({ default: () => null }));
@@ -27,6 +28,7 @@ beforeEach(() => {
   document.body.appendChild(host);
   root = createRoot(host);
   vi.clearAllMocks();
+  congeService.getPeriodesEnAttenteActivation.mockResolvedValue([]);
 });
 
 afterEach(async () => {

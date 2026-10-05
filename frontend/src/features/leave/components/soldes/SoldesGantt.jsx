@@ -681,6 +681,37 @@ export default function SoldesGantt({
         )}
       </div>
 
+      {/* Légende du planning des congés */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 p-2.5 px-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-xs text-[var(--color-fg)]">
+        <span className="font-bold text-[var(--color-fg)] uppercase tracking-wider text-[10px] mr-1">
+          Légende :
+        </span>
+        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-2xs">
+          <span className="w-2.5 h-2.5 bg-[var(--color-brand-600)] shrink-0 inline-block" />
+          <span className="text-[11px] font-medium text-[var(--color-fg)]">Congé validé</span>
+        </div>
+        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-2xs">
+          <span className="w-2.5 h-2.5 bg-[var(--color-warning-500)] shrink-0 inline-block" />
+          <span className="text-[11px] font-medium text-[var(--color-fg)]">En attente</span>
+        </div>
+        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-2xs">
+          <span className="w-2.5 h-2.5 bg-[var(--color-danger-600)] shrink-0 inline-block" />
+          <span className="text-[11px] font-medium text-[var(--color-fg)]">Maladie</span>
+        </div>
+        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-2xs">
+          <span className="w-2.5 h-2.5 bg-[var(--color-orange-500)] shrink-0 inline-block" />
+          <span className="text-[11px] font-medium text-[var(--color-fg)]">Exceptionnel</span>
+        </div>
+        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-2xs">
+          <span className="w-2.5 h-2.5 bg-[var(--color-brand-500)]/20 border border-[var(--color-brand-500)] shrink-0 inline-block" />
+          <span className="text-[11px] font-medium text-[var(--color-fg)]">Aujourd'hui</span>
+        </div>
+        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-2xs">
+          <span className="w-2.5 h-2.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] shrink-0 inline-block" />
+          <span className="text-[11px] font-medium text-[var(--color-fg)]">Weekend / Repos</span>
+        </div>
+      </div>
+
       {/* Pagination du Gantt */}
       {totalGanttItems > ganttPageSize && (
         <Pagination

@@ -6,6 +6,7 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/data-disp
 import StatCard from '@/components/ui/data-display/StatCard';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
@@ -17,13 +18,13 @@ import { getErrorMessage } from '@/api/apiClient';
 export default function SortiesStepPage() {
     const { periodId } = useParams();
     const navigate = useNavigate();
+    const toast = useToast();
     const id = Number(periodId) || null;
     const { periodes, context, loading, refreshSilent } = usePayrollCampaign(id);
     const [cockpit, setCockpit] = useState(null);
     const [cockpitError, setCockpitError] = useState('');
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [closing, setClosing] = useState(false);
-    const [feedback, setFeedback] = useState(null);
     const period = context?.selectedPeriod || context?.currentPeriod;
     const status = period?.workflowStatuses?.paie?.code || period?.state;
     const closed = status === 'CLOTUREE';
@@ -43,18 +44,18 @@ export default function SortiesStepPage() {
     const closePeriod = useCallback(async () => {
         if (!id || !canClose) return;
         setClosing(true);
-        setFeedback(null);
         try {
             await periodePaieService.executeCommand(id, 'CLOSE', { version: period?.version });
             setConfirmOpen(false);
-            setFeedback({ type: 'success', message: 'Période clôturée. Les documents restent consultables.' });
-            await refreshSilent();
+            toast.success('Période clôturée. Les documents restent consultables.');
+            window.dispatchEvent(new CustomEvent('sirh:period-updated', { detail: { periodId: id } }));
+            await refreshSilent(id, { reloadPeriods: true });
         } catch (error) {
-            setFeedback({ type: 'error', message: getErrorMessage(error, 'La clôture a échoué.') });
+            toast.error(getErrorMessage(error, 'La clôture a échoué.'));
         } finally {
             setClosing(false);
         }
-    }, [id, canClose, period, refreshSilent]);
+    }, [id, canClose, period, refreshSilent, toast]);
 
     const kpis = cockpit?.kpis || {};
     const totalBrut = kpis.totalGainsBruts ?? kpis.totalBrut ?? kpis.masseSalarialeBrute ?? null;
@@ -71,7 +72,6 @@ export default function SortiesStepPage() {
             } : undefined}
             footerCenter={closed ? 'Période clôturée · consultation des documents maintenue' : undefined}>
             <div className="space-y-4">
-                {feedback && <Alert type={feedback.type} message={feedback.message} onClose={() => setFeedback(null)} />}
                 {cockpitError && <Alert type="warning" message={cockpitError} />}
                 {!validated && <Alert type="warning" title="Validation requise" message="Validez la paie avant la clôture et l’accès aux documents de la période." />}
                 {closed && <Alert type="success" title="Période clôturée" message="La période est en lecture seule. Les bulletins individuels restent accessibles." />}

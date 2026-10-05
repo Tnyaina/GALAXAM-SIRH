@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Plus, Edit2, FileText, Power } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiClient';
 import documentRhService from '@/features/employees/api/documentRhService';
-import Input, { Textarea, Select, Checkbox } from '@/components/ui/forms/Input';
+import Input, { Textarea, Checkbox } from '@/components/ui/forms/Input';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -293,14 +294,14 @@ export default function DocumentTypeManagementTab() {
                         }}
                         placeholder="Ex: Extrait de Casier Judiciaire (Bulletin n°3)"
                     />
-                    <Select
+                    <SearchSelect
                         label="Catégorie de rattachement"
                         required
                         value={formData.categorie}
-                        onChange={e => setFormData({ ...formData, categorie: e.target.value })}
-                    >
-                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </Select>
+                        onChange={val => setFormData({ ...formData, categorie: val })}
+                        options={CATEGORIES.map(c => ({ value: c, label: c }))}
+                        placeholder="-- Sélectionner une catégorie --"
+                    />
                     <Textarea
                         label="Description / Consignes (Optionnel)"
                         rows={2}

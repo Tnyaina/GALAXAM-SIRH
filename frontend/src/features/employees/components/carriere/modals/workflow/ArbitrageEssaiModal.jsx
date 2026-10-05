@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { UserCheck, RefreshCw } from 'lucide-react';
 import FormError from '@/components/ui/feedback/FormError';
 import Button from '@/components/ui/forms/Button';
-import Input, { Textarea, Select } from '@/components/ui/forms/Input';
+import Input, { Textarea } from '@/components/ui/forms/Input';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Modal from '@/components/ui/overlays/Modal';
 import contratService from '@/features/employees/api/contratService';
 import { fmtDateFr, fmtDateInput } from '@/utils/dateUtils';
@@ -259,16 +260,18 @@ export default function ArbitrageEssaiModal({
                 ) : (
                     <>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <Select
+                            <SearchSelect
                                 label="Prolongation accordée"
                                 value={dureeProlongationMois}
-                                onChange={e => setDureeProlongationMois(e.target.value)}
+                                onChange={val => setDureeProlongationMois(val)}
                                 required
-                            >
-                                <option value="1">+ 1 mois</option>
-                                <option value="2">+ 2 mois</option>
-                                <option value="3">+ 3 mois</option>
-                            </Select>
+                                options={[
+                                    { value: '1', label: '+ 1 mois' },
+                                    { value: '2', label: '+ 2 mois' },
+                                    { value: '3', label: '+ 3 mois' }
+                                ]}
+                                placeholder="-- Choisir la durée --"
+                            />
 
                             <Input
                                 type="date"

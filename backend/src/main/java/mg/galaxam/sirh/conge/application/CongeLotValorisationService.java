@@ -27,10 +27,16 @@ public class CongeLotValorisationService {
     /** Corrige seulement le reliquat de reprise. L'écart sur les prises antérieures reste à examiner en paie. */
     public CorrectionCutover corrigerReliquatCutover(int employe, BigDecimal nouveauxJours,
             BigDecimal nouvelleValeur, String motif, int auteur, Connection c) throws SQLException {
+        return corrigerReliquatCutover(employe, nouveauxJours, nouvelleValeur, motif, auteur, LocalDate.now(), c);
+    }
+
+    public CorrectionCutover corrigerReliquatCutover(int employe, BigDecimal nouveauxJours,
+            BigDecimal nouvelleValeur, String motif, int auteur, LocalDate dateEffet, Connection c) throws SQLException {
         if (nouveauxJours == null || nouvelleValeur == null || nouveauxJours.signum() < 0
                 || nouvelleValeur.signum() < 0 || motif == null || motif.isBlank()) {
             throw new IllegalArgumentException("Reliquat, valeur et motif DAF obligatoires.");
         }
+        LocalDate dateMetier = dateEffet != null ? dateEffet : LocalDate.now();
         try (PreparedStatement verrou = c.prepareStatement("SELECT id_mouvement "
                 + "FROM mouvement_solde_conge WHERE id_employe = ? AND type_mouvement = 'AJUSTEMENT' "
                 + "AND (commentaire LIKE '[SOLDE_INITIAL]%' OR commentaire LIKE 'Reprise cutover - Solde initial%') "
@@ -41,7 +47,7 @@ public class CongeLotValorisationService {
                 if (rs.next()) throw new IllegalStateException("CONGE_CUTOVER_SOURCE_AMBIGUOUS");
             }
         }
-        var situation = situation(employe, LocalDate.now(), c);
+        var situation = situation(employe, dateMetier, c);
         int reprise = -1;
         BigDecimal anciensJours = BigDecimal.ZERO;
         BigDecimal ancienneValeur = BigDecimal.ZERO;
@@ -86,9 +92,10 @@ public class CongeLotValorisationService {
         int ajustement;
         try (PreparedStatement ps = c.prepareStatement("INSERT INTO mouvement_solde_conge "
                 + "(id_employe, type_mouvement, nb_jours, date_mouvement, commentaire, created_by) "
-                + "VALUES (?, 'AJUSTEMENT', ?, CURRENT_DATE, ?, ?) RETURNING id_mouvement")) {
+                + "VALUES (?, 'AJUSTEMENT', ?, ?, ?, ?) RETURNING id_mouvement")) {
             ps.setInt(1, employe); ps.setBigDecimal(2, nouveauxJours.subtract(anciensJours));
-            ps.setString(3, "Correction DAF du reliquat de reprise : " + motif.trim()); ps.setInt(4, auteur);
+            ps.setDate(3, Date.valueOf(dateMetier));
+            ps.setString(4, "Correction DAF du reliquat de reprise : " + motif.trim()); ps.setInt(5, auteur);
             try (ResultSet rs = ps.executeQuery()) { rs.next(); ajustement = rs.getInt(1); }
         }
         try (PreparedStatement ps = c.prepareStatement("INSERT INTO conge_cutover_correction "

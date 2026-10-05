@@ -87,7 +87,7 @@ export function Tabs({
                                 flex items-center gap-1.5 py-2 px-3 border-b-2 text-xs font-semibold cursor-pointer whitespace-nowrap rounded-none
                                 focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)] focus-visible:outline-offset-[-2px]
                                 ${isActive
-                                    ? 'border-[var(--color-brand-500)] text-[var(--color-brand-500)] font-bold'
+                                ? 'border-[var(--color-brand-600)] text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] font-bold'
                                     : 'border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
                                 }
                                 ${tab.disabled ? 'opacity-50 cursor-not-allowed' : ''}
@@ -98,7 +98,7 @@ export function Tabs({
                             {badgeVal !== undefined && (
                                 <span className={`px-1.5 py-0.5 text-[10.5px] font-data font-bold rounded-none ${
                                     isActive
-                                        ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-500)]'
+                                        ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]'
                                         : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'
                                 }`}>
                                     {badgeVal}
@@ -135,7 +135,7 @@ export function Tabs({
                         type="button"
                         disabled={tab.disabled}
                         onClick={() => onChange(tab.id)}
-                        variant={isActive ? 'primary' : 'ghost'}
+                        variant={isActive ? 'outline' : 'ghost'}
                         size="sm"
                         iconLeft={tab.icon}
                         className="whitespace-nowrap cursor-pointer"
@@ -144,7 +144,7 @@ export function Tabs({
                         {tab.count !== undefined && (
                             <span className={`ml-1.5 px-1.5 py-0.5 text-[10px] font-data font-bold rounded-none ${
                                 isActive
-                                    ? 'bg-[var(--color-surface)]/20 text-[var(--color-on-color)]'
+                                    ? 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]'
                                     : 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'
                             }`}>
                                 {tab.count}
@@ -158,4 +158,3 @@ export function Tabs({
 }
 
 export default Tabs;
-

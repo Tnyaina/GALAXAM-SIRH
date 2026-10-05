@@ -163,11 +163,20 @@ public class SiteIndemniteConfig extends ClassMere {
      * @throws Exception en cas d'erreur SQL
      */
     public static int desactiverParIndemnite(int idIndemnite, Connection c) throws Exception {
+        return desactiverParIndemnite(idIndemnite, java.time.LocalDate.now(), c);
+    }
+
+    public static int desactiverParIndemnite(int idIndemnite, java.time.LocalDate dateEffet, Connection c) throws Exception {
+        java.time.LocalDate target = dateEffet != null ? dateEffet : java.time.LocalDate.now();
         String sql = "UPDATE site_indemnite_config SET est_actif = false, " +
-                     "date_fin = LEAST(COALESCE(date_fin, CURRENT_DATE), CURRENT_DATE) " +
-                     "WHERE id_indemnite = ? AND (est_actif = true OR date_fin IS NULL OR date_fin > CURRENT_DATE)";
+                     "date_fin = LEAST(COALESCE(date_fin, ?), ?) " +
+                     "WHERE id_indemnite = ? AND (est_actif = true OR date_fin IS NULL OR date_fin > ?)";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, idIndemnite);
+            java.sql.Date d = java.sql.Date.valueOf(target);
+            ps.setDate(1, d);
+            ps.setDate(2, d);
+            ps.setInt(3, idIndemnite);
+            ps.setDate(4, d);
             return ps.executeUpdate();
         }
     }

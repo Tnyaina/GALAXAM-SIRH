@@ -124,7 +124,7 @@ export default function PointageGridTable({
                                 className={`
                                     px-2.5 py-1 text-[11px] transition-all cursor-pointer border h-[26px] whitespace-nowrap flex items-center shrink-0
                                     ${isActive
-                                        ? 'bg-[var(--color-brand-600)] border-[var(--color-brand-600)] text-[var(--color-on-color)] font-bold'
+                                        ? 'bg-[var(--color-brand-500)]/10 border-[var(--color-brand-600)] text-[var(--color-brand-800)] dark:text-[var(--color-brand-200)] font-bold'
                                         : 'bg-[var(--color-surface)] border-[var(--color-border-subtle)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border)]'
                                     }
                                 `}
@@ -139,11 +139,14 @@ export default function PointageGridTable({
                 </div>
 
                 {/* 2. Légende & Info */}
-                <div className="flex items-center gap-3 text-[11px]">
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[var(--color-sky-500)] inline-block"></span> Congé</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[var(--color-ink-350)] inline-block"></span> Férié</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-[var(--color-info-500)] inline-block"></span> Cadre</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] inline-block"></span> Non saisi</span>
+                <div className="flex items-center gap-3 text-xs text-[var(--color-fg-muted)] flex-wrap">
+                    <span className="font-semibold text-[var(--color-fg)] text-[11px]">Légende :</span>
+                    <span className="inline-flex items-center gap-1.5 text-[11px]"><span className="w-2 h-2 bg-[var(--color-success-500)] shrink-0 inline-block" /> Présent</span>
+                    <span className="inline-flex items-center gap-1.5 text-[11px]"><span className="w-2 h-2 bg-[var(--color-warning-500)] shrink-0 inline-block" /> Retard</span>
+                    <span className="inline-flex items-center gap-1.5 text-[11px]"><span className="w-2 h-2 bg-[var(--color-sky-500)] shrink-0 inline-block" /> Congé</span>
+                    <span className="inline-flex items-center gap-1.5 text-[11px]"><span className="w-2 h-2 bg-[var(--color-info-500)] shrink-0 inline-block" /> Autonome</span>
+                    <span className="inline-flex items-center gap-1.5 text-[11px]"><span className="w-2 h-2 bg-[var(--color-ink-500)] shrink-0 inline-block" /> Férié</span>
+                    <span className="inline-flex items-center gap-1.5 text-[11px]"><span className="w-2 h-2 border border-[var(--color-border)] bg-[var(--color-surface)] shrink-0 inline-block" /> Non saisi</span>
                 </div>
             </div>
 
@@ -263,9 +266,9 @@ export default function PointageGridTable({
                                                     <span>{row.matricule}</span>
                                                     {row.badgeProfilLabel && (
                                                         <span
-                                                            className={`text-[9px] font-bold px-1 py-0.2 tracking-wide shrink-0 ${row.badgeProfilVariant === 'purple'
-                                                                    ? 'bg-[var(--color-info-500)]/10 text-[var(--color-info-700)] dark:text-[var(--color-info-300)]'
-                                                                    : 'bg-[var(--color-brand-500)]/15 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]'
+                                                            className={`text-[9px] font-semibold px-1.5 py-0.5 tracking-wide shrink-0 ${row.badgeProfilVariant === 'purple'
+                                                                    ? 'bg-[var(--color-purple-500)]/10 text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)]'
+                                                                    : 'bg-[var(--color-info-surface)] text-[var(--color-info-text)]'
                                                                 }`}
                                                             title={row.badgeProfilTooltip || row.badgeProfilLabel}
                                                         >

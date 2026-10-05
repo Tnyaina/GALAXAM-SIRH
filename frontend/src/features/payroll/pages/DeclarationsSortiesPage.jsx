@@ -99,7 +99,8 @@ export default function DeclarationsSortiesPage() {
         setParams(next);
     };
     const list = activeTab === 'mensuel' ? MONTHLY : activeTab === 'trimestriel' ? QUARTERLY : YEARLY;
-    const canExport = context?.availableActions?.GENERATE_OUTPUT?.allowed === true;
+    const canExport = context?.availableActions?.GENERATE_OUTPUT?.allowed === true
+        && VALIDATED_STATES.has(periodState(period));
     const downloadExcel = async (type) => {
         if (!periodId || !canExport) return;
         setDownloading(type);
@@ -210,8 +211,8 @@ export default function DeclarationsSortiesPage() {
                 <div className="divide-y divide-[var(--color-border-subtle)]">
                     {list.map(item => {
                         const needsValidation = item.id === 'grand-livre' || item.id === 'irsa' || item.id === 'social';
-                        const available = activeTab === 'trimestriel' ? validatedMonthCount === 3 && Number(quarterStatus?.[item.id]) > 0 : activeTab === 'annuel' ? validatedMonthCount > 0 : item.ready && Boolean(periodId) && (!needsValidation || canExport);
-                        const status = activeTab === 'trimestriel' ? validatedMonthCount !== 3 ? '3 mois requis' : quarterStatus == null ? 'Vérification' : available ? 'À contrôler' : 'Aucune cotisation' : activeTab === 'annuel' ? validatedMonthCount === 12 ? 'Année complète' : available ? `Partiel · ${validatedMonthCount}/12` : 'Aucune paie validée' : needsValidation && !available ? 'À valider' : available ? 'Disponible' : 'À construire';
+                        const available = activeTab === 'trimestriel' ? validatedMonthCount === 3 && Number(quarterStatus?.[item.id]) > 0 : activeTab === 'annuel' ? validatedMonthCount > 0 : Boolean(periodId) && canExport;
+                        const status = activeTab === 'trimestriel' ? validatedMonthCount !== 3 ? '3 mois requis' : quarterStatus == null ? 'Vérification' : available ? 'À contrôler' : 'Aucune cotisation' : activeTab === 'annuel' ? validatedMonthCount === 12 ? 'Année complète' : available ? `Partiel · ${validatedMonthCount}/12` : 'Aucune paie validée' : !periodId ? 'Période absente' : available ? 'Disponible' : 'Après validation de la paie';
                         const Icon = activeTab === 'mensuel' ? item.id === 'bulletins' ? FileText : FileSpreadsheet : activeTab === 'trimestriel' ? CalendarDays : Archive;
                         return <div key={item.id || item.name} className="px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-start gap-3 min-w-0">

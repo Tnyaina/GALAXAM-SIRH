@@ -94,6 +94,7 @@ export default function ValidationStepPage() {
             await paieService.validerPaiePeriode(numericPeriodId);
             setFeedback({ type: 'success', text: 'Campagne validée. Les bulletins sont scellés.' });
             setConfirmModalOpen(false);
+            window.dispatchEvent(new CustomEvent('sirh:period-updated', { detail: { periodId: numericPeriodId } }));
             await refreshView();
         } catch (err) {
             setFeedback({ type: 'error', text: getErrorMessage(err, 'Validation impossible.') });
@@ -114,6 +115,7 @@ export default function ValidationStepPage() {
             setIsReopenModalOpen(false);
             setMotifReouverture('');
             setFeedback({ type: 'success', text: 'Période réouverte pour correction.' });
+            window.dispatchEvent(new CustomEvent('sirh:period-updated', { detail: { periodId: numericPeriodId } }));
             await refreshView();
         } catch (err) {
             setFeedback({ type: 'error', text: getErrorMessage(err, 'Réouverture impossible.') });
@@ -123,7 +125,8 @@ export default function ValidationStepPage() {
     }, [numericPeriodId, canReopen, periode, motifReouverture, refreshView]);
 
     const outputsDestination = context?.nextStep?.destination
-        || context?.campaignSteps?.find((step) => step.code === 'OUTPUTS')?.destination;
+        || context?.campaignSteps?.find((step) => step.code === 'OUTPUTS')?.destination
+        || (numericPeriodId ? `/paie/periodes/${numericPeriodId}/sorties` : null);
 
     return (
         <PayrollCampaignShell
@@ -133,10 +136,10 @@ export default function ValidationStepPage() {
             loading={ctxLoading}
             title="Validation de la paie"
             subtitle="Vérifiez les contrôles et les totaux avant de valider la campagne."
-            prevStep={!isValidee ? {
+            prevStep={{
                 label: 'Contrôle',
                 destination: `/paie/periodes/${numericPeriodId}/controle`,
-            } : undefined}
+            }}
             primaryAction={isValidee ? {
                 label: 'Continuer vers les sorties',
                 onClick: () => outputsDestination && navigate(outputsDestination),

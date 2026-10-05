@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import FormError from '@/components/ui/feedback/FormError';
 import Button from '@/components/ui/forms/Button';
-import Input, { Textarea, Select } from '@/components/ui/forms/Input';
+import Input, { Textarea } from '@/components/ui/forms/Input';
+import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Loading from '@/components/ui/feedback/Loading';
 import Modal from '@/components/ui/overlays/Modal';
 import contratService from '@/features/employees/api/contratService';
@@ -488,20 +489,20 @@ export default function RuptureContratModal({
                                 <AlertOctagon size={14} /> 1. Type de rupture
                             </h3>
 
-                            <Select
+                            <SearchSelect
                                 id="codeTypeEvenement"
-                                name="codeTypeEvenement"
                                 label="Type de rupture"
                                 required
                                 value={formData.codeTypeEvenement}
-                                onChange={(e) => handleTypeEvenementChange(e.target.value)}
-                            >
-                                {typesEvenement
+                                onChange={(val) => handleTypeEvenementChange(val)}
+                                options={typesEvenement
                                     .filter(t => t.estActif !== false && t.actif !== false || String(t.code) === String(formData.codeTypeEvenement))
-                                    .map(t => (
-                                        <option key={t.code} value={t.code}>{t.libelle}</option>
-                                    ))}
-                            </Select>
+                                    .map(t => ({
+                                        value: t.code,
+                                        label: t.libelle
+                                    }))}
+                                placeholder="-- Choisir un type de rupture --"
+                            />
                         </div>
 
                         {/* SECTION 2 : CALENDRIER ET PRÉAVIS */}
@@ -523,18 +524,18 @@ export default function RuptureContratModal({
                                 />
 
                                 <div>
-                                    <Select
+                                    <SearchSelect
                                         id="dureePreavisKey"
-                                        name="dureePreavisKey"
                                         label="Délai de préavis"
                                         required
                                         value={formData.dureePreavisKey}
-                                        onChange={(e) => handleDureePreavisChange(e.target.value)}
-                                    >
-                                        {DUREES_PREAVIS.map(d => (
-                                            <option key={d.key} value={d.key}>{d.label}</option>
-                                        ))}
-                                    </Select>
+                                        onChange={(val) => handleDureePreavisChange(val)}
+                                        options={DUREES_PREAVIS.map(d => ({
+                                            value: d.key,
+                                            label: d.label
+                                        }))}
+                                        placeholder="-- Choisir un délai --"
+                                    />
                                     <p className="text-[11px] text-[var(--color-fg-muted)] mt-1">{dureeInfo.desc}</p>
                                 </div>
                             </div>

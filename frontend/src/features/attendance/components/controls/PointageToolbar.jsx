@@ -58,6 +58,14 @@ export default function PointageToolbar({
                         />
                     </div>
 
+                    <span
+                        className="hidden xl:inline text-[10px] text-[var(--color-fg-subtle)] whitespace-nowrap"
+                        title="Aller au jour précédent ou suivant"
+                        aria-label="Raccourci clavier : Commande ou Ctrl avec flèche gauche ou droite pour changer de jour"
+                    >
+                        ⌘/Ctrl + ←/→
+                    </span>
+
                     <div className="h-5 w-px bg-[var(--color-border-subtle)] shrink-0" />
 
                     {/* Recherche */}

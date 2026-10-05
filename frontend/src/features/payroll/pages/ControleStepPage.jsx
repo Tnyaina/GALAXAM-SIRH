@@ -35,6 +35,9 @@ export default function ControleStepPage() {
     const [loadedQuery, setLoadedQuery] = useState(null);
     const queryKey = JSON.stringify([numericPeriodId, page, debouncedQuery, filter]);
     const hasCurrentResults = loadedQuery === queryKey && cockpit !== null;
+    const controlStep = context?.campaignSteps?.find(step => step.code === 'CONTROL');
+    const controlBlocked = !contextLoading && Boolean(context) && (!controlStep || controlStep.state === 'BLOCKED');
+    const currentStepDestination = context?.campaignSteps?.find(step => step.code === context?.currentStep)?.destination;
 
     useEffect(() => {
         const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 250);
@@ -43,6 +46,11 @@ export default function ControleStepPage() {
 
     const loadCockpit = useCallback(async () => {
         if (!numericPeriodId) return;
+        if (contextLoading || !context || !controlStep || controlStep.state === 'BLOCKED') {
+            setCockpit(null);
+            setLoading(false);
+            return;
+        }
         const requestId = ++requestSequence.current;
         setLoading(true);
         setError(null);
@@ -65,7 +73,7 @@ export default function ControleStepPage() {
         } finally {
             if (requestId === requestSequence.current) setLoading(false);
         }
-    }, [numericPeriodId, page, debouncedQuery, filter]);
+    }, [numericPeriodId, page, debouncedQuery, filter, contextLoading, context, controlStep]);
 
     useEffect(() => { loadCockpit(); }, [loadCockpit]);
     useEffect(() => {
@@ -107,6 +115,24 @@ export default function ControleStepPage() {
             <SEO title="Contrôle des bulletins | GALAXAM GRH" description="Revue nominative des bulletins de paie." />
 
             <div className="space-y-4">
+                {controlBlocked ? (
+                    <div>
+                        <Alert
+                            type="warning"
+                            title="Étape de contrôle indisponible"
+                            message={controlStep?.issues?.[0] || 'Les bulletins seront consultables après le calcul de la paie.'}
+                        />
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-3"
+                            onClick={() => navigate(currentStepDestination || '/pointages?tab=saisie')}
+                        >
+                            Aller à l’étape disponible
+                        </Button>
+                    </div>
+                ) : (
+                    <>
                 {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -233,10 +259,12 @@ export default function ControleStepPage() {
                         </Tr>
                     ))}
                 </PayrollStepTable>
+                    </>
+                )}
             </div>
 
             <Suspense fallback={null}>
-                {selectedBulletinId && (
+                {!controlBlocked && selectedBulletinId && (
                     <BulletinPaieDrawer
                         isOpen
                         idBulletin={selectedBulletinId}

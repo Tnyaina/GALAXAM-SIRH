@@ -262,13 +262,13 @@ export default function PointageTab({ idEmploye, employe = null }) {
             return <Badge variant="purple" size="sm">Dimanche +40%</Badge>;
         }
         if (ptg?.isSamediTravaille || statut === 'SAMEDI_TRAVAILLE') {
-            return <Badge variant="brand" size="sm">Samedi travaillé</Badge>;
+            return <Badge variant="sky" size="sm">Samedi travaillé</Badge>;
         }
         if (ptg?.isDispensePointage || statut === 'DISPENSE_POINTAGE') {
-            return <Badge variant="brand" size="sm">Autonome</Badge>;
+            return <Badge variant="info" size="sm">Autonome</Badge>;
         }
         if (ptg?.isDemiJournee || statut === 'DEMI_JOURNEE') {
-            return <Badge variant="brand" size="sm">Demi-journée</Badge>;
+            return <Badge variant="sky" size="sm">Demi-journée</Badge>;
         }
         if (ptg?.isPresent || statut === 'PRESENT') {
             return <Badge variant="success" size="sm">Présent</Badge>;

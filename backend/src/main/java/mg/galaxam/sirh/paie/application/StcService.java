@@ -542,7 +542,8 @@ public class StcService {
         StcCalculResultDTO simulation = simulerStc(req, c);
 
         // 1. Génération du numéro de reçu officiel
-        String numRecu = PaieStc.genererNumeroRecu(c);
+        LocalDate dDepRecu = req.getDateDepart() != null ? req.getDateDepart().toLocalDate() : null;
+        String numRecu = PaieStc.genererNumeroRecu(dDepRecu, c);
         simulation.setNumeroRecu(numRecu);
         simulation.setStatut("VALIDE");
 

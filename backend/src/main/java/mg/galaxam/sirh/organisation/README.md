@@ -2,11 +2,10 @@
 
 Ce dossier est le point d'entrée unique du backend pour la structure de l'entreprise.
 
-- `api/` : contrôleurs REST et contrats d'entrée ;
-- `persistence/` : modèles Active Record et SQL JDBC explicite ;
-- `application/` : emplacement réservé aux cas d'usage transactionnels lorsqu'ils seront extraits des contrôleurs ;
-- `domain/` : emplacement réservé aux futures règles métier indépendantes de JDBC.
+- `api/` : contrôleur REST unique [`OrganisationController.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/api/OrganisationController.java) et DTOs d'entrée ;
+- `application/` : service métier [`OrganisationService.java`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/application/OrganisationService.java) centralisant la logique transactionnelle, les garde-fous d'intégrité (désactivation contrôlée des filiales) et la journalisation d'audit ;
+- `persistence/` : modèles Active Record et SQL JDBC explicite ([`RefFiliale`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefFiliale.java), [`RefSite`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefSite.java), [`RefDepartement`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefDepartement.java), [`RefService`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefService.java), [`RefFonction`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefFonction.java), [`RefBanque`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefBanque.java), [`RefTypeContrat`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefTypeContrat.java), [`RefTypeIntervenant`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/organisation/persistence/RefTypeIntervenant.java)).
 
-Les routes publiques restent sous `/referentiel/*`. Le déplacement de paquet ne modifie donc pas le contrat du frontend.
+Les routes REST restent sous le préfixe `/referentiel/*` (exposées sous `/api/referentiel/*` via le context-path). Le contrat d'intégration avec le frontend React est intégralement préservé.
 
-Les classes de `persistence/` conservent volontairement `Connection`, `PreparedStatement` et `ResultSet`. Aucun ORM n'est introduit.
+Les classes de `persistence/` conservent la rigueur Active Record : `Connection`, `PreparedStatement` et `ResultSet` sans aucun framework ORM lourd.

@@ -10,22 +10,38 @@ export function usePeriodePaie() {
     const [successMsg, setSuccessMsg] = useState(null);
 
     // Chargement et actions de workflow de période.
-    const loadPeriodes = useCallback(async () => {
-        setLoading(true);
-        setError(null);
+    const loadPeriodes = useCallback(async (options = {}) => {
+        const { silent = false } = options;
+        if (!silent) {
+            setLoading(true);
+            setError(null);
+        }
         try {
             const data = await periodePaieService.getAllPeriodes();
             setPeriodes(data);
         } catch (err) {
             console.error('Erreur chargement des périodes:', err);
-            setError("Impossible de charger les périodes de paie.");
+            if (!silent) setError("Impossible de charger les périodes de paie.");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, []);
 
     useEffect(() => {
         loadPeriodes();
+    }, [loadPeriodes]);
+
+    // Revalidation silencieuse automatique au focus de l'écran et sur événement applicatif
+    useEffect(() => {
+        const handleSilentRefresh = () => {
+            loadPeriodes({ silent: true });
+        };
+        window.addEventListener('focus', handleSilentRefresh);
+        window.addEventListener('sirh:period-updated', handleSilentRefresh);
+        return () => {
+            window.removeEventListener('focus', handleSilentRefresh);
+            window.removeEventListener('sirh:period-updated', handleSilentRefresh);
+        };
     }, [loadPeriodes]);
 
     const createPeriode = async (periodeData) => {
@@ -37,6 +53,7 @@ export function usePeriodePaie() {
             if (resp.success) {
                 setSuccessMsg(resp.message);
                 await loadPeriodes();
+                window.dispatchEvent(new CustomEvent('sirh:period-updated'));
                 return true;
             } else {
                 setError(resp.message);
@@ -63,6 +80,7 @@ export function usePeriodePaie() {
             if (resp.decision === 'ALLOWED') {
                 setSuccessMsg(resp.message);
                 await loadPeriodes();
+                window.dispatchEvent(new CustomEvent('sirh:period-updated', { detail: { periodId: periode.idPeriodePaie } }));
                 return true;
             } else {
                 setError(resp.message);

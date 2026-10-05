@@ -8,6 +8,7 @@ import DepartementsList from '../components/views/DepartementsList';
 import ServicesList from '../components/views/ServicesList';
 import TypesContratList from '../components/views/TypesContratList';
 import DepartementFormModal from '../components/modals/DepartementFormModal';
+import SiteFormModal from '../components/modals/SiteFormModal';
 
 describe('Organisation UX & Accessibilité (WCAG AA & EmptyState focal)', () => {
     let container;
@@ -183,6 +184,60 @@ describe('Organisation UX & Accessibilité (WCAG AA & EmptyState focal)', () => 
         expect(alertBox).not.toBeNull();
         // Vérifie qu'on n'utilise pas de styles bruts non tokenisés
         expect(container.innerHTML).toContain('var(--color-danger-500)');
+    });
+
+    it('SiteFormModal : utilise SearchSelect avec recherche pour la Filiale de Rattachement Juridique', async () => {
+        const filialesMock = [
+            { idFiliale: 1, codeFiliale: 'FIL-MAD', raisonSociale: 'Madagascar SARL', estActif: true },
+            { idFiliale: 2, codeFiliale: 'FIL-FRA', raisonSociale: 'France SAS', estActif: true }
+        ];
+
+        let currentFormData = {
+            codeSite: 'TNR',
+            libelle: 'Tananarive Hub',
+            idFilialeRattachement: '',
+            horaireContinu: true
+        };
+
+        await act(async () => {
+            root.render(
+                <SiteFormModal
+                    isOpen={true}
+                    onClose={() => {}}
+                    onSubmit={() => {}}
+                    formData={currentFormData}
+                    setFormData={(data) => { currentFormData = data; }}
+                    filiales={filialesMock}
+                    fieldErrors={{}}
+                />
+            );
+        });
+
+        // Vérification de la présence du SearchSelect pour la Filiale
+        const selectBtn = Array.from(container.querySelectorAll('button')).find(
+            b => b.textContent.includes('-- Sélectionner une filiale --')
+        );
+        expect(selectBtn).toBeTruthy();
+
+        // Ouvrir le menu déroulant
+        await act(async () => {
+            selectBtn.click();
+        });
+
+        // Vérifier l'input de filtre
+        const filterInput = container.querySelector('input[placeholder="Filtrer..."]');
+        expect(filterInput).toBeTruthy();
+
+        // Sélectionner la filiale Madagascar SARL
+        const optionBtn = Array.from(container.querySelectorAll('button')).find(
+            b => b.textContent.includes('Madagascar SARL')
+        );
+        expect(optionBtn).toBeTruthy();
+        await act(async () => {
+            optionBtn.click();
+        });
+
+        expect(currentFormData.idFilialeRattachement).toBe('1');
     });
 });
 

@@ -1,17 +1,17 @@
 const variants = {
-  default:   'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]',
-  secondary: 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border)]',
-  primary:   'bg-[var(--color-brand-500)]/15 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border border-[var(--color-brand-500)]/30',
-  brand:     'bg-[var(--color-brand-500)]/15 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border border-[var(--color-brand-500)]/30',
-  success:   'bg-[var(--color-success-500)]/15 text-[var(--color-success-600)] dark:text-[var(--color-success-400)] border border-[var(--color-success-500)]/30',
-  warning:   'bg-[var(--color-warning-500)]/15 text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] border border-[var(--color-warning-500)]/30',
-  danger:    'bg-[var(--color-danger-500)]/15 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] border border-[var(--color-danger-500)]/30',
-  error:     'bg-[var(--color-danger-500)]/15 text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] border border-[var(--color-danger-500)]/30',
-  info:      'bg-[var(--color-info-500)]/15 text-[var(--color-info-600)] dark:text-[var(--color-info-200)] border border-[var(--color-info-500)]/30',
-  sky:       'bg-[var(--color-sky-500)]/15 text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)] border border-[var(--color-sky-500)]/30',
-  purple:    'bg-[var(--color-purple-500)]/15 text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)] border border-[var(--color-purple-500)]/30',
-  orange:    'bg-[var(--color-orange-500)]/15 text-[var(--color-orange-700)] dark:text-[var(--color-orange-300)] border border-[var(--color-orange-500)]/30',
-  neutral:   'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border border-[var(--color-border-subtle)]',
+  default:   'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]',
+  secondary: 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]',
+  primary:   'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]',
+  brand:     'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]',
+  success:   'bg-[var(--color-success-500)]/10 text-[var(--color-success-700)] dark:text-[var(--color-success-300)]',
+  warning:   'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]',
+  danger:    'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]',
+  error:     'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]',
+  info:      'bg-[var(--color-info-surface)] text-[var(--color-info-text)] dark:text-[var(--color-info-text)]',
+  sky:       'bg-[var(--color-sky-500)]/10 text-[var(--color-sky-800)] dark:text-[var(--color-sky-300)]',
+  purple:    'bg-[var(--color-purple-500)]/10 text-[var(--color-purple-800)] dark:text-[var(--color-purple-300)]',
+  orange:    'bg-[var(--color-orange-500)]/10 text-[var(--color-orange-800)] dark:text-[var(--color-orange-300)]',
+  neutral:   'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]',
 };
 
 const sizes = {
@@ -61,7 +61,7 @@ export default function Badge({
       style={style}
       {...props}
       className={`
-        inline-flex items-center gap-1.5 font-bold tracking-wide uppercase rounded-none
+        inline-flex items-center gap-1.5 font-semibold tracking-wide uppercase rounded-none
         ${variants[currentVariant]}
         ${sizes[currentSize]}
         ${className}

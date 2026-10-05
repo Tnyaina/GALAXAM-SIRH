@@ -106,9 +106,11 @@ public class ContratGlobalController {
             if (statut != null && !statut.isBlank() && !"ALL".equalsIgnoreCase(statut)) {
                 if ("PENDING".equalsIgnoreCase(statut)) {
                     whereSql.append(
-                            " AND (rsc.code = 'BROUILLON' OR rsc.code = 'A_SIGNER' OR (rsc.code = 'ACTIF' AND ct.date_debut > CURRENT_DATE)) ");
+                            " AND (rsc.code = 'BROUILLON' OR rsc.code = 'A_SIGNER' OR (rsc.code = 'ACTIF' AND ct.date_debut > ?)) ");
+                    params.add(Date.valueOf(today));
                 } else if ("ACTIF".equalsIgnoreCase(statut)) {
-                    whereSql.append(" AND rsc.code = 'ACTIF' AND (ct.date_debut <= CURRENT_DATE) ");
+                    whereSql.append(" AND rsc.code = 'ACTIF' AND (ct.date_debut <= ?) ");
+                    params.add(Date.valueOf(today));
                 } else {
                     whereSql.append(" AND rsc.code = ? ");
                     params.add(statut.trim().toUpperCase());
@@ -295,6 +297,7 @@ public class ContratGlobalController {
     public ResponseEntity<?> getStatsSupervision() {
         try (Connection c = dataSource.getConnection()) {
             Map<String, Object> stats = new LinkedHashMap<>();
+            LocalDate today = LocalDate.now();
 
             // 1. Total Contrats
             String sqlTotal = "SELECT COUNT(*) FROM contrat_travail";
@@ -305,17 +308,23 @@ public class ContratGlobalController {
             // 2. Contrats Actifs
             String sqlActifs = "SELECT COUNT(*) FROM contrat_travail ct " +
                     "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
-                    "WHERE rsc.code = 'ACTIF' AND (ct.date_debut <= CURRENT_DATE)";
-            try (PreparedStatement ps = c.prepareStatement(sqlActifs); ResultSet rs = ps.executeQuery()) {
-                stats.put("contratsActifs", rs.next() ? rs.getInt(1) : 0);
+                    "WHERE rsc.code = 'ACTIF' AND (ct.date_debut <= ?)";
+            try (PreparedStatement ps = c.prepareStatement(sqlActifs)) {
+                ps.setDate(1, Date.valueOf(today));
+                try (ResultSet rs = ps.executeQuery()) {
+                    stats.put("contratsActifs", rs.next() ? rs.getInt(1) : 0);
+                }
             }
 
             // 3. En attente de signature / Planifiés
             String sqlAttente = "SELECT COUNT(*) FROM contrat_travail ct " +
                     "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
-                    "WHERE rsc.code IN ('BROUILLON', 'A_SIGNER') OR (rsc.code = 'ACTIF' AND ct.date_debut > CURRENT_DATE)";
-            try (PreparedStatement ps = c.prepareStatement(sqlAttente); ResultSet rs = ps.executeQuery()) {
-                stats.put("enAttenteSignature", rs.next() ? rs.getInt(1) : 0);
+                    "WHERE rsc.code IN ('BROUILLON', 'A_SIGNER') OR (rsc.code = 'ACTIF' AND ct.date_debut > ?)";
+            try (PreparedStatement ps = c.prepareStatement(sqlAttente)) {
+                ps.setDate(1, Date.valueOf(today));
+                try (ResultSet rs = ps.executeQuery()) {
+                    stats.put("enAttenteSignature", rs.next() ? rs.getInt(1) : 0);
+                }
             }
 
             // 4. Échéances < 60 jours (Fin de contrat ou Période d'essai)
@@ -325,12 +334,11 @@ public class ContratGlobalController {
                     "  (ct.date_fin IS NOT NULL AND ct.date_fin >= ? AND ct.date_fin <= ?) OR " +
                     "  (ct.date_fin_essai IS NOT NULL AND ct.date_fin_essai >= ? AND ct.date_fin_essai <= ?)" +
                     ")";
-            LocalDate todayStats = LocalDate.now();
-            LocalDate d60 = todayStats.plusDays(60);
+            LocalDate d60 = today.plusDays(60);
             try (PreparedStatement ps = c.prepareStatement(sqlEcheances)) {
-                ps.setDate(1, Date.valueOf(todayStats));
+                ps.setDate(1, Date.valueOf(today));
                 ps.setDate(2, Date.valueOf(d60));
-                ps.setDate(3, Date.valueOf(todayStats));
+                ps.setDate(3, Date.valueOf(today));
                 ps.setDate(4, Date.valueOf(d60));
                 try (ResultSet rs = ps.executeQuery()) {
                     stats.put("echeances60Jours", rs.next() ? rs.getInt(1) : 0);

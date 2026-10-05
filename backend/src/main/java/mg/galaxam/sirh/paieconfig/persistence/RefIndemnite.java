@@ -143,6 +143,10 @@ public class RefIndemnite extends ClassMere {
      * @throws Exception en cas d'erreur SQL
      */
     public int[] desactiver(Connection c) throws Exception {
+        return desactiver(java.time.LocalDate.now(), c);
+    }
+
+    public int[] desactiver(java.time.LocalDate dateEffet, Connection c) throws Exception {
         if (this.idIndemnite == null) {
             throw new IllegalArgumentException("L'identifiant de l'indemnité est obligatoire pour la désactivation.");
         }
@@ -157,10 +161,10 @@ public class RefIndemnite extends ClassMere {
         }
 
         // 2. Cascade sur site_indemnite_config
-        int nbSites = SiteIndemniteConfig.desactiverParIndemnite(this.idIndemnite, c);
+        int nbSites = SiteIndemniteConfig.desactiverParIndemnite(this.idIndemnite, dateEffet, c);
 
         // 3. Cascade sur employe_indemnite_derogation
-        int nbDerogations = EmployeIndemniteDerogation.cloturerParIndemnite(this.idIndemnite, c);
+        int nbDerogations = EmployeIndemniteDerogation.cloturerParIndemnite(this.idIndemnite, dateEffet, c);
 
         return new int[]{nbSites, nbDerogations};
     }

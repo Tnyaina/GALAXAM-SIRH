@@ -58,15 +58,17 @@ public final class CongeTestFixtureHelper {
     }
 
     public static int createEmploye(Connection c, String matricule, String nom, String prenom) throws SQLException {
+        String cin = String.format("%012d", Math.abs((matricule + "_" + System.nanoTime()).hashCode() % 1000000000000L));
         String sql = "INSERT INTO employe (" +
                 "matricule, nom, prenom, sexe, date_naissance, lieu_naissance, " +
                 "cin_numero, cin_date_delivrance, cin_lieu_delivrance, adresse, telephone" +
-                ") VALUES (?, ?, ?, 'M', '1990-01-15', 'Antananarivo', '101000100001', '2010-01-15', 'TNR', 'Rue Test 101', '0340000000') " +
+                ") VALUES (?, ?, ?, 'M', '1990-01-15', 'Antananarivo', ?, '2010-01-15', 'TNR', 'Rue Test 101', '0340000000') " +
                 "RETURNING id_employe";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, matricule);
             ps.setString(2, nom);
             ps.setString(3, prenom);
+            ps.setString(4, cin);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return rs.getInt(1);
             }
@@ -108,6 +110,24 @@ public final class CongeTestFixtureHelper {
 
     public static int createPeriodePaie(Connection c, String code, LocalDate debut, LocalDate fin, String codeStatut) throws SQLException {
         int idStatut = getStatutPeriodePaieId(c, codeStatut);
+        String sqlSelect = "SELECT id_periode_paie FROM periode_paie WHERE code = ?";
+        try (PreparedStatement psSelect = c.prepareStatement(sqlSelect)) {
+            psSelect.setString(1, code);
+            try (ResultSet rs = psSelect.executeQuery()) {
+                if (rs.next()) {
+                    int existingId = rs.getInt(1);
+                    try (PreparedStatement psUpdate = c.prepareStatement(
+                            "UPDATE periode_paie SET date_debut = ?, date_fin = ?, id_statut_periode = ? WHERE id_periode_paie = ?")) {
+                        psUpdate.setDate(1, Date.valueOf(debut));
+                        psUpdate.setDate(2, Date.valueOf(fin));
+                        psUpdate.setInt(3, idStatut);
+                        psUpdate.setInt(4, existingId);
+                        psUpdate.executeUpdate();
+                    }
+                    return existingId;
+                }
+            }
+        }
         String sql = "INSERT INTO periode_paie (code, libelle, date_debut, date_fin, id_statut_periode, version) " +
                 "VALUES (?, ?, ?, ?, ?, 1) RETURNING id_periode_paie";
         try (PreparedStatement ps = c.prepareStatement(sql)) {

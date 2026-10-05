@@ -37,31 +37,34 @@ export default function StatCard({
     // Configuration des styles de couleurs et d'accents
     const colorStyles = {
         brand: {
-            text: 'text-[var(--color-brand-600)]',
-            iconBg: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] border-[var(--color-brand-500)]/20'
+            text: 'text-[var(--color-fg)]',
+            label: 'text-[var(--color-fg-muted)]',
+            iconBg: 'bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)] dark:text-[var(--color-brand-300)] border-[var(--color-brand-500)]/20'
         },
         success: {
-            text: 'text-success-600 dark:text-success-400',
-            label: 'text-success-700 dark:text-success-400',
-            iconBg: 'bg-success-500/10 text-success-600 dark:text-success-400 border-success-500/20'
+            text: 'text-[var(--color-fg)]',
+            label: 'text-[var(--color-fg-muted)]',
+            iconBg: 'bg-[var(--color-success-500)]/10 text-[var(--color-success-700)] dark:text-[var(--color-success-300)] border-[var(--color-success-500)]/20'
         },
         warning: {
-            text: 'text-warning-600 dark:text-warning-400',
-            label: 'text-warning-700 dark:text-warning-400',
-            iconBg: 'bg-warning-500/10 text-warning-600 dark:text-warning-400 border-warning-500/20'
+            text: 'text-[var(--color-fg)]',
+            label: 'text-[var(--color-fg-muted)]',
+            iconBg: 'bg-[var(--color-warning-500)]/10 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] border-[var(--color-warning-500)]/20'
         },
         danger: {
-            text: 'text-danger-600 dark:text-danger-400',
-            label: 'text-danger-700 dark:text-danger-400',
-            iconBg: 'bg-danger-500/10 text-danger-600 dark:text-danger-400 border-danger-500/20'
+            text: 'text-[var(--color-fg)]',
+            label: 'text-[var(--color-fg-muted)]',
+            iconBg: 'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)] border-[var(--color-danger-500)]/20'
         },
         info: {
-            text: 'text-info-600 dark:text-info-400',
-            iconBg: 'bg-info-500/10 text-info-600 dark:text-info-400 border-info-500/20'
+            text: 'text-[var(--color-fg)]',
+            label: 'text-[var(--color-fg-muted)]',
+            iconBg: 'bg-[var(--color-info-surface)] text-[var(--color-info-text)] border-[var(--color-info-border)]'
         },
         neutral: {
             text: 'text-[var(--color-fg)]',
-            iconBg: 'bg-[var(--color-bg-subtle)] text-[var(--color-fg)] border-[var(--color-border-subtle)]'
+            label: 'text-[var(--color-fg-muted)]',
+            iconBg: 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)] border-[var(--color-border-subtle)]'
         }
     };
 
@@ -96,7 +99,7 @@ export default function StatCard({
             </div>
 
             {change !== undefined ? (
-                <div className={`flex items-center gap-1.5 text-xs font-semibold font-data mt-1.5 ${isPositive ? 'text-success-600 dark:text-success-400' : 'text-danger-600 dark:text-danger-400'}`}>
+                <div className={`flex items-center gap-1.5 text-xs font-semibold font-data mt-1.5 ${isPositive ? 'text-[var(--color-success-700)] dark:text-[var(--color-success-300)]' : 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]'}`}>
                     {isPositive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
                     <span>{isPositive ? '+' : ''}{change}%</span>
                     {changeLabel && <span className="text-[var(--color-fg-subtle)] font-normal ml-1">{changeLabel}</span>}

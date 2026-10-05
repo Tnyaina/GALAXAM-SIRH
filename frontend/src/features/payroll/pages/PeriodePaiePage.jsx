@@ -479,11 +479,15 @@ export default function PeriodePaiePage() {
                             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-600)]">Cycle actuellement piloté</p>
                             <h2 className="mt-1 text-lg font-bold text-[var(--color-fg)]">{activeCycle.libelle} <span className="font-mono text-sm font-medium text-[var(--color-fg-muted)]">· {activeCycle.dateDebut} → {activeCycle.dateFin}</span></h2>
                         </div>
-                        {activeCycle.nextStep?.destination && (
-                            <Button size="sm" variant="primary" onClick={() => navigate(activeCycle.nextStep.destination)}>
-                                Continuer la campagne
-                            </Button>
-                        )}
+                        {(() => {
+                            const dest = activeCycle.nextStep?.destination
+                                || `/paie/periodes/${activeCycle.idPeriodePaie || activeCycle.id}/preparation`;
+                            return (
+                                <Button size="sm" variant="primary" iconRight={<ArrowRight size={14} />} onClick={() => navigate(dest)}>
+                                    Continuer la campagne
+                                </Button>
+                            );
+                        })()}
                     </div>
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 border border-[var(--color-border-subtle)] divide-y sm:divide-y-0 sm:divide-x divide-[var(--color-border-subtle)]">
                         <div className="p-3">
@@ -540,13 +544,37 @@ export default function PeriodePaiePage() {
                                                 </p>
                                             </div>
                                             <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                                                {p.nextStep?.destination && (
-                                                    <Button size="sm" variant="primary" onClick={() => navigate(p.nextStep.destination)}>Continuer</Button>
-                                                )}
+                                                {(() => {
+                                                    const isClosed = p.statutCode === 'CLOTUREE' || p.workflowStatuses?.paie?.code === 'CLOTUREE';
+                                                    const targetDestination = p.nextStep?.destination
+                                                        || (isClosed ? `/paie/periodes/${periodId}/sorties` : `/paie/periodes/${periodId}/preparation`);
+                                                    if (isClosed) {
+                                                        return (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                iconRight={<ArrowRight size={14} />}
+                                                                onClick={() => navigate(targetDestination)}
+                                                            >
+                                                                Consulter
+                                                            </Button>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="primary"
+                                                            iconRight={<ArrowRight size={14} />}
+                                                            onClick={() => navigate(targetDestination)}
+                                                        >
+                                                            Continuer
+                                                        </Button>
+                                                    );
+                                                })()}
                                                 {mainAction && (() => {
                                                     const [command, config] = mainAction;
                                                     const ActionIcon = config.Icon;
-                                                    return <Button size="sm" variant="primary" icon={<ActionIcon size={14} />} onClick={() => triggerWorkflowAction(p, command)}>{config.label}</Button>;
+                                                    return <Button size="sm" variant="secondary" icon={<ActionIcon size={14} />} onClick={() => triggerWorkflowAction(p, command)}>{config.label}</Button>;
                                                 })()}
                                             </div>
                                         </div>

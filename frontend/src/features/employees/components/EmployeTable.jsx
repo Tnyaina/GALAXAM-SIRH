@@ -93,7 +93,7 @@ export default function EmployeTable({
             })}
         </div>
         <div className="hidden md:block">
-        <Table divided className="border-none shadow-none">
+        <Table className="border-none shadow-none">
             <Thead>
                 <Tr>
                     <Th className="min-w-[220px]">Collaborateur & Matricule</Th>

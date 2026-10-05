@@ -47,7 +47,7 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar, 
                     onClick={handleParentClick}
                     style={{
                         paddingLeft,
-                        color: 'var(--color-sidebar-fg)'
+                        color: isDescendantActive ? 'var(--color-sidebar-fg-hover)' : 'var(--color-sidebar-fg)'
                     }}
                     title={collapsed ? item.libelle : undefined}
                     className="
@@ -59,7 +59,7 @@ function NavNode({ item, onClose, depth = 0, collapsed, onRequestExpandSidebar, 
                 >
                     {createElement(getMenuIcon(item.icone), {
                         size: 16,
-                        className: 'shrink-0',
+                        className: `shrink-0 ${isDescendantActive ? 'opacity-100 text-[var(--color-sidebar-brand)]' : 'opacity-80'}`,
                         strokeWidth: 1.85,
                     })}
                     <span className={`flex-1 text-left truncate ${collapsed ? 'lg:hidden' : ''}`}>

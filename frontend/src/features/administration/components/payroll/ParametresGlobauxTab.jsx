@@ -19,6 +19,7 @@ import FormError from '@/components/ui/feedback/FormError';
 import { useAuth } from '@/context/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import Modal from '@/components/ui/overlays/Modal';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { getErrorMessage } from '@/api/apiClient';
 
@@ -235,18 +236,6 @@ const PARAMETRE_METADATA = {
         unite: "taux",
         explication: "Taux de réduction appliqué à la prime de performance si les seuils sont dépassés.",
     },
-    EXONERATION_HS_IRSA_ACTIVE: {
-        titre: "Exonération IRSA des heures supplémentaires",
-        icone: ShieldCheck,
-        unite: "",
-        explication: "Application de l'exonération fiscale sur les heures supplémentaires (CGI Art. 01.03.03-9°).",
-    },
-    PLAFOND_MENSUEL_HS_EXONEREES: {
-        titre: "Plafond mensuel d'heures exonérées",
-        icone: Clock,
-        unite: "heures",
-        explication: "Volume maximal d'heures supplémentaires exonérées d'IRSA par mois.",
-    },
 };
 
 // Blocs Thématiques métier regroupant les paramètres interdépendants et leurs règles conjointes
@@ -273,17 +262,6 @@ const THEMATIC_BLOCKS = [
         effetCascade: "Si le taux ou l'un des deux seuils est désactivé, la pénalité conjointe n'est pas appliquée.",
         masterCode: 'TAUX_PENALITE_PP',
         codes: ['TAUX_PENALITE_PP', 'SEUIL_RETARD_PENALITE_PP_MIN', 'SEUIL_CONGES_PENALITE_PP_JOURS']
-    },
-    {
-        id: 'PAIE_EXO_HS',
-        categorie: 'PAIE',
-        titre: "Exonération Fiscale des Heures Supplémentaires",
-        sousTitre: "Exonération d'IRSA dans la limite du contingent mensuel légal",
-        icone: ShieldCheck,
-        regleConjointe: "Exonération d'IRSA sur les heures supplémentaires dans la limite du plafond mensuel (CGI Art. 01.03.03-9°).",
-        effetCascade: "Si cette règle est désactivée, toutes les heures supplémentaires sont soumises à l'IRSA.",
-        masterCode: 'EXONERATION_HS_IRSA_ACTIVE',
-        codes: ['EXONERATION_HS_IRSA_ACTIVE', 'PLAFOND_MENSUEL_HS_EXONEREES']
     },
     {
         id: 'PAIE_FISCALITE',
@@ -509,6 +487,8 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
     const [submitting, setSubmitting] = useState(false);
     const [modalError, setModalError] = useState(null);
     const [fieldErrors, setFieldErrors] = useState({});
+    const [confirmAnnulation, setConfirmAnnulation] = useState(null);
+    const [annulationLoading, setAnnulationLoading] = useState(false);
 
     const [formData, setFormData] = useState({
         idParametre: null,
@@ -594,6 +574,11 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
     // Filtrage dynamique
     const filteredParametres = useMemo(() => {
         return parametres.filter(p => {
+            // Exclure les paramètres fiscaux désormais entièrement pilotés par la Loi de Finances
+            if (p.codeParametre === 'EXONERATION_HS_IRSA_ACTIVE' || p.codeParametre === 'PLAFOND_MENSUEL_HS_EXONEREES') {
+                return false;
+            }
+
             // Filtre Catégorie
             if (selectedCategory !== 'ALL' && p.categorie !== selectedCategory) return false;
 
@@ -677,6 +662,25 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
         } finally {
             toggleLock.current = false;
             setTogglingId(null);
+        }
+    };
+
+    // Annulation d'une version PROGRAMMÉE (remise en vigueur de la version précédente)
+    const handleConfirmAnnuler = async () => {
+        if (!confirmAnnulation) return;
+        setAnnulationLoading(true);
+        try {
+            await paieConfigService.annulerParametreGlobalProgramme(confirmAnnulation.idParametre);
+            const meta = PARAMETRE_METADATA[confirmAnnulation.codeParametre];
+            const nomParam = meta?.titre || confirmAnnulation.codeParametre;
+            toast.success(`La version programmée de « ${nomParam} » a été annulée. La version précédente reste en vigueur.`);
+            setConfirmAnnulation(null);
+            setDetails(null);
+            loadParametres();
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Erreur lors de l'annulation de la version programmée."));
+        } finally {
+            setAnnulationLoading(false);
         }
     };
 
@@ -833,7 +837,8 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                 {block.params.map(param => {
                                     const meta = PARAMETRE_METADATA[param.codeParametre];
                                     const ParamIcon = meta?.icone || Sliders;
-                                    const hasActions = canWrite && (param.peutModifier || param.peutVersionner);
+                                    const isProgramme = getStatut(param) === 'PROGRAMME';
+                                    const hasActions = canWrite && (param.peutModifier || param.peutVersionner || isProgramme);
                                     return <article key={param.idParametre} className={`grid grid-cols-1 ${hasActions ? 'lg:grid-cols-[minmax(0,1fr)_auto]' : ''} gap-3 p-4 hover:bg-[var(--color-bg-subtle)]/50 transition-colors`}>
                                         <div className="flex gap-3 min-w-0">
                                             <span className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--color-border-subtle)] bg-[var(--color-surface)] text-[var(--color-fg-muted)]"><ParamIcon size={17} /></span>
@@ -850,7 +855,20 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                                 </div>
                                             </div>
                                         </div>
-                                        {hasActions && <div className="flex flex-wrap items-center justify-end gap-1 lg:min-w-[220px]">{param.peutModifier && <Button variant="outline" size="sm" onClick={() => handleOpenEdit(param,false)}>Modifier</Button>}{param.peutVersionner && <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(param,true)}>Nouvelle version</Button>}</div>}
+                                        {hasActions && <div className="flex flex-wrap items-center justify-end gap-1 lg:min-w-[220px]">
+                                            {param.peutModifier && <Button variant="outline" size="sm" onClick={() => handleOpenEdit(param,false)}>Modifier</Button>}
+                                            {param.peutVersionner && <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(param,true)}>Nouvelle version</Button>}
+                                            {isProgramme && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10"
+                                                    onClick={() => setConfirmAnnulation(param)}
+                                                >
+                                                    Annuler
+                                                </Button>
+                                            )}
+                                        </div>}
                                     </article>;
                                 })}
                             </div>
@@ -868,6 +886,15 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                     {details.effetDesactivation && <div className="border-t border-[var(--color-border-subtle)] pt-3"><h4 className="font-semibold text-sm">Effet de la désactivation</h4><p className="text-sm text-[var(--color-fg-muted)]">{details.effetDesactivation}</p></div>}
                     {detailsError && <FormError message={detailsError} />}
                     {canWrite && details.peutBasculer && <Button variant="outline" onClick={async event => { if (await handleToggleActif(details,event)) setDetails(null); }} loading={togglingId === details.idParametre} className="min-h-[44px]">{details.estActif ? 'Désactiver' : 'Activer'}</Button>}
+                    {canWrite && getStatut(details) === 'PROGRAMME' && (
+                        <Button
+                            variant="ghost"
+                            className="text-[var(--color-danger-500)] hover:text-[var(--color-danger-600)] hover:bg-[var(--color-danger-500)]/10"
+                            onClick={() => setConfirmAnnulation(details)}
+                        >
+                            Annuler la programmation
+                        </Button>
+                    )}
                 </div>}
             </Modal>
             {/* MODALE D'ÉDITION / NOUVELLE VERSION AGRANDIE */}
@@ -1034,6 +1061,28 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                     </Modal>
                 );
             })()}
+            {/* Modal de confirmation d'annulation d'une version programmée */}
+            <ConfirmDialog
+                isOpen={Boolean(confirmAnnulation)}
+                onClose={() => setConfirmAnnulation(null)}
+                onConfirm={handleConfirmAnnuler}
+                title="Annuler la version programmée"
+                confirmLabel="Annuler la version"
+                cancelLabel="Conserver"
+                variant="danger"
+                loading={annulationLoading}
+            >
+                {confirmAnnulation && (
+                    <div className="space-y-2">
+                        <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                            Vous êtes sur le point d'annuler la version programmée de <strong className="text-[var(--color-fg)]">{PARAMETRE_METADATA[confirmAnnulation.codeParametre]?.titre || confirmAnnulation.codeParametre}</strong> (effet prévu le <strong className="text-[var(--color-fg)]">{fmtDateInput(confirmAnnulation.dateDebut)}</strong>).
+                        </p>
+                        <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
+                            Cette version future sera définitivement supprimée et la version précédente restera en vigueur sans date de fin.
+                        </p>
+                    </div>
+                )}
+            </ConfirmDialog>
         </div>
     );
 }

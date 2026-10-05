@@ -117,8 +117,22 @@ export function usePayrollCampaign(requestedPeriodId = null) {
         return loadData(overrideId || selectedPeriodeId || requestedPeriodId, { reloadPeriods: true });
     }, [selectedPeriodeId, requestedPeriodId, loadData]);
 
-    const refreshSilent = useCallback((overrideId = null) => {
-        return loadData(overrideId || selectedPeriodeId || requestedPeriodId, { silent: true });
+    const refreshSilent = useCallback((overrideId = null, options = {}) => {
+        return loadData(overrideId || selectedPeriodeId || requestedPeriodId, {
+            silent: true,
+            reloadPeriods: options.reloadPeriods ?? false,
+        });
+    }, [selectedPeriodeId, requestedPeriodId, loadData]);
+
+    // Écoute de l'événement global pour actualisation silencieuse
+    useEffect(() => {
+        const handleSilentRefresh = () => {
+            loadData(selectedPeriodeId || requestedPeriodId, { silent: true, reloadPeriods: true });
+        };
+        window.addEventListener('sirh:period-updated', handleSilentRefresh);
+        return () => {
+            window.removeEventListener('sirh:period-updated', handleSilentRefresh);
+        };
     }, [selectedPeriodeId, requestedPeriodId, loadData]);
 
     return {

@@ -804,7 +804,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
 
                 {/* Tableau des anomalies */}
                 <div className="overflow-x-auto border-b border-[var(--color-border-subtle)]">
-                    <Table density="compact" divided bordered={false}>
+                    <Table density="compact" bordered={false}>
                         <Thead className="sticky top-0 bg-[var(--color-surface)] z-10 shadow-xs">
                             <Tr>
                                 <Th className="w-10 text-center">

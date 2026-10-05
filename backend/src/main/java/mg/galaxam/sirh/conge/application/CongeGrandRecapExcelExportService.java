@@ -191,8 +191,8 @@ public class CongeGrandRecapExcelExportService {
     }
 
     private static void validerPeriode(LocalDate dateDebut, LocalDate dateFin) {
-        if (dateDebut == null || dateFin == null || dateFin.isBefore(dateDebut) || dateFin.isAfter(LocalDate.now())) {
-            throw new IllegalArgumentException("La période doit avoir un début, une fin postérieure au début et ne pas dépasser aujourd'hui.");
+        if (dateDebut == null || dateFin == null || dateFin.isBefore(dateDebut)) {
+            throw new IllegalArgumentException("La période doit avoir une date de début et une date de fin valide postérieure ou égale au début.");
         }
     }
 

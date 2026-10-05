@@ -868,7 +868,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         ) : (
                             <div className="space-y-0 overflow-x-auto">
 
-                                <Table density="compact" divided bordered={false}>
+                                <Table density="compact" bordered={false}>
                                     <Thead>
                                         <Tr>
                                             <Th className="w-[190px] max-w-[210px]">Collaborateur</Th>

@@ -190,24 +190,6 @@ public class PayrollLegalContextResolver {
             input.setTauxMalusPerformance(nonNegativeDecimal(
                     ParametreGlobal.resolve(parameters, malusCodes[2]), malusCodes[2]));
         }
-
-        var exemption = ParametreGlobal.resolve(parameters, "EXONERATION_HS_IRSA_ACTIVE");
-        var ceiling = ParametreGlobal.resolve(parameters, "PLAFOND_MENSUEL_HS_EXONEREES");
-        if (exemption.isMissing()) throw missingParameter("EXONERATION_HS_IRSA_ACTIVE");
-        if (ceiling.isMissing()) throw missingParameter("PLAFOND_MENSUEL_HS_EXONEREES");
-        if (exemption.isDisabled() || ceiling.isDisabled()) {
-            input.setExonerationHsIrsaActive(false);
-            input.setPlafondMensuelHsExonerees(BigDecimal.ZERO);
-        } else {
-            String value = exemption.valeur() == null ? "" : exemption.valeur().trim();
-            if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value)) {
-                throw invalidParameter("EXONERATION_HS_IRSA_ACTIVE");
-            }
-            boolean active = Boolean.parseBoolean(value);
-            input.setExonerationHsIrsaActive(active);
-            input.setPlafondMensuelHsExonerees(active
-                    ? positiveDecimal(ceiling, "PLAFOND_MENSUEL_HS_EXONEREES") : BigDecimal.ZERO);
-        }
     }
 
     private static int nonNegativeInt(ParametreGlobal.ParametreResolution state, String code) {
@@ -224,12 +206,6 @@ public class PayrollLegalContextResolver {
             if (value.signum() >= 0) return value;
         } catch (RuntimeException ignored) { }
         throw invalidParameter(code);
-    }
-
-    private static BigDecimal positiveDecimal(ParametreGlobal.ParametreResolution state, String code) {
-        BigDecimal value = nonNegativeDecimal(state, code);
-        if (value.signum() == 0) throw invalidParameter(code);
-        return value;
     }
 
     private static IllegalStateException missingParameter(String code) {

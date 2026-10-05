@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { ChevronDown } from 'lucide-react';
 import FieldError from './FieldError';
 
 export default function Input({
@@ -61,9 +62,10 @@ export default function Input({
           onWheel={handleWheel}
           className={`
             w-full bg-[var(--color-surface)] border rounded-none text-xs sm:text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]
-            px-3 py-1.5 outline-none  
-            focus:ring-0 focus:border-[var(--color-brand-500)]
-            disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-subtle)]
+            px-3 py-1.5 outline-none
+            focus:ring-1 focus:ring-[var(--color-brand-500)] focus:border-[var(--color-brand-500)]
+            read-only:bg-[var(--color-bg-subtle)]/40 read-only:cursor-default read-only:border-[var(--color-border-subtle)]
+            disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-muted)] disabled:border-[var(--color-border-subtle)]
             ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}
             ${leftIcon ? 'pl-8' : ''}
             ${iconRight ? 'pr-8' : ''}
@@ -117,8 +119,9 @@ export function Textarea({
         className={`
           w-full bg-[var(--color-surface)] border rounded-none text-xs sm:text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)]
           px-3 py-1.5 outline-none resize-none
-          focus:ring-0 focus:border-[var(--color-brand-500)]
-          disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-subtle)]
+          focus:ring-1 focus:ring-[var(--color-brand-500)] focus:border-[var(--color-brand-500)]
+          read-only:bg-[var(--color-bg-subtle)]/40 read-only:cursor-default read-only:border-[var(--color-border-subtle)]
+          disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-muted)] disabled:border-[var(--color-border-subtle)]
           ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}
           ${className}
         `}
@@ -156,22 +159,27 @@ export function Select({
           {props.required && <span className="text-[var(--color-danger-500)] ml-1">*</span>}
         </label>
       )}
-      <select
-        {...props}
-        id={fieldId}
-        aria-invalid={error ? true : props['aria-invalid']}
-        aria-describedby={feedbackIds}
-        className={`
-          w-full bg-[var(--color-surface)] border rounded-none text-xs sm:text-sm text-[var(--color-fg)]
-          px-3 py-1.5 outline-none cursor-pointer
-          focus:ring-0 focus:border-[var(--color-brand-500)]
-          disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-subtle)]
-          ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}
-          ${className}
-        `}
-      >
-        {children || <option value="" disabled>Sélectionner...</option>}
-      </select>
+      <div className="relative w-full">
+        <select
+          {...props}
+          id={fieldId}
+          aria-invalid={error ? true : props['aria-invalid']}
+          aria-describedby={feedbackIds}
+          className={`
+            w-full appearance-none bg-[var(--color-surface)] border rounded-none text-xs sm:text-sm text-[var(--color-fg)]
+            px-3 py-1.5 pr-8 outline-none cursor-pointer
+            focus:ring-0 focus:border-[var(--color-brand-500)]
+            disabled:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:text-[var(--color-fg-subtle)]
+            ${error ? 'border-[var(--color-danger-500)]' : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)]'}
+            ${className}
+          `}
+        >
+          {children || <option value="" disabled>Sélectionner...</option>}
+        </select>
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-[var(--color-fg-muted)]">
+          <ChevronDown size={14} />
+        </div>
+      </div>
       {error && <FieldError id={`${fieldId}-feedback`} className="mt-0.5">{error}</FieldError>}
       {hintText && !error && <p id={`${fieldId}-feedback`} className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">{hintText}</p>}
     </div>

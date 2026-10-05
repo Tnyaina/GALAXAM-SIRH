@@ -20,6 +20,7 @@ import paieService from '@/features/payroll/api/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { fmtDate } from '@/utils/dateUtils';
 import PayrollWorkflowStatusBadges from '@/features/payroll/components/workflow/PayrollWorkflowStatusBadges';
+import HasPermission from '@/features/auth/components/HasPermission';
 
 const PeriodePaiePage = lazy(() => import('@/features/payroll/pages/PeriodePaiePage'));
 const ExportsPaieTab = lazy(() => import('@/features/payroll/components/tabs/ExportsPaieTab'));
@@ -62,14 +63,17 @@ export default function GestionPaiePage() {
     // À l'étape Préparation / Population / Variables, ce n'est pas un blocage actif de la campagne
     // mais le déroulement normal du workflow (la paie n'a tout simplement pas encore été calculée).
     const activeBlockers = useMemo(() => {
+        // L'API expose un issue de contexte lorsqu'aucune période n'est sélectionnée.
+        // Ce n'est pas un blocage de campagne et il ne doit pas alimenter le badge.
+        if (!activePeriod) return [];
         const issues = context?.issues || [];
         return issues.filter(issue => {
-            if (['PAYROLL_NOT_CALCULATED', 'PAYROLL_ALREADY_VALIDATED'].includes(issue?.code)) {
+            if (['PAYROLL_PERIOD_CONTEXT_REQUIRED', 'PAYROLL_NOT_CALCULATED', 'PAYROLL_ALREADY_VALIDATED'].includes(issue?.code)) {
                 return currentStepCode === 'VALIDATION';
             }
             return true;
         });
-    }, [context?.issues, currentStepCode]);
+    }, [activePeriod, context?.issues, currentStepCode]);
 
     // Effets
     useEffect(() => {
@@ -157,13 +161,17 @@ export default function GestionPaiePage() {
     const nextLogicalAction = useMemo(() => {
         const nextStep = context?.nextStep;
         if (!nextStep?.destination) return null;
-        const label = nextStep.code ? `Continuer : ${nextStep.code.replaceAll('_', ' ')}` : 'Continuer la campagne';
+        const activePeriod = context?.selectedPeriod || context?.currentPeriod;
+        const isClosed = activePeriod?.workflowStatuses?.paie?.code === 'CLOTUREE' || activePeriod?.state === 'CLOTUREE';
+        const label = isClosed
+            ? 'Consulter la période'
+            : (nextStep.code ? `Continuer : ${nextStep.code.replaceAll('_', ' ')}` : 'Continuer la campagne');
         return {
-            title: currentStepObj?.label || 'Prochaine étape',
+            title: isClosed ? 'Campagne clôturée' : (currentStepObj?.label || 'Prochaine étape'),
             label,
             onClick: () => navigate(nextStep.destination),
         };
-    }, [context?.nextStep, currentStepObj?.label, navigate]);
+    }, [context?.nextStep, context?.selectedPeriod, context?.currentPeriod, currentStepObj?.label, navigate]);
 
     const hasCalculatedBulletins = (periodKpis?.totalBulletins ?? 0) > 0;
 
@@ -330,6 +338,29 @@ export default function GestionPaiePage() {
                     </div>
                 )}
             </section>
+
+            {!loading && !activePeriod && (
+                <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] border-l-4 border-l-[var(--color-brand-500)] p-4 sm:p-5 shadow-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <h3 className="text-sm font-bold text-[var(--color-fg)]">Aucune campagne de paie</h3>
+                            <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
+                                Créez la période correspondant au cycle courant du 26 au 25.
+                            </p>
+                        </div>
+                        <HasPermission authority={['PAIE_WRITE', 'PAIE_VALIDATE', 'POINTAGE_VALIDATE']}>
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => navigate('/paie?tab=periodes&action=create')}
+                                iconLeft={<CalendarRange size={14} />}
+                            >
+                                Créer la période suggérée
+                            </Button>
+                        </HasPermission>
+                    </div>
+                </section>
+            )}
 
             {/* Action fournie par le workflow */}
             {nextLogicalAction && (
