@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
@@ -37,6 +37,15 @@ describe('CongesTab & SoldeCongeWidget - UI / UX enhancements', () => {
     congeService.getValorisationLots.mockResolvedValue({ lots: [
       { origine: 'REPRISE_CUTOVER', jours: 10, valeur: 90000 }
     ] });
+  });
+
+  afterEach(async () => {
+    if (root) {
+      await act(async () => root.unmount());
+    }
+    if (container) {
+      container.remove();
+    }
   });
 
   it('met le solde et le taux en premier et replie les autres compteurs', async () => {

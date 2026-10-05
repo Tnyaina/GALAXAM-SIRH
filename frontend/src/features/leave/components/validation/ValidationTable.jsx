@@ -58,9 +58,14 @@ export default function ValidationTable({
               <p className="text-xs text-[var(--color-fg)]">{d.libelleTypeConge || d.codeTypeConge} · {formatDate(d.dateDebut)} → {formatDate(d.dateFin)}</p>
               <div className="flex items-center justify-between gap-2">
                 <Button
-                  variant={aDecider ? 'primary' : 'outline'}
+                  variant="outline"
                   size="sm"
-                  className="min-h-[44px] inline-flex items-center justify-center"
+                  className={`min-h-[44px] inline-flex items-center justify-center font-medium text-xs px-3.5 rounded-lg transition-colors ${
+                    aDecider
+                      ? 'border-[var(--color-brand-300)] text-[var(--color-brand-700)] bg-[var(--color-brand-50)]/70 hover:bg-[var(--color-brand-100)] dark:border-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] dark:bg-[var(--color-brand-950)]/40'
+                      : 'border-[var(--color-border)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
+                  }`}
+                  iconLeft={<Eye size={14} className={aDecider ? "text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]" : "text-[var(--color-fg-subtle)]"} />}
                   onClick={() => onOpenDetail(d)}
                   aria-label={`${aDecider ? 'Examiner' : 'Voir les détails de'} la demande #${d.idDemandeConge} de ${employeName}`}
                 >
@@ -158,17 +163,26 @@ export default function ValidationTable({
                     {/* Le détail expose les décisions autorisées par le backend. */}
                     <Td className="text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          variant={canValidate && d.availableActions?.APPROVE?.allowed === true ? 'primary' : 'outline'}
-                          size="sm"
-                          className="min-h-[44px] inline-flex items-center justify-center"
-                          iconLeft={<Eye size={14} />}
-                          onClick={() => onOpenDetail(d)}
-                          title="Consulter la demande et ses actions disponibles"
-                          aria-label={`${canValidate && d.availableActions?.APPROVE?.allowed === true ? 'Examiner' : 'Voir les détails de'} la demande #${d.idDemandeConge} de ${employeName}`}
-                        >
-                          {canValidate && d.availableActions?.APPROVE?.allowed === true ? 'Examiner' : 'Détails'}
-                        </Button>
+                        {(() => {
+                          const isAExaminer = canValidate && d.availableActions?.APPROVE?.allowed === true;
+                          return (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={`min-h-[44px] sm:min-h-[34px] sm:h-[34px] inline-flex items-center justify-center font-medium text-xs px-3.5 rounded-lg transition-colors ${
+                                isAExaminer
+                                  ? 'border-[var(--color-brand-300)] text-[var(--color-brand-700)] bg-[var(--color-brand-50)]/70 hover:bg-[var(--color-brand-100)] dark:border-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] dark:bg-[var(--color-brand-950)]/40 shadow-2xs'
+                                  : 'border-[var(--color-border)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)]'
+                              }`}
+                              iconLeft={<Eye size={14} className={isAExaminer ? "text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]" : "text-[var(--color-fg-subtle)]"} />}
+                              onClick={() => onOpenDetail(d)}
+                              title="Consulter la demande et ses actions disponibles"
+                              aria-label={`${isAExaminer ? 'Examiner' : 'Voir les détails de'} la demande #${d.idDemandeConge} de ${employeName}`}
+                            >
+                              {isAExaminer ? 'Examiner' : 'Détails'}
+                            </Button>
+                          );
+                        })()}
                       </div>
                     </Td>
                   </Tr>

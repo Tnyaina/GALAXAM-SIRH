@@ -289,11 +289,29 @@ const congeService = {
   // =========================================================================
 
   /**
+   * Nettoie une date pour s'assurer d'envoyer uniquement YYYY-MM-DD sans composante heure/fuseau.
+   */
+  toIsoDateString: (val) => {
+    if (!val) return val;
+    if (typeof val === 'string') {
+      return val.length >= 10 ? val.slice(0, 10) : val;
+    }
+    if (val instanceof Date) {
+      return val.toISOString().slice(0, 10);
+    }
+    return val;
+  },
+
+  /**
    * Simule le décompte continu en jours calendaires stricts (date_fin - date_debut + 1)
    */
-  // Dans congeService.js
   simulerDemande: async (demande) => {
-    const response = await apiClient.post('/conges/demandes/simuler', demande);
+    const payload = demande ? {
+      ...demande,
+      dateDebut: congeService.toIsoDateString(demande.dateDebut),
+      dateFin: congeService.toIsoDateString(demande.dateFin),
+    } : demande;
+    const response = await apiClient.post('/conges/demandes/simuler', payload);
     return response.data;
   },
 
@@ -301,7 +319,12 @@ const congeService = {
    * Soumet une nouvelle demande de congé
    */
   creerDemande: async (demandeData) => {
-    const response = await apiClient.post('/conges/demandes', demandeData);
+    const payload = demandeData ? {
+      ...demandeData,
+      dateDebut: congeService.toIsoDateString(demandeData.dateDebut),
+      dateFin: congeService.toIsoDateString(demandeData.dateFin),
+    } : demandeData;
+    const response = await apiClient.post('/conges/demandes', payload);
     return response.data;
   },
 
@@ -325,7 +348,12 @@ const congeService = {
    * Modifie une demande de congé existante
    */
   updateDemande: async (id, demandeData) => {
-    const response = await apiClient.put(`/conges/demandes/${id}`, demandeData);
+    const payload = demandeData ? {
+      ...demandeData,
+      dateDebut: congeService.toIsoDateString(demandeData.dateDebut),
+      dateFin: congeService.toIsoDateString(demandeData.dateFin),
+    } : demandeData;
+    const response = await apiClient.put(`/conges/demandes/${id}`, payload);
     return response.data;
   },
 
@@ -402,7 +430,12 @@ const congeService = {
    * les chevauchements personnels et fournit le décompte calendaire détaillé.
    */
   verifierConflitsDemande: async (data) => {
-    const response = await apiClient.post('/conges/demandes/verifier-conflits', data);
+    const payload = data ? {
+      ...data,
+      dateDebut: congeService.toIsoDateString(data.dateDebut),
+      dateFin: congeService.toIsoDateString(data.dateFin),
+    } : data;
+    const response = await apiClient.post('/conges/demandes/verifier-conflits', payload);
     return response.data;
   },
 

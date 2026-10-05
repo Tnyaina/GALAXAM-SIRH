@@ -54,8 +54,8 @@ export default function DemandeDetailsModal({
           idEmploye: targetDemande.idEmploye,
           idTypeConge: targetDemande.idTypeConge,
           idMotifEvenementFamilial: targetDemande.idMotifEvenementFamilial,
-          dateDebut: targetDemande.dateDebut,
-          dateFin: targetDemande.dateFin,
+          dateDebut: typeof targetDemande.dateDebut === 'string' ? targetDemande.dateDebut.slice(0, 10) : targetDemande.dateDebut,
+          dateFin: typeof targetDemande.dateFin === 'string' ? targetDemande.dateFin.slice(0, 10) : targetDemande.dateFin,
           estDemiJournee: Boolean(targetDemande.estDemiJournee),
           derogationSoldeNegatif: Boolean(targetDemande.derogationSoldeNegatif),
           derogationDelaiPreavis: Boolean(targetDemande.derogationDelaiPreavis),
@@ -100,6 +100,15 @@ export default function DemandeDetailsModal({
       ? Boolean(targetDemande.estPaye)
       : true;
 
+  // Calcul du solde prévisionnel robuste (évite le "Non calculé" quand le nombre de jours décomptés est déjà connu)
+  const effectifsJoursDebites = joursDebites != null
+    ? Number(joursDebites)
+    : (estRemunere ? joursDemandes : 0);
+
+  const effectifSoldeApres = soldeApres != null
+    ? Number(soldeApres)
+    : (soldeAvant != null ? Math.max(0, Number(soldeAvant) - effectifsJoursDebites) : null);
+
   const hasDerogations = Boolean(
     targetDemande.derogationSoldeNegatif ||
     targetDemande.derogationDelaiPreavis ||
@@ -111,6 +120,18 @@ export default function DemandeDetailsModal({
   const handleEdit = onOpenModifier || onEdit;
   const handleCancel = onOpenAnnuler || onCancel;
 
+  const isValide = targetDemande.codeStatutDemande === 'VALIDE';
+  const canApprove = targetDemande.availableActions?.APPROVE?.allowed === true && !!onOpenValider;
+  const canReject = targetDemande.availableActions?.REJECT?.allowed === true && !!onOpenRefus;
+  const canModifyDates = targetDemande.availableActions?.MODIFY_DATES?.allowed === true && !!handleEdit;
+  const canEdit = targetDemande.availableActions?.EDIT?.allowed === true && !!handleEdit;
+  const canCancel = targetDemande.availableActions?.CANCEL?.allowed === true && !!handleCancel;
+
+  // Règle ergonomique :
+  // Sur une demande en attente examinée par un valideur/manager, les actions décisionnelles sont Valider et Refuser.
+  // "Annuler ce congé" est réservé aux congés déjà validés (isValide) ou au retrait par l'employé lorsqu'il n'a pas les droits de validation.
+  const showCancelAction = canCancel && (isValide || (!canApprove && !canReject));
+
   return (
     <Modal
       isOpen={isOpen && !!targetDemande}
@@ -121,7 +142,7 @@ export default function DemandeDetailsModal({
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-2">
           <div>
-            {targetDemande.availableActions?.CANCEL?.allowed === true && handleCancel && (
+            {showCancelAction && (
               <Button
                 variant="danger"
                 size="sm"
@@ -131,12 +152,13 @@ export default function DemandeDetailsModal({
                   handleCancel(targetDemande);
                 }}
               >
-                Annuler ce congé
+                {isValide ? 'Annuler ce congé' : 'Annuler la demande'}
               </Button>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {targetDemande.availableActions?.MODIFY_DATES?.allowed === true && handleEdit && (
+            {/* Si congé validé : modification des dates uniquement */}
+            {isValide && canModifyDates && (
               <Button
                 variant="outline"
                 size="sm"
@@ -150,9 +172,10 @@ export default function DemandeDetailsModal({
               </Button>
             )}
 
-            {targetDemande.availableActions?.APPROVE?.allowed === true && onOpenValider && (
+            {/* Décision valideur / DAF */}
+            {canApprove && (
               <>
-                {targetDemande.availableActions?.EDIT?.allowed === true && handleEdit && (
+                {canEdit && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -165,7 +188,7 @@ export default function DemandeDetailsModal({
                     Modifier
                   </Button>
                 )}
-                {targetDemande.availableActions?.REJECT?.allowed === true && onOpenRefus && (
+                {canReject && (
                   <Button
                     variant="danger"
                     size="sm"
@@ -192,7 +215,8 @@ export default function DemandeDetailsModal({
               </>
             )}
 
-            {!targetDemande.availableActions?.APPROVE?.allowed && targetDemande.availableActions?.EDIT?.allowed === true && handleEdit && (
+            {/* Hors validation et non validé : modification simple */}
+            {!canApprove && !isValide && canEdit && (
               <Button
                 variant="primary"
                 size="sm"
@@ -287,18 +311,22 @@ export default function DemandeDetailsModal({
           <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
               <span className="block text-[10px] text-[var(--color-fg-muted)]">Solde avant</span>
-              <span className="font-mono text-xs font-bold text-[var(--color-fg)]">{soldeAvant != null ? `${Number(soldeAvant).toFixed(2)} j` : 'Non calculé'}</span>
+              <span className="font-mono text-xs font-bold text-[var(--color-fg)]">
+                {soldeAvant != null ? `${Number(soldeAvant).toFixed(2)} j` : '—'}
+              </span>
             </div>
             <Minus size={14} className="hidden text-[var(--color-fg-muted)] sm:block" aria-hidden="true" />
             <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
               <span className="block text-[10px] text-[var(--color-fg-muted)]">Jours débités</span>
-              <span className="font-mono text-xs font-bold text-[var(--color-danger-600)]">{joursDebites != null ? `${Number(joursDebites).toFixed(2)} j` : 'Non calculé'}</span>
+              <span className="font-mono text-xs font-bold text-[var(--color-danger-600)]">
+                {effectifsJoursDebites != null ? `${Number(effectifsJoursDebites).toFixed(2)} j` : '0.00 j'}
+              </span>
             </div>
             <Equal size={14} className="hidden text-[var(--color-fg-muted)] sm:block" aria-hidden="true" />
             <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2 text-center">
               <span className="block text-[10px] text-[var(--color-fg-muted)]">Solde après</span>
-              <span className={`font-mono text-xs font-bold ${soldeApres != null && soldeApres < 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
-                {soldeApres != null ? `${Number(soldeApres).toFixed(2)} j` : 'Non calculé'}
+              <span className={`font-mono text-xs font-bold ${effectifSoldeApres != null && effectifSoldeApres < 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
+                {effectifSoldeApres != null ? `${Number(effectifSoldeApres).toFixed(2)} j` : '—'}
               </span>
             </div>
           </div>

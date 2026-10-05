@@ -1,6 +1,8 @@
 package mg.galaxam.sirh.conge.domain;
 
 import java.time.LocalDate;
+import mg.galaxam.sirh.common.json.FlexibleLocalDateDeserializer;
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 public final class DemandeCongeRequests {
 
@@ -10,7 +12,9 @@ public final class DemandeCongeRequests {
             Integer idEmploye,
             Integer idTypeConge,
             Integer idMotifEvenementFamilial,
+            @JsonDeserialize(using = FlexibleLocalDateDeserializer.class)
             LocalDate dateDebut,
+            @JsonDeserialize(using = FlexibleLocalDateDeserializer.class)
             LocalDate dateFin,
             Boolean estDemiJournee,
             String momentDemiJournee,
@@ -26,7 +30,9 @@ public final class DemandeCongeRequests {
     public record ModifierDemandeRequest(
             Integer idTypeConge,
             Integer idMotifEvenementFamilial,
+            @JsonDeserialize(using = FlexibleLocalDateDeserializer.class)
             LocalDate dateDebut,
+            @JsonDeserialize(using = FlexibleLocalDateDeserializer.class)
             LocalDate dateFin,
             Boolean estDemiJournee,
             String momentDemiJournee,
@@ -42,7 +48,9 @@ public final class DemandeCongeRequests {
             Integer idEmploye,
             Integer idTypeConge,
             Integer idMotifEvenementFamilial,
+            @JsonDeserialize(using = FlexibleLocalDateDeserializer.class)
             LocalDate dateDebut,
+            @JsonDeserialize(using = FlexibleLocalDateDeserializer.class)
             LocalDate dateFin,
             Boolean estDemiJournee,
             Boolean derogationSoldeNegatif,
@@ -54,7 +62,9 @@ public final class DemandeCongeRequests {
             Integer idEmploye,
             Integer idTypeConge,
             Integer idDemandeConge,
+            @JsonDeserialize(using = FlexibleLocalDateDeserializer.class)
             LocalDate dateDebut,
+            @JsonDeserialize(using = FlexibleLocalDateDeserializer.class)
             LocalDate dateFin,
             Boolean estDemiJournee,
             String momentDemiJournee

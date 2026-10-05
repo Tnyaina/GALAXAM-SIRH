@@ -87,4 +87,62 @@ describe('Détail de demande de congé', () => {
     expect(host.textContent).toContain('1.00 j');
     expect(host.textContent).toContain('Annuler ce congé');
   });
+
+  it('affiche des boutons épurés pour une demande en attente sans bouton redondant "Annuler ce congé"', async () => {
+    const demande = {
+      idDemandeConge: 2,
+      idEmploye: 7,
+      prenom: 'TMM AGENT',
+      nom: 'X',
+      matricule: '0200',
+      libelleTypeConge: 'Congé annuel payé',
+      codeTypeConge: 'ANNUEL',
+      codeStatutDemande: 'EN_ATTENTE_VALIDATION',
+      libelleStatutDemande: 'En attente de validation',
+      dateDebut: '2026-08-17',
+      dateFin: '2026-08-25',
+      dateDemande: '2026-10-05',
+      nbJoursDecomptes: 9,
+      commentaire: 'on test quoi',
+      justificatifFourni: false,
+      estPaye: true,
+      availableActions: {
+        APPROVE: { allowed: true },
+        REJECT: { allowed: true },
+        EDIT: { allowed: true },
+        CANCEL: { allowed: true } // Backend autorise CANCEL, mais l'UI doit prioriser Valider/Refuser
+      },
+    };
+
+    congeService.getSoldeEmploye.mockResolvedValue({ soldeRestant: 9, tauxJournalierConge: 9663.09 });
+    // Même si simulerDemande ne renvoie pas de réponse :
+    congeService.simulerDemande.mockRejectedValue(new Error('fail'));
+
+    await act(async () => {
+      root.render(<ValidationModals
+        selectedDemande={demande}
+        showDetailModal
+        onCloseDetail={vi.fn()}
+        onOpenValider={vi.fn()}
+        onOpenRefus={vi.fn()}
+        onOpenModifier={vi.fn()}
+        onOpenAnnuler={vi.fn()}
+      />);
+    });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    // Boutons décisionnels attendus
+    expect(host.textContent).toContain('Valider');
+    expect(host.textContent).toContain('Refuser');
+    expect(host.textContent).toContain('Modifier');
+    expect(host.textContent).toContain('Fermer');
+
+    // "Annuler ce congé" NE DOIT PAS être affiché quand la demande est en cours de validation
+    expect(host.textContent).not.toContain('Annuler ce congé');
+
+    // Vérification du solde résolu sans afficher "Non calculé"
+    expect(host.textContent).not.toContain('Non calculé');
+    expect(host.textContent).toContain('9.00 j');
+    expect(host.textContent).toContain('0.00 j');
+  });
 });
