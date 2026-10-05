@@ -135,9 +135,24 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         }
     }, [activePeriode?.idPeriodePaie]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const loadData = useCallback(async () => {
+    // Synchronisation réactive de la liste locale des périodes avec le statut et version d'activePeriode
+    useEffect(() => {
+        if (activePeriode?.idPeriodePaie) {
+            setPeriodes(prev => {
+                const idx = prev.findIndex(p => p.idPeriodePaie === activePeriode.idPeriodePaie);
+                if (idx >= 0) {
+                    const copy = [...prev];
+                    copy[idx] = { ...copy[idx], ...activePeriode };
+                    return copy;
+                }
+                return prev.length === 0 ? [activePeriode] : prev;
+            });
+        }
+    }, [activePeriode]);
+
+    const loadData = useCallback(async ({ silent = false } = {}) => {
         if (!selectedPeriode) {
-            setLoading(false);
+            if (!silent) setLoading(false);
             setSyntheseData([]);
             setSemaines([]);
             setServerKpis(null);
@@ -146,8 +161,10 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             return;
         }
         const sequence = ++loadSequence.current;
-        setLoading(true);
-        setLoadError('');
+        if (!silent) {
+            setLoading(true);
+            setLoadError('');
+        }
         try {
             const siteParam = Number(selectedSite) > 0 ? Number(selectedSite) : undefined;
             const resSynthese = await pointageSyntheseService.getSynthese({
@@ -166,18 +183,69 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             setLoadedQuery(JSON.stringify([selectedPeriode, selectedSite, debouncedSearch.trim(), alertFilter, currentPage, pageSize]));
         } catch (err) {
             if (sequence !== loadSequence.current) return;
-            setLoadError(getErrorMessage(err, 'Impossible de charger le contrôle du pointage.'));
-            setSyntheseData([]);
-            setSemaines([]);
-            setServerKpis(null);
-            setServerAlertCounts(null);
-            setTotalElements(0);
+            if (!silent) {
+                setLoadError(getErrorMessage(err, 'Impossible de charger le contrôle du pointage.'));
+                setSyntheseData([]);
+                setSemaines([]);
+                setServerKpis(null);
+                setServerAlertCounts(null);
+                setTotalElements(0);
+            }
         } finally {
-            if (sequence === loadSequence.current) setLoading(false);
+            if (sequence === loadSequence.current && !silent) setLoading(false);
         }
     }, [selectedPeriode, selectedSite, debouncedSearch, alertFilter, currentPage, pageSize]);
 
     useEffect(() => { loadData(); }, [loadData]);
+
+    // Actualisation silencieuse lors des changements de statut/version d'activePeriode
+    useEffect(() => {
+        if (activePeriode?.statutCode || activePeriode?.version) {
+            loadData({ silent: true });
+            setPreflightRevision(value => value + 1);
+        }
+    }, [activePeriode?.statutCode, activePeriode?.version, loadData]);
+
+    // Polling régulier en arrière-plan (15s comme useNotifications) et écoute des événements globaux
+    useEffect(() => {
+        const silentRefresh = async () => {
+            loadData({ silent: true });
+            setPreflightRevision(v => v + 1);
+            try {
+                const updatedList = await (periodesDisponibles ?? periodePaieService.getAllPeriodes());
+                if (updatedList && updatedList.length > 0) setPeriodes(updatedList);
+            } catch {
+                // Erreur silencieuse
+            }
+        };
+
+        const timer = setInterval(() => {
+            if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+                silentRefresh();
+            }
+        }, 15000);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                silentRefresh();
+            }
+        };
+
+        window.addEventListener('pointage-period-updated', silentRefresh);
+        window.addEventListener('sirh:period-updated', silentRefresh);
+        window.addEventListener('refresh-notifications', silentRefresh);
+        window.addEventListener('focus', silentRefresh);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(timer);
+            window.removeEventListener('pointage-period-updated', silentRefresh);
+            window.removeEventListener('sirh:period-updated', silentRefresh);
+            window.removeEventListener('refresh-notifications', silentRefresh);
+            window.removeEventListener('focus', silentRefresh);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [loadData, periodesDisponibles]);
 
     useEffect(() => {
         if (!selectedPeriode) {
@@ -222,10 +290,14 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         return () => { cancelled = true; };
     }, [selectedPeriode, preflightRevision]);
 
-    // Données dérivées
-    const currentPeriodeObj = useMemo(() =>
-        periodes.find(p => p.idPeriodePaie === Number(selectedPeriode)) || null,
-        [periodes, selectedPeriode]);
+    // Données dérivées : fusion dynamique avec activePeriode pour refléter immédiatement les changements d'état
+    const currentPeriodeObj = useMemo(() => {
+        const fromList = periodes.find(p => p.idPeriodePaie === Number(selectedPeriode));
+        if (String(activePeriode?.idPeriodePaie) === String(selectedPeriode)) {
+            return { ...fromList, ...activePeriode };
+        }
+        return fromList || null;
+    }, [periodes, selectedPeriode, activePeriode]);
 
     const isPeriodLocked = useMemo(() => {
         const st = (currentPeriodeObj?.statutCode || currentPeriodeObj?.state || currentPeriodeObj?.statut_code || '').toUpperCase();

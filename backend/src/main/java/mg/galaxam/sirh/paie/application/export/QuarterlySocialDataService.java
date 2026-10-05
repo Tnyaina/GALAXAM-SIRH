@@ -22,6 +22,8 @@ import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellReference;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 
@@ -33,17 +35,37 @@ public class QuarterlySocialDataService {
         public BigDecimal gross = BigDecimal.ZERO;
         public BigDecimal advantage = BigDecimal.ZERO;
         public BigDecimal hours = BigDecimal.ZERO;
+        public BigDecimal cnapsBaseNonPlafonnee = BigDecimal.ZERO;
         public BigDecimal cnapsBase = BigDecimal.ZERO;
         public BigDecimal cnapsEmployee = BigDecimal.ZERO;
         public BigDecimal cnapsEmployer = BigDecimal.ZERO;
+        public BigDecimal fmfpBaseNonPlafonnee = BigDecimal.ZERO;
+        public BigDecimal fmfpBase = BigDecimal.ZERO;
         public BigDecimal fmfpEmployer = BigDecimal.ZERO;
+        public BigDecimal ostieBaseNonPlafonnee = BigDecimal.ZERO;
         public BigDecimal ostieBase = BigDecimal.ZERO;
         public BigDecimal ostieEmployee = BigDecimal.ZERO;
         public BigDecimal ostieEmployer = BigDecimal.ZERO;
+        public BigDecimal omsiBaseNonPlafonnee = BigDecimal.ZERO;
         public BigDecimal omsiBase = BigDecimal.ZERO;
         public BigDecimal omsiEmployee = BigDecimal.ZERO;
         public BigDecimal omsiEmployer = BigDecimal.ZERO;
         public BigDecimal cap = BigDecimal.ZERO;
+    }
+    public static BigDecimal cnapsNonPlafonnee(Month m) {
+        if (m.cnapsBaseNonPlafonnee.signum() > 0) return m.cnapsBaseNonPlafonnee;
+        if (m.cnapsBase.signum() > 0) return m.cnapsBase;
+        return m.gross;
+    }
+    public static BigDecimal ostieNonPlafonnee(Month m) {
+        if (m.ostieBaseNonPlafonnee.signum() > 0) return m.ostieBaseNonPlafonnee;
+        if (m.ostieBase.signum() > 0) return m.ostieBase;
+        return m.gross;
+    }
+    public static BigDecimal omsiNonPlafonnee(Month m) {
+        if (m.omsiBaseNonPlafonnee.signum() > 0) return m.omsiBaseNonPlafonnee;
+        if (m.omsiBase.signum() > 0) return m.omsiBase;
+        return m.gross;
     }
     public static final class Person {
         public final int id;
@@ -124,8 +146,15 @@ public class QuarterlySocialDataService {
                 month.gross = month.gross.add(zero(b.getTotalGainsBruts()));
                 month.hours = month.hours.add(zero(b.getHeuresNormales()));
                 month.cap = cap;
-                BigDecimal[] bases = {BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO};
-                for (BulletinPaieLigne line : BulletinPaieLigne.listerParBulletin(b.getIdBulletin(), connection)) {
+                List<BulletinPaieLigne> lines = BulletinPaieLigne.listerParBulletin(b.getIdBulletin(), connection);
+                BigDecimal nonCotisableGains = lines.stream()
+                        .filter(l -> "GAIN".equals(l.getSens()) && !l.isSoumisCotisation())
+                        .map(l -> zero(l.getMontantSalarial()))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal uncappedSocialBase = zero(b.getTotalGainsBruts()).subtract(nonCotisableGains).max(BigDecimal.ZERO);
+
+                BigDecimal[] bases = {BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO};
+                for (BulletinPaieLigne line : lines) {
                     String code = n(line.getCodeRubrique()).toUpperCase(Locale.ROOT);
                     BigDecimal salariale = zero(line.getMontantSalarial());
                     BigDecimal patronale = zero(line.getMontantPatronal());
@@ -137,6 +166,7 @@ public class QuarterlySocialDataService {
                         bases[0] = bases[0].max(base);
                     } else if (code.contains("FMFP")) {
                         month.fmfpEmployer = month.fmfpEmployer.add(patronale);
+                        bases[3] = bases[3].max(base);
                     } else if (code.contains("OSTIE")) {
                         month.ostieEmployee = month.ostieEmployee.add(salariale);
                         month.ostieEmployer = month.ostieEmployer.add(patronale);
@@ -147,9 +177,22 @@ public class QuarterlySocialDataService {
                         bases[2] = bases[2].max(base);
                     }
                 }
-                month.cnapsBase = month.cnapsBase.add(bases[0]);
-                month.ostieBase = month.ostieBase.add(bases[1]);
-                month.omsiBase = month.omsiBase.add(bases[2]);
+                if (bases[0].signum() > 0 || month.cnapsEmployee.add(month.cnapsEmployer).signum() > 0) {
+                    month.cnapsBase = month.cnapsBase.add(bases[0]);
+                    month.cnapsBaseNonPlafonnee = month.cnapsBaseNonPlafonnee.add(uncappedSocialBase.max(bases[0]));
+                }
+                if (bases[3].signum() > 0 || month.fmfpEmployer.signum() > 0) {
+                    month.fmfpBase = month.fmfpBase.add(bases[3]);
+                    month.fmfpBaseNonPlafonnee = month.fmfpBaseNonPlafonnee.add(uncappedSocialBase.max(bases[3]));
+                }
+                if (bases[1].signum() > 0 || month.ostieEmployee.add(month.ostieEmployer).signum() > 0) {
+                    month.ostieBase = month.ostieBase.add(bases[1]);
+                    month.ostieBaseNonPlafonnee = month.ostieBaseNonPlafonnee.add(uncappedSocialBase.max(bases[1]));
+                }
+                if (bases[2].signum() > 0 || month.omsiEmployee.add(month.omsiEmployer).signum() > 0) {
+                    month.omsiBase = month.omsiBase.add(bases[2]);
+                    month.omsiBaseNonPlafonnee = month.omsiBaseNonPlafonnee.add(uncappedSocialBase.max(bases[2]));
+                }
             }
         }
         List<Person> ordered = new ArrayList<>(people.values());
@@ -206,6 +249,7 @@ public class QuarterlySocialDataService {
                     case "omsi" -> omsi(workbook, data, recipients);
                     default -> throw new IllegalArgumentException("Type d'export trimestriel inconnu.");
                 }
+                workbook.getCreationHelper().createFormulaEvaluator().evaluateAll();
                 workbook.setForceFormulaRecalculation(true);
                 workbook.write(output);
                 return output.toByteArray();
@@ -226,7 +270,8 @@ public class QuarterlySocialDataService {
             date(target, 5, p.hired); date(target, 6, p.left);
             for (int m = 0; m < 3; m++) {
                 Month v = p.months[m]; int col = 7 + 4 * m;
-                number(target, col, v.gross.subtract(v.advantage)); number(target, col + 1, v.advantage);
+                BigDecimal declaredSalary = cnapsNonPlafonnee(v).subtract(v.advantage);
+                number(target, col, declaredSalary); number(target, col + 1, v.advantage);
                 number(target, col + 2, v.hours);
                 if (v.cap.signum() > 0) number(target, col + 3, v.cap);
             }
@@ -246,12 +291,17 @@ public class QuarterlySocialDataService {
             final int monthIndex = m;
             int col = 2 + m;
             string(employer, 19, col, monthName(data.months()[m]));
-            number(employer, 22, col, BigDecimal.valueOf(people.stream().filter(p -> p.months[monthIndex].gross.signum() > 0).count()));
-            number(employer, 23, col, sum(people, p -> p.months[monthIndex].gross));
+            number(employer, 22, col, BigDecimal.valueOf(people.stream().filter(p -> cnapsNonPlafonnee(p.months[monthIndex]).signum() > 0 || p.months[monthIndex].fmfpEmployer.signum() > 0).count()));
+            number(employer, 23, col, sum(people, p -> cnapsNonPlafonnee(p.months[monthIndex])));
             number(employer, 24, col, sum(people, p -> p.months[monthIndex].cnapsEmployer));
             number(employer, 25, col, sum(people, p -> p.months[monthIndex].cnapsEmployee));
             number(employer, 26, col, sum(people, p -> p.months[monthIndex].fmfpEmployer));
         }
+        formula(employer, 23, 5, "SUM(C24:E24)");
+        formula(employer, 24, 5, "SUM(C25:E25)");
+        formula(employer, 25, 5, "SUM(C26:E26)");
+        formula(employer, 26, 5, "SUM(C27:E27)");
+        formula(employer, 27, 5, "SUM(F25:F27)");
         for (int m = 0; m < 3; m++) {
             Sheet sheet = book.getSheetAt(m + 1);
             int first = 3;
@@ -263,13 +313,14 @@ public class QuarterlySocialDataService {
                 Row target = writableRow(sheet, row, styles);
                 if (row - first >= people.size()) continue;
                 Person p = people.get(row - first); Month v = p.months[m];
+                BigDecimal declaredSalary = cnapsNonPlafonnee(v);
                 string(target, 0, data.months()[m].replace("-", ""));
                 string(target, 1, p.name); string(target, 2, p.firstNames);
                 string(target, 3, p.cnaps); string(target, 4, p.matricule);
                 date(target, 5, inQuarter(p.hired, data) ? p.hired : null);
                 date(target, 6, inQuarter(p.left, data) ? p.left : null);
-                number(target, 7, v.gross.subtract(v.advantage)); number(target, 8, v.advantage);
-                number(target, 9, v.hours); number(target, 10, v.gross);
+                number(target, 7, declaredSalary.subtract(v.advantage)); number(target, 8, v.advantage);
+                number(target, 9, v.hours); number(target, 10, declaredSalary);
                 number(target, 11, v.cnapsBase); number(target, 12, v.cnapsEmployer);
                 number(target, 13, v.cnapsEmployee); number(target, 14, v.cnapsEmployer.add(v.cnapsEmployee));
                 number(target, 15, v.fmfpEmployer); string(target, 16, p.cin);
@@ -297,8 +348,8 @@ public class QuarterlySocialDataService {
             string(target, 4, p.sex); date(target, 5, p.birth); date(target, 6, p.hired);
             date(target, 7, p.left); string(target, 8, p.position);
             string(target, 9, p.cnaps); string(target, 10, p.cin);
-            for (int m = 0; m < 3; m++) number(target, 11 + m, p.months[m].gross);
-            number(target, 14, p.sum(v -> v.gross)); number(target, 15, p.sum(v -> v.ostieBase));
+            for (int m = 0; m < 3; m++) number(target, 11 + m, ostieNonPlafonnee(p.months[m]));
+            number(target, 14, p.sum(QuarterlySocialDataService::ostieNonPlafonnee)); number(target, 15, p.sum(v -> v.ostieBase));
             number(target, 16, p.sum(v -> v.ostieEmployer)); number(target, 17, p.sum(v -> v.ostieEmployee));
         }
         int totalRow = 24 + extra;
@@ -317,7 +368,7 @@ public class QuarterlySocialDataService {
             int col = 2 + m;
             string(recap, 19, col, monthName(data.months()[m]));
             number(recap, 22, col, BigDecimal.valueOf(people.stream().filter(p -> p.months[monthIndex].ostieEmployer.add(p.months[monthIndex].ostieEmployee).signum() > 0).count()));
-            number(recap, 23, col, sum(people, p -> p.months[monthIndex].gross));
+            number(recap, 23, col, sum(people, p -> ostieNonPlafonnee(p.months[monthIndex])));
             number(recap, 24, col, sum(people, p -> p.months[monthIndex].ostieBase));
             number(recap, 25, col, sum(people, p -> p.months[monthIndex].ostieEmployer));
             number(recap, 26, col, sum(people, p -> p.months[monthIndex].ostieEmployee));
@@ -342,7 +393,7 @@ public class QuarterlySocialDataService {
             int col = 2 + m;
             string(employer, 16, col, monthName(data.months()[m]));
             number(employer, 20, col, BigDecimal.valueOf(people.stream().filter(p -> p.months[monthIndex].omsiEmployer.add(p.months[monthIndex].omsiEmployee).signum() > 0).count()));
-            number(employer, 21, col, sum(people, p -> p.months[monthIndex].omsiBase));
+            number(employer, 21, col, sum(people, p -> omsiNonPlafonnee(p.months[monthIndex])));
             number(employer, 22, col, sum(people, p -> p.months[monthIndex].omsiEmployer));
             number(employer, 23, col, sum(people, p -> p.months[monthIndex].omsiEmployee));
         }
@@ -366,8 +417,8 @@ public class QuarterlySocialDataService {
             string(target, 4, p.matricule); string(target, 5, p.cnaps);
             date(target, 6, inQuarter(p.hired, data) ? p.hired : null);
             date(target, 7, inQuarter(p.left, data) ? p.left : null);
-            for (int m = 0; m < 3; m++) number(target, 8 + m, p.months[m].omsiBase);
-            number(target, 11, p.sum(v -> v.omsiBase));
+            for (int m = 0; m < 3; m++) number(target, 8 + m, omsiNonPlafonnee(p.months[m]));
+            number(target, 11, p.sum(QuarterlySocialDataService::omsiNonPlafonnee));
             number(target, 12, p.sum(v -> v.omsiEmployer));
             number(target, 13, p.sum(v -> v.omsiEmployee));
             number(target, 14, p.sum(v -> v.omsiEmployer.add(v.omsiEmployee)));
@@ -379,44 +430,111 @@ public class QuarterlySocialDataService {
 
     private static byte[] consolidation(Data data) throws Exception {
         try (XSSFWorkbook book = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] navy = new byte[]{7, 50, 74};                          // #07324A --color-brand-900
+            byte[] totalBg = new byte[]{(byte)225, (byte)237, (byte)242}; // #E1EDF2 --color-brand-100
+
+            // Styles
+            Font titleFont = book.createFont(); titleFont.setBold(true); titleFont.setFontHeightInPoints((short) 14);
+            CellStyle titleStyle = book.createCellStyle(); titleStyle.setFont(titleFont);
+
+            Font headFont = book.createFont(); headFont.setBold(true); headFont.setColor(IndexedColors.WHITE.getIndex());
+            XSSFCellStyle headStyle = book.createCellStyle(); headStyle.setFont(headFont);
+            headStyle.setFillForegroundColor(new XSSFColor(navy, null)); headStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            headStyle.setBorderBottom(BorderStyle.THIN); headStyle.setBorderTop(BorderStyle.THIN);
+            headStyle.setBorderLeft(BorderStyle.THIN); headStyle.setBorderRight(BorderStyle.THIN);
+
+            Font totalFont = book.createFont(); totalFont.setBold(true);
+            XSSFCellStyle totalStyle = book.createCellStyle(); totalStyle.setFont(totalFont);
+            totalStyle.setFillForegroundColor(new XSSFColor(totalBg, null)); totalStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            totalStyle.setBorderBottom(BorderStyle.THIN); totalStyle.setBorderTop(BorderStyle.THIN);
+            totalStyle.setBorderLeft(BorderStyle.THIN); totalStyle.setBorderRight(BorderStyle.THIN);
+            XSSFCellStyle totalMoney = book.createCellStyle(); totalMoney.cloneStyleFrom(totalStyle);
+            totalMoney.setDataFormat(book.createDataFormat().getFormat("#,##0.00")); totalMoney.setAlignment(HorizontalAlignment.RIGHT);
+
+            CellStyle textStyle = book.createCellStyle();
+            textStyle.setBorderBottom(BorderStyle.THIN); textStyle.setBorderTop(BorderStyle.THIN);
+            textStyle.setBorderLeft(BorderStyle.THIN); textStyle.setBorderRight(BorderStyle.THIN);
+            textStyle.setBottomBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            textStyle.setTopBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            textStyle.setLeftBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            textStyle.setRightBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+
+            CellStyle moneyStyle = book.createCellStyle(); moneyStyle.cloneStyleFrom(textStyle);
+            moneyStyle.setDataFormat(book.createDataFormat().getFormat("#,##0.00")); moneyStyle.setAlignment(HorizontalAlignment.RIGHT);
+
             Sheet summary = book.createSheet("Synthèse");
             Sheet detail = book.createSheet("Par salarié et mois");
             summary.setDisplayGridlines(false); detail.setDisplayGridlines(false);
+            cell(summary, 0, 0).setCellStyle(titleStyle);
             string(summary, 0, 0, "CONSOLIDATION SOCIALE · " + data.label().replace('_', ' '));
             string(summary, 1, 0, data.employer().name() + " · contrôle interne avant préparation des modèles");
             String[] heads = {"Organisme", "Salariés", "Part salarié (Ar)", "Part employeur (Ar)", "Total (Ar)"};
-            for (int i = 0; i < heads.length; i++) string(summary, 3, i, heads[i]);
+            for (int i = 0; i < heads.length; i++) {
+                Cell c = cell(summary, 3, i);
+                c.setCellStyle(headStyle);
+                c.setCellValue(heads[i]);
+            }
+            summary.getRow(3).setHeightInPoints(26);
             String[] orgs = {"CNaPS", "FMFP", "OSTIE", "OMSI"};
             List<List<Person>> lists = List.of(data.cnaps(), data.fmfp(), data.ostie(), data.omsi());
             for (int i = 0; i < 4; i++) {
                 int row = i + 4;
-                string(summary, row, 0, orgs[i]); number(summary, row, 1, BigDecimal.valueOf(lists.get(i).size()));
+                Cell c0 = cell(summary, row, 0); c0.setCellStyle(textStyle); c0.setCellValue(orgs[i]);
+                Cell c1 = cell(summary, row, 1); c1.setCellStyle(textStyle); c1.setCellValue(lists.get(i).size());
                 BigDecimal employee = BigDecimal.ZERO, employer = BigDecimal.ZERO;
                 for (Person p : lists.get(i)) for (Month m : p.months) {
                     employee = employee.add(switch (i) { case 0 -> m.cnapsEmployee; case 2 -> m.ostieEmployee; case 3 -> m.omsiEmployee; default -> BigDecimal.ZERO; });
                     employer = employer.add(switch (i) { case 0 -> m.cnapsEmployer; case 1 -> m.fmfpEmployer; case 2 -> m.ostieEmployer; default -> m.omsiEmployer; });
                 }
-                number(summary, row, 2, employee); number(summary, row, 3, employer); number(summary, row, 4, employee.add(employer));
+                Cell c2 = cell(summary, row, 2); c2.setCellStyle(moneyStyle); c2.setCellValue(employee.doubleValue());
+                Cell c3 = cell(summary, row, 3); c3.setCellStyle(moneyStyle); c3.setCellValue(employer.doubleValue());
+                Cell c4 = cell(summary, row, 4); c4.setCellStyle(moneyStyle); c4.setCellValue(employee.add(employer).doubleValue());
             }
-            string(summary, 8, 0, "TOTAL");
-            for (int col = 2; col <= 4; col++) formula(summary, 8, col, "SUM(" + CellReference.convertNumToColString(col) + "5:" + CellReference.convertNumToColString(col) + "8)");
+            Cell tot0 = cell(summary, 8, 0); tot0.setCellStyle(totalStyle); tot0.setCellValue("TOTAL");
+            Cell tot1 = cell(summary, 8, 1); tot1.setCellStyle(totalStyle); tot1.setCellValue("");
+            for (int col = 2; col <= 4; col++) {
+                Cell tc = cell(summary, 8, col);
+                tc.setCellStyle(totalMoney);
+                tc.setCellFormula("SUM(" + CellReference.convertNumToColString(col) + "5:" + CellReference.convertNumToColString(col) + "8)");
+            }
             for (int col = 0; col < 5; col++) summary.setColumnWidth(col, col == 0 ? 8500 : 6200);
 
-            String[] detailHeads = {"Mois", "Matricule", "Nom", "Prénoms", "N° CNaPS", "Brut", "Heures", "Base CNaPS", "CNaPS salarié", "CNaPS employeur", "FMFP employeur", "Base OSTIE", "OSTIE salarié", "OSTIE employeur", "Base OMSI", "OMSI salarié", "OMSI employeur"};
-            for (int i = 0; i < detailHeads.length; i++) string(detail, 2, i, detailHeads[i]);
+            String[] detailHeads = {"Mois", "Matricule", "Nom", "Prénoms", "N° CNaPS", "Brut", "Heures",
+                    "Base CNaPS non plafonnée", "Base CNaPS plafonnée", "CNaPS salarié", "CNaPS employeur",
+                    "Base FMFP", "FMFP employeur",
+                    "Base OSTIE non plafonnée", "Base OSTIE plafonnée", "OSTIE salarié", "OSTIE employeur",
+                    "Base OMSI non plafonnée", "Base OMSI plafonnée", "OMSI salarié", "OMSI employeur"};
+            for (int i = 0; i < detailHeads.length; i++) {
+                Cell dc = cell(detail, 2, i);
+                dc.setCellStyle(headStyle);
+                dc.setCellValue(detailHeads[i]);
+            }
+            detail.getRow(2).setHeightInPoints(26);
             int row = 3;
             for (Person p : data.people()) for (int monthIndex = 0; monthIndex < 3; monthIndex++) {
                 Month m = p.months[monthIndex];
                 if (m.gross.signum() == 0 && m.cnapsEmployee.signum() == 0 && m.cnapsEmployer.signum() == 0 && m.fmfpEmployer.signum() == 0 && m.ostieEmployee.signum() == 0 && m.ostieEmployer.signum() == 0 && m.omsiEmployee.signum() == 0 && m.omsiEmployer.signum() == 0) continue;
-                string(detail, row, 0, data.months()[monthIndex]); string(detail, row, 1, p.matricule);
-                string(detail, row, 2, p.name); string(detail, row, 3, p.firstNames); string(detail, row, 4, p.cnaps);
-                BigDecimal[] values = {m.gross, m.hours, m.cnapsBase, m.cnapsEmployee, m.cnapsEmployer, m.fmfpEmployer,
-                        m.ostieBase, m.ostieEmployee, m.ostieEmployer, m.omsiBase, m.omsiEmployee, m.omsiEmployer};
-                for (int i = 0; i < values.length; i++) number(detail, row, 5 + i, values[i]);
+                Cell c0 = cell(detail, row, 0); c0.setCellStyle(textStyle); c0.setCellValue(data.months()[monthIndex]);
+                Cell c1 = cell(detail, row, 1); c1.setCellStyle(textStyle); c1.setCellValue(p.matricule);
+                Cell c2 = cell(detail, row, 2); c2.setCellStyle(textStyle); c2.setCellValue(p.name);
+                Cell c3 = cell(detail, row, 3); c3.setCellStyle(textStyle); c3.setCellValue(p.firstNames);
+                Cell c4 = cell(detail, row, 4); c4.setCellStyle(textStyle); c4.setCellValue(p.cnaps);
+                BigDecimal[] values = {m.gross, m.hours,
+                        cnapsNonPlafonnee(m), m.cnapsBase, m.cnapsEmployee, m.cnapsEmployer,
+                        (m.fmfpBase.signum() > 0 ? m.fmfpBase : m.cnapsBase), m.fmfpEmployer,
+                        ostieNonPlafonnee(m), m.ostieBase, m.ostieEmployee, m.ostieEmployer,
+                        omsiNonPlafonnee(m), m.omsiBase, m.omsiEmployee, m.omsiEmployer};
+                for (int i = 0; i < values.length; i++) {
+                    Cell numC = cell(detail, row, 5 + i);
+                    numC.setCellStyle(moneyStyle);
+                    if (values[i] != null) numC.setCellValue(values[i].doubleValue());
+                }
                 row++;
             }
             detail.createFreezePane(5, 3);
             for (int col = 0; col < detailHeads.length; col++) detail.setColumnWidth(col, col == 2 || col == 3 ? 7500 : 4800);
+            book.getCreationHelper().createFormulaEvaluator().evaluateAll();
             book.write(output);
             return output.toByteArray();
         }

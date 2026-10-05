@@ -59,7 +59,7 @@ public class EmployeController {
     @Autowired
     private DataSource dataSource;
 
-    @Value("${app.upload.dir:uploads/photos}")
+    @Value("${app.upload.dir:uploads/photo}")
     private String uploadDir;
 
     // =========================================================================
@@ -242,14 +242,44 @@ public class EmployeController {
         try {
             validateImage(file);
             Files.createDirectories(normalizedUploadDirectory());
-            String uniqueFilename = UUID.randomUUID() + extensionFor(file.getContentType());
+
+            // Récupérer les informations de l'employé pour la convention de nommage lisible
+            String matricule = null;
+            String nom = null;
+            String prenom = null;
+            String oldPhotoUrl = null;
+            try (Connection c = dataSource.getConnection();
+                 PreparedStatement ps = c.prepareStatement(
+                         "SELECT matricule, nom, prenom, photo_url FROM employe WHERE id_employe = ?")) {
+                ps.setInt(1, idEmploye);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        matricule = rs.getString("matricule");
+                        nom = rs.getString("nom");
+                        prenom = rs.getString("prenom");
+                        oldPhotoUrl = rs.getString("photo_url");
+                    }
+                }
+            } catch (Exception ignored) {
+                // Poursuivre le téléversement même si la récupération d'informations échoue
+            }
+
+            String extension = extensionFor(file.getContentType());
+            String uniqueFilename = generatePhotoFilename(matricule, nom, prenom, extension);
             Files.copy(file.getInputStream(), safeResolve(uniqueFilename), StandardCopyOption.REPLACE_EXISTING);
 
             String photoUrl = "/employes/photos/" + uniqueFilename;
             persistPhotoUrl(idEmploye, photoUrl);
 
+            if (oldPhotoUrl != null && !oldPhotoUrl.isBlank()) {
+                cleanupOldPhoto(oldPhotoUrl);
+            }
+
             return ResponseEntity.ok(Map.of(
                     "photoEndpoint", "/employes/" + idEmploye + "/photo",
+                    "photoUrl", photoUrl,
+                    "url", photoUrl,
+                    "filename", uniqueFilename,
                     "idEmploye", idEmploye));
         } catch (IllegalArgumentException e) {
             throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, e.getMessage());
@@ -259,24 +289,37 @@ public class EmployeController {
     }
 
     @GetMapping("/photos/{filename}")
-    @Deprecated(forRemoval = true)
-    public ResponseEntity<Map<String, String>> getPhotoByFilenameDeprecated(
-            @PathVariable String filename) {
-        return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
-                "code", "ENDPOINT_DEPRECATED",
-                "message", "Cet endpoint est déprécié (P1-05). Utilisez GET /employes/{idEmploye}/photo.",
-                "docsUrl", "/employes/{idEmploye}/photo"));
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> getPhotoByFilename(@PathVariable String filename) {
+        return servePhotoFile(filename);
     }
 
     @PostMapping("/upload-photo")
     @PreAuthorize("hasAuthority('EMPLOYE_WRITE') or hasAuthority('ROLE_ADMIN')")
-    @Deprecated(forRemoval = true)
-    public ResponseEntity<Map<String, String>> uploadPhotoLegacy(
-            @RequestParam(value = "file", required = false) MultipartFile file) {
-        return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
-                "code", "ENDPOINT_DEPRECATED",
-                "message", "Utilisez POST /employes/{idEmploye}/photo avec l'identifiant de l'employé.",
-                "newEndpoint", "/employes/{idEmploye}/photo"));
+    public ResponseEntity<Map<String, String>> uploadPhoto(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "matricule", required = false) String matricule,
+            @RequestParam(value = "nom", required = false) String nom,
+            @RequestParam(value = "prenom", required = false) String prenom) {
+        try {
+            validateImage(file);
+            Files.createDirectories(normalizedUploadDirectory());
+            String extension = extensionFor(file.getContentType());
+            String uniqueFilename = generatePhotoFilename(matricule, nom, prenom, extension);
+            Files.copy(file.getInputStream(), safeResolve(uniqueFilename), StandardCopyOption.REPLACE_EXISTING);
+
+            String photoUrl = "/employes/photos/" + uniqueFilename;
+
+            return ResponseEntity.ok(Map.of(
+                    "photoUrl", photoUrl,
+                    "url", photoUrl,
+                    "filename", uniqueFilename
+            ));
+        } catch (IllegalArgumentException e) {
+            throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR, e.getMessage());
+        } catch (IOException e) {
+            throw new SirhBusinessException(SirhErrorCode.INTERNAL_ERROR);
+        }
     }
 
     // Helpers photo
@@ -376,7 +419,62 @@ public class EmployeController {
         if (!resolved.startsWith(normalizedUploadDirectory())) {
             throw new IllegalArgumentException("Chemin de photo invalide.");
         }
+        if (!Files.exists(resolved)) {
+            // Compatibilité ascendante avec l'ancien répertoire uploads/photos
+            Path legacy = Paths.get("uploads/photos").toAbsolutePath().normalize().resolve(filename).normalize();
+            if (Files.exists(legacy) && legacy.startsWith(Paths.get("uploads/photos").toAbsolutePath().normalize())) {
+                return legacy;
+            }
+        }
         return resolved;
+    }
+
+    private void cleanupOldPhoto(String oldPhotoUrl) {
+        try {
+            if (oldPhotoUrl == null || oldPhotoUrl.isBlank()) return;
+            String filename = Paths.get(oldPhotoUrl).getFileName().toString();
+            Path filePath = safeResolve(filename);
+            if (Files.isRegularFile(filePath)) {
+                Files.deleteIfExists(filePath);
+            }
+        } catch (Exception ignored) {
+            // Tolérance aux erreurs de nettoyage
+        }
+    }
+
+    public static String sanitizeNamePart(String input) {
+        if (input == null || input.isBlank()) return "";
+        String normalized = java.text.Normalizer.normalize(input.trim(), java.text.Normalizer.Form.NFD);
+        String withoutAccents = normalized.replaceAll("\\p{M}", "");
+        String sanitized = withoutAccents.replaceAll("[^a-zA-Z0-9_-]+", "_");
+        return sanitized.replaceAll("_+", "_").replaceAll("^_|_$", "");
+    }
+
+    public static String generatePhotoFilename(String matricule, String nom, String prenom, String extension) {
+        StringBuilder sb = new StringBuilder("PHOTO");
+        String cleanMat = sanitizeNamePart(matricule);
+        String cleanNom = sanitizeNamePart(nom);
+        String cleanPrenom = sanitizeNamePart(prenom);
+
+        if (!cleanMat.isEmpty()) {
+            sb.append("_").append(cleanMat.toUpperCase());
+        }
+        if (!cleanNom.isEmpty()) {
+            sb.append("_").append(cleanNom.toUpperCase());
+        }
+        if (!cleanPrenom.isEmpty()) {
+            sb.append("_").append(cleanPrenom);
+        }
+        if (cleanMat.isEmpty() && cleanNom.isEmpty() && cleanPrenom.isEmpty()) {
+            sb.append("_COLLABORATEUR");
+        }
+
+        String timestamp = java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String shortId = UUID.randomUUID().toString().replace("-", "").substring(0, 6);
+
+        sb.append("_").append(timestamp).append("_").append(shortId).append(extension);
+        return sb.toString();
     }
 
     private String extensionFor(String contentType) {

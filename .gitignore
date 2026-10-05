@@ -12,6 +12,6 @@
 # Fichiers de logs ou temporaires globaux
 *.log
 .temp/
-/backend/uploads/documents
-/backend/uploads/photos
-/backend/uploads/documents
+# Répertoires de téléversement locaux
+uploads/
+/backend/uploads/

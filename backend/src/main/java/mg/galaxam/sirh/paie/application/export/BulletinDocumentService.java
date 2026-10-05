@@ -34,9 +34,14 @@ public class BulletinDocumentService {
     private static final float RIGHT = 553;
     private static final org.apache.pdfbox.pdmodel.font.PDFont REGULAR = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
     private static final org.apache.pdfbox.pdmodel.font.PDFont BOLD = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
-    private static final int DARK = 0x203328;
-    private static final int GREEN = 0x527A54;
-    private static final int PALE = 0xEFF3EF;
+    // Design tokens Galaxam Navy & Neutres Gris Bleutés (index.css)
+    private static final int BRAND_NAVY = 0x07324A;   // --color-brand-900 (#07324A)
+    private static final int BRAND_ACCENT = 0x247B9F; // --color-brand-500 (#247B9F)
+    private static final int BRAND_PALE = 0xF2F7F9;   // --color-brand-50 (#F2F7F9)
+    private static final int INK_TEXT = 0x18242D;     // --color-ink-900 (#18242D)
+    private static final int INK_MUTED = 0x62717A;    // --color-ink-500 (#62717A)
+    private static final int INK_BORDER = 0xD5DDE1;   // --color-ink-200 (#D5DDE1)
+    private static final int ROW_ALT = 0xF7F9FA;      // --color-ink-50 (#F7F9FA)
 
     public record Context(String periode, String dates, String entreprise, String adresse, String nif, String stat) {}
     private record Rubrique(String libelle, BigDecimal base, BigDecimal taux, BigDecimal gain, BigDecimal retenue) {}
@@ -86,15 +91,15 @@ public class BulletinDocumentService {
             int[] widths = {10500, 4800, 3600, 5400, 5400};
             for (int i = 0; i < widths.length; i++) sheet.setColumnWidth(i, widths[i]);
             CellStyle title = style(book, true, (short) 16, 0xFFFFFF, true, false);
-            CellStyle label = style(book, true, (short) 10, DARK, false, false);
+            CellStyle label = style(book, true, (short) 10, INK_TEXT, false, false);
             CellStyle header = style(book, true, (short) 10, 0xFFFFFF, true, false);
-            CellStyle body = style(book, false, (short) 10, DARK, false, false);
-            CellStyle tableBody = style(book, false, (short) 10, DARK, false, false);
-            CellStyle tableNumber = style(book, false, (short) 10, DARK, false, true);
+            CellStyle body = style(book, false, (short) 10, INK_TEXT, false, false);
+            CellStyle tableBody = style(book, false, (short) 10, INK_TEXT, false, false);
+            CellStyle tableNumber = style(book, false, (short) 10, INK_TEXT, false, true);
             borders(tableBody);
             borders(tableNumber);
             borders(header);
-            CellStyle total = style(book, true, (short) 11, DARK, true, true);
+            CellStyle total = style(book, true, (short) 11, INK_TEXT, true, true);
             CellStyle net = style(book, true, (short) 14, 0xFFFFFF, true, true);
             CellStyle netLabel = style(book, true, (short) 14, 0xFFFFFF, true, false);
             int r = 0;
@@ -183,29 +188,29 @@ public class BulletinDocumentService {
             stream = new PDPageContentStream(doc, page);
         }
         void heading(Context c, BulletinPaie b) throws Exception {
-            fill(LEFT, 817, RIGHT - LEFT, 52, DARK);
+            fill(LEFT, 817, RIGHT - LEFT, 52, BRAND_NAVY);
             text(LEFT + 14, 789, c.entreprise().isBlank() ? "BULLETIN DE PAIE" : c.entreprise(), 15, true, 0xFFFFFF);
             text(RIGHT - 145, 789, "BULLETIN DE PAIE", 10, true, 0xFFFFFF);
             text(LEFT + 14, 774, c.adresse(), 8, false, 0xFFFFFF);
             y = 748;
-            text(LEFT, y, "PÉRIODE  " + c.periode() + "  ·  " + c.dates(), 9, true, DARK);
-            right(RIGHT, y, "Réf. " + n(b.getReferenceBulletin()), 9, false, DARK);
+            text(LEFT, y, "PÉRIODE  " + c.periode() + "  ·  " + c.dates(), 9, true, BRAND_NAVY);
+            right(RIGHT, y, "Réf. " + n(b.getReferenceBulletin()), 9, false, INK_MUTED);
             y -= 28;
-            fill(LEFT, y + 12, RIGHT - LEFT, 73, PALE);
-            text(LEFT + 10, y - 5, "SALARIÉ", 8, true, GREEN);
-            text(LEFT + 10, y - 23, n(b.getNomPrenom()), 12, true, DARK);
-            text(LEFT + 10, y - 43, "Matricule " + n(b.getMatricule()) + "  ·  " + n(b.getIntitulePoste()), 9, false, DARK);
-            text(LEFT + 10, y - 57, "Site : " + n(b.getNomSite()) + "   |   CNaPS : " + n(b.getNumeroCnaps()), 8, false, DARK);
+            fill(LEFT, y + 12, RIGHT - LEFT, 73, BRAND_PALE);
+            text(LEFT + 10, y - 5, "SALARIÉ", 8, true, BRAND_ACCENT);
+            text(LEFT + 10, y - 23, n(b.getNomPrenom()), 12, true, BRAND_NAVY);
+            text(LEFT + 10, y - 43, "Matricule " + n(b.getMatricule()) + "  ·  " + n(b.getIntitulePoste()), 9, false, INK_TEXT);
+            text(LEFT + 10, y - 57, "Site : " + n(b.getNomSite()) + "   |   CNaPS : " + n(b.getNumeroCnaps()), 8, false, INK_MUTED);
             y -= 88;
         }
         void continuation(Context c, BulletinPaie b) throws Exception {
-            fill(LEFT, 813, RIGHT - LEFT, 38, DARK);
+            fill(LEFT, 813, RIGHT - LEFT, 38, BRAND_NAVY);
             text(LEFT + 12, 789, "BULLETIN DE PAIE · SUITE", 12, true, 0xFFFFFF);
-            text(LEFT, 758, n(b.getNomPrenom()) + "   |   " + c.periode() + "   |   " + n(b.getReferenceBulletin()), 9, false, DARK);
+            text(LEFT, 758, n(b.getNomPrenom()) + "   |   " + c.periode() + "   |   " + n(b.getReferenceBulletin()), 9, false, INK_TEXT);
             y = 737;
         }
         void tableHeader() throws Exception {
-            fill(LEFT, y + 13, RIGHT - LEFT, 22, DARK);
+            fill(LEFT, y + 13, RIGHT - LEFT, 22, BRAND_NAVY);
             text(LEFT + 8, y + 3, "RUBRIQUE", 8, true, 0xFFFFFF);
             right(342, y + 3, "BASE / QTÉ", 8, true, 0xFFFFFF);
             right(397, y + 3, "TAUX", 8, true, 0xFFFFFF);
@@ -217,12 +222,12 @@ public class BulletinDocumentService {
             float rowY = y;
             List<String> labelLines = wrapLabel(l.libelle());
             float height = 21 + (labelLines.size() - 1) * 10;
-            if (((int) (rowY / 21)) % 2 == 0) fill(LEFT, rowY + 15, RIGHT - LEFT, height, 0xF7F9F7);
-            for (int i = 0; i < labelLines.size(); i++) text(LEFT + 8, rowY + 1 - i * 10, labelLines.get(i), 8, false, DARK);
-            right(342, rowY + 1, fmt(l.base()), 8, false, DARK);
-            right(397, rowY + 1, l.taux() == null ? "" : fmt(l.taux()) + " %", 8, false, DARK);
-            right(475, rowY + 1, fmt(l.gain()), 8, false, DARK);
-            right(RIGHT - 8, rowY + 1, fmt(l.retenue()), 8, false, DARK);
+            if (((int) (rowY / 21)) % 2 == 0) fill(LEFT, rowY + 15, RIGHT - LEFT, height, ROW_ALT);
+            for (int i = 0; i < labelLines.size(); i++) text(LEFT + 8, rowY + 1 - i * 10, labelLines.get(i), 8, false, INK_TEXT);
+            right(342, rowY + 1, fmt(l.base()), 8, false, INK_TEXT);
+            right(397, rowY + 1, l.taux() == null ? "" : fmt(l.taux()) + " %", 8, false, INK_TEXT);
+            right(475, rowY + 1, fmt(l.gain()), 8, false, INK_TEXT);
+            right(RIGHT - 8, rowY + 1, fmt(l.retenue()), 8, false, INK_TEXT);
             y -= height;
         }
         float rubriqueHeight(Rubrique l) throws Exception { return 21 + (wrapLabel(l.libelle()).size() - 1) * 10; }
@@ -254,21 +259,21 @@ public class BulletinDocumentService {
             summary("Ajouts au net", b.getTotalIndemnitesNonImposables());
             summary("Avances et prêts", b.getTotalRetenuesAcomptePret());
             y -= 7;
-            fill(LEFT, y + 12, RIGHT - LEFT, 36, DARK);
+            fill(LEFT, y + 12, RIGHT - LEFT, 36, BRAND_NAVY);
             text(LEFT + 12, y - 10, "NET À PAYER", 12, true, 0xFFFFFF);
             right(RIGHT - 12, y - 10, fmt(b.getNetAPayer()) + " Ar", 14, true, 0xFFFFFF);
             y -= 54;
         }
         void summary(String label, BigDecimal value) throws Exception {
-            text(LEFT + 8, y, label, 9, false, DARK);
-            right(RIGHT - 8, y, fmt(value) + " Ar", 9, true, DARK);
+            text(LEFT + 8, y, label, 9, false, INK_TEXT);
+            right(RIGHT - 8, y, fmt(value) + " Ar", 9, true, BRAND_NAVY);
             y -= 18;
         }
         void fill(float x, float top, float width, float height, int color) throws Exception {
             color(color); stream.addRect(x, top - height, width, height); stream.fill();
         }
         void rule(float at) throws Exception {
-            color(0xCBD7CC); stream.moveTo(LEFT, at); stream.lineTo(RIGHT, at); stream.stroke();
+            color(INK_BORDER); stream.moveTo(LEFT, at); stream.lineTo(RIGHT, at); stream.stroke();
         }
         void color(int rgb) throws Exception { stream.setNonStrokingColor(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f); }
         void text(float x, float baseline, String value, int size, boolean bold, int rgb) throws Exception {
@@ -315,7 +320,7 @@ public class BulletinDocumentService {
         Font font = book.createFont(); font.setBold(bold); font.setFontHeightInPoints(fontSize);
         font.setColor(color == 0xFFFFFF ? IndexedColors.WHITE.getIndex() : IndexedColors.BLACK.getIndex()); style.setFont(font);
         if (filled) {
-            byte[] rgb = color == 0xFFFFFF ? new byte[]{32, 51, 40} : new byte[]{(byte)239, (byte)243, (byte)239};
+            byte[] rgb = color == 0xFFFFFF ? new byte[]{7, 50, 74} : new byte[]{(byte)242, (byte)247, (byte)249};
             style.setFillForegroundColor(new XSSFColor(rgb, null));
             style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         }

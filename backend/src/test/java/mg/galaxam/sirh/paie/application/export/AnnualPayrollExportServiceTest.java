@@ -46,14 +46,18 @@ class AnnualPayrollExportServiceTest {
             assertEquals(202000, months.getRow(12).getCell(3).getNumericCellValue());
             assertTrue(summary.getRow(1).getCell(0).getStringCellValue().contains("2/12"));
             assertEquals("Impôt retenu", summary.getRow(3).getCell(17).getStringCellValue());
+            assertEquals("Type contrat", summary.getRow(3).getCell(5).getStringCellValue());
+            assertEquals("Type contrat", detail.getRow(3).getCell(7).getStringCellValue());
             assertEquals(3000, summary.getRow(4).getCell(13).getNumericCellValue());
             assertEquals(303000, summary.getRow(105).getCell(13).getNumericCellValue());
             assertEquals("TOTAL DES PÉRIODES INCLUSES", summary.getRow(105).getCell(0).getStringCellValue());
             assertEquals(202, detail.getLastRowNum() - 3);
             assertEquals("A4:X105", ((org.apache.poi.xssf.usermodel.XSSFSheet) summary).getTables().get(0).getCTTable().getRef());
             assertEquals("A4:AB206", ((org.apache.poi.xssf.usermodel.XSSFSheet) detail).getTables().get(0).getCTTable().getRef());
-            assertTrue(detail.isColumnHidden(26));
-            assertTrue(detail.isColumnHidden(27));
+            assertFalse(detail.isColumnHidden(26));
+            assertFalse(detail.isColumnHidden(27));
+            assertEquals("REF-1-2026-08", detail.getRow(4).getCell(26).getStringCellValue());
+            assertEquals("VALIDE", detail.getRow(4).getCell(27).getStringCellValue());
             assertEquals("09 — Septembre 2026", detail.getRow(105).getCell(1).getStringCellValue());
             var control = book.getSheet("Contrôle rubriques");
             assertEquals("DEDUCTION_CONGE_BASE", control.getRow(4).getCell(0).getStringCellValue());
@@ -71,6 +75,6 @@ class AnnualPayrollExportServiceTest {
         for (int i = 0; i < values.length; i++) values[i] = BigDecimal.ZERO;
         values[7] = BigDecimal.valueOf(gross); // Salaire brut, colonne N du récapitulatif.
         values[15] = BigDecimal.valueOf(gross - 100); // Net à payer.
-        return new AnnualPayrollExportService.PayRow(employee, period, identity, values);
+        return new AnnualPayrollExportService.PayRow(employee, period, identity, values, "REF-" + employee + "-" + period, "VALIDE");
     }
 }

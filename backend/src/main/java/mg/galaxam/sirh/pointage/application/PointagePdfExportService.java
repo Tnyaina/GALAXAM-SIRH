@@ -20,20 +20,20 @@ public class PointagePdfExportService {
     private static final PDType1Font REGULAR = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
     private static final PDType1Font BOLD = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
 
-    // Palette Sauge Galaxam
-    private static final Color BRAND_HEADER = new Color(42, 54, 38);       // #2A3626
-    private static final Color BRAND_TITLE = new Color(56, 75, 50);        // #384B32
-    private static final Color BRAND_PALE = new Color(237, 242, 232);      // #EDF2E8
-    private static final Color ROW_ALT = new Color(248, 250, 247);         // Lignes paires
-    private static final Color BORDER_SUBTLE = new Color(226, 230, 223);   // Bordures légères
-    private static final Color TEXT_MAIN = new Color(20, 21, 15);          // #14150F
-    private static final Color TEXT_MUTED = new Color(110, 118, 108);      // #6E766C
-    private static final Color DANGER_BG = new Color(254, 242, 242);
-    private static final Color DANGER_BORDER = new Color(252, 165, 165);
-    private static final Color DANGER_TEXT = new Color(185, 28, 28);
-    private static final Color SUCCESS_BG = new Color(240, 253, 244);
-    private static final Color SUCCESS_BORDER = new Color(187, 247, 208);
-    private static final Color SUCCESS_TEXT = new Color(22, 101, 52);
+    // Palette Galaxam Navy & Neutres Gris Bleutés (index.css)
+    private static final Color BRAND_HEADER = new Color(7, 50, 74);        // #07324A --color-brand-900
+    private static final Color BRAND_TITLE = new Color(12, 76, 103);       // #0C4C67 --color-brand-700
+    private static final Color BRAND_PALE = new Color(225, 237, 242);      // #E1EDF2 --color-brand-100
+    private static final Color ROW_ALT = new Color(247, 249, 250);         // #F7F9FA --color-ink-50
+    private static final Color BORDER_SUBTLE = new Color(213, 221, 225);   // #D5DDE1 --color-ink-200
+    private static final Color TEXT_MAIN = new Color(24, 36, 45);          // #18242D --color-ink-900
+    private static final Color TEXT_MUTED = new Color(98, 113, 122);       // #62717A --color-ink-500
+    private static final Color DANGER_BG = new Color(254, 242, 242);       // #FEF2F2 --color-danger-50
+    private static final Color DANGER_BORDER = new Color(254, 202, 202);   // #FECACA --color-danger-200
+    private static final Color DANGER_TEXT = new Color(185, 28, 28);       // #B91C1C --color-danger-600
+    private static final Color SUCCESS_BG = new Color(240, 253, 244);      // #F0FDF4 --color-success-50
+    private static final Color SUCCESS_BORDER = new Color(187, 247, 208);  // #BBF7D0 --color-success-200
+    private static final Color SUCCESS_TEXT = new Color(22, 101, 52);       // #166534 --color-success-700
 
     private static final float[] X = {30, 88, 123, 220, 266, 312, 358, 404, 506, 566, 812};
     private static final String[] HEADERS = {"Date", "Jour", "Statut", "Entrée", "Pause", "Retour", "Sortie", "Heures", "Retard", "Observation"};
@@ -265,7 +265,7 @@ public class PointagePdfExportService {
             boolean isNeg = values[i] != null && values[i].signum() < 0;
             boolean isPos = values[i] != null && values[i].signum() > 0;
 
-            Color bgCard = isSoldeCard && isNeg ? DANGER_BG : isSoldeCard && isPos ? SUCCESS_BG : new Color(248, 250, 247);
+            Color bgCard = isSoldeCard && isNeg ? DANGER_BG : isSoldeCard && isPos ? SUCCESS_BG : ROW_ALT;
             Color borderCard = isSoldeCard && isNeg ? DANGER_BORDER : isSoldeCard && isPos ? SUCCESS_BORDER : BORDER_SUBTLE;
             fill(stream, x, cardBottom, cardWidth, cardHeight, bgCard);
             strokeRect(stream, x, cardBottom, cardWidth, cardHeight, borderCard);
@@ -325,7 +325,7 @@ public class PointagePdfExportService {
             if (allowance.montant() == null || allowance.montant().signum() == 0) continue;
             float bx = 160 + count * 225;
             float by = allowanceY - 9;
-            fill(stream, bx, by, 215, 23, new Color(248, 250, 247));
+            fill(stream, bx, by, 215, 23, ROW_ALT);
             strokeRect(stream, bx, by, 215, 23, BORDER_SUBTLE);
             draw(stream, bx + 10, by + 7, cleanValue(allowance.libelle()) + " : " + PointageDocumentData.money(allowance.montant()), BOLD, 8f, BRAND_TITLE, 195);
             count++;

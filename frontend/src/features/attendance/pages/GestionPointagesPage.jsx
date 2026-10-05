@@ -45,8 +45,34 @@ export default function GestionPointagesPage() {
 
     useEffect(() => {
         const refresh = () => setRefreshVersion(value => value + 1);
+
+        // Polling régulier en arrière-plan toutes les 15 secondes si l'onglet est actif
+        const timer = setInterval(() => {
+            if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+                refresh();
+            }
+        }, 15000);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                refresh();
+            }
+        };
+
         window.addEventListener('pointage-period-updated', refresh);
-        return () => window.removeEventListener('pointage-period-updated', refresh);
+        window.addEventListener('sirh:period-updated', refresh);
+        window.addEventListener('refresh-notifications', refresh);
+        window.addEventListener('focus', refresh);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(timer);
+            window.removeEventListener('pointage-period-updated', refresh);
+            window.removeEventListener('sirh:period-updated', refresh);
+            window.removeEventListener('refresh-notifications', refresh);
+            window.removeEventListener('focus', refresh);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, []);
 
     // Données dérivées

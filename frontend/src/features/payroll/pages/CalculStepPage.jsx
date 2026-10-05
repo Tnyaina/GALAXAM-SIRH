@@ -8,6 +8,7 @@ import SEO from '@/components/system/SEO';
 import PayrollCampaignShell from '@/features/payroll/components/workflow/PayrollCampaignShell';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Badge from '@/components/ui/data-display/Badge';
 import { Card } from '@/components/ui/data-display/Card';
@@ -53,6 +54,7 @@ export default function CalculStepPage() {
     // Contexte et hook métier
     const { periodId } = useParams();
     const navigate = useNavigate();
+    const toast = useToast();
     const numericPeriodId = Number(periodId) || null;
     const { periodes, context, loading: ctxLoading, refreshSilent } = usePayrollCampaign(numericPeriodId);
 
@@ -67,7 +69,6 @@ export default function CalculStepPage() {
     const [bulletinTotal, setBulletinTotal] = useState(0);
     const [showResultsTable, setShowResultsTable] = useState(true);
     const [selectedBulletinId, setSelectedBulletinId] = useState(null);
-    const [feedback, setFeedback] = useState(null);
     const [cockpitError, setCockpitError] = useState(null);
     const [cockpitLoaded, setCockpitLoaded] = useState(false);
     const [isCalcConfirmOpen, setIsCalcConfirmOpen] = useState(false);
@@ -147,38 +148,37 @@ export default function CalculStepPage() {
     const handleSimuler = useCallback(async () => {
         if (!numericPeriodId) return;
         setSimLoading(true);
-        setFeedback(null);
         try {
             const res = await paieService.calculerPaiePeriode(numericPeriodId, true);
             setBulletinPage(1);
             setResult(summarizeBatch(res, true));
             setShowResultsTable(true);
+            toast.info('Simulation terminée.');
         } catch (err) {
-            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors de la simulation.') });
+            toast.error(getErrorMessage(err, 'Erreur lors de la simulation.'));
         } finally {
             setSimLoading(false);
         }
-    }, [numericPeriodId]);
+    }, [numericPeriodId, toast]);
 
     const executeCalculation = useCallback(async () => {
         if (!numericPeriodId) return;
         setCalcLoading(true);
-        setFeedback(null);
         try {
             const res = await paieService.calculerPaiePeriode(numericPeriodId, false);
             setBulletinPage(1);
             const summary = summarizeBatch(res, false);
             setResult(summary);
-            setFeedback(null);
+            toast.success('Calcul réel exécuté avec succès.');
             await refreshSilent();
             await loadExistingCalculation();
         } catch (err) {
-            setFeedback({ type: 'error', text: getErrorMessage(err, "Erreur lors de l'exécution du calcul.") });
+            toast.error(getErrorMessage(err, "Erreur lors de l'exécution du calcul."));
         } finally {
             setCalcLoading(false);
             setIsCalcConfirmOpen(false);
         }
-    }, [numericPeriodId, refreshSilent, loadExistingCalculation]);
+    }, [numericPeriodId, refreshSilent, loadExistingCalculation, toast]);
 
     const hasPersistedBulletins = Boolean((existingKpis?.bulletins ?? 0) > 0 || (result && !result.isSimulation && (result?.bulletins ?? 0) > 0));
     const isSimulationActive = result?.isSimulation === true;
@@ -212,15 +212,6 @@ export default function CalculStepPage() {
             />
 
             <div className="space-y-6">
-                {feedback && (
-                    <Alert
-                        type={feedback.type}
-                        title={feedback.type === 'error' ? 'Erreur de calcul' : 'Notification'}
-                        message={feedback.text}
-                        onClose={() => setFeedback(null)}
-                    />
-                )}
-
                 {cockpitError && <Alert type="error" title="Résultats indisponibles" message={cockpitError} />}
                 {!cockpitLoaded && <Card className="border border-[var(--color-border)] p-5 text-sm text-[var(--color-fg-muted)]">Chargement des résultats de la campagne…</Card>}
                 {pendingVariables && !hasPersistedBulletins && (

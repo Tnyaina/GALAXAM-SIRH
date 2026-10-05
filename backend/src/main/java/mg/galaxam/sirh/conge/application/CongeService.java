@@ -1471,12 +1471,12 @@ public class CongeService {
                             item.put("codeTypeConge", codeType);
                             item.put("typeConge", rsD.getString("type_conge"));
                             String color = switch (codeType != null ? codeType : "") {
-                                case "ANNUEL" -> "#47603f";
+                                case "ANNUEL" -> "#125f80";
                                 case "MALADIE", "MALADIE_SANS_SOLDE" -> "#dc2626";
                                 case "MATERNITE" -> "#7e22ce";
                                 case "PATERNITE" -> "#6b21a8";
                                 case "EXCEPTIONNEL" -> "#ea580c";
-                                default -> "#5e6258";
+                                default -> "#62717a";
                             };
                             item.put("couleur", color);
                             item.put("statut", rsD.getString("code_statut"));

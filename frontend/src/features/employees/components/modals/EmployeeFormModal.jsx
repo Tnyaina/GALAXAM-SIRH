@@ -293,7 +293,11 @@ export default function EmployeeFormModal({ isOpen, onClose, onSave, employeData
         setUploadingPhoto(true);
         setErrorMsg('');
         try {
-            const res = await employeService.uploadPhoto(file);
+            const res = await employeService.uploadPhoto(file, {
+                matricule: formData.matricule,
+                nom: formData.nom,
+                prenom: formData.prenom
+            });
             set('photoUrl', res.url || res.path || res.photoUrl);
         } catch (err) {
             console.error("Erreur téléversement photo:", err);

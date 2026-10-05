@@ -31,6 +31,7 @@ public final class CongeTestFixtureHelper {
             st.execute("DELETE FROM conge_cutover_correction");
             st.execute("DELETE FROM mouvement_solde_conge");
             st.execute("DELETE FROM demande_conge");
+            st.execute("DELETE FROM periode_paie_transition");
             st.execute("DELETE FROM periode_paie");
             st.execute("DELETE FROM workflow_rh");
             st.execute("DELETE FROM employe_affectation_carriere");

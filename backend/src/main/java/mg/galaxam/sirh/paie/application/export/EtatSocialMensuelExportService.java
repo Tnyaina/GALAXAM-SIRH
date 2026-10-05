@@ -193,16 +193,24 @@ public class EtatSocialMensuelExportService {
     private static final class Styles {
         final CellStyle title, muted, header, text, integer, money, totalText, totalMoney;
         Styles(Workbook workbook) {
+            byte[] navy = new byte[]{7, 50, 74};                          // #07324A --color-brand-900
+            byte[] totalBg = new byte[]{(byte)225, (byte)237, (byte)242}; // #E1EDF2 --color-brand-100
             Font titleFont = workbook.createFont(); titleFont.setBold(true); titleFont.setFontHeightInPoints((short) 16); titleFont.setColor(IndexedColors.WHITE.getIndex());
             Font headerFont = workbook.createFont(); headerFont.setBold(true); headerFont.setColor(IndexedColors.WHITE.getIndex());
-            Font totalFont = workbook.createFont(); totalFont.setBold(true); totalFont.setColor(IndexedColors.DARK_GREEN.getIndex());
-            title = workbook.createCellStyle(); title.setFont(titleFont); title.setFillForegroundColor(IndexedColors.DARK_GREEN.getIndex()); title.setFillPattern(FillPatternType.SOLID_FOREGROUND); title.setVerticalAlignment(VerticalAlignment.CENTER);
+            Font totalFont = workbook.createFont(); totalFont.setBold(true); totalFont.setColor(IndexedColors.BLACK.getIndex());
+            title = workbook.createCellStyle(); title.setFont(titleFont);
+            ((org.apache.poi.xssf.usermodel.XSSFCellStyle) title).setFillForegroundColor(new org.apache.poi.xssf.usermodel.XSSFColor(navy, null));
+            title.setFillPattern(FillPatternType.SOLID_FOREGROUND); title.setVerticalAlignment(VerticalAlignment.CENTER);
             muted = workbook.createCellStyle(); muted.setFont(workbook.createFont());
-            header = workbook.createCellStyle(); header.setFont(headerFont); header.setFillForegroundColor(IndexedColors.DARK_GREEN.getIndex()); header.setFillPattern(FillPatternType.SOLID_FOREGROUND); header.setWrapText(true); border(header);
+            header = workbook.createCellStyle(); header.setFont(headerFont);
+            ((org.apache.poi.xssf.usermodel.XSSFCellStyle) header).setFillForegroundColor(new org.apache.poi.xssf.usermodel.XSSFColor(navy, null));
+            header.setFillPattern(FillPatternType.SOLID_FOREGROUND); header.setWrapText(true); border(header);
             text = workbook.createCellStyle(); border(text);
             integer = workbook.createCellStyle(); integer.setDataFormat(workbook.createDataFormat().getFormat("#,##0")); border(integer);
             money = workbook.createCellStyle(); money.setDataFormat(workbook.createDataFormat().getFormat("#,##0.00")); border(money);
-            totalText = workbook.createCellStyle(); totalText.setFont(totalFont); totalText.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex()); totalText.setFillPattern(FillPatternType.SOLID_FOREGROUND); border(totalText);
+            totalText = workbook.createCellStyle(); totalText.setFont(totalFont);
+            ((org.apache.poi.xssf.usermodel.XSSFCellStyle) totalText).setFillForegroundColor(new org.apache.poi.xssf.usermodel.XSSFColor(totalBg, null));
+            totalText.setFillPattern(FillPatternType.SOLID_FOREGROUND); border(totalText);
             totalMoney = workbook.createCellStyle(); totalMoney.cloneStyleFrom(totalText); totalMoney.setDataFormat(workbook.createDataFormat().getFormat("#,##0.00"));
         }
         private static void border(CellStyle style) {

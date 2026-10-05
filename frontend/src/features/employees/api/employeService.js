@@ -52,13 +52,16 @@ const employeService = {
         return response.data;
     },
 
-    uploadPhoto: async (file) => {
+    uploadPhoto: async (file, metadata = {}) => {
         const formData = new FormData();
         formData.append('file', file);
+        if (metadata?.matricule) formData.append('matricule', metadata.matricule);
+        if (metadata?.nom) formData.append('nom', metadata.nom);
+        if (metadata?.prenom) formData.append('prenom', metadata.prenom);
         const response = await apiClient.post('/employes/upload-photo', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
-        return response.data; // { photoUrl: "/employes/photos/uuid.ext" }
+        return response.data; // { photoUrl: "/employes/photos/PHOTO_...", url: "..." }
     }
 };
 

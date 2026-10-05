@@ -22,13 +22,13 @@ public class PointageExcelExportService {
     public byte[] genererExcelFicheEmploye(PointageDocumentData data) throws IOException {
         try (var book = new XSSFWorkbook(); var output = new ByteArrayOutputStream()) {
             Sheet sheet = book.createSheet("Fiche de présence");
-            CellStyle title = style(book, true, (short) 16, "24432E", "FFFFFF");
-            CellStyle section = style(book, true, (short) 11, "E9EFEA", "24432E");
-            CellStyle header = style(book, true, (short) 10, "E9EFEA", "24432E");
-            CellStyle text = style(book, false, (short) 10, "FFFFFF", "253328");
+            CellStyle title = style(book, true, (short) 16, "07324A", "FFFFFF");   // #07324A --color-brand-900
+            CellStyle section = style(book, true, (short) 11, "E1EDF2", "07324A"); // #E1EDF2 --color-brand-100
+            CellStyle header = style(book, true, (short) 10, "E1EDF2", "07324A");  // #E1EDF2 --color-brand-100
+            CellStyle text = style(book, false, (short) 10, "FFFFFF", "18242D");   // #18242D --color-ink-900
             CellStyle money = book.createCellStyle(); money.cloneStyleFrom(text);
             money.setDataFormat(book.createDataFormat().getFormat("# ##0 \"Ar\""));
-            CellStyle note = style(book, false, (short) 9, "F4F5F2", "626A61");
+            CellStyle note = style(book, false, (short) 9, "F7F9FA", "62717A");    // #F7F9FA --color-ink-50 & #62717A --color-ink-500
             CellStyle duration = book.createCellStyle(); duration.cloneStyleFrom(text); duration.setWrapText(true);
             int row = 0;
             merged(sheet, row++, 0, 9, "FICHE DE PRÉSENCE", title);
@@ -159,15 +159,24 @@ public class PointageExcelExportService {
         for (int c = first; c <= last; c++) cell(sheet, row, c, c == first ? value : null, style);
         sheet.addMergedRegion(new CellRangeAddress(row, row, first, last));
     }
-    private static CellStyle style(Workbook book, boolean bold, short size, String background, String foreground) {
-        CellStyle style = book.createCellStyle();
+    private static CellStyle style(Workbook book, boolean bold, short size, String hexBackground, String hexForeground) {
+        org.apache.poi.xssf.usermodel.XSSFCellStyle style = (org.apache.poi.xssf.usermodel.XSSFCellStyle) book.createCellStyle();
         Font font = book.createFont(); font.setBold(bold); font.setFontHeightInPoints(size);
-        font.setColor("FFFFFF".equals(foreground) ? IndexedColors.WHITE.getIndex() : IndexedColors.BLACK.getIndex());
-        style.setFont(font); style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        style.setFillForegroundColor("24432E".equals(background) ? IndexedColors.DARK_GREEN.getIndex() :
-                "FFFFFF".equals(background) ? IndexedColors.WHITE.getIndex() : IndexedColors.GREY_25_PERCENT.getIndex());
+        font.setColor("FFFFFF".equalsIgnoreCase(hexForeground) ? IndexedColors.WHITE.getIndex() : IndexedColors.BLACK.getIndex());
+        style.setFont(font);
+        if (hexBackground != null && !hexBackground.isEmpty()) {
+            byte[] rgb = parseHex(hexBackground);
+            style.setFillForegroundColor(new org.apache.poi.xssf.usermodel.XSSFColor(rgb, null));
+            style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        }
         style.setVerticalAlignment(VerticalAlignment.CENTER);
         return style;
+    }
+    private static byte[] parseHex(String hex) {
+        int r = Integer.parseInt(hex.substring(0, 2), 16);
+        int g = Integer.parseInt(hex.substring(2, 4), 16);
+        int b = Integer.parseInt(hex.substring(4, 6), 16);
+        return new byte[]{(byte) r, (byte) g, (byte) b};
     }
     private static String cleanWeekday(String value) { return value == null ? "—" : value.replace("..", "."); }
     static String status(String code) {

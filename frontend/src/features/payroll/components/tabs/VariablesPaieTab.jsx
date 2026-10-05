@@ -67,7 +67,6 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
-    const [feedbackMsg, setFeedbackMsg] = useState(null);
 
     // Modales de confirmation (Approuver & Supprimer)
     const [approvingVariable, setApprovingVariable] = useState(null);
@@ -122,7 +121,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
         } catch (err) {
             if (requestIdRef.current === requestId) {
                 setRefreshError(true);
-                if (!silent) setFeedbackMsg({ type: 'error', text: getErrorMessage(err, 'Erreur lors du chargement des variables de paie.') });
+                if (!silent) toast.error(getErrorMessage(err, 'Erreur lors du chargement des variables de paie.'));
             }
         } finally {
             if (requestIdRef.current === requestId) setLoading(false);
@@ -299,7 +298,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             await chargerDonnees({ silent: true });
             toast.success('Justificatif ajouté. La note de frais peut être approuvée.');
         } catch (error) {
-            setFeedbackMsg({ type: 'error', text: getErrorMessage(error, 'Impossible de déposer le justificatif.') });
+            toast.error(getErrorMessage(error, 'Impossible de déposer le justificatif.'));
         }
     };
 
@@ -315,7 +314,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             link.remove();
             setTimeout(() => URL.revokeObjectURL(url), 60000);
         } catch (error) {
-            setFeedbackMsg({ type: 'error', text: getErrorMessage(error, 'Impossible de télécharger le justificatif.') });
+            toast.error(getErrorMessage(error, 'Impossible de télécharger le justificatif.'));
         }
     };
 
@@ -332,10 +331,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             onVariableChanged?.();
             setDeletingVariable(null);
         } catch (err) {
-            setFeedbackMsg({
-                type: 'error',
-                text: getErrorMessage(err, 'Impossible de supprimer cette variable.')
-            });
+            toast.error(getErrorMessage(err, 'Impossible de supprimer cette variable.'));
         } finally {
             setActionLoading(false);
         }
@@ -377,7 +373,7 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
             onVariableChanged?.();
             setApprovingVariable(null);
         } catch (err) {
-            setFeedbackMsg({ type: 'error', text: getErrorMessage(err, 'Impossible d’approuver cette variable.') });
+            toast.error(getErrorMessage(err, 'Impossible d’approuver cette variable.'));
         } finally {
             setActionLoading(false);
         }
@@ -489,14 +485,6 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
     // Rendu
     return (
         <div className="space-y-4">
-            {feedbackMsg && (
-                <Alert
-                    type={feedbackMsg.type}
-                    message={feedbackMsg.text}
-                    onClose={() => setFeedbackMsg(null)}
-                />
-            )}
-
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     title="Variables"

@@ -24,7 +24,7 @@ import java.util.Map;
 @Service
 public class GrandLivrePaieExportService {
     private static final String[] SUMMARY_COLUMNS = {
-            "Matricule", "Nom & prénom", "Filiale", "Site", "Poste", "Régime",
+            "Matricule", "Nom & prénom", "Filiale", "Site", "Poste", "Type contrat",
             "Salaire de base", "Absence (h)", "Retenue absence", "Congés (j)", "Indemnité congé",
             "Heures sup.", "Indemnités / primes", "Salaire brut", "CNaPS salarié", "Santé salarié",
             "Net imposable", "IRSA / ISI", "Avance / acompte", "Prêt", "Autres retenues",
@@ -131,19 +131,23 @@ public class GrandLivrePaieExportService {
         BigDecimal congéGain = sum(lines, l -> "GAIN".equals(l.getSens()) && isLeaveGain(l));
         BigDecimal hsGain = sum(lines, l -> "GAIN".equals(l.getSens()) && "HEURES_SUP".equals(l.getCategorie()));
         BigDecimal otherGains = sum(lines, l -> "GAIN".equals(l.getSens()) && !"SALAIRE_BASE".equals(l.getCategorie())
-                && !isLeaveGain(l) && !"HEURES_SUP".equals(l.getCategorie()));
+                && !isLeaveGain(l) && !"HEURES_SUP".equals(l.getCategorie()) && !isRounding(l));
         BigDecimal cnaps = sum(lines, l -> "RETENUE".equals(l.getSens()) && isCnaps(l));
         BigDecimal health = sum(lines, l -> "RETENUE".equals(l.getSens()) && isHealth(l));
         BigDecimal advances = sum(lines, l -> "RETENUE".equals(l.getSens()) && "ACOMPTE_AVANCE".equals(l.getCategorie()) && !isLoan(l));
         BigDecimal loans = sum(lines, l -> "RETENUE".equals(l.getSens()) && isLoan(l));
         BigDecimal others = sum(lines, l -> "RETENUE".equals(l.getSens()) && !"SALAIRE_BASE".equals(l.getCategorie())
                 && !isCnaps(l) && !isHealth(l) && !isLoan(l) && !"ACOMPTE_AVANCE".equals(l.getCategorie())
-                && !"IMPOT".equals(l.getCategorie()) && !"RETENUE_ABSENCE".equals(code(l)));
+                && !"IMPOT".equals(l.getCategorie()) && !"RETENUE_ABSENCE".equals(code(l)) && !isRounding(l));
         BigDecimal[] values = {b.getSalaireBase(), absenceHours, amount(lines, "RETENUE_ABSENCE"), b.getJoursConges(), congéGain,
                 zero(b.getHeuresHs30()).add(zero(b.getHeuresHs50())), otherGains.add(hsGain), b.getTotalGainsBruts(), cnaps, health,
                 b.getRevenuNetImposable(), zero(b.getIrsaNet()).add(zero(b.getRetenueIsi5())), advances, loans, others,
                 b.getNetAPayer(), b.getTotalCotisationsPatronales(), b.getCoutGlobalEmployeur()};
         return values;
+    }
+    private static boolean isRounding(BulletinPaieLigne line) {
+        String c = code(line);
+        return c.contains("ARRONDI") || c.contains("MONETAIRE") || "NET".equalsIgnoreCase(line.getCategorie());
     }
     private static boolean isLeaveGain(BulletinPaieLigne line) {
         return java.util.Set.of("INDEMNITE_CONGE", "INDEMNITE_CONGE_PAYE", "INDEMNITE_COMPENSATRICE_CONGE")
@@ -218,22 +222,24 @@ public class GrandLivrePaieExportService {
     private static class Styles {
         final CellStyle title, subtitle, header, text, money, totalLabel, totalMoney;
         Styles(XSSFWorkbook book) {
-            title = make(book, 16, true, new byte[]{32, 51, 40}, false);
+            byte[] navy = new byte[]{7, 50, 74};               // #07324A --color-brand-900
+            byte[] totalBg = new byte[]{(byte)225, (byte)237, (byte)242}; // #E1EDF2 --color-brand-100
+            title = make(book, 16, true, navy, false);
             subtitle = make(book, 10, false, null, false);
-            header = make(book, 10, true, new byte[]{32, 51, 40}, false);
+            header = make(book, 10, true, navy, false);
             text = make(book, 10, false, null, true);
             money = make(book, 10, false, null, true);
             money.setDataFormat(book.createDataFormat().getFormat("#,##0.00"));
             money.setAlignment(HorizontalAlignment.RIGHT);
-            totalLabel = make(book, 11, true, new byte[]{(byte)239, (byte)243, (byte)239}, true);
-            totalMoney = make(book, 11, true, new byte[]{(byte)239, (byte)243, (byte)239}, true);
+            totalLabel = make(book, 11, true, totalBg, true);
+            totalMoney = make(book, 11, true, totalBg, true);
             totalMoney.setDataFormat(book.createDataFormat().getFormat("#,##0.00"));
             totalMoney.setAlignment(HorizontalAlignment.RIGHT);
         }
         private static CellStyle make(XSSFWorkbook book, int size, boolean bold, byte[] background, boolean border) {
             XSSFCellStyle style = book.createCellStyle();
             Font font = book.createFont(); font.setFontHeightInPoints((short) size); font.setBold(bold);
-            font.setColor(background != null && background[0] == 32 ? IndexedColors.WHITE.getIndex() : IndexedColors.BLACK.getIndex());
+            font.setColor(background != null && background[0] == 7 ? IndexedColors.WHITE.getIndex() : IndexedColors.BLACK.getIndex());
             style.setFont(font); style.setVerticalAlignment(VerticalAlignment.CENTER);
             if (background != null) { style.setFillForegroundColor(new XSSFColor(background, null)); style.setFillPattern(FillPatternType.SOLID_FOREGROUND); }
             if (border) {

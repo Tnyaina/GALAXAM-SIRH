@@ -9,6 +9,7 @@ import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Badge from '@/components/ui/data-display/Badge';
 import StatCard from '@/components/ui/data-display/StatCard';
 import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 import EmptyState from '@/components/ui/data-display/EmptyState';
 import Modal from '@/components/ui/overlays/Modal';
 import SlideOver from '@/components/ui/overlays/SlideOver';
@@ -43,6 +44,7 @@ const ETATS = {
 export default function AcomptesAvancesPage() {
     const navigate = useNavigate();
     const { hasPermission } = useAuth();
+    const toast = useToast();
     const canWrite = hasPermission('PAIE_WRITE');
     const [dossiers, setDossiers] = useState([]);
     const [synthese, setSynthese] = useState(null);
@@ -50,7 +52,6 @@ export default function AcomptesAvancesPage() {
     const [periodes, setPeriodes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [feedback, setFeedback] = useState(null);
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('TOUS');
     const [selectedId, setSelectedId] = useState(null);
@@ -137,7 +138,7 @@ export default function AcomptesAvancesPage() {
             await paieService.executerCommandeAjustement(decision.idAvance, decision.command,
                 decision.command === 'REJECT' ? reason.trim() : null, decision.version);
             setDecision(null); setReason('');
-            setFeedback({ type: 'success', message: decision.command === 'APPROVE' ? 'Demande approuvée. Le versement reste à confirmer.' : 'Demande rejetée.' });
+            toast.success(decision.command === 'APPROVE' ? 'Demande approuvée. Le versement reste à confirmer.' : 'Demande rejetée.');
             await charger();
         } catch (err) { setError(getErrorMessage(err, 'Décision impossible.')); }
         finally { setSubmitting(false); }
@@ -151,7 +152,7 @@ export default function AcomptesAvancesPage() {
                 dateVersement, modeReglement, referenceVersement: referenceVersement.trim(), expectedVersion: versement.version,
             });
             setVersement(null); setReferenceVersement('');
-            setFeedback({ type: 'success', message: 'Versement confirmé. Le solde sera proposé aux bulletins éligibles.' });
+            toast.success('Versement confirmé. Le solde sera proposé aux bulletins éligibles.');
             await charger();
         } catch (err) { setError(getErrorMessage(err, 'Confirmation du versement impossible.')); }
         finally { setSubmitting(false); }
@@ -161,7 +162,6 @@ export default function AcomptesAvancesPage() {
         <SEO title="Acomptes et avances | GALAXAM GRH" description="Décisions, versements et remboursements des salariés." />
         <PageHeader title="Acomptes et avances" subtitle="Demande → approbation → versement confirmé → retenues sur bulletin → solde"
             icon={Banknote} breadcrumbs={[{ label: 'Paie', href: '/paie' }, { label: 'Acomptes et avances' }]} />
-        {feedback && <Alert type={feedback.type} message={feedback.message} onClose={() => setFeedback(null)} />}
         {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
         {synthese?.aVerifier > 0 && <Alert type="warning" message={`${synthese.aVerifier} dossier(s) historique(s) ont des retenues sans confirmation de versement fiable. Vérifiez les pièces avant toute nouvelle action.`} />}
         <div className="flex flex-wrap justify-between items-center gap-2">
@@ -269,10 +269,7 @@ export default function AcomptesAvancesPage() {
             <DemandeAcompteAvanceModal
                 onClose={() => setIsDemandeModalOpen(false)}
                 onCreated={() => {
-                    setFeedback({
-                        type: 'success',
-                        message: 'Demande enregistrée avec succès. Elle est désormais en attente d’approbation.',
-                    });
+                    toast.success('Demande enregistrée avec succès. Elle est désormais en attente d’approbation.');
                     charger();
                 }}
             />

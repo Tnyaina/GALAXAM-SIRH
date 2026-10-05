@@ -9,6 +9,7 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import Badge from '@/components/ui/data-display/Badge';
 import StatCard from '@/components/ui/data-display/StatCard';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
+import { useToast } from '@/components/ui/feedback/Toast';
 import { Skeleton, SkeletonStatCard } from '@/components/ui/feedback/Skeleton';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
@@ -28,6 +29,7 @@ const formatAmount = (amount) => amount == null ? 'Non renseigné' : formatMoney
 export default function ValidationStepPage() {
     const { periodId } = useParams();
     const navigate = useNavigate();
+    const { toast } = useToast();
     const numericPeriodId = Number(periodId) || null;
     const {
         periodes,
@@ -41,7 +43,6 @@ export default function ValidationStepPage() {
     const [financialError, setFinancialError] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-    const [feedback, setFeedback] = useState(null);
     const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
     const [motifReouverture, setMotifReouverture] = useState('');
 
@@ -89,19 +90,18 @@ export default function ValidationStepPage() {
     const handleValider = useCallback(async () => {
         if (!numericPeriodId || !canValidate) return;
         setActionLoading(true);
-        setFeedback(null);
         try {
             await paieService.validerPaiePeriode(numericPeriodId);
-            setFeedback({ type: 'success', text: 'Campagne validée. Les bulletins sont scellés.' });
+            toast.success('Campagne validée. Les bulletins sont scellés.', 'Validation réussie');
             setConfirmModalOpen(false);
             window.dispatchEvent(new CustomEvent('sirh:period-updated', { detail: { periodId: numericPeriodId } }));
             await refreshView();
         } catch (err) {
-            setFeedback({ type: 'error', text: getErrorMessage(err, 'Validation impossible.') });
+            toast.error(getErrorMessage(err, 'Validation impossible.'), 'Erreur de validation');
         } finally {
             setActionLoading(false);
         }
-    }, [numericPeriodId, canValidate, refreshView]);
+    }, [numericPeriodId, canValidate, refreshView, toast]);
 
     const handleReouvrirSubmit = useCallback(async (event) => {
         event.preventDefault();
@@ -114,15 +114,15 @@ export default function ValidationStepPage() {
             });
             setIsReopenModalOpen(false);
             setMotifReouverture('');
-            setFeedback({ type: 'success', text: 'Période réouverte pour correction.' });
+            toast.success('Période réouverte pour correction.', 'Réouverture effectuée');
             window.dispatchEvent(new CustomEvent('sirh:period-updated', { detail: { periodId: numericPeriodId } }));
             await refreshView();
         } catch (err) {
-            setFeedback({ type: 'error', text: getErrorMessage(err, 'Réouverture impossible.') });
+            toast.error(getErrorMessage(err, 'Réouverture impossible.'), 'Erreur de réouverture');
         } finally {
             setActionLoading(false);
         }
-    }, [numericPeriodId, canReopen, periode, motifReouverture, refreshView]);
+    }, [numericPeriodId, canReopen, periode, motifReouverture, refreshView, toast]);
 
     const outputsDestination = context?.nextStep?.destination
         || context?.campaignSteps?.find((step) => step.code === 'OUTPUTS')?.destination
@@ -154,14 +154,6 @@ export default function ValidationStepPage() {
             }}
         >
             <div className="space-y-4">
-                {feedback && (
-                    <Alert
-                        type={feedback.type}
-                        title={feedback.type === 'error' ? 'Erreur' : 'Confirmation'}
-                        message={feedback.text}
-                        onClose={() => setFeedback(null)}
-                    />
-                )}
                 {financialError && <Alert type="error" title="Résumé indisponible" message={financialError} />}
 
                 {isValidee && (

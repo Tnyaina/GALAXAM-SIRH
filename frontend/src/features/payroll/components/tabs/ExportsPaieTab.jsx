@@ -11,41 +11,40 @@ import Button from '@/components/ui/forms/Button';
 import Modal from '@/components/ui/overlays/Modal';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td, TableEmpty } from '@/components/ui/data-display/Table';
-import Alert from '@/components/ui/feedback/Alert';
+import { useToast } from '@/components/ui/feedback/Toast';
 import paieService from '@/features/payroll/api/paieService';
 import { getErrorMessage } from '@/api/apiClient';
 
 export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCapability, outputs = [] }) {
-    // État local : téléchargement, aperçu et message de retour.
+    // État local : téléchargement, aperçu et toast.
+    const { toast } = useToast();
     const [downloading, setDownloading] = useState(null);
     const [previewType, setPreviewType] = useState(null);
     const [previewData, setPreviewData] = useState([]);
     const [previewLoading, setPreviewLoading] = useState(false);
-    const [feedback, setFeedback] = useState(null);
     const outputAllowed = outputCapability?.allowed === true;
     const outputReason = (outputCapability?.reasonCodes || []).join(' · ');
 
     const handleDownload = async (type, label) => {
         if (!idPeriodeActive || !outputAllowed) {
-            setFeedback({
-                type: 'error',
-                text: !idPeriodeActive
+            toast.error(
+                !idPeriodeActive
                     ? 'Veuillez sélectionner une période de paie.'
-                    : `Sorties indisponibles : ${outputReason || 'la campagne doit être validée.'}`
-            });
+                    : `Sorties indisponibles : ${outputReason || 'la campagne doit être validée.'}`,
+                'Export indisponible'
+            );
             return;
         }
 
         setDownloading(type);
-        setFeedback(null);
         try {
             await paieService.telechargerFichierExport(idPeriodeActive, type);
-            setFeedback({ type: 'success', text: `Export ${label} téléchargé avec succès.` });
+            toast.success(`Export ${label} téléchargé avec succès.`, 'Téléchargement');
         } catch (err) {
-            setFeedback({ 
-                type: 'error', 
-                text: getErrorMessage(err, `Erreur lors du téléchargement de l'export ${label}.`)
-            });
+            toast.error(
+                getErrorMessage(err, `Erreur lors du téléchargement de l'export ${label}.`),
+                'Erreur de téléchargement'
+            );
         } finally {
             setDownloading(null);
         }
@@ -68,7 +67,7 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
                 setPreviewData(Array.isArray(data) ? data : (data?.content || data?.items || []));
             }
         } catch (err) {
-            setFeedback({ type: 'error', text: getErrorMessage(err, 'Erreur lors du chargement des données d\'aperçu.') });
+            toast.error(getErrorMessage(err, 'Erreur lors du chargement des données d\'aperçu.'), 'Aperçu indisponible');
             setPreviewType(null);
         } finally {
             setPreviewLoading(false);
@@ -78,13 +77,6 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
     // Rendu
     return (
         <div className="space-y-5">
-            {feedback && (
-                <Alert
-                    type={feedback.type === 'success' ? 'success' : 'error'}
-                    message={feedback.text}
-                    onClose={() => setFeedback(null)}
-                />
-            )}
 
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 flex items-center justify-between">
                 <div>

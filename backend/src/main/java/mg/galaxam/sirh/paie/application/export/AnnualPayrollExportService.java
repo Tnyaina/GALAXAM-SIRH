@@ -35,7 +35,11 @@ import java.util.stream.Collectors;
 public class AnnualPayrollExportService {
     public record Result(byte[] bytes, int coveredMonths, int employees) {}
     private record Period(int id, String code) {}
-    record PayRow(int employeeId, String period, String[] identity, BigDecimal[] values) {}
+    record PayRow(int employeeId, String period, String[] identity, BigDecimal[] values, String reference, String statut) {
+        PayRow(int employeeId, String period, String[] identity, BigDecimal[] values) {
+            this(employeeId, period, identity, values, "", "");
+        }
+    }
 
     public Result export(int year, Connection connection) throws Exception {
         if (year < 2000 || year > 2100) throw new IllegalArgumentException("Année invalide.");
@@ -72,8 +76,8 @@ public class AnnualPayrollExportService {
                 String[] identity = GrandLivrePaieExportService.summaryIdentity(bulletin, filiales.get(bulletin.getIdBulletin()));
                 BigDecimal[] values = normalized(GrandLivrePaieExportService.summaryValues(bulletin, lines));
                 PayRow previous = monthly.get(key);
-                monthly.put(key, previous == null ? new PayRow(bulletin.getIdEmploye(), period.code(), identity, values)
-                        : new PayRow(bulletin.getIdEmploye(), period.code(), identity, add(previous.values(), values)));
+                monthly.put(key, previous == null ? new PayRow(bulletin.getIdEmploye(), period.code(), identity, values, bulletin.getReferenceBulletin(), bulletin.getStatut())
+                        : new PayRow(bulletin.getIdEmploye(), period.code(), identity, add(previous.values(), values), bulletin.getReferenceBulletin(), bulletin.getStatut()));
             }
         }
         if (monthly.isEmpty()) throw new IllegalStateException("Aucun bulletin validé pour " + year + ".");
@@ -90,8 +94,8 @@ public class AnnualPayrollExportService {
         Map<Integer, PayRow> annual = new LinkedHashMap<>();
         for (PayRow row : monthlyRows) {
             PayRow previous = annual.get(row.employeeId());
-            annual.put(row.employeeId(), previous == null ? new PayRow(row.employeeId(), row.period(), row.identity(), normalized(row.values()))
-                    : new PayRow(row.employeeId(), row.period(), row.identity(), add(previous.values(), row.values())));
+            annual.put(row.employeeId(), previous == null ? new PayRow(row.employeeId(), row.period(), row.identity(), normalized(row.values()), row.reference(), row.statut())
+                    : new PayRow(row.employeeId(), row.period(), row.identity(), add(previous.values(), row.values()), row.reference(), row.statut()));
         }
         List<PayRow> annualRows = annual.values().stream().sorted(Comparator.comparing(r -> text(r.identity()[0]))).toList();
         try (InputStream input = getClass().getResourceAsStream("/templates/annuel/RECAP_ANNUEL_PAIE.xlsx")) {
@@ -103,16 +107,17 @@ public class AnnualPayrollExportService {
                 int readme = book.getSheetIndex("README");
                 if (readme >= 0) book.removeSheetAt(readme);
                 String coverage = year + "  ·  " + periodCodes.size() + "/12 périodes validées  ·  " + String.join(", ", periodCodes);
-                summary.getRow(1).getCell(0).setCellValue(coverage);
-                detail.getRow(1).getCell(0).setCellValue("Détail par salarié et par période  ·  " + coverage);
-                summary.getRow(3).getCell(17).setCellValue("Impôt retenu");
-                detail.getRow(3).getCell(19).setCellValue("Impôt retenu");
-                detail.getRow(3).getCell(1).setCellValue("Mois de paie");
-                // Colonnes de suivi du canevas masquées : le document livré reste lisible sans identifiants techniques.
-                detail.setColumnHidden(26, true); detail.setColumnHidden(27, true);
+                setCellText(summary.getRow(1).getCell(0), coverage);
+                setCellText(detail.getRow(1).getCell(0), "Détail par salarié et par période  ·  " + coverage);
+                setCellText(summary.getRow(3).getCell(5), "Type contrat");
+                setCellText(detail.getRow(3).getCell(7), "Type contrat");
+                setCellText(summary.getRow(3).getCell(17), "Impôt retenu");
+                setCellText(detail.getRow(3).getCell(19), "Impôt retenu");
+                setCellText(detail.getRow(3).getCell(1), "Mois de paie");
+                detail.setColumnHidden(26, false); detail.setColumnHidden(27, false);
                 CellStyle[] summaryStyle = styles(summary.getRow(4), 24);
                 CellStyle[] alternateStyle = styles(summary.getRow(5), 24);
-                CellStyle[] detailStyle = styles(detail.getRow(4), 26);
+                CellStyle[] detailStyle = styles(detail.getRow(4), 28);
                 CellStyle[] totalStyle = styles(summary.getRow(104), 24);
                 CellStyle titleStyle = summary.getRow(0).getCell(0).getCellStyle();
                 CellStyle subtitleStyle = summary.getRow(1).getCell(0).getCellStyle();
@@ -140,14 +145,18 @@ public class AnnualPayrollExportService {
                     row.getCell(0).setCellValue(year); row.getCell(1).setCellValue(monthLabel(item.period()));
                     for (int col = 0; col < 6; col++) row.getCell(2 + col).setCellValue(text(item.identity()[col]));
                     for (int col = 0; col < 18; col++) row.getCell(8 + col).setCellValue(item.values()[col].doubleValue());
+                    row.getCell(26).setCellValue(text(item.reference()));
+                    row.getCell(27).setCellValue(text(item.statut()));
                 }
                 summary.createFreezePane(2, 4); detail.createFreezePane(4, 4);
                 int[] summaryTextWidths = {14, 32, 25, 28, 24, 17};
                 for (int col = 0; col < summaryTextWidths.length; col++) summary.setColumnWidth(col, summaryTextWidths[col] * 256);
                 int[] detailTextWidths = {11, 16, 14, 32, 25, 28, 24, 17};
                 for (int col = 0; col < detailTextWidths.length; col++) detail.setColumnWidth(col, detailTextWidths[col] * 256);
+                detail.setColumnWidth(26, 24 * 256);
+                detail.setColumnWidth(27, 16 * 256);
                 summary.setAutoFilter(new CellRangeAddress(3, totalIndex - 1, 0, 23));
-                detail.setAutoFilter(new CellRangeAddress(3, 3 + monthlyRows.size(), 0, 25));
+                detail.setAutoFilter(new CellRangeAddress(3, 3 + monthlyRows.size(), 0, 27));
                 ((XSSFSheet) summary).getTables().get(0).setArea(new AreaReference(
                         "A4:X" + (4 + annualRows.size()), SpreadsheetVersion.EXCEL2007));
                 ((XSSFSheet) detail).getTables().get(0).setArea(new AreaReference(
@@ -225,7 +234,7 @@ public class AnnualPayrollExportService {
         font.setColor(dark ? IndexedColors.WHITE.getIndex() : IndexedColors.BLACK.getIndex());
         style.setFont(font); style.setVerticalAlignment(VerticalAlignment.CENTER);
         if (dark) {
-            style.setFillForegroundColor(new XSSFColor(new byte[]{47, 74, 60}, null));
+            style.setFillForegroundColor(new XSSFColor(new byte[]{7, 50, 74}, null)); // #07324A --color-brand-900
             style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         }
         if (numeric) {
@@ -239,6 +248,7 @@ public class AnnualPayrollExportService {
         String upper = code.toUpperCase(Locale.ROOT);
         if ("PATRONAL".equals(sens)) return "Cotisations patronales (total)";
         if ("INFO".equals(sens)) return "Information, hors totaux";
+        if (upper.contains("ARRONDI") || upper.contains("MONETAIRE")) return "Ajustement monétaire net";
         if ("GAIN".equals(sens)) {
             if ("SALAIRE_BASE".equals(upper)) return "Salaire de base";
             if (upper.contains("CONGE")) return "Indemnité congé";
@@ -367,5 +377,14 @@ public class AnnualPayrollExportService {
             if (styles[i] != null) cell.setCellStyle(styles[i]);
         }
         return row;
+    }
+
+    private static void setCellText(Cell cell, String text) {
+        if (cell != null) {
+            if (cell instanceof org.apache.poi.xssf.usermodel.XSSFCell xc && xc.getCTCell().isSetIs()) {
+                xc.getCTCell().unsetIs();
+            }
+            cell.setCellValue(text);
+        }
     }
 }

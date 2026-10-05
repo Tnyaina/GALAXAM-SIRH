@@ -31,16 +31,38 @@ export function usePeriodePaie() {
         loadPeriodes();
     }, [loadPeriodes]);
 
-    // Revalidation silencieuse automatique au focus de l'écran et sur événement applicatif
+    // Revalidation silencieuse automatique au focus de l'écran, polling régulier et sur événements applicatifs
     useEffect(() => {
         const handleSilentRefresh = () => {
             loadPeriodes({ silent: true });
         };
+
+        // Polling régulier en arrière-plan toutes les 15 secondes
+        const timer = setInterval(() => {
+            if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+                handleSilentRefresh();
+            }
+        }, 15000);
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                handleSilentRefresh();
+            }
+        };
+
         window.addEventListener('focus', handleSilentRefresh);
         window.addEventListener('sirh:period-updated', handleSilentRefresh);
+        window.addEventListener('pointage-period-updated', handleSilentRefresh);
+        window.addEventListener('refresh-notifications', handleSilentRefresh);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
         return () => {
+            clearInterval(timer);
             window.removeEventListener('focus', handleSilentRefresh);
             window.removeEventListener('sirh:period-updated', handleSilentRefresh);
+            window.removeEventListener('pointage-period-updated', handleSilentRefresh);
+            window.removeEventListener('refresh-notifications', handleSilentRefresh);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [loadPeriodes]);
 

@@ -30,4 +30,31 @@ class GrandLivreClassificationTest {
         assertEquals(0, values[13].compareTo(BigDecimal.ZERO));
         assertEquals(0, values[14].compareTo(new BigDecimal("500")));
     }
+
+    @Test
+    void testAjustementArrondiNeGonflePasLesPrimesOuRetenues() {
+        // Point 12 : AJUSTEMENT_ARRONDI ne doit pas être comptabilisé dans Indemnités / primes ni dans Autres retenues
+        var gainArrondi = new BulletinPaieLigne();
+        gainArrondi.setCodeRubrique("AJUSTEMENT_ARRONDI");
+        gainArrondi.setLibelleRubrique("Ajustement Arrondi Monétaire (Écart de Règlement)");
+        gainArrondi.setCategorie("NET");
+        gainArrondi.setSens("GAIN");
+        gainArrondi.setMontantSalarial(new BigDecimal("4.50"));
+
+        var retenueArrondi = new BulletinPaieLigne();
+        retenueArrondi.setCodeRubrique("AJUSTEMENT_ARRONDI");
+        retenueArrondi.setLibelleRubrique("Ajustement Arrondi Monétaire (Écart de Règlement)");
+        retenueArrondi.setCategorie("NET");
+        retenueArrondi.setSens("RETENUE");
+        retenueArrondi.setMontantSalarial(new BigDecimal("3.20"));
+
+        var bp = new BulletinPaie();
+        BigDecimal[] valuesGain = GrandLivrePaieExportService.summaryValues(bp, List.of(gainArrondi));
+        // Col 6 : Indemnités / primes
+        assertEquals(0, valuesGain[6].compareTo(BigDecimal.ZERO), "AJUSTEMENT_ARRONDI gain ne doit pas gonfler les primes");
+
+        BigDecimal[] valuesRetenue = GrandLivrePaieExportService.summaryValues(bp, List.of(retenueArrondi));
+        // Col 14 : Autres retenues
+        assertEquals(0, valuesRetenue[14].compareTo(BigDecimal.ZERO), "AJUSTEMENT_ARRONDI retenue ne doit pas gonfler les autres retenues");
+    }
 }
