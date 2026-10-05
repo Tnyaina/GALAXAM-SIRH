@@ -162,6 +162,43 @@ public class CongeTauxApplicableService {
         return result;
     }
 
+    public List<Map<String, Object>> listerPeriodesEnAttenteActivation(Connection c) throws SQLException {
+        String sql = "SELECT r.id_periode_reference, r.id_employe, e.nom, e.prenom, e.matricule, " +
+                "r.date_debut, r.date_fin, r.statut, r.taux_calcule_cloture, " +
+                "r.cumul_droits_cloture, r.cumul_valorisation_cloture, " +
+                "(SELECT MAX(m.date_mouvement) FROM mouvement_solde_conge m " +
+                "WHERE m.id_employe=r.id_employe AND m.type_mouvement='ACQUISITION') AS derniere_acquisition " +
+                "FROM conge_periode_reference r " +
+                "JOIN employe e ON e.id_employe = r.id_employe " +
+                "WHERE r.statut = 'CLOTUREE' AND r.taux_calcule_cloture > 0 " +
+                "AND NOT EXISTS (SELECT 1 FROM conge_taux_applicable t WHERE t.id_periode_reference = r.id_periode_reference) " +
+                "ORDER BY r.date_fin DESC, e.nom ASC, e.prenom ASC";
+        List<Map<String, Object>> result = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("idPeriodeReference", rs.getInt("id_periode_reference"));
+                item.put("idEmploye", rs.getInt("id_employe"));
+                item.put("nom", rs.getString("nom") != null ? rs.getString("nom") : "");
+                item.put("prenom", rs.getString("prenom") != null ? rs.getString("prenom") : "");
+                item.put("matricule", rs.getString("matricule") != null ? rs.getString("matricule") : "");
+                item.put("dateDebut", rs.getDate("date_debut").toString());
+                item.put("dateFin", rs.getDate("date_fin").toString());
+                item.put("statut", rs.getString("statut"));
+                item.put("tauxCalculeCloture", zeroSiNull(rs.getBigDecimal("taux_calcule_cloture")));
+                item.put("cumulDroitsCloture", zeroSiNull(rs.getBigDecimal("cumul_droits_cloture")));
+                item.put("cumulValorisationCloture", zeroSiNull(rs.getBigDecimal("cumul_valorisation_cloture")));
+                Date derniereAcquisition = rs.getDate("derniere_acquisition");
+                if (derniereAcquisition != null) {
+                    item.put("derniereAcquisition", derniereAcquisition.toString());
+                }
+                result.add(item);
+            }
+        }
+        return result;
+    }
+
     private static BigDecimal zeroSiNull(BigDecimal value) {
         return value != null ? value : BigDecimal.ZERO;
     }
@@ -789,9 +826,9 @@ public class CongeTauxApplicableService {
                     + finReference.getYear() + " doit prendre effet après le " + finReference + ".");
         }
 
-        // 2. Vérifier si cette référence a déjà été activée
+        // 2. Vérifier si cette référence a déjà été activée (taux calculé de clôture)
         String sqlCheckExisting = "SELECT id_taux_applicable, taux_journalier, date_effet " +
-                "FROM conge_taux_applicable WHERE id_periode_reference = ? FOR UPDATE";
+                "FROM conge_taux_applicable WHERE id_periode_reference = ? AND source_provenance = 'CALCUL_PERIODE_REFERENCE' FOR UPDATE";
         try (PreparedStatement psCheck = c.prepareStatement(sqlCheckExisting)) {
             psCheck.setInt(1, idPeriodeReference);
             try (ResultSet rsCheck = psCheck.executeQuery()) {

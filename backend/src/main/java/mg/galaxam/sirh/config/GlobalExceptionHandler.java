@@ -138,6 +138,14 @@ public class GlobalExceptionHandler {
                 "Une erreur est survenue lors de l'enregistrement des données. Veuillez réessayer ou contacter l'administrateur si le problème persiste.", request);
     }
 
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleMethodNotSupported(
+            org.springframework.web.HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+        log.warn("Méthode HTTP [{}] non supportée sur [{}]", ex.getMethod(), request.getRequestURI());
+        return problem(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED",
+                "La méthode HTTP utilisée n'est pas autorisée pour cette adresse.", request);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGenericException(Exception ex, HttpServletRequest request) {
         log.error("Erreur serveur inattendue sur [{}]", request.getRequestURI(), ex);

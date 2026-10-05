@@ -196,6 +196,11 @@ const congeService = {
     return response.data;
   },
 
+  getPeriodesEnAttenteActivation: async () => {
+    const response = await apiClient.get('/conges/periodes-reference/en-attente-activation');
+    return response.data;
+  },
+
   getPeriodesReferenceEmploye: async (idEmploye) => {
     const response = await apiClient.get(`/conges/periodes-reference/employe/${idEmploye}`);
     return response.data;

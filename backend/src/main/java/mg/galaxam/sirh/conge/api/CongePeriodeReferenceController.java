@@ -112,6 +112,14 @@ public class CongePeriodeReferenceController {
         });
     }
 
+    @GetMapping("/en-attente-activation")
+    @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> listerPeriodesEnAttenteActivation() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            return ResponseEntity.ok(congeTauxApplicableService.listerPeriodesEnAttenteActivation(c));
+        }
+    }
+
     @GetMapping("/employe/{idEmploye}")
     @PreAuthorize("hasAuthority('CONGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> listerPeriodesParEmploye(@PathVariable int idEmploye) throws Exception {

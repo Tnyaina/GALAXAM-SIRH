@@ -55,6 +55,11 @@ public class AuthController {
                 .build();
     }
 
+    @GetMapping("/ping")
+    public ResponseEntity<java.util.Map<String, String>> ping() {
+        return ResponseEntity.ok(java.util.Map.of("status", "UP"));
+    }
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         

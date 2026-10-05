@@ -65,38 +65,89 @@ public class CongeGrandRecapExcelExportService {
                     Row row = sheet.getRow(firstData + index);
                     if (row == null) row = sheet.createRow(firstData + index);
                     Ligne ligne = lignes.get(index);
+                    // Colonnes A-E : identité
                     setText(row, 0, ligne.matricule(), styles[0]);
                     setText(row, 1, ligne.nomComplet(), styles[1]);
                     setText(row, 2, ligne.filiale(), styles[2]);
                     setText(row, 3, ligne.site(), styles[3]);
                     setText(row, 4, ligne.poste(), styles[4]);
-                    for (int column = 5; column <= 12; column++) setNumber(row, column, ligne.jours()[column - 5], styles[column]);
-                    setNumber(row, 13, ligne.taux(), styles[13]);
-                    setNumber(row, 14, ligne.valeur(), styles[14]);
-                    setText(row, 15, ligne.periode(), styles[15]);
-                    setText(row, 16, ligne.statut(), styles[16]);
+                    // Colonnes F-M (5-12) : jours mouvements
+                    for (int column = 5; column <= 12; column++) setNumber(row, column, ligne.jours()[column - 5], styles[Math.min(column, styles.length - 1)]);
+                    // Col N(13) : TCONGE applicable
+                    setNumber(row, 13, ligne.taux(), styles[Math.min(13, styles.length - 1)]);
+                    // Col O(14) : Valeur du solde (FIFO historisée)
+                    setNumber(row, 14, ligne.valeur(), styles[Math.min(14, styles.length - 1)]);
+                    // REC #5 — Col P(15) : Cumul valorisation acquise sur la période
+                    setNumber(row, 15, ligne.cumulValoAcquise(), styles[Math.min(15, styles.length - 1)]);
+                    // REC #4/#7 — Col Q(16) : Solde × TCONGE (estimation simple DAF)
+                    BigDecimal soldeXTaux = (ligne.jours()[7] != null && ligne.taux() != null
+                            && ligne.taux().compareTo(BigDecimal.ZERO) > 0)
+                            ? ligne.jours()[7].multiply(ligne.taux()) : null;
+                    setNumber(row, 16, soldeXTaux, styles[Math.min(16, styles.length - 1)]);
+                    // Col R(17) : Période de référence
+                    setText(row, 17, ligne.periode(), styles[Math.min(17, styles.length - 1)]);
+                    // Col S(18) : Statut période
+                    setText(row, 18, ligne.statut(), styles[Math.min(18, styles.length - 1)]);
                 }
 
                 Row total = sheet.getRow(totalRow);
                 if (total == null) total = sheet.createRow(totalRow);
-                total.getCell(0).setCellValue("TOTAL GÉNÉRAL — " + lignes.size() + " salarié(s)");
+                Cell c0 = total.getCell(0);
+                if (c0 == null) c0 = total.createCell(0);
+                c0.setCellValue("TOTAL GÉNÉRAL — " + lignes.size() + " salarié(s)");
+                // Colonnes jours F-M (5-12) : SUM
                 for (int column = 5; column <= 12; column++) {
-                    if (lignes.isEmpty()) total.getCell(column).setCellValue(0);
-                    else total.getCell(column).setCellFormula("SUM(" + (char) ('A' + column) + "5:"
+                    Cell c = total.getCell(column);
+                    if (c == null) c = total.createCell(column);
+                    if (lignes.isEmpty()) c.setCellValue(0);
+                    else c.setCellFormula("SUM(" + (char) ('A' + column) + "5:"
                             + (char) ('A' + column) + (lastData + 1) + ")");
                 }
-                if (lignes.isEmpty()) total.getCell(14).setCellValue(0);
-                else total.getCell(14).setCellFormula("SUM(O5:O" + (lastData + 1) + ")");
-                sheet.getRow(1).getCell(0).setCellValue("Période du " + dateDebut.format(DATE_FORMAT)
+                // REC #7 : TCONGE — pas de moyenne globale significative, libellé explicite
+                Cell tcongeTotal = total.getCell(13);
+                if (tcongeTotal == null) tcongeTotal = total.createCell(13);
+                tcongeTotal.setCellValue("— (voir détail)");
+                // Col O : valeur stock FIFO total
+                Cell oTotal = total.getCell(14);
+                if (oTotal == null) oTotal = total.createCell(14);
+                if (lignes.isEmpty()) oTotal.setCellValue(0);
+                else oTotal.setCellFormula("SUM(O5:O" + (lastData + 1) + ")");
+                // REC #5 — Col P : cumul valo acquise total
+                Cell pTotal = total.getCell(15);
+                if (pTotal == null) pTotal = total.createCell(15);
+                if (lignes.isEmpty()) pTotal.setCellValue(0);
+                else pTotal.setCellFormula("SUM(P5:P" + (lastData + 1) + ")");
+                // REC #4 — Col Q : solde×TCONGE total
+                Cell qTotal = total.getCell(16);
+                if (qTotal == null) qTotal = total.createCell(16);
+                if (lignes.isEmpty()) qTotal.setCellValue(0);
+                else qTotal.setCellFormula("SUM(Q5:Q" + (lastData + 1) + ")");
+
+                Row subTitleRow = sheet.getRow(1);
+                if (subTitleRow == null) subTitleRow = sheet.createRow(1);
+                Cell subTitleCell = subTitleRow.getCell(0);
+                if (subTitleCell == null) subTitleCell = subTitleRow.createCell(0);
+                subTitleCell.setBlank();
+                subTitleCell.setCellValue("Période du " + dateDebut.format(DATE_FORMAT)
                         + " au " + dateFin.format(DATE_FORMAT) + "  |  Situation au " + dateFin.format(DATE_FORMAT)
-                        + "  |  Solde valorisé selon les lots historiques");
+                        + "  |  Solde valorisé selon les lots historiques (col O) + estimation Solde×TCONGE (col Q)");
                 sheet.createFreezePane(5, 4);
-                sheet.setAutoFilter(org.apache.poi.ss.util.CellRangeAddress.valueOf("A4:Q" + Math.max(4, lastData + 1)));
+                sheet.setAutoFilter(org.apache.poi.ss.util.CellRangeAddress.valueOf("A3:S" + Math.max(3, lastData + 1)));
                 sheet.setPrintGridlines(false);
                 Sheet notice = workbook.getSheetAt(1);
-                notice.getRow(6).getCell(1).setCellValue(
-                        "La valeur du solde est calculée par le backend à partir des lots historiques restant après imputation des prises ; elle peut différer de solde × TCONGE.");
-                notice.getRow(4).getCell(1).setCellValue("Solde d'ouverture avant le "
+                Row r6 = notice.getRow(6);
+                if (r6 == null) r6 = notice.createRow(6);
+                Cell c6_1 = r6.getCell(1);
+                if (c6_1 == null) c6_1 = r6.createCell(1);
+                c6_1.setBlank();
+                c6_1.setCellValue(
+                        "Col O = valeur FIFO historisée (lots restants après prises). Col P = cumul valo acquise sur la période. Col Q = Solde × TCONGE (estimation simple pour cross-check DAF).");
+                Row r4 = notice.getRow(4);
+                if (r4 == null) r4 = notice.createRow(4);
+                Cell c4_1 = r4.getCell(1);
+                if (c4_1 == null) c4_1 = r4.createCell(1);
+                c4_1.setBlank();
+                c4_1.setCellValue("Solde d'ouverture avant le "
                         + dateDebut.format(DATE_FORMAT) + ", mouvements du " + dateDebut.format(DATE_FORMAT)
                         + " au " + dateFin.format(DATE_FORMAT) + ", situation arrêtée au "
                         + dateFin.format(DATE_FORMAT) + ".");
@@ -158,7 +209,8 @@ public class CongeGrandRecapExcelExportService {
                        COALESCE(m.solde, 0) AS solde,
                        t.taux_journalier, t.taux_count,
                        p.date_debut AS periode_debut, p.date_fin AS periode_fin, p.statut AS periode_statut,
-                       p.periode_count
+                       p.periode_count,
+                       COALESCE(jd.cumul_valo, 0) AS cumul_valo_acquise
                 FROM employe e
                 LEFT JOIN LATERAL (
                     SELECT SUM(nb_jours) FILTER (WHERE date_mouvement < ?) AS ouverture,
@@ -182,6 +234,16 @@ public class CongeGrandRecapExcelExportService {
                     WHERE id_employe = e.id_employe AND date_debut <= ? AND date_fin >= ?
                     ORDER BY date_debut DESC, id_periode_reference DESC LIMIT 1
                 ) p ON true
+                LEFT JOIN LATERAL (
+                    SELECT COALESCE(SUM(valorisation_mensuelle), 0) AS cumul_valo
+                    FROM conge_journal_droit
+                    WHERE id_employe = e.id_employe
+                      AND EXISTS (
+                        SELECT 1 FROM periode_paie pp
+                        WHERE pp.id_periode_paie = conge_journal_droit.id_periode_paie
+                          AND pp.date_debut >= ? AND pp.date_fin <= ?
+                      )
+                ) jd ON true
                 WHERE (e.date_declaration IS NULL OR e.date_declaration <= ?)
                   AND (e.est_actif = true OR EXISTS (
                       SELECT 1 FROM mouvement_solde_conge historic
@@ -193,6 +255,9 @@ public class CongeGrandRecapExcelExportService {
             int parameter = 1;
             for (int i = 0; i < 7; i++) statement.setDate(parameter++, Date.valueOf(dateDebut));
             for (int i = 0; i < 7; i++) statement.setDate(parameter++, Date.valueOf(dateFin));
+            // Paramètres supplémentaires pour jd (cumul valo acquise sur la période) : pp.date_debut >= ? AND pp.date_fin <= ?
+            statement.setDate(parameter++, Date.valueOf(dateDebut));
+            statement.setDate(parameter++, Date.valueOf(dateFin));
             try (ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
                     if (rs.getInt("taux_count") > 1) {
@@ -212,6 +277,7 @@ public class CongeGrandRecapExcelExportService {
                     BigDecimal annulation = rs.getBigDecimal("annulation");
                     BigDecimal solde = rs.getBigDecimal("solde");
                     BigDecimal taux = rs.getBigDecimal("taux_journalier");
+                    BigDecimal cumulValoAcquise = rs.getBigDecimal("cumul_valo_acquise");
                     String periode = rs.getDate("periode_debut") == null ? "—"
                             : rs.getDate("periode_debut").toLocalDate().format(DATE_FORMAT) + " – "
                             + rs.getDate("periode_fin").toLocalDate().format(DATE_FORMAT);
@@ -224,7 +290,7 @@ public class CongeGrandRecapExcelExportService {
                             contexte == null ? "—" : textOrDash(contexte.nomSite()),
                             contexte == null ? "—" : textOrDash(contexte.fonctionNom()),
                             new BigDecimal[]{ouverture, acquis, bonification, ajustement, pris, expiration, annulation, solde},
-                            taux, valeurHistorique,
+                            taux, valeurHistorique, cumulValoAcquise,
                             periode, textOrDash(rs.getString("periode_statut"))));
                 }
             }
@@ -236,7 +302,8 @@ public class CongeGrandRecapExcelExportService {
     private static void setText(Row row, int index, String value, CellStyle style) {
         Cell cell = row.getCell(index, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
         cell.setCellStyle(style);
-        cell.setCellValue(value);
+        cell.setBlank();
+        cell.setCellValue(value != null ? value : "");
     }
     private static void setNumber(Row row, int index, BigDecimal value, CellStyle style) {
         Cell cell = row.getCell(index, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
@@ -245,5 +312,6 @@ public class CongeGrandRecapExcelExportService {
     }
 
     private record Ligne(int idEmploye, String matricule, String nomComplet, String filiale, String site, String poste,
-                         BigDecimal[] jours, BigDecimal taux, BigDecimal valeur, String periode, String statut) {}
+                         BigDecimal[] jours, BigDecimal taux, BigDecimal valeur, BigDecimal cumulValoAcquise,
+                         String periode, String statut) {}
 }

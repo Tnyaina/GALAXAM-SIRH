@@ -71,15 +71,23 @@ public class CongeAnnuelExcelExportService {
                 Sheet sheet1 = workbook.getSheetAt(0);
                 remplirEnTeteFeuille1(sheet1, emp, ref);
                 remplirTableau12Mois(sheet1, moisData, ref, idEmploye, c);
-                sheet1.setColumnWidth(0, 25 * 256);
-                sheet1.getRow(21).getCell(0).setCellValue("Données enregistrées dans le SIRH au "
-                        + (ref.dateFin.isAfter(LocalDate.now()) ? LocalDate.now() : ref.dateFin).format(DATE_FMT)
-                        + " ; les colonnes de paie non clôturée et les taux indisponibles restent vides.");
+                sheet1.setColumnWidth(0, 30 * 256);
+                sheet1.setColumnWidth(2, 14 * 256); // col C : jours base calcul (formule)
+                sheet1.setColumnWidth(17, 18 * 256); // col R : solde × TCONGE estimation
+                // Note de bas de page (ligne 20, index 19)
+                org.apache.poi.ss.usermodel.Row noteRow = sheet1.getRow(19);
+                if (noteRow == null) noteRow = sheet1.createRow(19);
+                org.apache.poi.ss.usermodel.Cell noteCell = noteRow.getCell(0);
+                if (noteCell == null) noteCell = noteRow.createCell(0);
+                noteCell.setCellValue("Données enregistrées dans le SIRH à la date de situation. "
+                        + "Col C (verte) = jours base calcul = 'formule' de l'OHATRA DAF. "
+                        + "Col R (verte) = Solde × TCONGE (estimation simple pour cross-check DAF). "
+                        + "Col Q = valeur FIFO historisée (plus précise). Taux indisponibles = vide.");
 
                 // 7. Remplir la Feuille 2 : Mouvements
                 Sheet sheet2 = workbook.getSheetAt(1);
                 remplirFeuilleMouvements(sheet2, mouvements, ref, idEmploye, c);
-                setCellString(sheet2, 2, 8, "Valeur du stock après mouvement (Ar)");
+                setCellString(sheet2, 2, 8, "Valeur du stock après mvt (Ar)");
                 Sheet detailLots = workbook.createSheet("Origine des droits");
                 var situationLots = lots.situation(idEmploye, ref.dateFin.isAfter(LocalDate.now())
                         ? LocalDate.now() : ref.dateFin, c);
@@ -104,12 +112,12 @@ public class CongeAnnuelExcelExportService {
                     r.createCell(8).setCellValue(prise.tauxHistorique().doubleValue());
                 }
                 Sheet notice = workbook.getSheetAt(2);
-                notice.getRow(7).getCell(1).setCellValue(
+                setCellString(notice, 7, 1,
                         "Douze périodes du cycle individuel ; les dates des campagnes de paie sont utilisées lorsqu'elles sont disponibles.");
-                notice.getRow(8).getCell(1).setCellValue(
+                setCellString(notice, 8, 1,
                         "Le cumul valorisé des droits TCONGE et la valeur du solde disponible sont deux indicateurs distincts.");
-                notice.getRow(9).getCell(1).setCellValue(
-                        "Les mouvements expliquent les crédits et débits ; la valeur du stock provient des lots de droits, pas de solde × TCONGE.");
+                setCellString(notice, 9, 1,
+                        "Les mouvements expliquent les crédits et débits ; la valeur du stock provient de la valorisation FIFO des lots de droits, pas de solde × TCONGE.");
 
                 // 8. Forcer le recalcul des formules natives (=SUM(B8:B19), etc.)
                 workbook.setForceFormulaRecalculation(true);
@@ -154,7 +162,8 @@ public class CongeAnnuelExcelExportService {
     // =========================================================================
 
     private void remplirEnTeteFeuille1(Sheet sheet, EmployeMetadata emp, PeriodeReferenceInfo ref) {
-        // Row 3 (index 2) : Informations employé
+        // Ligne 2 (index 1) : En-tête titre déjà dans le canevas
+        // Ligne 3 (index 2) : Informations employé
         setCellString(sheet, 2, 0, "Matricule : " + safe(emp.matricule));
         setCellString(sheet, 2, 2, "Nom & prénom : " + safe(emp.nom) + " " + safe(emp.prenom));
         setCellString(sheet, 2, 5, "Filiale : " + safe(emp.filialeNom));
@@ -162,11 +171,11 @@ public class CongeAnnuelExcelExportService {
         setCellString(sheet, 2, 9, "Poste : " + safe(emp.posteNom));
         setCellString(sheet, 2, 12, "Période de référence");
 
-        // Row 4 (index 3) : Dates période de référence
+        // Ligne 4 (index 3) : Dates période de référence
         setCellString(sheet, 3, 12, "Du " + ref.dateDebut.format(DATE_FMT));
         setCellString(sheet, 3, 14, "Au " + ref.dateFin.format(DATE_FMT));
 
-        // Row 5 (index 4) : Situation d'ouverture & TCONGE
+        // Ligne 5 (index 4) : Situation d'ouverture & TCONGE
         setCellString(sheet, 4, 0, "Solde ouv. : " + formatJours(ref.soldeOuverture) + " j");
         setCellString(sheet, 4, 2, "Valorisation droits ouverture : " + formatMoney(ref.valoOuverture));
         setCellString(sheet, 4, 4, "TCONGE ouv. : " + formatMoney(ref.tauxJournalier));
@@ -176,13 +185,39 @@ public class CongeAnnuelExcelExportService {
                 ? formatMoney(ref.tauxCloture)
                 : "En cours";
         setCellString(sheet, 4, 12, "TCONGE clôture : " + tClotureText);
+
+        // Ligne 6 (index 5) : Numéros de mois (DAF) + rappel TCONGE clôture en fin de ligne
+        setCellString(sheet, 5, 0, "N° mois");
+        setCellString(sheet, 5, 17, "TCONGE clôture → " + tClotureText);
     }
 
+    /**
+     * Remplit les 12 lignes mensuelles du tableau principal.
+     * Correspondance colonnes (index 0-based) avec l'OHATRA DAF :
+     *   A(0)  = Mois/période        —  DAF: MOIS
+     *   B(1)  = Salaire de base     —  DAF: BASE
+     *   C(2)  = Jours base calcul   —  DAF: formule  ← REC #1
+     *   D(3)  = Absences (j)        —  DAF: NBABS
+     *   E(4)  = Retenue absence     —  DAF: ABSENCES (montant)
+     *   F(5)  = Congés pris (j)     —  DAF: NBCONGE
+     *   G(6)  = TCONGE applicable   —  DAF: TCONGE
+     *   H(7)  = Indemnité congé     —  DAF: CONGE
+     *   I(8)  = HS rémunérées       —  DAF: HS
+     *   J(9)  = Base valo (sal+HS)  —  DAF: base totale  ← REC #2
+     *   K(10) = Base activité (j)
+     *   L(11) = Droits acquis (j)   —  DAF: nbre droit congés
+     *   M(12) = Valorisation acquise—  DAF: R*S/30
+     *   N(13) = Cumul droits (j)    —  DAF: cumul NB JR DROIT
+     *   O(14) = Cumul valorisation
+     *   P(15) = Solde disponible (j)
+     *   Q(16) = Valeur stock FIFO
+     *   R(17) = Solde × TCONGE (estimation simple DAF)  ← REC #4
+     */
     private void remplirTableau12Mois(Sheet sheet, List<MoisSyntheseData> moisData,
             PeriodeReferenceInfo ref, int idEmploye, Connection c) throws SQLException {
-        // Rows 8 à 19 (index 7 à 18) dans le canevas
+        // Rows 7 à 18 (index 6 à 17) dans le nouveau canevas à 18 colonnes
         for (int i = 0; i < 12; i++) {
-            int rowIndex = 7 + i;
+            int rowIndex = 6 + i;   // ligne 7 Excel = index 6
             Row row = sheet.getRow(rowIndex);
             if (row == null) {
                 row = sheet.createRow(rowIndex);
@@ -191,74 +226,104 @@ public class CongeAnnuelExcelExportService {
             MoisSyntheseData d = (i < moisData.size()) ? moisData.get(i) : null;
             if (d == null) {
                 LocalDate mDate = ref.dateDebut.plusMonths(i);
-                setCellString(sheet, rowIndex, 0, String.format("%02d/%d", mDate.getMonthValue(), mDate.getYear()));
+                // REC #6 : label court numéro mois
+                setCellString(sheet, rowIndex, 0,
+                        String.format("%d — %02d/%d", i + 1, mDate.getMonthValue(), mDate.getYear()));
                 continue;
             }
 
-            // Col A: Mois / période
+            // REC #6 : Col A — numéro de mois + label court
             setCellString(sheet, rowIndex, 0, d.labelMois);
 
-            // Col B: Salaire de base
+            // Col B(1) : Salaire de base
             setNumericValue(row, 1, d.salaireBase);
 
-            // Col C: Absence constatée (j)
-            setNumericValue(row, 2, d.absencesJours);
+            // REC #1 — Col C(2) : Jours base calcul (= « formule » de l'OHATRA DAF)
+            setNumericValue(row, 2, d.baseActiviteJours);
 
-            // Col D: Retenue absence (Ar)
-            setNumericValue(row, 3, d.retenueAbsence);
+            // Col D(3) : Absences constatées (j)
+            setNumericValue(row, 3, d.absencesJours);
 
-            // Col E: Congés pris (j)
-            setNumericValue(row, 4, d.congesPrisJours);
+            // Col E(4) : Retenue absence (Ar)
+            setNumericValue(row, 4, d.retenueAbsence);
 
-            // Col F: TCONGE applicable
-            setNumericValue(row, 5, d.tcongeApplicable);
+            // Col F(5) : Congés pris (j)
+            setNumericValue(row, 5, d.congesPrisJours);
 
-            // Montant réellement porté par le bulletin, sans indemnité estimée.
-            setNumericValue(row, 6, d.indemniteConge);
+            // Col G(6) : TCONGE applicable
+            setNumericValue(row, 6, d.tcongeApplicable);
 
-            // Col H: HS rémunérées
-            setNumericValue(row, 7, d.hsRemunerees);
+            // Col H(7) : Indemnité congé — montant porté par le bulletin
+            setNumericValue(row, 7, d.indemniteConge);
 
-            // Col I: Assiette droits congé
-            setNumericValue(row, 8, d.assietteDroits);
+            // Col I(8) : HS rémunérées
+            setNumericValue(row, 8, d.hsRemunerees);
 
-            // Col J: Base activité (j)
-            setNumericValue(row, 9, d.baseActiviteJours);
+            // REC #2 — Col J(9) : Base valorisation (sal+HS) = « base totale » DAF
+            setNumericValue(row, 9, d.assietteDroits);
 
-            // Col K: Droits acquis (j)
-            setNumericValue(row, 10, d.droitsAcquisJours);
+            // Col K(10) : Base activité (j) — déjà affiché en C ; ici c'est le nb jours paie
+            // (on peut laisser vide ou afficher les jours ouvrables de la période paie)
+            // => on laisse pour éviter la redondance avec col C
 
-            // Col L: Valorisation acquise (Ar)
-            setNumericValue(row, 11, d.valorisationAcquise);
+            // Col L(11) : Droits acquis (j)  — DAF: nbre droit congés
+            setNumericValue(row, 11, d.droitsAcquisJours);
 
-            // Col M: Cumul droits (j)
-            setNumericValue(row, 12, d.cumulDroitsJours);
+            // Col M(12) : Valorisation acquise (Ar)  — DAF: R*S/30
+            setNumericValue(row, 12, d.valorisationAcquise);
 
-            // Col N: Cumul valorisation (Ar)
-            setNumericValue(row, 13, d.cumulValorisation);
+            // Col N(13) : Cumul droits (j)  — DAF: cumul NB JR DROIT
+            setNumericValue(row, 13, d.cumulDroitsJours);
 
-            // Solde réellement enregistré : inclut ajustements, annulations et expirations.
-            setNumericValue(row, 14, d.soldeDisponible);
+            // Col O(14) : Cumul valorisation (Ar)
+            setNumericValue(row, 14, d.cumulValorisation);
 
-            // Col P: Valeur du solde (Ar)
+            // Col P(15) : Solde disponible (j) — inclut ajustements, annulations, expirations
+            setNumericValue(row, 15, d.soldeDisponible);
+
+            // Col Q(16) : Valeur du stock FIFO (historisée par lots)
             BigDecimal valSolde = d.dateSituation == null ? null
                     : lots.situation(idEmploye, d.dateSituation, c).soldeValorisation();
-            setNumericValue(row, 15, valSolde);
+            setNumericValue(row, 16, valSolde);
+
+            // REC #4 — Col R(17) : Solde × TCONGE estimation simple (cross-check DAF)
+            if (d.soldeDisponible != null && d.tcongeApplicable != null
+                    && d.tcongeApplicable.compareTo(BigDecimal.ZERO) > 0) {
+                setNumericValue(row, 17, d.soldeDisponible.multiply(d.tcongeApplicable));
+            }
         }
-        Row total = sheet.getRow(19);
+
+        // ── Ligne TOTAL (index 18 = ligne 19 Excel) ──────────────────────────
+        Row total = sheet.getRow(18);
+        if (total == null) total = sheet.createRow(18);
         total.getCell(0).setCellValue("TOTAL ENREGISTRÉ / SITUATION");
+
         MoisSyntheseData latest = null;
         MoisSyntheseData latestJournal = null;
         for (MoisSyntheseData month : moisData) {
             if (month.soldeDisponible != null) latest = month;
             if (month.cumulDroitsJours != null) latestJournal = month;
         }
-        setNumericValue(total, 5, latest != null ? latest.tcongeApplicable : null);
-        setNumericValue(total, 12, latestJournal != null ? latestJournal.cumulDroitsJours : null);
-        setNumericValue(total, 13, latestJournal != null ? latestJournal.cumulValorisation : null);
-        setNumericValue(total, 14, latest != null ? latest.soldeDisponible : ref.soldeOuverture);
+
+        // REC #3 : TCONGE clôture affiché en ligne TOTAL (col G)
+        BigDecimal tclotureTotal = (ref.tauxCloture != null && ref.tauxCloture.compareTo(BigDecimal.ZERO) > 0)
+                ? ref.tauxCloture
+                : (latest != null ? latest.tcongeApplicable : null);
+        setNumericValue(total, 6, tclotureTotal);
+
+        setNumericValue(total, 13, latestJournal != null ? latestJournal.cumulDroitsJours : null);
+        setNumericValue(total, 14, latestJournal != null ? latestJournal.cumulValorisation : null);
+        setNumericValue(total, 15, latest != null ? latest.soldeDisponible : ref.soldeOuverture);
+
         LocalDate dateFinale = ref.dateFin.isAfter(LocalDate.now()) ? LocalDate.now() : ref.dateFin;
-        setNumericValue(total, 15, lots.situation(idEmploye, dateFinale, c).soldeValorisation());
+        BigDecimal valStockFinal = lots.situation(idEmploye, dateFinale, c).soldeValorisation();
+        setNumericValue(total, 16, valStockFinal);
+
+        // REC #4 : Solde × TCONGE clôture en col R pour la ligne TOTAL
+        BigDecimal soldeFinal = latest != null ? latest.soldeDisponible : ref.soldeOuverture;
+        if (soldeFinal != null && tclotureTotal != null && tclotureTotal.compareTo(BigDecimal.ZERO) > 0) {
+            setNumericValue(total, 17, soldeFinal.multiply(tclotureTotal));
+        }
     }
 
     private void remplirFeuilleMouvements(Sheet sheet, List<MouvementSoldeConge> mouvements,
@@ -513,7 +578,7 @@ public class CongeAnnuelExcelExportService {
 
             MoisSyntheseData d = new MoisSyntheseData();
             d.numeroMoisRef = numMoisRef;
-            d.labelMois = debutM.format(DATE_FMT) + " – " + finM.format(DATE_FMT);
+            d.labelMois = numMoisRef + " — " + debutM.format(DATE_FMT) + " au " + finM.format(DATE_FMT);
             if (debutM.isAfter(LocalDate.now())) {
                 liste.add(d);
                 continue;
@@ -591,7 +656,10 @@ public class CongeAnnuelExcelExportService {
         Row row = sheet.getRow(rowIndex);
         if (row == null) row = sheet.createRow(rowIndex);
         Cell cell = row.getCell(colIndex);
-        if (cell == null) cell = row.createCell(colIndex);
+        if (cell == null) {
+            cell = row.createCell(colIndex);
+        }
+        cell.setBlank();
         cell.setCellValue(text != null ? text : "");
     }
 

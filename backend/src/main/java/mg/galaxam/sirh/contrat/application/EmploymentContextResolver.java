@@ -5,6 +5,7 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +25,7 @@ public class EmploymentContextResolver {
     public record Coverage(LocalDate firstDay, LocalDate lastDay, int days, int lastAssignmentId) {}
     public record PointageDay(int siteId, boolean dispensePointage, boolean overtimeEligible) {}
     private record EmploymentSegment(int id, LocalDate start, LocalDate end) {}
+    private record SalarySegment(int id, BigDecimal monthlySalary, LocalDate start, LocalDate end) {}
     private record SiteSegment(int id, Integer siteId, boolean dispensePointage, boolean overtimeEligible,
                                LocalDate start, LocalDate end) {}
 
@@ -210,6 +212,46 @@ public class EmploymentContextResolver {
             throw new IllegalStateException("MISSING_CONFIGURATION: AFFECTATION_CONTRAT trou entre "
                     + first + " et " + last + " employé=" + idEmploye + "; versions=" + segments);
         return new Coverage(first, last, days, lastAssignment);
+    }
+
+    /** Salaire contractuel de chaque jour couvert par la campagne, bornes inclusives. */
+    public Map<LocalDate, BigDecimal> resolveSalaryByDay(int idEmploye, LocalDate start,
+            LocalDate end, Connection c) throws SQLException {
+        Coverage coverage = resolveCoverage(idEmploye, start, end, c);
+        List<SalarySegment> segments = new ArrayList<>();
+        String sql = "SELECT a.id_affectation,a.salaire_base,"
+                + "GREATEST(a.date_debut,ct.date_debut) AS debut,"
+                + "LEAST(COALESCE(a.date_fin,?),COALESCE(ct.date_fin,?)) AS fin "
+                + "FROM employe_affectation_carriere a "
+                + "JOIN contrat_travail ct ON ct.id_contrat=a.id_contrat "
+                + "JOIN ref_statut_rh sa ON sa.id_statut_rh=a.id_statut_rh "
+                + "JOIN ref_statut_rh sc ON sc.id_statut_rh=ct.id_statut_rh "
+                + "WHERE a.id_employe=? AND sa.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') "
+                + "AND sc.code IN ('ACTIF','HISTORISE','CLOTURE','ROMPU') "
+                + "AND a.date_debut<=? AND (a.date_fin IS NULL OR a.date_fin>=?) "
+                + "AND ct.date_debut<=? AND (ct.date_fin IS NULL OR ct.date_fin>=?)";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(end)); ps.setDate(2, Date.valueOf(end)); ps.setInt(3, idEmploye);
+            ps.setDate(4, Date.valueOf(end)); ps.setDate(5, Date.valueOf(start));
+            ps.setDate(6, Date.valueOf(end)); ps.setDate(7, Date.valueOf(start));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) segments.add(new SalarySegment(rs.getInt(1), rs.getBigDecimal(2),
+                        rs.getDate(3).toLocalDate(), rs.getDate(4).toLocalDate()));
+            }
+        }
+        Map<LocalDate, BigDecimal> salaries = new LinkedHashMap<>();
+        for (LocalDate day = coverage.firstDay(); !day.isAfter(coverage.lastDay()); day = day.plusDays(1)) {
+            LocalDate target = day;
+            var matches = segments.stream().filter(segment -> !target.isBefore(segment.start())
+                    && !target.isAfter(segment.end())).toList();
+            if (matches.size() > 1) throw new IllegalStateException(
+                    "AMBIGUOUS_CONFIGURATION: SALAIRE employé=" + idEmploye + " au " + day + "; versions=" + matches);
+            if (matches.isEmpty() || matches.get(0).monthlySalary() == null
+                    || matches.get(0).monthlySalary().signum() <= 0) throw new IllegalStateException(
+                    "MISSING_CONFIGURATION: SALAIRE employé=" + idEmploye + " au " + day + "; versions=" + segments);
+            salaries.put(day, matches.get(0).monthlySalary());
+        }
+        return java.util.Collections.unmodifiableMap(salaries);
     }
 
     private void verifierUniciteContexte(int idEmploye, LocalDate date, Connection c) throws SQLException {

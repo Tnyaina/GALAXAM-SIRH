@@ -211,7 +211,7 @@ public class PayrollExecutionEngine {
         BigDecimal retenueAbsence = calculerRetenueAbsence(input, base, tauxHoraire, bp, lignes);
         BigDecimal congesNet = calculerConges(input, bp, lignes);
         BigDecimal hsEtMaj = calculerMajorationsEtHeuresSup(input, tauxHoraire, bp, lignes);
-        BigDecimal primes = calculerPrimes(input, salaireBaseContractuel, bp, lignes);
+        BigDecimal primes = calculerPrimes(input, input.getSalaireBaseCampagne(), bp, lignes);
 
         BigDecimal totalGainsBruts = base.subtract(retenueAbsence).add(congesNet).add(hsEtMaj).add(primes);
         totalGainsBruts = MoneyRoundingPolicy.amount(totalGainsBruts.max(BigDecimal.ZERO));
@@ -222,8 +222,9 @@ public class PayrollExecutionEngine {
     public BigDecimal calculerSalaireBase(PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal salaireBaseContractuel = zeroIfNull(input.getSalaireBaseContractuel());
         BigDecimal salaireBaseLigne = salaireBaseContractuel;
-
-        if (input.isEntreeSortieEnCoursDeMois()) {
+        if (!input.getSalaireParJour().isEmpty()) {
+            salaireBaseLigne = input.getSalaireBaseCampagne();
+        } else if (input.isEntreeSortieEnCoursDeMois()) {
             if (input.getJoursSousContrat() == null || input.getJoursSousContrat().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalStateException("PAYROLL_CONTRACT_PERIOD_DATA_MISSING: prorata requis mais joursSousContrat absent ou invalide");
             }
@@ -245,6 +246,13 @@ public class PayrollExecutionEngine {
         BigDecimal montantAbsence = BigDecimal.ZERO;
 
         if (nbHeuresAbsence.compareTo(BigDecimal.ZERO) > 0) {
+            if (input.getSalaireParJour().values().stream().distinct().count() > 1)
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
+                        "PAYROLL_ABSENCE_SALARY_SPLIT_UNRESOLVED: employé " + input.getIdEmploye()
+                                + " campagne " + input.getDateDebutPeriode() + " au " + input.getDateFinPeriode()
+                                + "; le déficit hebdomadaire figé n'est pas imputé à une date salariale. "
+                                + "Arbitrage DAF requis avant calcul.");
             BigDecimal diviseur = input.getDiviseurMensuelHeuresEffectif();
             BigDecimal baseCalcul = zeroIfNull(input.getSalaireBasePlein());
 
@@ -282,9 +290,28 @@ public class PayrollExecutionEngine {
 
         BigDecimal salaireBaseContractuel = zeroIfNull(input.getSalaireBaseContractuel());
         BigDecimal tauxJournalierTrentieme = input.getTauxJournalierTrentieme();
-        BigDecimal deductionCongeTrentieme = MoneyRoundingPolicy.amount(nbJoursConges.multiply(tauxJournalierTrentieme));
+        BigDecimal deductionCongeTrentieme;
+        if (!input.getSalaireParJour().isEmpty()) {
+            BigDecimal joursDates = input.getJoursCongeValorisesParDate().values().stream()
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (joursDates.compareTo(nbJoursConges) != 0)
+                throw new IllegalStateException("PAYROLL_LEAVE_DATES_MISSING: déduction congé sans dates de prise");
+            BigDecimal somme = BigDecimal.ZERO;
+            for (var prise : input.getJoursCongeValorisesParDate().entrySet()) {
+                BigDecimal salaire = input.getSalaireParJour().get(prise.getKey());
+                if (salaire == null) throw new IllegalStateException(
+                        "MISSING_CONFIGURATION: SALAIRE_CONGE au " + prise.getKey());
+                somme = somme.add(salaire.multiply(prise.getValue()));
+            }
+            deductionCongeTrentieme = MoneyRoundingPolicy.amount(
+                    somme.divide(new BigDecimal("30"), 8, RoundingMode.HALF_UP));
+        } else {
+            deductionCongeTrentieme = MoneyRoundingPolicy.amount(nbJoursConges.multiply(tauxJournalierTrentieme));
+        }
 
-        String commDed = String.format("Déduction base : %s j × (%s Ar / 30)", nbJoursConges, MoneyRoundingPolicy.amount(salaireBaseContractuel));
+        String commDed = input.getSalaireParJour().isEmpty()
+                ? String.format("Déduction base : %s j × (%s Ar / 30)", nbJoursConges, MoneyRoundingPolicy.amount(salaireBaseContractuel))
+                : String.format("Déduction base : %s j aux salaires de leurs dates / 30", nbJoursConges);
         lignes.add(creerLigne(bp, "DEDUCTION_CONGE_BASE", "Déduction Salaire Jours de Congé (1/30ème)", "RETENUE", "SALAIRE_BASE",
                 salaireBaseContractuel, null, nbJoursConges, deductionCongeTrentieme, null, commDed, 25));
 
@@ -312,13 +339,16 @@ public class PayrollExecutionEngine {
         BigDecimal total = BigDecimal.ZERO;
         OvertimePayCalculator overtimeCalculator = new OvertimePayCalculator();
         OvertimePayCalculator.Result overtime = overtimeCalculator.calculate(input, tauxHoraire);
+        String commentaireTaux = input.getSalaireParJour().values().stream().distinct().count() > 1
+                ? "Montant ventilé selon le salaire applicable à la date de chaque tranche horaire ; taux de clôture affiché à titre indicatif."
+                : null;
 
         BigDecimal heuresHs30 = zeroIfNull(input.getHeuresHs30());
         if (heuresHs30.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal montantHs30 = overtime.hs30();
             BigDecimal tauxHs30 = BigDecimal.ONE.add(zeroIfNull(input.getMajorationHs30())).multiply(new BigDecimal("100"));
             lignes.add(creerLigne(bp, "HEURES_SUP_30", "Heures Supplémentaires (+" + tauxHs30.subtract(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%)" + dafOvertimeLabel(input, true), "GAIN", "HEURES_SUP",
-                    tauxHoraire, tauxHs30, heuresHs30, montantHs30, null, 30));
+                    tauxHoraire, tauxHs30, heuresHs30, montantHs30, null, commentaireTaux, 30));
             total = total.add(montantHs30);
         }
 
@@ -327,7 +357,7 @@ public class PayrollExecutionEngine {
             BigDecimal montantHs50 = overtime.hs50();
             BigDecimal tauxHs50 = BigDecimal.ONE.add(zeroIfNull(input.getMajorationHs50())).multiply(new BigDecimal("100"));
             lignes.add(creerLigne(bp, "HEURES_SUP_50", "Heures Supplémentaires (+" + tauxHs50.subtract(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%)" + dafOvertimeLabel(input, false), "GAIN", "HEURES_SUP",
-                    tauxHoraire, tauxHs50, heuresHs50, montantHs50, null, 40));
+                    tauxHoraire, tauxHs50, heuresHs50, montantHs50, null, commentaireTaux, 40));
             total = total.add(montantHs50);
         }
 
@@ -336,7 +366,7 @@ public class PayrollExecutionEngine {
             BigDecimal montantNuit = overtime.nuit();
             BigDecimal tauxNuit = zeroIfNull(input.getMajorationNuit()).multiply(new BigDecimal("100"));
             lignes.add(creerLigne(bp, "MAJORATION_NUIT", "Majoration Travail de Nuit", "GAIN", "HEURES_SUP",
-                    tauxHoraire, tauxNuit, heuresNuit, montantNuit, null, 50));
+                    tauxHoraire, tauxNuit, heuresNuit, montantNuit, null, commentaireTaux, 50));
             total = total.add(montantNuit);
         }
 
@@ -346,7 +376,7 @@ public class PayrollExecutionEngine {
             BigDecimal baseTauxDimanche = zeroIfNull(input.getMajorationDimanche())
                     .multiply(new BigDecimal("100"));
             lignes.add(creerLigne(bp, "HEURES_DIMANCHE", "Majoration Travail Dimanche", "GAIN", "HEURES_SUP",
-                    tauxHoraire, baseTauxDimanche, heuresDimanche, montantDimanche, null, 60));
+                    tauxHoraire, baseTauxDimanche, heuresDimanche, montantDimanche, null, commentaireTaux, 60));
             total = total.add(montantDimanche);
         }
 
@@ -355,7 +385,7 @@ public class PayrollExecutionEngine {
             BigDecimal montantFerie = overtime.ferie();
             BigDecimal tauxFerie = zeroIfNull(input.getMajorationFerie()).multiply(new BigDecimal("100"));
             lignes.add(creerLigne(bp, "MAJORATION_FERIE", "Majoration Travail Jour Férié", "GAIN", "HEURES_SUP",
-                    tauxHoraire, tauxFerie, heuresFerie, montantFerie, null, 70));
+                    tauxHoraire, tauxFerie, heuresFerie, montantFerie, null, commentaireTaux, 70));
             total = total.add(montantFerie);
         }
 
@@ -404,9 +434,20 @@ public class PayrollExecutionEngine {
         BigDecimal txHs30 = BigDecimal.ONE.add(zeroIfNull(input.getMajorationHs30()));
         BigDecimal txHs50 = BigDecimal.ONE.add(zeroIfNull(input.getMajorationHs50()));
 
-        BigDecimal remunExo30 = MoneyRoundingPolicy.amount(exo30Heures.multiply(tauxHoraire).multiply(txHs30));
-        BigDecimal remunExo50 = MoneyRoundingPolicy.amount(exo50Heures.multiply(tauxHoraire).multiply(txHs50));
-        BigDecimal totalExonereIrsa = remunExo30.add(remunExo50).min(totalHsBrut);
+        BigDecimal totalExonereIrsa;
+        if (input.getSalaireParJour().values().stream().distinct().count() > 1) {
+            BigDecimal remunExo30 = montantHsExonereParDate(overtime.bucketDetails(),
+                    mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier.OVERTIME_30,
+                    exo30Heures, tauxHoraire, txHs30);
+            BigDecimal remunExo50 = montantHsExonereParDate(overtime.bucketDetails(),
+                    mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier.OVERTIME_50,
+                    exo50Heures, tauxHoraire, txHs50);
+            totalExonereIrsa = MoneyRoundingPolicy.amount(remunExo30.add(remunExo50)).min(totalHsBrut);
+        } else {
+            BigDecimal remunExo30 = MoneyRoundingPolicy.amount(exo30Heures.multiply(tauxHoraire).multiply(txHs30));
+            BigDecimal remunExo50 = MoneyRoundingPolicy.amount(exo50Heures.multiply(tauxHoraire).multiply(txHs50));
+            totalExonereIrsa = remunExo30.add(remunExo50).min(totalHsBrut);
+        }
         BigDecimal totalImposableIrsa = totalHsBrut.subtract(totalExonereIrsa).max(BigDecimal.ZERO);
 
         if (totalExonereIrsa.compareTo(BigDecimal.ZERO) > 0) {
@@ -421,6 +462,29 @@ public class PayrollExecutionEngine {
         }
 
         return new OvertimeExemptionDetail(totalHsBrut, totalExonereIrsa, totalImposableIrsa, totalHeuresExo, totalHeuresImp);
+    }
+
+    /** Même ordre de quota HS30 puis HS50, avec la valorisation historique de chaque bucket. */
+    private static BigDecimal montantHsExonereParDate(List<BucketValuationResult> details,
+            mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier tier,
+            BigDecimal heuresExonerees, BigDecimal tauxHoraireCloture, BigDecimal coefficientCloture) {
+        BigDecimal restantes = heuresExonerees;
+        BigDecimal montant = BigDecimal.ZERO;
+        for (var detail : details) {
+            if (restantes.signum() <= 0) break;
+            if (detail.sourceBucket().overtimeTier() != tier) continue;
+            BigDecimal heures = BigDecimal.valueOf(detail.sourceBucket().minutes())
+                    .divide(new BigDecimal("60"), 12, RoundingMode.HALF_UP);
+            BigDecimal prises = heures.min(restantes);
+            BigDecimal montantBucket = detail.overtimeBaseAmount().add(detail.overtimePremiumAmount());
+            montant = montant.add(montantBucket.multiply(prises)
+                    .divide(heures, 12, RoundingMode.HALF_UP));
+            restantes = restantes.subtract(prises);
+        }
+        // Les minutes HS ajoutées par arbitrage DAF n'ont pas de badge ; leur date métier est la clôture.
+        if (restantes.signum() > 0)
+            montant = montant.add(restantes.multiply(tauxHoraireCloture).multiply(coefficientCloture));
+        return montant;
     }
 
     public BigDecimal calculerPrimes(PayrollCalculationInput input, BigDecimal salaireBaseContractuel,

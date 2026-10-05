@@ -790,6 +790,9 @@ public class PayrollService {
             }
         }
 
+        in.setSalaireParJour(employmentContextResolver.resolveSalaryByDay(idEmploye,
+                dateDebutPeriodeSql.toLocalDate(), dateFinPeriodeSql.toLocalDate(), c));
+
         // 3. Coordonnées bancaires
         String sqlBanque = "SELECT ecb.num_compte_rib, rb.nom_banque " +
                 "FROM employe_compte_banque ecb " +
@@ -898,15 +901,13 @@ public class PayrollService {
             }
         }
 
-
         // 5.0 Détermination canonique de NBCONGE (RG-CONGE-05) : domaine Congés en jours calendaires
         if (congeService != null && idEmploye != null && in.getDateDebutPeriode() != null && in.getDateFinPeriode() != null) {
             LocalDate dDebPer = in.getDateDebutPeriode().toLocalDate();
             LocalDate dFinPer = in.getDateFinPeriode().toLocalDate();
-            BigDecimal nbJoursCongeValorises = congeService.calculerNbJoursCongeValorises(idEmploye, dDebPer, dFinPer, c);
-            if (nbJoursCongeValorises != null) {
-                in.setNbJoursConges(nbJoursCongeValorises);
-            }
+            var joursConge = congeService.calculerJoursCongeValorisesParDate(idEmploye, dDebPer, dFinPer, c);
+            in.setJoursCongeValorisesParDate(joursConge);
+            in.setNbJoursConges(joursConge.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add));
         }
 
         // 5.1 Le TCONGE est nécessaire uniquement lorsqu'une prise est valorisée.
@@ -975,7 +976,7 @@ public class PayrollService {
                         try {
                             var calculation=mg.galaxam.sirh.paie.domain.engine.ManualAmountCalculator.calculate(
                                     rs.getString("methode_calcul"),rs.getString("politique_arrondi"),rs.getBigDecimal("montant_initial"),
-                                    rs.getBigDecimal("quantite_saisie"),rs.getBigDecimal("taux_saisi"),in.getSalaireBaseContractuel());
+                                    rs.getBigDecimal("quantite_saisie"),rs.getBigDecimal("taux_saisi"),in.getSalaireBaseCampagne());
                             amountCalculation=calculation;
                             montant=calculation.montant().subtract(rs.getBigDecimal("montant_impute")).max(BigDecimal.ZERO);
                             explanation="Version "+rs.getString("rubrique_code")+" ; condition "+rs.getString("condition_application")+" ; "+calculation.explication();

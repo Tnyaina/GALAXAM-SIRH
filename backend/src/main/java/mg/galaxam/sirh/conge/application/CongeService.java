@@ -1529,11 +1529,18 @@ public class CongeService {
      * RG-CONGE-01 à RG-CONGE-03 ne sont pas explicitement modifiées.
      */
     public BigDecimal calculerNbJoursCongeValorises(Integer idEmploye, LocalDate dateDebutPeriode, LocalDate dateFinPeriode, Connection c) throws Exception {
+        return calculerJoursCongeValorisesParDate(idEmploye, dateDebutPeriode, dateFinPeriode, c)
+                .values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Même décompte canonique, exposé par date pour la déduction salariale d'une campagne à deux salaires. */
+    public java.util.Map<LocalDate, BigDecimal> calculerJoursCongeValorisesParDate(Integer idEmploye,
+            LocalDate dateDebutPeriode, LocalDate dateFinPeriode, Connection c) throws Exception {
         if (idEmploye == null || dateDebutPeriode == null || dateFinPeriode == null) {
-            return BigDecimal.ZERO;
+            return java.util.Map.of();
         }
         if (dateFinPeriode.isBefore(dateDebutPeriode)) {
-            return BigDecimal.ZERO;
+            return java.util.Map.of();
         }
 
         String sql = "SELECT dc.date_debut, dc.date_fin, dc.est_demi_journee, dc.nb_jours_decomptes " +
@@ -1546,7 +1553,7 @@ public class CongeService {
                      "AND dc.date_debut <= ? AND dc.date_fin >= ? " +
                      "ORDER BY dc.date_debut ASC";
 
-        BigDecimal total = BigDecimal.ZERO;
+        java.util.Map<LocalDate, BigDecimal> parDate = new java.util.LinkedHashMap<>();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             ps.setDate(2, Date.valueOf(dateFinPeriode));
@@ -1561,14 +1568,18 @@ public class CongeService {
                     LocalDate finIntersection = dFin.isAfter(dateFinPeriode) ? dateFinPeriode : dFin;
 
                     if (!finIntersection.isBefore(debutIntersection)) {
-                        BigDecimal jours = mg.galaxam.sirh.conge.application.CongeDecompteCalendaireResolver.calculer(
-                                idEmploye, debutIntersection, finIntersection, estDemiJournee, c);
-                        total = total.add(jours);
+                        if (estDemiJournee && !debutIntersection.equals(finIntersection))
+                            throw new IllegalArgumentException("Une demi-journée ne peut couvrir plusieurs dates.");
+                        for (LocalDate jour = debutIntersection; !jour.isAfter(finIntersection); jour = jour.plusDays(1)) {
+                            BigDecimal jours = CongeDecompteCalendaireResolver.calculer(
+                                    idEmploye, jour, jour, estDemiJournee, c);
+                            if (jours.signum() > 0) parDate.merge(jour, jours, BigDecimal::add);
+                        }
                     }
                 }
             }
         }
-        return total;
+        return java.util.Collections.unmodifiableMap(parDate);
     }
 
     /**

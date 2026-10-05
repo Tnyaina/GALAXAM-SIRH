@@ -569,7 +569,7 @@ public class PaieAjustementController {
                     if(!rule.isEstActif()) throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,"Cette version est désactivée pour la nouvelle saisie.");
                     BigDecimal salary=null;
                     if("POURCENTAGE_SALAIRE_BASE".equals(rule.getMethodeCalcul()))
-                        salary=payrollService.preparerInput(req.getIdEmploye(),req.getIdPeriodePaie(),true,c).getSalaireBaseContractuel();
+                        salary=payrollService.preparerInput(req.getIdEmploye(),req.getIdPeriodePaie(),true,c).getSalaireBaseCampagne();
                     try {
                         resolvedAmount=mg.galaxam.sirh.paie.domain.engine.ManualAmountCalculator.calculate(rule.getMethodeCalcul(),rule.getPolitiqueArrondi(),
                                 req.getMontant(),req.getQuantiteSaisie(),req.getTauxSaisi(),salary).montant();

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CalendarRange, FileSpreadsheet, RefreshCw } from 'lucide-react';
+import { CalendarRange, FileSpreadsheet, RefreshCw, SlidersHorizontal, ShieldAlert } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import congeService from '@/features/leave/api/congeService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
 import { getErrorMessage } from '@/api/apiClient';
+import InitialisationSoldeModal from '@/features/leave/components/InitialisationSoldeModal';
 
 const jours = (value) => Number(value || 0).toFixed(2);
 const dateFr = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString('fr-FR') : '—';
@@ -29,10 +30,16 @@ const premiereDateActivation = (periode) => lendemain(
 );
 
 /** Contrôle DAF : la paie crée les références ; la DAF vérifie les mois et active le taux calculé. */
-export default function PeriodesReferenceTab({ initialIdEmploye = null, canValidate = false }) {
+export default function PeriodesReferenceTab({
+  initialIdEmploye = null,
+  canValidate = false,
+  periodesEnAttente = [],
+  onReload = null
+}) {
   const toast = useToast();
   const [employeId, setEmployeId] = useState(initialIdEmploye);
   const [periodes, setPeriodes] = useState([]);
+  const [showCutoverModal, setShowCutoverModal] = useState(false);
   const [stock, setStock] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -146,6 +153,7 @@ export default function PeriodesReferenceTab({ initialIdEmploye = null, canValid
       await congeService.activerTauxCalculeReference(activation.periode.idPeriodeReference, activation.dateEffet);
       setActivation(null);
       await chargerCycles(employeId);
+      if (onReload) onReload();
       toast.success(`TCONGE activé à compter du ${dateFr(activation.dateEffet)}.`);
     } catch (err) {
       setActivationError(getErrorMessage(err, 'Activation du TCONGE impossible.'));
@@ -155,6 +163,41 @@ export default function PeriodesReferenceTab({ initialIdEmploye = null, canValid
   };
 
   return <div className="space-y-4">
+    {periodesEnAttente && periodesEnAttente.length > 0 && (
+      <div className="p-4 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] flex items-center gap-2">
+            <ShieldAlert size={16} className="text-[var(--color-warning-500)] shrink-0" />
+            {periodesEnAttente.length} cycle{periodesEnAttente.length > 1 ? 's' : ''} annuel{periodesEnAttente.length > 1 ? 's' : ''} clôturé{periodesEnAttente.length > 1 ? 's' : ''} en attente d'activation DAF
+          </span>
+          <span className="text-xs text-[var(--color-fg-muted)]">Sélectionnez un collaborateur pour activer son taux</span>
+        </div>
+        <div className="flex flex-wrap gap-2 pt-1">
+          {periodesEnAttente.map((item) => (
+            <button
+              key={item.idPeriodeReference}
+              type="button"
+              onClick={() => {
+                setEmployeId(item.idEmploye);
+                chargerCycles(item.idEmploye);
+              }}
+              className={`px-3 py-1.5 text-xs font-medium border flex items-center gap-2 transition-all cursor-pointer ${
+                employeId === item.idEmploye
+                  ? 'bg-[var(--color-brand-500)] text-[var(--color-on-color)] border-[var(--color-brand-500)] shadow-xs'
+                  : 'bg-[var(--color-surface)] border-[var(--color-warning-500)]/40 text-[var(--color-fg)] hover:border-[var(--color-brand-500)]'
+              }`}
+            >
+              <span className="font-semibold">{item.prenom} {item.nom}</span>
+              {item.matricule && <span className="opacity-75">({item.matricule})</span>}
+              <span className="text-[10px] font-mono px-1.5 py-0.5 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[var(--color-fg)]">
+                {item.dateDebut.slice(0, 4)} : {formatMoneyAr(item.tauxCalculeCloture)}/j
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
+
     <Card padding bordered>
       <div className="flex flex-wrap items-end gap-3 justify-between">
         <div className="flex-1 min-w-56 max-w-xl">
@@ -178,11 +221,25 @@ export default function PeriodesReferenceTab({ initialIdEmploye = null, canValid
       : loading ? <SkeletonTable rows={4} columns={5} />
       : <>
         <Card padding bordered>
-          <p className="text-xs uppercase font-semibold text-[var(--color-fg-muted)]">Disponible aujourd'hui · tous lots historiques</p>
-          {stock ? <p className="text-lg font-semibold">
-            {jours(stock.soldeJours)} j · {formatMoneyAr(stock.soldeValorisation)}
-          </p> : <p className="text-sm text-[var(--color-fg-muted)]">Solde valorisé indisponible ; vérifiez les lots.</p>}
-          <p className="text-xs text-[var(--color-fg-muted)]">Les prises et ajustements sont déjà déduits ; les lots conservés sont consommés en FIFO.</p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase font-semibold text-[var(--color-fg-muted)]">Disponible aujourd'hui · tous lots historiques</p>
+              {stock ? <p className="text-lg font-semibold">
+                {jours(stock.soldeJours)} j · {formatMoneyAr(stock.soldeValorisation)}
+              </p> : <p className="text-sm text-[var(--color-fg-muted)]">Solde valorisé indisponible ; vérifiez les lots.</p>}
+              <p className="text-xs text-[var(--color-fg-muted)]">Les prises et ajustements sont déjà déduits ; les lots conservés sont consommés en FIFO.</p>
+            </div>
+            {canValidate && (
+              <Button
+                variant="outline"
+                size="sm"
+                iconLeft={<SlidersHorizontal size={14} />}
+                onClick={() => setShowCutoverModal(true)}
+              >
+                Reprendre l'historique (Cutover)
+              </Button>
+            )}
+          </div>
         </Card>
         <Card padding bordered>
         <CardHeader className="pb-3 border-b border-[var(--color-border-subtle)]">
@@ -192,10 +249,33 @@ export default function PeriodesReferenceTab({ initialIdEmploye = null, canValid
           </p>
         </CardHeader>
         <CardBody className="p-0">
-          {periodes.length === 0 ? <p className="p-6 text-sm text-[var(--color-fg-muted)]">
-            Aucune acquisition clôturée. La première clôture de paie de l'année ouvrira automatiquement sa référence.
-            Une reprise d'historique se fait depuis la fiche Congés du salarié.
-          </p> : <Table>
+          {periodes.length === 0 ? (
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-[var(--color-fg-muted)]">
+                Aucune acquisition clôturée sur ce profil. La première clôture de paie de l'année ouvrira automatiquement sa référence annuelle.
+              </p>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)]">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                    Reprise de solde antérieur (Cutover)
+                  </p>
+                  <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                    Pour un salarié ayant des droits acquis avant le déploiement de GALAXAM, initialisez le stock et le TCONGE certifiés par la DAF.
+                  </p>
+                </div>
+                {canValidate && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    iconLeft={<SlidersHorizontal size={14} />}
+                    onClick={() => setShowCutoverModal(true)}
+                  >
+                    Reprendre l'historique
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : <Table>
             <Thead><Tr><Th>Année de référence</Th><Th>Statut</Th>
               <Th className="text-right">Jours acquis</Th><Th className="text-right">Valeur acquise</Th>
               <Th className="text-right">Taux moyen calculé</Th><Th>Application du taux</Th><Th>Contrôle</Th></Tr></Thead>
@@ -308,5 +388,17 @@ export default function PeriodesReferenceTab({ initialIdEmploye = null, canValid
         </div>
       </form>}
     </Modal>
+
+    {showCutoverModal && employeId && (
+      <InitialisationSoldeModal
+        isOpen={showCutoverModal}
+        onClose={() => setShowCutoverModal(false)}
+        onSuccess={() => {
+          chargerCycles(employeId);
+          if (onReload) onReload();
+        }}
+        employe={{ idEmploye: employeId }}
+      />
+    )}
   </div>;
 }

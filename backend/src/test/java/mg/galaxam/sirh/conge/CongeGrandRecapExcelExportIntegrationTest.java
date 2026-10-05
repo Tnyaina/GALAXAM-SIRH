@@ -60,14 +60,20 @@ class CongeGrandRecapExcelExportIntegrationTest {
 
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(
                 exportService.generer(LocalDate.of(2026, 4, 1), LocalDate.of(2026, 9, 1))))) {
-            assertTrue(workbook.getSheet("README").getRow(6).getCell(1).getStringCellValue()
-                    .contains("lots historiques"));
+            // README onglet 2, row 5 (index 5) contient la description Col O vs Q
+            assertTrue(workbook.getSheet("README").getRow(5).getCell(1).getStringCellValue()
+                    .contains("FIFO historisée"));
+            // Ligne de donnees a index 4 (1ere ligne apres en-tete a index 3)
             var row = workbook.getSheetAt(0).getRow(4);
             assertEquals("EMP-RECAP-001", row.getCell(0).getStringCellValue());
-            assertEquals(1, row.getCell(5).getNumericCellValue());
-            assertEquals(2.5, row.getCell(6).getNumericCellValue());
-            assertEquals(3.5, row.getCell(12).getNumericCellValue());
-            assertEquals(31500, row.getCell(14).getNumericCellValue());
+            // Col F(5) = solde ouverture (mouvements avant la periode 04/2026 : acq 02/01 et 06/01 -> 1j avant)
+            assertEquals(1, row.getCell(5).getNumericCellValue(),  "Col F(5) = ouverture");
+            // Col G(6) = droits acquis sur la periode (acq 06/01 = 2.5j dans 04-09/2026)
+            assertEquals(2.5, row.getCell(6).getNumericCellValue(), "Col G(6) = acquis sur periode");
+            // Col M(12) = solde disponible
+            assertEquals(3.5, row.getCell(12).getNumericCellValue(), "Col M(12) = solde");
+            // Col O(14) = valeur FIFO historisee
+            assertEquals(31500, row.getCell(14).getNumericCellValue(), "Col O(14) = valeur FIFO");
         }
     }
 }

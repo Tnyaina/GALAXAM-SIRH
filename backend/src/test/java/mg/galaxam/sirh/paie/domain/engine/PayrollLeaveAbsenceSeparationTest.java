@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import mg.galaxam.sirh.paie.domain.dto.PayrollAttendanceInput;
@@ -15,6 +16,30 @@ import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
 import org.junit.jupiter.api.Test;
 
 class PayrollLeaveAbsenceSeparationTest {
+    @Test
+    void deductionCongeSuitLeSalaireDeLaPriseSansRevaloriserLesLots() {
+        PayrollCalculationInput input = new PayrollCalculationInput();
+        input.setSalaireBaseContractuel(new BigDecimal("400000"));
+        input.setSalaireParJour(java.util.Map.of(
+                LocalDate.of(2025, 12, 31), new BigDecimal("300000"),
+                LocalDate.of(2026, 1, 1), new BigDecimal("400000")));
+        input.setJoursCongeValorisesParDate(java.util.Map.of(
+                LocalDate.of(2025, 12, 31), BigDecimal.ONE,
+                LocalDate.of(2026, 1, 1), BigDecimal.ONE));
+        input.setNbJoursConges(new BigDecimal("2"));
+        input.setIndemniteCongeLots(new BigDecimal("29000"));
+        List<BulletinPaieLigne> lignes = new ArrayList<>();
+
+        new PayrollExecutionEngine().calculerConges(input, new BulletinPaie(), lignes);
+
+        var deduction = lignes.stream().filter(l -> "DEDUCTION_CONGE_BASE".equals(l.getCodeRubrique()))
+                .findFirst().orElseThrow();
+        var indemnite = lignes.stream().filter(l -> "INDEMNITE_CONGE_PAYE".equals(l.getCodeRubrique()))
+                .findFirst().orElseThrow();
+        assertEquals(0, new BigDecimal("23333.33").compareTo(deduction.getMontantSalarial()));
+        assertEquals(0, new BigDecimal("29000").compareTo(indemnite.getMontantSalarial()));
+    }
+
     @Test
     void indemniteDeTroisJoursUtiliseLaSommeHistoriqueDesLots() {
         PayrollCalculationInput input = new PayrollCalculationInput();

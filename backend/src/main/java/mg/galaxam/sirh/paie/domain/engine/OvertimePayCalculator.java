@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.NightWorkType;
 import mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier;
@@ -81,9 +82,13 @@ public final class OvertimePayCalculator {
      * Valorisation unitaire canonique avec résolveur de taux par date de bucket.
      */
     public Result calculate(List<QualifiedTimeBucket> buckets, BigDecimal hourlyRate, TemporalRateResolver rateResolver, Integer employeeId) {
-        if (hourlyRate == null || hourlyRate.compareTo(BigDecimal.ZERO) < 0) {
+        if (hourlyRate == null || hourlyRate.compareTo(BigDecimal.ZERO) < 0)
             throw new IllegalArgumentException("Le taux horaire doit être positif ou nul.");
-        }
+        return calculate(buckets, date -> hourlyRate, rateResolver, employeeId);
+    }
+
+    private Result calculate(List<QualifiedTimeBucket> buckets, Function<LocalDate, BigDecimal> hourlyRates,
+                             TemporalRateResolver rateResolver, Integer employeeId) {
         if (rateResolver == null) {
             throw new IllegalArgumentException("Le résolveur temporel de taux est obligatoire.");
         }
@@ -109,6 +114,9 @@ public final class OvertimePayCalculator {
 
             // Résolution des taux à la date civile exacte du bucket (invariant : ne traverse jamais minuit)
             LocalDate bucketDate = bucket.start().toLocalDate();
+            BigDecimal hourlyRate = hourlyRates.apply(bucketDate);
+            if (hourlyRate == null || hourlyRate.signum() < 0)
+                throw new IllegalStateException("MISSING_CONFIGURATION: TAUX_HORAIRE employé=" + employeeId + " au " + bucketDate);
             Rates rates = rateResolver.resolveRates(bucketDate);
             if (rates == null) {
                 throw new IllegalStateException("Aucun taux résolu pour la date " + bucketDate);
@@ -285,7 +293,9 @@ public final class OvertimePayCalculator {
                 resolver = date -> staticRates;
             }
 
-            var result = calculate(input.getAttendanceInput().qualifiedTimeBuckets(), hourlyRate, resolver, input.getIdEmploye());
+            var result = calculate(input.getAttendanceInput().qualifiedTimeBuckets(),
+                    input.getSalaireParJour().isEmpty() ? date -> hourlyRate : input::getTauxHoraireAlaDate,
+                    resolver, input.getIdEmploye());
             var attendance = input.getAttendanceInput();
             if (attendance.dafOvertime30Minutes() == 0 && attendance.dafOvertime50Minutes() == 0) return result;
             // Décision monétaire de fin de période, sans horaire ni sujétion inventés.

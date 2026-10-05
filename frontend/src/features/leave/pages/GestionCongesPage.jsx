@@ -7,6 +7,7 @@ import { getErrorMessage } from '@/api/apiClient';
 // Composants UI du Design System Galaxam
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import Tabs from '@/components/ui/navigation/Tabs';
+import WorkflowStepper from '@/components/ui/navigation/WorkflowStepper';
 import Alert from '@/components/ui/feedback/Alert';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import SEO from '@/components/system/SEO';
@@ -28,8 +29,9 @@ export default function GestionCongesPage() {
 
   // État local
   const [nbEnAttente, setNbEnAttente] = useState(null);
-  const [referentiels, setReferentiels]         = useState(null);
-  const [error, setError]     = useState(null);
+  const [referentiels, setReferentiels] = useState(null);
+  const [periodesEnAttente, setPeriodesEnAttente] = useState([]);
+  const [error, setError] = useState(null);
   const [showGrandRecap, setShowGrandRecap] = useState(false);
   const [dateFin, setDateFin] = useState(() => fmtDateInput(new Date()));
   const [dateDebut, setDateDebut] = useState(() => `${new Date().getFullYear()}-01-01`);
@@ -40,23 +42,51 @@ export default function GestionCongesPage() {
   // Données dérivées
   const tabFromUrl = searchParams.get('tab');
   const activeTab = ['demandes', 'periodes'].includes(tabFromUrl) ? tabFromUrl : 'planning';
+  const nbTauxAActiver = periodesEnAttente?.length || 0;
   const tabsList = [
     { id: 'planning', label: 'Planning des absences' },
     { id: 'demandes', label: 'Demandes et décisions', badge: nbEnAttente > 0 ? nbEnAttente : undefined },
-    { id: 'periodes', label: 'Contrôle des droits' }
+    { id: 'periodes', label: 'Contrôle des droits', badge: nbTauxAActiver > 0 ? nbTauxAActiver : undefined }
+  ];
+
+  const currentStep = activeTab === 'periodes' ? 'periodes' : 'planning';
+  const workflowSteps = [
+    {
+      id: 'planning',
+      label: '1. Demandes & Planning',
+      sublabel: nbEnAttente > 0 ? `${nbEnAttente} en attente` : 'Au fil de l’eau',
+      status: (activeTab === 'planning' || activeTab === 'demandes') ? 'active' : 'done'
+    },
+    {
+      id: 'paie_info',
+      label: '2. Clôture mensuelle',
+      sublabel: 'Acquisition 2,5 j/m',
+      status: 'pending',
+      lockReason: 'Alimentation automatique par les bulletins de paie validés'
+    },
+    {
+      id: 'periodes',
+      label: '3. Contrôle annuel DAF',
+      sublabel: nbTauxAActiver > 0 ? `${nbTauxAActiver} à activer` : 'Bascule TCONGE',
+      status: activeTab === 'periodes' ? 'active' : (nbTauxAActiver > 0 ? 'active' : 'pending')
+    }
   ];
 
   // Effets
   const loadGlobalData = useCallback(async () => {
     const requestId = ++requestSequence.current;
     setError(null);
-    const [pendingResult, refsResult] = await Promise.allSettled([
+    const [pendingResult, refsResult, pendingRatesResult] = await Promise.allSettled([
         congeService.getAllDemandes({ statut: 'EN_ATTENTE', page: 1, size: 1 }),
         congeService.getAllReferentiels(),
+        congeService.getPeriodesEnAttenteActivation(),
     ]);
     if (requestId !== requestSequence.current) return;
     setNbEnAttente(pendingResult.status === 'fulfilled' ? pendingResult.value?.totalElements ?? null : null);
     setReferentiels(refsResult.status === 'fulfilled' ? refsResult.value?.data || refsResult.value || null : null);
+    const pendingRates = pendingRatesResult.status === 'fulfilled' && Array.isArray(pendingRatesResult.value)
+      ? pendingRatesResult.value : [];
+    setPeriodesEnAttente(pendingRates);
     const failed = [pendingResult, refsResult].find(result => result.status === 'rejected');
     if (failed) setError(getErrorMessage(failed.reason, 'Certaines données des congés sont indisponibles.'));
   }, []);
@@ -112,6 +142,17 @@ export default function GestionCongesPage() {
       {error && (
         <Alert type="error" message={typeof error === 'string' ? error : JSON.stringify(error)} />
       )}
+
+      {/* Guide visuel du cycle de vie des congés */}
+      <WorkflowStepper
+        steps={workflowSteps}
+        currentStep={currentStep}
+        onStepClick={(stepId) => {
+          if (stepId === 'planning' || stepId === 'periodes') {
+            handleTabChange(stepId);
+          }
+        }}
+      />
 
       {/* Barre d'onglets sobre de premier niveau */}
       <Tabs
@@ -169,6 +210,8 @@ export default function GestionCongesPage() {
             <PeriodesReferenceTab
               initialIdEmploye={Number(searchParams.get('employe')) || null}
               canValidate={hasPermission('CONGE_VALIDATE')}
+              periodesEnAttente={periodesEnAttente}
+              onReload={loadGlobalData}
             />
           )}
         </Suspense>

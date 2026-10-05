@@ -61,7 +61,7 @@ public final class CongeTestFixtureHelper {
         String sql = "INSERT INTO employe (" +
                 "matricule, nom, prenom, sexe, date_naissance, lieu_naissance, " +
                 "cin_numero, cin_date_delivrance, cin_lieu_delivrance, adresse, telephone" +
-                ") VALUES (?, ?, ?, 'M', '1990-01-15', 'Antananarivo', '101000000001', '2010-01-15', 'TNR', 'Rue Test 101', '0340000000') " +
+                ") VALUES (?, ?, ?, 'M', '1990-01-15', 'Antananarivo', '101000100001', '2010-01-15', 'TNR', 'Rue Test 101', '0340000000') " +
                 "RETURNING id_employe";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, matricule);

@@ -434,15 +434,65 @@ class PayrollLeaveYearBoundaryIntegrationTest {
         assertTrue(assertThrows(IllegalStateException.class, () -> employmentContext.resolveCoverage(
                 employee,date("2025-12-26"),date("2026-01-25"),c)).getMessage().contains("2026-01-01"));
     }
-    @Test void inputPaieMutationJanvierGardeSalaireDeClotureSansProrataEntree() throws Exception {
+    @Test void inputPaieMutationJanvierVentileSalaireSansSimulerEntree() throws Exception {
         changeAssignment();
         int period=bulletin("2025-12-26","2026-01-25");
-        try(var ps=c.prepareStatement("INSERT INTO pointage_cumul_periode(id_employe,id_periode_paie,nb_jours_ouvrables) VALUES (?,?,22)")) {
-            ps.setInt(1,employee);ps.setInt(2,period);ps.executeUpdate();
-        }
+        snapshotVide(period);
         var input=payroll.preparerInput(employee,period,true,c);
         decimal("400000",input.getSalaireBaseContractuel());
         assertFalse(input.isEntreeSortieEnCoursDeMois());
+        decimal("380645.16",new mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine()
+                .calculerSalaireBase(input,new mg.galaxam.sirh.paie.persistence.BulletinPaie(),new java.util.ArrayList<>()));
+    }
+
+    @Test void salaireInchangeVautUnMoisCompletMalgreLesJoursDeCampagne() throws Exception {
+        int period=bulletin("2026-01-26","2026-02-25");
+        snapshotVide(period);
+        var input=payroll.preparerInput(employee,period,true,c);
+        decimal("300000",input.getSalaireBaseCampagne());
+        assertFalse(input.isEntreeSortieEnCoursDeMois());
+    }
+
+    @Test void salaireApplicableDesLeVingtSixCouvreTouteLaCampagne() throws Exception {
+        update("UPDATE employe_affectation_carriere SET date_fin='2025-12-25' WHERE id_affectation=?",assignment);
+        CongeTestFixtureHelper.createAffectation(c,employee,contract,date("2025-12-26"),new BigDecimal("400000"));
+        int period=bulletin("2025-12-26","2026-01-25");
+        snapshotVide(period);
+        decimal("400000",payroll.preparerInput(employee,period,true,c).getSalaireBaseCampagne());
+    }
+
+    @Test void entreeEnCoursDeCampagneConserveLeProrataGalaxamSurTrente() throws Exception {
+        update("UPDATE contrat_travail SET date_debut='2025-12-30' WHERE id_contrat=?",contract);
+        update("UPDATE employe_affectation_carriere SET date_debut='2025-12-30' WHERE id_affectation=?",assignment);
+        int period=bulletin("2025-12-26","2026-01-25");
+        snapshotVide(period);
+        var input=payroll.preparerInput(employee,period,true,c);
+        assertTrue(input.isEntreeSortieEnCoursDeMois());
+        decimal("270000",input.getSalaireBaseCampagne());
+    }
+
+    @Test void changementSalaireLeDixJanvierVentileAuJourExact() throws Exception {
+        update("UPDATE employe_affectation_carriere SET date_fin='2026-01-09' WHERE id_affectation=?",assignment);
+        CongeTestFixtureHelper.createAffectation(c,employee,contract,date("2026-01-10"),new BigDecimal("400000"));
+        int period=bulletin("2025-12-26","2026-01-25");
+        snapshotVide(period);
+        var input=payroll.preparerInput(employee,period,true,c);
+        decimal("351612.90",input.getSalaireBaseCampagne());
+    }
+
+    @Test void absenceNonDateeAvecDeuxSalairesBloquePlutotQueChoisirLeDernierTaux() throws Exception {
+        changeAssignment();
+        int period=bulletin("2025-12-26","2026-01-25");
+        try(var ps=c.prepareStatement("INSERT INTO pointage_cumul_periode"
+                + "(id_employe,id_periode_paie,nb_jours_ouvrables,heures_absence_retenues) VALUES (?,?,22,1)")) {
+            ps.setInt(1,employee);ps.setInt(2,period);ps.executeUpdate();
+        }
+        var input=payroll.preparerInput(employee,period,true,c);
+        var error=assertThrows(mg.galaxam.sirh.common.exception.SirhBusinessException.class,
+                ()->new mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine().calculerRetenueAbsence(
+                        input,input.getSalaireBaseCampagne(),input.getTauxHoraireEffectif(),
+                        new mg.galaxam.sirh.paie.persistence.BulletinPaie(),new java.util.ArrayList<>()));
+        assertTrue(error.getMessage().contains("PAYROLL_ABSENCE_SALARY_SPLIT_UNRESOLVED"));
     }
 
     @Test void organismeSanteResoluALaClotureEtAuDepart() throws Exception {
@@ -679,6 +729,12 @@ class PayrollLeaveYearBoundaryIntegrationTest {
     int changeAssignment() throws Exception {
         update("UPDATE employe_affectation_carriere SET date_fin='2025-12-31' WHERE id_affectation=?",assignment);
         return CongeTestFixtureHelper.createAffectation(c,employee,contract,date("2026-01-01"),new BigDecimal("400000"));
+    }
+    void snapshotVide(int period) throws Exception {
+        try(var ps=c.prepareStatement("INSERT INTO pointage_cumul_periode"
+                + "(id_employe,id_periode_paie,nb_jours_ouvrables) VALUES (?,?,22)")) {
+            ps.setInt(1,employee);ps.setInt(2,period);ps.executeUpdate();
+        }
     }
     void update(String sql,int id) throws Exception { try(var ps=c.prepareStatement(sql)){ps.setInt(1,id);ps.executeUpdate();} }
     void decimal(String value,BigDecimal actual){ assertEquals(0,new BigDecimal(value).compareTo(actual)); }

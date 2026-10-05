@@ -213,4 +213,36 @@ class CongeTauxEvolutionSimulationTest {
             ps.executeUpdate();
         }
     }
+
+    @Test
+    @DisplayName("La liste des périodes en attente d'activation DAF filtre correctement les cycles clôturés non encore activés")
+    void testListerPeriodesEnAttenteActivation() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            int idRef = congeTauxApplicableService.creerPeriodeReference(
+                    employeId, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), adminUserId, c);
+
+            // Simuler la clôture avec taux calculé
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE conge_periode_reference SET statut='CLOTUREE', taux_calcule_cloture=12500.00, " +
+                    "cumul_droits_cloture=30.00, cumul_valorisation_cloture=375000.00 WHERE id_periode_reference=?")) {
+                ps.setInt(1, idRef);
+                ps.executeUpdate();
+            }
+
+            var enAttente = congeTauxApplicableService.listerPeriodesEnAttenteActivation(c);
+            assertTrue(enAttente.stream().anyMatch(p -> (int) p.get("idPeriodeReference") == idRef),
+                    "La période clôturée doit être détectée en attente d'activation");
+
+            var item = enAttente.stream().filter(p -> (int) p.get("idPeriodeReference") == idRef).findFirst().orElseThrow();
+            assertEquals(new BigDecimal("12500.00"), item.get("tauxCalculeCloture"));
+            assertEquals(employeId, item.get("idEmploye"));
+
+            // Une fois activé, il ne doit plus apparaître dans la liste
+            congeTauxApplicableService.activerTauxCalcule(idRef, LocalDate.of(2026, 1, 1), adminUserId, c);
+
+            var apresActivation = congeTauxApplicableService.listerPeriodesEnAttenteActivation(c);
+            assertFalse(apresActivation.stream().anyMatch(p -> (int) p.get("idPeriodeReference") == idRef),
+                    "Une fois activée par la DAF, la période ne doit plus être en attente");
+        }
+    }
 }

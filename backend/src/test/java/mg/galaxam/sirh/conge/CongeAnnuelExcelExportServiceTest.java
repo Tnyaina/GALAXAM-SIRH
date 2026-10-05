@@ -70,10 +70,10 @@ class CongeAnnuelExcelExportServiceTest {
             assertEquals("Mouvements", wb.getSheetName(1));
             assertEquals("README", wb.getSheetName(2));
             assertEquals("Origine des droits", wb.getSheetName(3));
-            assertEquals("Valeur du stock après mouvement (Ar)",
+            assertEquals("Valeur du stock après mvt (Ar)",
                     wb.getSheet("Mouvements").getRow(2).getCell(8).getStringCellValue());
             assertTrue(wb.getSheet("README").getRow(9).getCell(1).getStringCellValue()
-                    .contains("pas de solde × TCONGE"));
+                    .contains("FIFO"));
 
             var sheet1 = wb.getSheetAt(0);
             var rowMatricule = sheet1.getRow(2); // Row 3
@@ -81,7 +81,8 @@ class CongeAnnuelExcelExportServiceTest {
             assertTrue(rowMatricule.getCell(0).getStringCellValue().contains("EMP-EXP-001"),
                     "A3=" + rowMatricule.getCell(0).getStringCellValue());
 
-            var rowTotaux = sheet1.getRow(19); // Row 20
+            // Ligne TOTAL = index 18 (ligne 19 Excel) dans le nouveau canevas
+            var rowTotaux = sheet1.getRow(18);
             assertNotNull(rowTotaux);
             assertEquals("TOTAL ENREGISTRÉ / SITUATION", rowTotaux.getCell(0).getStringCellValue());
         }
@@ -100,7 +101,8 @@ class CongeAnnuelExcelExportServiceTest {
         try (XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(excelBytes))) {
             var sheet1 = wb.getSheetAt(0);
             var rowMatricule = sheet1.getRow(2);
-            assertTrue(rowMatricule.getCell(0).getStringCellValue().contains("EMP-EXP-001"));
+            assertTrue(rowMatricule.getCell(0).getStringCellValue().contains("EMP-EXP-001"),
+                    "Valeur de row 2 cell 0 : '" + rowMatricule.getCell(0).getStringCellValue() + "'");
         }
     }
 
@@ -144,11 +146,21 @@ class CongeAnnuelExcelExportServiceTest {
         try (XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(
                 exportService.genererEtatCongesIndividuel(employeId, idPeriodeReference)))) {
             var sheet = wb.getSheetAt(0);
-            assertEquals(1.5, sheet.getRow(7).getCell(14).getNumericCellValue());
-            assertEquals(2, sheet.getRow(8).getCell(14).getNumericCellValue());
-            assertEquals(10000, sheet.getRow(8).getCell(5).getNumericCellValue());
-            assertEquals(18500, sheet.getRow(8).getCell(15).getNumericCellValue());
-            assertEquals(org.apache.poi.ss.usermodel.CellType.BLANK, sheet.getRow(7).getCell(6).getCellType());
+            // Nouveau mapping colonnes (après insertion col C=2, décalage +1 partout)
+            // Ligne 7 (index 6) = mois 1, Ligne 8 (index 7) = mois 2
+            // Col P(15) = solde disponible (j), Col Q(16) = valeur stock FIFO
+            // Col G(6)  = TCONGE applicable, Col H(7) = indemnité congé
+            assertEquals(1.5, sheet.getRow(6).getCell(15).getNumericCellValue(),
+                    "Solde dispo mois 1 (col P=15) doit être 1.5");
+            assertEquals(2.0, sheet.getRow(7).getCell(15).getNumericCellValue(),
+                    "Solde dispo mois 2 (col P=15) doit être 2.0");
+            assertEquals(10000, sheet.getRow(7).getCell(6).getNumericCellValue(),
+                    "TCONGE mois 2 (col G=6) doit être 10000");
+            assertEquals(18500, sheet.getRow(7).getCell(16).getNumericCellValue(),
+                    "Valeur stock FIFO mois 2 (col Q=16) doit être 18500 (1.5×10000+0.5×5000+0.5×10000)");
+            // Col H(7) = indemnité congé — BLANK si aucun bulletin de paie
+            assertEquals(org.apache.poi.ss.usermodel.CellType.BLANK, sheet.getRow(6).getCell(7).getCellType(),
+                    "Indemnité congé (col H=7) doit être vide si pas de bulletin");
         }
     }
 

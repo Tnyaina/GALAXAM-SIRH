@@ -38,6 +38,7 @@ public class SecurityConfig {
         "/auth/login",
         "/auth/refresh",
         "/auth/logout",
+        "/auth/ping",
         "/error"
     };
 

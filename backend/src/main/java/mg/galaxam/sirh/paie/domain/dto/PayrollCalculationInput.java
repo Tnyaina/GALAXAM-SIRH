@@ -3,8 +3,10 @@ package mg.galaxam.sirh.paie.domain.dto;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Date;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
 import mg.galaxam.sirh.paie.persistence.PaiePretEcheance;
 import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
@@ -52,6 +54,8 @@ public class PayrollCalculationInput {
     private Date dateFinPeriode;
     private Date dateCalcul = new Date(System.currentTimeMillis());
     private BigDecimal salaireBaseContractuel = BigDecimal.ZERO;
+    /** Salaire contractuel daté sur les seuls jours couverts par l'emploi dans la campagne. */
+    private Map<LocalDate, BigDecimal> salaireParJour = Map.of();
     private BigDecimal tauxHoraire;
 
     // 3. Pointage scellé & Décompte temps
@@ -256,6 +260,7 @@ public class PayrollCalculationInput {
     private BigDecimal nbHeuresAbsence = BigDecimal.ZERO;
     private BigDecimal tauxJournalierConge; // TCONGE dynamique (valorisation grand-livre congés)
     private BigDecimal indemniteCongeLots; // Somme des jours pris × taux historique de chaque lot FIFO
+    private Map<LocalDate, BigDecimal> joursCongeValorisesParDate = Map.of();
     private String modeCalculAbsence = "HEURES_REELLES"; // "HEURES_REELLES" (défaut opposable) ou "TRENTIEME"
     private boolean estPlafonneSante = true; // Plafonnement OSTIE / OMSI à 8x SME
     private boolean indemniteRepasImposable = false;
@@ -346,6 +351,37 @@ public class PayrollCalculationInput {
         return salaireBaseContractuel != null ? salaireBaseContractuel : BigDecimal.ZERO;
     }
 
+    public Map<LocalDate, BigDecimal> getSalaireParJour() { return salaireParJour; }
+    public void setSalaireParJour(Map<LocalDate, BigDecimal> salaireParJour) {
+        this.salaireParJour = Map.copyOf(salaireParJour);
+    }
+
+    /** Base du cycle : taux mensuels pondérés sur les jours de campagne ; entrée/sortie conserve /30. */
+    public BigDecimal getSalaireBaseCampagne() {
+        if (salaireParJour.isEmpty()) return getSalaireBasePlein();
+        if (dateDebutPeriode == null || dateFinPeriode == null)
+            throw new IllegalStateException("PAYROLL_PERIOD_DATES_MISSING: ventilation du salaire impossible");
+        long joursCampagne = java.time.temporal.ChronoUnit.DAYS.between(
+                dateDebutPeriode.toLocalDate(), dateFinPeriode.toLocalDate()) + 1;
+        long joursEmploi = salaireParJour.size();
+        if (joursCampagne <= 0 || joursEmploi > joursCampagne
+                || (!entreeSortieEnCoursDeMois && joursEmploi != joursCampagne))
+            throw new IllegalStateException("PAYROLL_SALARY_COVERAGE_INVALID: jours salariaux incohérents");
+        BigDecimal diviseur = entreeSortieEnCoursDeMois
+                ? new BigDecimal("30") : BigDecimal.valueOf(joursCampagne);
+        BigDecimal somme = salaireParJour.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        return mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy.amount(
+                somme.divide(diviseur, 8, RoundingMode.HALF_UP));
+    }
+
+    public BigDecimal getTauxHoraireAlaDate(LocalDate date) {
+        if (salaireParJour.isEmpty()) return getTauxHorairePlein();
+        BigDecimal salaire = salaireParJour.get(date);
+        if (salaire == null) throw new IllegalStateException(
+                "MISSING_CONFIGURATION: SALAIRE employé=" + idEmploye + " au " + date);
+        return salaire.divide(getDiviseurMensuelHeuresEffectif(), java.math.MathContext.DECIMAL128);
+    }
+
     /**
      * Calcule ou retourne le taux journalier de référence (Base / 30).
      */
@@ -370,6 +406,10 @@ public class PayrollCalculationInput {
     public void setTauxJournalierConge(BigDecimal tauxJournalierConge) { this.tauxJournalierConge = tauxJournalierConge; }
     public BigDecimal getIndemniteCongeLots() { return indemniteCongeLots; }
     public void setIndemniteCongeLots(BigDecimal indemniteCongeLots) { this.indemniteCongeLots = indemniteCongeLots; }
+    public Map<LocalDate, BigDecimal> getJoursCongeValorisesParDate() { return joursCongeValorisesParDate; }
+    public void setJoursCongeValorisesParDate(Map<LocalDate, BigDecimal> jours) {
+        this.joursCongeValorisesParDate = Map.copyOf(jours);
+    }
 
     // Getters & Setters
     public Integer getIdEmploye() { return idEmploye; }

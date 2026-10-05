@@ -73,10 +73,10 @@ const reportNetworkStatus = (reachable) => {
  */
 export const probeBackendConnectivity = async () => {
     try {
-        await axios.get(`${BASE_URL}auth/login`, {
+        await axios.get(`${BASE_URL}auth/ping`, {
             timeout: 5000,
             withCredentials: true,
-            validateStatus: () => true, // Tout statut HTTP (200, 401, 405...) atteste que le serveur répond
+            validateStatus: () => true, // Tout statut HTTP (200...) atteste que le serveur répond
         });
         reportNetworkStatus(true);
         return true;

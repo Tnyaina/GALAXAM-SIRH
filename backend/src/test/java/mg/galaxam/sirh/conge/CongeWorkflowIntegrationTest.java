@@ -392,8 +392,8 @@ class CongeWorkflowIntegrationTest {
         try (Connection c = dataSource.getConnection()) {
             CongeTestFixtureHelper.crediterSolde(c, employeId, 20.0, "Solde 20j");
 
-            LocalDate debut = LocalDate.of(2026, 10, 19); // > 15 jours de préavis
-            LocalDate fin = LocalDate.of(2026, 10, 23);
+            LocalDate debut = LocalDate.now().plusDays(20); // > 15 jours de préavis
+            LocalDate fin = LocalDate.now().plusDays(24);
 
             DemandeConge d = new DemandeConge();
             d.setIdEmploye(employeId);
