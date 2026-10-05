@@ -2,7 +2,7 @@ package mg.galaxam.sirh.pointage.api;
 
 import mg.galaxam.sirh.pointage.api.dto.PeriodePaieDTO;
 import jakarta.validation.Valid;
-import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodCommand;
+import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollPeriodCommand;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodCommandRequest;
 import mg.galaxam.sirh.common.dto.BusinessDecision;
 import mg.galaxam.sirh.paie.api.dto.PayrollPeriodContextView;

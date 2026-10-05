@@ -26,7 +26,7 @@ class PaieCockpitProjectionTest {
                 source, payroll, mock(PaieExportService.class), mock(BulletinDocumentService.class),
                 mock(GrandLivrePaieExportService.class), mock(IrsaExcelExportService.class),
                 mock(EtatSocialMensuelExportService.class), mock(QuarterlySocialDataService.class),
-                mock(QuarterlySocialWorkbookService.class), mock(AnnualPayrollExportService.class),
+                mock(AnnualPayrollExportService.class),
                 workflow);
 
         Map<?, ?> body = (Map<?, ?>) controller.obtenirCockpitPeriode(

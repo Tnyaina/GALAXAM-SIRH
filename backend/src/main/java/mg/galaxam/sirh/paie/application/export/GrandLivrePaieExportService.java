@@ -16,7 +16,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -112,7 +111,7 @@ public class GrandLivrePaieExportService {
         }
     }
     static Map<Integer, String> loadFiliales(Integer periodId, Connection connection) throws Exception {
-        return PayrollExportCompanyResolver.namesByBulletin(periodId, connection);
+        return PayrollExportContextResolver.namesByBulletin(periodId, connection);
     }
     private static void writeSummary(Sheet sheet, int rowIndex, BulletinPaie b, List<BulletinPaieLigne> lines,
                                      String filiale, Styles s) {

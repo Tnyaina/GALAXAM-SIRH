@@ -91,7 +91,7 @@ public class VirementBancaireExportService {
 
     public String exporterVirementCsv(Integer idPeriode, Connection c) throws Exception {
         List<VirementRowDto> data = genererDonneesVirement(idPeriode, c);
-        var company = PayrollExportCompanyResolver.forPeriod(idPeriode, c);
+        var company = PayrollExportContextResolver.forPeriod(idPeriode, c);
         String sqlPeriode = "SELECT code, libelle FROM periode_paie WHERE id_periode_paie = ?";
         String codePeriode = "";
         String libellePeriode = "";

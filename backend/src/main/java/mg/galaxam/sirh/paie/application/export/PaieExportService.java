@@ -18,20 +18,17 @@ public class PaieExportService {
 
     private final DataSource dataSource;
     private final SafiExportService safiExportService;
-    private final SafiOdsExportService safiOdsExportService;
     private final EdiIsiExportService ediIsiExportService;
     private final DntsExportService dntsExportService;
     private final VirementBancaireExportService virementBancaireExportService;
 
     public PaieExportService(DataSource dataSource,
                              SafiExportService safiExportService,
-                             SafiOdsExportService safiOdsExportService,
                              EdiIsiExportService ediIsiExportService,
                              DntsExportService dntsExportService,
                              VirementBancaireExportService virementBancaireExportService) {
         this.dataSource = dataSource;
         this.safiExportService = safiExportService;
-        this.safiOdsExportService = safiOdsExportService;
         this.ediIsiExportService = ediIsiExportService;
         this.dntsExportService = dntsExportService;
         this.virementBancaireExportService = virementBancaireExportService;
@@ -39,7 +36,7 @@ public class PaieExportService {
 
     public byte[] exporterSafiOds(Integer idPeriode) throws Exception {
         try (Connection c = dataSource.getConnection()) {
-            return safiOdsExportService.genererSafiOds(idPeriode, c);
+            return safiExportService.genererSafiOds(idPeriode, c);
         }
     }
 

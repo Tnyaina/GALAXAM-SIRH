@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import mg.galaxam.sirh.paie.persistence.BulletinPaie;
 import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
-import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator;
+import mg.galaxam.sirh.paie.domain.engine.PayrollTaxCalculations;
 
 /**
  * Conteneur complet d'un bulletin de paie généré avec ses lignes ventilées
@@ -73,7 +73,7 @@ public class BulletinPaieComplet {
             BigDecimal reductionChargeFamille,
             BigDecimal minimumPerceptionApplicable,
             BigDecimal irsaDu,
-            List<IrsaCalculator.TrancheDetail> detailsTranches
+            List<PayrollTaxCalculations.TrancheDetail> detailsTranches
     ) {}
 
     public BulletinPaieComplet() {}

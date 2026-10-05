@@ -372,10 +372,10 @@ final class PayrollCalculationContextAssembler {
                                 + "s'appliquent au mouvement " + idAvance + " sur la période " + in.getCodePeriode());
 
                     String explanation=null;
-                    mg.galaxam.sirh.paie.domain.engine.ManualAmountCalculator.Result amountCalculation=null;
+                    mg.galaxam.sirh.paie.domain.engine.ManualPayrollRules.AmountResult amountCalculation=null;
                     if("VARIABLE_DAF".equals(rs.getString("nature_type")) && rs.getString("rubrique_code")!=null) {
                         try {
-                            var calculation=mg.galaxam.sirh.paie.domain.engine.ManualAmountCalculator.calculate(
+                            var calculation=mg.galaxam.sirh.paie.domain.engine.ManualPayrollRules.calculateAmount(
                                     rs.getString("methode_calcul"),rs.getString("politique_arrondi"),rs.getBigDecimal("montant_initial"),
                                     rs.getBigDecimal("quantite_saisie"),rs.getBigDecimal("taux_saisi"),in.getSalaireBaseCampagne());
                             amountCalculation=calculation;
@@ -395,7 +395,7 @@ final class PayrollCalculationContextAssembler {
                             throw new SirhBusinessException(SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
                                     "Aucune version de rubrique ne couvre toute la période pour " + codeType + ". Vérifiez les dates de validité.");
                         }
-                        if (!mg.galaxam.sirh.paie.domain.engine.ManualRuleApplicability.applies(
+                        if (!mg.galaxam.sirh.paie.domain.engine.ManualPayrollRules.applies(
                                 rs.getString("condition_application"), in.isSoumisIrsa(), in.isSoumisCnaps(), in.isSoumisSante())) {
                             throw new SirhBusinessException(SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
                                     "Le mouvement " + codeType + " n’est pas applicable à ce salarié (" + rs.getString("condition_application") + "). Corrigez ou annulez le mouvement.");

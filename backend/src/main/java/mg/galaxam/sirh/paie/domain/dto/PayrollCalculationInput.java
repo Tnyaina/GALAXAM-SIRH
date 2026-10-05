@@ -10,7 +10,7 @@ import java.util.Map;
 import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
 import mg.galaxam.sirh.paie.persistence.PaiePretEcheance;
 import mg.galaxam.sirh.paie.domain.engine.PayrollExecutionEngine;
-import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator;
+import mg.galaxam.sirh.paie.domain.engine.PayrollTaxCalculations;
 import mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy;
 import mg.galaxam.sirh.paie.domain.engine.TemporalRateResolver;
 
@@ -102,7 +102,7 @@ public class PayrollCalculationInput {
     /** @deprecated La tranche IRSA à 0 % est portée uniquement par {@code tranchesIrsa}. */
     @Deprecated
     private BigDecimal seuilExonerationIrsa;
-    private List<IrsaCalculator.Tranche> tranchesIrsa = new ArrayList<>();
+    private List<PayrollTaxCalculations.Tranche> tranchesIrsa = new ArrayList<>();
     private BigDecimal tauxIsi;
     // Majorations résolues par l'orchestrateur depuis ref_taux_majoration.
     private BigDecimal majorationHs30;
@@ -624,8 +624,8 @@ public class PayrollCalculationInput {
     public BigDecimal getSeuilExonerationIrsa() { return seuilExonerationIrsa; }
     public void setSeuilExonerationIrsa(BigDecimal seuilExonerationIrsa) { this.seuilExonerationIrsa = seuilExonerationIrsa; }
 
-    public List<IrsaCalculator.Tranche> getTranchesIrsa() { return tranchesIrsa; }
-    public void setTranchesIrsa(List<IrsaCalculator.Tranche> tranches) {
+    public List<PayrollTaxCalculations.Tranche> getTranchesIrsa() { return tranchesIrsa; }
+    public void setTranchesIrsa(List<PayrollTaxCalculations.Tranche> tranches) {
         this.tranchesIrsa = new ArrayList<>();
         if (tranches == null) return;
         this.tranchesIrsa.addAll(tranches);

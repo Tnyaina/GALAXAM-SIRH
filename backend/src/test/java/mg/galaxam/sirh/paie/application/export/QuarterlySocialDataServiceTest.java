@@ -14,7 +14,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class QuarterlySocialWorkbookServiceTest {
+class QuarterlySocialDataServiceTest {
     @Test
     void fillsAllProvidedTemplatesWithThreeMonthsAndMoreEmployeesThanDefaultRows() throws Exception {
         List<Person> people = new ArrayList<>();
@@ -40,7 +40,7 @@ class QuarterlySocialWorkbookServiceTest {
         }
         Data data = new Data(2026, 3, new String[]{"2026-07", "2026-08", "2026-09"},
                 new Employer(1, "STE GALAXAM LOGISTICS", "3000019434", "STAT TEST", "ANTANANARIVO", "0340000000", "daf@example.test"), people);
-        var service = new QuarterlySocialWorkbookService();
+        var service = new QuarterlySocialDataService();
         for (String type : List.of("consolidation", "cnaps", "fmfp", "ostie", "omsi")) {
             try (var book = WorkbookFactory.create(new ByteArrayInputStream(service.render(data, type)))) {
                 assertTrue(book.getNumberOfSheets() >= 1, type);

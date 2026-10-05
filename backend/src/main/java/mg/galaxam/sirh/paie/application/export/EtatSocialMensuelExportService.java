@@ -169,7 +169,7 @@ public class EtatSocialMensuelExportService {
         }
     }
     private static Map<Integer, String> loadFiliales(Integer id, Connection c) throws Exception {
-        return PayrollExportCompanyResolver.namesByBulletin(id, c);
+        return PayrollExportContextResolver.namesByBulletin(id, c);
     }
     private static void heading(Sheet sheet, int row, String value, CellStyle style) { cell(sheet, row, 0, style).setCellValue(value); }
     private static void banner(Sheet sheet, String value, int lastColumn, CellStyle style) {

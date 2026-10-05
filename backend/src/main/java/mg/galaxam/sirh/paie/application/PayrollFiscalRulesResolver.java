@@ -1,6 +1,6 @@
-package mg.galaxam.sirh.paie.domain.engine;
+package mg.galaxam.sirh.paie.application;
 
-
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -8,12 +8,13 @@ import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import mg.galaxam.sirh.paie.domain.engine.PayrollTaxCalculations;
 
-/** Résolution unique et datée des tranches IRSA. */
-public final class IrsaBracketResolver {
-    private IrsaBracketResolver() {}
+/** Résolution datée des règles fiscales ; aucun calcul d'impôt ni effet en base. */
+public final class PayrollFiscalRulesResolver {
+    private PayrollFiscalRulesResolver() {}
 
-    public static List<IrsaCalculator.Tranche> resolve(Integer configId, LocalDate date, Connection c) throws Exception {
+    public static List<PayrollTaxCalculations.Tranche> resolveIrsaBrackets(Integer configId, LocalDate date, Connection c) throws Exception {
         String sql;
         boolean byId = configId != null;
         if (byId) {
@@ -27,7 +28,7 @@ public final class IrsaBracketResolver {
                     + "AND b.date_debut <= ? AND (b.date_fin IS NULL OR b.date_fin >= ?) "
                     + "ORDER BY pc.date_debut DESC, b.numero_tranche ASC";
         }
-        List<IrsaCalculator.Tranche> result = new ArrayList<>();
+        List<PayrollTaxCalculations.Tranche> result = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             Date d = Date.valueOf(date);
             if (byId) { ps.setInt(1, configId); ps.setDate(2, d); ps.setDate(3, d); }
@@ -40,12 +41,28 @@ public final class IrsaBracketResolver {
                     if (number != previousNumber + 1) {
                         throw new IllegalStateException("IRSA_CONFIGURATION_INVALID: tranches absentes ou dupliquées à la date " + date);
                     }
-                    result.add(new IrsaCalculator.Tranche(rs.getBigDecimal(1), rs.getBigDecimal(2), rs.getBigDecimal(3)));
+                    result.add(new PayrollTaxCalculations.Tranche(rs.getBigDecimal(1), rs.getBigDecimal(2), rs.getBigDecimal(3)));
                     previousNumber = number;
                 }
             }
         }
         if (result.isEmpty()) throw new IllegalStateException("IRSA_CONFIGURATION_MISSING au " + date);
         return result;
+    }
+
+    public static BigDecimal resolveIsiRate(LocalDate date, Connection c) throws Exception {
+        if (date == null) throw new IllegalArgumentException("La date métier ISI est obligatoire.");
+        String sql = "SELECT valeur FROM parametre_global WHERE code_parametre IN ('TAUX_ISI','TAUX_ISI_POURCENT') "
+                + "AND est_actif = true AND date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) "
+                + "ORDER BY date_debut DESC, id_parametre DESC LIMIT 2";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            Date d = Date.valueOf(date); ps.setDate(1, d); ps.setDate(2, d);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new IllegalStateException("TAX_CONFIGURATION_MISSING: ISI au " + date);
+                BigDecimal rate = new BigDecimal(rs.getString(1));
+                if (rs.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: TAX_CONFIGURATION_AMBIGUOUS: ISI au " + date);
+                return rate;
+            }
+        }
     }
 }

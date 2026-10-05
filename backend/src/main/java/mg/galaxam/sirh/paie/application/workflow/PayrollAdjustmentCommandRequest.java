@@ -1,5 +1,7 @@
 package mg.galaxam.sirh.paie.application.workflow;
 
+import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollAdjustmentCommand;
+
 
 import jakarta.validation.constraints.NotNull;
 

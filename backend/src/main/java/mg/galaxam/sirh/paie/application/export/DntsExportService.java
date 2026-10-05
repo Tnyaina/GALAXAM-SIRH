@@ -151,7 +151,7 @@ public class DntsExportService {
 
     public String exporterDntsCsv(Integer idPeriode, Connection c) throws Exception {
         List<DntsRowDto> data = genererDonneesDnts(idPeriode, c);
-        var company = PayrollExportCompanyResolver.forPeriod(idPeriode, c);
+        var company = PayrollExportContextResolver.forPeriod(idPeriode, c);
 
         String sqlPeriode = "SELECT code, libelle, date_fin FROM periode_paie WHERE id_periode_paie = ?";
         String codePeriode = "";
@@ -361,7 +361,7 @@ public class DntsExportService {
 
     public String exporterDntsTrimestreCsv(int annee, int trimestre, Connection c) throws Exception {
         List<DntsRowDto> data = genererDonneesDntsTrimestre(annee, trimestre, c);
-        var company = PayrollExportCompanyResolver.forQuarter(annee, trimestre, c);
+        var company = PayrollExportContextResolver.forQuarter(annee, trimestre, c);
         LocalDate dateResolution = LocalDate.of(annee, (trimestre - 1) * 3 + 1, 1);
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT MIN(date_fin) FROM periode_paie WHERE EXTRACT(YEAR FROM date_fin)=? "
@@ -442,7 +442,7 @@ public class DntsExportService {
             Date dateFinPeriode, Connection c) throws Exception {
         if (dateDebutPeriode == null || dateFinPeriode == null)
             throw new IllegalStateException("Bornes de campagne manquantes pour l'export.");
-        LocalDate departure = PayrollExportDepartureResolver.forPeriod(idEmploye,
+        LocalDate departure = PayrollExportContextResolver.departureForPeriod(idEmploye,
                 dateDebutPeriode.toLocalDate(), dateFinPeriode.toLocalDate(), c);
         return departure == null ? "" : DATE_FMT.format(departure);
     }

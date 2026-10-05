@@ -47,7 +47,8 @@ class PayrollLeaveYearBoundaryIntegrationTest {
         assignment = CongeTestFixtureHelper.createAffectation(c, employee, contract,
                 LocalDate.of(2025, 1, 1), new BigDecimal("300000"));
         ReflectionTestUtils.setField(payroll, "congeService", leave);
-        ReflectionTestUtils.setField(payroll, "congeTauxApplicableService", rates);
+        ReflectionTestUtils.setField(payroll, "payrollLeaveJournalService",
+                new PayrollLeaveJournalService(leave, rates));
         ReflectionTestUtils.setField(payroll, "payrollLegalContextResolver", new PayrollLegalContextResolver());
         ReflectionTestUtils.setField(payroll, "employmentContextResolver", employmentContext);
     }

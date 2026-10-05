@@ -34,7 +34,7 @@ public class EdiIsiExportService {
         String sqlPeriode = "SELECT date_fin FROM periode_paie WHERE id_periode_paie = ?";
 
         LocalDate dateFin;
-        String nifContribuable = PayrollExportCompanyResolver.forPeriod(idPeriode, c).nifCompact();
+        String nifContribuable = PayrollExportContextResolver.forPeriod(idPeriode, c).nifCompact();
 
         try (PreparedStatement ps = c.prepareStatement(sqlPeriode)) {
             ps.setInt(1, idPeriode);

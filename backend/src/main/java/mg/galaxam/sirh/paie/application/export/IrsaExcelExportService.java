@@ -150,7 +150,7 @@ public class IrsaExcelExportService {
             ps.setInt(1, periodId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) throw new IllegalStateException("Aucun bulletin pour cette période.");
-                var company = PayrollExportCompanyResolver.forPeriod(periodId, c);
+                var company = PayrollExportContextResolver.forPeriod(periodId, c);
                 return new Header(rs.getString("code"), rs.getDate("date_fin").toLocalDate(),
                         company.name(), company.nif(), company.address());
             }

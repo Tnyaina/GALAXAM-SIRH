@@ -1,5 +1,6 @@
 package mg.galaxam.sirh.paie.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -73,4 +74,52 @@ public record PayrollPeriodContextView(
      * @param destination URL absolue de destination (ex : "/pointages?tab=saisie")
      */
     public record NextStep(String code, String destination) {}
+
+    /** Résumé daté d'une période de la campagne. */
+    public record PayrollPeriodSummary(
+            int id,
+            String code,
+            String label,
+            LocalDate startDate,
+            LocalDate endDate,
+            String state,
+            int version,
+            PayrollWorkflowStatuses workflowStatuses) {
+    }
+
+    /** Sortie produite depuis une campagne de paie. */
+    public record PayrollOutputView(
+            String code,
+            String status,
+            int version,
+            String checksum,
+            String sourceCampaign) {
+    }
+
+    /** Étape du parcours de la campagne affichée au frontend. */
+    public record PayrollCampaignStep(
+            String code,
+            String label,
+            String state,
+            String destination,
+            List<String> issues,
+            List<String> warnings) {
+
+        public PayrollCampaignStep {
+            issues = issues == null ? List.of() : List.copyOf(issues);
+            warnings = warnings == null ? List.of() : List.copyOf(warnings);
+        }
+
+        /** La navigation reste possible sur une campagne clôturée, uniquement en lecture. */
+        @JsonProperty("accessible")
+        public boolean accessible() {
+            return !"BLOCKED".equals(state);
+        }
+
+        /** Une étape verrouillée est consultable mais ne doit exposer aucune mutation. */
+        @JsonProperty("readOnly")
+        public boolean readOnly() {
+            return "LOCKED".equals(state);
+        }
+    }
 }

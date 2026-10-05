@@ -1,5 +1,9 @@
 package mg.galaxam.sirh.paie.application.workflow;
 
+import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollAction;
+import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollPeriodCommand;
+import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PointagePeriodAction;
+
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -20,11 +24,11 @@ import mg.galaxam.sirh.common.dto.BusinessDecision;
 import mg.galaxam.sirh.common.dto.BusinessIssue;
 import mg.galaxam.sirh.common.dto.DecisionStatus;
 import mg.galaxam.sirh.common.dto.RuleResult;
-import mg.galaxam.sirh.paie.api.dto.PayrollCampaignStep;
+import mg.galaxam.sirh.paie.api.dto.PayrollPeriodContextView.PayrollCampaignStep;
 import mg.galaxam.sirh.paie.api.dto.PayrollPeriodContextView;
-import mg.galaxam.sirh.paie.api.dto.PayrollPeriodSummary;
+import mg.galaxam.sirh.paie.api.dto.PayrollPeriodContextView.PayrollPeriodSummary;
 import mg.galaxam.sirh.paie.api.dto.PayrollWorkflowStatuses;
-import mg.galaxam.sirh.paie.api.dto.PayrollOutputView;
+import mg.galaxam.sirh.paie.api.dto.PayrollPeriodContextView.PayrollOutputView;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.dashboard.application.NotificationRhService;

@@ -28,7 +28,7 @@ class ManualGainContributionsTest {
         gain.setSoumisSante(sante);
         gain.setSoumisFmfp(fmfp);
 
-        var result = ManualGainContributions.resolve(gain);
+        var result = ManualPayrollRules.Contributions.resolve(gain);
         equal("10000", result.brut());
         equal(irsa ? "10000" : "0", result.irsa());
         equal(cnaps ? "10000" : "0", result.social());
@@ -43,7 +43,7 @@ class ManualGainContributionsTest {
         GainVariable gain = new GainVariable();
         gain.setMontant(new BigDecimal("10000"));
         gain.setEtapeCalcul(etape);
-        var result = ManualGainContributions.resolve(gain);
+        var result = ManualPayrollRules.Contributions.resolve(gain);
         equal(brut, result.brut());
         equal(ajoutNet, result.ajoutNet());
     }
@@ -59,7 +59,7 @@ class ManualGainContributionsTest {
         GainVariable gain = new GainVariable();
         gain.setEtapeCalcul(phase); gain.setImposable(fiscal);
         gain.setSoumisCotisation(social); gain.setMontant(new BigDecimal("100.125"));
-        var result = ManualGainContributions.resolve(gain);
+        var result = ManualPayrollRules.Contributions.resolve(gain);
         equal(brut, result.brut()); equal(baseSociale, result.social());
         equal(irsa, result.irsa()); equal(net, result.ajoutNet());
         assertEquals(0, result.brut().add(result.correctionSociale()).compareTo(result.social()));

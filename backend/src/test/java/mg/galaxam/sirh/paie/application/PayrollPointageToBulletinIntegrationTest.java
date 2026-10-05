@@ -11,6 +11,8 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.conge.testutils.CongeTestFixtureHelper;
 import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
@@ -159,6 +161,12 @@ class PayrollPointageToBulletinIntegrationTest {
                 var result = payrollService.calculerBulletinEmploye(employeeId, periodId,
                         false, null, connection);
                 assertNotNull(result.getBulletin().getIdBulletin());
+                var cockpit = payrollService.obtenirCockpitPeriode(periodId, connection);
+                assertEquals(periodId, ((Map<?, ?>) cockpit.get("periode")).get("idPeriodePaie"));
+                assertTrue(((List<?>) cockpit.get("bulletins")).stream()
+                        .anyMatch(row -> employeeId == (int) ((Map<?, ?>) row).get("idEmploye")));
+                assertTrue(payrollService.listerBulletinsEmploye(employeeId, connection).stream()
+                        .anyMatch(row -> periodId == (int) row.get("idPeriodePaie")));
                 assertEquals(0, new BigDecimal("350000").compareTo(result.getBulletin().getSalaireBase()));
                 assertTrue(result.getLignes().stream()
                         .anyMatch(line -> "SALAIRE_BASE".equals(line.getCodeRubrique())));

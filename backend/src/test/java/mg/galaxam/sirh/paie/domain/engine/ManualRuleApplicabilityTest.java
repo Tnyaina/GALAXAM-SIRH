@@ -14,14 +14,14 @@ class ManualRuleApplicabilityTest {
         "ASSUJETTI_SANTE,true,true,false,false"})
     void conditionDependDuProfilEtNonDesDrapeauxRubrique(String condition, boolean irsa,
             boolean cnaps, boolean health, boolean expected) {
-        assertEquals(expected,ManualRuleApplicability.applies(condition,irsa,cnaps,health));
+        assertEquals(expected,ManualPayrollRules.applies(condition,irsa,cnaps,health));
     }
     @Test void validiteCouvreTouteLaPeriodeEtInclutLesBornes() {
         var start=LocalDate.of(2026,7,26); var end=LocalDate.of(2026,8,25);
-        assertTrue(ManualRuleApplicability.covers(start,end,start,end));
-        assertTrue(ManualRuleApplicability.covers(null,null,start,end));
-        assertFalse(ManualRuleApplicability.covers(start.plusDays(1),end,start,end));
-        assertFalse(ManualRuleApplicability.covers(start,end.minusDays(1),start,end));
-        assertThrows(IllegalArgumentException.class,()->ManualRuleApplicability.applies("UNKNOWN",true,true,true));
+        assertTrue(ManualPayrollRules.covers(start,end,start,end));
+        assertTrue(ManualPayrollRules.covers(null,null,start,end));
+        assertFalse(ManualPayrollRules.covers(start.plusDays(1),end,start,end));
+        assertFalse(ManualPayrollRules.covers(start,end.minusDays(1),start,end));
+        assertThrows(IllegalArgumentException.class,()->ManualPayrollRules.applies("UNKNOWN",true,true,true));
     }
 }

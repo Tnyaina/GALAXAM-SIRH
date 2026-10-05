@@ -99,7 +99,7 @@ class PayrollVariableRubriqueLinkTest {
         input.setSoumisSante(false);
         input.setMinimumPerceptionIrsa(BigDecimal.ZERO);
         input.setDeductionParEnfant(BigDecimal.ZERO);
-        input.setTranchesIrsa(List.of(new IrsaCalculator.Tranche(BigDecimal.ZERO, null, new BigDecimal("0.10"))));
+        input.setTranchesIrsa(List.of(new PayrollTaxCalculations.Tranche(BigDecimal.ZERO, null, new BigDecimal("0.10"))));
         var gain = new PayrollCalculationInput.GainVariable(1, "TYPE_PRIME", "Prime",
                 new BigDecimal("10000"), "PRIME", taxable, social);
         gain.setCodeRubrique("PRIME_CONFIGUREE"); gain.setEtapeCalcul("BRUT");
@@ -171,7 +171,7 @@ class PayrollVariableRubriqueLinkTest {
         input.setTauxFmfpPatronal(BigDecimal.ZERO);
         input.setMinimumPerceptionIrsa(BigDecimal.ZERO);
         input.setDeductionParEnfant(BigDecimal.ZERO);
-        input.setTranchesIrsa(List.of(new IrsaCalculator.Tranche(BigDecimal.ZERO, null, BigDecimal.ZERO)));
+        input.setTranchesIrsa(List.of(new PayrollTaxCalculations.Tranche(BigDecimal.ZERO, null, BigDecimal.ZERO)));
     }
 
     @Test

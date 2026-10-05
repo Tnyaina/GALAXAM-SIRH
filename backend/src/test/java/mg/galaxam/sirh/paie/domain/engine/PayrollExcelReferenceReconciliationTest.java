@@ -79,7 +79,7 @@ class PayrollExcelReferenceReconciliationTest {
         input.setMinimumPerceptionIrsa(new BigDecimal("3000"));
         input.setDeductionParEnfant(BigDecimal.ZERO);
         // Isole le minimum observé ; la sélection du barème légal daté est testée ailleurs.
-        input.setTranchesIrsa(List.of(new IrsaCalculator.Tranche(
+        input.setTranchesIrsa(List.of(new PayrollTaxCalculations.Tranche(
                 BigDecimal.ZERO, null, BigDecimal.ZERO)));
         PaieAvanceAcompte telephone = new PaieAvanceAcompte();
         telephone.setTypeMouvement("CALL_PERSO");

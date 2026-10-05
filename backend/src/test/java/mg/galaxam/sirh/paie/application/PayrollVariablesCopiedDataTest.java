@@ -79,7 +79,7 @@ class PayrollVariablesCopiedDataTest {
             final int expenseId = id;
             final int initialVersion = ((Number) created.get("version")).intValue();
             assertThrows(SirhBusinessException.class, () -> adjustmentWorkflow.execute(expenseId,
-                    mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentCommand.APPROVE,
+                    mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollAdjustmentCommand.APPROVE,
                     null, null, initialVersion));
             byte[] pdf = "%PDF-1.4\njustificatif de recette".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
             adjustments.deposerJustificatifFrais(id,
@@ -94,7 +94,7 @@ class PayrollVariablesCopiedDataTest {
                 }
             }
             adjustmentWorkflow.execute(id,
-                    mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentCommand.APPROVE,
+                    mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollAdjustmentCommand.APPROVE,
                     null, null, updatedVersion);
             var result = calculate(true);
             var bulletin = result.getBulletin();

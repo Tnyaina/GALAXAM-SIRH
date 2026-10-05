@@ -19,10 +19,10 @@ import mg.galaxam.sirh.paie.api.dto.ConfirmationVersementRequest;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.persistence.PaieAvanceAcompte;
-import mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentCommand;
+import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollAdjustmentCommand;
 import mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentCommandRequest;
 import mg.galaxam.sirh.paie.application.workflow.PayrollAdjustmentWorkflowService;
-import mg.galaxam.sirh.paie.application.workflow.PayrollAction;
+import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollAction;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
 import mg.galaxam.sirh.paieconfig.persistence.RefTypeMouvementPaie;
@@ -571,7 +571,7 @@ public class PaieAjustementController {
                     if("POURCENTAGE_SALAIRE_BASE".equals(rule.getMethodeCalcul()))
                         salary=payrollService.preparerInput(req.getIdEmploye(),req.getIdPeriodePaie(),true,c).getSalaireBaseCampagne();
                     try {
-                        resolvedAmount=mg.galaxam.sirh.paie.domain.engine.ManualAmountCalculator.calculate(rule.getMethodeCalcul(),rule.getPolitiqueArrondi(),
+                        resolvedAmount=mg.galaxam.sirh.paie.domain.engine.ManualPayrollRules.calculateAmount(rule.getMethodeCalcul(),rule.getPolitiqueArrondi(),
                                 req.getMontant(),req.getQuantiteSaisie(),req.getTauxSaisi(),salary).montant();
                     } catch(IllegalArgumentException e) { throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,e.getMessage()); }
                 }

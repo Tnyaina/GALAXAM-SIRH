@@ -1,6 +1,6 @@
 package mg.galaxam.sirh.paie.application.workflow;
 
-import mg.galaxam.sirh.paie.api.dto.PayrollPhaseStatus;
+import mg.galaxam.sirh.paie.api.dto.PayrollWorkflowStatuses.PayrollPhaseStatus;
 import mg.galaxam.sirh.paie.api.dto.PayrollWorkflowStatuses;
 
 /** Traduction unique des états persistés et des bulletins en statuts de Pointage et de Paie. */

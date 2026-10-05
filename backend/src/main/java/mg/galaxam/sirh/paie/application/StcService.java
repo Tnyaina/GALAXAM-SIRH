@@ -23,18 +23,15 @@ import mg.galaxam.sirh.paie.persistence.BulletinPaieLigne;
 import mg.galaxam.sirh.paie.persistence.PaiePret;
 import mg.galaxam.sirh.paie.persistence.PaieStc;
 import mg.galaxam.sirh.paie.domain.engine.SocialContributionCalculator;
-import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator;
+import mg.galaxam.sirh.paie.domain.engine.PayrollTaxCalculations;
 import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
-import mg.galaxam.sirh.paie.domain.engine.IsiCalculator;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import mg.galaxam.sirh.paieconfig.application.SocialContributionContextResolver;
-import mg.galaxam.sirh.paie.domain.engine.IrsaCalculator.Tranche;
+import mg.galaxam.sirh.paie.domain.engine.PayrollTaxCalculations.Tranche;
 import mg.galaxam.sirh.paie.api.dto.stc.StcCalculRequest;
 import mg.galaxam.sirh.paie.api.dto.stc.StcCalculResultDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcPreparationDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcRecuDTO;
-import mg.galaxam.sirh.paie.domain.engine.IrsaBracketResolver;
-import mg.galaxam.sirh.paie.domain.engine.TaxConfigurationResolver;
 import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.stereotype.Service;
 
@@ -440,8 +437,8 @@ public class StcService {
         BigDecimal irsaNet = BigDecimal.ZERO;
         // Régime fiscal résolu une seule fois dans la préparation STC.
         if ("ISI".equalsIgnoreCase(prep.getRegimeFiscal())) {
-            BigDecimal tauxIsi = TaxConfigurationResolver.resolveIsiRate(req.getDateDepart().toLocalDate(), c);
-            BigDecimal isi = new IsiCalculator().calculate(assietteSociale, tauxIsi);
+            BigDecimal tauxIsi = PayrollFiscalRulesResolver.resolveIsiRate(req.getDateDepart().toLocalDate(), c);
+            BigDecimal isi = new PayrollTaxCalculations().calculateIsi(assietteSociale, tauxIsi);
             irsaNet = isi;
             res.setIrsaNet(BigDecimal.ZERO);
             res.ajouterLigne("RETENUE_ISI_5", "Retenue ISI", "RETENUE", assietteSociale, tauxIsi, isi);
@@ -459,7 +456,7 @@ public class StcService {
         BigDecimal deducParEnfant = configLegale.getDeductionChargeFamille();
         BigDecimal minPercep = configLegale.getMinimumPerceptionIrsa();
 
-        var irsaRes = new IrsaCalculator().calculate(
+        var irsaRes = new PayrollTaxCalculations().calculateIrsa(
                 netImposable, tranches, nbEnfants, deducParEnfant, minPercep
         );
         irsaNet = MoneyRoundingPolicy.tax(irsaRes.irsaNet().min(netImposable));
@@ -943,7 +940,7 @@ public class StcService {
      */
     private List<Tranche> chargerTranchesIrsa(PaieConfigLegale configLegale, LocalDate dateRef, Connection c) throws Exception {
         if (dateRef == null) throw new IllegalArgumentException("La date métier IRSA est obligatoire.");
-        return IrsaBracketResolver.resolve(configLegale != null ? configLegale.getIdConfigLegale() : null,
+        return PayrollFiscalRulesResolver.resolveIrsaBrackets(configLegale != null ? configLegale.getIdConfigLegale() : null,
                 dateRef, c);
     }
 

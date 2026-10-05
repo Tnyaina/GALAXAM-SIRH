@@ -11,10 +11,8 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 
 import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
-import mg.galaxam.sirh.paie.domain.engine.IrsaBracketResolver;
 import mg.galaxam.sirh.paie.domain.engine.OvertimePayCalculator;
 import mg.galaxam.sirh.paie.domain.engine.SpecialPremiumCollisionPolicy;
-import mg.galaxam.sirh.paie.domain.engine.TaxConfigurationResolver;
 import mg.galaxam.sirh.paieconfig.persistence.PaieConfigLegale;
 import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import mg.galaxam.sirh.paieconfig.persistence.RefTauxMajoration;
@@ -69,10 +67,10 @@ public class PayrollLegalContextResolver {
         input.setSpecialPremiumCollisionPolicy(SpecialPremiumCollisionPolicy.CUMUL_ADDITIF);
 
         if (input.isSoumisIsi5()) {
-            input.setTauxIsi(TaxConfigurationResolver.resolveIsiRate(targetDate, connection));
+            input.setTauxIsi(PayrollFiscalRulesResolver.resolveIsiRate(targetDate, connection));
         }
         resolveOvertimeRates(input, configId, targetDate, connection);
-        input.setTranchesIrsa(IrsaBracketResolver.resolve(configId, targetDate, connection));
+        input.setTranchesIrsa(PayrollFiscalRulesResolver.resolveIrsaBrackets(configId, targetDate, connection));
         resolveCompanySocialContributions(input, targetDate, connection);
         resolveHealthContribution(input, targetDate, connection);
         resolveDynamicParameters(input, targetDate, connection);

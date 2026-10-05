@@ -4,8 +4,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
-/** Calcul IRSA pur; le barème est résolu avant invocation. */
-public final class IrsaCalculator {
+/** Calculs fiscaux purs : les barèmes et taux sont résolus avant invocation. */
+public final class PayrollTaxCalculations {
   public record Tranche(BigDecimal seuilMin, BigDecimal seuilMax, BigDecimal taux) {}
   public record TrancheDetail(BigDecimal borneInferieure, BigDecimal borneSuperieure,
                               BigDecimal taux, BigDecimal montantTaxable, BigDecimal impotProduit) {}
@@ -18,7 +18,7 @@ public final class IrsaCalculator {
     public BigDecimal reductionEnfants() { return reductionChargeFamille; }
     public BigDecimal irsaNet() { return irsaDu; }
   }
-  public Result calculate(BigDecimal base, List<Tranche> tranches, int enfants, BigDecimal deduction, BigDecimal minimum) {
+  public Result calculateIrsa(BigDecimal base, List<Tranche> tranches, int enfants, BigDecimal deduction, BigDecimal minimum) {
     if (tranches == null || tranches.isEmpty()) throw new IllegalStateException("IRSA_CONFIGURATION_MISSING");
     if (deduction == null || minimum == null) throw new IllegalStateException("IRSA_CONFIGURATION_MISSING");
     if (base == null || base.signum() <= 0) return new Result(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
@@ -57,5 +57,11 @@ public final class IrsaCalculator {
     if (tranche.seuilMax() != null && tranche.seuilMax().compareTo(borneInferieureAttendue) <= 0) {
       throw new IllegalStateException("IRSA_BRACKET_CONFIGURATION_INVALID");
     }
+  }
+
+  /** ISI : taux en pourcentage, déjà résolu à la date métier du calcul appelant. */
+  public BigDecimal calculateIsi(BigDecimal base, BigDecimal tauxPourcent) {
+    if (base == null || tauxPourcent == null) throw new IllegalStateException("ISI_CONFIGURATION_MISSING");
+    return base.multiply(tauxPourcent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
   }
 }

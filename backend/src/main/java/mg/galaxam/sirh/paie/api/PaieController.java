@@ -11,7 +11,7 @@ import mg.galaxam.sirh.paie.persistence.BulletinPaie;
 import mg.galaxam.sirh.paie.domain.dto.BulletinPaieComplet;
 import mg.galaxam.sirh.paie.domain.dto.PayrollBatchResult;
 import mg.galaxam.sirh.paie.application.PayrollService;
-import mg.galaxam.sirh.paie.application.workflow.PayrollAction;
+import mg.galaxam.sirh.paie.application.workflow.PayrollWorkflowCommands.PayrollAction;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodUserContext;
 import mg.galaxam.sirh.paie.application.workflow.PayrollPeriodWorkflowService;
 import mg.galaxam.sirh.paie.application.export.PaieExportService;
@@ -20,7 +20,6 @@ import mg.galaxam.sirh.paie.application.export.GrandLivrePaieExportService;
 import mg.galaxam.sirh.paie.application.export.IrsaExcelExportService;
 import mg.galaxam.sirh.paie.application.export.EtatSocialMensuelExportService;
 import mg.galaxam.sirh.paie.application.export.QuarterlySocialDataService;
-import mg.galaxam.sirh.paie.application.export.QuarterlySocialWorkbookService;
 import mg.galaxam.sirh.paie.application.export.AnnualPayrollExportService;
 import mg.galaxam.sirh.securite.CustomUserDetails;
 import org.springframework.http.HttpHeaders;
@@ -55,7 +54,6 @@ public class PaieController {
     private final IrsaExcelExportService irsaExcelExportService;
     private final EtatSocialMensuelExportService etatSocialMensuelExportService;
     private final QuarterlySocialDataService quarterlySocialDataService;
-    private final QuarterlySocialWorkbookService quarterlySocialWorkbookService;
     private final AnnualPayrollExportService annualPayrollExportService;
     private final PayrollPeriodWorkflowService payrollPeriodWorkflowService;
 
@@ -67,7 +65,6 @@ public class PaieController {
                           IrsaExcelExportService irsaExcelExportService,
                           EtatSocialMensuelExportService etatSocialMensuelExportService,
                           QuarterlySocialDataService quarterlySocialDataService,
-                          QuarterlySocialWorkbookService quarterlySocialWorkbookService,
                           AnnualPayrollExportService annualPayrollExportService,
                           PayrollPeriodWorkflowService payrollPeriodWorkflowService) {
         this.dataSource = dataSource;
@@ -78,7 +75,6 @@ public class PaieController {
         this.irsaExcelExportService = irsaExcelExportService;
         this.etatSocialMensuelExportService = etatSocialMensuelExportService;
         this.quarterlySocialDataService = quarterlySocialDataService;
-        this.quarterlySocialWorkbookService = quarterlySocialWorkbookService;
         this.annualPayrollExportService = annualPayrollExportService;
         this.payrollPeriodWorkflowService = payrollPeriodWorkflowService;
     }
@@ -336,7 +332,7 @@ public class PaieController {
         }
         try (Connection connection = dataSource.getConnection()) {
             var data = quarterlySocialDataService.load(annee, trimestre, connection);
-            byte[] bytes = quarterlySocialWorkbookService.render(data, type);
+            byte[] bytes = quarterlySocialDataService.render(data, type);
             String extension = "fmfp".equals(type) ? "xls" : "xlsx";
             String filename = ("consolidation".equals(type) ? "Consolidation_Sociale" : "Modele_" + type.toUpperCase(java.util.Locale.ROOT))
                     + "_T" + trimestre + "_" + annee + "." + extension;

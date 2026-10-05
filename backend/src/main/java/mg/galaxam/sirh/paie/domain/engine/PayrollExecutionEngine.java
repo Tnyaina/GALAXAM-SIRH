@@ -35,7 +35,7 @@ public class PayrollExecutionEngine {
     public static final BigDecimal DIVISEUR_JOURS_TRENTIEME = new BigDecimal("30.0");
 
     public record CotisationsResult(BigDecimal totalCotisationsSalariales, BigDecimal totalCotisationsPatronales) {}
-    public record FiscaliteResult(BigDecimal irsaNet, BigDecimal retenueIsi, IrsaCalculator.Result detailIrsa) {}
+    public record FiscaliteResult(BigDecimal irsaNet, BigDecimal retenueIsi, PayrollTaxCalculations.Result detailIrsa) {}
     public record RetenuesResult(BigDecimal totalRetenues, ImpactPret impactPret, List<MouvementImputation> imputations) {}
 
     public PayrollExecutionEngine() { }
@@ -592,7 +592,7 @@ public class PayrollExecutionEngine {
         // Primes et gains dynamiques imposables (configurés en BDD dans ref_type_mouvement_paie)
         if (input.getGainsVariablesDynamiques() != null) {
             for (PayrollCalculationInput.GainVariable gv : input.getGainsVariablesDynamiques()) {
-                if (ManualGainContributions.resolve(gv).brut().signum() > 0) {
+                if (ManualPayrollRules.Contributions.resolve(gv).brut().signum() > 0) {
                     String cat = gv.getCategorie() != null ? gv.getCategorie() : "PRIME";
                     String lib = gv.getLibelle() != null && !gv.getLibelle().isBlank() ? gv.getLibelle() : gv.getCode();
                     BulletinPaieLigne ligne = creerLigne(bp, gv.getCodeRubrique(), lib, "GAIN", cat,
@@ -626,10 +626,10 @@ public class PayrollExecutionEngine {
         if (input.getGainsVariablesDynamiques() != null) {
             for (PayrollCalculationInput.GainVariable gain : input.getGainsVariablesDynamiques()) {
                 assietteSociale = assietteSociale.add(
-                        ManualGainContributions.resolve(gain).correctionSociale());
+                        ManualPayrollRules.Contributions.resolve(gain).correctionSociale());
                 assietteSanteVariables = assietteSanteVariables.add(
-                        ManualGainContributions.resolve(gain).correctionSante());
-                assietteFmfp=assietteFmfp.add(ManualGainContributions.resolve(gain).correctionFmfp());
+                        ManualPayrollRules.Contributions.resolve(gain).correctionSante());
+                assietteFmfp=assietteFmfp.add(ManualPayrollRules.Contributions.resolve(gain).correctionFmfp());
             }
         }
         assietteSociale = assietteSociale.max(BigDecimal.ZERO);
@@ -722,7 +722,7 @@ public class PayrollExecutionEngine {
                                             PayrollCalculationInput input, BulletinPaie bp, List<BulletinPaieLigne> lignes) {
         BigDecimal irsaNet = MoneyRoundingPolicy.tax(BigDecimal.ZERO);
         BigDecimal retenueIsi = MoneyRoundingPolicy.tax(BigDecimal.ZERO);
-        IrsaCalculator.Result detailIrsa = null;
+        PayrollTaxCalculations.Result detailIrsa = null;
 
         if (input.isSoumisIsi5()) {
             // Régime Prestataire / Consultant : Retenue libératoire ISI directe de 5%
@@ -730,7 +730,7 @@ public class PayrollExecutionEngine {
             if (tauxIsi == null) {
                 throw new IllegalStateException("TAX_CONFIGURATION_MISSING: ISI");
             }
-            retenueIsi = new IsiCalculator().calculate(totalGainsBruts, tauxIsi);
+            retenueIsi = new PayrollTaxCalculations().calculateIsi(totalGainsBruts, tauxIsi);
             lignes.add(creerLigne(bp, "RETENUE_ISI_5", "Retenue Libératoire ISI (" + tauxIsi.stripTrailingZeros().toPlainString() + "%)", "RETENUE", "IMPOT",
                     totalGainsBruts, tauxIsi, retenueIsi, null, 430));
             bp.setRetenueIsi5(retenueIsi);
@@ -739,14 +739,14 @@ public class PayrollExecutionEngine {
             // Assiette IRSA Fiscale : Net Imposable Social - Rémunération des HS exonérées (CGI Art. 01.03.03-9°)
             BigDecimal gainsBrutsExoneres = (input.getGainsVariablesDynamiques() != null
                     ? input.getGainsVariablesDynamiques() : List.<PayrollCalculationInput.GainVariable>of()).stream()
-                    .map(gain -> ManualGainContributions.resolve(gain).exclusionIrsa())
+                    .map(gain -> ManualPayrollRules.Contributions.resolve(gain).exclusionIrsa())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal assietteFiscale = salaireNetImposable.subtract(zeroIfNull(hsExonereeIrsa))
                     .subtract(gainsBrutsExoneres).max(BigDecimal.ZERO);
             bp.setRevenuNetImposable(assietteFiscale);
 
             // Régime Salarié : Barème progressif IRSA unifié (6 tranches, min 3 000 Ar)
-            detailIrsa = new IrsaCalculator().calculate(
+            detailIrsa = new PayrollTaxCalculations().calculateIrsa(
                     assietteFiscale,
                     input.getTranchesIrsa(),
                     input.getNbEnfantsEligibles(),
@@ -814,7 +814,7 @@ public class PayrollExecutionEngine {
         // 6.5 Indemnités et gains dynamiques non imposables
         if (input.getGainsVariablesDynamiques() != null) {
             for (PayrollCalculationInput.GainVariable gv : input.getGainsVariablesDynamiques()) {
-                if (ManualGainContributions.resolve(gv).ajoutNet().signum() > 0) {
+                if (ManualPayrollRules.Contributions.resolve(gv).ajoutNet().signum() > 0) {
                     String cat = gv.getCategorie() != null ? gv.getCategorie() : "INDEMNITE_NON_IMPOSABLE";
                     String lib = gv.getLibelle() != null && !gv.getLibelle().isBlank() ? gv.getLibelle() : gv.getCode();
                     BulletinPaieLigne ligne = creerLigne(bp, gv.getCodeRubrique(), lib, "GAIN", cat,

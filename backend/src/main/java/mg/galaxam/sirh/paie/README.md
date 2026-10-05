@@ -60,7 +60,7 @@ distincte du calcul mensuel figé.
 Les exports obtiennent l'identité de la filiale employeur auprès de
 `contrat.application.EmployerIdentityContextResolver`, sur la plage de campagne ;
 un contrat futur ne peut plus changer l'employeur affiché sur une ancienne campagne.
-DNTS et SAFI partagent `PayrollExportDepartureResolver` pour ne déclarer un départ
+DNTS et SAFI partagent `PayrollExportContextResolver` pour ne déclarer un départ
 que dans la campagne concernée. Une exportation sans bulletin ne devine plus la
 filiale à partir de la première fiche active.
 L'identité légale de l'employeur n'est toutefois pas figée dans `bulletin_paie` : une
@@ -75,6 +75,52 @@ des données d'émission avant toute migration de schéma.
 - `persistence/` : entités de paie et tables historiques (`BulletinPaie`, `BulletinPaieLigne`, `PaiePret`, `PaieAvanceAcompte`, `PaieStc`, etc.)
 
 Toutes les routes d'origine restent préservées sous `/paie/*`, `/stc/*`, `/api/paie/*`.
+
+## Où modifier la paie
+
+Le chemin du bulletin est `PayrollService` (orchestration) →
+`PayrollCalculationContextAssembler` (lectures datées et contrôles) →
+`PayrollCalculationInput` (données du calcul) → `PayrollExecutionEngine`
+(calcul sans SQL). Une nouvelle donnée d'entrée se résout dans l'assembleur ou
+dans le résolveur du domaine propriétaire ; le moteur reçoit sa valeur déjà
+déterminée à la bonne date métier. Le contexte du bulletin n'est pas réutilisé
+tel quel pour le STC, dont la date métier est celle du départ.
+
+Dans `PayrollService`, chercher `calculerBulletinEmploye` pour le bulletin et
+ses imputations, `calculerPaiePeriode` pour le calcul collectif,
+`validerPaiePeriode` / `cloturerDonneesPaie` pour la fin de campagne et
+`mettreAJourJournalConge` pour déclencher l'acquisition dans la transaction de
+clôture. `PayrollLeaveJournalService` porte son calcul, la référence congé et
+la valorisation mensuelle, en appelant les règles du domaine Congés.
+`PayrollCockpitService` porte
+les projections de période, les indicateurs et la pagination du cockpit DAF.
+`PayrollEmployeeReadService` porte l'historique et la synthèse de l'onglet Paie
+de l'employé. Les méthodes publiques historiques de `PayrollService` délèguent
+à ces services de lecture pour préserver les appelants existants.
+
+`PayrollPeriodContextView` contient les vues de résumé, de sortie et d'étape
+de campagne ; `PayrollWorkflowStatuses` contient le statut de chaque phase.
+Les noms des champs JSON restent ceux des records, sans enveloppe nouvelle.
+
+| Responsabilité | Fichier à ouvrir |
+| --- | --- |
+| IRSA et ISI, calculs purs | `domain/engine/PayrollTaxCalculations.java` (`calculateIrsa`, `calculateIsi`) |
+| Versions datées du barème IRSA et du taux ISI | `application/PayrollFiscalRulesResolver.java` |
+| Montant, validité et assiettes des rubriques manuelles | `domain/engine/ManualPayrollRules.java` |
+| Lecture de la version de rubrique en base | `application/ManualRubriqueResolver.java` |
+| Statuts de la campagne Pointage/Paie | `application/workflow/PayrollWorkflowStatusResolver.java` |
+| Commandes typées de la période, de la paie, du pointage et des ajustements | `application/workflow/PayrollWorkflowCommands.java` |
+| Données SAFI, CSV et ODS | `application/export/SafiExportService.java` |
+| Données sociales trimestrielles et classeurs | `application/export/QuarterlySocialDataService.java` |
+| Employeur et départ déclarés dans les exports | `application/export/PayrollExportContextResolver.java` |
+
+Cette séparation garde les calculs unitaires regroupés et les accès SQL à
+leurs dates d'effet hors du moteur. Le résolveur des statuts conserve un fichier
+distinct, car son tableau de transitions est testé indépendamment du service
+de workflow. Les commandes partagent un catalogue de types, tandis que les
+requêtes d'API restent des objets de transport distincts. Chaque export conserve
+des méthodes nommées pour charger ses données et produire ses formats ; les
+entités persistées restent séparées selon leurs tables et cycles de vie.
 
 ## Configuration contrôlée des rubriques (sp44 à sp47)
 
