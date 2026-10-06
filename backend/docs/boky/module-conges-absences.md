@@ -358,16 +358,23 @@ Le backend calcule dynamiquement pour chaque demande la liste des actions permis
 
 ### 6.1 Pont Réel Congés $\rightarrow$ Pointage (Gestion du Temps)
 
-L'approbation d'une demande de congé met à jour automatiquement la grille de pointage mensuelle via `PointageSaisieService` :
+L'interaction entre Congés et Pointage est bidirectionnelle et repose sur deux flux distincts :
 
-| Propriétés du Type de Congé | Statut dans Pointage | Heures Badgées | Heures Rémunérées DTO |
-| :--- | :--- | :---: | :---: |
-| **`decompte_solde_acquis = true`** (ex: `ANNUEL`) | Statut `CONGE` (id 5) | `0.0 h` | Forfait horaire contractuel |
-| **`decompte_solde_acquis = false` + payé** (ex: `EXCEPTIONNEL`) | Statut `DISPENSE_POINTAGE` (id 10) | `0.0 h` | Forfait horaire contractuel |
-| **Non rémunéré** (ex: `SANS_SOLDE`, `MALADIE_SANS_SOLDE`) | Statut `ABSENCE_JUSTIFIEE` (id 4) | `0.0 h` | `0.0 h` (Non rémunéré) |
+#### A. Cas 1 : Demande posée et validée en amont (Module Congés)
+Lorsque le collaborateur pose sa demande de congé à l'avance et que celle-ci est validée par le manager ou les RH :
+1. **Source de vérité** : `demande_conge` et `mouvement_solde_conge` scellent l'autorisation et le débit de solde. Aucune insertion physique prématurée ne vient polluer `pointage_jour` (évite les conflits d'édition concurrente et les verrous pessimistes).
+2. **Grille de saisie quotidienne (`PointageSaisieService.getGrilleSaisie`)** : La date est dynamiquement résolue et dispensée de badgeage :
+   - Congé annuel payé (`decompte_solde_acquis = true`) $\rightarrow$ Statut `CONGE` (id 5), 0h travaillée.
+   - Permission / Événement familial payé (`decompte_solde_acquis = false` + payé) $\rightarrow$ Statut `DISPENSE_POINTAGE` (id 10), 8h forfaitaires payées.
+   - Absence non rémunérée (ex: sans solde) $\rightarrow$ Statut `ABSENCE_JUSTIFIEE` (id 4), 0h travaillée.
+3. **Pré-contrôle DAF (`PointageSyntheseService.journeesOuvrablesSansStatut`)** : Les jours couverts par un congé validé sont automatiquement exclus des anomalies de "journées sans pointage" ; le bandeau bloquant `POINTAGE_JOURNEES_MANQUANTES` ne se déclenche pas.
+4. **Calcul de synthèse mensuelle (`PointageSyntheseService.calculerSyntheseEmploye`)** : Les congés validés sont réintégrés dans les tronçons hebdomadaires (`Result.Status.LEAVE`). L'objectif requis de travail est abaissé proportionnellement (8h par jour ouvré de congé), et la fiche collaborateur affiche `X prévus (+Y j congé)` avec l'objectif mensuel réduit (ex: 120h00 au lieu de 176h00).
 
-**Régularisation d'absence en congé depuis le pointage** :
-- Réalisée par `CongeService.regulariserCongeAnnuelDepuisPointageStructure` : saisit la date de reprise, calcule la date de fin inclusive et le volume calendaire réel.
+#### B. Cas 2 : Absence constatée régularisée a posteriori (Module Pointage)
+Lorsque l'absence a été constatée en cours de pointage (collaborateur non badgé) :
+- Réalisée par `CongeService.regulariserCongeAnnuelDepuisPointageStructure` via le menu *Suivi & Anomalies* :
+  1. `CongeService` crée et valide atomiquement la demande avec le préfixe `[REGULARISATION_POINTAGE]` et débite le solde acquis dans `mouvement_solde_conge`.
+  2. `PointageAnomalieService` enregistre la journée dans `pointage_jour` avec `id_statut_jour = CONGE` et lie la clé étrangère `id_demande_conge`.
 - Le solde de congé doit couvrir l'intégralité de la période à régulariser sous peine de rejet immédiat.
 - En cas d'annulation ultérieure de la demande validée issue d'une régularisation, le solde de congé est restitué et les pointages redeviennent automatiquement des absences non justifiées dans la même transaction.
 

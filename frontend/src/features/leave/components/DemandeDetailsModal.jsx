@@ -84,10 +84,11 @@ export default function DemandeDetailsModal({
 
   if (!targetDemande) return null;
 
+  const isValide = targetDemande.codeStatutDemande === 'VALIDE' || targetDemande.statutCode === 'VALIDE';
   const joursDemandes = Number(targetDemande.nbJoursDecomptes ?? 0);
-  const soldeAvant = soldeEmploye?.soldeRestant ?? soldeEmploye?.soldeActuel ?? targetDemande.soldeRestant ?? targetDemande.soldeActuel ?? null;
+  const currentSolde = soldeEmploye?.soldeRestant ?? soldeEmploye?.soldeActuel ?? targetDemande.soldeRestant ?? targetDemande.soldeActuel ?? null;
   const joursDebites = simulation?.joursDebites ?? null;
-  const soldeApres = simulation?.soldeApres ?? null;
+  const soldeApresSimulation = simulation?.soldeApres ?? null;
   const prefixeRegularisation = '[REGULARISATION_POINTAGE]';
   const estRegularisationPointage = Boolean(targetDemande.isRegularisationPointage || targetDemande.commentaire?.includes(prefixeRegularisation));
   const commentaireAffiche = targetDemande.commentaire
@@ -100,14 +101,23 @@ export default function DemandeDetailsModal({
       ? Boolean(targetDemande.estPaye)
       : true;
 
-  // Calcul du solde prévisionnel robuste (évite le "Non calculé" quand le nombre de jours décomptés est déjà connu)
-  const effectifsJoursDebites = joursDebites != null
-    ? Number(joursDebites)
-    : (estRemunere ? joursDemandes : 0);
+  // Calcul du solde prévisionnel robuste :
+  // - Pour une demande déjà validée : le solde actuel en base est déjà amputé de cette prise.
+  //   Le solde après est donc le solde actuel, et le solde avant était (solde actuel + jours pris).
+  // - Pour une demande en attente : le solde avant est le solde actuel, et le solde après est le résultat de la simulation.
+  const effectifsJoursDebites = isValide
+    ? (estRemunere ? joursDemandes : 0)
+    : (joursDebites != null ? Number(joursDebites) : (estRemunere ? joursDemandes : 0));
 
-  const effectifSoldeApres = soldeApres != null
-    ? Number(soldeApres)
-    : (soldeAvant != null ? Math.max(0, Number(soldeAvant) - effectifsJoursDebites) : null);
+  const soldeAvant = isValide
+    ? (currentSolde != null ? Number(currentSolde) + effectifsJoursDebites : null)
+    : currentSolde;
+
+  const effectifSoldeApres = isValide
+    ? currentSolde
+    : (soldeApresSimulation != null
+        ? Number(soldeApresSimulation)
+        : (soldeAvant != null ? Math.max(0, Number(soldeAvant) - effectifsJoursDebites) : null));
 
   const hasDerogations = Boolean(
     targetDemande.derogationSoldeNegatif ||
@@ -120,7 +130,6 @@ export default function DemandeDetailsModal({
   const handleEdit = onOpenModifier || onEdit;
   const handleCancel = onOpenAnnuler || onCancel;
 
-  const isValide = targetDemande.codeStatutDemande === 'VALIDE';
   const canApprove = targetDemande.availableActions?.APPROVE?.allowed === true && !!onOpenValider;
   const canReject = targetDemande.availableActions?.REJECT?.allowed === true && !!onOpenRefus;
   const canModifyDates = targetDemande.availableActions?.MODIFY_DATES?.allowed === true && !!handleEdit;

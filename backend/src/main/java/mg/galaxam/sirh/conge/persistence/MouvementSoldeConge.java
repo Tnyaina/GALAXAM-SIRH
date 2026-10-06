@@ -75,15 +75,19 @@ public class MouvementSoldeConge extends ClassMere {
 
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
-        if (valeurSource == null && "PRISE".equals(typeMouvement) && idDemandeConge != null) {
-            Date datePrise = dateMouvement != null ? dateMouvement : Date.valueOf(java.time.LocalDate.now());
+        if (dateMouvement == null && idDemandeConge != null) {
             try (PreparedStatement demande = c.prepareStatement(
                     "SELECT date_debut FROM demande_conge WHERE id_demande_conge = ?")) {
                 demande.setInt(1, idDemandeConge);
                 try (ResultSet rs = demande.executeQuery()) {
-                    if (rs.next() && rs.getDate(1) != null) datePrise = rs.getDate(1);
+                    if (rs.next() && rs.getDate(1) != null) {
+                        this.dateMouvement = rs.getDate(1);
+                    }
                 }
             }
+        }
+        if (valeurSource == null && "PRISE".equals(typeMouvement) && idDemandeConge != null) {
+            Date datePrise = dateMouvement != null ? dateMouvement : Date.valueOf(java.time.LocalDate.now());
             try (PreparedStatement taux = c.prepareStatement("SELECT taux_journalier FROM conge_taux_applicable "
                     + "WHERE id_employe = ? AND date_effet <= ? AND (date_fin IS NULL OR date_fin > ?)")) {
                 taux.setInt(1, idEmploye); taux.setDate(2, datePrise); taux.setDate(3, datePrise);

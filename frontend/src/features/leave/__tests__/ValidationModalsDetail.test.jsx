@@ -84,7 +84,7 @@ describe('Détail de demande de congé', () => {
     expect(host.textContent).toContain('Vérification du solde');
     expect(host.textContent).toContain('4.00 j');
     expect(host.textContent).toContain('3.00 j');
-    expect(host.textContent).toContain('1.00 j');
+    expect(host.textContent).toContain('7.00 j');
     expect(host.textContent).toContain('Annuler ce congé');
   });
 

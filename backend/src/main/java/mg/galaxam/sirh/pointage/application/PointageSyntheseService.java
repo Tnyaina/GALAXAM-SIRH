@@ -414,6 +414,34 @@ public class PointageSyntheseService {
             parSemaine.computeIfAbsent(monday, ignored -> new ArrayList<>());
         }
 
+        record CongeValideInfo(int idDemande, boolean estDemi, String libelle) {}
+        Map<LocalDate, CongeValideInfo> congesValidesEmploye = new HashMap<>();
+        String sqlCongesPeriode = "SELECT dc.id_demande_conge, dc.date_debut, dc.date_fin, dc.est_demi_journee, tc.libelle " +
+                "FROM demande_conge dc " +
+                "JOIN ref_type_conge tc ON dc.id_type_conge = tc.id_type_conge " +
+                "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
+                "WHERE dc.id_employe = ? AND sc.code IN ('VALIDE', 'APPROUVEE') " +
+                "AND dc.date_debut <= ? AND dc.date_fin >= ?";
+        try (PreparedStatement psCP = c.prepareStatement(sqlCongesPeriode)) {
+            psCP.setInt(1, idEmp);
+            psCP.setDate(2, Date.valueOf(dateFin));
+            psCP.setDate(3, Date.valueOf(dateDebut));
+            try (ResultSet rsCP = psCP.executeQuery()) {
+                while (rsCP.next()) {
+                    int idDemandeVal = rsCP.getInt("id_demande_conge");
+                    LocalDate dDeb = rsCP.getDate("date_debut").toLocalDate();
+                    LocalDate dFin = rsCP.getDate("date_fin").toLocalDate();
+                    boolean estDemi = rsCP.getBoolean("est_demi_journee");
+                    String typeLib = rsCP.getString("libelle");
+                    LocalDate from = dDeb.isBefore(dateDebut) ? dateDebut : dDeb;
+                    LocalDate to = dFin.isAfter(dateFin) ? dateFin : dFin;
+                    for (LocalDate cur = from; !cur.isAfter(to); cur = cur.plusDays(1)) {
+                        congesValidesEmploye.put(cur, new CongeValideInfo(idDemandeVal, estDemi, typeLib));
+                    }
+                }
+            }
+        }
+
         try (PreparedStatement psPtg = c.prepareStatement(sqlPtg)) {
             psPtg.setInt(1, idEmp);
             psPtg.setDate(2, Date.valueOf(dateDebut));
@@ -429,6 +457,11 @@ public class PointageSyntheseService {
                     String stCode = rsPtg.getString("statut_code");
                     double th = rsPtg.getDouble("total_heures");
 
+                    CongeValideInfo congeValide = congesValidesEmploye.get(dPointage);
+                    if (congeValide != null && (th <= 0.0 || "ABSENCE_NON_JUSTIFIEE".equals(stCode) || "ABSENCE_JUSTIFIEE".equals(stCode) || "ANOMALIE_SAISIE".equals(stCode))) {
+                        stCode = congeValide.estDemi() ? "DEMI_JOURNEE" : "CONGE";
+                    }
+
                     boolean isAbsenceOuConge = "CONGE".equals(stCode) || "ABSENCE_NON_JUSTIFIEE".equals(stCode) || "ABSENCE_JUSTIFIEE".equals(stCode) || "FERIE_CHOME".equals(stCode);
                     if ("DISPENSE_POINTAGE".equals(stCode) || (autonomeCeJour && !isAbsenceOuConge)) {
                         if (isWeekend && th <= 0.0) {
@@ -443,8 +476,11 @@ public class PointageSyntheseService {
                     long nightMinutes = hoursToMinutes(rsPtg.getBigDecimal("heures_nuit"));
                     int ret = rsPtg.getInt("minutes_retard");
 
-                    if ("PRESENT".equals(stCode) || "DISPENSE_POINTAGE".equals(stCode) || "SAMEDI_TRAVAILLE".equals(stCode) || "DEMI_JOURNEE".equals(stCode) || "RETARD".equals(stCode)) {
+                    if ("PRESENT".equals(stCode) || "DISPENSE_POINTAGE".equals(stCode) || "SAMEDI_TRAVAILLE".equals(stCode) || "RETARD".equals(stCode)) {
                         presents++;
+                    } else if ("DEMI_JOURNEE".equals(stCode)) {
+                        presents++;
+                        conges += 0.5;
                     } else if ("DIMANCHE_TRAVAILLE".equals(stCode) || (isSunday && th > 0)) {
                         presents++;
                         dimanchesTravailles++;
@@ -506,6 +542,57 @@ public class PointageSyntheseService {
                             aPrisRepasCeJour ? 1 : 0, mealAmount, fractionJour, travelAmount, List.of()));
                 }
             }
+        }
+
+        // Prise en compte des congés validés sur la période n'ayant pas encore de ligne dans pointage_jour
+        for (Map.Entry<LocalDate, CongeValideInfo> entry : congesValidesEmploye.entrySet()) {
+            LocalDate cur = entry.getKey();
+            if (datesAvecPointage.contains(cur)) continue;
+            datesAvecPointage.add(cur);
+
+            CongeValideInfo cv = entry.getValue();
+            boolean estDemi = cv.estDemi();
+            String typeLib = cv.libelle();
+            int idDemandeVal = cv.idDemande();
+
+            var ctxJour = contextesJournaliers.get(cur);
+            int curSite = ctxJour != null ? ctxJour.siteId() : idSite;
+
+            // Si une période de paie existe et que le pointage n'a pas encore été matérialisé en base,
+            // on le matérialise pour que pointage_jour soit synchronisé avec demande_conge
+            if (idPeriode != null) {
+                try (PreparedStatement psMat = c.prepareStatement(
+                        "INSERT INTO pointage_jour (id_periode_paie, id_employe, id_site, date_pointage, id_statut_jour, id_demande_conge, " +
+                        "total_heures, minutes_retard, heures_nuit, motif_ajustement, version, created_at, updated_at) " +
+                        "VALUES (?, ?, ?, ?, (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), ?, 0.0, 0, 0.0, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
+                        "ON CONFLICT (id_employe, date_pointage) DO UPDATE SET " +
+                        "id_statut_jour = (SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = ?), " +
+                        "id_demande_conge = EXCLUDED.id_demande_conge, motif_ajustement = EXCLUDED.motif_ajustement, version = pointage_jour.version + 1")) {
+                    String codeSt = estDemi ? "DEMI_JOURNEE" : "CONGE";
+                    psMat.setInt(1, idPeriode);
+                    psMat.setInt(2, idEmp);
+                    psMat.setInt(3, curSite);
+                    psMat.setDate(4, Date.valueOf(cur));
+                    psMat.setString(5, codeSt);
+                    psMat.setInt(6, idDemandeVal);
+                    psMat.setString(7, "Congé validé : " + (typeLib != null ? typeLib : "Congé"));
+                    psMat.setString(8, codeSt);
+                    psMat.executeUpdate();
+                } catch (Exception e) {
+                    log.debug("[PointageSyntheseService] Notice matérialisation congé {}: {}", cur, e.getMessage());
+                }
+            }
+
+            if (!CalendrierOuvrableEngine.isWeekend(cur) && !joursChomesEmploye.contains(cur)) {
+                conges += (estDemi ? 0.5 : 1);
+            }
+
+            LocalDate lundiSemaine = cur.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            parSemaine.computeIfAbsent(lundiSemaine, k -> new ArrayList<>());
+            parSemaine.get(lundiSemaine).add(new AttendanceEngine.Result(
+                    idEmp, cur, estDemi ? AttendanceEngine.Result.Status.HALF_DAY : AttendanceEngine.Result.Status.LEAVE,
+                    0, 0, 0, 0, 0, 0, 0, cur.getDayOfWeek() == DayOfWeek.SUNDAY,
+                    joursChomesEmploye.contains(cur), 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, List.of()));
         }
 
         // Les journées autonomes sans badge sont des résultats journaliers calculés,
@@ -1588,13 +1675,36 @@ public class PointageSyntheseService {
                         .add(rs.getDate(2).toLocalDate());
             }
         }
+        Map<Integer, Set<LocalDate>> datesCongesValides = new HashMap<>();
+        String sqlConges = "SELECT dc.id_employe, dc.date_debut, dc.date_fin " +
+                "FROM demande_conge dc " +
+                "JOIN ref_statut_demande_conge sc ON dc.id_statut_demande_conge = sc.id_statut_demande_conge " +
+                "WHERE sc.code IN ('VALIDE', 'APPROUVEE') " +
+                "AND dc.date_debut <= ? AND dc.date_fin >= ?";
+        try (PreparedStatement ps = c.prepareStatement(sqlConges)) {
+            ps.setDate(1, Date.valueOf(fin));
+            ps.setDate(2, Date.valueOf(debut));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int empId = rs.getInt("id_employe");
+                    LocalDate dDeb = rs.getDate("date_debut").toLocalDate();
+                    LocalDate dFin = rs.getDate("date_fin").toLocalDate();
+                    LocalDate from = dDeb.isBefore(debut) ? debut : dDeb;
+                    LocalDate to = dFin.isAfter(fin) ? fin : dFin;
+                    for (LocalDate cur = from; !cur.isAfter(to); cur = cur.plusDays(1)) {
+                        datesCongesValides.computeIfAbsent(empId, ignored -> new HashSet<>()).add(cur);
+                    }
+                }
+            }
+        }
         Map<Integer, Set<LocalDate>> feriesParSite = new HashMap<>();
         List<PointagePreflight.JourneeManquante> manquantes = new ArrayList<>();
         for (PointageSyntheseMensuelleDTO employe : synthese) {
             Set<LocalDate> saisies = datesSaisies.getOrDefault(employe.getIdEmploye(), Set.of());
+            Set<LocalDate> conges = datesCongesValides.getOrDefault(employe.getIdEmploye(), Set.of());
             var joursEmploi = employmentContextResolver.resolvePointageDays(employe.getIdEmploye(), debut, fin, c);
             for (LocalDate jour = debut; !jour.isAfter(fin); jour = jour.plusDays(1)) {
-                if (CalendrierOuvrableEngine.isWeekend(jour) || saisies.contains(jour)) continue;
+                if (CalendrierOuvrableEngine.isWeekend(jour) || saisies.contains(jour) || conges.contains(jour)) continue;
                 var emploiDuJour = joursEmploi.get(jour);
                 if (emploiDuJour == null || emploiDuJour.dispensePointage()) continue;
                 Set<LocalDate> feries = feriesParSite.get(emploiDuJour.siteId());

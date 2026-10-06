@@ -648,7 +648,19 @@ public class PointageEmployeService {
                     }
                 }
 
-                if ("PRESENT".equalsIgnoreCase(rec.codeStatut) || ("DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut) && !isWeekendRec) || "SAMEDI_TRAVAILLE".equalsIgnoreCase(rec.codeStatut) || "DEMI_JOURNEE".equalsIgnoreCase(rec.codeStatut) || "RETARD".equalsIgnoreCase(rec.codeStatut)) {
+                String typeCongeRec = congeMap.get(curr);
+                boolean isCongeValideRec = typeCongeRec != null && (rec.totalMinutes <= 0 
+                        || "ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(rec.codeStatut) 
+                        || "ABSENCE_JUSTIFIEE".equalsIgnoreCase(rec.codeStatut) 
+                        || "ANOMALIE_SAISIE".equalsIgnoreCase(rec.codeStatut));
+
+                if (isCongeValideRec) {
+                    dto.setStatut("HALF_DAY".equals(typeCongeRec) ? "DEMI_JOURNEE" : "CONGE");
+                    if ("HALF_DAY".equals(typeCongeRec)) {
+                        totalJoursTravailles++;
+                        totalHeuresRealisees += toLegacyDecimalHours(totalMinutesJour);
+                    }
+                } else if ("PRESENT".equalsIgnoreCase(rec.codeStatut) || ("DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut) && !isWeekendRec) || "SAMEDI_TRAVAILLE".equalsIgnoreCase(rec.codeStatut) || "DEMI_JOURNEE".equalsIgnoreCase(rec.codeStatut) || "RETARD".equalsIgnoreCase(rec.codeStatut)) {
                     totalJoursTravailles++;
                     totalHeuresRealisees += toLegacyDecimalHours(totalMinutesJour);
                 } else if ("ABSENCE_NON_JUSTIFIEE".equalsIgnoreCase(rec.codeStatut)) {
@@ -656,10 +668,12 @@ public class PointageEmployeService {
                     cumulMinutesEcart -= dureeJourMins;
                 }
 
-                if ("DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut) && isWeekendRec && rec.totalMinutes <= 0) {
-                    dto.setStatut("REPOS");
-                } else {
-                    dto.setStatut(rec.codeStatut != null ? rec.codeStatut.toUpperCase() : "PRESENT");
+                if (!isCongeValideRec) {
+                    if ("DISPENSE_POINTAGE".equalsIgnoreCase(rec.codeStatut) && isWeekendRec && rec.totalMinutes <= 0) {
+                        dto.setStatut("REPOS");
+                    } else {
+                        dto.setStatut(rec.codeStatut != null ? rec.codeStatut.toUpperCase() : "PRESENT");
+                    }
                 }
             } else {
                 dto.setEntree("—");

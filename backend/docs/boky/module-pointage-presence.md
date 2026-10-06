@@ -281,17 +281,39 @@ $$Solde_{periode} = HS30_{hebdo} + HS50_{hebdo} - \text{Déficit}_{hebdo} + \tex
 | **`DISPENSE_POINTAGE`** | NON | Journée réputée effectuée à 100% (480 minutes). |
 | **`REPOS`** | NON | Repos hebdomadaire (samedi ou dimanche non travaillé). |
 
-### 9.2 Pont Transactionnel Pointage $\leftrightarrow$ Congés
+### 9.2 Pont Transactionnel & Bidirectionnel Pointage $\leftrightarrow$ Congés
 
-Lorsqu'une absence est régularisée en congé payé annuel via [`PointageAnomalieService.regulariserPointage()`](file:///Users/andriamalalatojo/Documents/GALAXAM/GALAXAM-SIRH/backend/src/main/java/mg/galaxam/sirh/pointage/application/PointageAnomalieService.java) :
+L'interaction entre le module Pointage et le module Congés s'articule autour de deux flux complémentaires et certifiés :
+
+#### A. Workflow Amont : Congés préalablement posés et validés (Module Congés)
+Lorsqu'un collaborateur dépose une demande de congé à l'avance et que celle-ci est approuvée (`VALIDE` ou `APPROUVEE`) avant ou pendant la période de paie :
+1. **Source de vérité unique** : La table `demande_conge` et le grand-livre `mouvement_solde_conge` font juridiquement et techniquement foi. Aucune insertion physique prématurée n'est faite dans `pointage_jour` afin d'éviter tout verrouillage pessimiste ou conflit d'édition concurrente.
+2. **Affichage dans la grille de pointage (`PointageSaisieService.getGrilleSaisie`)** :
+   - Le moteur résout dynamiquement les congés validés sur la période.
+   - Les dates correspondantes sont présentées avec le statut adéquat (`CONGE` ou `DEMI_JOURNEE`) sans exiger de badgeage physique.
+   - Les événements familiaux et dispenses autorisées (`decompte_solde_acquis = false` + payé) basculent automatiquement en `DISPENSE_POINTAGE` avec 8,0 heures forfaitaires payées.
+3. **Contrôle de complétude et Préflight DAF (`PointageSyntheseService.journeesOuvrablesSansStatut`)** :
+   - Les journées ouvrables couvertes par un congé validé sont automatiquement soustraites du décompte des journées non pointées.
+   - Le bandeau bloquant `POINTAGE_JOURNEES_MANQUANTES` (« Des journées ouvrables restent sans pointage ») est désactivé pour ces dates, autorisant la transmission sans fausse anomalie.
+4. **Calcul de synthèse mensuelle et objectif d'heures (`PointageSyntheseService.calculerSyntheseEmploye`)** :
+   - Les journées de congé validées sont injectées dans les tronçons hebdomadaires sous forme de `Result.Status.LEAVE`.
+   - L'objectif d'heures mensuel attendu est abaissé au prorata strict (déduction de 8h par jour ouvré de congé, ex: 120h au lieu de 176h pour 7 jours de congés dans un mois de 22 jours ouvrables).
+   - Les jours ouvrés non pointés couverts par un congé sont harmonisés avec le statut `CONGE` dans les agrégats de paie sans décompte d'absence pénalisante.
+   - La fiche collaborateur affiche distinctement : `15 prévus (+7 j congé)` et `Objectif : 120h00`.
+
+#### B. Workflow Aval : Absence constatée régularisée a posteriori (Module Pointage $\rightarrow$ Congés)
+Lorsqu'une absence non prévue a été constatée en cours de pointage (collaborateur non badgé, statut `ABSENCE_NON_JUSTIFIEE`) :
 1. **Régularisation d'une journée isolée avec solde partiel** :
    - Si le collaborateur a 0,5 jour de solde disponible : consommation de 0,5 jour en congé payé, statut journalier basculé en **`DEMI_JOURNEE`**, retenue en paie limitée aux 4 heures d'absence restantes.
-   - Si le solde est nul : rejet de la demande de congé, retenue intégrale de 8h. **Jamais de solde négatif**.
+   - Si le solde est nul : rejet de la demande de congé, retenue intégrale de 8h. **Jamais de solde négatif** (RG-CON-05).
 2. **Régularisation sur un intervalle multi-jours** :
    - Saisie obligatoire de la date de reprise. Calcul de `date_fin = date_reprise - 1`.
    - Le solde de congés doit couvrir l'intégralité de la période demandée. À défaut, l'opération est refusée sans débit ni pointage partiel.
-3. **Annulation d'une régularisation** :
+3. **Création atomique dans le module Congés** :
+   - La demande est créée au statut `VALIDE` avec le préfixe `[REGULARISATION_POINTAGE]` et lie la clé étrangère `id_demande_conge` dans `pointage_jour`.
+4. **Annulation d'une régularisation** :
    - En cas d'annulation de la demande validée, le solde de congé est restitué et les pointages associés redeviennent automatiquement des absences non justifiées dans la même transaction ACID.
+
 
 ---
 
@@ -501,6 +523,7 @@ CREATE TABLE pointage_cumul_periode (
 | **RG-PTG-13** | **Réouverture auditée (REOPEN)** | La réouverture d'une période gelée exige un motif d'au moins 5 caractères et archive les cumuls précédents sous `REMPLACE`. | `PayrollPeriodWorkflowService.execute(REOPEN)` |
 | **RG-PTG-14** | **Étanchéité de Paie** | Le moteur de Paie calcule les bulletins de paie exclusivement à partir des données figées dans `pointage_cumul_periode` et de ses snapshots associés. Aucune lecture directe sur `pointage_jour`. | `PayrollService.calculerBulletinPaie()` |
 | **RG-PTG-15** | **Deuxième repas sortie tardive** | Attribué automatiquement selon l'heure de sortie réelle et les seuils configurés dans `parametre_global` (`code_second_repas`, `montant_second_repas`). | `PointageService` |
+| **RG-PTG-16** | **Prise en compte des congés posés en amont** | Tout jour ouvré couvert par une demande de congé validée (`VALIDE`, `APPROUVEE`) est automatiquement reconnu par le module Pointage : exclusion du contrôle de journées manquantes (`POINTAGE_JOURNEES_MANQUANTES`), réduction proratisée de l'objectif d'heures mensuel (8h/jour ouvré déduit des 176h nominales) et neutralisation de toute retenue pour absence. | `PointageSyntheseService`, `PointageEmployeService` |
 
 ---
 
@@ -538,6 +561,25 @@ Un collaborateur est absent le 15 Septembre (journée de 8 heures). Son solde de
    - Maintien de salaire pour la demi-journée de congé.
    - Retenue sur salaire strictement limitée aux 4 heures d'absence non couverte :
      $$\text{Retenue} = 4 \times \left(\frac{S_{base}}{173{,}33}\right)$$
+
+---
+
+### 17.3 Scénario 3 : Congé Validé en Amont et Impact sur l'Objectif d'Heures & le Préflight
+
+Un collaborateur bénéficie de **7 jours ouvrables** de congés payés validés en amont via le module Congés sur le mois d'Août (période comptant 22 jours ouvrables théoriques, soit 176 heures nominales) :
+1. **Contrôle de complétude (Preflight DAF)** :
+   - Les 7 jours de congés ne comportent aucun badgeage physique dans `pointage_jour`.
+   - Le moteur `PointageSyntheseService.journeesOuvrablesSansStatut` interroge la table `demande_conge` et identifie les 7 dates autorisées.
+   - Ces 7 dates sont exclues du calcul des journées manquantes : aucune anomalie `POINTAGE_JOURNEES_MANQUANTES` n'est levée, le verrou de transmission (`SUBMIT`) n'est pas activé.
+2. **Objectif d'heures mensuel effectif** :
+   - Objectif nominal : $22\text{ jours} \times 8\text{ h} = 176\text{ h00}$.
+   - Déduction congés : $7\text{ jours} \times 8\text{ h} = 56\text{ h00}$.
+   - Nouvel objectif de travail effectif : $176\text{ h} - 56\text{ h} = \mathbf{120\text{ h00}}$ ($15\text{ jours}$ travaillés attendus).
+   - Les cartes KPI de l'écran *Pointage Employé* affichent fidèlement : `15 prévus (+7 j congé)` et `Objectif : 120h00`.
+3. **Synthèse hebdomadaire et mensuelle** :
+   - Pour chaque semaine chevauchant le congé, `AttendanceEngine` injecte `Result.Status.LEAVE` pour les jours validés, réduisant le `expectedMinutes` hebdomadaire de 480 minutes par jour ouvré de congé.
+   - Les jours non badgés couverts par le congé sont harmonisés avec le statut `CONGE`.
+   - En clôture de période : $0\text{ minute d'absence retenue}$, 56 heures valorisées en maintien congé au trentième légal sur le bulletin, et seuil de déclenchement des heures supplémentaires ajusté à l'objectif réel de présence.
 
 ---
 

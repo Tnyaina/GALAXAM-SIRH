@@ -46,18 +46,26 @@ public class NotificationController {
             Integer idUtilisateur = getCurrentUserId(c);
             String userRoleCode = getCurrentUserRoleCode(c, idUtilisateur);
 
+            boolean isAdmin = "ROLE_ADMIN".equals(userRoleCode);
+
             String sql = "SELECT id_notification, type_alerte, priorite, titre, message, " +
                     "lien, id_employe_concerne, est_lue, date_creation, date_lecture, cible_role " +
                     "FROM notification_rh " +
                     "WHERE est_lue = FALSE " +
-                    "AND (id_utilisateur = ? OR (id_utilisateur IS NULL AND (cible_role IS NULL OR cible_role = ?))) " +
+                    "AND (" +
+                    (isAdmin
+                        ? "(id_utilisateur = ? OR id_utilisateur IS NULL)"
+                        : "(id_utilisateur = ? OR (id_utilisateur IS NULL AND (cible_role IS NULL OR cible_role = ?)))") +
+                    ") " +
                     "ORDER BY date_creation DESC " +
                     "LIMIT 50";
 
             List<Map<String, Object>> notifications = new ArrayList<>();
             try (PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setObject(1, idUtilisateur, java.sql.Types.INTEGER);
-                ps.setString(2, userRoleCode);
+                if (!isAdmin) {
+                    ps.setString(2, userRoleCode);
+                }
                 ResultSet rs = ps.executeQuery();
                 while (rs.next()) {
                     Map<String, Object> n = new LinkedHashMap<>();
@@ -95,13 +103,20 @@ public class NotificationController {
         try (Connection c = dataSource.getConnection()) {
             Integer idUtilisateur = getCurrentUserId(c);
             String userRoleCode = getCurrentUserRoleCode(c, idUtilisateur);
+            boolean isAdmin = "ROLE_ADMIN".equals(userRoleCode);
 
             String sql = "UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP " +
                     "WHERE est_lue = FALSE " +
-                    "AND (id_utilisateur = ? OR (id_utilisateur IS NULL AND (cible_role IS NULL OR cible_role = ?)))";
+                    "AND (" +
+                    (isAdmin
+                        ? "(id_utilisateur = ? OR id_utilisateur IS NULL)"
+                        : "(id_utilisateur = ? OR (id_utilisateur IS NULL AND (cible_role IS NULL OR cible_role = ?)))") +
+                    ")";
             try (PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setObject(1, idUtilisateur, java.sql.Types.INTEGER);
-                ps.setString(2, userRoleCode);
+                if (!isAdmin) {
+                    ps.setString(2, userRoleCode);
+                }
                 int updated = ps.executeUpdate();
                 return ResponseEntity.ok(Map.of("marquees", updated));
             }
@@ -140,11 +155,19 @@ public class NotificationController {
         try (Connection c = dataSource.getConnection()) {
             Integer idUtilisateur = getCurrentUserId(c);
             String userRoleCode = getCurrentUserRoleCode(c, idUtilisateur);
+            boolean isAdmin = "ROLE_ADMIN".equals(userRoleCode);
+
             String sql = "DELETE FROM notification_rh " +
-                    "WHERE (id_utilisateur = ? OR (id_utilisateur IS NULL AND (cible_role IS NULL OR cible_role = ?)))";
+                    "WHERE (" +
+                    (isAdmin
+                        ? "(id_utilisateur = ? OR id_utilisateur IS NULL)"
+                        : "(id_utilisateur = ? OR (id_utilisateur IS NULL AND (cible_role IS NULL OR cible_role = ?)))") +
+                    ")";
             try (PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setObject(1, idUtilisateur, java.sql.Types.INTEGER);
-                ps.setString(2, userRoleCode);
+                if (!isAdmin) {
+                    ps.setString(2, userRoleCode);
+                }
                 int deleted = ps.executeUpdate();
                 return ResponseEntity.ok(Map.of("supprimees", deleted));
             }

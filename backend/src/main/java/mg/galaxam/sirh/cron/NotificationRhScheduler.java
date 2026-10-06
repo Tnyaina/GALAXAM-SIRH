@@ -443,38 +443,80 @@ public class NotificationRhScheduler {
     private void insererNotification(Connection c, Integer idUtilisateur, String cibleRole, String typeAlerte,
                                      String priorite, String titre, String message,
                                      String lien, Integer idEmploye) throws Exception {
-        // 1. Anti-doublon non lue
-        String checkUnreadSql = "SELECT 1 FROM notification_rh WHERE type_alerte = ? " +
-                                "AND id_employe_concerne IS NOT DISTINCT FROM ?::INTEGER " +
-                                "AND id_utilisateur IS NOT DISTINCT FROM ?::INTEGER " +
-                                "AND titre = ? AND est_lue = FALSE";
+        // 1. Anti-doublon non lue : si une notification non lue du même type existe déjà pour cet employé/contexte,
+        // on met à jour son titre, message, priorité et lien au lieu d'empiler des alertes redondantes.
+        String checkUnreadSql;
+        if (idEmploye != null) {
+            checkUnreadSql = "SELECT id_notification FROM notification_rh WHERE type_alerte = ? " +
+                             "AND id_employe_concerne = ? " +
+                             "AND id_utilisateur IS NOT DISTINCT FROM ?::INTEGER " +
+                             "AND est_lue = FALSE LIMIT 1";
+        } else {
+            checkUnreadSql = "SELECT id_notification FROM notification_rh WHERE type_alerte = ? " +
+                             "AND id_employe_concerne IS NULL " +
+                             "AND id_utilisateur IS NOT DISTINCT FROM ?::INTEGER " +
+                             "AND (lien = ? OR titre = ?) AND est_lue = FALSE LIMIT 1";
+        }
+
         try (PreparedStatement chk = c.prepareStatement(checkUnreadSql)) {
-            chk.setString(1, typeAlerte);
-            if (idEmploye != null) chk.setInt(2, idEmploye); else chk.setNull(2, java.sql.Types.INTEGER);
-            if (idUtilisateur != null) chk.setInt(3, idUtilisateur); else chk.setNull(3, java.sql.Types.INTEGER);
-            chk.setString(4, titre);
+            int p = 1;
+            chk.setString(p++, typeAlerte);
+            if (idEmploye != null) {
+                chk.setInt(p++, idEmploye);
+            }
+            if (idUtilisateur != null) chk.setInt(p++, idUtilisateur); else chk.setNull(p++, java.sql.Types.INTEGER);
+            if (idEmploye == null) {
+                chk.setString(p++, lien != null ? lien : "");
+                chk.setString(p++, titre != null ? titre : "");
+            }
             try (ResultSet rs = chk.executeQuery()) {
                 if (rs.next()) {
-                    return; // Déjà présente non lue
+                    int existingId = rs.getInt(1);
+                    String updateSql = "UPDATE notification_rh SET titre = ?, message = ?, priorite = ?, lien = ? WHERE id_notification = ?";
+                    try (PreparedStatement upd = c.prepareStatement(updateSql)) {
+                        upd.setString(1, titre);
+                        upd.setString(2, message);
+                        upd.setString(3, priorite);
+                        upd.setString(4, lien);
+                        upd.setInt(5, existingId);
+                        upd.executeUpdate();
+                    }
+                    return; // Mise à jour effectuée, pas de doublon inséré
                 }
             }
         }
 
-        // 2. Anti-resurfaçage 7 jours (avec paramètre Timestamp en Java pur)
+        // 2. Anti-resurfaçage 7 jours : si l'alerte a déjà été lue/acquittée récemment (< 7 jours),
+        // on ne la ressuscite pas, même si le texte du titre a varié d'un jour ou d'un compteur.
         Timestamp seuil7j = Timestamp.valueOf(LocalDateTime.now().minusDays(7));
-        String checkReadSql = "SELECT 1 FROM notification_rh WHERE type_alerte = ? " +
-                              "AND id_employe_concerne IS NOT DISTINCT FROM ?::INTEGER " +
-                              "AND id_utilisateur IS NOT DISTINCT FROM ?::INTEGER " +
-                              "AND titre = ? AND est_lue = TRUE AND date_creation > ?";
+        String checkReadSql;
+        if (idEmploye != null) {
+            checkReadSql = "SELECT 1 FROM notification_rh WHERE type_alerte = ? " +
+                           "AND id_employe_concerne = ? " +
+                           "AND id_utilisateur IS NOT DISTINCT FROM ?::INTEGER " +
+                           "AND est_lue = TRUE AND COALESCE(date_lecture, date_creation) > ? LIMIT 1";
+        } else {
+            checkReadSql = "SELECT 1 FROM notification_rh WHERE type_alerte = ? " +
+                           "AND id_employe_concerne IS NULL " +
+                           "AND id_utilisateur IS NOT DISTINCT FROM ?::INTEGER " +
+                           "AND (lien = ? OR titre = ?) AND est_lue = TRUE AND COALESCE(date_lecture, date_creation) > ? LIMIT 1";
+        }
+
         try (PreparedStatement chk = c.prepareStatement(checkReadSql)) {
-            chk.setString(1, typeAlerte);
-            if (idEmploye != null) chk.setInt(2, idEmploye); else chk.setNull(2, java.sql.Types.INTEGER);
-            if (idUtilisateur != null) chk.setInt(3, idUtilisateur); else chk.setNull(3, java.sql.Types.INTEGER);
-            chk.setString(4, titre);
-            chk.setTimestamp(5, seuil7j);
+            int p = 1;
+            chk.setString(p++, typeAlerte);
+            if (idEmploye != null) {
+                chk.setInt(p++, idEmploye);
+            }
+            if (idUtilisateur != null) chk.setInt(p++, idUtilisateur); else chk.setNull(p++, java.sql.Types.INTEGER);
+            if (idEmploye == null) {
+                chk.setString(p++, lien != null ? lien : "");
+                chk.setString(p++, titre != null ? titre : "");
+            }
+            chk.setTimestamp(p++, seuil7j);
             try (ResultSet rs = chk.executeQuery()) {
                 if (rs.next()) {
-                    return; // Déjà acquittée récemment
+                    return; // Déjà acquittée récemment par l'utilisateur
                 }
             }
         }

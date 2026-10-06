@@ -662,6 +662,10 @@ public class DemandeConge extends ClassMere {
         return estDemiJournee;
     }
 
+    public boolean getEstDemiJournee() {
+        return estDemiJournee;
+    }
+
     public void setEstDemiJournee(boolean estDemiJournee) {
         this.estDemiJournee = estDemiJournee;
     }

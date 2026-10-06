@@ -879,6 +879,7 @@ public class CongeService {
                     ajustement.setTypeMouvement("AJUSTEMENT");
                     ajustement.setNbJours(delta.negate());
                     ajustement.setIdDemandeConge(d.getIdDemandeConge());
+                    ajustement.setDateMouvement(d.getDateDebut());
                     ajustement.setCommentaire("Ajustement de solde suite modification durée de la demande #" + d.getIdDemandeConge()
                             + " (" + ancienNbJours + "j -> " + nouveauNbJours + "j)");
                     ajustement.setCreatedBy(currentUserId);
@@ -945,6 +946,7 @@ public class CongeService {
             prise.setTypeMouvement("PRISE");
             prise.setNbJours(d.getNbJoursDecomptes().negate());
             prise.setIdDemandeConge(idDemande);
+            prise.setDateMouvement(d.getDateDebut());
             prise.setCommentaire("Prise de congé " + type.getLibelle() + " (Demande #" + idDemande + ")");
             prise.setCreatedBy(currentUserId);
             try {
@@ -1060,6 +1062,7 @@ public class CongeService {
             mouvement.setTypeMouvement("ANNULATION");
             mouvement.setNbJours(d.getNbJoursDecomptes());
             mouvement.setIdDemandeConge(idDemande);
+            mouvement.setDateMouvement(d.getDateDebut());
             mouvement.setCommentaire("Restitution suite à l'annulation de la demande #" + idDemande
                     + (motif != null ? " : " + motif : ""));
             mouvement.setCreatedBy(currentUserId);

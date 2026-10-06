@@ -126,4 +126,64 @@ class NotificationRhSchedulerIntegrationTest {
             }
         }
     }
+
+    @Test
+    void testAntiDoublonEtAntiResurfacage() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            int emp = creerEmployeTest(c, "NOTIF-003", "TEST", "User", "101999000003");
+
+            // Contrat CDD échu
+            try (PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO contrat_travail (id_employe, id_filiale, id_type_intervenant, numero_contrat, id_type_contrat, id_statut_rh, date_debut, date_fin) " +
+                    "VALUES (?, 1, 1, 'CDD-2026-003', " +
+                    "(SELECT id_type_contrat FROM ref_type_contrat WHERE code = 'CDD'), " +
+                    "(SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF'), ?, ?)")) {
+                ps.setInt(1, emp);
+                ps.setDate(2, Date.valueOf(LocalDate.now().minusMonths(6)));
+                ps.setDate(3, Date.valueOf(LocalDate.now().minusDays(5)));
+                ps.executeUpdate();
+            }
+
+            // 1. Premier passage : génération de la notification
+            notificationRhScheduler.genererNotificationsRh();
+
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT COUNT(*) FROM notification_rh WHERE id_employe_concerne = ? AND type_alerte = 'CONTRAT_ECHU_NON_REGULARISE'")) {
+                ps.setInt(1, emp);
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    assertEquals(1, rs.getInt(1), "Exactement 1 notification de contrat échu doit être créée");
+                }
+            }
+
+            // 2. Second passage (redémarrage ou ré-exécution immédiate) : pas de doublon empilé
+            c.createStatement().execute("DELETE FROM scheduler_execution");
+            notificationRhScheduler.genererNotificationsRh();
+
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT COUNT(*) FROM notification_rh WHERE id_employe_concerne = ? AND type_alerte = 'CONTRAT_ECHU_NON_REGULARISE'")) {
+                ps.setInt(1, emp);
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    assertEquals(1, rs.getInt(1), "Aucun doublon ne doit être ajouté lors d'un second passage");
+                }
+            }
+
+            // 3. L'utilisateur marque la notification comme lue
+            c.createStatement().execute("UPDATE notification_rh SET est_lue = TRUE, date_lecture = CURRENT_TIMESTAMP WHERE id_employe_concerne = " + emp);
+
+            // 4. Troisième passage (redémarrage le lendemain) : anti-resurfaçage 7 jours actif
+            c.createStatement().execute("DELETE FROM scheduler_execution");
+            notificationRhScheduler.genererNotificationsRh();
+
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT COUNT(*) FROM notification_rh WHERE id_employe_concerne = ? AND type_alerte = 'CONTRAT_ECHU_NON_REGULARISE' AND est_lue = FALSE")) {
+                ps.setInt(1, emp);
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    assertEquals(0, rs.getInt(1), "L'alerte acquittée ne doit pas ressusciter comme non lue");
+                }
+            }
+        }
+    }
 }
