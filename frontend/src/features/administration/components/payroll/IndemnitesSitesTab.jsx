@@ -640,41 +640,43 @@ export default function IndemnitesSitesTab() {
                 onSubmit={handleSaveSiteIndemnite}
                 title={editingSiteIndemnite ? "Modifier le Tarif par Site" : "Nouveau Tarif par Site"}
                 icon={<MapPin size={18} />}
-                size="md"
+                size="lg"
                 isEdit={!!editingSiteIndemnite}
                 loading={submitting}
                 error={actionError}
             >
-                <div className="space-y-4">
-                    <SearchSelect
-                        label="Site d'Exploitation"
-                        required
-                        value={siteIndemniteFormData.idSite}
-                        onChange={(val) => setSiteIndemniteFormData({ ...siteIndemniteFormData, idSite: val })}
-                        options={sites
-                            .filter(s => (s.estActif !== false && s.actif !== false) || String(s.idSite) === String(siteIndemniteFormData.idSite))
-                            .map((s) => ({
-                                value: String(s.idSite),
-                                label: s.libelle,
-                                sublabel: s.codeSite
-                            }))}
-                        placeholder="-- Choisir un site --"
-                    />
-                    <SearchSelect
-                        label="Type d'Indemnité"
-                        required
-                        value={siteIndemniteFormData.idIndemnite}
-                        onChange={(val) => setSiteIndemniteFormData({ ...siteIndemniteFormData, idIndemnite: val })}
-                        options={indemnites
-                            .filter(i => (i.estActif !== false) || String(i.idIndemnite) === String(siteIndemniteFormData.idIndemnite))
-                            .map((i) => ({
-                                value: String(i.idIndemnite),
-                                label: i.libelle,
-                                sublabel: i.code
-                            }))}
-                        placeholder="-- Choisir une indemnité --"
-                    />
-                    <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-4 py-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <SearchSelect
+                            label="Site d'Exploitation"
+                            required
+                            value={siteIndemniteFormData.idSite}
+                            onChange={(val) => setSiteIndemniteFormData({ ...siteIndemniteFormData, idSite: val })}
+                            options={sites
+                                .filter(s => (s.estActif !== false && s.actif !== false) || String(s.idSite) === String(siteIndemniteFormData.idSite))
+                                .map((s) => ({
+                                    value: String(s.idSite),
+                                    label: s.libelle,
+                                    sublabel: s.codeSite
+                                }))}
+                            placeholder="-- Choisir un site --"
+                        />
+                        <SearchSelect
+                            label="Type d'Indemnité"
+                            required
+                            value={siteIndemniteFormData.idIndemnite}
+                            onChange={(val) => setSiteIndemniteFormData({ ...siteIndemniteFormData, idIndemnite: val })}
+                            options={indemnites
+                                .filter(i => (i.estActif !== false) || String(i.idIndemnite) === String(siteIndemniteFormData.idIndemnite))
+                                .map((i) => ({
+                                    value: String(i.idIndemnite),
+                                    label: i.libelle,
+                                    sublabel: i.code
+                                }))}
+                            placeholder="-- Choisir une indemnité --"
+                        />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <SearchSelect
                             label="Périodicité"
                             required
@@ -692,7 +694,7 @@ export default function IndemnitesSitesTab() {
                             onValueChange={(value) => setSiteIndemniteFormData({ ...siteIndemniteFormData, montantReference: value })}
                         />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <Input
                             label="Date d'Effet / Début"
                             type="date"
@@ -706,6 +708,7 @@ export default function IndemnitesSitesTab() {
                             min={fmtDateInput(siteIndemniteFormData.dateDebut)}
                             value={fmtDateInput(siteIndemniteFormData.dateFin)}
                             onChange={(e) => setSiteIndemniteFormData({ ...siteIndemniteFormData, dateFin: e.target.value })}
+                            hint="Laisser vide si permanent"
                         />
                     </div>
                 </div>

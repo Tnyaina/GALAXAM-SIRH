@@ -111,18 +111,21 @@ public final class CongeTestFixtureHelper {
 
     public static int createPeriodePaie(Connection c, String code, LocalDate debut, LocalDate fin, String codeStatut) throws SQLException {
         int idStatut = getStatutPeriodePaieId(c, codeStatut);
-        String sqlSelect = "SELECT id_periode_paie FROM periode_paie WHERE code = ?";
+        String sqlSelect = "SELECT id_periode_paie FROM periode_paie WHERE code = ? OR (daterange(date_debut, date_fin, '[]') && daterange(?, ?, '[]'))";
         try (PreparedStatement psSelect = c.prepareStatement(sqlSelect)) {
             psSelect.setString(1, code);
+            psSelect.setDate(2, Date.valueOf(debut));
+            psSelect.setDate(3, Date.valueOf(fin));
             try (ResultSet rs = psSelect.executeQuery()) {
                 if (rs.next()) {
                     int existingId = rs.getInt(1);
                     try (PreparedStatement psUpdate = c.prepareStatement(
-                            "UPDATE periode_paie SET date_debut = ?, date_fin = ?, id_statut_periode = ? WHERE id_periode_paie = ?")) {
-                        psUpdate.setDate(1, Date.valueOf(debut));
-                        psUpdate.setDate(2, Date.valueOf(fin));
-                        psUpdate.setInt(3, idStatut);
-                        psUpdate.setInt(4, existingId);
+                            "UPDATE periode_paie SET code = ?, date_debut = ?, date_fin = ?, id_statut_periode = ? WHERE id_periode_paie = ?")) {
+                        psUpdate.setString(1, code);
+                        psUpdate.setDate(2, Date.valueOf(debut));
+                        psUpdate.setDate(3, Date.valueOf(fin));
+                        psUpdate.setInt(4, idStatut);
+                        psUpdate.setInt(5, existingId);
                         psUpdate.executeUpdate();
                     }
                     return existingId;

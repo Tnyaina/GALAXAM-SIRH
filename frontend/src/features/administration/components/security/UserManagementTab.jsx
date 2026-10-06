@@ -364,7 +364,7 @@ export default function UserManagementTab() {
                     </>
                 }
             >
-                <form id="user-form" onSubmit={handleSaveUser} className="space-y-4">
+                <form id="user-form" onSubmit={handleSaveUser} className="space-y-4 min-h-[220px]">
                     {modalError && <FormError message={modalError} />}
                     <Input
                         label="Identifiant / Login"
@@ -379,9 +379,9 @@ export default function UserManagementTab() {
                         }}
                         placeholder="Ex: prenom.nom"
                     />
-                    <div className="space-y-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <Input
-                            label={`Mot de passe ${selectedUser ? "(Laisser vide pour ne pas modifier)" : ""}`}
+                            label={`Mot de passe ${selectedUser ? "(Optionnel)" : ""}`}
                             type={showPassword ? "text" : "password"}
                             autoComplete="new-password"
                             required={!selectedUser}
@@ -402,20 +402,20 @@ export default function UserManagementTab() {
                                 </button>
                             }
                         />
+                        <Input
+                            label="Confirmer le mot de passe"
+                            type={showPassword ? "text" : "password"}
+                            autoComplete="new-password"
+                            required={!selectedUser && !!formData.motDePasse}
+                            value={formData.confirmPassword}
+                            error={fieldErrors.confirmPassword}
+                            onChange={(e) => {
+                                setFormData({ ...formData, confirmPassword: e.target.value });
+                                if (fieldErrors.confirmPassword) setFieldErrors(prev => ({ ...prev, confirmPassword: undefined }));
+                            }}
+                            placeholder="Répétez le mot de passe"
+                        />
                     </div>
-                    <Input
-                        label="Confirmer le mot de passe"
-                        type={showPassword ? "text" : "password"}
-                        autoComplete="new-password"
-                        required={!selectedUser && !!formData.motDePasse}
-                        value={formData.confirmPassword}
-                        error={fieldErrors.confirmPassword}
-                        onChange={(e) => {
-                            setFormData({ ...formData, confirmPassword: e.target.value });
-                            if (fieldErrors.confirmPassword) setFieldErrors(prev => ({ ...prev, confirmPassword: undefined }));
-                        }}
-                        placeholder="Répétez le mot de passe"
-                    />
                     <SearchSelect
                         label="Rôle et Habilitations"
                         required

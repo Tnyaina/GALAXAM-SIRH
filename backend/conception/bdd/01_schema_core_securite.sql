@@ -280,7 +280,7 @@ INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, d
 (28, 'SEUIL_ANCIENNETE_BONIFICATION_ANS', 'CONGE', '3', 'Ancienneté minimale (en années) à partir de laquelle la bonification de congé s applique (Art. 86/87)', '2001-07-01', NULL, TRUE, TRUE),
 (29, 'PALIER_ANNEES_BONIFICATION', 'CONGE', '5', 'Nombre d années par tranche donnant droit à un jour de bonification supplémentaire (Art. 86/87)', '2001-07-01', NULL, TRUE, TRUE),
 (30, 'JOURS_BONIFICATION_PAR_PALIER', 'CONGE', '1', 'Nombre de jours de congé supplémentaires accordés par tranche d ancienneté atteinte (Art. 86/87)', '2001-07-01', NULL, TRUE, TRUE),
-(31, 'SEUIL_RETARD_ASSIDUITE_MIN', 'PAIE', '45', 'Seuil maximal de retard mensuel en minutes pour bénéficier de la prime d assiduité', '2001-07-01', NULL, TRUE, TRUE),
+(31, 'SEUIL_RETARD_ASSIDUITE_MIN', 'PAIE', '70', 'Seuil maximal de retard mensuel en minutes pour bénéficier de la prime d assiduité', '2001-07-01', NULL, TRUE, TRUE),
 (32, 'SEUIL_RETARD_PENALITE_PP_MIN', 'PAIE', '70', 'Seuil de retard mensuel en minutes déclenchant la pénalité sur la prime de performance si congés > seuil', '2001-07-01', NULL, TRUE, TRUE),
 (33, 'SEUIL_CONGES_PENALITE_PP_JOURS', 'PAIE', '1.0', 'Nombre de jours de congés dans le mois au-delà duquel la pénalité sur PP s applique si retard > seuil', '2001-07-01', NULL, TRUE, TRUE),
 (34, 'TAUX_PENALITE_PP', 'PAIE', '0.25', 'Taux de réduction appliqué sur la prime de performance (ex: 0.25 = 1/4 soit 25%)', '2001-07-01', NULL, TRUE, TRUE),

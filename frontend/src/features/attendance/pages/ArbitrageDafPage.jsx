@@ -206,7 +206,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         }
     }, [activePeriode?.statutCode, activePeriode?.version, loadData]);
 
-    // Polling régulier en arrière-plan (15s comme useNotifications) et écoute des événements globaux
+    // Écoute des événements métier pour actualisation silencieuse
     useEffect(() => {
         const silentRefresh = async () => {
             loadData({ silent: true });
@@ -219,31 +219,12 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             }
         };
 
-        const timer = setInterval(() => {
-            if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-                silentRefresh();
-            }
-        }, 15000);
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                silentRefresh();
-            }
-        };
-
         window.addEventListener('pointage-period-updated', silentRefresh);
         window.addEventListener('sirh:period-updated', silentRefresh);
-        window.addEventListener('refresh-notifications', silentRefresh);
-        window.addEventListener('focus', silentRefresh);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
-            clearInterval(timer);
             window.removeEventListener('pointage-period-updated', silentRefresh);
             window.removeEventListener('sirh:period-updated', silentRefresh);
-            window.removeEventListener('refresh-notifications', silentRefresh);
-            window.removeEventListener('focus', silentRefresh);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [loadData, periodesDisponibles]);
 

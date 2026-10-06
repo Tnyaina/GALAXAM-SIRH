@@ -46,32 +46,13 @@ export default function GestionPointagesPage() {
     useEffect(() => {
         const refresh = () => setRefreshVersion(value => value + 1);
 
-        // Polling régulier en arrière-plan toutes les 15 secondes si l'onglet est actif
-        const timer = setInterval(() => {
-            if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-                refresh();
-            }
-        }, 15000);
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                refresh();
-            }
-        };
-
+        // Réactualisation ciblée uniquement sur les événements métier (validation, clôture de période)
         window.addEventListener('pointage-period-updated', refresh);
         window.addEventListener('sirh:period-updated', refresh);
-        window.addEventListener('refresh-notifications', refresh);
-        window.addEventListener('focus', refresh);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
-            clearInterval(timer);
             window.removeEventListener('pointage-period-updated', refresh);
             window.removeEventListener('sirh:period-updated', refresh);
-            window.removeEventListener('refresh-notifications', refresh);
-            window.removeEventListener('focus', refresh);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, []);
 
@@ -121,7 +102,14 @@ export default function GestionPointagesPage() {
                     organisationService.getSites().catch(() => [])
                 ]);
                 if (!isMounted) return;
-                setAllSites(sites || []);
+                
+                // Préserver la référence d'objet si les sites n'ont pas changé
+                setAllSites(prev => {
+                    const next = sites || [];
+                    if (prev.length === next.length && prev.every((s, i) => s.idSite === next[i]?.idSite)) return prev;
+                    return next;
+                });
+
                 if (!list || list.length === 0) {
                     setAllPeriodes([]);
                     setActivePeriode(null);
@@ -131,7 +119,14 @@ export default function GestionPointagesPage() {
                     return;
                 }
                 loadedRefresh.current = refreshVersion;
-                setAllPeriodes(list);
+
+                // Préserver la référence d'objet si les périodes n'ont pas changé
+                setAllPeriodes(prev => {
+                    if (prev.length === list.length && prev.every((p, i) => p.idPeriodePaie === list[i]?.idPeriodePaie && p.statutCode === list[i]?.statutCode && p.version === list[i]?.version)) {
+                        return prev;
+                    }
+                    return list;
+                });
                 setError(null);
 
                 const today = getTodayDateString();
@@ -140,9 +135,16 @@ export default function GestionPointagesPage() {
                     || list.find(p => ['EN_COURS', 'A_VALIDER', 'TRANSMIS_DAF'].includes(p.statutCode))
                     || list[0]
                     || null;
-                setActivePeriode(current => current?.idPeriodePaie === target?.idPeriodePaie
-                    && current?.version === target?.version && current?.statutCode === target?.statutCode
-                    ? { ...target, availableActions: current.availableActions || {} } : target);
+
+                setActivePeriode(current => {
+                    if (!current) return target;
+                    if (current.idPeriodePaie === target?.idPeriodePaie
+                        && current.version === target?.version
+                        && current.statutCode === target?.statutCode) {
+                        return current;
+                    }
+                    return { ...target, availableActions: current.availableActions || {} };
+                });
 
                 // Initialisation ou correction du paramètre d'URL s'il est absent ou invalide
                 if (target?.idPeriodePaie && (!paramPeriodeId || String(target.idPeriodePaie) !== String(paramPeriodeId))) {
@@ -173,16 +175,29 @@ export default function GestionPointagesPage() {
     useEffect(() => {
         if (!activePeriodeId) return undefined;
         let cancelled = false;
-        setActivePeriode(current => ({ ...current, availableActions: {} }));
+        // On initialise availableActions à vide uniquement lors du premier chargement absolu
+        setActivePeriode(current => {
+            if (!current) return current;
+            if (!current.availableActions) return { ...current, availableActions: {} };
+            return current;
+        });
+
         periodePaieService.getContext(activePeriodeId).then(context => {
             if (cancelled) return;
-            setActivePeriode(current => current?.idPeriodePaie === activePeriodeId
-                ? { ...current, availableActions: context?.availableActions || {} } : current);
+            const nextActions = context?.availableActions || {};
+            setActivePeriode(current => {
+                if (!current || current.idPeriodePaie !== activePeriodeId) return current;
+                const currentActions = current.availableActions || {};
+                const isIdentical = Object.keys(nextActions).length === Object.keys(currentActions).length
+                    && Object.keys(nextActions).every(k => nextActions[k]?.allowed === currentActions[k]?.allowed);
+                if (isIdentical) return current;
+                return { ...current, availableActions: nextActions };
+            });
         }).catch(() => {
-            // Les actions restent désactivées si leurs droits n'ont pas pu être vérifiés.
+            // Les actions restent inchangées ou désactivées
         });
         return () => { cancelled = true; };
-    }, [activePeriodeId, activePeriode?.version, activePeriode?.statutCode, refreshVersion]);
+    }, [activePeriodeId, activePeriode?.version, activePeriode?.statutCode]);
 
     const handlePeriodeChange = (newPeriodeId) => {
         const found = allPeriodes.find(p => String(p.idPeriodePaie) === String(newPeriodeId));

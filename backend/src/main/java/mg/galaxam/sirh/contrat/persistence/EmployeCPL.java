@@ -204,6 +204,8 @@ public class EmployeCPL extends ClassMere {
                 Object p = params.get(i);
                 if (p instanceof Boolean) {
                     ps.setBoolean(i + 1, (Boolean) p);
+                } else if (p instanceof Integer) {
+                    ps.setInt(i + 1, (Integer) p);
                 } else {
                     ps.setString(i + 1, (String) p);
                 }

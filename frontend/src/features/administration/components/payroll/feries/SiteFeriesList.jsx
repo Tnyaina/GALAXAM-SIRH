@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Plus, Trash2, MapPin } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { fmtDate } from '@/utils/dateUtils';
 import EmptyState from '@/components/ui/data-display/EmptyState';
+import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 
 export default function SiteFeriesList({
     siteFeries = [],
@@ -11,6 +13,8 @@ export default function SiteFeriesList({
     onOpenCreate,
     onDelete,
 }) {
+    const [deleteTarget, setDeleteTarget] = useState(null);
+
     return (
         <div className="bg-[var(--color-surface)] rounded-none border border-[var(--color-border-subtle)] shadow-sm p-6 space-y-4">
             <div className="flex justify-between items-center pb-3 border-b border-[var(--color-border-subtle)]">
@@ -69,7 +73,7 @@ export default function SiteFeriesList({
                                 </Td>
                                 <Td className="text-right">
                                     <button
-                                        onClick={() => onDelete(sf.idSiteFerie)}
+                                        onClick={() => setDeleteTarget(sf)}
                                         className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-1.5 text-[var(--color-danger-500)] hover:bg-[var(--color-danger-500)]/10 rounded-none cursor-pointer transition-colors"
                                         title="Supprimer l'association"
                                         aria-label={`Supprimer association ${sf.siteLibelle || sf.idSite} et ${sf.ferieLibelle || sf.ferieDate}`}
@@ -82,6 +86,22 @@ export default function SiteFeriesList({
                     </Tbody>
                 </Table>
             )}
+
+            <ConfirmDialog
+                isOpen={Boolean(deleteTarget)}
+                onClose={() => setDeleteTarget(null)}
+                onConfirm={() => {
+                    if (deleteTarget) {
+                        onDelete(deleteTarget.idSiteFerie);
+                        setDeleteTarget(null);
+                    }
+                }}
+                title="Supprimer l'association du jour férié ?"
+                message={deleteTarget ? `Voulez-vous vraiment retirer le jour férié "${deleteTarget.ferieLibelle || deleteTarget.ferieDate}" pour le site "${deleteTarget.siteLibelle || deleteTarget.idSite}" ?` : ''}
+                confirmLabel="Supprimer"
+                cancelLabel="Annuler"
+                variant="danger"
+            />
         </div>
     );
 }

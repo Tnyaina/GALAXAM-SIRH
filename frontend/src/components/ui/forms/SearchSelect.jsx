@@ -15,10 +15,14 @@ export default function SearchSelect({
   disabled = false,
   hint = null,
 }) {
-  // État local et référence DOM.
+  // État local et références DOM.
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
+  const inputRef = useRef(null);
+  const listRef = useRef(null);
   const reactId = useId();
   const fieldId = id || `search-select-${reactId}`;
   const feedbackId = `${fieldId}-feedback`;
@@ -37,19 +41,36 @@ export default function SearchSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Effet : gestion du focus et réinitialisation à l'ouverture
+  useEffect(() => {
+    if (isOpen) {
+      setHighlightedIndex(0);
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 30);
+      return () => clearTimeout(timer);
+    } else {
+      setSearchQuery('');
+      setHighlightedIndex(-1);
+    }
+  }, [isOpen]);
+
   // Actions utilisateur
   const handleSelect = (opt) => {
     setIsOpen(false);
     setSearchQuery('');
+    setHighlightedIndex(-1);
     if (onChange) {
       onChange(opt ? opt.value : '', opt);
     }
+    buttonRef.current?.focus();
   };
 
   const handleClear = (e) => {
     e.stopPropagation();
     setIsOpen(false);
     setSearchQuery('');
+    setHighlightedIndex(-1);
     if (onChange) {
       onChange('', null);
     }
@@ -66,6 +87,55 @@ export default function SearchSelect({
     return optLabel.includes(query) || optSublabel.includes(query);
   });
 
+  const handleInputKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      // Éviter impérativement la soumission inopinée du formulaire parent
+      e.preventDefault();
+      e.stopPropagation();
+      const targetOpt = filteredOptions[highlightedIndex >= 0 ? highlightedIndex : 0];
+      if (targetOpt) {
+        handleSelect(targetOpt);
+      }
+    } else if (e.key === 'Escape') {
+      // Ferme uniquement le menu déroulant sans fermer la modale parente
+      e.preventDefault();
+      e.stopPropagation();
+      setIsOpen(false);
+      buttonRef.current?.focus();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => {
+        const next = prev < filteredOptions.length - 1 ? prev + 1 : prev;
+        scrollOptionIntoView(next);
+        return next;
+      });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => {
+        const next = prev > 0 ? prev - 1 : 0;
+        scrollOptionIntoView(next);
+        return next;
+      });
+    }
+  };
+
+  const scrollOptionIntoView = (index) => {
+    if (!listRef.current) return;
+    const items = listRef.current.querySelectorAll('[role="option"]');
+    if (items[index]) {
+      items[index].scrollIntoView({ block: 'nearest' });
+    }
+  };
+
+  const handleButtonKeyDown = (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!disabled) {
+        setIsOpen(true);
+      }
+    }
+  };
+
   const displayLabel = typeof label === 'string' && required ? label.trim().replace(/\s*\*+$/, '') : label;
 
   // Rendu
@@ -80,14 +150,18 @@ export default function SearchSelect({
 
       <div className="relative">
         <button
+          ref={buttonRef}
           id={fieldId}
           type="button"
           aria-invalid={!!error}
           aria-required={required}
           aria-describedby={error ? feedbackId : undefined}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
           disabled={disabled}
           onClick={() => !disabled && setIsOpen((v) => !v)}
-          className={`w-full px-3 py-1.5 bg-[var(--color-surface)] border text-left text-xs sm:text-sm flex items-center justify-between outline-none cursor-pointer ${
+          onKeyDown={handleButtonKeyDown}
+          className={`w-full px-3 py-2 bg-[var(--color-surface)] border text-left text-xs sm:text-sm flex items-center justify-between outline-none cursor-pointer transition-colors ${
             error
               ? 'border-danger-500'
               : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)] focus:border-[var(--color-brand-500)]'
@@ -103,14 +177,16 @@ export default function SearchSelect({
               )}
             </span>
           ) : (
-            <span className="text-[var(--color-fg-muted)]">{placeholder}</span>
+            <span className="text-[var(--color-fg-muted)] truncate">{placeholder}</span>
           )}
 
-          <div className="flex items-center gap-1 shrink-0 ml-2">
+          <div className="flex items-center gap-1.5 shrink-0 ml-2">
             {selectedOption && !disabled && (
               <span
+                role="button"
+                tabIndex={-1}
                 onClick={handleClear}
-                className="p-0.5 hover:bg-danger-500/10 text-danger-500 hover:text-danger-700 transition-colors"
+                className="p-1 hover:bg-danger-500/10 text-danger-500 hover:text-danger-700 transition-colors"
                 title="Effacer la sélection"
               >
                 <X className="w-3.5 h-3.5" />
@@ -125,23 +201,30 @@ export default function SearchSelect({
         </button>
 
         {isOpen && !disabled && (
-          <div className="absolute left-0 right-0 top-full mt-1 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xl z-50 max-h-60 overflow-hidden flex flex-col font-sans">
+          <div className="absolute left-0 right-0 top-full mt-1.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xl z-[70] max-h-64 overflow-hidden flex flex-col font-sans">
             {/* Barre de recherche dans le menu déroulant */}
-            <div className="p-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center gap-2">
+            <div className="p-2.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center gap-2 shrink-0">
               <Search className="w-4 h-4 text-[var(--color-fg-muted)] shrink-0" />
               <input
+                ref={inputRef}
                 type="text"
-                autoFocus
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setHighlightedIndex(0);
+                }}
+                onKeyDown={handleInputKeyDown}
                 placeholder="Filtrer..."
                 className="w-full bg-transparent text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-subtle)] outline-none"
               />
               {searchQuery && (
                 <button
                   type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+                  onClick={() => {
+                    setSearchQuery('');
+                    inputRef.current?.focus();
+                  }}
+                  className="text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] p-0.5"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -149,27 +232,38 @@ export default function SearchSelect({
             </div>
 
             {/* Liste filtrée des options */}
-            <div className="overflow-y-auto max-h-48">
+            <div ref={listRef} role="listbox" className="overflow-y-auto max-h-52 divide-y divide-[var(--color-border-subtle)]">
               {filteredOptions.length === 0 ? (
-                <div className="p-3 text-xs text-[var(--color-fg-muted)] text-center">
+                <div className="p-3.5 text-xs text-[var(--color-fg-muted)] text-center">
                   Aucun résultat pour "{searchQuery}"
                 </div>
               ) : (
-                filteredOptions.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => handleSelect(opt)}
-                    className={`w-full text-left px-4 py-2 hover:bg-[var(--color-brand-500)]/10 text-sm flex items-center justify-between border-b border-[var(--color-border-subtle)] last:border-0 transition-colors cursor-pointer ${
-                      String(opt.value) === String(value) ? 'bg-[var(--color-brand-500)]/15 font-bold' : ''
-                    }`}
-                  >
-                    <span className="text-[var(--color-fg)]">{opt.label}</span>
-                    {opt.sublabel && (
-                      <span className="text-xs text-[var(--color-fg-muted)] ml-2">{opt.sublabel}</span>
-                    )}
-                  </button>
-                ))
+                filteredOptions.map((opt, idx) => {
+                  const isSelected = String(opt.value) === String(value);
+                  const isHighlighted = idx === highlightedIndex;
+                  return (
+                    <button
+                      key={opt.value}
+                      role="option"
+                      aria-selected={isSelected}
+                      type="button"
+                      onMouseEnter={() => setHighlightedIndex(idx)}
+                      onClick={() => handleSelect(opt)}
+                      className={`w-full text-left px-3.5 py-2.5 text-sm flex items-center justify-between transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-[var(--color-brand-500)]/15 font-bold'
+                          : isHighlighted
+                          ? 'bg-[var(--color-brand-500)]/10 font-medium'
+                          : 'hover:bg-[var(--color-bg-subtle)]'
+                      }`}
+                    >
+                      <span className="text-[var(--color-fg)] truncate">{opt.label}</span>
+                      {opt.sublabel && (
+                        <span className="text-xs text-[var(--color-fg-muted)] ml-2 shrink-0">{opt.sublabel}</span>
+                      )}
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>

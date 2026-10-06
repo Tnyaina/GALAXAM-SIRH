@@ -130,32 +130,12 @@ export function usePayrollCampaign(requestedPeriodId = null) {
             loadData(selectedPeriodeId || requestedPeriodId, { silent: true, reloadPeriods: true });
         };
 
-        // Rafraîchissement automatique en arrière-plan toutes les 15 secondes si l'onglet est actif
-        const timer = setInterval(() => {
-            if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-                handleSilentRefresh();
-            }
-        }, 15000);
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible') {
-                handleSilentRefresh();
-            }
-        };
-
         window.addEventListener('sirh:period-updated', handleSilentRefresh);
         window.addEventListener('pointage-period-updated', handleSilentRefresh);
-        window.addEventListener('refresh-notifications', handleSilentRefresh);
-        window.addEventListener('focus', handleSilentRefresh);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
-            clearInterval(timer);
             window.removeEventListener('sirh:period-updated', handleSilentRefresh);
             window.removeEventListener('pointage-period-updated', handleSilentRefresh);
-            window.removeEventListener('refresh-notifications', handleSilentRefresh);
-            window.removeEventListener('focus', handleSilentRefresh);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [selectedPeriodeId, requestedPeriodId, loadData]);
 

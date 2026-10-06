@@ -43,19 +43,19 @@ function SiteCotisationFormModal({ isOpen, onClose, onSubmit, formData, setFormD
             onSubmit={onSubmit}
             title="Associer une Cotisation à un Site"
             icon={<MapPin size={18} />}
-            size="md"
+            size="lg"
             submitLabel="Associer"
             loading={submitting}
             error={actionError}
         >
-            <div className="space-y-3">
+            <div className="space-y-4 py-1 min-h-[180px]">
                 <SearchSelect
                     label="Site d'Exploitation"
                     required
                     value={formData.idSite}
                     onChange={(val) => setFormData({ ...formData, idSite: val })}
                     options={siteOptions}
-                    placeholder="-- Sélectionner un site --"
+                    placeholder="-- Sélectionner un site d'exploitation --"
                 />
                 <SearchSelect
                     label="Type de Cotisation"
@@ -63,7 +63,7 @@ function SiteCotisationFormModal({ isOpen, onClose, onSubmit, formData, setFormD
                     value={formData.idTypeCotisation}
                     onChange={(val) => setFormData({ ...formData, idTypeCotisation: val })}
                     options={cotisationOptions}
-                    placeholder="-- Sélectionner une cotisation --"
+                    placeholder="-- Sélectionner un organisme ou cotisation --"
                 />
             </div>
         </FormModal>

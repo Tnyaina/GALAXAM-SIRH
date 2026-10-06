@@ -113,7 +113,7 @@ export default function Login() {
                                 label="Identifiant"
                                 type="text"
                                 name="identifiant"
-                                placeholder="Votre identifiant (ex: admin)"
+                                placeholder="Votre identifiant"
                                 icon={<User size={16} />}
                                 value={identifiant}
                                 onChange={handleIdentifiantChange}

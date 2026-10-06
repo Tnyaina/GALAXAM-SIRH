@@ -344,9 +344,9 @@ export function MotifFamilialModal({ isOpen, onClose, onSuccess, initialData = n
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={initialData ? 'Modifier l\'Événement' : 'Nouvel Événement Familial'}
+      title={initialData ? 'Modifier le Barème de l\'Événement' : 'Nouvel Événement Familial'}
       icon={<Users size={18} />}
-      size="md"
+      size="lg"
       footer={
         <>
           <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={loading}>
@@ -361,25 +361,27 @@ export function MotifFamilialModal({ isOpen, onClose, onSuccess, initialData = n
       <form id="motifForm" onSubmit={handleSubmit} className="space-y-4">
         {error && <FormError message={error} />}
 
-        <Input
-          label="Code (ex: MARIAGE, NAISSANCE)"
-          required
-          value={formData.code}
-          onChange={(e) => handleChange('code', e.target.value)}
-          placeholder="Code unique"
-          disabled={!!initialData}
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input
+            label="Code (ex: MARIAGE, NAISSANCE)"
+            required
+            value={formData.code}
+            onChange={(e) => handleChange('code', e.target.value)}
+            placeholder="Code unique"
+            disabled={!!initialData}
+          />
+
+          <Input
+            label="Libellé de l'événement"
+            required
+            value={formData.libelle}
+            onChange={(e) => handleChange('libelle', e.target.value)}
+            placeholder="Ex: Mariage du salarié"
+          />
+        </div>
 
         <Input
-          label="Libellé de l'événement"
-          required
-          value={formData.libelle}
-          onChange={(e) => handleChange('libelle', e.target.value)}
-          placeholder="Ex: Mariage du salarié"
-        />
-
-        <Input
-          label="Nombre de jours accordés"
+          label="Nombre de jours accordés par événement"
           type="number"
           min="1"
           max="30"
@@ -387,10 +389,10 @@ export function MotifFamilialModal({ isOpen, onClose, onSuccess, initialData = n
           value={formData.nbJoursAutorises}
           onChange={(e) => handleChange('nbJoursAutorises', e.target.value)}
           placeholder="Ex: 3"
-          hint="Durée légale forfaitaire de la permission"
+          hint="Durée forfaitaire accordée pour cet événement. Le pool global annuel reste automatiquement plafonné à 10 jours ouvrables par salarié (Loi n° 2024-014 Art. 133)."
         />
 
-        <div className="pt-2">
+        <div className="pt-1">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"

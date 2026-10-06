@@ -269,9 +269,14 @@ export default function ParametresCongesTab() {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-2">
-                    <ShieldAlert className="w-5 h-5 text-[var(--color-warning-500)]" />
-                    <CardTitle>Quota annuel des Événements Familiaux</CardTitle>
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="w-5 h-5 text-[var(--color-warning-500)]" />
+                      <CardTitle>Barème des Événements Familiaux</CardTitle>
+                    </div>
+                    <p className="text-xs text-[var(--color-fg-muted)]">
+                      Forfait accordé par occurrence. Cumul annuel automatique plafonné à <strong className="text-[var(--color-fg)]">10 jours ouvrables</strong> (Loi n° 2024-014 Art. 133).
+                    </p>
                   </div>
                   <div className="flex items-center gap-3">
                     <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--color-fg-muted)] cursor-pointer hover:text-[var(--color-fg)] px-2 py-1 rounded-none hover:bg-[var(--color-bg-subtle)]">
@@ -311,7 +316,7 @@ export default function ParametresCongesTab() {
                   <Thead>
                     <Tr>
                       <Th>Motif (Code du Travail)</Th>
-                      <Th className="text-center">Jours Autorisés</Th>
+                      <Th className="text-center">Durée par Événement</Th>
                       <Th className="text-center">Statut</Th>
                       <Th className="text-right">Actions</Th>
                     </Tr>

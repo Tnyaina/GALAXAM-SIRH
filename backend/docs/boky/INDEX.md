@@ -10,10 +10,10 @@
 
 ---
 
-## 🎯 Plan Officiel du Mémoire de Fin d'Études
+## 🎯 Plan Officiel & Notes de Terrain du Mémoire
 
-Consultez le plan détaillé conforme aux normes académiques de l'IT University (Licence Option Développement) :  
-👉 **[`plan-detaille-memoire-itu.md`](./plan-detaille-memoire-itu.md)** (Structure IMRAD/ITU, pagination, tableaux comparatifs, métriques et bibliographie vérifiée).
+- **Plan Détaillé & Canevas ITU** : 👉 **[`plan-detaille-memoire-itu.md`](./plan-detaille-memoire-itu.md)** (Structure académique IMRAD, pagination cible, grille d'évaluation).
+- **Notes de Terrain & Contexte GALAXAM** : 👉 **[`notes-contexte-stage-galaxam.md`](./notes-contexte-stage-galaxam.md)** (Période 06/07/2026 - 06/10/2026, encadrants, projet MID/CSB, audit critique des classeurs Excel).
 
 ---
 

@@ -448,24 +448,24 @@ export default function CalendrierFerieTab() {
             {error && <Alert type="error" message={error} />}
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
-                    <div className="relative flex-1 md:flex-initial">
-                        <Search size={14} className="absolute left-2.5 top-2.5 text-[var(--color-fg-muted)]" />
+                <div className="flex items-center gap-2.5 flex-wrap w-full md:w-auto">
+                    <div className="relative flex-1 sm:w-64 sm:flex-initial">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fg-muted)] pointer-events-none" />
                         <input
                             type="text"
                             placeholder="Rechercher un férié..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="pl-8 pr-3 py-1.5 text-xs bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)]"
+                            className="w-full pl-8 pr-3 h-9 text-xs bg-[var(--color-surface)] border border-[var(--color-border)] rounded-none text-[var(--color-fg)] focus:outline-none focus:border-[var(--color-brand-500)] transition-colors"
                         />
                     </div>
 
-                    <div className="flex items-center gap-1 bg-[var(--color-surface)] px-2 py-1 border border-[var(--color-border-subtle)] rounded-none">
-                        <Filter size={12} className="text-[var(--color-fg-muted)]" />
+                    <div className="flex items-center gap-1.5 h-9 bg-[var(--color-surface)] px-2.5 border border-[var(--color-border)] rounded-none">
+                        <Filter size={13} className="text-[var(--color-fg-muted)] shrink-0" />
                         <select
                             value={selectedYear}
                             onChange={(e) => setSelectedYear(e.target.value)}
-                            className="bg-transparent text-xs font-semibold text-[var(--color-fg)] focus:outline-none cursor-pointer"
+                            className="bg-transparent text-xs font-semibold text-[var(--color-fg)] focus:outline-none cursor-pointer h-full"
                         >
                             <option value="tous">Toutes les années</option>
                             {availableYears.map((year) => (
@@ -480,7 +480,7 @@ export default function CalendrierFerieTab() {
                         <select
                             value={selectedSiteFilter}
                             onChange={(e) => setSelectedSiteFilter(e.target.value)}
-                            className="bg-[var(--color-surface)] text-xs font-semibold text-[var(--color-fg)] px-2 py-1.5 border border-[var(--color-border)] rounded-none focus:outline-none cursor-pointer"
+                            className="h-9 bg-[var(--color-surface)] text-xs font-semibold text-[var(--color-fg)] px-3 border border-[var(--color-border)] rounded-none focus:outline-none cursor-pointer transition-colors"
                         >
                             <option value="">Tous les sites</option>
                             {sites

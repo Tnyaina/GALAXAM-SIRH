@@ -392,7 +392,7 @@ INSERT INTO employe_indemnite_derogation
     (id_employe, id_indemnite, beneficie, motif, date_debut, date_fin)
 SELECT e.id_employe, i.id_indemnite, FALSE,
        'Cutover paie janvier 2026 : exclusion de l’indemnité déplacement',
-       DATE '2025-12-26', DATE '2026-01-25'
+       DATE '2025-12-26', DATE NULL
 FROM employe e
 CROSS JOIN ref_indemnite i
 WHERE e.id_employe IN (1, 2)

@@ -457,12 +457,4 @@ INSERT INTO ref_calendrier_ferie (id_ferie, date_ferie, libelle, est_chome, est_
 
 SELECT setval('ref_calendrier_ferie_id_ferie_seq', (SELECT GREATEST(MAX(id_ferie), 14) FROM ref_calendrier_ferie));
 
--- Rattachement automatique des jours fériés nationaux aux sites opérationnels (TNR = 1, TMM = 2)
-INSERT INTO site_calendrier_ferie (id_site, id_ferie)
-SELECT s.id_site, f.id_ferie
-FROM ref_site s
-CROSS JOIN ref_calendrier_ferie f
-WHERE f.est_national = TRUE
-ON CONFLICT (id_site, id_ferie) DO NOTHING;
 
-SELECT setval('site_calendrier_ferie_id_site_ferie_seq', (SELECT GREATEST(MAX(id_site_ferie), 1) FROM site_calendrier_ferie));
