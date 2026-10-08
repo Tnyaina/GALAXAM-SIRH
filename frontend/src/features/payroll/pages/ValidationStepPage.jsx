@@ -239,7 +239,7 @@ export default function ValidationStepPage() {
                                 <StatCard title="Salariés calculés" value={kpis.effectifCalcule ?? 0} color="neutral" subtext={`Population attendue : ${readiness.effectifAttendu ?? 'Non renseignée'}`} />
                                 <StatCard title="Masse brute" value={formatAmount(kpis.totalBrut)} color="brand" subtext="Salaires bruts imposables" />
                                 <StatCard title="Cotisations salariales" value={formatAmount(kpis.totalCotisationsSalariales)} color="info" subtext="Charges sociales déduites" />
-                                <StatCard title="IRSA / ISI" value={formatAmount(kpis.totalIrsa)} color="warning" subtext="Impôt retenu à la source" />
+                                <StatCard title="IRSA" value={formatAmount(kpis.totalIrsa)} color="warning" subtext="Impôt salarial retenu à la source" />
                                 <StatCard title="Net à payer" value={formatAmount(summary.netTotal ?? kpis.totalNetAPayer)} color="success" subtext="Montant net des virements" />
                                 <StatCard title="Charges patronales" value={formatAmount(summary.employerContributions ?? kpis.totalCotisationsPatronales)} color="neutral" subtext="Coût employeur CNaPS / Santé" />
                             </div>

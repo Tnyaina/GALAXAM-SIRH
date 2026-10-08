@@ -28,8 +28,8 @@ public class PayrollPopulationResolver {
     public PayrollPopulation resolve(int periodId, Connection connection) throws SQLException {
         Period period = loadPeriod(periodId, connection);
         String sql = "SELECT e.id_employe, e.matricule, e.nom, e.prenom, e.est_actif, eac.id_affectation, "
-                + "ct.id_contrat, ct.numero_contrat, rtc.libelle AS type_contrat, "
-                + "rs.libelle AS nom_site, tri.libelle AS regime "
+                + "ct.id_contrat, ct.numero_contrat, rtc.libelle AS type_contrat, rtc.code AS type_contrat_code, "
+                + "rs.libelle AS nom_site, tri.libelle AS regime, tri.code AS regime_code "
                 + "FROM employe e "
                 + "LEFT JOIN employe_affectation_carriere eac ON eac.id_employe = e.id_employe "
                 + "AND eac.date_debut <= ? AND (eac.date_fin IS NULL OR eac.date_fin >= ?) "
@@ -54,7 +54,8 @@ public class PayrollPopulationResolver {
                             (Integer) result.getObject("id_affectation"), (Integer) result.getObject("id_contrat"),
                             result.getString("numero_contrat"), result.getString("type_contrat"),
                             result.getString("nom_site"), result.getBoolean("est_actif"),
-                            result.getString("regime")));
+                            result.getString("regime"), result.getString("type_contrat_code"),
+                            result.getString("regime_code")));
                 }
             }
         }
@@ -92,6 +93,12 @@ public class PayrollPopulationResolver {
         if (applicableRow.contractId() == null || applicableRow.regime() == null) {
             return member(applicableRow, "BLOCKED", "NO_APPLICABLE_CONTRACT");
         }
+        if ("PRESTATION".equalsIgnoreCase(applicableRow.contractTypeCode())
+                || "CONSULTANT".equalsIgnoreCase(applicableRow.regimeCode())
+                || "PRESTATAIRE".equalsIgnoreCase(applicableRow.regimeCode())
+                || "ISI_5".equalsIgnoreCase(applicableRow.regimeCode())) {
+            return member(applicableRow, "EXCLUDED", "INDEPENDENT_SERVICE_PROVIDER");
+        }
         return member(applicableRow, "INCLUDED", null);
     }
 
@@ -128,5 +135,5 @@ public class PayrollPopulationResolver {
     private record Period(int id, String code, LocalDate startDate, LocalDate endDate) {}
     private record Row(int employeeId, String matricule, String employeeName, Integer assignmentId,
                        Integer contractId, String contractNumber, String typeContrat, String nomSite,
-                       boolean employeeActive, String regime) {}
+                       boolean employeeActive, String regime, String contractTypeCode, String regimeCode) {}
 }

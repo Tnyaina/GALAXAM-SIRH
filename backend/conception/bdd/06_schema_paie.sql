@@ -18,6 +18,9 @@ DROP TABLE IF EXISTS ref_mode_paiement CASCADE;
 DROP TABLE IF EXISTS ref_type_bulletin CASCADE;
 DROP TABLE IF EXISTS conge_journal_droit CASCADE;
 DROP TABLE IF EXISTS paie_stc CASCADE;
+DROP TABLE IF EXISTS prestataire_facture CASCADE;
+DROP TABLE IF EXISTS prestataire_contrat CASCADE;
+DROP TABLE IF EXISTS prestataire_independant CASCADE;
 DROP TABLE IF EXISTS paie_honoraire_prestation CASCADE;
 DROP TABLE IF EXISTS paie_pret_echeance CASCADE;
 DROP TABLE IF EXISTS paie_pret CASCADE;
@@ -467,7 +470,7 @@ CREATE INDEX idx_pret_echeance_periode ON paie_pret_echeance(id_periode_paie);
 CREATE INDEX idx_pret_echeance_statut ON paie_pret_echeance(statut);
 CREATE INDEX idx_paie_pret_echeance_bulletin ON paie_pret_echeance(id_bulletin);
 
--- 9. Honoraires et Prestations Externes (Régime ISI 5%)
+-- Ancien bordereau ISI conservé pour lecture historique ; non alimenté en 2026.
 CREATE TABLE paie_honoraire_prestation (
     id_prestation SERIAL PRIMARY KEY,
     id_periode_paie INTEGER REFERENCES periode_paie(id_periode_paie) ON DELETE SET NULL,
@@ -495,6 +498,56 @@ CREATE TABLE paie_honoraire_prestation (
 
 CREATE INDEX idx_honoraire_periode ON paie_honoraire_prestation(id_periode_paie);
 CREATE INDEX idx_honoraire_intervenant ON paie_honoraire_prestation(id_intervenant);
+
+-- Prestataires indépendants : circuit contractuel et factures hors paie.
+CREATE TABLE prestataire_independant (
+    id_prestataire SERIAL PRIMARY KEY,
+    nom VARCHAR(200) NOT NULL,
+    nif VARCHAR(50) NOT NULL UNIQUE CHECK (BTRIM(nif) <> ''),
+    stat VARCHAR(50),
+    adresse TEXT,
+    email VARCHAR(200),
+    est_actif BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE prestataire_contrat (
+    id_contrat_prestataire SERIAL PRIMARY KEY,
+    id_prestataire INTEGER NOT NULL REFERENCES prestataire_independant(id_prestataire),
+    reference VARCHAR(100) NOT NULL UNIQUE,
+    objet TEXT NOT NULL,
+    date_debut DATE NOT NULL,
+    date_fin DATE,
+    tarif_convenu NUMERIC(20,2),
+    chemin_piece VARCHAR(500),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_prestataire_contrat_dates CHECK (date_fin IS NULL OR date_fin >= date_debut)
+);
+CREATE TABLE prestataire_facture (
+    id_facture_prestataire SERIAL PRIMARY KEY,
+    id_contrat_prestataire INTEGER NOT NULL REFERENCES prestataire_contrat(id_contrat_prestataire),
+    reference VARCHAR(100) NOT NULL,
+    date_facture DATE NOT NULL,
+    montant NUMERIC(20,2) NOT NULL CHECK (montant > 0),
+    chemin_piece VARCHAR(500),
+    statut VARCHAR(20) NOT NULL DEFAULT 'BROUILLON'
+        CHECK (statut IN ('BROUILLON','VALIDEE','PAYEE','ANNULEE')),
+    valide_par INTEGER,
+    date_validation TIMESTAMPTZ,
+    date_paiement DATE,
+    reference_paiement VARCHAR(150),
+    paye_par INTEGER,
+    motif_annulation TEXT,
+    annule_par INTEGER,
+    date_annulation TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_prestataire_facture_piece CHECK (statut NOT IN ('VALIDEE','PAYEE') OR chemin_piece IS NOT NULL),
+    CONSTRAINT chk_prestataire_facture_paiement CHECK (statut <> 'PAYEE' OR
+        (date_paiement IS NOT NULL AND reference_paiement IS NOT NULL AND date_paiement >= date_facture)),
+    CONSTRAINT chk_prestataire_facture_annulation CHECK (statut <> 'ANNULEE' OR
+        (motif_annulation IS NOT NULL AND annule_par IS NOT NULL AND date_annulation IS NOT NULL)),
+    UNIQUE (id_contrat_prestataire, reference)
+);
+CREATE INDEX idx_prestataire_facture_statut ON prestataire_facture(statut);
 
 -- 10. Solde de tout compte (STC) et décompte détaillé
 CREATE SEQUENCE IF NOT EXISTS seq_numero_recu_stc START WITH 1 INCREMENT BY 1;
@@ -727,7 +780,7 @@ INSERT INTO paie_rubrique (id_rubrique, code, libelle, categorie, type_valeur, s
 (20, 'IMPOT_IRSA_BRUT', 'IRSA Brut (Barème Progressif 6 Tranches)', 'IMPOT', 'MONTANT', 'INFO', FALSE, FALSE, FALSE, TRUE, 400, 'IRSA calculé avant déduction pour charges de famille'),
 (21, 'REDUCTION_CHARGE_FAMILLE', 'Réduction IRSA pour Charges de Famille', 'IMPOT', 'MONTANT', 'INFO', FALSE, FALSE, FALSE, TRUE, 410, 'Déduction fiscale de 2 000 Ar par enfant à charge éligible'),
 (22, 'IMPOT_IRSA_NET', 'IRSA Net à Payer (Retenu à la Source)', 'IMPOT', 'MONTANT', 'RETENUE', FALSE, FALSE, FALSE, TRUE, 420, 'Impôt sur le revenu net déduit (respect du minimum légal)'),
-(23, 'RETENUE_ISI_5', 'Retenue Libératoire ISI (5%)', 'IMPOT', 'POURCENTAGE', 'RETENUE', FALSE, FALSE, FALSE, TRUE, 430, 'Impôt synthétique intermédiaire pour prestataires/consultants'),
+(23, 'RETENUE_ISI_5', 'Ancienne retenue ISI (inactive)', 'IMPOT', 'POURCENTAGE', 'RETENUE', FALSE, FALSE, FALSE, TRUE, 430, 'Historique uniquement : ISI général supprimé par la loi de finances 2026'),
 (24, 'INDEMNITE_TRANSPORT', 'Indemnité Forfaitaire de Déplacement', 'INDEMNITE_IMPOSABLE', 'MONTANT', 'GAIN', TRUE, TRUE, TRUE, TRUE, 500, 'Indemnité transport proratisée selon jours présents'),
 (25, 'INDEMNITE_REPAS', 'Indemnité Forfaitaire de Repas', 'INDEMNITE_IMPOSABLE', 'MONTANT', 'GAIN', TRUE, TRUE, TRUE, TRUE, 510, 'Repas midi 2 000 Ar par jour de présence validé'),
 (26, 'REMBOURSEMENT_NOTE_FRAIS', 'Remboursement Notes de Frais Validées', 'INDEMNITE_NON_IMPOSABLE', 'MONTANT', 'GAIN', FALSE, FALSE, FALSE, FALSE, 520, 'Remboursement des frais professionnels avancés'),
@@ -745,6 +798,7 @@ INSERT INTO paie_rubrique (id_rubrique, code, libelle, categorie, type_valeur, s
 (38, 'RETENUE_DIVERSE', 'Retenue exceptionnelle', 'RETENUE_DIVERSE', 'MONTANT', 'RETENUE', FALSE, FALSE, FALSE, FALSE, 640, 'Retenue nette manuelle motivée');
 
 SELECT setval('paie_rubrique_id_rubrique_seq', (SELECT GREATEST(MAX(id_rubrique), 38) FROM paie_rubrique));
+UPDATE paie_rubrique SET est_actif = FALSE WHERE code = 'RETENUE_ISI_5';
 
 UPDATE paie_rubrique SET etape_calcul = CASE
     WHEN sens = 'RETENUE' THEN 'RETENUE_NET'

@@ -361,10 +361,8 @@ public class PayrollService {
             }
         }
 
-        // Si validation réelle : génération automatique des bordereaux d'honoraires pour les consultants
+        // Les prestations indépendantes sont réglées sur facture, hors campagne de paie.
         if (!simulation) {
-            genererHonorairesPeriode(idPeriodePaie, idUtilisateur, c);
-
             // Si la période était en PAIE_VALIDEE, un recalcul la replace en VALIDEE (bulletins en attente d'approbation)
             String sqlReset = "UPDATE periode_paie SET " +
                     "id_statut_periode = (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'VALIDEE'), " +
@@ -380,10 +378,20 @@ public class PayrollService {
     }
 
     /**
-     * Génère ou actualise les bordereaux d'honoraires et prestations externes (Régime ISI 5%)
+     * Compatibilité historique avant 2026 uniquement. Les prestations nouvelles
+     * passent par le dossier prestataire et la facture hors paie.
      * pour tous les intervenants externes / consultants de la période.
      */
     public List<PaieHonorairePrestation> genererHonorairesPeriode(Integer idPeriodePaie, Integer idUtilisateur, Connection c) throws Exception {
+        try (PreparedStatement periode = c.prepareStatement("SELECT date_fin FROM periode_paie WHERE id_periode_paie = ?")) {
+            periode.setInt(1, idPeriodePaie);
+            try (ResultSet rs = periode.executeQuery()) {
+                if (!rs.next()) throw new IllegalArgumentException("Période de paie introuvable.");
+                if (!rs.getDate(1).toLocalDate().isBefore(java.time.LocalDate.of(2026, 1, 1))) {
+                    throw new IllegalStateException("Les honoraires ISI ne sont plus générés pour les périodes 2026. Utilisez le parcours fournisseur.");
+                }
+            }
+        }
         String sql = "SELECT DISTINCT e.id_employe, e.nom, e.prenom, e.cin_numero, e.adresse, e.ville, " +
                 "eac.salaire_base, f.libelle AS fonction_libelle, p.date_fin " +
                 "FROM employe e " +

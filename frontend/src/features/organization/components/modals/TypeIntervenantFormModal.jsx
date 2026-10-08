@@ -17,19 +17,13 @@ export default function TypeIntervenantFormModal({
 }) {
     const toggles = [
         ['soumisIrsa', "Soumis à l'Impôt sur le Revenu Salarial (IRSA)"],
-        ['soumisIsi5', "Soumis à la Retenue Libératoire ISI (Prestataires / Honoraires)"],
         ['soumisCnaps', "Cotise à la CNaPS (Caisse Nationale de Prévoyance Sociale)"],
         ['soumisSante', "Cotise aux organismes de santé interentreprises (OSTIE / OMSI)"],
     ];
 
     const handleToggle = (field, checked) => {
         const next = { ...formData, [field]: checked };
-        // Exclusivité mutuelle IRSA (salarié) vs ISI (prestataire externe)
-        if (field === 'soumisIrsa' && checked) {
-            next.soumisIsi5 = false;
-        } else if (field === 'soumisIsi5' && checked) {
-            next.soumisIrsa = false;
-        }
+        next.soumisIsi5 = false;
         setFormData(next);
     };
 
@@ -89,7 +83,7 @@ export default function TypeIntervenantFormModal({
                         ))}
                     </div>
                     <p className="text-[11px] text-[var(--color-fg-muted)]">
-                        Règle légale : À Madagascar, un intervenant est soit assujetti à l'IRSA (salarié), soit à la retenue ISI (prestation/honoraire) ; les deux régimes d'imposition sont mutuellement exclusifs.
+                        Les salariés sont traités en paie. Les consultants indépendants sont payés sur facture, hors de ce référentiel de cotisations.
                     </p>
                 </div>
             </form>

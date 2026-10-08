@@ -145,7 +145,7 @@ export default function ReferentielsRhTab() {
             code: ti.code,
             libelle: ti.libelle,
             soumisIrsa: ti.soumisIrsa !== false,
-            soumisIsi5: ti.soumisIsi5 === true,
+            soumisIsi5: false,
             soumisCnaps: ti.soumisCnaps !== false,
             soumisSante: ti.soumisSante !== false
         });

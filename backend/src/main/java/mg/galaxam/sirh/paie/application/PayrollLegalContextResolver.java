@@ -66,9 +66,6 @@ public class PayrollLegalContextResolver {
         // s'ajoutent au taux horaire de base (jamais en cascade multiplicative).
         input.setSpecialPremiumCollisionPolicy(SpecialPremiumCollisionPolicy.CUMUL_ADDITIF);
 
-        if (input.isSoumisIsi5()) {
-            input.setTauxIsi(PayrollFiscalRulesResolver.resolveIsiRate(targetDate, connection));
-        }
         resolveOvertimeRates(input, configId, targetDate, connection);
         input.setTranchesIrsa(PayrollFiscalRulesResolver.resolveIrsaBrackets(configId, targetDate, connection));
         resolveCompanySocialContributions(input, targetDate, connection);

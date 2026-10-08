@@ -200,12 +200,6 @@ const PARAMETRE_METADATA = {
     },
 
     // Paie & Fiscalité
-    TAUX_ISI: {
-        titre: "Taux de retenue ISI",
-        icone: Coins,
-        unite: "%",
-        explication: "Taux de retenue à la source (5%) sur les honoraires de prestataires de services externes (CGI).",
-    },
     MONTANT_PRIME_ASSIDUITE: {
         titre: "Montant forfaitaire de la prime d'assiduité",
         icone: Award,
@@ -262,16 +256,6 @@ const THEMATIC_BLOCKS = [
         effetCascade: "Si le taux ou l'un des deux seuils est désactivé, la pénalité conjointe n'est pas appliquée.",
         masterCode: 'TAUX_PENALITE_PP',
         codes: ['TAUX_PENALITE_PP', 'SEUIL_RETARD_PENALITE_PP_MIN', 'SEUIL_CONGES_PENALITE_PP_JOURS']
-    },
-    {
-        id: 'PAIE_FISCALITE',
-        categorie: 'PAIE',
-        titre: "Fiscalité Prestataires (ISI)",
-        sousTitre: "Retenue à la source sur prestations de services",
-        icone: Coins,
-        regleConjointe: "Retenue libératoire de 5% appliquée sur les règlements de prestataires sans NIF/STAT régulier (CGI).",
-        effetCascade: "Constante fiscale obligatoire.",
-        codes: ['TAUX_ISI']
     },
 
     // --- POINTAGE & TEMPS DE TRAVAIL ---
@@ -575,7 +559,8 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
     const filteredParametres = useMemo(() => {
         return parametres.filter(p => {
             // Exclure les paramètres fiscaux désormais entièrement pilotés par la Loi de Finances
-            if (p.codeParametre === 'EXONERATION_HS_IRSA_ACTIVE' || p.codeParametre === 'PLAFOND_MENSUEL_HS_EXONEREES') {
+            if (p.codeParametre === 'EXONERATION_HS_IRSA_ACTIVE' || p.codeParametre === 'PLAFOND_MENSUEL_HS_EXONEREES'
+                    || p.codeParametre === 'TAUX_ISI' || p.codeParametre === 'TAUX_ISI_POURCENT') {
                 return false;
             }
 

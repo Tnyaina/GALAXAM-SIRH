@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getErrorMessage } from '@/api/apiClient';
-import { Briefcase, Save, UserPlus, RotateCcw, Handshake } from 'lucide-react';
+import { Briefcase, Save, UserPlus, RotateCcw } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import { Textarea } from '@/components/ui/forms/Input';
 import FormError from '@/components/ui/feedback/FormError';
@@ -239,12 +239,6 @@ export default function EmbaucheModal({
             icon: RotateCcw,
             desc: `Continuité avec le contrat précédent (N° ${dernierContrat?.numeroContrat || 'Historique'}) et maintien des droits acquis.`,
         },
-        {
-            code: 'REPRISE_CONSULTANT',
-            title: 'Consultant / Prestation',
-            icon: Handshake,
-            desc: `Continuité d'ancienneté (N° ${dernierContrat?.numeroContrat || 'Historique'}) sous statut de prestation.`,
-        },
     ];
 
     const slideOverFooter = (
@@ -355,8 +349,8 @@ export default function EmbaucheModal({
                         setField={setField}
                         signatureOptional
                         filiales={filiales}
-                        typesContrat={typesContrat}
-                        typesIntervenant={typesIntervenant}
+                        typesContrat={typesContrat.filter(type => type.code !== 'PRESTATION')}
+                        typesIntervenant={typesIntervenant.filter(type => type.code !== 'CONSULTANT' && type.code !== 'PRESTATAIRE')}
                     />
 
                     {/* Section Période d'essai */}

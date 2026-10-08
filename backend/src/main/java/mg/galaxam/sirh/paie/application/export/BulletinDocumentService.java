@@ -139,7 +139,7 @@ public class BulletinDocumentService {
             cell(sheet, r, 0, "Gains bruts", label); numeric(sheet, r++, 3, b.getTotalGainsBruts(), total);
             cell(sheet, r, 0, "Cotisations salariales", label); numeric(sheet, r++, 4, b.getTotalCotisationsSalariales(), total);
             cell(sheet, r, 0, "Net imposable", label); numeric(sheet, r++, 3, b.getRevenuNetImposable(), total);
-            cell(sheet, r, 0, "IRSA / ISI", label); numeric(sheet, r++, 4, impot(b), total);
+            cell(sheet, r, 0, "IRSA", label); numeric(sheet, r++, 4, impot(b), total);
             cell(sheet, r, 0, "Ajouts au net", label); numeric(sheet, r++, 3, b.getTotalIndemnitesNonImposables(), total);
             cell(sheet, r, 0, "Avances et prêts", label); numeric(sheet, r++, 4, b.getTotalRetenuesAcomptePret(), total);
             r++;
@@ -255,7 +255,7 @@ public class BulletinDocumentService {
             summary("Gains bruts", b.getTotalGainsBruts());
             summary("Cotisations salariales", b.getTotalCotisationsSalariales());
             summary("Net imposable", b.getRevenuNetImposable());
-            summary("IRSA / ISI", impot(b));
+            summary("IRSA", impot(b));
             summary("Ajouts au net", b.getTotalIndemnitesNonImposables());
             summary("Avances et prêts", b.getTotalRetenuesAcomptePret());
             y -= 7;

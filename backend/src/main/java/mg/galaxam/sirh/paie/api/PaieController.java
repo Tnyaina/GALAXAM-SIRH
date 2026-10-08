@@ -399,13 +399,7 @@ public class PaieController {
     @GetMapping("/periode/{idPeriode}/export/edi-isi")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> telechargerEdiIsiXml(@PathVariable("idPeriode") Integer idPeriode, Authentication authentication) throws Exception {
-        requireOutput(idPeriode, authentication);
-        String xml = paieExportService.exporterEdiXml(idPeriode);
-        byte[] bytes = xml.getBytes(StandardCharsets.UTF_8);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"annexe_edi_isi_periode_" + idPeriode + ".xml\"")
-                .contentType(MediaType.APPLICATION_XML)
-                .body(bytes);
+        return ResponseEntity.status(410).body("L'export ISI est retiré du parcours de paie 2026.");
     }
 
     @GetMapping("/periode/{idPeriode}/export/dnts")

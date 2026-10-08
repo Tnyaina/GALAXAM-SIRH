@@ -58,6 +58,7 @@ public class ParametreGlobalController {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
+                verifierParametreIsi2026(request.getCodeParametre());
                 verifierVersionFutureDecompteConges(request, null);
                 if (request.getCodeParametre() != null && request.getDateDebut() != null) {
                     ParametreGlobal.cloturerPrecedent(request.getCodeParametre(), request.getDateDebut(), c);
@@ -103,6 +104,9 @@ public class ParametreGlobalController {
                 if (existing == null) {
                     throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Paramètre global non trouvé.");
                 }
+
+                verifierParametreIsi2026(existing.getCodeParametre());
+                verifierParametreIsi2026(request.getCodeParametre());
 
                 verifierVersionFutureDecompteConges(request, existing);
                 verifierAbsenceChevauchementFeries(request, id, c);
@@ -249,6 +253,12 @@ public class ParametreGlobalController {
      * Interdit sur les versions EN_VIGUEUR ou ARCHIVÉE.
      * Restaure automatiquement le date_fin=NULL de la version précédente.
      */
+    private static void verifierParametreIsi2026(String code) {
+        if ("TAUX_ISI".equalsIgnoreCase(code) || "TAUX_ISI_POURCENT".equalsIgnoreCase(code)) {
+            throw new IllegalArgumentException("Le taux ISI général est retiré du paramétrage des nouvelles paies 2026.");
+        }
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> annulerProgramme(@PathVariable int id) {
@@ -260,6 +270,7 @@ public class ParametreGlobalController {
                 if (cible == null) {
                     throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Paramètre global non trouvé.");
                 }
+                verifierParametreIsi2026(cible.getCodeParametre());
                 ParametreGlobal.annulerProgramme(id, c);
                 AuditLog.audit(c, "ANNULATION_PROGRAMME", "parametre_global", String.valueOf(id), cible, null);
                 c.commit();

@@ -11,7 +11,7 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
     const unavailableEvents = relevantEvTypes.filter(t => t.isEligible === false);
     const keepSelectedUnavailableVisible = unavailableEvents.some(t => t.code === formData.codeTypeEvenement);
     const displayUnavailable = showUnavailable || eligibleEvents.length === 0 || keepSelectedUnavailableVisible;
-    const visibleEvents = relevantEvTypes.filter(t => t.isEligible !== false || displayUnavailable);
+    const visibleEvents = relevantEvTypes.filter(t => t.code !== 'REPRISE_CONSULTANT' && (t.isEligible !== false || displayUnavailable));
     const contractualEvents = visibleEvents.filter(t => CONTRACTUAL_CODES.includes(t.code));
     const internalEvents = visibleEvents.filter(t => !CONTRACTUAL_CODES.includes(t.code));
 

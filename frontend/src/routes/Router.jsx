@@ -26,6 +26,7 @@ const GestionCongesPage = lazy(() => import("@/features/leave/pages/GestionConge
 
 // Module Paie & Rémunération
 const GestionPaiePage = lazy(() => import("@/features/payroll/pages/GestionPaiePage"));
+const PrestatairesPage = lazy(() => import("@/features/payroll/pages/PrestatairesPage"));
 
 // Sprint 2B — Pages d'étapes de campagne de paie
 const PreparationStepPage  = lazy(() => import("@/features/payroll/pages/PreparationStepPage"));
@@ -171,6 +172,7 @@ export default function Router() {
                     <Route element={<ProtectedRoute requiredPermission="PAIE_READ" allowedRoles={["ROLE_ADMIN"]} />}>
                         {/* Page d'accueil paie : Centre de paie opérationnel */}
                         <Route path="/paie" element={<GestionPaiePage />} />
+                        <Route path="/paie/prestataires" element={<PrestatairesPage />} />
                         <Route path="/paie/campagne" element={<ActiveCampaignRedirect />} />
                         <Route path="/paie/periodes" element={<ActiveCampaignRedirect />} />
                         <Route path="/paie/acomptes-avances" element={<AcomptesAvancesPage />} />

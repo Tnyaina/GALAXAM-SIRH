@@ -103,7 +103,11 @@ public class StcService {
             throw PayrollConfigurationGuard.missing("CATEGORIE_PROFESSIONNELLE", idEmploye,
                     dateDepartEffective.toString());
         prep.setCategorieProfessionnelle(catPro);
-        prep.setRegimeFiscal(emploi.soumisIsi5() ? "ISI" : "IRSA");
+        if ("PRESTATION".equalsIgnoreCase(emploi.typeContratCode())
+                || "CONSULTANT".equalsIgnoreCase(emploi.regimeCode()) || emploi.soumisIsi5()) {
+            throw new IllegalArgumentException("Le STC est réservé aux salariés. Une prestation indépendante se règle sur facture.");
+        }
+        prep.setRegimeFiscal("IRSA");
         BigDecimal salaireBase = emploi.salaireBase();
         if (salaireBase == null || salaireBase.signum() <= 0)
             throw PayrollConfigurationGuard.missing("SALAIRE", idEmploye, dateDepartEffective.toString());
@@ -421,17 +425,8 @@ public class StcService {
         res.setNetImposable(netImposable);
 
         BigDecimal irsaNet = BigDecimal.ZERO;
-        // Régime fiscal résolu une seule fois dans la préparation STC.
-        if ("ISI".equalsIgnoreCase(prep.getRegimeFiscal())) {
-            BigDecimal tauxIsi = PayrollFiscalRulesResolver.resolveIsiRate(req.getDateDepart().toLocalDate(), c);
-            BigDecimal isi = new PayrollTaxCalculations().calculateIsi(assietteFiscaleBrute, tauxIsi);
-            irsaNet = isi;
-            res.setIrsaNet(BigDecimal.ZERO);
-            res.ajouterLigne("RETENUE_ISI_5", "Retenue ISI", "RETENUE", assietteFiscaleBrute, tauxIsi, isi);
-        }
-
         // Calcul IRSA selon barème progressif dynamique unifié
-        if (!"ISI".equalsIgnoreCase(prep.getRegimeFiscal())) {
+        {
         LocalDate dateRefIrsa = req.getDateDepart().toLocalDate();
         List<Tranche> tranches = chargerTranchesIrsa(configLegale, dateRefIrsa, c);
         int nbEnfants = prep.getNbEnfantsACharge();

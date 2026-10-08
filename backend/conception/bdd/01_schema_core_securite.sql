@@ -291,7 +291,6 @@ INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, d
 (38, 'DUREE_REFERENCE_TCONGE_MOIS', 'CONGE', '12', 'TECHNICAL_VALIDITY_LOWER_BOUND — borne technique de validité du paramètre. Ne représente ni le début de la règle métier, ni le début d une campagne TCONGE, ni une date historique.', '2000-01-01', NULL, TRUE, FALSE),
 (39, 'EXONERATION_HS_IRSA_ACTIVE', 'PAIE', 'FALSE', 'Activation globale de l exonération fiscale des heures supplémentaires (CGI 01.03.03-9°)', '2001-07-01', NULL, TRUE, TRUE),
 (40, 'PLAFOND_MENSUEL_HS_EXONEREES', 'PAIE', '20.00', 'Plafond mensuel légal d heures supplémentaires exonérées d IRSA (CGI 01.03.03-9°)', '2001-07-01', NULL, TRUE, TRUE),
-(41, 'TAUX_ISI', 'PAIE', '5.00', 'Taux légal de la retenue libératoire ISI pour prestataires et consultants (CGI Madagascar)', '2022-01-01', NULL, TRUE, FALSE),
 (42, 'MONTANT_PRIME_ASSIDUITE', 'PAIE', '50000', 'Montant forfaitaire mensuel de la prime d assiduité (accordé si retards < seuil)', '2001-07-01', NULL, TRUE, TRUE)
 ON CONFLICT (code_parametre, date_debut) DO UPDATE SET valeur = EXCLUDED.valeur, description = EXCLUDED.description, est_actif = EXCLUDED.est_actif, est_desactivable = EXCLUDED.est_desactivable;
 SELECT setval('parametre_global_id_parametre_seq', (SELECT GREATEST(MAX(id_parametre), 42) FROM parametre_global));

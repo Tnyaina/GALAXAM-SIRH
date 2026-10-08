@@ -34,6 +34,7 @@ public class WorkflowRhService {
      */
     public WorkflowRhCPL creerBrouillonEmbauche(Integer idEmploye, EmbaucheInitialeRequest req, Integer currentUserId,
             Connection c) throws Exception {
+        verifierParcoursSalarie(req.getIdTypeContrat(), req.getIdTypeIntervenant(), c);
         // ── Vérification : pas de contrat actif ou brouillon existant ───────────
         ContratTravail contratActif = ContratTravail.rechercherActifParEmploye(idEmploye, c);
         if (contratActif != null) {
@@ -171,6 +172,13 @@ public class WorkflowRhService {
         }
 
         String typeEvenementCode = resolveCodeTypeEvenement(workflow.getIdTypeEvenementRh(), c);
+        if ("REPRISE_CONSULTANT".equals(typeEvenementCode)) {
+            throw new IllegalArgumentException("Un consultant indépendant doit être enregistré dans le parcours prestataires, hors carrière salariée.");
+        }
+        if (List.of("EMBAUCHE_INITIALE", "REPRISE_ANCIENNETE", "RENOUVELLEMENT_CDD",
+                "TRANSFORMATION_CDI", "EMBAUCHE_APRES_STAGE").contains(typeEvenementCode)) {
+            verifierContratCibleSalarie(workflow.getIdContratCible(), c);
+        }
 
         switch (typeEvenementCode) {
             case "EMBAUCHE_INITIALE" -> validerEmbaucheInitiale(workflow, req, currentUserId, c);
@@ -320,6 +328,9 @@ public class WorkflowRhService {
      */
     public WorkflowRhCPL creerBrouillonTransition(Integer idEmploye, TransitionCarriereRequest req,
             Integer currentUserId, Connection c) throws Exception {
+        if ("REPRISE_CONSULTANT".equals(req.getCodeTypeEvenement())) {
+            throw new IllegalArgumentException("Utilisez le parcours prestataires indépendants pour une prestation de conseil.");
+        }
         ContratTravail contratActif = ContratTravail.rechercherActifParEmploye(idEmploye, c);
         EmployeAffectationCarriere affectationActive = EmployeAffectationCarriere.rechercherActiveParEmploye(idEmploye,
                 c);
@@ -723,6 +734,11 @@ public class WorkflowRhService {
                         targetCodeIntervenant = rsTI.getString("code");
                 }
             }
+        }
+
+        if ("REPRISE_CONSULTANT".equals(evtCode) || "PRESTATION".equals(targetCodeContrat)
+                || "CONSULTANT".equals(targetCodeIntervenant) || "PRESTATAIRE".equals(targetCodeIntervenant)) {
+            throw new IllegalArgumentException("Une prestation indépendante se gère dans le dossier prestataires, hors carrière salariée.");
         }
 
         Integer essaiMois = req.getDureeEssaiMois();
@@ -1595,6 +1611,40 @@ public class WorkflowRhService {
                     if ("CDD".equalsIgnoreCase(code) && dateDebut != null && dateFin != null) {
                         CarriereTransitionValidator.validerDureeContratCDD(dateDebut, dateFin, c);
                     }
+                }
+            }
+        }
+    }
+
+    private static void verifierParcoursSalarie(Integer idTypeContrat, Integer idTypeIntervenant, Connection c)
+            throws SQLException {
+        if (idTypeContrat == null || idTypeIntervenant == null) return;
+        String sql = "SELECT tc.code, ti.code FROM ref_type_contrat tc CROSS JOIN ref_type_intervenant ti "
+                + "WHERE tc.id_type_contrat=? AND ti.id_type_intervenant=?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idTypeContrat);
+            ps.setInt(2, idTypeIntervenant);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && ("PRESTATION".equals(rs.getString(1))
+                        || "CONSULTANT".equals(rs.getString(2)) || "PRESTATAIRE".equals(rs.getString(2)))) {
+                    throw new IllegalArgumentException("Une prestation indépendante se crée dans le dossier prestataires, hors contrat de travail salarié.");
+                }
+            }
+        }
+    }
+
+    private static void verifierContratCibleSalarie(Integer idContrat, Connection c) throws SQLException {
+        if (idContrat == null) return;
+        String sql = "SELECT rtc.code, rti.code FROM contrat_travail ct "
+                + "JOIN ref_type_contrat rtc ON rtc.id_type_contrat=ct.id_type_contrat "
+                + "JOIN ref_type_intervenant rti ON rti.id_type_intervenant=ct.id_type_intervenant "
+                + "WHERE ct.id_contrat=?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idContrat);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && ("PRESTATION".equals(rs.getString(1))
+                        || "CONSULTANT".equals(rs.getString(2)) || "PRESTATAIRE".equals(rs.getString(2)))) {
+                    throw new IllegalArgumentException("Une prestation indépendante se gère dans le dossier prestataires, hors carrière salariée.");
                 }
             }
         }

@@ -1,5 +1,13 @@
 # Registre des Migrations Incrémentales BDD
 
+`26-10-08-sp62-isi-2026.sql` désactive le taux et la rubrique ISI, remet les
+types d'intervenants en cohérence avec la loi de finances 2026 et ajoute le
+type `CONSULTANT_SALARIE`. Les anciennes lignes de paie restent intactes.
+
+`26-10-08-sp63-prestataires-independants.sql` crée les dossiers prestataires,
+leurs contrats et leurs factures, sans retenue ISI ni lien obligatoire avec un
+employé ou une période de paie.
+
 `26-10-08-sp60-stc-motifs-rupture.sql` ajoute les motifs détaillés du STC
 pour les bases existantes. Le référentiel canonique `02_schema_referentiels_rh.sql`
 les contient pour les nouvelles installations.

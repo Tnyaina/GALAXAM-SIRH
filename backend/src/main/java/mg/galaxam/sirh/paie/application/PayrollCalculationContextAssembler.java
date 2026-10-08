@@ -95,8 +95,6 @@ final class PayrollCalculationContextAssembler {
             throw PayrollConfigurationGuard.missing("COTISATION_SANTE", employe, in.getDateFinPeriode().toString());
         if (in.isSoumisIrsa() && (in.getTranchesIrsa() == null || in.getTranchesIrsa().isEmpty()))
             throw PayrollConfigurationGuard.missing("BAREME_IRSA", employe, in.getDateFinPeriode().toString());
-        if (in.isSoumisIsi5() && in.getTauxIsi() == null)
-            throw PayrollConfigurationGuard.missing("TAUX_ISI", employe, in.getDateFinPeriode().toString());
     }
 
     private static String exigerValeur(String valeur, String type, Integer employe) {
@@ -150,11 +148,16 @@ final class PayrollCalculationContextAssembler {
         in.setNomSite(exigerValeur(emploi.nomSite(), "SITE", idEmploye));
         in.setCodeSite(exigerValeur(emploi.codeSite(), "SITE", idEmploye));
         in.setNomFiliale(exigerValeur(emploi.filialeNom(), "FILIALE", idEmploye));
+        if ("PRESTATION".equalsIgnoreCase(emploi.typeContratCode())
+                || "CONSULTANT".equalsIgnoreCase(emploi.regimeCode())
+                || emploi.soumisIsi5()) {
+            throw new IllegalArgumentException("Un prestataire indépendant ne peut pas recevoir un bulletin de paie. Utilisez le parcours de facturation fournisseur.");
+        }
         in.setRegimeIntervenant(exigerValeur(emploi.regimeCode(), "TYPE_INTERVENANT", idEmploye));
         in.setSoumisCnaps(emploi.soumisCnaps());
         in.setSoumisSante(emploi.soumisSante());
         in.setSoumisIrsa(emploi.soumisIrsa());
-        in.setSoumisIsi5(emploi.soumisIsi5());
+        in.setSoumisIsi5(false);
         in.setCategorieProfessionnelle(exigerValeur(emploi.categorieProCode(),
                 "CATEGORIE_PROFESSIONNELLE", idEmploye));
         in.setCategorieEligibleExonerationHs(emploi.estEligibleExonerationHs());

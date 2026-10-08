@@ -954,7 +954,7 @@ public class PayrollPeriodWorkflowService {
                 period.id(), period.state(), PayrollAction.GENERATE_OUTPUT, user, connection);
         String status = capability.allowed() ? "AVAILABLE" : "BLOCKED";
         String checksum = payrollSourceChecksum(period, connection);
-        return List.of("PAYSLIPS", "BANK_TRANSFER", "SAFI", "ISI", "DNTS", "HEALTH").stream()
+        return List.of("PAYSLIPS", "BANK_TRANSFER", "SAFI", "DNTS", "HEALTH").stream()
                 .map(code -> new PayrollOutputView(
                         code, status, period.version(), checksum, period.code()))
                 .toList();

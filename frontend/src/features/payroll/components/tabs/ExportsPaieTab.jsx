@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { 
     FileSpreadsheet, 
-    FileCode, 
     Download, 
     CreditCard, 
     Eye, 
@@ -191,48 +190,7 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
                     </div>
                 </div>
 
-                {/* 2. Télé-Déclaration EDI ISI XML (DGI Prestataires) */}
-                <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 flex items-center justify-center bg-[var(--color-purple-500)]/10 text-[var(--color-purple-600)] border border-[var(--color-purple-500)]/20">
-                                    <FileCode size={20} />
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-bold text-[var(--color-fg)]">
-                                        EDI ISI — Télé-Déclaration XML
-                                    </h4>
-                                    <Badge variant="purple" size="xs" className="mt-0.5">
-                                        DGI Madagascar • Régime Prestataires 5%
-                                    </Badge>
-                                </div>
-                            </div>
-                        </div>
-
-                        <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed mb-4">
-                            Fichier XML conforme au schéma XSD de la Direction Générale des Impôts pour la déclaration 
-                            et le versement de l'Impôt Synthétique Intermittent (ISI 5%) retenu à la source sur les honoraires 
-                            des consultants et prestataires externes.
-                        </p>
-                    </div>
-
-                    <div className="pt-3 border-t border-[var(--color-border-subtle)] flex items-center justify-end">
-                        <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={() => handleDownload('edi-isi', 'EDI ISI XML')}
-                            disabled={!outputAllowed || downloading === 'edi-isi'}
-                            title={outputReason}
-                            className="flex items-center gap-1.5 text-xs"
-                        >
-                            <Download size={13} />
-                            {downloading === 'edi-isi' ? 'Export XML...' : 'Télécharger XML EDI ISI'}
-                        </Button>
-                    </div>
-                </div>
-
-                {/* 3. Déclaration CNaPS / FMFP — DNTS */}
+                {/* 2. Déclaration CNaPS / FMFP — DNTS */}
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 flex flex-col justify-between">
                     <div>
                         <div className="flex items-center justify-between mb-3">
@@ -284,7 +242,7 @@ export default function ExportsPaieTab({ idPeriodeActive, codePeriode, outputCap
                     </div>
                 </div>
 
-                {/* 4. Ordre de Virement Bancaire */}
+                {/* 3. Ordre de Virement Bancaire */}
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 flex flex-col justify-between">
                     <div>
                         <div className="flex items-center justify-between mb-3">

@@ -17,7 +17,7 @@ export default function TypesIntervenantList({
                         Régimes Fiscaux & Sociaux des Intervenants ({typesIntervenant.length})
                     </h3>
                     <p className="text-xs text-[var(--color-fg-muted)]">
-                        Assujettissements légaux (IRSA, Retenue ISI, CNaPS, Santé) applicables par profil d'intervenant.
+                        Assujettissements des salariés. Les indépendants sont réglés sur facture.
                     </p>
                 </div>
             </div>
@@ -27,7 +27,6 @@ export default function TypesIntervenantList({
                     <Th>Code</Th>
                     <Th>Libellé</Th>
                     <Th className="text-center">IRSA</Th>
-                    <Th className="text-center">Retenue ISI</Th>
                     <Th className="text-center">CNaPS</Th>
                     <Th className="text-center">Santé</Th>
                     <Th>Statut</Th>
@@ -42,11 +41,6 @@ export default function TypesIntervenantList({
                                 <Td className="text-center">
                                     <Badge variant={ti.soumisIrsa ? 'success' : 'default'} size="sm">
                                         {ti.soumisIrsa ? 'Oui' : 'Non'}
-                                    </Badge>
-                                </Td>
-                                <Td className="text-center">
-                                    <Badge variant={ti.soumisIsi5 ? 'warning' : 'default'} size="sm">
-                                        {ti.soumisIsi5 ? 'Oui' : 'Non'}
                                     </Badge>
                                 </Td>
                                 <Td className="text-center">
@@ -94,7 +88,7 @@ export default function TypesIntervenantList({
                         ))
                     ) : (
                         <Tr>
-                            <Td colSpan={8} className="p-0">
+                            <Td colSpan={7} className="p-0">
                                 <EmptyState title="Aucun type d'intervenant" description="Aucun type d'intervenant configuré." />
                             </Td>
                         </Tr>

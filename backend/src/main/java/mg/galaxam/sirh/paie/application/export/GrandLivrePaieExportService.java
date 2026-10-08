@@ -27,7 +27,7 @@ public class GrandLivrePaieExportService {
             "Matricule", "Nom & prénom", "Filiale", "Site", "Poste", "Type contrat",
             "Salaire de base", "Absence (h)", "Retenue absence", "Congés (j)", "Indemnité congé",
             "Heures sup.", "Indemnités / primes", "Salaire brut", "CNaPS salarié", "Santé salarié",
-            "Net imposable", "IRSA / ISI", "Avance / acompte", "Prêt", "Autres retenues",
+            "Net imposable", "IRSA", "Avance / acompte", "Prêt", "Autres retenues",
             "Net à payer", "Cotisations patronales", "Coût employeur"
     };
     private static final String[] DETAIL_COLUMNS = {
@@ -184,7 +184,7 @@ public class GrandLivrePaieExportService {
         sheet.setColumnWidth(0, 10000); sheet.setColumnWidth(1, 6500); sheet.setColumnWidth(2, 6500);
         cell(sheet, 3, 0, s.header).setCellValue("Indicateur");
         cell(sheet, 3, 1, s.header).setCellValue("Valeur");
-        String[] labels = {"Nombre de bulletins", "Nombre de lignes de rubrique", "Salaire brut total", "Net imposable total", "IRSA / ISI total", "Net à payer total", "Cotisations patronales totales"};
+        String[] labels = {"Nombre de bulletins", "Nombre de lignes de rubrique", "Salaire brut total", "Net imposable total", "IRSA total", "Net à payer total", "Cotisations patronales totales"};
         int[] cols = {-1, -1, 13, 16, 17, 21, 22};
         for (int i = 0; i < labels.length; i++) {
             cell(sheet, 4 + i, 0, s.text).setCellValue(labels[i]);

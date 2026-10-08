@@ -18,7 +18,7 @@ public class RefTypeCotisation extends ClassMere {
     private BigDecimal tauxPatronal;
     private Date dateDebut;
     private Date dateFin;
-    /** 'ENTREPRISE' (FMFP, ISI) ou 'SITE' (CNAPS, OSTIE, OMSI) */
+    /** 'ENTREPRISE' (FMFP) ou 'SITE' (CNAPS, OSTIE, OMSI). */
     private String portee;
     /** 'PREVOYANCE', 'SANTE', 'FORMATION' */
     private String categorie = "SANTE";
@@ -322,4 +322,3 @@ public class RefTypeCotisation extends ClassMere {
     public boolean isEstActif() { return estActif; }
     public void setEstActif(boolean estActif) { this.estActif = estActif; }
 }
-

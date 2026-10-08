@@ -259,6 +259,12 @@ export default function GestionPaiePage() {
                 )}
             />
 
+            <div className="mb-4 flex justify-end">
+                <Button variant="outline" onClick={() => navigate('/paie/prestataires')}>
+                    Prestataires indépendants · contrats et factures
+                </Button>
+            </div>
+
             {error && (
                 <div className="mb-2">
                     <Alert

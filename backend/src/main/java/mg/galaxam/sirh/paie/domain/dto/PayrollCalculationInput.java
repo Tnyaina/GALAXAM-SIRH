@@ -458,13 +458,13 @@ public class PayrollCalculationInput {
                     this.soumisCnaps = false;
                     this.soumisSante = false;
                     this.soumisIrsa = false;
-                    this.soumisIsi5 = true;
+                    this.soumisIsi5 = false;
                     break;
                 case "TEMPORAIRE":
-                    this.soumisCnaps = false;
-                    this.soumisSante = false;
-                    this.soumisIrsa = false;
-                    this.soumisIsi5 = true;
+                    this.soumisCnaps = true;
+                    this.soumisSante = true;
+                    this.soumisIrsa = true;
+                    this.soumisIsi5 = false;
                     break;
                 case "STAGIAIRE":
                     this.soumisCnaps = false;

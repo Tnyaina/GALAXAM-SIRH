@@ -112,7 +112,7 @@ CREATE TABLE ref_type_intervenant (
     code VARCHAR(20) NOT NULL UNIQUE,
     libelle VARCHAR(100) NOT NULL,
     soumis_irsa BOOLEAN NOT NULL,
-    soumis_isi_5 BOOLEAN NOT NULL,
+    soumis_isi_5 BOOLEAN NOT NULL CHECK (soumis_isi_5 = FALSE),
     soumis_cnaps BOOLEAN NOT NULL,
     soumis_sante BOOLEAN NOT NULL,
     est_actif BOOLEAN DEFAULT TRUE
@@ -316,10 +316,11 @@ SELECT setval('ref_type_contrat_id_type_contrat_seq', (SELECT GREATEST(MAX(id_ty
 -- Types d'Intervenants
 INSERT INTO ref_type_intervenant (id_type_intervenant, code, libelle, soumis_irsa, soumis_isi_5, soumis_cnaps, soumis_sante) VALUES
 (1, 'PERMANENT', 'Salarié Permanent', TRUE, FALSE, TRUE, TRUE),
-(2, 'CONSULTANT', 'Consultant Indépendant (+60 ans)', FALSE, TRUE, FALSE, TRUE),
-(3, 'TEMPORAIRE', 'Travailleur Temporaire', FALSE, TRUE, FALSE, FALSE),
-(4, 'STAGIAIRE', 'Stagiaire', FALSE, FALSE, FALSE, FALSE);
-SELECT setval('ref_type_intervenant_id_type_intervenant_seq', (SELECT GREATEST(MAX(id_type_intervenant), 4) FROM ref_type_intervenant));
+(2, 'CONSULTANT', 'Consultant indépendant (hors paie)', FALSE, FALSE, FALSE, FALSE),
+(3, 'TEMPORAIRE', 'Travailleur temporaire salarié', TRUE, FALSE, TRUE, TRUE),
+(4, 'STAGIAIRE', 'Stagiaire', FALSE, FALSE, FALSE, FALSE),
+(5, 'CONSULTANT_SALARIE', 'Consultant salarié', TRUE, FALSE, TRUE, TRUE);
+SELECT setval('ref_type_intervenant_id_type_intervenant_seq', (SELECT GREATEST(MAX(id_type_intervenant), 5) FROM ref_type_intervenant));
 
 -- Statuts RH
 INSERT INTO ref_statut_rh (id_statut_rh, code, libelle, ordre, est_terminal) VALUES
@@ -460,4 +461,3 @@ INSERT INTO ref_calendrier_ferie (id_ferie, date_ferie, libelle, est_chome, est_
 (14, '2026-12-25', 'Noël',                                   TRUE, TRUE, TRUE);
 
 SELECT setval('ref_calendrier_ferie_id_ferie_seq', (SELECT GREATEST(MAX(id_ferie), 14) FROM ref_calendrier_ferie));
-

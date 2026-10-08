@@ -251,10 +251,6 @@ export const paieService = {
                 endpoint = `paie/periode/${idPeriode}/export/safi-ods`;
                 defaultFilename = `modele_declaration_irsa_safi_periode_${idPeriode}.ods`;
                 break;
-            case 'edi-isi':
-                endpoint = `paie/periode/${idPeriode}/export/edi-isi`;
-                defaultFilename = `annexe_edi_isi_periode_${idPeriode}.xml`;
-                break;
             case 'dnts-csv':
                 endpoint = `paie/periode/${idPeriode}/export/dnts`;
                 defaultFilename = `dnts_cnaps_fmfp_periode_${idPeriode}.csv`;

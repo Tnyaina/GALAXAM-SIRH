@@ -47,6 +47,9 @@ public class RefTypeIntervenant extends ClassMere {
             throw new IllegalArgumentException(
                     "Les assujettissements IRSA, ISI, CNaPS et santé doivent être renseignés explicitement.");
         }
+        if (Boolean.TRUE.equals(soumisIsi5)) {
+            throw new IllegalArgumentException("La retenue ISI générale n'est plus disponible pour les intervenants en 2026.");
+        }
         this.code = this.code.trim().toUpperCase();
 
         RefTypeIntervenant existant = rechercherParCode(this.code, c);

@@ -23,7 +23,7 @@ import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
  * 1. Salaire brut & gains (Salaire de base, absences, congés, HS, primes)
  * 2. Cotisations sociales (plafond légal daté pour CNaPS et santé selon organisme, FMFP)
  * 3. Net imposable
- * 4. Fiscalité (Barème progressif IRSA 6 tranches, déductions familiales, minimum 3000 Ar, ou ISI 5%)
+ * 4. Fiscalité salariale IRSA ; l'ancien champ ISI reste nul en 2026.
  * 5. Remboursements et indemnités réellement non imposables
  * 6. Retenues de trésorerie (Acomptes, Avances plafonnées 1/10 Art. 68, Prêts plafonnés 1/3 Art. 72)
  * 7. Net à payer bancaire & arrondi monétaire officiel
@@ -71,7 +71,7 @@ public class PayrollExecutionEngine {
         // 3.1 Exonération fiscale des Heures Supplémentaires (CGI Art. 01.03.03-9°)
         OvertimeExemptionDetail hsExo = calculerExonerationFiscaleHs(input, input.getTauxHoraireEffectif(), bp, lignes);
 
-        // 4. Fiscalité (IRSA progressif ou ISI 5%)
+        // 4. Fiscalité salariale IRSA.
         FiscaliteResult fisc = calculerFiscalite(revenuNetAvantImpot, hsExo.hsExonereeIrsa(), totalGainsBruts, input, bp, lignes);
 
         // 5. Remboursements et indemnités réellement non imposables.
@@ -710,7 +710,7 @@ public class PayrollExecutionEngine {
     }
 
     // =========================================================================
-    // 5. FISCALITÉ — IRSA OU ISI 5% (Palier 4)
+    // 5. FISCALITÉ SALARIALE — IRSA (Palier 4)
     // =========================================================================
 
     public FiscaliteResult calculerFiscalite(BigDecimal salaireNetImposable, BigDecimal totalGainsBruts,
@@ -725,17 +725,10 @@ public class PayrollExecutionEngine {
         PayrollTaxCalculations.Result detailIrsa = null;
 
         if (input.isSoumisIsi5()) {
-            // Régime Prestataire / Consultant : Retenue libératoire ISI directe de 5%
-            BigDecimal tauxIsi = input.getTauxIsi();
-            if (tauxIsi == null) {
-                throw new IllegalStateException("TAX_CONFIGURATION_MISSING: ISI");
-            }
-            retenueIsi = new PayrollTaxCalculations().calculateIsi(totalGainsBruts, tauxIsi);
-            lignes.add(creerLigne(bp, "RETENUE_ISI_5", "Retenue Libératoire ISI (" + tauxIsi.stripTrailingZeros().toPlainString() + "%)", "RETENUE", "IMPOT",
-                    totalGainsBruts, tauxIsi, retenueIsi, null, 430));
-            bp.setRetenueIsi5(retenueIsi);
-            bp.setIrsaNet(MoneyRoundingPolicy.tax(BigDecimal.ZERO));
-        } else if (input.isSoumisIrsa()) {
+            throw new IllegalArgumentException("La retenue ISI n'est plus applicable aux bulletins de paie 2026.");
+        }
+        bp.setRetenueIsi5(BigDecimal.ZERO);
+        if (input.isSoumisIrsa()) {
             // Assiette IRSA Fiscale : Net Imposable Social - Rémunération des HS exonérées (CGI Art. 01.03.03-9°)
             BigDecimal gainsBrutsExoneres = (input.getGainsVariablesDynamiques() != null
                     ? input.getGainsVariablesDynamiques() : List.<PayrollCalculationInput.GainVariable>of()).stream()

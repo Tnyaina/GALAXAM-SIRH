@@ -104,8 +104,9 @@ Les noms des champs JSON restent ceux des records, sans enveloppe nouvelle.
 
 | Responsabilité | Fichier à ouvrir |
 | --- | --- |
-| IRSA et ISI, calculs purs | `domain/engine/PayrollTaxCalculations.java` (`calculateIrsa`, `calculateIsi`) |
-| Versions datées du barème IRSA et du taux ISI | `application/PayrollFiscalRulesResolver.java` |
+| IRSA des salariés | `domain/engine/PayrollTaxCalculations.java` (`calculateIrsa`) |
+| Versions datées du barème IRSA | `application/PayrollFiscalRulesResolver.java` |
+| Prestataires indépendants, contrats, factures et paiements | `api/PrestataireController.java` ; voir `PRESTATAIRES_2026.md` |
 | Montant, validité et assiettes des rubriques manuelles | `domain/engine/ManualPayrollRules.java` |
 | Lecture de la version de rubrique en base | `application/ManualRubriqueResolver.java` |
 | Statuts de la campagne Pointage/Paie | `application/workflow/PayrollWorkflowStatusResolver.java` |

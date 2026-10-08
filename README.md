@@ -46,10 +46,11 @@ Le système est conçu pour une **durabilité pluriannuelle autonome** (exercice
 - Résolution temporelle `TCONGE` : détermination unitaire du taux journalier applicable pour l'indemnisation de congé payé et la liquidation en Solde de Tout Compte.
 - Renouvellement automatique : méthode `ensureReferencePeriod` garantissant l'ouverture idempotente de chaque exercice annuel (du 01/01/N au 31/12/N) sans duplication.
 
-### Moteur de Paie Dual et Immutabilité
+### Paie salariée, prestataires et immutabilité
 - Régimes fiscaux traités :
   - **Régime Général des Salariés :** cotisations salariales et patronales CNaPS (plafonné à 8 fois le SME), FMFP (1 %), organisme de santé (1 % salarié / 5 % à 6 % employeur selon barème de site), déduction de l'IRSA progressif par tranches avec minimum de perception légal.
-  - **Régime des Prestataires et Consultants Retraités :** retenue à la source ISI (5 %) et couverture sanitaire obligatoire.
+  - **Consultant salarié :** traité comme salarié selon son contrat, avec IRSA et cotisations applicables.
+  - **Prestataire indépendant :** contrat de prestation, facture PDF et paiement hors bulletin. La retenue ISI générale est désactivée pour le démarrage 2026.
 - Traitement des variables : intégration automatique des acomptes sur salaire, retenues sur prêts en cours, primes et gratifications exceptionnelles.
 - Périodes de paie chevauchantes (ex. 26/12/2025 au 25/01/2026) : résolution journalière des salaires contractuels multiples au prorata temporis exact.
 - Règle d'immutabilité : tout bulletin validé (`VALIDE`) est sanctuarisé contre tout recalcul automatisé silencieux. Les réouvertures requièrent une action tracée avec audit trail.
@@ -114,7 +115,7 @@ GALAXAM-SIRH/
 │   │   ├── cron/                            # Schedulers et rattrapages automatisés
 │   │   ├── dashboard/                       # Indicateurs clés et reporting
 │   │   ├── employe/                         # Gestion administrative du collaborateur
-│   │   ├── paie/                            # Moteur de paie, fiscalité IRSA/ISI, STC
+│   │   ├── paie/                            # Paie salariée IRSA, STC et factures prestataires distinctes
 │   │   ├── pointage/                        # Saisie des temps, snapshots et indemnités
 │   │   └── securite/                        # Authentification, habilitations et audit
 │   ├── src/main/resources/                  # Configuration Spring et modèles de documents
