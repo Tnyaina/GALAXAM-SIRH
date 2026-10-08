@@ -7,6 +7,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
 
@@ -19,14 +21,44 @@ public final class CongeDecompteCalendaireResolver {
 
     public static BigDecimal calculer(int employe, LocalDate debut, LocalDate fin,
             boolean demiJournee, Connection c) throws SQLException {
-        if (debut == null || fin == null || fin.isBefore(debut))
-            throw new IllegalArgumentException("Dates du congé invalides.");
-        if (demiJournee && !debut.equals(fin))
-            throw new IllegalArgumentException("Une demi-journée ne peut couvrir plusieurs dates.");
-        BigDecimal total = BigDecimal.ZERO;
-        for (LocalDate jour = debut; !jour.isAfter(fin); jour = jour.plusDays(1)) {
+        return session(employe, c).calculer(debut, fin, demiJournee);
+    }
+
+    /** Cache de courte durée pour les jours communs aux demandes d'un même calcul. */
+    public static Session session(int employe, Connection c) {
+        return new Session(employe, c);
+    }
+
+    public static final class Session {
+        private final int employe;
+        private final Connection connection;
+        private final Map<LocalDate, Boolean> joursComptes = new HashMap<>();
+
+        private Session(int employe, Connection connection) {
+            this.employe = employe;
+            this.connection = connection;
+        }
+
+        public BigDecimal calculer(LocalDate debut, LocalDate fin, boolean demiJournee) throws SQLException {
+            if (debut == null || fin == null || fin.isBefore(debut))
+                throw new IllegalArgumentException("Dates du congé invalides.");
+            if (demiJournee && !debut.equals(fin))
+                throw new IllegalArgumentException("Une demi-journée ne peut couvrir plusieurs dates.");
+            BigDecimal total = BigDecimal.ZERO;
+            for (LocalDate jour = debut; !jour.isAfter(fin); jour = jour.plusDays(1)) {
+                Boolean compte = joursComptes.get(jour);
+                if (compte == null) {
+                    compte = compterJour(jour);
+                    joursComptes.put(jour, compte);
+                }
+                if (compte) total = total.add(demiJournee ? new BigDecimal("0.5") : BigDecimal.ONE);
+            }
+            return total.setScale(1);
+        }
+
+        private boolean compterJour(LocalDate jour) throws SQLException {
             var resolution = ParametreGlobal.resolve(
-                    ParametreGlobal.loadEtatMapAtDate(Date.valueOf(jour), c), PARAMETRE);
+                    ParametreGlobal.loadEtatMapAtDate(Date.valueOf(jour), connection), PARAMETRE);
             if (resolution.isMissing()) throw new IllegalStateException(
                     "CONFIGURATION_MISSING: " + PARAMETRE + " au " + jour
                             + " (aucune version applicable ; aucune valeur implicite)");
@@ -37,10 +69,8 @@ public final class CongeDecompteCalendaireResolver {
             if (!"INCLUS".equals(valeur) && !"EXCLUS".equals(valeur))
                 throw new IllegalStateException("CONFIGURATION_INVALID: " + PARAMETRE
                         + "=" + valeur + " au " + jour);
-            if ("EXCLUS".equals(valeur) && estFerie(employe, jour, c)) continue;
-            total = total.add(demiJournee ? new BigDecimal("0.5") : BigDecimal.ONE);
+            return !"EXCLUS".equals(valeur) || !estFerie(employe, jour, connection);
         }
-        return total.setScale(1);
     }
 
     private static boolean estFerie(int employe, LocalDate jour, Connection c) throws SQLException {

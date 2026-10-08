@@ -54,20 +54,23 @@ export default function GestionCongesPage() {
   const loadGlobalData = useCallback(async () => {
     const requestId = ++requestSequence.current;
     setError(null);
+    const needsReferentiels = activeTab !== 'periodes';
     const [pendingResult, refsResult, pendingRatesResult] = await Promise.allSettled([
         congeService.getAllDemandes({ statut: 'EN_ATTENTE', page: 1, size: 1 }),
-        congeService.getAllReferentiels(),
+        needsReferentiels ? congeService.getAllReferentiels() : Promise.resolve(null),
         congeService.getPeriodesEnAttenteActivation(),
     ]);
     if (requestId !== requestSequence.current) return;
     setNbEnAttente(pendingResult.status === 'fulfilled' ? pendingResult.value?.totalElements ?? null : null);
-    setReferentiels(refsResult.status === 'fulfilled' ? refsResult.value?.data || refsResult.value || null : null);
+    if (needsReferentiels) {
+      setReferentiels(refsResult.status === 'fulfilled' ? refsResult.value?.data || refsResult.value || null : null);
+    }
     const pendingRates = pendingRatesResult.status === 'fulfilled' && Array.isArray(pendingRatesResult.value)
       ? pendingRatesResult.value : [];
     setPeriodesEnAttente(pendingRates);
     const failed = [pendingResult, refsResult].find(result => result.status === 'rejected');
     if (failed) setError(getErrorMessage(failed.reason, 'Certaines données des congés sont indisponibles.'));
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
     loadGlobalData();

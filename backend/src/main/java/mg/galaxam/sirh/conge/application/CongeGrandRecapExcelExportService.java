@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
-import mg.galaxam.sirh.contrat.domain.EmploymentContext;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
@@ -158,7 +157,9 @@ public class CongeGrandRecapExcelExportService {
                 for (int i = 0; i < titres.length; i++) enteteLots.createCell(i).setCellValue(titres[i]);
                 int ligneLot = 1;
                 for (Ligne ligne : lignes) {
-                    var situation = lots.situation(ligne.idEmploye(), dateFin, connection);
+                    // chargerLignes a déjà calculé la situation FIFO pour la valeur de la colonne O.
+                    // Réutiliser ce même instantané évite de relire et recalculer tout le ledger.
+                    var situation = ligne.situation();
                     for (var lot : situation.lots()) {
                         Row row = ventilation.createRow(ligneLot++);
                         row.createCell(0).setCellValue(ligne.matricule());
@@ -182,6 +183,11 @@ public class CongeGrandRecapExcelExportService {
                     }
                 }
                 for (int i = 0; i < titres.length; i++) ventilation.autoSizeColumn(i);
+                // Le modèle métier FIFO n'est plus nécessaire : toutes ses données sont
+                // maintenant matérialisées dans les deux feuilles du classeur. Libérer ces
+                // objets avant la sérialisation évite de les garder en mémoire en parallèle
+                // avec le buffer XLSX final.
+                lignes.clear();
                 workbook.setForceFormulaRecalculation(true);
                 ByteArrayOutputStream output = new ByteArrayOutputStream();
                 workbook.write(output);
@@ -250,7 +256,7 @@ public class CongeGrandRecapExcelExportService {
                       WHERE historic.id_employe = e.id_employe AND historic.date_mouvement <= ?))
                 ORDER BY e.matricule
                 """;
-        List<Ligne> lignes = new ArrayList<>();
+        List<RawLigne> rawRows = new ArrayList<>();
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int parameter = 1;
             for (int i = 0; i < 7; i++) statement.setDate(parameter++, Date.valueOf(dateDebut));
@@ -268,32 +274,41 @@ public class CongeGrandRecapExcelExportService {
                         throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: plusieurs périodes de référence congés pour le matricule "
                                 + rs.getString("matricule") + " à la date " + dateFin);
                     }
-                    BigDecimal ouverture = rs.getBigDecimal("ouverture");
-                    BigDecimal acquis = rs.getBigDecimal("acquis");
-                    BigDecimal bonification = rs.getBigDecimal("bonification");
-                    BigDecimal ajustement = rs.getBigDecimal("ajustement");
-                    BigDecimal pris = rs.getBigDecimal("pris");
-                    BigDecimal expiration = rs.getBigDecimal("expiration");
-                    BigDecimal annulation = rs.getBigDecimal("annulation");
-                    BigDecimal solde = rs.getBigDecimal("solde");
-                    BigDecimal taux = rs.getBigDecimal("taux_journalier");
-                    BigDecimal cumulValoAcquise = rs.getBigDecimal("cumul_valo_acquise");
-                    String periode = rs.getDate("periode_debut") == null ? "—"
-                            : rs.getDate("periode_debut").toLocalDate().format(DATE_FORMAT) + " – "
-                            + rs.getDate("periode_fin").toLocalDate().format(DATE_FORMAT);
-                    int employe = rs.getInt("id_employe");
-                    EmploymentContext contexte = employmentContextResolver.resolveContext(employe, dateFin, connection);
-                    BigDecimal valeurHistorique = lots.situation(employe, dateFin, connection).soldeValorisation();
-                    lignes.add(new Ligne(employe, rs.getString("matricule"),
-                            (rs.getString("nom") + " " + rs.getString("prenom")).trim(),
-                            contexte == null ? "—" : textOrDash(contexte.filialeNom()),
-                            contexte == null ? "—" : textOrDash(contexte.nomSite()),
-                            contexte == null ? "—" : textOrDash(contexte.fonctionNom()),
-                            new BigDecimal[]{ouverture, acquis, bonification, ajustement, pris, expiration, annulation, solde},
-                            taux, valeurHistorique, cumulValoAcquise,
-                            periode, textOrDash(rs.getString("periode_statut"))));
+                    java.sql.Date periodeDebut = rs.getDate("periode_debut");
+                    java.sql.Date periodeFin = rs.getDate("periode_fin");
+                    rawRows.add(new RawLigne(rs.getInt("id_employe"), rs.getString("matricule"),
+                            rs.getString("nom"), rs.getString("prenom"),
+                            rs.getBigDecimal("ouverture"), rs.getBigDecimal("acquis"),
+                            rs.getBigDecimal("bonification"), rs.getBigDecimal("ajustement"),
+                            rs.getBigDecimal("pris"), rs.getBigDecimal("expiration"),
+                            rs.getBigDecimal("annulation"), rs.getBigDecimal("solde"),
+                            rs.getBigDecimal("taux_journalier"), rs.getBigDecimal("cumul_valo_acquise"),
+                            periodeDebut == null ? null : periodeDebut.toLocalDate(),
+                            periodeFin == null ? null : periodeFin.toLocalDate(), rs.getString("periode_statut")));
                 }
             }
+        }
+        List<Integer> employeeIds = rawRows.stream().map(RawLigne::idEmploye).toList();
+        var situations = lots.situations(employeeIds, dateFin, connection);
+        var labels = employmentContextResolver.resolveLabels(employeeIds, dateFin, connection);
+        List<Ligne> lignes = new ArrayList<>(rawRows.size());
+        for (RawLigne raw : rawRows) {
+            var situation = situations.get(raw.idEmploye());
+            if (situation == null) {
+                throw new IllegalStateException("CONGE_LEDGER_SITUATION_MISSING: employé " + raw.idEmploye());
+            }
+            var contexte = labels.get(raw.idEmploye());
+            String periode = raw.periodeDebut() == null ? "—"
+                    : raw.periodeDebut().format(DATE_FORMAT) + " – " + raw.periodeFin().format(DATE_FORMAT);
+            lignes.add(new Ligne(raw.idEmploye(), raw.matricule(),
+                    (raw.nom() + " " + raw.prenom()).trim(),
+                    contexte == null ? "—" : textOrDash(contexte.filialeNom()),
+                    contexte == null ? "—" : textOrDash(contexte.nomSite()),
+                    contexte == null ? "—" : textOrDash(contexte.fonctionNom()),
+                    new BigDecimal[]{raw.ouverture(), raw.acquis(), raw.bonification(), raw.ajustement(),
+                            raw.pris(), raw.expiration(), raw.annulation(), raw.solde()},
+                    raw.taux(), situation.soldeValorisation(), raw.cumulValoAcquise(), situation,
+                    periode, textOrDash(raw.periodeStatut())));
         }
         return lignes;
     }
@@ -311,7 +326,14 @@ public class CongeGrandRecapExcelExportService {
         if (value == null) cell.setBlank(); else cell.setCellValue(value.doubleValue());
     }
 
+    private record RawLigne(int idEmploye, String matricule, String nom, String prenom,
+                            BigDecimal ouverture, BigDecimal acquis, BigDecimal bonification, BigDecimal ajustement,
+                            BigDecimal pris, BigDecimal expiration, BigDecimal annulation, BigDecimal solde,
+                            BigDecimal taux, BigDecimal cumulValoAcquise, LocalDate periodeDebut,
+                            LocalDate periodeFin, String periodeStatut) {}
+
     private record Ligne(int idEmploye, String matricule, String nomComplet, String filiale, String site, String poste,
                          BigDecimal[] jours, BigDecimal taux, BigDecimal valeur, BigDecimal cumulValoAcquise,
+                         mg.galaxam.sirh.conge.domain.CongeLotValorisationEngine.Situation situation,
                          String periode, String statut) {}
 }

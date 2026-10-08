@@ -115,6 +115,7 @@ public class PointagePdfExportService {
     }
 
     private static void detailPages(PDDocument pdf, PointageDocumentData data) throws IOException {
+        var adjustments = data.appliedAdjustments();
         PDPage page = new PDPage(new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth()));
         pdf.addPage(page);
         PDPageContentStream stream = new PDPageContentStream(pdf, page);
@@ -193,7 +194,7 @@ public class PointagePdfExportService {
         draw(stream, 39, y, "Déficit et HS après compensation. Nuit, dimanche et férié qualifient des heures déjà travaillées.", REGULAR, 7.2f, TEXT_MUTED, 760);
         y -= 31;
 
-        if (!data.appliedAdjustments().isEmpty()) {
+        if (!adjustments.isEmpty()) {
             if (y - 17 < 200) {
                 stream.close();
                 page = new PDPage(new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth()));
@@ -205,7 +206,7 @@ public class PointagePdfExportService {
             fill(stream, 30, y, 782, 18, BRAND_PALE);
             draw(stream, 39, y + 6, "AJUSTEMENTS APPLIQUÉS AU SOLDE", BOLD, 9, BRAND_TITLE, 400);
             y -= 17;
-            for (var adjustment : data.appliedAdjustments()) {
+            for (var adjustment : adjustments) {
                 String date = PointageDocumentData.date(adjustment.date());
                 String duration = PointageDocumentData.signedDualMinutes(adjustment.minutes());
                 String motif = cleanValue(adjustment.motif());

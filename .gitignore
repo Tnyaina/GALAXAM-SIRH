@@ -15,3 +15,9 @@
 # Répertoires de téléversement locaux
 uploads/
 /backend/uploads/
+
+# Documents de travail et exports locaux (les modèles applicatifs restent suivis)
+/backend/docs/boky/
+/*.pdf
+/*.xlsx
+/*.docx

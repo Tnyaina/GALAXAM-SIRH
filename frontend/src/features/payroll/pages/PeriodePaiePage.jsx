@@ -216,17 +216,21 @@ export default function PeriodePaiePage() {
     useEffect(() => {
         let active = true;
         const loadVariables = async () => {
-            const rows = await Promise.all(periodes.map(async (period) => {
-                const id = period.idPeriodePaie || period.id;
-                try {
-                    const response = await paieService.listerAjustements(id);
-                    const items = Array.isArray(response) ? response : (response?.content || response?.items || []);
-                    return [id, items];
-                } catch {
-                    return [id, []];
+            try {
+                const response = await paieService.listerAjustements();
+                const items = Array.isArray(response) ? response : (response?.content || response?.items || []);
+                const periodIds = new Set(periodes.map(period => period.idPeriodePaie || period.id));
+                const grouped = Object.fromEntries([...periodIds].map(id => [id, []]));
+                for (const item of items) {
+                    const id = item.idPeriodePaie;
+                    if (periodIds.has(id)) grouped[id].push(item);
                 }
-            }));
-            if (active) setVariablesByPeriod(Object.fromEntries(rows));
+                if (active) setVariablesByPeriod(grouped);
+            } catch {
+                if (active) setVariablesByPeriod(Object.fromEntries(
+                    periodes.map(period => [period.idPeriodePaie || period.id, []])
+                ));
+            }
         };
         if (periodes.length) loadVariables();
         else setVariablesByPeriod({});

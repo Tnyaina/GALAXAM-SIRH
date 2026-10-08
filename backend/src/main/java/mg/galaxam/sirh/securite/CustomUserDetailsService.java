@@ -6,7 +6,6 @@ import java.sql.ResultSet;
 import java.util.HashSet;
 import java.util.Set;
 import javax.sql.DataSource;
-import mg.galaxam.sirh.admin.persistence.RefRole;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -25,47 +24,58 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         try (Connection c = dataSource.getConnection()) {
             
-            // 1. Recherche de l'utilisateur par son identifiant
-            Utilisateur u = Utilisateur.rechercherParIdentifiant(username, c);
-            if (u == null) {
-                throw new UsernameNotFoundException("Utilisateur non trouvé avec l'identifiant : " + username);
-            }
-
             Set<GrantedAuthority> authorities = new HashSet<>();
+            String sql = "SELECT u.id_utilisateur, u.identifiant, u.mot_de_passe_hache, u.est_actif, "
+                    + "r.code_role, UPPER(m.code_module) AS code_module, "
+                    + "rp.droit_lecture, rp.droit_ecriture, rp.droit_validation "
+                    + "FROM utilisateur u "
+                    + "LEFT JOIN ref_role r ON r.id_role = u.id_role "
+                    + "LEFT JOIN role_permission rp ON rp.id_role = u.id_role "
+                    + "LEFT JOIN ref_module m ON m.id_module = rp.id_module AND m.est_actif = TRUE "
+                    + "WHERE u.id_utilisateur = (SELECT matched.id_utilisateur FROM utilisateur matched "
+                    + "WHERE LOWER(matched.identifiant) = LOWER(?) ORDER BY matched.id_utilisateur LIMIT 1)";
 
-            // 2. Récupération et normalisation du rôle
+            Integer userId = null;
+            String identifiant = null;
+            String passwordHash = null;
+            boolean active = false;
             String codeRole = "ROLE_USER";
-            if (u.getIdRole() != null) {
-                RefRole r = new RefRole();
-                RefRole role = (RefRole) r.findById(String.valueOf(u.getIdRole()), c);
-                if (role != null && role.getCodeRole() != null && !role.getCodeRole().isBlank()) {
-                    String dbRole = role.getCodeRole().trim();
-                    codeRole = dbRole.startsWith("ROLE_") ? dbRole : "ROLE_" + dbRole;
-                }
-            }
-            authorities.add(new SimpleGrantedAuthority(codeRole));
+            try (PreparedStatement ps = c.prepareStatement(sql)) {
+                ps.setString(1, username != null ? username.trim() : "");
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        if (userId == null) {
+                            userId = rs.getInt("id_utilisateur");
+                            identifiant = rs.getString("identifiant");
+                            passwordHash = rs.getString("mot_de_passe_hache");
+                            active = rs.getBoolean("est_actif");
 
-            // 3. Récupération dynamique de la matrice des autorisations granulaires depuis role_permission
-            if (u.getIdRole() != null) {
-                String sqlPerms = "SELECT UPPER(m.code_module) AS code_module, rp.droit_lecture, rp.droit_ecriture, rp.droit_validation " +
-                        "FROM role_permission rp " +
-                        "JOIN ref_module m ON rp.id_module = m.id_module " +
-                        "WHERE rp.id_role = ? AND m.est_actif = TRUE";
-                try (PreparedStatement ps = c.prepareStatement(sqlPerms)) {
-                    ps.setInt(1, u.getIdRole());
-                    try (ResultSet rs = ps.executeQuery()) {
-                        while (rs.next()) {
-                            String modCode = rs.getString("code_module");
-                            boolean canRead = rs.getBoolean("droit_lecture");
-                            boolean canWrite = rs.getBoolean("droit_ecriture");
-                            boolean canValidate = rs.getBoolean("droit_validation");
+                            String dbRole = rs.getString("code_role");
+                            if (dbRole != null && !dbRole.isBlank()) {
+                                String normalizedRole = dbRole.trim();
+                                codeRole = normalizedRole.startsWith("ROLE_")
+                                        ? normalizedRole : "ROLE_" + normalizedRole;
+                            }
+                            authorities.add(new SimpleGrantedAuthority(codeRole));
+                        }
 
-                            if (canRead) authorities.add(new SimpleGrantedAuthority(modCode + "_READ"));
-                            if (canWrite) authorities.add(new SimpleGrantedAuthority(modCode + "_WRITE"));
-                            if (canValidate) authorities.add(new SimpleGrantedAuthority(modCode + "_VALIDATE"));
+                        String moduleCode = rs.getString("code_module");
+                        if (moduleCode != null) {
+                            if (rs.getBoolean("droit_lecture")) {
+                                authorities.add(new SimpleGrantedAuthority(moduleCode + "_READ"));
+                            }
+                            if (rs.getBoolean("droit_ecriture")) {
+                                authorities.add(new SimpleGrantedAuthority(moduleCode + "_WRITE"));
+                            }
+                            if (rs.getBoolean("droit_validation")) {
+                                authorities.add(new SimpleGrantedAuthority(moduleCode + "_VALIDATE"));
+                            }
                         }
                     }
                 }
+            }
+            if (userId == null) {
+                throw new UsernameNotFoundException("Utilisateur non trouvé avec l'identifiant : " + username);
             }
 
             // 4. Filet de sécurité pour le rôle ADMIN : toujours accorder tous les droits de base
@@ -79,11 +89,11 @@ public class CustomUserDetailsService implements UserDetailsService {
 
             // 5. Construction de l'objet CustomUserDetails avec ses autorisations granulaires
             return new CustomUserDetails(
-                    u.getIdUtilisateur(),
-                    u.getIdentifiant(),
-                    u.getMotDePasseHache(),
+                    userId,
+                    identifiant,
+                    passwordHash,
                     authorities,
-                    u.isEstActif()
+                    active
             );
 
         } catch (UsernameNotFoundException e) {

@@ -48,6 +48,8 @@ public class GrandLivrePaieExportService {
             throw new IllegalStateException("Tous les bulletins doivent être validés avant l'export du grand livre.");
         }
         Map<Integer, String> filialByBulletin = loadFiliales(periodId, connection);
+        Map<Integer, List<BulletinPaieLigne>> lignesParBulletin = BulletinPaieLigne.listerParBulletins(
+                bulletins.stream().map(BulletinPaie::getIdBulletin).toList(), connection);
         try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             Styles styles = new Styles(workbook);
             Sheet summary = workbook.createSheet("Grand livre");
@@ -73,7 +75,7 @@ public class GrandLivrePaieExportService {
             int detailRow = 3;
             int summaryRow = 8;
             for (BulletinPaie b : bulletins) {
-                List<BulletinPaieLigne> lines = BulletinPaieLigne.listerParBulletin(b.getIdBulletin(), connection);
+                List<BulletinPaieLigne> lines = lignesParBulletin.getOrDefault(b.getIdBulletin(), List.of());
                 writeSummary(summary, summaryRow++, b, lines, filialByBulletin.get(b.getIdBulletin()), styles);
                 for (BulletinPaieLigne line : lines) writeDetail(detail, detailRow++, b, line, styles);
             }

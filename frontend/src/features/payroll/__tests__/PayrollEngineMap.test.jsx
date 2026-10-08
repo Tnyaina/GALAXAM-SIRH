@@ -7,7 +7,7 @@ import PayrollEngineMap from '../components/PayrollEngineMap';
 import paieService from '../api/paieService';
 
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ hasPermission: () => true }) }));
-vi.mock('../api/paieService', () => ({ default: { getParcoursConfiguration: vi.fn() } }));
+vi.mock('../api/paieService', () => ({ default: { getParcoursConfiguration: vi.fn(), getConfigurationCatalogue: vi.fn() } }));
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let host, root;
 const rule = { id: 10, code: 'PRIME_EXCEPTIONNELLE', libelle: 'Prime exceptionnelle', phaseCalcul: 'BRUT',
@@ -18,6 +18,7 @@ const type = { id: 7, code: 'PRIME_EXCEPTIONNELLE', libelle: 'Prime exceptionnel
 
 beforeEach(() => {
     host = document.createElement('div'); document.body.append(host); root = createRoot(host);
+    paieService.getConfigurationCatalogue.mockResolvedValue({ rubriquesCompatibles: [rule], defautsType: { sens: 'GAIN' }, options: { etapes: [] } });
     paieService.getParcoursConfiguration.mockResolvedValue({
         phases: [{ code: 'BRUT', libelle: 'Brut et gains', description: 'Gains bruts' }],
         rubriques: [rule], types: [type],
@@ -54,9 +55,10 @@ it('place les données du serveur dans leur phase et relie type et rubrique selo
 });
 
 it('ouvre la création d’un type prélié depuis une rubrique sans type', async () => {
+    paieService.getConfigurationCatalogue.mockResolvedValue({ rubriquesCompatibles: [{ ...rule, id: 42, code: 'PRIME_PROJET_TEST', libelle: 'Prime projet', categorie: 'PRIME', sens: 'GAIN', typeValeur: 'MONTANT' }], defautsType: { sens: 'GAIN' }, options: { etapes: [] } });
     paieService.getParcoursConfiguration.mockResolvedValue({
         phases: [{ code: 'BRUT', libelle: 'Brut et gains', description: 'Gains bruts' }],
-        rubriques: [{ ...rule, id: 42, code: 'PRIME_PROJET_TEST', libelle: 'Prime projet', categorie: 'PRIME', sens: 'GAIN' }],
+        rubriques: [{ ...rule, id: 42, code: 'PRIME_PROJET_TEST', libelle: 'Prime projet', categorie: 'PRIME', sens: 'GAIN', typeValeur: 'MONTANT' }],
         types: [],
     });
     await act(async () => root.render(<MemoryRouter initialEntries={['/paie/configuration']}><PayrollEngineMap /></MemoryRouter>));

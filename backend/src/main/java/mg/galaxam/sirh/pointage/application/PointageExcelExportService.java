@@ -20,6 +20,7 @@ public class PointageExcelExportService {
     }
 
     public byte[] genererExcelFicheEmploye(PointageDocumentData data) throws IOException {
+        var adjustments = data.appliedAdjustments();
         try (var book = new XSSFWorkbook(); var output = new ByteArrayOutputStream()) {
             Sheet sheet = book.createSheet("Fiche de présence");
             CellStyle title = style(book, true, (short) 16, "07324A", "FFFFFF");   // #07324A --color-brand-900
@@ -44,7 +45,10 @@ public class PointageExcelExportService {
             for (int c = 0; c < headings.length; c++) cell(sheet, row, c, headings[c], header);
             row++;
             int firstDay = row;
-            for (var d : PointageDocumentData.days(f)) {
+            var days = PointageDocumentData.days(f);
+            double totalHours = 0;
+            for (var d : days) {
+                totalHours += d.getTotalHeuresDecimal() == null ? 0 : d.getTotalHeuresDecimal();
                 Object[] values = {PointageDocumentData.date(d.getDateComplete()), cleanWeekday(d.getJour()), status(d.getStatut()),
                         d.getEntree(), d.getSortiePause(), d.getRetourPause(), d.getSortie(), PointageDocumentData.dualHours(d.getTotalHeuresDecimal()),
                         d.getMinutesRetard(), d.getObservation()};
@@ -55,7 +59,6 @@ public class PointageExcelExportService {
             if (row > firstDay) {
                 for (int c : new int[]{7, 8}) {
                     if (c == 7) {
-                        double totalHours = PointageDocumentData.days(f).stream().mapToDouble(d -> d.getTotalHeuresDecimal() == null ? 0 : d.getTotalHeuresDecimal()).sum();
                         cell(sheet, row, c, PointageDocumentData.dualHours(totalHours), text);
                     } else {
                         Cell total = cell(sheet, row, c, null, text);
@@ -85,9 +88,9 @@ public class PointageExcelExportService {
             if (weeks.isEmpty()) merged(sheet, row++, 0, 9, "Aucune synthèse hebdomadaire disponible.", note);
             merged(sheet, row++, 0, 9, "Déficit et HS après compensation dans chaque semaine. Nuit, dimanche et férié qualifient des heures déjà travaillées.", note);
             row++;
-            if (!data.appliedAdjustments().isEmpty()) {
+            if (!adjustments.isEmpty()) {
                 merged(sheet, row++, 0, 9, "AJUSTEMENTS APPLIQUÉS AU SOLDE", section);
-                for (var adjustment : data.appliedAdjustments()) {
+                for (var adjustment : adjustments) {
                     cell(sheet, row, 0, PointageDocumentData.date(adjustment.date()), text);
                     cell(sheet, row, 1, PointageDocumentData.signedDualMinutes(adjustment.minutes()), text);
                     merged(sheet, row, 2, 9, PointageDocumentData.value(adjustment.motif()), text);

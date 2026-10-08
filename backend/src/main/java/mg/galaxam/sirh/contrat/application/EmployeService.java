@@ -43,15 +43,30 @@ public class EmployeService {
     }
 
     public Map<String, Long> getStats(String q, Connection c) throws Exception {
-        long total = EmployeCPL.compterEmployes(c, q, null, null, null, null);
-        long actifs = EmployeCPL.compterEmployes(c, q, true, null, null, null);
-        long inactifs = EmployeCPL.compterEmployes(c, q, false, null, null, null);
+        String searchFilter = "";
+        if (q != null && !q.isBlank()) {
+            searchFilter = " AND (LOWER(matricule) LIKE ? OR LOWER(nom) LIKE ? "
+                    + "OR LOWER(prenom) LIKE ? OR LOWER(cin_numero) LIKE ? OR LOWER(telephone) LIKE ?)";
+        }
 
-        return Map.of(
-            "total", total,
-            "actifs", actifs,
-            "inactifs", inactifs
-        );
+        String sql = "SELECT COUNT(*) AS total, "
+                + "COUNT(*) FILTER (WHERE est_actif = TRUE) AS actifs, "
+                + "COUNT(*) FILTER (WHERE est_actif = FALSE) AS inactifs "
+                + "FROM employe WHERE TRUE" + searchFilter;
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            if (!searchFilter.isEmpty()) {
+                String search = "%" + q.trim().toLowerCase() + "%";
+                for (int i = 1; i <= 5; i++) ps.setString(i, search);
+            }
+            try (var rs = ps.executeQuery()) {
+                if (!rs.next()) return Map.of("total", 0L, "actifs", 0L, "inactifs", 0L);
+                return Map.of(
+                    "total", rs.getLong("total"),
+                    "actifs", rs.getLong("actifs"),
+                    "inactifs", rs.getLong("inactifs")
+                );
+            }
+        }
     }
 
     public PageDTO<EmployeCPL> getEmployes(
@@ -235,7 +250,7 @@ public class EmployeService {
                     throw new IllegalArgumentException("Employé introuvable.");
                 }
 
-                Employe ancienState = new Employe().rechercherParId(id, c);
+                Employe ancienState = new Employe(emp);
 
                 emp.setMatricule(req.getMatricule());
                 emp.setNom(req.getNom());
@@ -416,19 +431,23 @@ public class EmployeService {
     }
 
     public String generateNextMatricule(Connection c) throws Exception {
-        String sql = "SELECT matricule FROM employe";
-        long maxSeq = 0;
+        String sql = "WITH normalized AS ("
+                + " SELECT btrim(matricule, E' \\t\\n\\r\\f\\013') AS normalized_value"
+                + " FROM employe WHERE matricule IS NOT NULL"
+                + "), parsed AS ("
+                + " SELECT CASE WHEN normalized_value ~ '^EMP-[0-9]{4}-[0-9]{4,6}$'"
+                + " THEN substring(normalized_value FROM '^EMP-[0-9]{4}-([0-9]{4,6})$')::numeric"
+                + " ELSE (SELECT groups.captures[1]::numeric FROM regexp_matches(normalized_value, '([0-9]+)', 'g')"
+                + " WITH ORDINALITY AS groups(captures, ordinal)"
+                + " WHERE groups.captures[1]::numeric <= 9223372036854775807"
+                + " ORDER BY groups.ordinal DESC LIMIT 1) END AS sequence_value"
+                + " FROM normalized)"
+                + " SELECT COALESCE(MAX(sequence_value), 0) FROM parsed";
+        long maxSeq;
         try (PreparedStatement ps = c.prepareStatement(sql);
              java.sql.ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                String mat = rs.getString(1);
-                if (mat != null && !mat.trim().isEmpty()) {
-                    Long seq = matriculeEngine.extraireSequence(mat.trim());
-                    if (seq != null && seq > maxSeq) {
-                        maxSeq = seq;
-                    }
-                }
-            }
+            rs.next();
+            maxSeq = rs.getBigDecimal(1).longValueExact();
         }
         return matriculeEngine.genererMatriculeParDefaut(maxSeq + 1);
     }

@@ -12,6 +12,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.contrat.persistence.ContratTravail;
 import mg.galaxam.sirh.contrat.persistence.EmployeAffectationCarriere;
@@ -57,6 +59,12 @@ public class ContratTravailController {
     public ResponseEntity<?> getContratsEmploye(@PathVariable Integer idEmploye) {
         try (Connection c = dataSource.getConnection()) {
             List<ContratTravail> contrats = ContratTravail.listerParEmploye(idEmploye, c);
+            Set<Integer> idsContrats = contrats.stream()
+                    .map(ContratTravail::getIdContrat)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(Collectors.toSet());
+            Map<Integer, Map<String, Object>> anciennetes =
+                    ContratTravail.calculerAncienneteDetailleeBatch(idsContrats, c);
             // Enrichissement avec les libellés (filiale, type contrat...) pour chaque
             // contrat
             // de l'historique — nécessaire notamment pour le certificat de travail, qui est
@@ -64,7 +72,7 @@ public class ContratTravailController {
             // "actif").
             List<Map<String, Object>> contratsEnrichis = new ArrayList<>();
             for (ContratTravail ct : contrats) {
-                contratsEnrichis.add(enrichirContrat(ct, c));
+                contratsEnrichis.add(enrichirContrat(ct, c, anciennetes.get(ct.getIdContrat())));
             }
             return ResponseEntity.ok(contratsEnrichis);
         } catch (Exception e) {
@@ -734,6 +742,11 @@ public class ContratTravailController {
     }
 
     private Map<String, Object> enrichirContrat(ContratTravail ct, Connection c) {
+        return enrichirContrat(ct, c, null);
+    }
+
+    private Map<String, Object> enrichirContrat(ContratTravail ct, Connection c,
+            Map<String, Object> anciennetePrecalculee) {
         Map<String, Object> map = new HashMap<>();
         map.put("idContrat", ct.getIdContrat());
         map.put("idEmploye", ct.getIdEmploye());
@@ -802,7 +815,9 @@ public class ContratTravailController {
 
         // Métriques d'ancienneté Backend-Driven
         if (ct.getIdContrat() != null && ct.getIdContrat() > 0) {
-            Map<String, Object> ancMap = ContratTravail.calculerAncienneteDetaillee(ct.getIdContrat(), c);
+            Map<String, Object> ancMap = anciennetePrecalculee != null
+                    ? anciennetePrecalculee
+                    : ContratTravail.calculerAncienneteDetaillee(ct.getIdContrat(), c);
             map.putAll(ancMap);
         }
 

@@ -119,10 +119,13 @@ public class NotificationRhScheduler {
                      "JOIN employe e ON ct.id_employe = e.id_employe " +
                      "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
                      "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
-                     "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE AND ct.date_fin IS NOT NULL";
+                     "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE " +
+                     "AND ct.date_fin BETWEEN ? AND ?";
 
-        try (PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(today.minusDays(60)));
+            ps.setDate(2, Date.valueOf(today.plusDays(30)));
+            try (ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 Date dFin = rs.getDate("date_fin");
                 if (dFin == null) continue;
@@ -162,6 +165,7 @@ public class NotificationRhScheduler {
                         "/employes/" + idEmploye + "?tab=carriere", idEmploye);
                 }
             }
+            }
         }
     }
 
@@ -176,10 +180,12 @@ public class NotificationRhScheduler {
                      "FROM contrat_travail ct " +
                      "JOIN employe e ON ct.id_employe = e.id_employe " +
                      "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
-                     "WHERE rsc.code = 'ACTIF' AND ct.date_fin_essai IS NOT NULL";
+                     "WHERE rsc.code = 'ACTIF' AND ct.date_fin_essai BETWEEN ? AND ?";
 
-        try (PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(today.minusDays(30)));
+            ps.setDate(2, Date.valueOf(today.plusDays(30)));
+            try (ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 Date dEssai = rs.getDate("date_fin_essai");
                 if (dEssai == null) continue;
@@ -218,6 +224,7 @@ public class NotificationRhScheduler {
                         "La période d'essai de " + nomPrenom + " se termine dans " + jours + " jours.",
                         "/employes/" + idEmploye + "?tab=carriere", idEmploye);
                 }
+            }
             }
         }
     }

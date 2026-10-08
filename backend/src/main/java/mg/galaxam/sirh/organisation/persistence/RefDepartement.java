@@ -120,8 +120,16 @@ public class RefDepartement extends ClassMere {
     }
 
     public static List<RefDepartement> listAll(Connection c) throws Exception {
+        return list(c, false);
+    }
+
+    public static List<RefDepartement> listActifs(Connection c) throws Exception {
+        return list(c, true);
+    }
+
+    private static List<RefDepartement> list(Connection c, boolean actifsOnly) throws Exception {
         List<RefDepartement> list = new ArrayList<>();
-        String sql = "SELECT id_departement, code_departement, libelle, est_actif FROM ref_departement ORDER BY id_departement ASC";
+        String sql = "SELECT id_departement, code_departement, libelle, est_actif FROM ref_departement " + (actifsOnly ? " WHERE est_actif = TRUE" : "") + " ORDER BY id_departement ASC";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {

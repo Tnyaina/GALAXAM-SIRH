@@ -142,8 +142,17 @@ public class RefFiliale extends ClassMere {
     }
 
     public static List<RefFiliale> listAll(Connection c) throws Exception {
+        return list(c, false);
+    }
+
+    public static List<RefFiliale> listActifs(Connection c) throws Exception {
+        return list(c, true);
+    }
+
+    private static List<RefFiliale> list(Connection c, boolean actifsOnly) throws Exception {
         List<RefFiliale> list = new ArrayList<>();
-        String sql = "SELECT id_filiale, code_filiale, raison_sociale, nif, stat, adresse_siege, rcs, telephone, email, est_actif, date_desactivation, created_at FROM ref_filiale ORDER BY id_filiale ASC";
+        String sql = "SELECT id_filiale, code_filiale, raison_sociale, nif, stat, adresse_siege, rcs, telephone, email, est_actif, date_desactivation, created_at FROM ref_filiale" +
+                (actifsOnly ? " WHERE est_actif = TRUE" : "") + " ORDER BY id_filiale ASC";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {

@@ -114,6 +114,7 @@ incompatible fait échouer l'index unique et demande un arbitrage explicite.
 | `26-10-04-sp56-conge-decompte-feries-desactivable.sql` | Désactivation explicite de la règle fériés par version future | `01_schema_core_securite.sql` |
 | `26-10-06-sp57-agent-pointage-acces-fiche-employe.sql` | Habilitation temporaire agent pointage fiche employé | `01_schema_core_securite.sql` |
 | `26-10-07-sp58-agent-pointage-sans-fiche-employe.sql` | Rétablissement périmètre agent pointage sans fiche employé | `01_schema_core_securite.sql` |
+| `26-10-08-sp59-security-user-read-indexes.sql` | Index des recherches case-insensitive de comptes et des refresh tokens | `01_schema_core_securite.sql` |
 
 ### Remarques Opérationnelles
 - Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 84 tables et 9 vues cohérentes.

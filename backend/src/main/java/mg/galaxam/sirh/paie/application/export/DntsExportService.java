@@ -78,6 +78,12 @@ public class DntsExportService {
             }
             bulletinsParEmploye.computeIfAbsent(bp.getIdEmploye(), k -> new ArrayList<>()).add(bp);
         }
+        if (dateDebutPeriode == null || dateFinPeriode == null)
+            throw new IllegalStateException("Bornes de campagne manquantes pour l'export.");
+        Map<Integer, LocalDate> departures = PayrollExportContextResolver.departuresForPeriod(
+                bulletinsParEmploye.keySet(), dateDebutPeriode.toLocalDate(), dateFinPeriode.toLocalDate(), c);
+        Map<Integer, List<BulletinPaieLigne>> lignesParBulletin = BulletinPaieLigne.listerParBulletins(
+                bulletinsParEmploye.values().stream().flatMap(List::stream).map(BulletinPaie::getIdBulletin).toList(), c);
 
         int ordre = 1;
         for (Map.Entry<Integer, List<BulletinPaie>> entry : bulletinsParEmploye.entrySet()) {
@@ -90,7 +96,7 @@ public class DntsExportService {
             List<BulletinPaieLigne> lignes = new ArrayList<>();
             BigDecimal totalBrutCumule = BigDecimal.ZERO;
             for (BulletinPaie b : empBulletins) {
-                lignes.addAll(BulletinPaieLigne.listerParBulletin(b.getIdBulletin(), c));
+                lignes.addAll(lignesParBulletin.getOrDefault(b.getIdBulletin(), List.of()));
                 if (b.getTotalGainsBruts() != null) totalBrutCumule = totalBrutCumule.add(b.getTotalGainsBruts());
             }
 
@@ -101,7 +107,8 @@ public class DntsExportService {
             row.setNomPrenom(bpPrincipal.getNomPrenom());
             row.setRefCin(bpPrincipal.getCinNumero() != null ? bpPrincipal.getCinNumero() : "");
             row.setDateEmbauche(bpPrincipal.getDateEmbauche() != null ? DATE_FMT.format(bpPrincipal.getDateEmbauche().toLocalDate()) : "");
-            row.setDateDebauchage(chercherDateFinContrat(bpPrincipal.getIdEmploye(), dateDebutPeriode, dateFinPeriode, c));
+            LocalDate dateDepart = departures.get(bpPrincipal.getIdEmploye());
+            row.setDateDebauchage(dateDepart == null ? "" : DATE_FMT.format(dateDepart));
 
             row.setSalaireBrutReel(totalBrutCumule.setScale(2, RoundingMode.HALF_UP));
 
@@ -436,15 +443,6 @@ public class DntsExportService {
           .append(df.format(totGlobal)).append("\n");
 
         return sb.toString();
-    }
-
-    private String chercherDateFinContrat(Integer idEmploye, Date dateDebutPeriode,
-            Date dateFinPeriode, Connection c) throws Exception {
-        if (dateDebutPeriode == null || dateFinPeriode == null)
-            throw new IllegalStateException("Bornes de campagne manquantes pour l'export.");
-        LocalDate departure = PayrollExportContextResolver.departureForPeriod(idEmploye,
-                dateDebutPeriode.toLocalDate(), dateFinPeriode.toLocalDate(), c);
-        return departure == null ? "" : DATE_FMT.format(departure);
     }
 
     private String escape(String s) {

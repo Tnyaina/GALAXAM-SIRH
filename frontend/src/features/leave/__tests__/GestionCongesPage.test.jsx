@@ -104,7 +104,7 @@ describe('Supervision des congés', () => {
     expect(host.textContent).toContain('Approuvée');
     const trigger = [...host.querySelectorAll('button')].find(b => b.textContent.includes("Tous les types d'absence"));
     expect(trigger).toBeTruthy();
-    await act(async () => trigger.click());
-    expect(host.textContent).toContain('Congé spécial');
+    await act(async () => { trigger.click(); await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); });
+    expect(document.body.querySelector('[role="option"]')?.textContent).toContain('Congé spécial');
   });
 });

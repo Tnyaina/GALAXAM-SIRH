@@ -168,13 +168,41 @@ public class RefSite extends ClassMere {
     }
 
     public static List<RefSite> listAll(Connection c) throws Exception {
+        return list(c, false);
+    }
+
+    public static List<RefSite> listActifs(Connection c) throws Exception {
+        return list(c, true);
+    }
+
+    public static List<RefSite> listByFiliale(Integer idFiliale, boolean actifsOnly, Connection c) throws Exception {
         List<RefSite> list = new ArrayList<>();
         String sql = "SELECT s.id_site, s.code_site, s.libelle, s.id_filiale_rattachement, s.horaire_continu, " +
                      "s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
                      "s.plancher_arrivee_actif, s.heure_entree_minimale_valorisee, s.est_actif, " +
                      "f.raison_sociale as filiale_nom " +
                      "FROM ref_site s LEFT JOIN ref_filiale f ON s.id_filiale_rattachement = f.id_filiale " +
-                     "ORDER BY s.id_site ASC";
+                     "WHERE s.id_filiale_rattachement = ?" +
+                     (actifsOnly ? " AND s.est_actif = TRUE" : "") + " ORDER BY s.id_site ASC";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idFiliale);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapResultSet(rs));
+                }
+            }
+        }
+        return list;
+    }
+
+    private static List<RefSite> list(Connection c, boolean actifsOnly) throws Exception {
+        List<RefSite> list = new ArrayList<>();
+        String sql = "SELECT s.id_site, s.code_site, s.libelle, s.id_filiale_rattachement, s.horaire_continu, " +
+                     "s.heure_debut_matin, s.heure_fin_matin, s.heure_debut_apres_midi, s.heure_fin_apres_midi, " +
+                     "s.plancher_arrivee_actif, s.heure_entree_minimale_valorisee, s.est_actif, " +
+                     "f.raison_sociale as filiale_nom " +
+                     "FROM ref_site s LEFT JOIN ref_filiale f ON s.id_filiale_rattachement = f.id_filiale" +
+                     (actifsOnly ? " WHERE s.est_actif = TRUE" : "") + " ORDER BY s.id_site ASC";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {

@@ -254,6 +254,15 @@ final class PayrollCalculationContextAssembler {
                                 ? PayrollOvertimeSettlement.apply(buckets, rawHs30Minutes, hs30Minutes)
                                 : PayrollOvertimeSettlement.applyPeriod(buckets, rawHs30Minutes, rawHs50Minutes, hs30Minutes, hs50Minutes);
                     }
+                    long bucketHs30Minutes = 0L;
+                    long bucketHs50Minutes = 0L;
+                    for (QualifiedTimeBucket bucket : buckets) {
+                        if (bucket.overtimeTier() == QualifiedTimeBucket.OvertimeTier.OVERTIME_30) {
+                            bucketHs30Minutes += bucket.minutes();
+                        } else if (bucket.overtimeTier() == QualifiedTimeBucket.OvertimeTier.OVERTIME_50) {
+                            bucketHs50Minutes += bucket.minutes();
+                        }
+                    }
                     in.setAttendanceInput(new PayrollAttendanceInput(
                             rs.getInt("id_cumul"), rs.getInt("version_snapshot"), idEmploye, idPeriodePaie, frozenAt,
                             PayrollAttendanceInput.hoursToMinutes(rs.getBigDecimal("total_heures_travaillees")),
@@ -269,10 +278,8 @@ final class PayrollCalculationContextAssembler {
                             rs.getBigDecimal("montant_repas"), rs.getBigDecimal("nb_jours_deplacement"),
                             rs.getBigDecimal("montant_deplacement"),
                             buckets,
-                            finalHs50Minutes == null ? 0L : hs30Minutes - buckets.stream()
-                                .filter(b -> b.overtimeTier() == mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier.OVERTIME_30).mapToLong(mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket::minutes).sum(),
-                            finalHs50Minutes == null ? 0L : hs50Minutes - buckets.stream()
-                                .filter(b -> b.overtimeTier() == mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket.OvertimeTier.OVERTIME_50).mapToLong(mg.galaxam.sirh.pointage.domain.calculation.QualifiedTimeBucket::minutes).sum()));
+                            finalHs50Minutes == null ? 0L : hs30Minutes - bucketHs30Minutes,
+                            finalHs50Minutes == null ? 0L : hs50Minutes - bucketHs50Minutes));
                     if (rs.getInt("contrat_indemnites_version") >= 2) {
                         // Les anciens snapshots restent lisibles via les deux agrégats historiques.
                         // Les nouveaux figent toutes les indemnités, y compris un catalogue ajouté plus tard.
@@ -333,7 +340,9 @@ final class PayrollCalculationContextAssembler {
                 "pr.methode_calcul, pr.politique_arrondi, COALESCE(pr.soumis_fmfp,pr.soumis_cnaps) AS rubrique_soumis_fmfp, pr.date_debut_effet AS rubrique_date_debut_effet, pr.date_fin_effet AS rubrique_date_fin_effet, pr.condition_application, " +
                 "pr.categorie AS rubrique_categorie, " +
                 "pr.etape_calcul AS rubrique_etape_calcul, " +
-                "pr.code AS rubrique_code " +
+                "pr.code AS rubrique_code, " +
+                "EXISTS (SELECT 1 FROM paie_mouvement_justificatif pj WHERE pj.id_avance = paa.id_avance) " +
+                "AS justificatif_present " +
                 "FROM paie_avance_acompte paa " +
                 "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement " +
                 "JOIN periode_paie periode_cible ON periode_cible.id_periode_paie = ? " +
@@ -417,14 +426,9 @@ final class PayrollCalculationContextAssembler {
                         } else if ("PRIME_ASSIDUITE".equalsIgnoreCase(codeType)) {
                             in.setPrimeAssiduiteForfait(in.getPrimeAssiduiteForfait().add(montant));
                         } else if ("NOTE_DE_FRAIS".equalsIgnoreCase(codeType) || "REMBOURSEMENT_NOTE_FRAIS".equalsIgnoreCase(codeType)) {
-                            try (var evidence = c.prepareStatement(
-                                    "SELECT 1 FROM paie_mouvement_justificatif WHERE id_avance=?")) {
-                                evidence.setInt(1, idAvance);
-                                try (var proof = evidence.executeQuery()) {
-                                    if (!proof.next()) throw new SirhBusinessException(
-                                            SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
-                                            "La note de frais " + idAvance + " est approuvée sans justificatif.");
-                                }
+                            if (!rs.getBoolean("justificatif_present")) {
+                                throw new SirhBusinessException(SirhErrorCode.BLOCKING_CONFIGURATION_ERROR,
+                                        "La note de frais " + idAvance + " est approuvée sans justificatif.");
                             }
                             in.setRemboursementNotesFrais(in.getRemboursementNotesFrais().add(montant));
                         } else if ("REGULARISATION_CONGE".equalsIgnoreCase(codeType) || "REGULARISATION_PAIE".equalsIgnoreCase(codeType)) {

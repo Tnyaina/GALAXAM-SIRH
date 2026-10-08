@@ -32,7 +32,8 @@ public class UtilisateurController {
     @GetMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllUsers() {
-        String sql = "SELECT u.*, r.code_role, r.libelle as role_libelle " +
+        String sql = "SELECT u.id_utilisateur, u.identifiant, u.id_role, u.est_actif, " +
+                     "u.date_desactivation, u.motif_desactivation, r.code_role, r.libelle as role_libelle " +
                      "FROM utilisateur u " +
                      "JOIN ref_role r ON u.id_role = r.id_role " +
                      "ORDER BY u.identifiant";
@@ -62,7 +63,8 @@ public class UtilisateurController {
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getUserById(@PathVariable int id) {
-        String sql = "SELECT u.*, r.code_role, r.libelle as role_libelle " +
+        String sql = "SELECT u.id_utilisateur, u.identifiant, u.id_role, u.est_actif, " +
+                     "u.date_desactivation, u.motif_desactivation, r.code_role, r.libelle as role_libelle " +
                      "FROM utilisateur u " +
                      "JOIN ref_role r ON u.id_role = r.id_role " +
                      "WHERE u.id_utilisateur = ?";

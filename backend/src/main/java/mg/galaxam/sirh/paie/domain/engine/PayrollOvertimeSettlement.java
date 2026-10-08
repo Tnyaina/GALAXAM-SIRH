@@ -58,16 +58,19 @@ public final class PayrollOvertimeSettlement {
             long raw30, long raw50, long final30, long final50) {
         if (source == null || raw30 < 0 || raw50 < 0 || final30 < 0 || final50 < 0)
             throw new IllegalArgumentException("Rapprochement de période invalide.");
-        long actual30 = source.stream().filter(b -> b.overtimeTier() == OvertimeTier.OVERTIME_30)
-                .mapToLong(QualifiedTimeBucket::minutes).sum();
-        long actual50 = source.stream().filter(b -> b.overtimeTier() == OvertimeTier.OVERTIME_50)
-                .mapToLong(QualifiedTimeBucket::minutes).sum();
+        long actual30 = 0;
+        long actual50 = 0;
+        List<QualifiedTimeBucket> ordered = new ArrayList<>(source);
+        ordered.sort(Comparator.comparing(QualifiedTimeBucket::start).thenComparing(QualifiedTimeBucket::end));
+        for (QualifiedTimeBucket bucket : ordered) {
+            if (bucket.overtimeTier() == OvertimeTier.OVERTIME_30) actual30 += bucket.minutes();
+            else if (bucket.overtimeTier() == OvertimeTier.OVERTIME_50) actual50 += bucket.minutes();
+        }
         if (actual30 != raw30 || actual50 != raw50)
             throw new IllegalStateException("SNAPSHOT_HS_INCOHERENT: ventilation hebdomadaire divergente.");
         long remaining30 = final30, remaining50 = final50;
         List<QualifiedTimeBucket> result = new ArrayList<>();
-        for (var bucket : source.stream().sorted(Comparator.comparing(QualifiedTimeBucket::start)
-                .thenComparing(QualifiedTimeBucket::end)).toList()) {
+        for (var bucket : ordered) {
             if (bucket.overtimeTier() == OvertimeTier.REGULAR) { result.add(bucket); continue; }
             long at30 = Math.min(remaining30, bucket.minutes());
             long at50 = Math.min(remaining50, bucket.minutes() - at30);

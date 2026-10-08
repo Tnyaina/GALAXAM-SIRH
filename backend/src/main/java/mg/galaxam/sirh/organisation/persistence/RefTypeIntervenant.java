@@ -136,8 +136,16 @@ public class RefTypeIntervenant extends ClassMere {
     }
 
     public static List<RefTypeIntervenant> listAll(Connection c) throws Exception {
+        return list(c, false);
+    }
+
+    public static List<RefTypeIntervenant> listActifs(Connection c) throws Exception {
+        return list(c, true);
+    }
+
+    private static List<RefTypeIntervenant> list(Connection c, boolean actifsOnly) throws Exception {
         List<RefTypeIntervenant> list = new ArrayList<>();
-        String sql = "SELECT id_type_intervenant, code, libelle, soumis_irsa, soumis_isi_5, soumis_cnaps, soumis_sante, est_actif FROM ref_type_intervenant ORDER BY id_type_intervenant ASC";
+        String sql = "SELECT id_type_intervenant, code, libelle, soumis_irsa, soumis_isi_5, soumis_cnaps, soumis_sante, est_actif FROM ref_type_intervenant " + (actifsOnly ? " WHERE est_actif = TRUE" : "") + " ORDER BY id_type_intervenant ASC";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {

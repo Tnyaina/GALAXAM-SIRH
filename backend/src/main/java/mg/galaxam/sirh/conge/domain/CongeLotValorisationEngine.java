@@ -5,9 +5,11 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /** Rejoue le grand-livre des jours avec la valeur historique de chaque droit. */
 public class CongeLotValorisationEngine {
@@ -23,11 +25,17 @@ public class CongeLotValorisationEngine {
     private static final BigDecimal ZERO = BigDecimal.ZERO.setScale(2);
     private static final String REPRISE = "REPRISE_CUTOVER";
     private static final String AJUSTEMENT = "AJUSTEMENT";
+    private static final Pattern SEUIL_EXPIRATION = Pattern.compile("avant le (\\d{4}-\\d{2}-\\d{2})");
+    private static final Pattern DELAI_EXPIRATION = Pattern.compile("\\+(\\d+) mois");
+    private static final Comparator<Lot> ORDRE_FIFO = Comparator.comparingInt(Lot::priorite)
+            .thenComparing(lot -> lot.date).thenComparingInt(lot -> lot.id);
 
     public Situation calculer(List<Mouvement> mouvements) {
         List<Mouvement> ordonnes = mouvements.stream()
                 .sorted(Comparator.comparing(Mouvement::date).thenComparingInt(Mouvement::id)).toList();
         List<Lot> lots = new ArrayList<>();
+        List<Lot> lotsFifo = new ArrayList<>();
+        Map<Integer, Lot> lotsParId = new HashMap<>();
         List<Imputation> traces = new ArrayList<>();
         Map<Integer, List<Imputation>> prisesParDemande = new HashMap<>();
         Map<Integer, Anticipation> anticipations = new java.util.LinkedHashMap<>();
@@ -39,9 +47,10 @@ public class CongeLotValorisationEngine {
             soldeJours = soldeJours.add(jours);
             String type = mouvement.type();
             if ("CORRECTION_CUTOVER".equals(type)) {
-                Lot reprise = lots.stream().filter(l -> l.id == mouvement.idDemande()
-                        && REPRISE.equals(l.origine)).findFirst().orElseThrow(() ->
-                        new IllegalStateException("CONGE_CUTOVER_SOURCE_MISSING: " + mouvement.id()));
+                Lot reprise = lotsParId.get(mouvement.idDemande());
+                if (reprise == null || !REPRISE.equals(reprise.origine)) {
+                    throw new IllegalStateException("CONGE_CUTOVER_SOURCE_MISSING: " + mouvement.id());
+                }
                 BigDecimal nouveauReliquat = reprise.joursRestants.add(jours);
                 if (nouveauReliquat.signum() < 0 || mouvement.valeurSource() == null
                         || mouvement.valeurSource().signum() < 0) {
@@ -64,7 +73,7 @@ public class CongeLotValorisationEngine {
                 for (int index = prises.size() - 1; index >= 0 && restant.signum() > 0; index--) {
                     Imputation prise = prises.get(index);
                     BigDecimal quantite = restant.min(prise.jours());
-                    Lot lot = lots.stream().filter(l -> l.id == prise.idSource()).findFirst().orElseThrow();
+                    Lot lot = lot(lotsParId, prise.idSource());
                     BigDecimal valeur = quantite.compareTo(prise.jours()) == 0 ? prise.valeur()
                             : quantite.multiply(prise.tauxHistorique()).setScale(2, RoundingMode.HALF_UP);
                     lot.joursRestants = lot.joursRestants.add(quantite);
@@ -88,6 +97,9 @@ public class CongeLotValorisationEngine {
                     Lot credit = new Lot(mouvement.id(), origine, mouvement.date(), jours,
                             mouvement.valeurSource().setScale(2, RoundingMode.HALF_UP));
                     lots.add(credit);
+                    int fifoIndex = Collections.binarySearch(lotsFifo, credit, ORDRE_FIFO);
+                    lotsFifo.add(fifoIndex < 0 ? -fifoIndex - 1 : fifoIndex, credit);
+                    lotsParId.put(credit.id, credit);
                     for (Anticipation anticipation : anticipations.values()) {
                         if (credit.joursRestants.signum() == 0) break;
                         BigDecimal couverts = credit.joursRestants.min(anticipation.restant);
@@ -107,8 +119,7 @@ public class CongeLotValorisationEngine {
             } else if ("PRISE".equals(type) || ("AJUSTEMENT".equals(type) && jours.signum() < 0)) {
                 BigDecimal restant = jours.abs();
                 List<Imputation> prises = new ArrayList<>();
-                for (Lot lot : lots.stream().sorted(Comparator.comparingInt(Lot::priorite)
-                        .thenComparing(l -> l.date).thenComparingInt(l -> l.id)).toList()) {
+                for (Lot lot : lotsFifo) {
                     if (restant.signum() == 0) break;
                     BigDecimal quantite = restant.min(lot.joursRestants);
                     if (quantite.signum() <= 0) continue;
@@ -152,7 +163,7 @@ public class CongeLotValorisationEngine {
                                 "CONGE_ANTICIPATION_SOURCE_MISSING: " + mouvement.id());
                         joursSansLot = joursSansLot.subtract(anticipation.restant);
                         for (Imputation couverture : anticipation.couvertures) {
-                            Lot lotCouvert = lots.stream().filter(l -> l.id == couverture.idSource()).findFirst().orElseThrow();
+                            Lot lotCouvert = lot(lotsParId, couverture.idSource());
                             lotCouvert.joursRestants = lotCouvert.joursRestants.add(couverture.jours());
                             lotCouvert.valeurRestante = lotCouvert.valeurRestante.add(couverture.valeur());
                             traces.add(new Imputation(mouvement.id(), null, lotCouvert.id,
@@ -164,7 +175,7 @@ public class CongeLotValorisationEngine {
                                 prise.valeur().negate(), prise.tauxHistorique()));
                         continue;
                     }
-                    Lot lot = lots.stream().filter(l -> l.id == prise.idSource()).findFirst().orElseThrow();
+                    Lot lot = lot(lotsParId, prise.idSource());
                     lot.joursRestants = lot.joursRestants.add(prise.jours());
                     lot.valeurRestante = lot.valeurRestante.add(prise.valeur());
                     traces.add(new Imputation(mouvement.id(), mouvement.idDemande(), lot.id,
@@ -174,9 +185,9 @@ public class CongeLotValorisationEngine {
                 BigDecimal restant = jours.abs();
                 LocalDate seuil = seuilExpiration(mouvement.commentaire(), mouvement.date());
                 if (seuil == null) throw new IllegalStateException("CONGE_EXPIRATION_SEUIL_MISSING: " + mouvement.id());
-                for (Lot lot : lots.stream().filter(l -> !REPRISE.equals(l.origine)
-                        && l.date.isBefore(seuil)).sorted(Comparator.comparing((Lot l) -> l.date)
-                                .thenComparingInt(l -> l.id)).toList()) {
+                // Les crédits ont déjà été ajoutés dans l'ordre chronologique des mouvements.
+                for (Lot lot : lots) {
+                    if (REPRISE.equals(lot.origine) || !lot.date.isBefore(seuil)) continue;
                     BigDecimal quantite = restant.min(lot.joursRestants);
                     if (quantite.signum() <= 0) continue;
                     BigDecimal valeur = quantite.compareTo(lot.joursRestants) == 0
@@ -203,10 +214,16 @@ public class CongeLotValorisationEngine {
 
     private static LocalDate seuilExpiration(String commentaire, LocalDate date) {
         if (commentaire == null) return null;
-        var matcher = java.util.regex.Pattern.compile("avant le (\\d{4}-\\d{2}-\\d{2})").matcher(commentaire);
+        var matcher = SEUIL_EXPIRATION.matcher(commentaire);
         if (matcher.find()) return LocalDate.parse(matcher.group(1));
-        var mois = java.util.regex.Pattern.compile("\\+(\\d+) mois").matcher(commentaire);
+        var mois = DELAI_EXPIRATION.matcher(commentaire);
         return mois.find() ? date.minusMonths(Integer.parseInt(mois.group(1))) : null;
+    }
+
+    private static Lot lot(Map<Integer, Lot> lotsParId, int id) {
+        Lot lot = lotsParId.get(id);
+        if (lot == null) throw new java.util.NoSuchElementException("Lot de congé introuvable: " + id);
+        return lot;
     }
 
     private static final class Lot {

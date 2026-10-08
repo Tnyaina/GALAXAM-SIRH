@@ -59,6 +59,9 @@ CREATE TABLE utilisateur (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_utilisateur_identifiant_lower ON utilisateur (LOWER(identifiant));
+CREATE INDEX idx_utilisateur_refresh_token ON utilisateur (refresh_token) WHERE refresh_token IS NOT NULL;
+
 -- 6. Journal des Connexions
 CREATE TABLE journal_connexion (
     id_journal SERIAL PRIMARY KEY,

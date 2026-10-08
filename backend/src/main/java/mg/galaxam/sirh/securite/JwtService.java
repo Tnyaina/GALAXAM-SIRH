@@ -67,6 +67,16 @@ public class JwtService {
         return extractClaim(token, Claims::getSubject);
     }
 
+    /** Vérifie signature et expiration en décodant le JWT une seule fois. */
+    public String extractValidUsername(String token) {
+        Claims claims = extractAllClaims(token);
+        Date expiration = claims.getExpiration();
+        if (expiration == null || !expiration.after(new Date())) {
+            throw new IllegalArgumentException("JWT expiré ou sans date d'expiration.");
+        }
+        return claims.getSubject();
+    }
+
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);

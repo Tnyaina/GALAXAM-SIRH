@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, GitBranch, Plus, RefreshCw, Search, Settings2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -74,6 +74,12 @@ export default function PayrollConfigurationTab({ domaine = 'rubriques' }) {
     const identityLocked = isTypes && !!editor?.item;
     const chosenStage = options.etapes?.find(option => option.value === form.etapeCalcul);
     const selectedRubrique = data?.rubriquesCompatibles?.find(r => Number(r.id) === Number(form.idRubrique)) || selected?.rubrique;
+    const compatibleRubriques = useMemo(() => {
+        const compatible = data?.rubriquesCompatibles || [];
+        if (compatible.length) return compatible;
+        return (data?.items || []).filter(r => r.niveauConfiguration === 'CONFIGURABLE'
+            && r.estActif !== false && (r.typeValeur == null || r.typeValeur === 'MONTANT'));
+    }, [data?.rubriquesCompatibles, data?.items]);
     const returnTo = location.state?.from?.startsWith('/paie/') ? location.state.from : null;
 
     useEffect(() => {
@@ -222,12 +228,12 @@ export default function PayrollConfigurationTab({ domaine = 'rubriques' }) {
                                 error={errors.idRubrique}
                                 placeholder="Rechercher une rubrique manuelle…"
                                 options={[
-                                    ...(data?.rubriquesCompatibles || []).filter(r => r.sens === form.sens).map(r => ({
+                                    ...compatibleRubriques.filter(r => r.sens === form.sens).map(r => ({
                                         value: String(r.id),
                                         label: r.libelle,
                                         sublabel: `${r.code} · ${r.etapeLibelle || r.etapeCalcul}`,
                                     })),
-                                    ...(selected?.rubrique && !data?.rubriquesCompatibles?.some(r => r.id === selected.rubrique.id)
+                                    ...(selected?.rubrique && !compatibleRubriques.some(r => r.id === selected.rubrique.id)
                                         ? [{ value: String(selected.rubrique.id), label: selected.rubrique.libelle }]
                                         : []),
                                 ]}

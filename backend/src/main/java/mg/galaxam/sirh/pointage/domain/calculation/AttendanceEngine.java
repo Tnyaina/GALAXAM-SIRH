@@ -339,11 +339,17 @@ public class AttendanceEngine {
 
     public WeekResult calculateWeek(WeekContext context, List<Result> days) {
         List<Result> safeDays = days == null ? List.of() : List.copyOf(days);
-        long worked = safeDays.stream().mapToLong(Result::workedMinutes).sum();
-        long late = safeDays.stream().mapToLong(Result::lateMinutes).sum();
-        long dailySurplus = safeDays.stream().filter(this::isCompensableWorkingDay)
-                .mapToLong(day -> Math.max(0, day.workedMinutes() - dailyTarget(day, context.standardDayMinutes())))
-                .sum();
+        long worked = 0;
+        long late = 0;
+        long dailySurplus = 0;
+        for (Result day : safeDays) {
+            worked += day.workedMinutes();
+            late += day.lateMinutes();
+            if (isCompensableWorkingDay(day)) {
+                dailySurplus += Math.max(0,
+                        day.workedMinutes() - dailyTarget(day, context.standardDayMinutes()));
+            }
+        }
         long missingBeforeCompensation = Math.max(0, context.expectedMinutes() - worked + dailySurplus);
         long compensated = Math.min(dailySurplus, missingBeforeCompensation);
         long grossOvertime = dailySurplus - compensated;

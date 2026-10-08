@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, Plus, Building2, MapPin, Eye } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiClient';
@@ -77,7 +77,7 @@ export default function FilialesSitesTab() {
     const [siteFieldErrors, setSiteFieldErrors] = useState({});
 
     // Chargement des données
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
@@ -93,39 +93,12 @@ export default function FilialesSitesTab() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     // Effet : charge les filiales et sites à l'ouverture de l'onglet.
     useEffect(() => {
-        let isMounted = true;
-        const fetchData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const [filialesData, sitesData] = await Promise.all([
-                    organisationService.getFiliales(),
-                    organisationService.getSites()
-                ]);
-                if (isMounted) {
-                    setFiliales(filialesData);
-                    setSites(sitesData);
-                }
-            } catch (err) {
-                if (isMounted) {
-                    setError("Erreur lors du chargement des structures. Veuillez réessayer.");
-                    console.error(err);
-                }
-            } finally {
-                if (isMounted) {
-                    setLoading(false);
-                }
-            }
-        };
-        fetchData();
-        return () => {
-            isMounted = false;
-        };
-    }, []);
+        loadData();
+    }, [loadData]);
 
     // Actions utilisateur : filiales, sites et confirmations.
     const handleOpenCreateFiliale = () => {

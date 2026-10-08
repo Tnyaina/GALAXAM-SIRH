@@ -13,7 +13,7 @@ vi.mock('../api/paieService', () => ({ default: {
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root, host;
 const choices = (value,label) => [{value,label}];
-const rubrique = {id:1,code:'PRIME_TEST',libelle:'Prime de recette',sens:'GAIN',categorie:'PRIME',etapeCalcul:'BRUT',niveauLibelle:'Configurable',peutModifier:true,peutVersionner:true,estActif:true,soumisIrsa:true,soumisCnaps:true,soumisSante:true};
+const rubrique = {id:1,code:'PRIME_TEST',libelle:'Prime de recette',sens:'GAIN',categorie:'PRIME',etapeCalcul:'BRUT',niveauConfiguration:'CONFIGURABLE',typeValeur:'MONTANT',niveauLibelle:'Configurable',peutModifier:true,peutVersionner:true,estActif:true,soumisIrsa:true,soumisCnaps:true,soumisSante:true};
 const catalogue = {
     items:[rubrique], selection:null, totalElements:21,page:1,taille:10,famille:[],rubriquesCompatibles:[rubrique],
     validation:{codePattern:'[A-Z][A-Z0-9_]{2,39}',codeMessage:'Vérifiez le format du code.'},
@@ -74,11 +74,12 @@ describe('Paramétrage paie',()=>{
     it('guide la création d’un type vers une rubrique manuelle recherchable',async()=>{
         paieService.getConfigurationCatalogue.mockResolvedValue({...catalogue,items:[],rubriquesCompatibles:[rubrique]});
         await render('/paie/configuration?vue=types','types');
+        await act(async()=>await new Promise(resolve=>setTimeout(resolve,0)));
         await click('Nouveau type');
         const dialog=document.querySelector('[role="dialog"]');
         expect(dialog.textContent).toContain('Le montant saisi suivra la rubrique associée');
-        await act(async()=>[...dialog.querySelectorAll('button')].find(button=>button.textContent.includes('Rechercher une rubrique manuelle')).click());
-        expect(dialog.textContent).toContain('Prime de recette');
+        await act(async()=>{[...dialog.querySelectorAll('button')].find(button=>button.textContent.includes('Rechercher une rubrique manuelle')).click(); await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));});
+        expect(document.body.textContent).toContain('Prime de recette');
     });
     it('annule la requête précédente lorsque la sélection change',async()=>{
         await render();const firstSignal=paieService.getConfigurationCatalogue.mock.calls.at(-1)[1];

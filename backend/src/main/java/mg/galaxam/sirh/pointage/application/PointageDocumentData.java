@@ -19,25 +19,33 @@ public record PointageDocumentData(FichePointageEmployeDTO fiche, String edition
         var syn = fiche.getSoldePeriode();
         Map<String, BigDecimal> amounts = new LinkedHashMap<>(fiche.getTotauxIndemnites());
         if (syn != null) amounts.putAll(syn.getMontantsIndemnites());
+        List<PointageJourDTO> days = days(fiche);
         var codes = new TreeSet<>(amounts.keySet());
         codes.addAll(fiche.getIndemnitesDisponibles().keySet());
-        for (var day : days(fiche)) codes.addAll(day.getIndemnites().keySet());
-        List<Indemnite> allowances = new ArrayList<>();
-        for (String code : codes) {
-            BigDecimal quantity = BigDecimal.ZERO;
-            boolean unknown = false;
-            for (var day : days(fiche)) {
-                var item = day.getIndemnites().get(code);
-                if (item != null && item.accordee()) {
-                    if (item.quantite() == null) unknown = true;
-                    else quantity = quantity.add(item.quantite());
+        Map<String, BigDecimal> quantities = new HashMap<>();
+        Set<String> unknownQuantities = new HashSet<>();
+        Set<String> journalCodes = new HashSet<>();
+        for (var day : days) {
+            for (var entry : day.getIndemnites().entrySet()) {
+                String code = entry.getKey();
+                var item = entry.getValue();
+                codes.add(code);
+                journalCodes.add(code);
+                if (item == null) continue;
+                if (item.accordee()) {
+                    if (item.quantite() == null) unknownQuantities.add(code);
+                    else quantities.merge(code, item.quantite(), BigDecimal::add);
                 }
             }
+        }
+        List<Indemnite> allowances = new ArrayList<>();
+        for (String code : codes) {
             var config = fiche.getIndemnitesDisponibles().get(code);
             String periodicity = config == null ? null : config.periodicite();
             // Un forfait absent du journal ne possède pas de quantité journalière.
-            if (config == null && days(fiche).stream().noneMatch(d -> d.getIndemnites().containsKey(code))) unknown = true;
-            allowances.add(new Indemnite(code, config == null || config.libelle() == null ? code : config.libelle(), periodicity, unknown ? null : quantity, amounts.get(code)));
+            boolean unknown = unknownQuantities.contains(code) || (config == null && !journalCodes.contains(code));
+            allowances.add(new Indemnite(code, config == null || config.libelle() == null ? code : config.libelle(),
+                    periodicity, unknown ? null : quantities.getOrDefault(code, BigDecimal.ZERO), amounts.get(code)));
         }
         List<BigDecimal> balance = syn == null ? Arrays.asList(new BigDecimal[11]) : Arrays.asList(
                 hours(syn.getMinutesDeficitHebdo()), hours(syn.getMinutesHs30Hebdo()), hours(syn.getMinutesHs50Hebdo()),

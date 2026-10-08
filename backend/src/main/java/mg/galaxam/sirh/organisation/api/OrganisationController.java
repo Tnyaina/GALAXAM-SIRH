@@ -23,6 +23,12 @@ public class OrganisationController {
     @Autowired
     private OrganisationService organisationService;
 
+    @GetMapping("/formulaire-employe")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> getReferentielsFormulaireEmploye() {
+        return ResponseEntity.ok(organisationService.listerReferentielsFormulaireEmploye());
+    }
+
     // =========================================================================
     // I. FILIALES
     // =========================================================================

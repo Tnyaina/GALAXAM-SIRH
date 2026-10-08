@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import Loading from '@/components/ui/feedback/Loading';
 
 // Chargement différé (lazy loading) des 9 modales de carrière pour réduire la taille du bundle initial
@@ -41,6 +41,13 @@ export default function CarriereModalCoordinator({
         selectedStcContrat,
         handleSuccessAction, handleOpenEditModal, handleOpenStc
     } = modalsState;
+    const dateDebutInitialeContrats = useMemo(() => {
+        if (!contratsList?.length) return null;
+        return contratsList.reduce((earliest, contrat) => {
+            const date = contrat?.dateDebut;
+            return date && (!earliest || new Date(date) < new Date(earliest)) ? date : earliest;
+        }, null);
+    }, [contratsList]);
 
     return (
         <Suspense fallback={null}>
@@ -146,11 +153,7 @@ export default function CarriereModalCoordinator({
                     affectation={selectedCertificatAffectation}
                     loadingAffectation={loadingCertificatAffectation}
                     filiale={selectedCertificatContrat?.filiale || contratActif?.filiale}
-                    dateDebutInitiale={
-                        contratsList?.length > 0
-                            ? [...contratsList].sort((a, b) => new Date(a.dateDebut || 0) - new Date(b.dateDebut || 0))[0]?.dateDebut
-                            : selectedCertificatContrat?.dateDebut
-                    }
+                    dateDebutInitiale={dateDebutInitialeContrats || selectedCertificatContrat?.dateDebut}
                 />
             )}
 
@@ -165,11 +168,7 @@ export default function CarriereModalCoordinator({
                     affectation={selectedAttestationAffectation || affectationActive}
                     loadingAffectation={loadingAttestationAffectation}
                     filiale={selectedAttestationContrat?.filiale || contratActif?.filiale}
-                    dateDebutInitiale={
-                        contratsList?.length > 0
-                            ? [...contratsList].sort((a, b) => new Date(a.dateDebut || 0) - new Date(b.dateDebut || 0))[0]?.dateDebut
-                            : selectedAttestationContrat?.dateDebut
-                    }
+                    dateDebutInitiale={dateDebutInitialeContrats || selectedAttestationContrat?.dateDebut}
                 />
             )}
 

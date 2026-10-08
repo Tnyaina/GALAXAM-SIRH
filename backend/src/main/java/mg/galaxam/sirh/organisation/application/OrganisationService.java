@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -32,13 +33,31 @@ public class OrganisationService {
     @Autowired
     private DataSource dataSource;
 
+    /** Référentiels actifs utilisés ensemble par les formulaires employé/carrière. */
+    public Map<String, Object> listerReferentielsFormulaireEmploye() {
+        try (Connection c = dataSource.getConnection()) {
+            Map<String, Object> result = new HashMap<>();
+            result.put("filiales", RefFiliale.listActifs(c));
+            result.put("sites", RefSite.listActifs(c));
+            result.put("departements", RefDepartement.listActifs(c));
+            result.put("services", RefService.listActifs(c));
+            result.put("fonctions", RefFonction.listActifs(c));
+            result.put("typesContrat", RefTypeContrat.listActifs(c));
+            result.put("typesIntervenant", RefTypeIntervenant.listActifs(c));
+            return result;
+        } catch (Exception e) {
+            throw SirhExceptionTranslator.propagate(e);
+        }
+    }
+
     // =========================================================================
     // I. GESTION DES FILIALES
     // =========================================================================
 
     public List<RefFiliale> listerFiliales(Boolean actifUniquement, String search) {
         try (Connection c = dataSource.getConnection()) {
-            List<RefFiliale> list = RefFiliale.listAll(c);
+            List<RefFiliale> list = Boolean.TRUE.equals(actifUniquement)
+                    ? RefFiliale.listActifs(c) : RefFiliale.listAll(c);
             return list.stream()
                     .filter(f -> actifUniquement == null || !actifUniquement || f.isEstActif())
                     .filter(f -> search == null || search.isBlank()
@@ -230,7 +249,9 @@ public class OrganisationService {
 
     public List<RefSite> listerSites(Integer idFiliale, Boolean actifUniquement, String search) {
         try (Connection c = dataSource.getConnection()) {
-            List<RefSite> list = RefSite.listAll(c);
+            List<RefSite> list = idFiliale != null
+                    ? RefSite.listByFiliale(idFiliale, Boolean.TRUE.equals(actifUniquement), c)
+                    : Boolean.TRUE.equals(actifUniquement) ? RefSite.listActifs(c) : RefSite.listAll(c);
             return list.stream()
                     .filter(s -> idFiliale == null || Objects.equals(s.getIdFilialeRattachement(), idFiliale))
                     .filter(s -> actifUniquement == null || !actifUniquement || s.isEstActif())
@@ -412,7 +433,8 @@ public class OrganisationService {
 
     public List<RefDepartement> listerDepartements(Boolean actifUniquement, String search) {
         try (Connection c = dataSource.getConnection()) {
-            List<RefDepartement> list = RefDepartement.listAll(c);
+            List<RefDepartement> list = Boolean.TRUE.equals(actifUniquement)
+                    ? RefDepartement.listActifs(c) : RefDepartement.listAll(c);
             return list.stream()
                     .filter(d -> actifUniquement == null || !actifUniquement || d.isEstActif())
                     .filter(d -> search == null || search.isBlank()
@@ -539,8 +561,8 @@ public class OrganisationService {
     public List<RefService> listerServices(Integer idDepartement, Boolean actifUniquement, String search) {
         try (Connection c = dataSource.getConnection()) {
             List<RefService> list = (idDepartement != null)
-                    ? RefService.listByDepartement(idDepartement, c)
-                    : RefService.listAll(c);
+                    ? RefService.listByDepartement(idDepartement, Boolean.TRUE.equals(actifUniquement), c)
+                    : Boolean.TRUE.equals(actifUniquement) ? RefService.listActifs(c) : RefService.listAll(c);
 
             return list.stream()
                     .filter(s -> actifUniquement == null || !actifUniquement || s.isEstActif())
@@ -669,7 +691,8 @@ public class OrganisationService {
 
     public List<RefFonction> listerFonctions(Boolean actifUniquement, String search) {
         try (Connection c = dataSource.getConnection()) {
-            List<RefFonction> list = RefFonction.listAll(c);
+            List<RefFonction> list = Boolean.TRUE.equals(actifUniquement)
+                    ? RefFonction.listActifs(c) : RefFonction.listAll(c);
             return list.stream()
                     .filter(f -> actifUniquement == null || !actifUniquement || f.isEstActif())
                     .filter(f -> search == null || search.isBlank()
@@ -797,7 +820,8 @@ public class OrganisationService {
 
     public List<RefBanque> listerBanques(Boolean actifUniquement, String search) {
         try (Connection c = dataSource.getConnection()) {
-            List<RefBanque> list = RefBanque.listAll(c);
+            List<RefBanque> list = Boolean.TRUE.equals(actifUniquement)
+                    ? RefBanque.listActifs(c) : RefBanque.listAll(c);
             return list.stream()
                     .filter(b -> actifUniquement == null || !actifUniquement || b.isEstActif())
                     .filter(b -> search == null || search.isBlank()
@@ -916,7 +940,8 @@ public class OrganisationService {
 
     public List<RefTypeContrat> listerTypesContrat(Boolean actifUniquement) {
         try (Connection c = dataSource.getConnection()) {
-            List<RefTypeContrat> list = RefTypeContrat.listAll(c);
+            List<RefTypeContrat> list = Boolean.TRUE.equals(actifUniquement)
+                    ? RefTypeContrat.listActifs(c) : RefTypeContrat.listAll(c);
             return list.stream()
                     .filter(tc -> actifUniquement == null || !actifUniquement || tc.isEstActif())
                     .collect(Collectors.toList());
@@ -1032,7 +1057,8 @@ public class OrganisationService {
 
     public List<RefTypeIntervenant> listerTypesIntervenant(Boolean actifUniquement) {
         try (Connection c = dataSource.getConnection()) {
-            List<RefTypeIntervenant> list = RefTypeIntervenant.listAll(c);
+            List<RefTypeIntervenant> list = Boolean.TRUE.equals(actifUniquement)
+                    ? RefTypeIntervenant.listActifs(c) : RefTypeIntervenant.listAll(c);
             return list.stream()
                     .filter(ti -> actifUniquement == null || !actifUniquement || ti.isEstActif())
                     .collect(Collectors.toList());

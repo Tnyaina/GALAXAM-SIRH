@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Représente la relation juridique/contractuelle entre un employé et la société.
@@ -457,5 +458,23 @@ public class ContratTravail extends ClassMere {
         res.put("nombreContratsChaine", bilan.nombreContratsChaine());
 
         return res;
+    }
+
+    /** Calcule les métriques d'ancienneté de plusieurs contrats avec une lecture groupée. */
+    public static Map<Integer, Map<String, Object>> calculerAncienneteDetailleeBatch(
+            Set<Integer> idContrats, Connection c) {
+        Map<Integer, Map<String, Object>> resultats = new HashMap<>();
+        if (idContrats == null || idContrats.isEmpty()) return resultats;
+
+        ANCIENNETE_ENGINE.calculerAncienneteBatch(idContrats, c).forEach((idContrat, bilan) -> {
+            Map<String, Object> details = new HashMap<>();
+            details.put("ancienneteEffectiveTexte", bilan.ancienneteEffectiveTexte());
+            details.put("ancienneteEffectiveAnnees", bilan.anneesEffectives());
+            details.put("ancienneteEffectiveMois", bilan.moisEffectifs());
+            details.put("ancienneteContratTexte", bilan.ancienneteContratTexte());
+            details.put("nombreContratsChaine", bilan.nombreContratsChaine());
+            resultats.put(idContrat, details);
+        });
+        return resultats;
     }
 }

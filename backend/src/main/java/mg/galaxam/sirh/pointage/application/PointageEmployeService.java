@@ -240,66 +240,40 @@ public class PointageEmployeService {
         LocalDate dateDepart = null;
 
         // A. Contrats du salarié : date d'embauche et date de départ
-        String sqlContrats = "SELECT ct.date_debut, ct.date_fin, rsc.code AS code_statut " +
-                             "FROM contrat_travail ct " +
-                             "LEFT JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
-                             "WHERE ct.id_employe = ? ORDER BY ct.date_debut ASC";
+        String sqlContexteDates = "SELECT " +
+                "(SELECT MIN(ct.date_debut) FROM contrat_travail ct WHERE ct.id_employe = ?) AS date_embauche_contrat, " +
+                "(SELECT BOOL_OR(ct.date_fin IS NULL OR UPPER(rsc.code) = 'ACTIF') " +
+                " FROM contrat_travail ct LEFT JOIN ref_statut_rh rsc ON rsc.id_statut_rh = ct.id_statut_rh " +
+                " WHERE ct.id_employe = ?) AS contrat_actif, " +
+                "(SELECT MAX(ct.date_fin) FROM contrat_travail ct " +
+                " LEFT JOIN ref_statut_rh rsc ON rsc.id_statut_rh = ct.id_statut_rh " +
+                " WHERE ct.id_employe = ? AND ct.date_fin IS NOT NULL " +
+                " AND UPPER(rsc.code) IS DISTINCT FROM 'ACTIF') AS date_fin_contrat, " +
+                "(SELECT a.date_debut FROM employe_affectation_carriere a " +
+                " WHERE a.id_employe = ? AND a.date_debut IS NOT NULL " +
+                " ORDER BY (a.date_fin IS NULL) DESC, a.date_debut DESC LIMIT 1) AS date_debut_affectation";
         boolean hasContratActif = false;
         LocalDate maxDateFin = null;
 
         try (Connection c = dataSource.getConnection();
-             PreparedStatement psC = c.prepareStatement(sqlContrats)) {
-            psC.setInt(1, idEmploye);
-            try (ResultSet rsC = psC.executeQuery()) {
-                while (rsC.next()) {
-                    Date dDeb = rsC.getDate("date_debut");
-                    Date dFin = rsC.getDate("date_fin");
-                    String st = rsC.getString("code_statut");
-
-                    if (dDeb != null) {
-                        LocalDate ldDeb = dDeb.toLocalDate();
-                        if (dateEmbauche == null || ldDeb.isBefore(dateEmbauche)) {
-                            dateEmbauche = ldDeb;
-                        }
-                    }
-                    if (dFin == null || "ACTIF".equalsIgnoreCase(st)) {
-                        hasContratActif = true;
-                    } else {
-                        LocalDate ldFin = dFin.toLocalDate();
-                        if (maxDateFin == null || ldFin.isAfter(maxDateFin)) {
-                            maxDateFin = ldFin;
-                        }
-                    }
+             PreparedStatement ps = c.prepareStatement(sqlContexteDates)) {
+            for (int i = 1; i <= 4; i++) ps.setInt(i, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Date dateEmbaucheContrat = rs.getDate("date_embauche_contrat");
+                    Date dateDebutAffectation = rs.getDate("date_debut_affectation");
+                    dateEmbauche = dateEmbaucheContrat != null ? dateEmbaucheContrat.toLocalDate()
+                            : dateDebutAffectation != null ? dateDebutAffectation.toLocalDate() : null;
+                    hasContratActif = rs.getBoolean("contrat_actif");
+                    Date dateFinContrat = rs.getDate("date_fin_contrat");
+                    maxDateFin = dateFinContrat == null ? null : dateFinContrat.toLocalDate();
                 }
             }
         } catch (Exception e) {
-            log.warn("[PointageEmployeService] Erreur récupération contrats pour employé {}: {}", idEmploye, e.getMessage());
+            log.warn("[PointageEmployeService] Erreur récupération dates de carrière pour employé {}: {}", idEmploye, e.getMessage());
         }
-
         if (!hasContratActif && maxDateFin != null) {
             dateDepart = maxDateFin;
-        }
-
-        // B. Affectations & Fonction : Détection de la dispense de pointage (Cadre autonome)
-        String sqlAffs = "SELECT a.date_debut, a.date_fin " +
-                         "FROM employe_affectation_carriere a " +
-                         "WHERE a.id_employe = ? " +
-                         "ORDER BY (a.date_fin IS NULL) DESC, a.date_debut DESC";
-
-        try (Connection c = dataSource.getConnection();
-             PreparedStatement psA = c.prepareStatement(sqlAffs)) {
-            psA.setInt(1, idEmploye);
-            try (ResultSet rsA = psA.executeQuery()) {
-                while (rsA.next()) {
-                    Date dDeb = rsA.getDate("date_debut");
-
-                    if (dateEmbauche == null && dDeb != null) {
-                        dateEmbauche = dDeb.toLocalDate();
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.warn("[PointageEmployeService] Erreur vérification statut cadre/autonome pour employé {}: {}", idEmploye, e.getMessage());
         }
 
         // 1.5 Récupération des jours fériés/chômés sur la période via CalendrierOuvrableEngine
@@ -465,11 +439,18 @@ public class PointageEmployeService {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                     mg.galaxam.sirh.common.exception.SirhErrorCode.POINTAGE_EXPORT_SOURCE_UNAVAILABLE);
         }
-        if (pointageMap.values().stream().anyMatch(record -> "REPAS_2".equals(record.codeSecondRepas))) {
+        boolean repasDeux = false;
+        boolean repasDeuxMajore = false;
+        for (var record : pointageMap.values()) {
+            repasDeux |= "REPAS_2".equals(record.codeSecondRepas);
+            repasDeuxMajore |= "REPAS_2_MAJORE".equals(record.codeSecondRepas);
+            if (repasDeux && repasDeuxMajore) break;
+        }
+        if (repasDeux) {
             indemnitesDisponibles.put("REPAS_2", new FichePointageEmployeDTO.IndemniteFicheDTO(
                     "REPAS_2", "AUTOMATIQUE", "Deuxième repas"));
         }
-        if (pointageMap.values().stream().anyMatch(record -> "REPAS_2_MAJORE".equals(record.codeSecondRepas))) {
+        if (repasDeuxMajore) {
             indemnitesDisponibles.put("REPAS_2_MAJORE", new FichePointageEmployeDTO.IndemniteFicheDTO(
                     "REPAS_2_MAJORE", "AUTOMATIQUE", "Deuxième repas majoré"));
         }
@@ -486,8 +467,10 @@ public class PointageEmployeService {
             psC.setDate(3, java.sql.Date.valueOf(startDate));
             try (ResultSet rsC = psC.executeQuery()) {
                 while (rsC.next()) {
-                    LocalDate deb = rsC.getDate("date_debut").toLocalDate();
-                    LocalDate fn = rsC.getDate("date_fin").toLocalDate();
+                    LocalDate demandeDebut = rsC.getDate("date_debut").toLocalDate();
+                    LocalDate demandeFin = rsC.getDate("date_fin").toLocalDate();
+                    LocalDate deb = demandeDebut.isBefore(startDate) ? startDate : demandeDebut;
+                    LocalDate fn = demandeFin.isAfter(endDate) ? endDate : demandeFin;
                     boolean demi = rsC.getBoolean("est_demi_journee");
                     for (LocalDate d = deb; !d.isAfter(fn); d = d.plusDays(1)) {
                         congeMap.put(d, demi ? "HALF_DAY" : "FULL_DAY");
@@ -754,8 +737,11 @@ public class PointageEmployeService {
         // 3. Calcul de la synthèse exacte unifiée via le moteur métier centralisé
         PointageSyntheseMensuelleDTO synDto = null;
         Map<String, ParametreGlobal.ParametreEtat> parameterStates = Collections.emptyMap();
+        boolean parameterStatesLoaded = false;
         try (Connection c = dataSource.getConnection()) {
-            Map<String, String> pMap = ParametreGlobal.loadActiveMapAtDate(Date.valueOf(startDate), c);
+            parameterStates = ParametreGlobal.loadEtatMapAtDate(Date.valueOf(startDate), c);
+            parameterStatesLoaded = true;
+            Map<String, String> pMap = ParametreGlobal.activeValues(parameterStates);
 
             // Récupération des infos carrières de l'employé
             String sqlCarriere = "SELECT e.matricule, e.nom, e.prenom, e.photo_url, " +
@@ -821,15 +807,11 @@ public class PointageEmployeService {
                 }
             }
         } catch (Exception e) {
+            if (!parameterStatesLoaded) {
+                throw new IllegalStateException("Impossible de résoudre la configuration Pointage de la fiche.", e);
+            }
             log.error("[PointageEmployeService] Erreur calcul synthèse employe {}: {}", idEmploye, e.getMessage(), e);
         }
-        try (Connection configConnection = dataSource.getConnection()) {
-            parameterStates = ParametreGlobal.loadEtatMapAtDate(
-                    Date.valueOf(startDate != null ? startDate : LocalDate.now()), configConnection);
-        } catch (Exception exception) {
-            throw new IllegalStateException("Impossible de résoudre la configuration Pointage de la fiche.", exception);
-        }
-
         // Calcul unifié de l'objectif d'heures du collaborateur sur la période
         // Source unique de vérité : la somme des seuils de chaque tronçon calculés par AttendanceEngine
         double totalObjectifHeures = 0.0;

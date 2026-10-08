@@ -140,6 +140,25 @@ public class RefTypeMouvementPaieController {
         Map<String,Object> catalogue = (Map<String,Object>) getCatalogue().getBody();
         var rubriques = (List<Map<String,Object>>) catalogue.get("rubriques");
         var types = (List<Map<String,Object>>) catalogue.get("types");
+        var etapeOptions = etapes();
+        var methodeOptions = methodes();
+        var arrondiOptions = arrondis();
+        var conditionOptions = conditions();
+        var niveauOptions = niveaux();
+        var phaseLabels = labelIndex(choix("BRUT","Dans le brut","GAIN_NET","Ajout au net après impôt","RETENUE_NET","Retenue sur le net après impôt","COTISATIONS","Calcul des cotisations","IMPOT","Calcul de l’impôt","NET_FINAL","Net final","DOMAINE","Calculateur métier"));
+        var etapeLabels = labelIndex(etapeOptions);
+        var methodeLabels = labelIndex(methodeOptions);
+        var arrondiLabels = labelIndex(arrondiOptions);
+        var conditionLabels = labelIndex(conditionOptions);
+        var niveauLabels = labelIndex(niveauOptions);
+        Map<Object, Map<String,Object>> rubriqueParId = new java.util.HashMap<>();
+        for (var rubrique : rubriques) rubriqueParId.put(rubrique.get("id"), rubrique);
+        var rubriquesDediees = new java.util.HashSet<Object>();
+        for (var type : types) {
+            if (type.get("idRubrique") != null && !"VARIABLE_DAF".equals(type.get("nature"))) {
+                rubriquesDediees.add(type.get("idRubrique"));
+            }
+        }
         try (Connection c = dataSource.getConnection()) {
             var lockedRubriques = new java.util.HashSet<Integer>();
             try (var ps = c.prepareStatement("SELECT id_rubrique FROM paie_avance_acompte a JOIN ref_type_mouvement_paie t USING(id_type_mouvement) WHERE id_rubrique IS NOT NULL UNION SELECT id_rubrique FROM bulletin_paie_ligne UNION SELECT id_rubrique_origine FROM paie_rubrique WHERE id_rubrique_origine IS NOT NULL UNION SELECT id_rubrique FROM paie_rubrique WHERE id_rubrique_origine IS NOT NULL"); var rs = ps.executeQuery()) {
@@ -153,13 +172,13 @@ public class RefTypeMouvementPaieController {
                 boolean manual = "CONFIGURABLE".equals(r.get("niveauConfiguration"));
                 r.put("peutModifier", manual);
                 r.put("traitementVerrouille", !manual || lockedRubriques.contains((Integer)r.get("id")));
-                boolean dedicated = types.stream().anyMatch(t -> Objects.equals(t.get("idRubrique"),r.get("id")) && !"VARIABLE_DAF".equals(t.get("nature")));
+                boolean dedicated = rubriquesDediees.contains(r.get("id"));
                 r.put("peutVersionner", manual && !dedicated && r.get("dateFinEffet")==null);
-                r.put("etapeLibelle", manual ? (r.get("etapeCalcul")==null ? "Étape à renseigner" : label(etapes(), r.get("etapeCalcul"))) : capabilityPhaseLabel(r.get("phaseCalcul")));
-                r.put("methodeLibelle", manual ? label(methodes(), r.get("methodeCalcul")) : r.get("sourceCalcul"));
-                r.put("arrondiLibelle", manual ? label(arrondis(), r.get("politiqueArrondi")) : r.get("arrondiCalculateur"));
-                r.put("conditionLibelle", label(conditions(), r.get("conditionApplication")));
-                r.put("niveauLibelle", "NOTES_DE_FRAIS".equals(r.get("calculateur")) ? "Circuit dédié" : label(niveaux(), r.get("niveauConfiguration")));
+                r.put("etapeLibelle", manual ? (r.get("etapeCalcul")==null ? "Étape à renseigner" : label(etapeLabels, r.get("etapeCalcul"))) : label(phaseLabels, r.get("phaseCalcul")));
+                r.put("methodeLibelle", manual ? label(methodeLabels, r.get("methodeCalcul")) : r.get("sourceCalcul"));
+                r.put("arrondiLibelle", manual ? label(arrondiLabels, r.get("politiqueArrondi")) : r.get("arrondiCalculateur"));
+                r.put("conditionLibelle", label(conditionLabels, r.get("conditionApplication")));
+                r.put("niveauLibelle", "NOTES_DE_FRAIS".equals(r.get("calculateur")) ? "Circuit dédié" : label(niveauLabels, r.get("niveauConfiguration")));
                 String calculator=Objects.toString(r.get("calculateur"),"");
                 String code=Objects.toString(r.get("code"),"");
                 String target=switch(calculator) {
@@ -183,10 +202,14 @@ public class RefTypeMouvementPaieController {
                 t.put("identiteVerrouillee", true);
                 t.put("niveauConfiguration", manual ? "CONFIGURABLE" : "SEMI_CONFIGURABLE");
                 t.put("niveauLibelle", manual ? "Configurable" : "Circuit dédié");
-                t.put("rubrique", rubriques.stream().filter(r -> Objects.equals(r.get("id"),t.get("idRubrique"))).findFirst().orElse(null));
+                t.put("rubrique", rubriqueParId.get(t.get("idRubrique")));
             }
         } catch (Exception e) { throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e); }
         var all = "types".equals(domaine) ? types : rubriques;
+        Map<Object, Map<String,Object>> itemParId = "types".equals(domaine)
+                ? types.stream().collect(java.util.stream.Collectors.toMap(item -> item.get("id"), item -> item, (first, ignored) -> first))
+                : rubriqueParId;
+        Map<String,Object> selectionItem = selection == null ? null : itemParId.get(selection);
         String q = java.text.Normalizer.normalize(recherche.trim().toLowerCase(java.util.Locale.ROOT), java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "");
         var filtered = all.stream().filter(item -> {
             Object linked = item.get("rubrique");
@@ -206,17 +229,17 @@ public class RefTypeMouvementPaieController {
         Map<String,Object> result=new LinkedHashMap<>();
         result.put("items",filtered.subList(start,Math.min(start+taille,filtered.size())));
         result.put("totalElements",filtered.size()); result.put("page",actualPage); result.put("taille",taille);
-        result.put("selection", all.stream().filter(r -> Objects.equals(r.get("id"),selection)).findFirst().orElse(null));
-        result.put("options",Map.of("categories",categories(),"etapes",etapes(),"methodes",methodes(),"arrondis",arrondis(),"conditions",conditions(),"niveaux",niveaux(),"sens",List.of(Map.of("value","GAIN","label","Gain","categorieType","PRIME"),Map.of("value","RETENUE","label","Retenue","categorieType","RETENUE_DIVERSE")),"statuts",choix("actif","Actifs","inactif","Inactifs"),"tris",choix("ordre","Ordre du catalogue","libelle","Libellé","code","Code"),"assiettes",List.of(Map.of("key","soumisIrsa","label","IRSA"),Map.of("key","soumisCnaps","label","CNaPS"),Map.of("key","soumisSante","label","Santé"),Map.of("key","soumisFmfp","label","FMFP","heriteDe","soumisCnaps"))));
+        result.put("selection", selectionItem);
+        result.put("options",Map.of("categories",categories(),"etapes",etapeOptions,"methodes",methodeOptions,"arrondis",arrondiOptions,"conditions",conditionOptions,"niveaux",niveauOptions,"sens",List.of(Map.of("value","GAIN","label","Gain","categorieType","PRIME"),Map.of("value","RETENUE","label","Retenue","categorieType","RETENUE_DIVERSE")),"statuts",choix("actif","Actifs","inactif","Inactifs"),"tris",choix("ordre","Ordre du catalogue","libelle","Libellé","code","Code"),"assiettes",List.of(Map.of("key","soumisIrsa","label","IRSA"),Map.of("key","soumisCnaps","label","CNaPS"),Map.of("key","soumisSante","label","Santé"),Map.of("key","soumisFmfp","label","FMFP","heriteDe","soumisCnaps"))));
         result.put("rubriquesCompatibles",rubriques.stream().filter(r -> Boolean.TRUE.equals(r.get("estActif")) && "CONFIGURABLE".equals(r.get("niveauConfiguration")) && "MONTANT".equals(r.get("typeValeur"))).toList());
         result.put("defautsRubrique",Map.ofEntries(Map.entry("categorie","PRIME"),Map.entry("sens","GAIN"),Map.entry("typeValeur","MONTANT"),Map.entry("etapeCalcul","BRUT"),Map.entry("methodeCalcul","MONTANT"),Map.entry("politiqueArrondi","CENTIME"),Map.entry("conditionApplication","TOUS"),Map.entry("soumisIrsa",true),Map.entry("soumisCnaps",true),Map.entry("soumisSante",true),Map.entry("soumisFmfp",true),Map.entry("estActif",true),Map.entry("estFixe",false),Map.entry("ordreAffichage",10)));
         result.put("defautsType",Map.of("sens","GAIN","categorie","PRIME","estActif",true,"ordreAffichage",100,"estProratise",false,"estPlafonneDixieme",false));
         result.put("validation", Map.of("codePattern","[A-Z][A-Z0-9_]{2,39}","codeMessage","Utilisez 3 à 40 caractères : lettres majuscules, chiffres ou tirets bas ; commencez par une lettre."));
-        result.put("famille", selection == null || "types".equals(domaine) ? List.of() : rubriques.stream().filter(r -> {
-            var selected=all.stream().filter(a -> Objects.equals(a.get("id"),selection)).findFirst().orElse(null);
-            if(selected==null)return false;
-            return Objects.equals(r.get("idRubriqueOrigine")==null?r.get("id"):r.get("idRubriqueOrigine"),selected.get("idRubriqueOrigine")==null?selected.get("id"):selected.get("idRubriqueOrigine"));
-        }).sorted(java.util.Comparator.comparing(r -> Objects.toString(r.get("dateDebutEffet"),""))).toList());
+        Object selectionFamilleId = selectionItem == null ? null
+                : (selectionItem.get("idRubriqueOrigine") == null ? selectionItem.get("id") : selectionItem.get("idRubriqueOrigine"));
+        result.put("famille", selectionFamilleId == null || "types".equals(domaine) ? List.of() : rubriques.stream().filter(r ->
+                Objects.equals(r.get("idRubriqueOrigine") == null ? r.get("id") : r.get("idRubriqueOrigine"), selectionFamilleId))
+                .sorted(java.util.Comparator.comparing(r -> Objects.toString(r.get("dateDebutEffet"), ""))).toList());
         return ResponseEntity.ok(result);
     }
 
@@ -242,10 +265,12 @@ public class RefTypeMouvementPaieController {
     private static List<Map<String,Object>> arrondis(){return choix("CENTIME","Au centime","ARIARY","À l’ariary","DIZAINE","À la dizaine d’ariary");}
     private static List<Map<String,Object>> conditions(){return choix("TOUS","Tous les salariés","ASSUJETTI_IRSA","Assujettis à l’IRSA","ASSUJETTI_CNAPS","Assujettis à la CNaPS","ASSUJETTI_SANTE","Assujettis à la santé");}
     private static List<Map<String,Object>> niveaux(){return choix("CONFIGURABLE","Configurable","SEMI_CONFIGURABLE","Partiellement configurable","SYSTEM","Système");}
-    private static String capabilityPhaseLabel(Object phase) {
-        return label(choix("BRUT","Dans le brut","GAIN_NET","Ajout au net après impôt","RETENUE_NET","Retenue sur le net après impôt","COTISATIONS","Calcul des cotisations","IMPOT","Calcul de l’impôt","NET_FINAL","Net final","DOMAINE","Calculateur métier"),phase);
+    private static Map<Object, String> labelIndex(List<Map<String,Object>> options) {
+        Map<Object, String> labels = new java.util.HashMap<>();
+        for (var option : options) labels.putIfAbsent(option.get("value"), Objects.toString(option.get("label"), "Calculateur dédié"));
+        return labels;
     }
-    private static String label(List<Map<String,Object>> options,Object value){return options.stream().filter(o->Objects.equals(o.get("value"),value)).map(o->o.get("label").toString()).findFirst().orElse("Calculateur dédié");}
+    private static String label(Map<Object, String> labels, Object value) { return labels.getOrDefault(value, "Calculateur dédié"); }
 
     @GetMapping
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")

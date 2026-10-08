@@ -128,15 +128,17 @@ export function useNotifications() {
         }
     };
 
-    // Effet : charge, rafraîchit périodiquement et nettoie les abonnements.
+    // Effet : charge les notifications et les actualise quand l'utilisateur
+    // revient sur l'onglet, avec un intervalle modéré tant que l'onglet est visible.
     useEffect(() => {
         const controller = new AbortController();
         load(false, controller.signal);
-        
-        // Rafraîchissement automatique en arrière-plan toutes les 15 secondes
-        const timer = setInterval(() => {
-            load(true);
-        }, 15000);
+
+        const refreshIfVisible = () => {
+            if (document.visibilityState === 'visible') load(true);
+        };
+        const timer = setInterval(refreshIfVisible, 60000);
+        document.addEventListener('visibilitychange', refreshIfVisible);
 
         // Rafraîchissement manuel déclenché par d'autres composants
         const handleForceRefresh = () => {
@@ -147,6 +149,7 @@ export function useNotifications() {
         return () => {
             controller.abort();
             clearInterval(timer);
+            document.removeEventListener('visibilitychange', refreshIfVisible);
             window.removeEventListener('refresh-notifications', handleForceRefresh);
         };
     }, [load]);

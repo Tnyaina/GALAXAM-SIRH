@@ -124,8 +124,16 @@ public class RefFonction extends ClassMere {
     }
 
     public static List<RefFonction> listAll(Connection c) throws Exception {
+        return list(c, false);
+    }
+
+    public static List<RefFonction> listActifs(Connection c) throws Exception {
+        return list(c, true);
+    }
+
+    private static List<RefFonction> list(Connection c, boolean actifsOnly) throws Exception {
         List<RefFonction> list = new ArrayList<>();
-        String sql = "SELECT id_fonction, code_fonction, libelle, dispense_pointage, est_actif FROM ref_fonction ORDER BY id_fonction ASC";
+        String sql = "SELECT id_fonction, code_fonction, libelle, dispense_pointage, est_actif FROM ref_fonction " + (actifsOnly ? " WHERE est_actif = TRUE" : "") + " ORDER BY id_fonction ASC";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {

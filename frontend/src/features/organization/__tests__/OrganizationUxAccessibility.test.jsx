@@ -222,14 +222,15 @@ describe('Organisation UX & Accessibilité (WCAG AA & EmptyState focal)', () => 
         // Ouvrir le menu déroulant
         await act(async () => {
             selectBtn.click();
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         });
 
         // Vérifier l'input de filtre
-        const filterInput = container.querySelector('input[placeholder="Filtrer..."]');
+        const filterInput = document.body.querySelector('input[placeholder="Filtrer..."]');
         expect(filterInput).toBeTruthy();
 
         // Sélectionner la filiale Madagascar SARL
-        const optionBtn = Array.from(container.querySelectorAll('button')).find(
+        const optionBtn = Array.from(document.body.querySelectorAll('button')).find(
             b => b.textContent.includes('Madagascar SARL')
         );
         expect(optionBtn).toBeTruthy();

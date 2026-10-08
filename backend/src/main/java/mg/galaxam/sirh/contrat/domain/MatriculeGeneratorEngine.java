@@ -17,6 +17,8 @@ public class MatriculeGeneratorEngine {
     private static final String PREFIX = "EMP-";
     private static final Pattern PATTERN_MATRICULE_PREFIXE = Pattern.compile("^EMP-(\\d{4})-(\\d{4,6})$");
     private static final Pattern PATTERN_MATRICULE_SEQUENTIEL = Pattern.compile("^\\d{4,}$");
+    private static final Pattern PATTERN_SEQUENCE_NUMERIQUE = Pattern.compile("\\d+");
+    private static final Pattern PATTERN_SEQUENCE_DANS_TEXTE = Pattern.compile("(\\d+)");
 
     /**
      * Génère un matricule selon l'ancienne logique historique (ex: 0001, 0042).
@@ -67,12 +69,12 @@ public class MatriculeGeneratorEngine {
                 return Long.parseLong(mPref.group(2));
             } catch (NumberFormatException ignored) {}
         }
-        if (mat.matches("\\d+")) {
+        if (PATTERN_SEQUENCE_NUMERIQUE.matcher(mat).matches()) {
             try {
                 return Long.parseLong(mat);
             } catch (NumberFormatException ignored) {}
         }
-        Matcher mDigits = Pattern.compile("(\\d+)").matcher(mat);
+        Matcher mDigits = PATTERN_SEQUENCE_DANS_TEXTE.matcher(mat);
         Long lastVal = null;
         while (mDigits.find()) {
             try {

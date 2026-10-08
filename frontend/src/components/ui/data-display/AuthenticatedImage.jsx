@@ -1,5 +1,33 @@
 import { useEffect, useState } from 'react';
-import apiClient from '@/api/apiClient';
+import apiClient, { getAccessToken } from '@/api/apiClient';
+
+// Cache mémoire de courte durée : les photos privées évitent les téléchargements
+// répétés pendant la navigation, puis leurs URL sont libérées à expiration.
+const IMAGE_CACHE_TTL_MS = 5 * 60 * 1000;
+const IMAGE_CACHE_MAX_ENTRIES = 100;
+const imageCache = new Map();
+
+function getAuthenticatedCacheKey(path) {
+    try {
+        const payload = getAccessToken()?.split('.')[1];
+        if (!payload) return null;
+        const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+        return decoded.sub ? `${decoded.sub}:${path}` : null;
+    } catch {
+        return null;
+    }
+}
+
+function getCachedImage(path) {
+    const entry = imageCache.get(path);
+    if (!entry) return null;
+    if (entry.expiresAt <= Date.now()) {
+        URL.revokeObjectURL(entry.url);
+        imageCache.delete(path);
+        return null;
+    }
+    return entry.url;
+}
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/';
 
@@ -45,11 +73,34 @@ export default function AuthenticatedImage({ src, fallback = null, onError, ...i
             return () => {};
         }
 
+        const cacheKey = getAuthenticatedCacheKey(path);
+        const cachedUrl = cacheKey ? getCachedImage(cacheKey) : null;
+        if (cachedUrl) {
+            setObjectUrl(cachedUrl);
+            return () => {};
+        }
+
         apiClient.get(path, { responseType: 'blob' })
             .then(({ data }) => {
                 if (disposed) return;
-                generatedUrl = URL.createObjectURL(data);
-                setObjectUrl(generatedUrl);
+                const objectUrl = URL.createObjectURL(data);
+                generatedUrl = objectUrl;
+                if (cacheKey) {
+                    for (const [key, entry] of imageCache) {
+                        if (entry.expiresAt <= Date.now()) {
+                            URL.revokeObjectURL(entry.url);
+                            imageCache.delete(key);
+                        }
+                    }
+                    while (imageCache.size >= IMAGE_CACHE_MAX_ENTRIES) {
+                        const oldestKey = imageCache.keys().next().value;
+                        URL.revokeObjectURL(imageCache.get(oldestKey).url);
+                        imageCache.delete(oldestKey);
+                    }
+                    imageCache.set(cacheKey, { url: objectUrl, expiresAt: Date.now() + IMAGE_CACHE_TTL_MS });
+                    generatedUrl = null;
+                }
+                setObjectUrl(objectUrl);
             })
             .catch((error) => {
                 if (disposed) return;

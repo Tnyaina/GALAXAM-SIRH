@@ -7,7 +7,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Ligne de détail d'un bulletin de paie.
@@ -155,6 +157,27 @@ public class BulletinPaieLigne extends ClassMere {
             }
         }
         return list;
+    }
+
+    /** Charge les lignes de plusieurs bulletins en une seule requête, en conservant leur ordre métier. */
+    public static Map<Integer, List<BulletinPaieLigne>> listerParBulletins(List<Integer> idsBulletins, Connection c) throws Exception {
+        Map<Integer, List<BulletinPaieLigne>> result = new LinkedHashMap<>();
+        if (idsBulletins == null || idsBulletins.isEmpty()) return result;
+        List<Integer> uniqueIds = idsBulletins.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (uniqueIds.isEmpty()) return result;
+        String placeholders = String.join(",", java.util.Collections.nCopies(uniqueIds.size(), "?"));
+        String sql = "SELECT * FROM bulletin_paie_ligne WHERE id_bulletin IN (" + placeholders + ") "
+                + "ORDER BY id_bulletin ASC, ordre ASC, id_ligne ASC";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            for (int i = 0; i < uniqueIds.size(); i++) ps.setInt(i + 1, uniqueIds.get(i));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    BulletinPaieLigne line = mapResultSet(rs);
+                    result.computeIfAbsent(line.getIdBulletin(), ignored -> new ArrayList<>()).add(line);
+                }
+            }
+        }
+        return result;
     }
 
     public static void supprimerParBulletin(Integer idBulletin, Connection c) throws Exception {

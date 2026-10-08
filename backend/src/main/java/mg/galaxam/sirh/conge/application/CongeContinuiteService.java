@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
-import mg.galaxam.sirh.contrat.domain.EmploymentContext;
 
 /** Contrôle organisationnel des absences sur les affectations réellement applicables. */
 public final class CongeContinuiteService {
@@ -34,9 +33,10 @@ public final class CongeContinuiteService {
             throw new IllegalArgumentException("Période de congé invalide.");
         List<Segment> segments = new ArrayList<>();
         boolean actif = true;
+        var contextesParJour = emplois.resolveContinuityDays(employe, debut, fin, c);
         for (LocalDate jour = debut; !jour.isAfter(fin); jour = jour.plusDays(1)) {
-            EmploymentContext contexte = emplois.resolveContext(employe, jour, c);
-            if (contexte == null || !contexte.estEnPoste() || contexte.idAffectation() == null) {
+            var contexte = contextesParJour.get(jour);
+            if (contexte == null || !contexte.enPoste() || contexte.idAffectation() == null) {
                 actif = false;
                 continue;
             }

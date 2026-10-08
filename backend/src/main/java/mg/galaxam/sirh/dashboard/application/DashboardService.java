@@ -37,18 +37,32 @@ public class DashboardService {
     public Map<String, Object> getDashboardSummary(Connection c) throws Exception {
         Map<String, Object> summary = new LinkedHashMap<>();
 
-        summary.put("kpis", buildKpis(c));
+        Map<String, Object> kpis = buildKpis(c);
+        summary.put("kpis", kpis);
         summary.put("alertesCritiques", buildAlertesCritiques(c));
-        summary.put("alertes7j", buildAlertes7j(c));
-        summary.put("alertes30j", buildAlertes30j(c));
+        Map<String, List<Map<String, Object>>> alertesEcheance = buildAlertesEcheance(c);
+        summary.put("alertes7j", alertesEcheance.get("alertes7j"));
+        summary.put("alertes30j", alertesEcheance.get("alertes30j"));
         summary.put("brouillons", buildBrouillons(c));
         summary.put("activiteRecente", buildActiviteRecente(c));
-        summary.put("absentsAujourdhui", buildAbsentsAujourdhui(c));
-        summary.put("congesQuinzaine", buildCongesQuinzaine(c));
+        List<Map<String, Object>> congesQuinzaine = buildCongesQuinzaine(c);
+        summary.put("absentsAujourdhui", congesQuinzaine.stream()
+                .filter(conge -> estEnCoursAujourdhui(conge))
+                .toList());
+        summary.put("congesQuinzaine", congesQuinzaine);
         summary.put("demandesCongeAValider", buildDemandesCongeAValider(c));
-        summary.put("actionsATraiter", buildActionsATraiter(c));
+        summary.put("actionsATraiter", buildActionsATraiter(c, kpis));
 
         return summary;
+    }
+
+    private boolean estEnCoursAujourdhui(Map<String, Object> conge) {
+        LocalDate today = LocalDate.now();
+        Date debut = (Date) conge.get("dateDebut");
+        Date fin = (Date) conge.get("dateFin");
+        return debut != null && fin != null
+                && !debut.toLocalDate().isAfter(today)
+                && !fin.toLocalDate().isBefore(today);
     }
 
     /**
@@ -57,14 +71,22 @@ public class DashboardService {
      * chaque écran React.
      */
     public List<Map<String, Object>> buildActionsATraiter(Connection c) throws Exception {
+        return buildActionsATraiter(c, null);
+    }
+
+    private List<Map<String, Object>> buildActionsATraiter(Connection c, Map<String, Object> kpis) throws Exception {
         List<Map<String, Object>> actions = new ArrayList<>();
-        addActionIfPositive(actions, count(c,
-                "SELECT COUNT(*) FROM demande_conge d JOIN ref_statut_demande_conge s "
-                        + "ON s.id_statut_demande_conge = d.id_statut_demande_conge WHERE s.code = 'EN_ATTENTE'"),
+        int pendingLeaves = kpis == null
+                ? count(c, "SELECT COUNT(*) FROM demande_conge d JOIN ref_statut_demande_conge s "
+                        + "ON s.id_statut_demande_conge = d.id_statut_demande_conge WHERE s.code = 'EN_ATTENTE'")
+                : ((Number) kpis.get("demandesCongeEnAttente")).intValue();
+        addActionIfPositive(actions, pendingLeaves,
                 "CONGES_A_VALIDER", "Demandes de congé à décider", "Congés & absences", "/conges?tab=demandes", "CONGE_VALIDATE", "WARNING");
-        addActionIfPositive(actions, count(c,
-                "SELECT COUNT(*) FROM workflow_rh w JOIN ref_statut_rh s ON s.id_statut_rh = w.id_statut_rh "
-                        + "WHERE s.code = 'BROUILLON'"),
+        int pendingWorkflows = kpis == null
+                ? count(c, "SELECT COUNT(*) FROM workflow_rh w JOIN ref_statut_rh s ON s.id_statut_rh = w.id_statut_rh "
+                        + "WHERE s.code = 'BROUILLON'")
+                : ((Number) kpis.get("brouillonsEnAttente")).intValue();
+        addActionIfPositive(actions, pendingWorkflows,
                 "BROUILLONS_RH", "Brouillons RH à traiter", "Contrats et avenants non finalisés", "/carrieres?statut=PENDING", "EMPLOYE_VALIDATE", "WARNING");
         addActionIfPositive(actions, count(c,
                 "SELECT COUNT(*) FROM pointage_jour p JOIN ref_statut_pointage_jour s "
@@ -347,10 +369,19 @@ public class DashboardService {
     }
 
     public List<Map<String, Object>> buildAlertes7j(Connection c) throws Exception {
-        List<Map<String, Object>> alertes = new ArrayList<>();
+        return buildAlertesEcheance(c).get("alertes7j");
+    }
+
+    public List<Map<String, Object>> buildAlertes30j(Connection c) throws Exception {
+        return buildAlertesEcheance(c).get("alertes30j");
+    }
+
+    private Map<String, List<Map<String, Object>>> buildAlertesEcheance(Connection c) throws Exception {
+        List<Map<String, Object>> alertes7j = new ArrayList<>();
+        List<Map<String, Object>> alertes30j = new ArrayList<>();
         LocalDate today = LocalDate.now();
 
-        String sqlContrats7j = "SELECT ct.id_contrat, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
+        String sql = "SELECT ct.id_contrat, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
                 "e.matricule, ct.date_fin, rtc.libelle AS type_contrat, ct.numero_contrat, " +
                 "(ct.date_fin - ?) AS jours_restants " +
                 "FROM contrat_travail ct " +
@@ -360,16 +391,17 @@ public class DashboardService {
                 "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE " +
                 "AND ct.date_fin > ? AND ct.date_fin <= ? " +
                 "ORDER BY ct.date_fin ASC";
-        try (PreparedStatement ps = c.prepareStatement(sqlContrats7j)) {
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setDate(1, Date.valueOf(today));
             ps.setDate(2, Date.valueOf(today));
-            ps.setDate(3, Date.valueOf(today.plusDays(7)));
+            ps.setDate(3, Date.valueOf(today.plusDays(30)));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     int joursRestants = rs.getInt("jours_restants");
                     Map<String, Object> row = new LinkedHashMap<>();
-                    row.put("typeAlerte", "CONTRAT_ECHEANCE_7J");
-                    row.put("priorite", "HAUTE");
+                    boolean urgent = joursRestants <= 7;
+                    row.put("typeAlerte", urgent ? "CONTRAT_ECHEANCE_7J" : "CONTRAT_ECHEANCE_30J");
+                    row.put("priorite", urgent ? "HAUTE" : "NORMALE");
                     row.put("idEmploye", rs.getInt("id_employe"));
                     row.put("nomPrenom", rs.getString("nom_prenom"));
                     row.put("matricule", rs.getString("matricule"));
@@ -378,58 +410,19 @@ public class DashboardService {
                     row.put("dateEcheance", rs.getDate("date_fin"));
                     row.put("joursRestants", joursRestants);
                     row.put("isToday", joursRestants == 0);
-                    row.put("isUrgent", true);
+                    row.put("isUrgent", urgent);
                     row.put("isCritique", false);
-                    row.put("badgeVariant", joursRestants == 0 ? "danger" : "warning");
-                    alertes.add(row);
+                    row.put("badgeVariant", urgent
+                            ? (joursRestants == 0 ? "danger" : "warning") : "primary");
+                    (urgent ? alertes7j : alertes30j).add(row);
                 }
             }
         }
 
-        return alertes;
-    }
-
-    public List<Map<String, Object>> buildAlertes30j(Connection c) throws Exception {
-        List<Map<String, Object>> alertes = new ArrayList<>();
-        LocalDate today = LocalDate.now();
-
-        String sqlContrats30j = "SELECT ct.id_contrat, e.id_employe, e.nom || ' ' || e.prenom AS nom_prenom, " +
-                "e.matricule, ct.date_fin, rtc.libelle AS type_contrat, ct.numero_contrat, " +
-                "(ct.date_fin - ?) AS jours_restants " +
-                "FROM contrat_travail ct " +
-                "JOIN employe e ON ct.id_employe = e.id_employe " +
-                "JOIN ref_statut_rh rsc ON ct.id_statut_rh = rsc.id_statut_rh " +
-                "JOIN ref_type_contrat rtc ON ct.id_type_contrat = rtc.id_type_contrat " +
-                "WHERE rsc.code = 'ACTIF' AND rtc.exige_date_fin = TRUE " +
-                "AND ct.date_fin > ? AND ct.date_fin <= ? " +
-                "ORDER BY ct.date_fin ASC";
-        try (PreparedStatement ps = c.prepareStatement(sqlContrats30j)) {
-            ps.setDate(1, Date.valueOf(today));
-            ps.setDate(2, Date.valueOf(today.plusDays(7)));
-            ps.setDate(3, Date.valueOf(today.plusDays(30)));
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    int joursRestants = rs.getInt("jours_restants");
-                    Map<String, Object> row = new LinkedHashMap<>();
-                    row.put("typeAlerte", "CONTRAT_ECHEANCE_30J");
-                    row.put("priorite", "NORMALE");
-                    row.put("idEmploye", rs.getInt("id_employe"));
-                    row.put("nomPrenom", rs.getString("nom_prenom"));
-                    row.put("matricule", rs.getString("matricule"));
-                    row.put("typeContrat", rs.getString("type_contrat"));
-                    row.put("numeroContrat", rs.getString("numero_contrat"));
-                    row.put("dateEcheance", rs.getDate("date_fin"));
-                    row.put("joursRestants", joursRestants);
-                    row.put("isToday", false);
-                    row.put("isUrgent", false);
-                    row.put("isCritique", false);
-                    row.put("badgeVariant", "primary");
-                    alertes.add(row);
-                }
-            }
-        }
-
-        return alertes;
+        Map<String, List<Map<String, Object>>> result = new LinkedHashMap<>();
+        result.put("alertes7j", alertes7j);
+        result.put("alertes30j", alertes30j);
+        return result;
     }
 
     public List<Map<String, Object>> buildBrouillons(Connection c) throws Exception {

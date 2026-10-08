@@ -118,6 +118,7 @@ public class CongeTauxApplicableService {
     public List<Map<String, Object>> listerPeriodesReference(int idEmploye, Connection c) throws SQLException {
         String sql = "SELECT r.id_periode_reference, r.date_debut, r.date_fin, r.statut, r.taux_calcule_cloture, " +
                 "r.cumul_droits_cloture, r.cumul_valorisation_cloture, " +
+                "t.date_effet, t.taux_journalier, t.taux_count, " +
                 "COALESCE(r.cumul_droits_ouverture, 0) + COALESCE(j.droits, 0) AS cumul_droits_courant, " +
                 "COALESCE(r.cumul_valorisation_ouverture, 0) + COALESCE(j.valorisation, 0) AS cumul_valorisation_courante, " +
                 "(SELECT MAX(m.date_mouvement) FROM mouvement_solde_conge m " +
@@ -125,7 +126,10 @@ public class CongeTauxApplicableService {
                 "FROM conge_periode_reference r LEFT JOIN LATERAL (" +
                 "SELECT SUM(jours_droit_acquis) AS droits, SUM(valorisation_mensuelle) AS valorisation " +
                 "FROM conge_journal_droit WHERE id_periode_reference = r.id_periode_reference" +
-                ") j ON TRUE WHERE r.id_employe = ? ORDER BY r.date_debut DESC";
+                ") j ON TRUE LEFT JOIN LATERAL (" +
+                "SELECT MIN(date_effet) AS date_effet, MIN(taux_journalier) AS taux_journalier, COUNT(*) AS taux_count " +
+                "FROM conge_taux_applicable WHERE id_periode_reference = r.id_periode_reference" +
+                ") t ON TRUE WHERE r.id_employe = ? ORDER BY r.date_debut DESC";
         List<Map<String, Object>> result = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
@@ -143,17 +147,12 @@ public class CongeTauxApplicableService {
                             "cumulValorisationCloture", zeroSiNull(rs.getBigDecimal("cumul_valorisation_cloture"))));
                     Date derniereAcquisition = rs.getDate("derniere_acquisition");
                     if (derniereAcquisition != null) periode.put("derniereAcquisition", derniereAcquisition.toString());
-                    try (PreparedStatement taux = c.prepareStatement("SELECT date_effet,taux_journalier "
-                            + "FROM conge_taux_applicable WHERE id_periode_reference=?")) {
-                        taux.setInt(1, rs.getInt("id_periode_reference"));
-                        try (ResultSet actif = taux.executeQuery()) {
-                            if (actif.next()) {
-                                periode.put("dateEffetActivation", actif.getDate("date_effet").toString());
-                                periode.put("tauxActive", actif.getBigDecimal("taux_journalier"));
-                                if (actif.next()) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: plusieurs taux activés pour la référence "
-                                        + rs.getInt("id_periode_reference"));
-                            }
-                        }
+                    int nombreTaux = rs.getInt("taux_count");
+                    if (nombreTaux > 1) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: plusieurs taux activés pour la référence "
+                            + rs.getInt("id_periode_reference"));
+                    if (nombreTaux == 1) {
+                        periode.put("dateEffetActivation", rs.getDate("date_effet").toString());
+                        periode.put("tauxActive", rs.getBigDecimal("taux_journalier"));
                     }
                     result.add(periode);
                 }

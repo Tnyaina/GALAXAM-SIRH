@@ -1,5 +1,7 @@
 # ⚡ Rapport & Guide Complet des Optimisations de Performance — GALAXAM SIRH
 
+> **État du document au 8 octobre 2026 : notes historiques, à ne pas lire comme un rapport de mesure actuel.** Les chiffres « avant/après » ci-dessous n'ont pas de capture Lighthouse/DevTools, environnement, commit ou protocole reproductible associé et doivent être considérés comme non vérifiés. L'audit du code actuel confirme la compression GZIP et le découpage Vite, mais ne trouve pas d'usage de `@Cacheable`/`@CacheEvict` dans le backend. Le `WebConfig` et le cache public de sept jours décrits plus bas ne correspondent pas au code actuel : les photos passent par `EmployeController` avec un cache privé. Voir `docs/OPTIMISATION_AUDIT.md` pour les constats vérifiés et les mesures encore nécessaires.
+
 Ce document regroupe l'ensemble des stratégies d'optimisation (Frontend & Backend) mises en œuvre sur le projet GALAXAM SIRH, ainsi que les explications théoriques et pratiques de fonctionnement (Lazy Loading, Caching HTTP, Bundling Vite, etc.).
 
 ---

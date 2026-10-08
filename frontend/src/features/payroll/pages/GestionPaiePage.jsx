@@ -43,8 +43,9 @@ export default function GestionPaiePage() {
     const navigate = useNavigate();
     const rawTab = searchParams.get('tab') || 'centre';
     const requestedPeriodId = Number(searchParams.get('periodId')) || null;
+    const needsCampaignContext = rawTab === 'centre' || rawTab === 'variables';
 
-    const { periodes, context, loading, error, selectPeriode } = usePayrollCampaign(requestedPeriodId);
+    const { periodes, context, loading, error, selectPeriode } = usePayrollCampaign(requestedPeriodId, needsCampaignContext);
 
     // État local
     const [periodKpis, setPeriodKpis] = useState(null);
@@ -123,16 +124,17 @@ export default function GestionPaiePage() {
     }, []);
 
     useEffect(() => {
+        if (!needsCampaignContext) return;
         if (activePeriod?.id) {
             loadPeriodKpis(activePeriod.id);
         } else {
             setPeriodKpis(null);
         }
-    }, [activePeriod?.id, loadPeriodKpis]);
+    }, [activePeriod?.id, loadPeriodKpis, needsCampaignContext]);
 
     useEffect(() => {
         let active = true;
-        if (!activePeriod?.id) {
+        if (!needsCampaignContext || !activePeriod?.id) {
             setVariableSummary({ count: 0, gains: 0, retenues: 0 });
             return undefined;
         }
@@ -150,7 +152,7 @@ export default function GestionPaiePage() {
             })
             .catch(() => active && setVariableSummary({ count: 0, gains: 0, retenues: 0 }));
         return () => { active = false; };
-    }, [activePeriod?.id]);
+    }, [activePeriod?.id, needsCampaignContext]);
 
     // formatDate centralisé dans dateUtils.js — fmtDate() retourne DD/MM/YYYY
     // formatAr alias de formatMoneyAr — centralisé dans moneyUtils.js

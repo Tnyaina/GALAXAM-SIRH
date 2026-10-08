@@ -20,7 +20,7 @@ import { getErrorMessage } from '@/api/apiClient';
  *   selectPeriode: Function,
  * }}
  */
-export function usePayrollCampaign(requestedPeriodId = null) {
+export function usePayrollCampaign(requestedPeriodId = null, enabled = true) {
     // État local : périodes, contexte de campagne et requête active.
     const [periodes, setPeriodes] = useState([]);
     const [context, setContext] = useState(null);
@@ -93,18 +93,19 @@ export function usePayrollCampaign(requestedPeriodId = null) {
 
     // Chargement initial + rechargement si la période change en URL
     useEffect(() => {
+        if (!enabled) return undefined;
         loadData(requestedPeriodId);
         return () => { abortRef.current = false; };
-    }, [requestedPeriodId, loadData]);
+    }, [requestedPeriodId, loadData, enabled]);
 
     // Lorsqu'aucune période ne couvre la date métier, le Centre de paie doit
     // néanmoins ouvrir la période la plus récente. Sans cela, une campagne
     // existante mais hors de la date du jour paraît avoir disparu.
     useEffect(() => {
-        if (requestedPeriodId || selectedPeriodeId || periodes.length === 0) return;
+        if (!enabled || requestedPeriodId || selectedPeriodeId || periodes.length === 0) return;
         const latestId = periodes[0]?.idPeriodePaie || periodes[0]?.id;
         if (latestId) loadData(Number(latestId));
-    }, [requestedPeriodId, selectedPeriodeId, periodes, loadData]);
+    }, [requestedPeriodId, selectedPeriodeId, periodes, loadData, enabled]);
 
     /** Changer de période et recharger le contexte */
     const selectPeriode = useCallback((newPeriodeId) => {
@@ -127,6 +128,7 @@ export function usePayrollCampaign(requestedPeriodId = null) {
     // Écoute des événements et polling d'arrière-plan pour actualisation silencieuse (comme les notifications)
     useEffect(() => {
         const handleSilentRefresh = () => {
+            if (!enabled) return;
             loadData(selectedPeriodeId || requestedPeriodId, { silent: true, reloadPeriods: true });
         };
 
@@ -137,7 +139,7 @@ export function usePayrollCampaign(requestedPeriodId = null) {
             window.removeEventListener('sirh:period-updated', handleSilentRefresh);
             window.removeEventListener('pointage-period-updated', handleSilentRefresh);
         };
-    }, [selectedPeriodeId, requestedPeriodId, loadData]);
+    }, [selectedPeriodeId, requestedPeriodId, loadData, enabled]);
 
     return {
         periodes,

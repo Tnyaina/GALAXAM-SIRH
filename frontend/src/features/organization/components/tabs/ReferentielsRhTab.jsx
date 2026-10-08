@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FileText, UserCheck, Landmark } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiClient';
@@ -74,7 +74,7 @@ export default function ReferentielsRhTab() {
     const [banqueFieldErrors, setBanqueFieldErrors] = useState({});
 
     // Chargement des référentiels
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
@@ -92,41 +92,12 @@ export default function ReferentielsRhTab() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     // Effet : charge les référentiels à l'ouverture de l'onglet.
     useEffect(() => {
-        let isMounted = true;
-        const fetchData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const [tcData, tiData, bData] = await Promise.all([
-                    organisationService.getTypesContrat(),
-                    organisationService.getTypesIntervenant(),
-                    organisationService.getBanques()
-                ]);
-                if (isMounted) {
-                    setTypesContrat(tcData || []);
-                    setTypesIntervenant(tiData || []);
-                    setBanques(bData || []);
-                }
-            } catch (err) {
-                if (isMounted) {
-                    setError("Erreur lors du chargement des référentiels RH. Veuillez réessayer.");
-                    console.error(err);
-                }
-            } finally {
-                if (isMounted) {
-                    setLoading(false);
-                }
-            }
-        };
-        fetchData();
-        return () => {
-            isMounted = false;
-        };
-    }, []);
+        loadData();
+    }, [loadData]);
 
     // Actions utilisateur : types de contrat, intervenants et banques.
     const handleOpenEditContrat = (tc) => {

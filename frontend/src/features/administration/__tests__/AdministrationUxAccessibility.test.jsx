@@ -185,14 +185,15 @@ describe('Administration UX & Accessibilité (WCAG AA & Hiérarchie Erreurs)', (
         // Ouvrir le menu déroulant
         await act(async () => {
             searchSelectBtn.click();
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         });
 
         // Vérifier l'input de filtre
-        const filterInput = container.querySelector('input[placeholder="Filtrer..."]');
+        const filterInput = document.body.querySelector('input[placeholder="Filtrer..."]');
         expect(filterInput).toBeTruthy();
 
         // Sélectionner le rôle Agent de Pointage
-        const roleOption = Array.from(container.querySelectorAll('button')).find(b => b.textContent.includes('Agent de Pointage'));
+        const roleOption = Array.from(document.body.querySelectorAll('button')).find(b => b.textContent.includes('Agent de Pointage'));
         expect(roleOption).toBeTruthy();
         await act(async () => {
             roleOption.click();

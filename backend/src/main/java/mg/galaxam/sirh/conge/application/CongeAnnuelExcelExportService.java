@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.conge.persistence.MouvementSoldeConge;
 import org.apache.poi.ss.usermodel.Cell;
@@ -31,6 +33,11 @@ import org.springframework.stereotype.Service;
 public class CongeAnnuelExcelExportService {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private record MouvementWindow(int moisReference, LocalDate debut, LocalDate situation) {}
+    private record MouvementTotals(BigDecimal solde, BigDecimal prises) {}
+    private record TauxInterval(LocalDate debut, LocalDate fin, BigDecimal taux) {}
+    private record BulletinMois(BigDecimal absences, BigDecimal retenueAbsence,
+                               BigDecimal indemniteConge, BigDecimal heuresSupplementaires) {}
 
     @Autowired
     private DataSource dataSource;
@@ -63,14 +70,28 @@ public class CongeAnnuelExcelExportService {
 
                 // 4. Charger le journal mensuel et les prises pour les 12 mois du cycle
                 List<MoisSyntheseData> moisData = charger12MoisReference(idEmploye, ref, c);
+                Map<LocalDate, BigDecimal> valeursStockParDate = new HashMap<>();
 
                 // 5. Charger l'historique complet des mouvements pour l'onglet d'audit
                 List<MouvementSoldeConge> mouvements = MouvementSoldeConge.listParEmploye(idEmploye, c);
+                List<LocalDate> datesTauxHistorique = new ArrayList<>();
+                datesTauxHistorique.add(ref.dateDebut);
+                for (MouvementSoldeConge mouvement : mouvements) {
+                    LocalDate dateMouvement = mouvement.getDateMouvement() != null
+                            ? mouvement.getDateMouvement().toLocalDate()
+                            : (mouvement.getCreatedAt() != null
+                                    ? mouvement.getCreatedAt().toLocalDateTime().toLocalDate() : ref.dateDebut);
+                    if (!dateMouvement.isBefore(ref.dateDebut) && !dateMouvement.isAfter(ref.dateFin)) {
+                        datesTauxHistorique.add(dateMouvement);
+                    }
+                }
+                Map<LocalDate, BigDecimal> tauxParDate = chargerTauxPourDates(idEmploye, datesTauxHistorique, c);
+                ref.tauxJournalier = tauxParDate.get(ref.dateDebut);
 
                 // 6. Remplir la Feuille 1 : État congés salarié
                 Sheet sheet1 = workbook.getSheetAt(0);
                 remplirEnTeteFeuille1(sheet1, emp, ref);
-                remplirTableau12Mois(sheet1, moisData, ref, idEmploye, c);
+                remplirTableau12Mois(sheet1, moisData, ref, idEmploye, c, valeursStockParDate);
                 sheet1.setColumnWidth(0, 30 * 256);
                 sheet1.setColumnWidth(2, 14 * 256); // col C : jours base calcul (formule)
                 sheet1.setColumnWidth(17, 18 * 256); // col R : solde × TCONGE estimation
@@ -86,7 +107,8 @@ public class CongeAnnuelExcelExportService {
 
                 // 7. Remplir la Feuille 2 : Mouvements
                 Sheet sheet2 = workbook.getSheetAt(1);
-                remplirFeuilleMouvements(sheet2, mouvements, ref, idEmploye, c);
+                remplirFeuilleMouvements(sheet2, mouvements, ref, idEmploye, c,
+                        valeursStockParDate, tauxParDate);
                 setCellString(sheet2, 2, 8, "Valeur du stock après mvt (Ar)");
                 Sheet detailLots = workbook.createSheet("Origine des droits");
                 var situationLots = lots.situation(idEmploye, ref.dateFin.isAfter(LocalDate.now())
@@ -214,7 +236,8 @@ public class CongeAnnuelExcelExportService {
      *   R(17) = Solde × TCONGE (estimation simple DAF)  ← REC #4
      */
     private void remplirTableau12Mois(Sheet sheet, List<MoisSyntheseData> moisData,
-            PeriodeReferenceInfo ref, int idEmploye, Connection c) throws SQLException {
+            PeriodeReferenceInfo ref, int idEmploye, Connection c,
+            Map<LocalDate, BigDecimal> valeursStockParDate) throws SQLException {
         // Rows 7 à 18 (index 6 à 17) dans le nouveau canevas à 18 colonnes
         for (int i = 0; i < 12; i++) {
             int rowIndex = 6 + i;   // ligne 7 Excel = index 6
@@ -283,7 +306,7 @@ public class CongeAnnuelExcelExportService {
 
             // Col Q(16) : Valeur du stock FIFO (historisée par lots)
             BigDecimal valSolde = d.dateSituation == null ? null
-                    : lots.situation(idEmploye, d.dateSituation, c).soldeValorisation();
+                    : obtenirValeurStock(idEmploye, d.dateSituation, c, valeursStockParDate);
             setNumericValue(row, 16, valSolde);
 
             // REC #4 — Col R(17) : Solde × TCONGE estimation simple (cross-check DAF)
@@ -316,7 +339,7 @@ public class CongeAnnuelExcelExportService {
         setNumericValue(total, 15, latest != null ? latest.soldeDisponible : ref.soldeOuverture);
 
         LocalDate dateFinale = ref.dateFin.isAfter(LocalDate.now()) ? LocalDate.now() : ref.dateFin;
-        BigDecimal valStockFinal = lots.situation(idEmploye, dateFinale, c).soldeValorisation();
+        BigDecimal valStockFinal = obtenirValeurStock(idEmploye, dateFinale, c, valeursStockParDate);
         setNumericValue(total, 16, valStockFinal);
 
         // REC #4 : Solde × TCONGE clôture en col R pour la ligne TOTAL
@@ -327,7 +350,9 @@ public class CongeAnnuelExcelExportService {
     }
 
     private void remplirFeuilleMouvements(Sheet sheet, List<MouvementSoldeConge> mouvements,
-                                          PeriodeReferenceInfo ref, int idEmploye, Connection c) throws SQLException {
+                                          PeriodeReferenceInfo ref, int idEmploye, Connection c,
+                                          Map<LocalDate, BigDecimal> valeursStockParDate,
+                                          Map<LocalDate, BigDecimal> tauxParDate) throws SQLException {
         BigDecimal runningBalance = ref.soldeOuverture != null ? ref.soldeOuverture : BigDecimal.ZERO;
 
         int rowIndex = 3; // Ligne 4 Excel
@@ -348,7 +373,7 @@ public class CongeAnnuelExcelExportService {
             setNumericValue(row, 5, debit);
             setNumericValue(row, 6, runningBalance);
             setNumericValue(row, 7, ref.tauxJournalier);
-            setNumericValue(row, 8, lots.situation(idEmploye, ref.dateDebut, c).soldeValorisation());
+            setNumericValue(row, 8, obtenirValeurStock(idEmploye, ref.dateDebut, c, valeursStockParDate));
             setCellString(sheet, rowIndex, 9, "Système RH (Report)");
             rowIndex++;
         }
@@ -377,7 +402,13 @@ public class CongeAnnuelExcelExportService {
             return Integer.compare(a.getIdMouvement() != null ? a.getIdMouvement() : 0, b.getIdMouvement() != null ? b.getIdMouvement() : 0);
         });
 
-        for (MouvementSoldeConge m : chronologique) {
+        List<LocalDate> datesMouvements = chronologique.stream()
+                .map(m -> m.getDateMouvement() != null
+                        ? m.getDateMouvement().toLocalDate()
+                        : (m.getCreatedAt() != null ? m.getCreatedAt().toLocalDateTime().toLocalDate() : ref.dateDebut))
+                .toList();
+        for (int mouvementIndex = 0; mouvementIndex < chronologique.size(); mouvementIndex++) {
+            MouvementSoldeConge m = chronologique.get(mouvementIndex);
             Row row = sheet.getRow(rowIndex);
             if (row == null) {
                 row = createStyledMovementRow(sheet, rowIndex);
@@ -386,9 +417,7 @@ public class CongeAnnuelExcelExportService {
             BigDecimal nbJ = m.getNbJours() != null ? m.getNbJours() : BigDecimal.ZERO;
             runningBalance = runningBalance.add(nbJ);
 
-            LocalDate dMvt = m.getDateMouvement() != null
-                    ? m.getDateMouvement().toLocalDate()
-                    : (m.getCreatedAt() != null ? m.getCreatedAt().toLocalDateTime().toLocalDate() : ref.dateDebut);
+            LocalDate dMvt = datesMouvements.get(mouvementIndex);
             setCellString(sheet, rowIndex, 0, dMvt.format(DATE_FMT));
             setCellString(sheet, rowIndex, 1, formatTypeMouvement(m.getTypeMouvement(), m.getCommentaire()));
             setCellString(sheet, rowIndex, 2, m.getIdDemandeConge() != null ? "#" + m.getIdDemandeConge() : "—");
@@ -396,9 +425,9 @@ public class CongeAnnuelExcelExportService {
             setNumericValue(row, 4, nbJ.compareTo(BigDecimal.ZERO) > 0 ? nbJ : BigDecimal.ZERO);
             setNumericValue(row, 5, nbJ.compareTo(BigDecimal.ZERO) < 0 ? nbJ.abs() : BigDecimal.ZERO);
             setNumericValue(row, 6, runningBalance);
-            BigDecimal tauxMouvement = chargerTauxApplicable(idEmploye, dMvt, c);
+            BigDecimal tauxMouvement = tauxParDate.get(dMvt);
             setNumericValue(row, 7, tauxMouvement);
-            setNumericValue(row, 8, lots.situation(idEmploye, dMvt, c).soldeValorisation());
+            setNumericValue(row, 8, obtenirValeurStock(idEmploye, dMvt, c, valeursStockParDate));
             setCellString(sheet, rowIndex, 9, m.getCreatedBy() != null ? "Manuel (Admin #" + m.getCreatedBy() + ")" : "Automatique Système");
             rowIndex++;
         }
@@ -459,16 +488,20 @@ public class CongeAnnuelExcelExportService {
     private PeriodeReferenceInfo chargerPeriodeReference(int idEmploye, Integer idPeriodeReference, Connection c) throws SQLException {
         String sql;
         if (idPeriodeReference != null) {
-            sql = "SELECT id_periode_reference, id_employe, date_debut, date_fin, statut, " +
-                    "taux_calcule_cloture, cumul_droits_cloture, cumul_valorisation_cloture, " +
-                    "mode_reprise, date_cutover, cumul_droits_ouverture, cumul_valorisation_ouverture " +
-                    "FROM conge_periode_reference WHERE id_periode_reference = ? AND id_employe = ?";
+            sql = "SELECT p.id_periode_reference, p.id_employe, p.date_debut, p.date_fin, p.statut, " +
+                    "p.taux_calcule_cloture, p.cumul_droits_cloture, p.cumul_valorisation_cloture, " +
+                    "p.mode_reprise, p.date_cutover, p.cumul_droits_ouverture, p.cumul_valorisation_ouverture, " +
+                    "COALESCE((SELECT SUM(m.nb_jours) FROM mouvement_solde_conge m " +
+                    "WHERE m.id_employe=p.id_employe AND m.date_mouvement<p.date_debut),0) AS solde_ouverture " +
+                    "FROM conge_periode_reference p WHERE p.id_periode_reference = ? AND p.id_employe = ?";
         } else {
-            sql = "SELECT id_periode_reference, id_employe, date_debut, date_fin, statut, " +
-                    "taux_calcule_cloture, cumul_droits_cloture, cumul_valorisation_cloture, " +
-                    "mode_reprise, date_cutover, cumul_droits_ouverture, cumul_valorisation_ouverture " +
-                    "FROM conge_periode_reference WHERE id_employe = ? " +
-                    "ORDER BY (CASE WHEN statut = 'OUVERTE' THEN 0 ELSE 1 END), date_debut DESC LIMIT 1";
+            sql = "SELECT p.id_periode_reference, p.id_employe, p.date_debut, p.date_fin, p.statut, " +
+                    "p.taux_calcule_cloture, p.cumul_droits_cloture, p.cumul_valorisation_cloture, " +
+                    "p.mode_reprise, p.date_cutover, p.cumul_droits_ouverture, p.cumul_valorisation_ouverture, " +
+                    "COALESCE((SELECT SUM(m.nb_jours) FROM mouvement_solde_conge m " +
+                    "WHERE m.id_employe=p.id_employe AND m.date_mouvement<p.date_debut),0) AS solde_ouverture " +
+                    "FROM conge_periode_reference p WHERE p.id_employe = ? " +
+                    "ORDER BY (CASE WHEN p.statut = 'OUVERTE' THEN 0 ELSE 1 END), p.date_debut DESC LIMIT 1";
         }
 
         PeriodeReferenceInfo info = null;
@@ -486,6 +519,7 @@ public class CongeAnnuelExcelExportService {
                     info.dateDebut = rs.getDate("date_debut").toLocalDate();
                     info.dateFin = rs.getDate("date_fin").toLocalDate();
                     info.statut = rs.getString("statut");
+                    info.soldeOuverture = rs.getBigDecimal("solde_ouverture");
                     info.tauxCloture = rs.getBigDecimal("taux_calcule_cloture");
                     info.modeReprise = rs.getString("mode_reprise");
                     // cumul_droits_ouverture est un compteur TCONGE, pas le solde de congés.
@@ -498,35 +532,7 @@ public class CongeAnnuelExcelExportService {
             return null;
         }
 
-        try (PreparedStatement ps = c.prepareStatement(
-                "SELECT COALESCE(SUM(nb_jours), 0) FROM mouvement_solde_conge WHERE id_employe = ? AND date_mouvement < ?")) {
-            ps.setInt(1, idEmploye);
-            ps.setDate(2, Date.valueOf(info.dateDebut));
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) info.soldeOuverture = rs.getBigDecimal(1);
-            }
-        }
-
-        info.tauxJournalier = chargerTauxApplicable(idEmploye, info.dateDebut, c);
         return info;
-    }
-
-    private BigDecimal chargerTauxApplicable(int idEmploye, LocalDate dateSituation, Connection c) throws SQLException {
-        String sql = "SELECT taux_journalier FROM conge_taux_applicable " +
-                "WHERE id_employe = ? AND date_effet <= ? AND (date_fin IS NULL OR date_fin > ?) " +
-                "ORDER BY date_effet DESC, id_taux_applicable DESC";
-        try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, idEmploye);
-            ps.setDate(2, Date.valueOf(dateSituation));
-            ps.setDate(3, Date.valueOf(dateSituation));
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) return null;
-                BigDecimal taux = rs.getBigDecimal(1);
-                if (rs.next()) throw new IllegalStateException("TCONGE_APPLICABLE_AMBIGUOUS: plusieurs taux applicables pour l'employé "
-                        + idEmploye + " au " + dateSituation);
-                return taux;
-            }
-        }
     }
 
     private List<MoisSyntheseData> charger12MoisReference(int idEmploye, PeriodeReferenceInfo ref, Connection c) throws SQLException {
@@ -565,6 +571,35 @@ public class CongeAnnuelExcelExportService {
             }
         }
 
+        // Préparer les dates des mois connus afin de lire l'historique des mouvements une seule fois.
+        LocalDate today = LocalDate.now();
+        List<MouvementWindow> movementWindows = new ArrayList<>();
+        for (int i = 0; i < 12; i++) {
+            int monthNumber = i + 1;
+            Map<String, Object> entry = mapJournal.get(monthNumber);
+            Date payrollStart = entry != null ? (Date) entry.get("paie_date_debut") : null;
+            Date payrollEnd = entry != null ? (Date) entry.get("paie_date_fin") : null;
+            LocalDate monthStart = payrollStart != null ? payrollStart.toLocalDate() : ref.dateDebut.plusMonths(i);
+            LocalDate monthEnd = payrollEnd != null ? payrollEnd.toLocalDate()
+                    : ref.dateDebut.plusMonths(i + 1).minusDays(1);
+            if (monthStart.isBefore(ref.dateDebut)) monthStart = ref.dateDebut;
+            if (monthEnd.isAfter(ref.dateFin)) monthEnd = ref.dateFin;
+            if (!monthStart.isAfter(today)) {
+                LocalDate situationDate = monthEnd.isAfter(today) ? today : monthEnd;
+                movementWindows.add(new MouvementWindow(monthNumber, monthStart, situationDate));
+            }
+        }
+        Map<Integer, MouvementTotals> movementTotals = chargerCumulsMouvements(idEmploye, movementWindows, c);
+        Map<Integer, BigDecimal> ratesByMonth = chargerTauxApplicables(idEmploye, movementWindows, c);
+        List<Integer> periodeIds = mapJournal.values().stream()
+                .map(entry -> entry.get("id_periode_paie"))
+                .filter(Number.class::isInstance)
+                .map(Number.class::cast)
+                .map(Number::intValue)
+                .distinct()
+                .toList();
+        Map<Integer, BulletinMois> bulletinsParPeriode = chargerBulletinsParPeriode(idEmploye, periodeIds, c);
+
         // 2. Dérouler les 12 mois légaux de la période
         for (int i = 0; i < 12; i++) {
             int numMoisRef = i + 1;
@@ -579,11 +614,11 @@ public class CongeAnnuelExcelExportService {
             MoisSyntheseData d = new MoisSyntheseData();
             d.numeroMoisRef = numMoisRef;
             d.labelMois = numMoisRef + " — " + debutM.format(DATE_FMT) + " au " + finM.format(DATE_FMT);
-            if (debutM.isAfter(LocalDate.now())) {
+            if (debutM.isAfter(today)) {
                 liste.add(d);
                 continue;
             }
-            LocalDate dateSituation = finM.isAfter(LocalDate.now()) ? LocalDate.now() : finM;
+            LocalDate dateSituation = finM.isAfter(today) ? today : finM;
             d.dateSituation = dateSituation;
 
             if (jEntry != null) {
@@ -596,49 +631,20 @@ public class CongeAnnuelExcelExportService {
                 d.cumulValorisation = (BigDecimal) jEntry.get("cumul_valorisation");
             }
 
-            String sqlPrises = "SELECT COALESCE(SUM(nb_jours), 0) AS solde FROM mouvement_solde_conge " +
-                    "WHERE id_employe = ? AND date_mouvement <= ?";
-            try (PreparedStatement psP = c.prepareStatement(sqlPrises)) {
-                psP.setInt(1, idEmploye);
-                psP.setDate(2, Date.valueOf(dateSituation));
-                try (ResultSet rsP = psP.executeQuery()) {
-                    if (rsP.next()) {
-                        d.soldeDisponible = rsP.getBigDecimal("solde");
-                    }
-                }
+            MouvementTotals totals = movementTotals.get(numMoisRef);
+            if (totals != null) {
+                d.soldeDisponible = totals.solde();
+                d.congesPrisJours = totals.prises();
             }
-            try (PreparedStatement psP = c.prepareStatement(
-                    "SELECT COALESCE(SUM(-nb_jours), 0) FROM mouvement_solde_conge " +
-                    "WHERE id_employe = ? AND type_mouvement = 'PRISE' AND date_mouvement BETWEEN ? AND ?")) {
-                psP.setInt(1, idEmploye);
-                psP.setDate(2, Date.valueOf(debutM));
-                psP.setDate(3, Date.valueOf(dateSituation));
-                try (ResultSet rsP = psP.executeQuery()) {
-                    if (rsP.next()) d.congesPrisJours = rsP.getBigDecimal(1);
-                }
-            }
-            d.tcongeApplicable = chargerTauxApplicable(idEmploye, dateSituation, c);
+            d.tcongeApplicable = ratesByMonth.get(numMoisRef);
 
-            // Même campagne de paie que le journal des droits : les périodes ne sont pas forcément calendaires.
-            String sqlBp = "SELECT bp.jours_absence, " +
-                    "(SELECT COALESCE(SUM(bpl.montant_salarial), 0) FROM bulletin_paie_ligne bpl WHERE bpl.id_bulletin = bp.id_bulletin AND bpl.code_rubrique = 'RETENUE_ABSENCE') AS ret_abs, " +
-                    "(SELECT COALESCE(SUM(bpl.montant_salarial), 0) FROM bulletin_paie_ligne bpl WHERE bpl.id_bulletin = bp.id_bulletin AND bpl.code_rubrique IN ('INDEMNITE_CONGE', 'INDEMNITE_CONGE_PAYE')) AS ind_conge, " +
-                    "(SELECT COALESCE(SUM(bpl.montant_salarial), 0) FROM bulletin_paie_ligne bpl WHERE bpl.id_bulletin = bp.id_bulletin " +
-                    " AND (bpl.code_rubrique LIKE 'HS_%' OR bpl.code_rubrique = 'HS' OR bpl.categorie IN ('HEURES_SUP', 'HEURES_SUPPLEMENTAIRES'))) AS hs_montant " +
-                    "FROM bulletin_paie bp " +
-                    "WHERE bp.id_employe = ? AND bp.id_periode_paie = ? " +
-                    "  AND bp.statut IN ('VALIDE', 'CLOTURE', 'CALCULE') " +
-                    "ORDER BY bp.id_bulletin DESC LIMIT 1";
-            if (jEntry != null && jEntry.get("id_periode_paie") != null) try (PreparedStatement psBp = c.prepareStatement(sqlBp)) {
-                psBp.setInt(1, idEmploye);
-                psBp.setInt(2, ((Number) jEntry.get("id_periode_paie")).intValue());
-                try (ResultSet rsBp = psBp.executeQuery()) {
-                    if (rsBp.next()) {
-                        d.absencesJours = rsBp.getBigDecimal("jours_absence");
-                        d.retenueAbsence = rsBp.getBigDecimal("ret_abs");
-                        d.indemniteConge = rsBp.getBigDecimal("ind_conge");
-                        d.hsRemunerees = rsBp.getBigDecimal("hs_montant");
-                    }
+            if (jEntry != null && jEntry.get("id_periode_paie") instanceof Number periodeId) {
+                BulletinMois bulletin = bulletinsParPeriode.get(periodeId.intValue());
+                if (bulletin != null) {
+                    d.absencesJours = bulletin.absences();
+                    d.retenueAbsence = bulletin.retenueAbsence();
+                    d.indemniteConge = bulletin.indemniteConge();
+                    d.hsRemunerees = bulletin.heuresSupplementaires();
                 }
             }
 
@@ -646,6 +652,158 @@ public class CongeAnnuelExcelExportService {
         }
 
         return liste;
+    }
+
+    private Map<Integer, BulletinMois> chargerBulletinsParPeriode(int idEmploye,
+            List<Integer> periodeIds, Connection c) throws SQLException {
+        if (periodeIds.isEmpty()) return Map.of();
+        String sql = "WITH derniers AS ("
+                + " SELECT DISTINCT ON (bp.id_periode_paie) bp.id_bulletin,bp.id_periode_paie,bp.jours_absence"
+                + " FROM bulletin_paie bp WHERE bp.id_employe=? AND bp.id_periode_paie=ANY(?)"
+                + " AND bp.statut IN ('VALIDE','CLOTURE','CALCULE')"
+                + " ORDER BY bp.id_periode_paie,bp.id_bulletin DESC"
+                + ") SELECT d.id_periode_paie,d.jours_absence,"
+                + "COALESCE(SUM(l.montant_salarial) FILTER (WHERE l.code_rubrique='RETENUE_ABSENCE'),0) AS ret_abs,"
+                + "COALESCE(SUM(l.montant_salarial) FILTER (WHERE l.code_rubrique IN ('INDEMNITE_CONGE','INDEMNITE_CONGE_PAYE')),0) AS ind_conge,"
+                + "COALESCE(SUM(l.montant_salarial) FILTER (WHERE l.code_rubrique LIKE 'HS_%' OR l.code_rubrique='HS'"
+                + " OR l.categorie IN ('HEURES_SUP','HEURES_SUPPLEMENTAIRES')),0) AS hs_montant"
+                + " FROM derniers d LEFT JOIN bulletin_paie_ligne l ON l.id_bulletin=d.id_bulletin"
+                + " GROUP BY d.id_periode_paie,d.jours_absence";
+        Map<Integer, BulletinMois> result = new HashMap<>();
+        java.sql.Array periodeArray = c.createArrayOf("integer", periodeIds.toArray());
+        try (PreparedStatement statement = c.prepareStatement(sql)) {
+            statement.setInt(1, idEmploye);
+            statement.setArray(2, periodeArray);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    result.put(rs.getInt("id_periode_paie"), new BulletinMois(
+                            rs.getBigDecimal("jours_absence"), rs.getBigDecimal("ret_abs"),
+                            rs.getBigDecimal("ind_conge"), rs.getBigDecimal("hs_montant")));
+                }
+            }
+        } finally {
+            periodeArray.free();
+        }
+        return result;
+    }
+
+    private Map<Integer, MouvementTotals> chargerCumulsMouvements(int idEmploye,
+            List<MouvementWindow> windows, Connection c) throws SQLException {
+        Map<Integer, MouvementTotals> result = new HashMap<>();
+        if (windows.isEmpty()) return result;
+        LocalDate latestDate = windows.stream().map(MouvementWindow::situation)
+                .max(LocalDate::compareTo).orElseThrow();
+        NavigableMap<LocalDate, MouvementTotals> cumulative = new TreeMap<>();
+        BigDecimal solde = BigDecimal.ZERO;
+        BigDecimal prises = BigDecimal.ZERO;
+        String sql = "SELECT date_mouvement, COALESCE(SUM(nb_jours), 0) AS variation_solde, "
+                + "COALESCE(SUM(-nb_jours) FILTER (WHERE type_mouvement = 'PRISE'), 0) AS variation_prise "
+                + "FROM mouvement_solde_conge WHERE id_employe = ? AND date_mouvement <= ? "
+                + "GROUP BY date_mouvement ORDER BY date_mouvement";
+        try (PreparedStatement statement = c.prepareStatement(sql)) {
+            statement.setInt(1, idEmploye);
+            statement.setDate(2, Date.valueOf(latestDate));
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    solde = solde.add(rs.getBigDecimal("variation_solde"));
+                    prises = prises.add(rs.getBigDecimal("variation_prise"));
+                    cumulative.put(rs.getDate("date_mouvement").toLocalDate(), new MouvementTotals(solde, prises));
+                }
+            }
+        }
+        for (MouvementWindow window : windows) {
+            Map.Entry<LocalDate, MouvementTotals> atSituation = cumulative.floorEntry(window.situation());
+            Map.Entry<LocalDate, MouvementTotals> beforeStart = cumulative.floorEntry(window.debut().minusDays(1));
+            BigDecimal balance = atSituation == null ? BigDecimal.ZERO : atSituation.getValue().solde();
+            BigDecimal takenThrough = atSituation == null || window.situation().isBefore(window.debut())
+                    ? BigDecimal.ZERO : atSituation.getValue().prises();
+            BigDecimal takenBefore = beforeStart == null || window.situation().isBefore(window.debut())
+                    ? BigDecimal.ZERO : beforeStart.getValue().prises();
+            result.put(window.moisReference(), new MouvementTotals(balance, takenThrough.subtract(takenBefore)));
+        }
+        return result;
+    }
+
+    private Map<Integer, BigDecimal> chargerTauxApplicables(int idEmploye,
+            List<MouvementWindow> windows, Connection c) throws SQLException {
+        Map<Integer, BigDecimal> result = new HashMap<>();
+        if (windows.isEmpty()) return result;
+        LocalDate earliest = windows.stream().map(MouvementWindow::situation)
+                .min(LocalDate::compareTo).orElseThrow();
+        LocalDate latest = windows.stream().map(MouvementWindow::situation)
+                .max(LocalDate::compareTo).orElseThrow();
+        List<TauxInterval> rates = new ArrayList<>();
+        String sql = "SELECT date_effet, date_fin, taux_journalier FROM conge_taux_applicable "
+                + "WHERE id_employe = ? AND date_effet <= ? AND (date_fin IS NULL OR date_fin > ?) "
+                + "ORDER BY date_effet DESC, id_taux_applicable DESC";
+        try (PreparedStatement statement = c.prepareStatement(sql)) {
+            statement.setInt(1, idEmploye);
+            statement.setDate(2, Date.valueOf(latest));
+            statement.setDate(3, Date.valueOf(earliest));
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    Date end = rs.getDate("date_fin");
+                    rates.add(new TauxInterval(rs.getDate("date_effet").toLocalDate(),
+                            end == null ? null : end.toLocalDate(), rs.getBigDecimal("taux_journalier")));
+                }
+            }
+        }
+        for (MouvementWindow window : windows) {
+            List<TauxInterval> applicable = rates.stream()
+                    .filter(rate -> !rate.debut().isAfter(window.situation())
+                            && (rate.fin() == null || rate.fin().isAfter(window.situation())))
+                    .toList();
+            if (applicable.size() > 1) {
+                throw new IllegalStateException("TCONGE_APPLICABLE_AMBIGUOUS: plusieurs taux applicables pour l'employé "
+                        + idEmploye + " au " + window.situation());
+            }
+            if (!applicable.isEmpty()) result.put(window.moisReference(), applicable.get(0).taux());
+        }
+        return result;
+    }
+
+    private Map<LocalDate, BigDecimal> chargerTauxPourDates(int idEmploye,
+            List<LocalDate> dates, Connection c) throws SQLException {
+        if (dates.isEmpty()) return Map.of();
+        LocalDate earliest = dates.stream().min(LocalDate::compareTo).orElseThrow();
+        LocalDate latest = dates.stream().max(LocalDate::compareTo).orElseThrow();
+        List<TauxInterval> rates = new ArrayList<>();
+        String sql = "SELECT date_effet, date_fin, taux_journalier FROM conge_taux_applicable "
+                + "WHERE id_employe = ? AND date_effet <= ? AND (date_fin IS NULL OR date_fin > ?) "
+                + "ORDER BY date_effet DESC, id_taux_applicable DESC";
+        try (PreparedStatement statement = c.prepareStatement(sql)) {
+            statement.setInt(1, idEmploye);
+            statement.setDate(2, Date.valueOf(latest));
+            statement.setDate(3, Date.valueOf(earliest));
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    Date end = rs.getDate("date_fin");
+                    rates.add(new TauxInterval(rs.getDate("date_effet").toLocalDate(),
+                            end == null ? null : end.toLocalDate(), rs.getBigDecimal("taux_journalier")));
+                }
+            }
+        }
+        Map<LocalDate, BigDecimal> result = new HashMap<>();
+        for (LocalDate date : dates.stream().distinct().toList()) {
+            List<TauxInterval> applicable = rates.stream()
+                    .filter(rate -> !rate.debut().isAfter(date)
+                            && (rate.fin() == null || rate.fin().isAfter(date)))
+                    .toList();
+            if (applicable.size() > 1) {
+                throw new IllegalStateException("TCONGE_APPLICABLE_AMBIGUOUS: plusieurs taux applicables pour l'employé "
+                        + idEmploye + " au " + date);
+            }
+            if (!applicable.isEmpty()) result.put(date, applicable.get(0).taux());
+        }
+        return result;
+    }
+
+    private BigDecimal obtenirValeurStock(int idEmploye, LocalDate date, Connection c,
+            Map<LocalDate, BigDecimal> valeursStockParDate) throws SQLException {
+        if (!valeursStockParDate.containsKey(date)) {
+            valeursStockParDate.put(date, lots.situation(idEmploye, date, c).soldeValorisation());
+        }
+        return valeursStockParDate.get(date);
     }
 
     // =========================================================================

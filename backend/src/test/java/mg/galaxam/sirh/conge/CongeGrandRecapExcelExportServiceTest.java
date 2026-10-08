@@ -7,6 +7,8 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
+import java.util.Map;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.conge.application.CongeGrandRecapExcelExportService;
@@ -46,12 +48,14 @@ class CongeGrandRecapExcelExportServiceTest {
     private static CongeGrandRecapExcelExportService exporter(DataSource source, BigDecimal valeur,
                                                                EmploymentContext contexte) throws Exception {
         CongeLotValorisationService lots = mock(CongeLotValorisationService.class);
-        when(lots.situation(anyInt(), any(LocalDate.class), any(Connection.class)))
-                .thenReturn(new CongeLotValorisationEngine.Situation(BigDecimal.ONE,
-                        valeur, java.util.List.of(), java.util.List.of(), BigDecimal.ZERO));
+        var situation = new CongeLotValorisationEngine.Situation(BigDecimal.ONE,
+                valeur, List.of(), List.of(), BigDecimal.ZERO);
+        when(lots.situations(any(), any(LocalDate.class), any(Connection.class)))
+                .thenAnswer(invocation -> Map.of(0, situation));
         EmploymentContextResolver contexts = mock(EmploymentContextResolver.class);
-        when(contexts.resolveContext(anyInt(), any(LocalDate.class), any(Connection.class)))
-                .thenReturn(contexte);
+        when(contexts.resolveLabels(any(), any(LocalDate.class), any(Connection.class)))
+                .thenAnswer(invocation -> Map.of(0, new EmploymentContextResolver.EmploymentLabels(
+                        contexte.filialeNom(), contexte.nomSite(), contexte.fonctionNom())));
         return new CongeGrandRecapExcelExportService(source, lots, contexts);
     }
 

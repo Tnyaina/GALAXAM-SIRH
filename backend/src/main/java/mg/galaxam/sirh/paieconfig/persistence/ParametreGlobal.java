@@ -5,7 +5,6 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -175,37 +174,24 @@ public class ParametreGlobal extends ClassMere {
     }
 
     public static List<ParametreGlobal> listAll(Connection c) throws Exception {
-        String sql = "SELECT id_parametre, code_parametre, valeur, description, categorie, date_debut, date_fin, " +
-                     "COALESCE(est_actif, TRUE) AS est_actif, COALESCE(est_desactivable, FALSE) AS est_desactivable " +
-                     "FROM parametre_global ORDER BY categorie ASC, code_parametre ASC";
-        List<ParametreGlobal> list = new ArrayList<>();
-        try (PreparedStatement ps = c.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                ParametreGlobal item = new ParametreGlobal();
-                item.idParametre = rs.getInt("id_parametre");
-                item.codeParametre = rs.getString("code_parametre");
-                item.valeur = rs.getString("valeur");
-                item.description = rs.getString("description");
-                item.categorie = rs.getString("categorie");
-                item.dateDebut = rs.getDate("date_debut");
-                item.dateFin = rs.getDate("date_fin");
-                item.estActif = rs.getBoolean("est_actif");
-                item.estDesactivable = rs.getBoolean("est_desactivable");
-                list.add(item);
-            }
-        }
-        return list;
+        return lister(c, null, false);
     }
 
-    public static List<ParametreGlobal> listByCategorie(String categorie, Connection c) throws Exception {
+    /** Filtre les paramètres par catégorie avec la comparaison exacte déjà utilisée par l'API. */
+    public static List<ParametreGlobal> listByCategorieExact(String categorie, Connection c) throws Exception {
         if (categorie == null || categorie.isBlank()) return listAll(c);
+        return lister(c, categorie, true);
+    }
+
+    private static List<ParametreGlobal> lister(Connection c, String categorie, boolean exact) throws Exception {
         String sql = "SELECT id_parametre, code_parametre, valeur, description, categorie, date_debut, date_fin, " +
                      "COALESCE(est_actif, TRUE) AS est_actif, COALESCE(est_desactivable, FALSE) AS est_desactivable " +
-                     "FROM parametre_global WHERE UPPER(categorie) = UPPER(?) ORDER BY code_parametre ASC";
+                     "FROM parametre_global";
+        if (categorie != null) sql += exact ? " WHERE categorie = ?" : " WHERE UPPER(categorie) = UPPER(?)";
+        sql += categorie == null ? " ORDER BY categorie ASC, code_parametre ASC" : " ORDER BY code_parametre ASC";
         List<ParametreGlobal> list = new ArrayList<>();
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, categorie.trim());
+            if (categorie != null) ps.setString(1, exact ? categorie : categorie.trim());
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     ParametreGlobal item = new ParametreGlobal();
@@ -223,6 +209,11 @@ public class ParametreGlobal extends ClassMere {
             }
         }
         return list;
+    }
+
+    public static List<ParametreGlobal> listByCategorie(String categorie, Connection c) throws Exception {
+        if (categorie == null || categorie.isBlank()) return listAll(c);
+        return lister(c, categorie, false);
     }
 
     /**
@@ -288,14 +279,8 @@ public class ParametreGlobal extends ClassMere {
     private static final class DatedParameterMap<V> extends java.util.HashMap<String, V> {
         final Date date;
         final java.util.Map<String, java.util.List<String>> intervals = new java.util.HashMap<>();
-        DatedParameterMap(Date date, Connection c) {
+        DatedParameterMap(Date date) {
             this.date = date;
-            try (PreparedStatement ps = c.prepareStatement(
-                    "SELECT code_parametre,date_debut,date_fin FROM parametre_global ORDER BY date_debut");
-                 ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) intervals.computeIfAbsent(rs.getString(1).toUpperCase(),
-                        key -> new java.util.ArrayList<>()).add("[" + rs.getDate(2) + ", " + rs.getDate(3) + "]");
-            } catch (SQLException e) { throw new IllegalStateException("Lecture des bornes des paramètres au " + date, e); }
         }
         DatedParameterMap(DatedParameterMap<?> source) {
             this.date = source.date;
@@ -311,17 +296,19 @@ public class ParametreGlobal extends ClassMere {
     public static java.util.Map<String, ParametreEtat> loadEtatMapAtDate(Date dateRef, Connection c) {
         if (dateRef == null) throw new IllegalArgumentException("La date métier des paramètres globaux est obligatoire.");
         Date d = dateRef;
-        java.util.Map<String, ParametreEtat> map = new DatedParameterMap<>(d, c);
-        String sql = "SELECT code_parametre, valeur, COALESCE(est_actif, TRUE) AS est_actif, COALESCE(est_desactivable, FALSE) AS est_desactivable " +
-                     "FROM parametre_global " +
-                     "WHERE date_debut <= ? AND (date_fin IS NULL OR date_fin >= ?) " +
-                     "ORDER BY date_debut ASC, id_parametre ASC";
+        DatedParameterMap<ParametreEtat> map = new DatedParameterMap<>(d);
+        String sql = "SELECT code_parametre, date_debut, date_fin, valeur, " +
+                     "COALESCE(est_actif, TRUE) AS est_actif, COALESCE(est_desactivable, FALSE) AS est_desactivable " +
+                     "FROM parametre_global ORDER BY date_debut ASC, id_parametre ASC";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setDate(1, d);
-            ps.setDate(2, d);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String code = rs.getString("code_parametre").toUpperCase();
+                    Date debut = rs.getDate("date_debut");
+                    Date fin = rs.getDate("date_fin");
+                    map.intervals.computeIfAbsent(code, key -> new java.util.ArrayList<>())
+                            .add("[" + debut + ", " + fin + "]");
+                    if (debut == null || debut.after(d) || (fin != null && fin.before(d))) continue;
                     if (map.containsKey(code)) throw new IllegalStateException(
                             "AMBIGUOUS_CONFIGURATION: paramètre " + code + " au " + d);
                     map.put(code, new ParametreEtat(
@@ -338,6 +325,18 @@ public class ParametreGlobal extends ClassMere {
         }
 
         return map;
+    }
+
+    /** Projette les paramètres actifs depuis un état daté déjà chargé, sans nouvelle lecture SQL. */
+    public static java.util.Map<String, String> activeValues(
+            java.util.Map<String, ParametreEtat> states) {
+        if (states == null) return java.util.Map.of();
+        java.util.Map<String, String> values = states instanceof DatedParameterMap<?> dated
+                ? new DatedParameterMap<String>(dated) : new java.util.HashMap<>();
+        states.forEach((code, state) -> {
+            if (state.isEstActif()) values.put(code, state.getValeur());
+        });
+        return values;
     }
 
     /**
@@ -357,10 +356,7 @@ public class ParametreGlobal extends ClassMere {
         if (dateRef == null) {
             throw new IllegalArgumentException("La date métier des paramètres globaux est obligatoire.");
         }
-        var states = loadEtatMapAtDate(dateRef, c);
-        java.util.Map<String, String> map = new DatedParameterMap<>((DatedParameterMap<?>) states);
-        states.forEach((code, state) -> { if (state.isEstActif()) map.put(code, state.getValeur()); });
-        return map;
+        return activeValues(loadEtatMapAtDate(dateRef, c));
     }
 
     public static java.util.Map<String, String> loadActiveMapByCategorie(String categorie, Connection c) {

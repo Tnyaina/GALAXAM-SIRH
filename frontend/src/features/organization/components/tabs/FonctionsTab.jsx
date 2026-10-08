@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, Plus, Eye } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiClient';
 import organisationService from '@/features/organization/api/organisationService';
@@ -45,7 +45,7 @@ export default function FonctionsTab() {
     const [fieldErrors, setFieldErrors] = useState({});
 
     // Chargement des données
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
@@ -57,35 +57,12 @@ export default function FonctionsTab() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     // Effet : charge les fonctions à l'ouverture de l'onglet.
     useEffect(() => {
-        let isMounted = true;
-        const fetchData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const data = await organisationService.getFonctions();
-                if (isMounted) {
-                    setFonctions(data || []);
-                }
-            } catch (err) {
-                if (isMounted) {
-                    setError("Erreur lors du chargement des fonctions/postes.");
-                    console.error(err);
-                }
-            } finally {
-                if (isMounted) {
-                    setLoading(false);
-                }
-            }
-        };
-        fetchData();
-        return () => {
-            isMounted = false;
-        };
-    }, []);
+        loadData();
+    }, [loadData]);
 
     // Actions utilisateur
     const handleOpenCreate = () => {

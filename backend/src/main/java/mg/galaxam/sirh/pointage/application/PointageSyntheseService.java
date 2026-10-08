@@ -291,6 +291,39 @@ public class PointageSyntheseService {
             Map<String, String> params,
             Connection c
     ) throws SQLException {
+        return calculerSyntheseEmploye(idEmp, matricule, nom, prenom, photoUrl, idSite, siteCode, siteNom,
+                horaireContinu, codeCat, isCadre, estAutonome, dateDebut, dateFin, dateDebutEmploi, dateFinEmploi,
+                idPeriode, codePeriode, libellePeriode, statutPeriode, nbJoursOuvrablesPeriode,
+                siteDeplacementRefMap, params, null, c);
+    }
+
+    public PointageSyntheseMensuelleDTO calculerSyntheseEmploye(
+            int idEmp,
+            String matricule,
+            String nom,
+            String prenom,
+            String photoUrl,
+            int idSite,
+            String siteCode,
+            String siteNom,
+            Boolean horaireContinu,
+            String codeCat,
+            boolean isCadre,
+            boolean estAutonome,
+            LocalDate dateDebut,
+            LocalDate dateFin,
+            LocalDate dateDebutEmploi,
+            LocalDate dateFinEmploi,
+            Integer idPeriode,
+            String codePeriode,
+            String libellePeriode,
+            String statutPeriode,
+            int nbJoursOuvrablesPeriode,
+            Map<Integer, BigDecimal> siteDeplacementRefMap,
+            Map<String, String> params,
+            Map<String, ParametreGlobal.ParametreEtat> parameterStates,
+            Connection c
+    ) throws SQLException {
         if (dateDebut == null || dateFin == null || dateFin.isBefore(dateDebut)) {
             log.warn("[PointageSyntheseService] Dates de période invalides pour l'employé {}: debut={}, fin={}", idEmp, dateDebut, dateFin);
             PointageSyntheseMensuelleDTO emptyDto = new PointageSyntheseMensuelleDTO();
@@ -326,8 +359,10 @@ public class PointageSyntheseService {
             throw new SirhBusinessException(SirhErrorCode.LEGAL_CONFIG_MISSING,
                     "Impossible de charger la première tranche HS pour le " + dateDebut + " : " + e.getMessage());
         }
-        BigDecimal seuilHeuresJour = BigDecimal.valueOf(PointageService.resolveDailyTargetHours(
-                ParametreGlobal.loadEtatMapAtDate(Date.valueOf(dateDebut), c)));
+        Map<String, ParametreGlobal.ParametreEtat> effectiveParameterStates = parameterStates != null
+                ? parameterStates : ParametreGlobal.loadEtatMapAtDate(Date.valueOf(dateDebut), c);
+        BigDecimal seuilHeuresJour = BigDecimal.valueOf(
+                PointageService.resolveDailyTargetHours(effectiveParameterStates));
 
         // Montant de référence mensuel pour le site (ex: 53 200 Ar si horaire discontinu, 31 200 Ar si horaire continu)
         BigDecimal refDeplacementSite = BigDecimal.ZERO;
@@ -756,14 +791,17 @@ public class PointageSyntheseService {
             tDto.setHeuresDeficit(minutesToHours(deficitTroncon));
             tDto.setHeuresHs30(minutesToHours(res.overtime30Minutes()));
             tDto.setHeuresHs50(minutesToHours(res.overtime50Minutes()));
-            tDto.setHeuresNuit(minutesToHours(res.days().stream()
-                    .mapToLong(AttendanceEngine.Result::nightMinutes).sum()));
-            tDto.setHeuresDimanche(minutesToHours(res.days().stream()
-                    .filter(AttendanceEngine.Result::sunday)
-                    .mapToLong(AttendanceEngine.Result::workedMinutes).sum()));
-            tDto.setHeuresFerie(minutesToHours(res.days().stream()
-                    .filter(AttendanceEngine.Result::publicHoliday)
-                    .mapToLong(AttendanceEngine.Result::workedMinutes).sum()));
+            long nightMinutes = 0;
+            long sundayMinutes = 0;
+            long holidayMinutes = 0;
+            for (AttendanceEngine.Result day : res.days()) {
+                nightMinutes += day.nightMinutes();
+                if (day.sunday()) sundayMinutes += day.workedMinutes();
+                if (day.publicHoliday()) holidayMinutes += day.workedMinutes();
+            }
+            tDto.setHeuresNuit(minutesToHours(nightMinutes));
+            tDto.setHeuresDimanche(minutesToHours(sundayMinutes));
+            tDto.setHeuresFerie(minutesToHours(holidayMinutes));
             tronconsList.add(tDto);
         }
 
@@ -1046,7 +1084,9 @@ public class PointageSyntheseService {
         if (dateDebut == null || dateFin == null) {
             return list;
         }
-        Map<String, String> params = ParametreGlobal.loadActiveMapAtDate(Date.valueOf(dateDebut), c);
+        Map<String, ParametreGlobal.ParametreEtat> parameterStates =
+                ParametreGlobal.loadEtatMapAtDate(Date.valueOf(dateDebut), c);
+        Map<String, String> params = ParametreGlobal.activeValues(parameterStates);
 
         // Calcul des jours ouvrables réels de la période via le moteur centralisé
         int nbJoursOuvrablesPeriode = calendrierEngine.compterJoursOuvrables(dateDebut, dateFin, idSite, c);
@@ -1131,6 +1171,7 @@ public class PointageSyntheseService {
                             nbJoursOuvrablesPeriode,
                             siteDeplacementRefMap,
                             params,
+                            parameterStates,
                             c
                     );
 
@@ -1141,7 +1182,6 @@ public class PointageSyntheseService {
 
         list.sort(Comparator.comparing(PointageSyntheseMensuelleDTO::getNom, Comparator.nullsLast(String::compareToIgnoreCase))
                 .thenComparing(PointageSyntheseMensuelleDTO::getPrenom, Comparator.nullsLast(String::compareToIgnoreCase)));
-
         return list;
     }
 
@@ -2241,10 +2281,9 @@ public class PointageSyntheseService {
         List<PointageSyntheseMensuelleDTO> list = new ArrayList<>();
         if (idPeriode <= 0 || dateDebutTroncon == null || dateFinTroncon == null) return list;
 
-        Map<String, String> params = ParametreGlobal.loadActiveMapAtDate(Date.valueOf(dateDebutTroncon), c);
-        BigDecimal seuilHeuresJour = BigDecimal.valueOf(PointageService.resolveDailyTargetHours(
-                ParametreGlobal.loadEtatMapAtDate(Date.valueOf(dateDebutTroncon), c)));
         Map<String, ParametreGlobal.ParametreEtat> etatMap = ParametreGlobal.loadEtatMapAtDate(dateDebutTroncon != null ? Date.valueOf(dateDebutTroncon) : null, c);
+        Map<String, String> params = ParametreGlobal.activeValues(etatMap);
+        BigDecimal seuilHeuresJour = BigDecimal.valueOf(PointageService.resolveDailyTargetHours(etatMap));
         BigDecimal montantRepasMidiDefaut = ParametreGlobal.getBigDecimal(etatMap, "MONTANT_REPAS_MIDI", null, BigDecimal.ZERO);
         if (montantRepasMidiDefaut == null) {
             Map<String, Object> details = new HashMap<>();
@@ -2338,6 +2377,7 @@ public class PointageSyntheseService {
                             nbOuvrables,
                             siteDeplacementRefMap,
                             params,
+                            etatMap,
                             c
                     );
                     dto.setHeuresNormales(seuilHeuresJour.multiply(BigDecimal.valueOf(nbOuvrables)).doubleValue());
@@ -2349,7 +2389,6 @@ public class PointageSyntheseService {
 
         list.sort(Comparator.comparing(PointageSyntheseMensuelleDTO::getNom, Comparator.nullsLast(String::compareToIgnoreCase))
                 .thenComparing(PointageSyntheseMensuelleDTO::getPrenom, Comparator.nullsLast(String::compareToIgnoreCase)));
-
         return list;
     }
 

@@ -28,7 +28,6 @@ import java.time.LocalDate;
 import java.time.format.TextStyle;
 import java.util.Locale;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /** Récapitulatif annuel issu des mêmes résultats de bulletins que le grand livre mensuel. */
 @Service
@@ -63,14 +62,29 @@ public class AnnualPayrollExportService {
             }
         }
         if (periods.isEmpty()) throw new IllegalStateException("Aucune période de paie validée pour " + year + ".");
+        List<Integer> periodIds = periods.stream().map(Period::id).toList();
+        Map<Integer, String> periodCodes = new LinkedHashMap<>();
+        Map<Integer, List<BulletinPaie>> bulletinsParPeriode = new LinkedHashMap<>();
+        for (Period period : periods) {
+            periodCodes.put(period.id(), period.code());
+            bulletinsParPeriode.put(period.id(), new ArrayList<>());
+        }
+        for (BulletinPaie bulletin : BulletinPaie.listerParPeriodes(periodIds, connection)) {
+            bulletinsParPeriode.computeIfAbsent(bulletin.getIdPeriodePaie(), ignored -> new ArrayList<>()).add(bulletin);
+            String periodCode = periodCodes.get(bulletin.getIdPeriodePaie());
+            if (!"VALIDE".equals(bulletin.getStatut()) && !"CLOTURE".equals(bulletin.getStatut()))
+                throw new IllegalStateException("Bulletin non validé dans la période " + periodCode + ".");
+        }
+        Map<Integer, String> filiales = PayrollExportContextResolver.namesByBulletins(periodIds, connection);
+        List<Integer> allBulletinIds = bulletinsParPeriode.values().stream().flatMap(List::stream)
+                .map(BulletinPaie::getIdBulletin).toList();
+        Map<Integer, List<BulletinPaieLigne>> lignesParBulletin = BulletinPaieLigne.listerParBulletins(
+                allBulletinIds, connection);
         Map<String, PayRow> monthly = new LinkedHashMap<>();
         List<BulletinPaieLigne> auditedLines = new ArrayList<>();
         for (Period period : periods) {
-            Map<Integer, String> filiales = GrandLivrePaieExportService.loadFiliales(period.id(), connection);
-            for (BulletinPaie bulletin : BulletinPaie.listerParPeriode(period.id(), connection)) {
-                if (!"VALIDE".equals(bulletin.getStatut()) && !"CLOTURE".equals(bulletin.getStatut()))
-                    throw new IllegalStateException("Bulletin non validé dans la période " + period.code() + ".");
-                List<BulletinPaieLigne> lines = BulletinPaieLigne.listerParBulletin(bulletin.getIdBulletin(), connection);
+            for (BulletinPaie bulletin : bulletinsParPeriode.get(period.id())) {
+                List<BulletinPaieLigne> lines = lignesParBulletin.getOrDefault(bulletin.getIdBulletin(), List.of());
                 auditedLines.addAll(lines);
                 String key = period.code() + ":" + bulletin.getIdEmploye();
                 String[] identity = GrandLivrePaieExportService.summaryIdentity(bulletin, filiales.get(bulletin.getIdBulletin()));
@@ -314,18 +328,31 @@ public class AnnualPayrollExportService {
         }
         int[] metrics = {7, 8, 9, 10, 11, 15, 16, 17};
         Set<String> included = Set.copyOf(periodCodes);
+        Map<String, Set<Integer>> employeesByMonth = new LinkedHashMap<>();
+        Map<String, BigDecimal[]> totalsByMonth = new LinkedHashMap<>();
+        for (PayRow monthlyRow : monthlyRows) {
+            String code = monthlyRow.period();
+            employeesByMonth.computeIfAbsent(code, ignored -> new java.util.HashSet<>()).add(monthlyRow.employeeId());
+            BigDecimal[] totals = totalsByMonth.computeIfAbsent(code, ignored -> {
+                BigDecimal[] values = new BigDecimal[metrics.length];
+                Arrays.fill(values, BigDecimal.ZERO);
+                return values;
+            });
+            for (int col = 0; col < metrics.length; col++) {
+                BigDecimal value = monthlyRow.values()[metrics[col]];
+                totals[col] = totals[col].add(value == null ? BigDecimal.ZERO : value);
+            }
+        }
         for (int month = 1; month <= 12; month++) {
             String code = "%04d-%02d".formatted(year, month);
-            List<PayRow> monthRows = monthlyRows.stream().filter(row -> code.equals(row.period())).toList();
             Row row = styledRow(sheet, 3 + month, Arrays.copyOf(month % 2 == 0 ? alternateStyle : bodyStyle, 11));
             row.getCell(0).setCellValue(monthLabel(code));
             row.getCell(1).setCellValue(included.contains(code) ? "Inclus" : "Non inclus");
             if (!included.contains(code)) continue;
-            row.getCell(2).setCellValue(monthRows.stream().map(PayRow::employeeId).collect(Collectors.toSet()).size());
+            row.getCell(2).setCellValue(employeesByMonth.getOrDefault(code, Set.of()).size());
             for (int col = 0; col < metrics.length; col++) {
-                final int metric = metrics[col];
-                BigDecimal total = monthRows.stream().map(r -> r.values()[metric])
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal[] monthlyTotals = totalsByMonth.get(code);
+                BigDecimal total = monthlyTotals == null ? BigDecimal.ZERO : monthlyTotals[col];
                 row.getCell(3 + col).setCellValue(total.doubleValue());
                 row.getCell(3 + col).setCellStyle(month % 2 == 0 ? alternateStyle[13] : bodyStyle[13]);
             }

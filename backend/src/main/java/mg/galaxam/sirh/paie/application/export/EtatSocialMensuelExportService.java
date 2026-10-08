@@ -44,11 +44,13 @@ public class EtatSocialMensuelExportService {
             throw new IllegalStateException("Tous les bulletins doivent être validés avant l'export social.");
         }
         Map<Integer, String> filiales = loadFiliales(periodId, connection);
+        Map<Integer, List<BulletinPaieLigne>> lignesParBulletin = BulletinPaieLigne.listerParBulletins(
+                bulletins.stream().map(BulletinPaie::getIdBulletin).toList(), connection);
         Map<DetailKey, DetailRow> detailRows = new LinkedHashMap<>();
         Map<String, Set<Integer>> people = new LinkedHashMap<>();
         Map<String, BigDecimal[]> amounts = new LinkedHashMap<>();
         for (BulletinPaie b : bulletins) {
-            for (BulletinPaieLigne line : BulletinPaieLigne.listerParBulletin(b.getIdBulletin(), connection)) {
+            for (BulletinPaieLigne line : lignesParBulletin.getOrDefault(b.getIdBulletin(), List.of())) {
                 if (!isSocial(line)) continue;
                 BigDecimal salariale = zero(line.getMontantSalarial());
                 BigDecimal patronale = zero(line.getMontantPatronal());

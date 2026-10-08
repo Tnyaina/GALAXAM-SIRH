@@ -438,6 +438,24 @@ public class BulletinPaie extends ClassMere {
         return list;
     }
 
+    /** Charge les bulletins de plusieurs périodes en une lecture, triés par période puis matricule. */
+    public static List<BulletinPaie> listerParPeriodes(List<Integer> idsPeriodes, Connection c) throws Exception {
+        if (idsPeriodes == null || idsPeriodes.isEmpty()) return List.of();
+        List<Integer> uniqueIds = idsPeriodes.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (uniqueIds.isEmpty()) return List.of();
+        String placeholders = String.join(",", java.util.Collections.nCopies(uniqueIds.size(), "?"));
+        String sql = "SELECT * FROM bulletin_paie WHERE id_periode_paie IN (" + placeholders + ") "
+                + "ORDER BY id_periode_paie ASC, matricule ASC";
+        List<BulletinPaie> list = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            for (int index = 0; index < uniqueIds.size(); index++) ps.setInt(index + 1, uniqueIds.get(index));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapResultSet(rs));
+            }
+        }
+        return list;
+    }
+
     /**
      * Règle d'arrondi monétaire malgache : arrondi à la dizaine d'Ariary la plus proche.
      * Ex: 450 123.45 Ar -> 450 120 Ar ; 450 127.00 Ar -> 450 130 Ar.

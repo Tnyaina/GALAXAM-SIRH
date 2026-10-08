@@ -312,30 +312,34 @@ public class DocumentRhController {
     }
 
     @GetMapping({"/documents/attestation/{idEmploye}", "/api/documents/attestation/{idEmploye}"})
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<AttestationTravailDTO> getAttestationData(
             @PathVariable Integer idEmploye,
             @RequestParam(defaultValue = "contrat") String typeAnciennete,
-            @RequestParam(defaultValue = "false") boolean inclureSalaire) throws Exception {
+            @RequestParam(defaultValue = "false") boolean inclureSalaire,
+            Authentication authentication) throws Exception {
+        requirePayrollReadForSalary(inclureSalaire, authentication);
         try (Connection c = dataSource.getConnection()) {
             AttestationTravailDTO dto = documentRhService.preparerAttestation(idEmploye, typeAnciennete, inclureSalaire, c);
-            return ResponseEntity.ok(dto);
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(dto);
         }
     }
 
     @GetMapping({"/documents/attestation/{idEmploye}/docx", "/api/documents/attestation/{idEmploye}/docx"})
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<byte[]> downloadAttestationDocx(
             @PathVariable Integer idEmploye,
             @RequestParam(defaultValue = "contrat") String typeAnciennete,
-            @RequestParam(defaultValue = "false") boolean inclureSalaire) throws Exception {
+            @RequestParam(defaultValue = "false") boolean inclureSalaire,
+            Authentication authentication) throws Exception {
+        requirePayrollReadForSalary(inclureSalaire, authentication);
         try (Connection c = dataSource.getConnection()) {
             AttestationTravailDTO dto = documentRhService.preparerAttestation(idEmploye, typeAnciennete, inclureSalaire, c);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             documentRhService.genererAttestationDocx(dto, baos);
 
             String filename = "Attestation_Travail_" + dto.getEmploye().getMatricule() + ".docx";
-            return ResponseEntity.ok()
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                     .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
                     .body(baos.toByteArray());
@@ -343,18 +347,18 @@ public class DocumentRhController {
     }
 
     @GetMapping({"/documents/certificat/{idContrat}", "/api/documents/certificat/{idContrat}"})
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<CertificatTravailDTO> getCertificatData(
             @PathVariable Integer idContrat,
             @RequestParam(defaultValue = "contrat") String typeAnciennete) throws Exception {
         try (Connection c = dataSource.getConnection()) {
             CertificatTravailDTO dto = documentRhService.preparerCertificat(idContrat, typeAnciennete, c);
-            return ResponseEntity.ok(dto);
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(dto);
         }
     }
 
     @GetMapping({"/documents/certificat/{idContrat}/docx", "/api/documents/certificat/{idContrat}/docx"})
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<byte[]> downloadCertificatDocx(
             @PathVariable Integer idContrat,
             @RequestParam(defaultValue = "contrat") String typeAnciennete) throws Exception {
@@ -364,11 +368,21 @@ public class DocumentRhController {
             documentRhService.genererCertificatDocx(dto, baos);
 
             String filename = "Certificat_Travail_" + dto.getEmploye().getMatricule() + ".docx";
-            return ResponseEntity.ok()
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                     .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
                     .body(baos.toByteArray());
         }
     }
-}
 
+    private void requirePayrollReadForSalary(boolean includeSalary, Authentication authentication) {
+        if (!includeSalary) return;
+        boolean allowed = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(authority -> "PAIE_READ".equals(authority.getAuthority())
+                        || "ROLE_ADMIN".equals(authority.getAuthority()));
+        if (!allowed) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "L'accès au salaire exige l'habilitation PAIE_READ.");
+        }
+    }
+}

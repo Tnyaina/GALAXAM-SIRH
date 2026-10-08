@@ -22,6 +22,13 @@ const isRowDataModified = (row, initialList) => {
     return JSON.stringify(row.dynamicIndemnites || {}) !== JSON.stringify(initial.dynamicIndemnites || {});
 };
 
+const previewSignature = (row) => JSON.stringify([
+    row.idEmploye, row.idSite, row.datePointage,
+    row.heureEntreeMatin, row.heureSortieMatin, row.heureEntreeAm, row.heureSortieAm,
+    row.codeStatut, row.typeCongeJour, row.horaireContinu, row.estAutonome, row.ferieJour,
+    row.congePaye, row.congeDecompteSolde
+]);
+
 export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateString()) {
     // État local : site et date sélectionnés.
     const [selectedSite, setSelectedSite] = useState(() => (Number(initialSiteId) > 0 ? Number(initialSiteId) : null));
@@ -50,7 +57,7 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
-    const previewTimers = useRef(new Map());
+    const previewTimer = useRef(null);
     const loadSequence = useRef(0);
     const [loadedSelection, setLoadedSelection] = useState(null);
     const selectionKey = `${selectedSite}:${selectedDate}`;
@@ -127,78 +134,64 @@ export function usePointageSaisie(initialSiteId = 1, initialDate = getTodayDateS
     }, [loadData]);
 
     useEffect(() => {
-        const timers = previewTimers.current;
-        grilleData.filter((row) => row._previewPending).forEach((row) => {
-            const id = row.idEmploye;
-            const existingTimer = timers.get(id);
-            if (existingTimer) clearTimeout(existingTimer);
-            const inputSignature = JSON.stringify([
-                row.idEmploye, row.idSite, row.datePointage,
-                row.heureEntreeMatin, row.heureSortieMatin, row.heureEntreeAm, row.heureSortieAm,
-                row.codeStatut, row.typeCongeJour, row.horaireContinu, row.estAutonome, row.ferieJour,
-                row.congePaye, row.congeDecompteSolde
-            ]);
-            const timer = setTimeout(async () => {
-                try {
-                    const preview = await attendanceService.previewDay(row);
-                    setGrilleData((current) => current.map((item) => {
-                        if (item.idEmploye !== id || !item._previewPending) return item;
-                        const currentSignature = JSON.stringify([
-                            item.idEmploye, item.idSite, item.datePointage,
-                            item.heureEntreeMatin, item.heureSortieMatin, item.heureEntreeAm, item.heureSortieAm,
-                            item.codeStatut, item.typeCongeJour, item.horaireContinu, item.estAutonome, item.ferieJour,
-                            item.congePaye, item.congeDecompteSolde
-                        ]);
-                        if (currentSignature !== inputSignature) return item;
-
-                        // The preview endpoint returns the full DTO, including the editable
-                        // times. Keep the values currently being edited and apply only its
-                        // calculated/validation fields; otherwise an async preview can
-                        // replace a user's draft with normalized or stale input values.
-                        return {
-                            ...item,
-                            heuresMatin: preview.heuresMatin,
-                            heuresAm: preview.heuresAm,
-                            totalHeures: preview.totalHeures,
-                            heuresNuit: preview.heuresNuit,
-                            minutesRetard: preview.minutesRetard,
-                            codeStatut: preview.codeStatut,
-                            libelleStatut: preview.libelleStatut,
-                            hasValidationError: preview.hasValidationError,
-                            validationMessages: preview.validationMessages || [],
-                            statusActions: preview.statusActions || [],
-                            statutBadgeVariant: preview.statutBadgeVariant,
-                            statutBadgeLabel: preview.statutBadgeLabel,
-                            present: preview.present,
-                            retard: preview.retard,
-                            conge: preview.conge,
-                            absenceJustifiee: preview.absenceJustifiee,
-                            absenceNonJustifiee: preview.absenceNonJustifiee,
-                            nonSaisi: preview.nonSaisi,
-                            anomalie: preview.anomalie,
-                            dispensePointage: preview.dispensePointage,
-                            ferieTravaille: preview.ferieTravaille,
-                            ferieChome: preview.ferieChome,
-                            samediTravaille: preview.samediTravaille,
-                            dimancheTravaille: preview.dimancheTravaille,
-                            repos: preview.repos,
-                            _previewPending: false,
-                            _previewError: null
-                        };
-                    }));
-                } catch (previewError) {
-                    setGrilleData((current) => current.map((item) => item.idEmploye === id && item._previewPending
-                        ? { ...item, _previewPending: false, _previewError: getErrorMessage(previewError, 'Prévisualisation indisponible.') }
-                        : item));
-                } finally {
-                    previewTimers.current.delete(id);
-                }
-            }, 250);
-            timers.set(id, timer);
-        });
+        const pendingRows = grilleData.filter((row) => row._previewPending);
+        if (!pendingRows.length) return undefined;
+        if (previewTimer.current) clearTimeout(previewTimer.current);
+        const capturedSignatures = new Map(pendingRows.map((row) => [row.idEmploye, previewSignature(row)]));
+        previewTimer.current = setTimeout(async () => {
+            try {
+                const results = await attendanceService.previewDays(pendingRows);
+                const byEmployee = new Map((results || []).map((item) => [item.idEmploye, item]));
+                setGrilleData((current) => current.map((item) => {
+                    const result = byEmployee.get(item.idEmploye);
+                    if (!result || !item._previewPending
+                        || previewSignature(item) !== capturedSignatures.get(item.idEmploye)) return item;
+                    if (result.error || !result.preview) {
+                        return { ...item, _previewPending: false,
+                            _previewError: result.error || 'Prévisualisation indisponible.' };
+                    }
+                    const preview = result.preview;
+                    // Keep the current editable values; apply only server-calculated fields.
+                    return {
+                        ...item,
+                        heuresMatin: preview.heuresMatin,
+                        heuresAm: preview.heuresAm,
+                        totalHeures: preview.totalHeures,
+                        heuresNuit: preview.heuresNuit,
+                        minutesRetard: preview.minutesRetard,
+                        codeStatut: preview.codeStatut,
+                        libelleStatut: preview.libelleStatut,
+                        hasValidationError: preview.hasValidationError,
+                        validationMessages: preview.validationMessages || [],
+                        statusActions: preview.statusActions || [],
+                        statutBadgeVariant: preview.statutBadgeVariant,
+                        statutBadgeLabel: preview.statutBadgeLabel,
+                        present: preview.present,
+                        retard: preview.retard,
+                        conge: preview.conge,
+                        absenceJustifiee: preview.absenceJustifiee,
+                        absenceNonJustifiee: preview.absenceNonJustifiee,
+                        nonSaisi: preview.nonSaisi,
+                        anomalie: preview.anomalie,
+                        dispensePointage: preview.dispensePointage,
+                        ferieTravaille: preview.ferieTravaille,
+                        ferieChome: preview.ferieChome,
+                        samediTravaille: preview.samediTravaille,
+                        dimancheTravaille: preview.dimancheTravaille,
+                        repos: preview.repos,
+                        _previewPending: false,
+                        _previewError: null
+                    };
+                }));
+            } catch (previewError) {
+                const message = getErrorMessage(previewError, 'Prévisualisation indisponible.');
+                setGrilleData((current) => current.map((item) =>
+                    capturedSignatures.get(item.idEmploye) === previewSignature(item) && item._previewPending
+                        ? { ...item, _previewPending: false, _previewError: message } : item));
+            }
+        }, 250);
         return () => {
-            timers.forEach(clearTimeout);
-            timers.clear();
+            if (previewTimer.current) clearTimeout(previewTimer.current);
         };
     }, [grilleData]);
 

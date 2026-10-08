@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class WorkflowRhService {
+    private record AutoApplication(WorkflowRh workflow, String employeeName, String eventLabel) {}
 
     /**
      * ÉTAPE 1 — Créer un brouillon d'embauche initiale.
@@ -1279,7 +1280,8 @@ public class WorkflowRhService {
     public static void autoAppliquerMouvementsEchus(Connection c) {
         try {
             boolean initialAutoCommit = c.getAutoCommit();
-            String sql = "SELECT w.* FROM workflow_rh w " +
+            String sql = "SELECT w.*, COALESCE(e.nom, '') || ' ' || COALESCE(e.prenom, '') AS employee_name, ev.libelle AS event_label FROM workflow_rh w " +
+                    "JOIN employe e ON e.id_employe = w.id_employe " +
                     "JOIN ref_statut_rh s ON w.id_statut_rh = s.id_statut_rh " +
                     "JOIN ref_type_evenement_rh ev ON w.id_type_evenement_rh = ev.id_type_evenement_rh " +
                     "WHERE s.code = 'PLANIFIE' AND w.date_effet <= CURRENT_DATE " +
@@ -1308,7 +1310,7 @@ public class WorkflowRhService {
                     "       WHERE id_statut_rh != (SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'ACTIF')" +
                     "   ))" +
                     ")";
-            List<WorkflowRh> workflowsAAppliquer = new ArrayList<>();
+            List<AutoApplication> workflowsAAppliquer = new ArrayList<>();
             try (var ps = c.prepareStatement(sql); var rs = ps.executeQuery()) {
                 while (rs.next()) {
                     WorkflowRh wf = new WorkflowRh();
@@ -1327,11 +1329,14 @@ public class WorkflowRhService {
                                     : null);
                     wf.setDateEffet(rs.getDate("date_effet"));
                     wf.setMotif(rs.getString("motif"));
-                    workflowsAAppliquer.add(wf);
+                    workflowsAAppliquer.add(new AutoApplication(wf, rs.getString("employee_name"),
+                            rs.getString("event_label")));
                 }
             }
 
-            for (WorkflowRh wf : workflowsAAppliquer) {
+            Integer idStatutActif = workflowsAAppliquer.isEmpty() ? null : resolveStatut("ACTIF", c);
+            for (AutoApplication application : workflowsAAppliquer) {
+                WorkflowRh wf = application.workflow();
                 c.setAutoCommit(false);
                 try {
                     Date dateEffet = wf.getDateEffet();
@@ -1340,7 +1345,6 @@ public class WorkflowRhService {
                     appliquerWorkflowEvenement(wf, c);
 
                     // 2. Mettre à jour le statut du workflow_rh vers ACTIF
-                    Integer idStatutActif = resolveStatut("ACTIF", c);
                     try (PreparedStatement psUpWf = c.prepareStatement(
                             "UPDATE workflow_rh SET id_statut_rh = ?, updated_at = CURRENT_TIMESTAMP WHERE id_workflow = ?")) {
                         psUpWf.setInt(1, idStatutActif);
@@ -1351,23 +1355,8 @@ public class WorkflowRhService {
                     // 3. Historiser tout ancien workflow actif pour cet employé
                     historiserAutresWorkflows(wf.getIdEmploye(), wf.getIdWorkflow(), c);
 
-                    String nomPrenom = "";
-                    String typeEv = "Mouvement RH";
-                    try (var ps2 = c.prepareStatement(
-                            "SELECT e.nom || ' ' || e.prenom AS np, t.libelle AS ev " +
-                                    "FROM employe e " +
-                                    "JOIN workflow_rh w ON w.id_employe = e.id_employe " +
-                                    "JOIN ref_type_evenement_rh t ON w.id_type_evenement_rh = t.id_type_evenement_rh "
-                                    +
-                                    "WHERE w.id_workflow = ?")) {
-                        ps2.setInt(1, wf.getIdWorkflow());
-                        try (var rs2 = ps2.executeQuery()) {
-                            if (rs2.next()) {
-                                nomPrenom = rs2.getString("np");
-                                typeEv = rs2.getString("ev");
-                            }
-                        }
-                    }
+                    String nomPrenom = application.employeeName() == null ? "" : application.employeeName();
+                    String typeEv = application.eventLabel() == null ? "Mouvement RH" : application.eventLabel();
 
                     creerNotif(c, null, "MOUVEMENT_APPLIQUE", "NORMALE",
                             "Prise d'effet - " + typeEv + " - " + nomPrenom,

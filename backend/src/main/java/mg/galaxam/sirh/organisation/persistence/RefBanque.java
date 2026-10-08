@@ -123,8 +123,17 @@ public class RefBanque extends ClassMere {
     }
 
     public static List<RefBanque> listAll(Connection c) throws Exception {
+        return list(c, false);
+    }
+
+    public static List<RefBanque> listActifs(Connection c) throws Exception {
+        return list(c, true);
+    }
+
+    private static List<RefBanque> list(Connection c, boolean actifsOnly) throws Exception {
         List<RefBanque> list = new ArrayList<>();
-        String sql = "SELECT id_banque, code_banque, nom_banque, code_swift, est_actif FROM ref_banque ORDER BY id_banque ASC";
+        String sql = "SELECT id_banque, code_banque, nom_banque, code_swift, est_actif FROM ref_banque " +
+                (actifsOnly ? " WHERE est_actif = TRUE" : "") + " ORDER BY id_banque ASC";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {

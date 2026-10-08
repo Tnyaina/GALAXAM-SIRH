@@ -32,6 +32,7 @@ import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
@@ -1182,56 +1183,39 @@ public class DocumentRhService {
                 dto.setSalaireBase(aff.getSalaireBase());
                 dto.setSalaireBaseTexte(String.format(Locale.FRENCH, "%,.0f", aff.getSalaireBase()));
             }
-
-            if (aff.getIdFonction() != null) {
-                try (PreparedStatement ps = c.prepareStatement("SELECT libelle FROM ref_fonction WHERE id_fonction = ?")) {
-                    ps.setInt(1, aff.getIdFonction());
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) dto.setLibelleFonction(rs.getString("libelle"));
+            String sql = "SELECT f.libelle AS fonction, d.libelle AS departement, s.libelle AS site, "
+                    + "cp.libelle AS categorie, responsable.nom AS responsable_nom, responsable.prenom AS responsable_prenom "
+                    + "FROM (SELECT ?::integer AS id_fonction, ?::integer AS id_departement, ?::integer AS id_site, "
+                    + "?::integer AS id_categorie_professionnelle, ?::integer AS id_responsable) a "
+                    + "LEFT JOIN ref_fonction f ON f.id_fonction = a.id_fonction "
+                    + "LEFT JOIN ref_departement d ON d.id_departement = a.id_departement "
+                    + "LEFT JOIN ref_site s ON s.id_site = a.id_site "
+                    + "LEFT JOIN ref_categorie_professionnelle cp ON cp.id_categorie_professionnelle = a.id_categorie_professionnelle "
+                    + "LEFT JOIN employe responsable ON responsable.id_employe = a.id_responsable";
+            try (PreparedStatement ps = c.prepareStatement(sql)) {
+                setNullableInt(ps, 1, aff.getIdFonction());
+                setNullableInt(ps, 2, aff.getIdDepartement());
+                setNullableInt(ps, 3, aff.getIdSite());
+                setNullableInt(ps, 4, aff.getIdCategorieProfessionnelle());
+                setNullableInt(ps, 5, aff.getIdResponsableHierarchique());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        dto.setLibelleFonction(rs.getString("fonction"));
+                        dto.setDepartement(rs.getString("departement"));
+                        dto.setSite(rs.getString("site"));
+                        dto.setCategorieProfessionnelle(rs.getString("categorie"));
+                        String nom = rs.getString("responsable_nom");
+                        String prenom = rs.getString("responsable_prenom");
+                        if (nom != null) dto.setSuperieurHierarchique((nom + " " + (prenom != null ? prenom : "")).trim());
                     }
-                } catch (Exception ignored) {}
-            }
-
-            if (aff.getIdDepartement() != null) {
-                try (PreparedStatement ps = c.prepareStatement("SELECT libelle FROM ref_departement WHERE id_departement = ?")) {
-                    ps.setInt(1, aff.getIdDepartement());
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) dto.setDepartement(rs.getString("libelle"));
-                    }
-                } catch (Exception ignored) {}
-            }
-
-            if (aff.getIdSite() != null) {
-                try (PreparedStatement ps = c.prepareStatement("SELECT libelle FROM ref_site WHERE id_site = ?")) {
-                    ps.setInt(1, aff.getIdSite());
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) dto.setSite(rs.getString("libelle"));
-                    }
-                } catch (Exception ignored) {}
-            }
-
-            if (aff.getIdCategorieProfessionnelle() != null) {
-                try (PreparedStatement ps = c.prepareStatement("SELECT libelle FROM ref_categorie_professionnelle WHERE id_categorie_professionnelle = ?")) {
-                    ps.setInt(1, aff.getIdCategorieProfessionnelle());
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) dto.setCategorieProfessionnelle(rs.getString("libelle"));
-                    }
-                } catch (Exception ignored) {}
-            }
-
-            if (aff.getIdResponsableHierarchique() != null) {
-                try (PreparedStatement ps = c.prepareStatement("SELECT nom, prenom FROM employe WHERE id_employe = ?")) {
-                    ps.setInt(1, aff.getIdResponsableHierarchique());
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) {
-                            String nom = rs.getString("nom");
-                            String prenom = rs.getString("prenom");
-                            dto.setSuperieurHierarchique((nom + " " + (prenom != null ? prenom : "")).trim());
-                        }
-                    }
-                } catch (Exception ignored) {}
-            }
+                }
+            } catch (Exception ignored) {}
         }
+    }
+
+    private static void setNullableInt(PreparedStatement ps, int index, Integer value) throws SQLException {
+        if (value == null) ps.setNull(index, java.sql.Types.INTEGER);
+        else ps.setInt(index, value);
     }
 
     private List<PosteHistoriqueDTO> chargerPostesSuccessifs(Integer idEmploye, Connection c) {

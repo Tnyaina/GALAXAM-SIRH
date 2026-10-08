@@ -416,49 +416,64 @@ public class CongeService {
             }
         }
 
-        String sqlMouvements = "SELECT type_mouvement, date_mouvement, nb_jours " +
-                "FROM mouvement_solde_conge WHERE id_employe = ?";
-        int employesTraites = 0;
-        try (PreparedStatement psMvt = c.prepareStatement(sqlMouvements)) {
-            for (ContratActif contrat : contrats) {
-                boolean eligible = !contrat.dateDebut().isAfter(ref.minusMonths(1));
-                boolean echeanceAtteinte = ref.getDayOfMonth() >= contrat.dateDebut().getDayOfMonth()
-                        || (dernierJourMois && contrat.dateDebut().getDayOfMonth() > ref.getDayOfMonth());
-                if (!eligible || !echeanceAtteinte) continue;
-
-                java.util.List<MouvementDroit> mouvements = new java.util.ArrayList<>();
-                psMvt.setInt(1, contrat.idEmploye());
+        java.util.List<ContratActif> contratsEligibles = contrats.stream()
+                .filter(contrat -> !contrat.dateDebut().isAfter(ref.minusMonths(1)))
+                .filter(contrat -> ref.getDayOfMonth() >= contrat.dateDebut().getDayOfMonth()
+                        || (dernierJourMois && contrat.dateDebut().getDayOfMonth() > ref.getDayOfMonth()))
+                .toList();
+        java.util.List<Integer> idsEmployesEligibles = contratsEligibles.stream()
+                .map(ContratActif::idEmploye).distinct().toList();
+        java.util.Map<Integer, java.util.List<MouvementDroit>> mouvementsParEmploye = new java.util.HashMap<>();
+        if (!idsEmployesEligibles.isEmpty()) {
+            String placeholders = String.join(",", java.util.Collections.nCopies(idsEmployesEligibles.size(), "?"));
+            String sqlMouvements = "SELECT id_employe, type_mouvement, date_mouvement, nb_jours " +
+                    "FROM mouvement_solde_conge WHERE id_employe IN (" + placeholders + ")";
+            try (PreparedStatement psMvt = c.prepareStatement(sqlMouvements)) {
+                for (int index = 0; index < idsEmployesEligibles.size(); index++) {
+                    psMvt.setInt(index + 1, idsEmployesEligibles.get(index));
+                }
                 try (ResultSet rs = psMvt.executeQuery()) {
                     while (rs.next()) {
                         Date date = rs.getDate("date_mouvement");
-                        if (date != null) mouvements.add(new MouvementDroit(
-                                rs.getString("type_mouvement"), date.toLocalDate(), rs.getDouble("nb_jours")));
+                        if (date != null) mouvementsParEmploye.computeIfAbsent(rs.getInt("id_employe"),
+                                ignored -> new java.util.ArrayList<>()).add(new MouvementDroit(
+                                        rs.getString("type_mouvement"), date.toLocalDate(), rs.getDouble("nb_jours")));
                     }
                 }
-                double solde = mouvements.stream().mapToDouble(MouvementDroit::jours).sum();
-                int anciennete = java.time.Period.between(contrat.dateDebut(), ref).getYears();
-                int bonus = calculateurEngine.calculerBonificationAnciennete(anciennete, seuil, palier, joursPalier);
-                boolean anniversaireAtteint = ref.getMonthValue() >= contrat.dateDebut().getMonthValue();
-                boolean dejaBonifie = mouvements.stream().anyMatch(m -> "BONIFICATION".equals(m.type())
-                        && m.date().getYear() == ref.getYear());
-                boolean plafondAtteint = plafond != null
-                        && BigDecimal.valueOf(solde).compareTo(plafond) >= 0;
-                if (bonus > 0 && anniversaireAtteint && !dejaBonifie && !plafondAtteint) {
-                    double aCrediter = bonus;
-                    if (plafond != null) {
-                        aCrediter = Math.min(bonus, Math.max(0.0, plafond.doubleValue() - solde));
-                    }
-                    if (aCrediter > 0) {
-                        MouvementSoldeConge mouvement = new MouvementSoldeConge();
-                        mouvement.setIdEmploye(contrat.idEmploye());
-                        mouvement.setTypeMouvement("BONIFICATION");
-                        mouvement.setNbJours(BigDecimal.valueOf(aCrediter));
-                        mouvement.setCommentaire("Bonification d'ancienneté (" + anciennete + " ans)");
-                        mouvement.save(c);
-                    }
-                }
-                employesTraites++;
             }
+        }
+        int employesTraites = 0;
+        for (ContratActif contrat : contratsEligibles) {
+            java.util.List<MouvementDroit> mouvements = mouvementsParEmploye.computeIfAbsent(
+                    contrat.idEmploye(), ignored -> new java.util.ArrayList<>());
+            double solde = 0.0;
+            boolean dejaBonifie = false;
+            for (MouvementDroit mouvement : mouvements) {
+                solde += mouvement.jours();
+                dejaBonifie |= "BONIFICATION".equals(mouvement.type())
+                        && mouvement.date().getYear() == ref.getYear();
+            }
+            int anciennete = java.time.Period.between(contrat.dateDebut(), ref).getYears();
+            int bonus = calculateurEngine.calculerBonificationAnciennete(anciennete, seuil, palier, joursPalier);
+            boolean anniversaireAtteint = ref.getMonthValue() >= contrat.dateDebut().getMonthValue();
+            boolean plafondAtteint = plafond != null
+                    && BigDecimal.valueOf(solde).compareTo(plafond) >= 0;
+            if (bonus > 0 && anniversaireAtteint && !dejaBonifie && !plafondAtteint) {
+                double aCrediter = bonus;
+                if (plafond != null) {
+                    aCrediter = Math.min(bonus, Math.max(0.0, plafond.doubleValue() - solde));
+                }
+                if (aCrediter > 0) {
+                    MouvementSoldeConge mouvement = new MouvementSoldeConge();
+                    mouvement.setIdEmploye(contrat.idEmploye());
+                    mouvement.setTypeMouvement("BONIFICATION");
+                    mouvement.setNbJours(BigDecimal.valueOf(aCrediter));
+                    mouvement.setCommentaire("Bonification d'ancienneté (" + anciennete + " ans)");
+                    mouvement.save(c);
+                    mouvements.add(new MouvementDroit("BONIFICATION", ref, aCrediter));
+                }
+            }
+            employesTraites++;
         }
         return employesTraites;
     }

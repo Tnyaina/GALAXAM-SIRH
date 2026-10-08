@@ -196,6 +196,13 @@ public class PointageController {
         return ResponseEntity.ok(pointageSaisieService.previsualiserPointage(pointage));
     }
 
+    @PostMapping("/saisie/preview/batch")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('POINTAGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<List<PointageService.PreviewResult>> previsualiserJours(
+            @RequestBody List<SaisiePointageJourDTO> pointages) throws SQLException {
+        return ResponseEntity.ok(pointageSaisieService.previsualiserPointagesBatch(pointages));
+    }
+
     @PostMapping("/saisie/batch")
     @PreAuthorize("hasAuthority('POINTAGE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> enregistrerBatch(@RequestBody List<SaisiePointageJourDTO> pointages)

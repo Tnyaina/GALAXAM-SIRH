@@ -70,6 +70,7 @@ const attendanceApi = {
             return (await apiClient.get('/pointages/saisie', { params: { idSite: parsedSite, date } })).data;
         },
         preview: async (pointage) => (await apiClient.post('/pointages/saisie/preview', pointage)).data,
+        previewBatch: async (pointages) => (await apiClient.post('/pointages/saisie/preview/batch', pointages)).data,
         saveBatch: async (pointages) => {
             const data = (await apiClient.post('/pointages/saisie/batch', pointages)).data;
             invalidateEmployeeSheets();
@@ -167,6 +168,7 @@ const attendanceApi = {
 export const attendanceService = {
     getGrilleSaisie: attendanceApi.daily.getGrid,
     previewDay: attendanceApi.daily.preview,
+    previewDays: attendanceApi.daily.previewBatch,
     enregistrerBatch: attendanceApi.daily.saveBatch,
     getAnomalies: attendanceApi.anomalies.list,
     regulariser: attendanceApi.anomalies.regularize,

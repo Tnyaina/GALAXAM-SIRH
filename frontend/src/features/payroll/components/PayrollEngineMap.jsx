@@ -111,8 +111,8 @@ export default function PayrollEngineMap() {
     useEffect(() => {
         if (typeof paieService.getConfigurationCatalogue === 'function') {
             paieService.getConfigurationCatalogue({ domaine: 'rubriques', taille: 10 })
-                .then(res => setCatalogueMeta(res))
-                .catch(() => {});
+                ?.then(res => setCatalogueMeta(res))
+                ?.catch(() => {});
         }
     }, []);
 
@@ -283,7 +283,7 @@ export default function PayrollEngineMap() {
         }
 
         let meta = catalogueMeta;
-        if (!meta) {
+        if (!meta && typeof paieService.getConfigurationCatalogue === 'function') {
             try {
                 meta = await paieService.getConfigurationCatalogue({ domaine, taille: 10 });
                 setCatalogueMeta(meta);
@@ -340,7 +340,8 @@ export default function PayrollEngineMap() {
     const availableRubriques = useMemo(() => {
         const fromMeta = catalogueMeta?.rubriquesCompatibles || [];
         if (fromMeta.length > 0) return fromMeta;
-        return (data?.rubriques || []).filter(r => r.niveauConfiguration === 'CONFIGURABLE' && r.estActif !== false);
+        return (data?.rubriques || []).filter(r => r.niveauConfiguration === 'CONFIGURABLE'
+            && r.estActif !== false && (r.typeValeur == null || r.typeValeur === 'MONTANT'));
     }, [catalogueMeta?.rubriquesCompatibles, data?.rubriques]);
 
     function validateField(name, value, draft = form) {

@@ -81,14 +81,20 @@ export default function CarrieresSupervisionPage() {
     const [contractDeadlines, setContractDeadlines] = useState([]);
 
     useEffect(() => {
+        if (activeMainTab !== 'contrats') return undefined;
+        let isMounted = true;
         Promise.all([organisationService.getSites(), contratService.getFiltresContrats()])
             .then(([siteList, filters]) => {
+                if (!isMounted) return;
                 setSites(Array.isArray(siteList) ? siteList : []);
                 setContractStatuses(Array.isArray(filters?.statuts) ? filters.statuts : []);
                 setContractDeadlines(Array.isArray(filters?.echeances) ? filters.echeances : []);
             })
-            .catch(() => setError('Référentiels de recherche indisponibles.'));
-    }, []);
+            .catch(() => {
+                if (isMounted) setError('Référentiels de recherche indisponibles.');
+            });
+        return () => { isMounted = false; };
+    }, [activeMainTab]);
 
     const fetchStatsAndAlerts = useCallback(async () => {
         try {
@@ -134,8 +140,8 @@ export default function CarrieresSupervisionPage() {
     }, [currentPage, pageSize, debouncedSearch, selectedSite, selectedStatut, selectedEcheance, doublonsOnly]);
 
     useEffect(() => {
-        fetchStatsAndAlerts();
-    }, [fetchStatsAndAlerts]);
+        if (activeMainTab === 'contrats') fetchStatsAndAlerts();
+    }, [fetchStatsAndAlerts, activeMainTab]);
 
     useEffect(() => {
         if (activeMainTab === 'contrats') {

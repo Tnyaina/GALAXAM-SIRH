@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     ArrowLeft, User, Users, Briefcase, XCircle, Folder,
@@ -47,6 +47,8 @@ export default function EmployeFicheDetailPage() {
     const [detailData, setDetailData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const detailRequestRef = useRef(0);
+    const documentsRequestRef = useRef(0);
     const [isSummaryOpen, setIsSummaryOpen] = useState(false);
     const toast = useToast();
 
@@ -77,6 +79,7 @@ export default function EmployeFicheDetailPage() {
     const [documentsData, setDocumentsData] = useState({ documents: [], obligatoiresManquants: [] });
     const [loadingDocs, setLoadingDocs] = useState(false);
     const [typesDoc, setTypesDoc] = useState([]);
+    const [typesDocLoaded, setTypesDocLoaded] = useState(false);
 
     const mainTabs = useMemo(() => {
         const tabs = [
@@ -124,54 +127,71 @@ export default function EmployeFicheDetailPage() {
     const [submitting, setSubmitting] = useState(false);
 
     const loadEmployeDetail = useCallback(async (silent = false) => {
+        const requestId = ++detailRequestRef.current;
         if (!silent) {
             setLoading(true);
         }
         setError('');
         try {
             const data = await employeService.getEmployeFicheDetail(id);
-            setDetailData(data);
+            if (requestId === detailRequestRef.current) setDetailData(data);
         } catch (err) {
-            console.error('Erreur chargement fiche employé:', err);
-            setError('Impossible de charger la fiche de cet employé.');
+            if (requestId === detailRequestRef.current) {
+                console.error('Erreur chargement fiche employé:', err);
+                setError('Impossible de charger la fiche de cet employé.');
+            }
         } finally {
-            if (!silent) {
+            if (!silent && requestId === detailRequestRef.current) {
                 setLoading(false);
             }
         }
     }, [id]);
 
     const loadDocuments = useCallback(async () => {
+        const requestId = ++documentsRequestRef.current;
         setLoadingDocs(true);
         try {
             const res = await documentRhService.getDocumentsByEmploye(id);
-            setDocumentsData(res || { documents: [], obligatoiresManquants: [] });
+            if (requestId === documentsRequestRef.current) {
+                setDocumentsData(res || { documents: [], obligatoiresManquants: [] });
+            }
         } catch (err) {
-            console.error('Erreur chargement documents RH:', err);
+            if (requestId === documentsRequestRef.current) {
+                console.error('Erreur chargement documents RH:', err);
+            }
         } finally {
-            setLoadingDocs(false);
+            if (requestId === documentsRequestRef.current) setLoadingDocs(false);
         }
     }, [id]);
-
-    const loadTypesDoc = useCallback(async () => {
-        try {
-            const res = await documentRhService.getTypesDocument(true);
-            setTypesDoc(res || []);
-        } catch (err) {
-            console.error('Erreur chargement types documents:', err);
-        }
-    }, []);
 
     useEffect(() => {
         if (id && !isNaN(Number(id))) {
             loadEmployeDetail();
             loadDocuments();
-            loadTypesDoc();
         } else if (id && isNaN(Number(id))) {
             setError("Identifiant d'employé invalide.");
             setLoading(false);
         }
-    }, [id, loadEmployeDetail, loadDocuments, loadTypesDoc]);
+    }, [id, loadEmployeDetail, loadDocuments]);
+
+    // Les types de documents ne servent qu'au formulaire d'ajout. On évite
+    // leur lecture sur chaque ouverture de fiche quand l'utilisateur n'ajoute rien.
+    useEffect(() => {
+        if (!isUploadDocModalOpen || typesDocLoaded) return undefined;
+        let cancelled = false;
+        documentRhService.getTypesDocument(true)
+            .then((result) => {
+                if (cancelled) return;
+                const availableTypes = result || [];
+                setTypesDoc(availableTypes);
+                setTypesDocLoaded(true);
+                setSelectedTypeId(current => current || availableTypes[0]?.idTypeDocument || '');
+            })
+            .catch((err) => {
+                if (!cancelled) console.error('Erreur chargement types documents:', err);
+            });
+        return () => { cancelled = true; };
+    }, [isUploadDocModalOpen, typesDocLoaded]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -262,7 +282,7 @@ export default function EmployeFicheDetailPage() {
     // Actions Documents RH
     const handleOpenUploadModal = (typeId = '') => {
         setSelectedDocContractId('');
-        setSelectedTypeId(typeId || (typesDoc[0]?.idTypeDocument || ''));
+        setSelectedTypeId(typeId || '');
         setSelectedFile(null);
         setDocDate('');
         setDocCommentaire('');

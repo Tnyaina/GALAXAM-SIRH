@@ -54,35 +54,24 @@ export function useContractReferentiels(enabled = true, _excludeEmployeId = null
         setError(null);
 
         try {
-            const [
-                filRes, siteRes, depRes, srvRes, fnRes,
-                tcRes, tiRes, catRes, paieRes, tevRes
-            ] = await Promise.all([
-                organisationService.getFiliales(true),
-                organisationService.getSites(true),
-                organisationService.getDepartements(true),
-                organisationService.getServices(true),
-                organisationService.getFonctions(true),
-                organisationService.getTypesContrat(true),
-                organisationService.getTypesIntervenant(true),
-                contratService.getCategoriesPro(true),
-                contratService.getModesPaie(),
-                contratService.getTypesEvenementRh(),
+            const [organisationRefs, contratRefs] = await Promise.all([
+                organisationService.getReferentielsFormulaireEmploye(),
+                contratService.getAllReferentielsCarriere()
             ]);
 
             const isItemActive = (item) => item && item.estActif !== false && item.actif !== false;
 
             const newData = {
-                filiales: (filRes || []).filter(isItemActive),
-                sites: (siteRes || []).filter(isItemActive),
-                departements: (depRes || []).filter(isItemActive),
-                services: (srvRes || []).filter(isItemActive),
-                fonctions: (fnRes || []).filter(isItemActive),
-                typesContrat: (tcRes || []).filter(isItemActive),
-                typesIntervenant: (tiRes || []).filter(isItemActive),
-                categoriesPro: (catRes || []).filter(isItemActive),
-                modesPaie: (paieRes || []).filter(isItemActive),
-                typesEvenementRh: (tevRes || []).filter(isItemActive),
+                filiales: (organisationRefs?.filiales || []).filter(isItemActive),
+                sites: (organisationRefs?.sites || []).filter(isItemActive),
+                departements: (organisationRefs?.departements || []).filter(isItemActive),
+                services: (organisationRefs?.services || []).filter(isItemActive),
+                fonctions: (organisationRefs?.fonctions || []).filter(isItemActive),
+                typesContrat: (organisationRefs?.typesContrat || []).filter(isItemActive),
+                typesIntervenant: (organisationRefs?.typesIntervenant || []).filter(isItemActive),
+                categoriesPro: (contratRefs?.categoriesPro || []).filter(isItemActive),
+                modesPaie: (contratRefs?.modesPaie || []).filter(isItemActive),
+                typesEvenementRh: (contratRefs?.typesEvenement || []).filter(isItemActive),
             };
 
 

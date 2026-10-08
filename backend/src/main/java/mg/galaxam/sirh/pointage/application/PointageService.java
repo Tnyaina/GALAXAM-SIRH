@@ -37,6 +37,8 @@ import java.util.Set;
 @Service
 public class PointageService {
 
+    public record PreviewResult(Integer idEmploye, SaisiePointageJourDTO preview, String error) {}
+
     private final EmploymentContextResolver employmentContextResolver = new EmploymentContextResolver();
 
     record DailyAllowanceTariff(int id, String code, String label, boolean fractionable,
@@ -499,6 +501,25 @@ public class PointageService {
         dto.setLibelleStatut(statusLabel(dto.getCodeStatut()));
         dto.setStatusActions(resolveStatusActions(dto));
         return dto;
+    }
+
+    /** Prévisualise une série de journées sur une connexion partagée, avec erreurs isolées par salarié. */
+    public List<PreviewResult> previsualiserPointagesBatch(List<SaisiePointageJourDTO> pointages) throws SQLException {
+        if (pointages == null || pointages.isEmpty()) return List.of();
+        List<PreviewResult> result = new ArrayList<>(pointages.size());
+        try (Connection connection = dataSource.getConnection()) {
+            for (SaisiePointageJourDTO pointage : pointages) {
+                Integer idEmploye = pointage == null ? null : pointage.getIdEmploye();
+                try {
+                    result.add(new PreviewResult(idEmploye, previsualiserPointage(pointage, connection), null));
+                } catch (RuntimeException error) {
+                    result.add(new PreviewResult(idEmploye, null,
+                            error.getMessage() == null || error.getMessage().isBlank()
+                                    ? "Prévisualisation indisponible." : error.getMessage()));
+                }
+            }
+        }
+        return result;
     }
 
     private static List<SaisiePointageJourDTO.StatusAction> resolveStatusActions(SaisiePointageJourDTO dto) {

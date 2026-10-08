@@ -8,11 +8,15 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.HashMap;
+import java.util.Collection;
+import java.util.Set;
+import java.util.LinkedHashSet;
 import mg.galaxam.sirh.conge.domain.CongeLotValorisationEngine;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +24,27 @@ import org.springframework.stereotype.Service;
 @Service
 public class CongeLotValorisationService {
     private final CongeLotValorisationEngine engine = new CongeLotValorisationEngine();
+    private record SourceMovement(int id, String type, BigDecimal days, LocalDate date, Integer requestId,
+                                  String comment, BigDecimal value) {}
+    private record JournalEntry(BigDecimal days, BigDecimal value) {}
+    private record HistoricalRate(LocalDate start, LocalDate end, BigDecimal value) {}
+    private static final class HistoricalRateCursor {
+        private final List<HistoricalRate> rates;
+        private final List<HistoricalRate> active = new ArrayList<>();
+        private int next;
+
+        HistoricalRateCursor(List<HistoricalRate> rates) {
+            this.rates = rates;
+        }
+
+        List<HistoricalRate> at(LocalDate date) {
+            while (next < rates.size() && !rates.get(next).start().isAfter(date)) {
+                active.add(rates.get(next++));
+            }
+            active.removeIf(rate -> rate.end() != null && !rate.end().isAfter(date));
+            return active;
+        }
+    }
 
     public record CorrectionCutover(BigDecimal ancienReliquatJours, BigDecimal nouveauReliquatJours,
             BigDecimal ancienneValeur, BigDecimal nouvelleValeur, BigDecimal regularisationAExaminer) {}
@@ -115,16 +140,27 @@ public class CongeLotValorisationService {
 
     public CongeLotValorisationEngine.Situation situation(int idEmploye, LocalDate date, Connection c)
             throws SQLException {
+        return situations(List.of(idEmploye), date, c).get(idEmploye);
+    }
+
+    /** Calcule plusieurs situations FIFO avec des lectures groupées par date de situation. */
+    public Map<Integer, CongeLotValorisationEngine.Situation> situations(Collection<Integer> employeeIds,
+            LocalDate date, Connection c) throws SQLException {
         if (date == null) throw new IllegalArgumentException("La date de situation est obligatoire.");
-        List<CongeLotValorisationEngine.Mouvement> mouvements = new ArrayList<>();
+        Set<Integer> ids = new LinkedHashSet<>();
+        if (employeeIds != null) employeeIds.stream().filter(java.util.Objects::nonNull).forEach(ids::add);
+        if (ids.isEmpty()) return Map.of();
+        Map<Integer, List<SourceMovement>> sourcesByEmployee = new LinkedHashMap<>();
+        ids.forEach(id -> sourcesByEmployee.put(id, new ArrayList<>()));
+        java.sql.Array employeeArray = c.createArrayOf("integer", ids.toArray());
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT m.id_mouvement, m.type_mouvement, m.nb_jours, m.date_mouvement, "
-                        + "m.id_demande_conge, m.commentaire, m.valeur_source, cc.id_mouvement_reprise, "
+                        + "m.id_employe, m.id_demande_conge, m.commentaire, m.valeur_source, cc.id_mouvement_reprise, "
                         + "cc.nouveau_reliquat_valeur FROM mouvement_solde_conge m "
                         + "LEFT JOIN conge_cutover_correction cc ON cc.id_mouvement_ajustement = m.id_mouvement "
-                        + "WHERE m.id_employe = ? AND m.date_mouvement <= ? "
-                        + "ORDER BY m.date_mouvement, m.id_mouvement")) {
-            ps.setInt(1, idEmploye);
+                        + "WHERE m.id_employe = ANY (?) AND m.date_mouvement <= ? "
+                        + "ORDER BY m.id_employe, m.date_mouvement, m.id_mouvement")) {
+            ps.setArray(1, employeeArray);
             ps.setDate(2, Date.valueOf(date));
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -142,24 +178,94 @@ public class CongeLotValorisationService {
                         idDemande = reprise;
                         valeur = rs.getBigDecimal("nouveau_reliquat_valeur");
                     }
-                    boolean restitutionDemande = "AJUSTEMENT".equals(type) && idDemande != null
-                            && commentaire != null && commentaire.startsWith("Ajustement de solde suite modification durée");
-                    if (valeur == null && jours.signum() > 0 && !restitutionDemande
-                            && ("ACQUISITION".equals(type) || "BONIFICATION".equals(type)
-                                    || "AJUSTEMENT".equals(type))) {
-                        if ("ACQUISITION".equals(type)) {
-                            valeur = valeurAcquisition(idEmploye, id, dateMouvement, jours, c);
-                        } else {
-                            BigDecimal taux = tauxHistorique(idEmploye, id, dateMouvement, c);
-                            valeur = jours.multiply(taux).setScale(2, RoundingMode.HALF_UP);
-                        }
-                    }
-                    mouvements.add(new CongeLotValorisationEngine.Mouvement(id, type, jours,
-                            dateMouvement, idDemande, commentaire, valeur));
+                    sourcesByEmployee.get(rs.getInt("id_employe")).add(
+                            new SourceMovement(id, type, jours, dateMouvement, idDemande, commentaire, valeur));
                 }
             }
+        } finally {
+            employeeArray.free();
         }
-        return engine.calculer(mouvements);
+        boolean needsJournal = sourcesByEmployee.values().stream().flatMap(Collection::stream)
+                .anyMatch(source -> needsFallback(source, "ACQUISITION"));
+        boolean needsRates = sourcesByEmployee.values().stream().flatMap(Collection::stream)
+                .anyMatch(source -> needsFallback(source, "BONIFICATION") || needsFallback(source, "AJUSTEMENT"));
+        Map<Integer, Map<YearMonth, List<JournalEntry>>> journals = needsJournal
+                ? loadJournalEntries(ids, date, c) : Map.of();
+        Map<Integer, List<HistoricalRate>> rates = needsRates ? loadHistoricalRates(ids, date, c) : Map.of();
+        Map<Integer, CongeLotValorisationEngine.Situation> result = new LinkedHashMap<>();
+        for (Integer employeeId : ids) {
+            List<SourceMovement> sources = sourcesByEmployee.get(employeeId);
+            HistoricalRateCursor rateCursor = needsRates
+                    ? new HistoricalRateCursor(rates.getOrDefault(employeeId, List.of())) : null;
+            List<CongeLotValorisationEngine.Mouvement> mouvements = new ArrayList<>(sources.size());
+            for (SourceMovement source : sources) {
+                BigDecimal value = source.value();
+                if (needsFallback(source, "ACQUISITION")) {
+                    YearMonth month = YearMonth.from(source.date());
+                    List<JournalEntry> entries = journals.getOrDefault(employeeId, Map.of()).getOrDefault(month, List.of());
+                    if (entries.isEmpty()) throw new IllegalStateException(
+                            "CONGE_ACQUISITION_VALORISATION_MISSING: mouvement " + source.id());
+                    if (entries.size() > 1) throw new IllegalStateException(
+                            "CONGE_ACQUISITION_JOURNAL_AMBIGUOUS: plusieurs lignes journal pour le même mois (mouvement " + source.id() + ")");
+                    JournalEntry entry = entries.get(0);
+                    if (entry.days() == null || entry.value() == null
+                            || entry.days().setScale(2, RoundingMode.HALF_UP).compareTo(source.days()) != 0)
+                        throw new IllegalStateException("CONGE_ACQUISITION_JOURNAL_MISMATCH: mouvement " + source.id());
+                    value = entry.value();
+                } else if (needsFallback(source, "BONIFICATION") || needsFallback(source, "AJUSTEMENT")) {
+                    List<HistoricalRate> applicable = rateCursor.at(source.date());
+                    if (applicable.isEmpty()) throw new IllegalStateException(
+                            "CONGE_LOT_TCONGE_MISSING: mouvement " + source.id() + " au " + source.date());
+                    if (applicable.size() > 1) throw new IllegalStateException(
+                            "AMBIGUOUS_CONFIGURATION: CONGE_LOT_TCONGE_AMBIGUOUS: mouvement " + source.id() + " au " + source.date());
+                    value = source.days().multiply(applicable.get(0).value()).setScale(2, RoundingMode.HALF_UP);
+                }
+                mouvements.add(new CongeLotValorisationEngine.Mouvement(source.id(), source.type(), source.days(),
+                        source.date(), source.requestId(), source.comment(), value));
+            }
+            result.put(employeeId, engine.calculer(mouvements));
+        }
+        return result;
+    }
+
+    private static boolean needsFallback(SourceMovement source, String type) {
+        boolean restitutionDemande = "AJUSTEMENT".equals(source.type()) && source.requestId() != null
+                && source.comment() != null && source.comment().startsWith("Ajustement de solde suite modification durée");
+        return source.value() == null && source.days().signum() > 0 && !restitutionDemande
+                && type.equals(source.type());
+    }
+
+    private static Map<Integer, Map<YearMonth, List<JournalEntry>>> loadJournalEntries(Collection<Integer> employees, LocalDate date,
+            Connection c) throws SQLException {
+        Map<Integer, Map<YearMonth, List<JournalEntry>>> entries = new HashMap<>();
+        java.sql.Array employeeArray = c.createArrayOf("integer", employees.toArray());
+        try (PreparedStatement ps = c.prepareStatement("SELECT id_employe,annee,mois,jours_droit_acquis,valorisation_mensuelle "
+                + "FROM conge_journal_droit WHERE id_employe=ANY(?) AND (annee < ? OR (annee = ? AND mois <= ?))")) {
+            ps.setArray(1, employeeArray); ps.setInt(2, date.getYear()); ps.setInt(3, date.getYear()); ps.setInt(4, date.getMonthValue());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) entries.computeIfAbsent(rs.getInt("id_employe"), ignored -> new HashMap<>())
+                        .computeIfAbsent(YearMonth.of(rs.getInt("annee"), rs.getInt("mois")), ignored -> new ArrayList<>())
+                        .add(new JournalEntry(rs.getBigDecimal("jours_droit_acquis"), rs.getBigDecimal("valorisation_mensuelle")));
+            }
+        } finally { employeeArray.free(); }
+        return entries;
+    }
+
+    private static Map<Integer, List<HistoricalRate>> loadHistoricalRates(Collection<Integer> employees, LocalDate date, Connection c)
+            throws SQLException {
+        Map<Integer, List<HistoricalRate>> rates = new HashMap<>();
+        java.sql.Array employeeArray = c.createArrayOf("integer", employees.toArray());
+        try (PreparedStatement ps = c.prepareStatement("SELECT id_employe,date_effet,date_fin,taux_journalier "
+                + "FROM conge_taux_applicable WHERE id_employe=ANY(?) AND date_effet<=? ORDER BY id_employe,date_effet,id_taux_applicable")) {
+            ps.setArray(1, employeeArray); ps.setDate(2, Date.valueOf(date));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) rates.computeIfAbsent(rs.getInt("id_employe"), ignored -> new ArrayList<>())
+                        .add(new HistoricalRate(rs.getDate("date_effet").toLocalDate(),
+                                rs.getDate("date_fin") == null ? null : rs.getDate("date_fin").toLocalDate(),
+                                rs.getBigDecimal("taux_journalier")));
+            }
+        } finally { employeeArray.free(); }
+        return rates;
     }
 
     /** Ventile une prise sur ses lots, y compris quand elle chevauche deux périodes de paie. */
@@ -185,6 +291,7 @@ public class CongeLotValorisationService {
                 + "JOIN ref_type_conge t ON t.id_type_conge = d.id_type_conge "
                 + "WHERE d.id_employe = ? AND s.code = 'VALIDE' AND t.decompte_solde_acquis = TRUE "
                 + "AND d.date_debut <= ? AND d.date_fin >= ? ORDER BY d.date_debut, d.id_demande_conge";
+        CongeDecompteCalendaireResolver.Session decompte = CongeDecompteCalendaireResolver.session(idEmploye, c);
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idEmploye);
             ps.setDate(2, Date.valueOf(fin));
@@ -200,11 +307,9 @@ public class CongeLotValorisationService {
                     // Les offsets FIFO suivent les jours réellement débités, y compris une
                     // éventuelle exclusion datée des jours fériés au changement d'année.
                     BigDecimal ignorer = debutIntersection.isAfter(debutConge)
-                            ? CongeDecompteCalendaireResolver.calculer(idEmploye, debutConge,
-                                    debutIntersection.minusDays(1), demi, c)
+                            ? decompte.calculer(debutConge, debutIntersection.minusDays(1), demi)
                             : BigDecimal.ZERO;
-                    BigDecimal prendre = CongeDecompteCalendaireResolver.calculer(idEmploye,
-                            debutIntersection, finIntersection, demi, c);
+                    BigDecimal prendre = decompte.calculer(debutIntersection, finIntersection, demi);
                     List<CongeLotValorisationEngine.Imputation> lots = new ArrayList<>(
                             allocations.getOrDefault(demande, new LinkedHashMap<>()).values());
                     for (var lot : lots) {
@@ -231,46 +336,4 @@ public class CongeLotValorisationService {
         return total;
     }
 
-    private BigDecimal valeurAcquisition(int employe, int mouvement, LocalDate date,
-            BigDecimal jours, Connection c) throws SQLException {
-        try (PreparedStatement ps = c.prepareStatement(
-                "SELECT jours_droit_acquis, valorisation_mensuelle FROM conge_journal_droit "
-                        + "WHERE id_employe = ? AND annee = ? AND mois = ?")) {
-            ps.setInt(1, employe);
-            ps.setInt(2, date.getYear());
-            ps.setInt(3, date.getMonthValue());
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) throw new IllegalStateException(
-                        "CONGE_ACQUISITION_VALORISATION_MISSING: mouvement " + mouvement);
-                BigDecimal joursJournal = rs.getBigDecimal("jours_droit_acquis");
-                BigDecimal valeur = rs.getBigDecimal("valorisation_mensuelle");
-                if (joursJournal == null || valeur == null ||
-                        joursJournal.setScale(2, RoundingMode.HALF_UP).compareTo(jours) != 0) {
-                    throw new IllegalStateException("CONGE_ACQUISITION_JOURNAL_MISMATCH: mouvement " + mouvement);
-                }
-                if (rs.next()) throw new IllegalStateException(
-                        "CONGE_ACQUISITION_JOURNAL_AMBIGUOUS: plusieurs lignes journal pour le même mois (mouvement " + mouvement + ")");
-                return valeur;
-            }
-        }
-    }
-
-    private BigDecimal tauxHistorique(int employe, int mouvement, LocalDate date, Connection c)
-            throws SQLException {
-        try (PreparedStatement ps = c.prepareStatement(
-                "SELECT taux_journalier FROM conge_taux_applicable WHERE id_employe = ? "
-                        + "AND date_effet <= ? AND (date_fin IS NULL OR date_fin > ?)")) {
-            ps.setInt(1, employe);
-            ps.setDate(2, Date.valueOf(date));
-            ps.setDate(3, Date.valueOf(date));
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) throw new IllegalStateException(
-                        "CONGE_LOT_TCONGE_MISSING: mouvement " + mouvement + " au " + date);
-                BigDecimal taux = rs.getBigDecimal(1);
-                if (rs.next()) throw new IllegalStateException(
-                        "AMBIGUOUS_CONFIGURATION: CONGE_LOT_TCONGE_AMBIGUOUS: mouvement " + mouvement + " au " + date);
-                return taux;
-            }
-        }
-    }
 }

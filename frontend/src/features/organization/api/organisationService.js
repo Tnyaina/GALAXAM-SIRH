@@ -1,6 +1,11 @@
 import apiClient from '@/api/apiClient';
 
 const organisationService = {
+    getReferentielsFormulaireEmploye: async () => {
+        const response = await apiClient.get('/referentiel/formulaire-employe');
+        return response.data;
+    },
+
     // ----------------------------------------------------
     // FILIALES
     // ----------------------------------------------------

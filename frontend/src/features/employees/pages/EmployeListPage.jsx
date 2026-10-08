@@ -70,7 +70,9 @@ export default function EmployeListPage() {
     const canWrite = hasPermission('EMPLOYE_WRITE');
     const canValidate = hasPermission('EMPLOYE_VALIDATE');
 
-    // Chargement des statistiques globales (compteurs d'effectif)
+    // Chargement des statistiques globales (compteurs d'effectif).
+    // Les filtres de recherche ne changent pas ces compteurs : ils décrivent
+    // l'effectif global, alors que la pagination est déjà fournie par /employes.
     const loadStats = useCallback(async () => {
         try {
             const stats = await employeService.getEmployeStats();

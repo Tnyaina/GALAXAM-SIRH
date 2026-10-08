@@ -132,10 +132,18 @@ public class RefService extends ClassMere {
     }
 
     public static List<RefService> listAll(Connection c) throws Exception {
+        return list(c, false);
+    }
+
+    public static List<RefService> listActifs(Connection c) throws Exception {
+        return list(c, true);
+    }
+
+    private static List<RefService> list(Connection c, boolean actifsOnly) throws Exception {
         List<RefService> list = new ArrayList<>();
         String sql = "SELECT s.id_service, s.code_service, s.libelle, s.id_departement, s.est_actif, d.libelle as dept_libelle " +
-                     "FROM ref_service s JOIN ref_departement d ON s.id_departement = d.id_departement " +
-                     "ORDER BY s.id_departement ASC, s.id_service ASC";
+                     "FROM ref_service s JOIN ref_departement d ON s.id_departement = d.id_departement" +
+                     (actifsOnly ? " WHERE s.est_actif = TRUE" : "") + " ORDER BY s.id_departement ASC, s.id_service ASC";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
@@ -146,10 +154,14 @@ public class RefService extends ClassMere {
     }
 
     public static List<RefService> listByDepartement(Integer idDept, Connection c) throws Exception {
+        return listByDepartement(idDept, false, c);
+    }
+
+    public static List<RefService> listByDepartement(Integer idDept, boolean actifsOnly, Connection c) throws Exception {
         List<RefService> list = new ArrayList<>();
         String sql = "SELECT s.id_service, s.code_service, s.libelle, s.id_departement, s.est_actif, d.libelle as dept_libelle " +
                      "FROM ref_service s JOIN ref_departement d ON s.id_departement = d.id_departement " +
-                     "WHERE s.id_departement = ? ORDER BY s.id_service ASC";
+                     "WHERE s.id_departement = ?" + (actifsOnly ? " AND s.est_actif = TRUE" : "") + " ORDER BY s.id_service ASC";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idDept);
             try (ResultSet rs = ps.executeQuery()) {

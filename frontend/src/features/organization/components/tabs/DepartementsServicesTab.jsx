@@ -86,41 +86,10 @@ export default function DepartementsServicesTab() {
         }
     };
 
-    // Effets : charge les départements puis les services du département sélectionné.
+    // Charge les départements au montage et après les mutations via la même fonction.
     useEffect(() => {
-        let isMounted = true;
-        const fetchData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const data = await organisationService.getDepartements();
-                const list = Array.isArray(data) ? data : (data?.items || data?.content || []);
-                if (isMounted) {
-                    setDepartements(list);
-                    setSelectedDepartement((prev) => {
-                        if (prev) {
-                            const match = list.find(d => d.idDepartement === prev.idDepartement);
-                            return match || (list.length > 0 ? list[0] : null);
-                        }
-                        return list.length > 0 ? list[0] : null;
-                    });
-                }
-            } catch (err) {
-                if (isMounted) {
-                    setError("Erreur lors du chargement des départements.");
-                    console.error(err);
-                }
-            } finally {
-                if (isMounted) {
-                    setLoading(false);
-                }
-            }
-        };
-        fetchData();
-        return () => {
-            isMounted = false;
-        };
-    }, []);
+        loadDepartements();
+    }, [loadDepartements]);
 
     useEffect(() => {
         let isMounted = true;

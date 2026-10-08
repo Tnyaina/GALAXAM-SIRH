@@ -124,8 +124,16 @@ public class RefTypeContrat extends ClassMere {
     }
 
     public static List<RefTypeContrat> listAll(Connection c) throws Exception {
+        return list(c, false);
+    }
+
+    public static List<RefTypeContrat> listActifs(Connection c) throws Exception {
+        return list(c, true);
+    }
+
+    private static List<RefTypeContrat> list(Connection c, boolean actifsOnly) throws Exception {
         List<RefTypeContrat> list = new ArrayList<>();
-        String sql = "SELECT id_type_contrat, code, libelle, exige_date_fin, est_actif FROM ref_type_contrat ORDER BY id_type_contrat ASC";
+        String sql = "SELECT id_type_contrat, code, libelle, exige_date_fin, est_actif FROM ref_type_contrat " + (actifsOnly ? " WHERE est_actif = TRUE" : "") + " ORDER BY id_type_contrat ASC";
         try (PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {

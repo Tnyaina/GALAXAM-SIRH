@@ -32,8 +32,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -68,9 +66,9 @@ public class EmployeController {
 
     @GetMapping("/stats")
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> getEmployeStats(@RequestParam(required = false) String q) {
+    public ResponseEntity<?> getEmployeStats() {
         try {
-            return ResponseEntity.ok(employeService.getStats(q));
+            return ResponseEntity.ok(employeService.getStats(null));
         } catch (Exception e) {
             e.printStackTrace();
             throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
@@ -224,7 +222,6 @@ public class EmployeController {
     @GetMapping("/{id}/photo")
     @PreAuthorize("hasAuthority('EMPLOYE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getPhotoByEmployeId(@PathVariable("id") int idEmploye) {
-        checkPhotoAccess(idEmploye);
         String photoUrl = resolvePhotoUrlFromDb(idEmploye);
         if (photoUrl == null || photoUrl.isBlank()) {
             throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
@@ -323,32 +320,10 @@ public class EmployeController {
     }
 
     // Helpers photo
-    private void checkPhotoAccess(int idEmploye) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            throw new SirhBusinessException(SirhErrorCode.AUTHENTICATION_REQUIRED);
-        }
-        try (Connection c = dataSource.getConnection();
-             PreparedStatement ps = c.prepareStatement(
-                     "SELECT 1 FROM employe WHERE id_employe = ? AND est_actif = true")) {
-            ps.setInt(1, idEmploye);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) {
-                    throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
-                            "Employé introuvable (idEmploye=" + idEmploye + ").");
-                }
-            }
-        } catch (SirhBusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new SirhBusinessException(SirhErrorCode.INTERNAL_ERROR);
-        }
-    }
-
     private String resolvePhotoUrlFromDb(int idEmploye) {
         try (Connection c = dataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(
-                     "SELECT photo_url FROM employe WHERE id_employe = ?")) {
+                     "SELECT photo_url FROM employe WHERE id_employe = ? AND est_actif = true")) {
             ps.setInt(1, idEmploye);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? rs.getString("photo_url") : null;

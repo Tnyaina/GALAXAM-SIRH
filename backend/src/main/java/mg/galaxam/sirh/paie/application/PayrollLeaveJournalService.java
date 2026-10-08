@@ -70,27 +70,33 @@ public class PayrollLeaveJournalService {
                         params, "DIVISEUR_JOURS_CALENDAIRE_CONGE"));
 
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriodePaie, c);
-        for (BulletinPaie bp : bulletins) {
+        List<BulletinPaie> bulletinsSoumisConge = bulletins.stream()
+                .filter(bp -> !"STC".equalsIgnoreCase(bp.getTypeBulletin()))
+                .filter(bp -> !"CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant())
+                        && !"ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant()))
+                .toList();
+        Map<Integer, Boolean> cutoverParEmploye = new java.util.HashMap<>();
+        List<BulletinPaie> bulletinsAvecAcquisition = new java.util.ArrayList<>();
+        for (BulletinPaie bp : bulletinsSoumisConge) {
+            int employeeId = bp.getIdEmploye();
+            Boolean dejaReprise = cutoverParEmploye.get(employeeId);
+            if (dejaReprise == null) {
+                dejaReprise = congeTauxApplicableService.acquisitionDejaReprise(employeeId, dateFinPaie, c);
+                cutoverParEmploye.put(employeeId, dejaReprise);
+            }
+            if (dejaReprise) {
+                log.info("Acquisition congés ignorée pour l'employé {} : clôture {} déjà comprise dans le cutover",
+                        employeeId, dateFinPaie);
+            } else {
+                bulletinsAvecAcquisition.add(bp);
+            }
+        }
+        Map<Integer, List<BulletinPaieLigne>> lignesParBulletin = BulletinPaieLigne.listerParBulletins(
+                bulletinsAvecAcquisition.stream().map(BulletinPaie::getIdBulletin).toList(), c);
+        for (BulletinPaie bp : bulletinsAvecAcquisition) {
             // Ignorer les bulletins STC : le Solde de Tout Compte valorise et liquide les congés
             // dans le reçu de départ, il ne doit pas générer d'acquisition indue ni écraser le journal
-            if ("STC".equalsIgnoreCase(bp.getTypeBulletin())) {
-                continue;
-            }
-
-            // Uniquement les salariés soumis aux congés payés légaux
-            if ("CONSULTANT".equalsIgnoreCase(bp.getRegimeIntervenant()) || "ISI_5".equalsIgnoreCase(bp.getRegimeIntervenant())) {
-                continue;
-            }
-
             int idEmp = bp.getIdEmploye();
-            // Un cutover est un arrêté des droits déjà repris par la DAF.
-            // La campagne dont la date d'acquisition est antérieure ou égale à cet arrêté
-            // ne doit pas recréer une acquisition présente dans les cumuls d'ouverture.
-            if (congeTauxApplicableService.acquisitionDejaReprise(idEmp, dateFinPaie, c)) {
-                log.info("Acquisition congés ignorée pour l'employé {} : clôture {} déjà comprise dans le cutover",
-                        idEmp, dateFinPaie);
-                continue;
-            }
             BigDecimal base = bp.getSalaireBase() != null ? bp.getSalaireBase() : BigDecimal.ZERO;
             BigDecimal jAbs = bp.getJoursAbsence() != null ? bp.getJoursAbsence() : BigDecimal.ZERO;
 
@@ -112,7 +118,7 @@ public class PayrollLeaveJournalService {
                     bp.getJoursTravailles(), bp.getCalculePar(), c);
 
             // Récupérer les lignes du bulletin pour net_base et hs
-            List<BulletinPaieLigne> lignes = BulletinPaieLigne.listerParBulletin(bp.getIdBulletin(), c);
+            List<BulletinPaieLigne> lignes = lignesParBulletin.getOrDefault(bp.getIdBulletin(), List.of());
             BigDecimal netBase = base;
             BigDecimal mntHs = BigDecimal.ZERO;
             for (BulletinPaieLigne l : lignes) {

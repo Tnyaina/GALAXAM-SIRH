@@ -122,6 +122,8 @@ public class QuarterlySocialDataService {
             Period period = periods.get(months[index]);
             List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(period.id(), connection);
             if (bulletins.isEmpty()) throw new IllegalStateException("Aucun bulletin pour " + period.code() + ".");
+            Map<Integer, List<BulletinPaieLigne>> lignesParBulletin = BulletinPaieLigne.listerParBulletins(
+                    bulletins.stream().map(BulletinPaie::getIdBulletin).toList(), connection);
             PaieConfigLegale config = PaieConfigLegale.findActiveAt(connection, period.end());
             BigDecimal cap = config == null ? BigDecimal.ZERO : zero(config.getPlafondCotisationMensuel());
             for (BulletinPaie b : bulletins) {
@@ -146,7 +148,7 @@ public class QuarterlySocialDataService {
                 month.gross = month.gross.add(zero(b.getTotalGainsBruts()));
                 month.hours = month.hours.add(zero(b.getHeuresNormales()));
                 month.cap = cap;
-                List<BulletinPaieLigne> lines = BulletinPaieLigne.listerParBulletin(b.getIdBulletin(), connection);
+                List<BulletinPaieLigne> lines = lignesParBulletin.getOrDefault(b.getIdBulletin(), List.of());
                 BigDecimal nonCotisableGains = lines.stream()
                         .filter(l -> "GAIN".equals(l.getSens()) && !l.isSoumisCotisation())
                         .map(l -> zero(l.getMontantSalarial()))
