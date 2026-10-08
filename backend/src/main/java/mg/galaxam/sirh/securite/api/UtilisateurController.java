@@ -32,7 +32,7 @@ public class UtilisateurController {
     @GetMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getAllUsers() {
-        String sql = "SELECT u.id_utilisateur, u.identifiant, u.id_role, u.est_actif, " +
+        String sql = "SELECT u.id_utilisateur, u.identifiant, u.email, u.id_role, u.est_actif, " +
                      "u.date_desactivation, u.motif_desactivation, r.code_role, r.libelle as role_libelle " +
                      "FROM utilisateur u " +
                      "JOIN ref_role r ON u.id_role = r.id_role " +
@@ -46,6 +46,7 @@ public class UtilisateurController {
                 UtilisateurResponse res = new UtilisateurResponse();
                 res.setIdUtilisateur(rs.getInt("id_utilisateur"));
                 res.setIdentifiant(rs.getString("identifiant"));
+                res.setEmail(rs.getString("email"));
                 res.setIdRole(rs.getInt("id_role"));
                 res.setCodeRole(rs.getString("code_role"));
                 res.setRoleLibelle(rs.getString("role_libelle"));
@@ -63,7 +64,7 @@ public class UtilisateurController {
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> getUserById(@PathVariable int id) {
-        String sql = "SELECT u.id_utilisateur, u.identifiant, u.id_role, u.est_actif, " +
+        String sql = "SELECT u.id_utilisateur, u.identifiant, u.email, u.id_role, u.est_actif, " +
                      "u.date_desactivation, u.motif_desactivation, r.code_role, r.libelle as role_libelle " +
                      "FROM utilisateur u " +
                      "JOIN ref_role r ON u.id_role = r.id_role " +
@@ -76,6 +77,7 @@ public class UtilisateurController {
                     UtilisateurResponse res = new UtilisateurResponse();
                     res.setIdUtilisateur(rs.getInt("id_utilisateur"));
                     res.setIdentifiant(rs.getString("identifiant"));
+                    res.setEmail(rs.getString("email"));
                     res.setIdRole(rs.getInt("id_role"));
                     res.setCodeRole(rs.getString("code_role"));
                     res.setRoleLibelle(rs.getString("role_libelle"));
@@ -97,10 +99,10 @@ public class UtilisateurController {
     @PostMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createUser(@RequestBody UtilisateurRequest request) {
-        if (request.getIdentifiant() == null || request.getIdentifiant().isBlank()) {
+        if (request.getIdentifiant() == null || request.getIdentifiant().isBlank() || request.getEmail() == null || request.getEmail().isBlank()) {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
                     mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
-                    "L'identifiant est obligatoire.");
+                    "Le nom d'affichage et l'adresse e-mail sont obligatoires.");
         }
         if (request.getMotDePasse() == null || request.getMotDePasse().isBlank()) {
             throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
@@ -128,6 +130,7 @@ public class UtilisateurController {
 
             Utilisateur u = new Utilisateur();
             u.setIdentifiant(request.getIdentifiant());
+            u.setEmail(request.getEmail());
             u.setIdRole(request.getIdRole());
             u.setMotDePasseEnClair(request.getMotDePasse());
             u.setEstActif(true);
@@ -140,6 +143,7 @@ public class UtilisateurController {
             UtilisateurResponse res = new UtilisateurResponse();
             res.setIdUtilisateur(u.getIdUtilisateur());
             res.setIdentifiant(u.getIdentifiant());
+            res.setEmail(u.getEmail());
             res.setIdRole(u.getIdRole());
             res.setCodeRole(r.getCodeRole());
             res.setRoleLibelle(r.getLibelle());
@@ -163,6 +167,7 @@ public class UtilisateurController {
             Utilisateur oldState = new Utilisateur();
             oldState.setIdUtilisateur(existing.getIdUtilisateur());
             oldState.setIdentifiant(existing.getIdentifiant());
+            oldState.setEmail(existing.getEmail());
             oldState.setMotDePasseHache(existing.getMotDePasseHache());
             oldState.setIdRole(existing.getIdRole());
             oldState.setEstActif(existing.isEstActif());
@@ -172,6 +177,7 @@ public class UtilisateurController {
             if (request.getIdentifiant() != null && !request.getIdentifiant().isBlank()) {
                 existing.setIdentifiant(request.getIdentifiant());
             }
+            if (request.getEmail() != null && !request.getEmail().isBlank()) existing.setEmail(request.getEmail());
             if (request.getIdRole() != null) {
                 RefRole r = (RefRole) new RefRole().findById(String.valueOf(request.getIdRole()), c);
                 if (r == null) {
@@ -199,6 +205,7 @@ public class UtilisateurController {
             UtilisateurResponse res = new UtilisateurResponse();
             res.setIdUtilisateur(existing.getIdUtilisateur());
             res.setIdentifiant(existing.getIdentifiant());
+            res.setEmail(existing.getEmail());
             res.setIdRole(existing.getIdRole());
             if (finalRole != null) {
                 res.setCodeRole(finalRole.getCodeRole());
@@ -238,6 +245,7 @@ public class UtilisateurController {
             Utilisateur oldState = new Utilisateur();
             oldState.setIdUtilisateur(existing.getIdUtilisateur());
             oldState.setIdentifiant(existing.getIdentifiant());
+            oldState.setEmail(existing.getEmail());
             oldState.setMotDePasseHache(existing.getMotDePasseHache());
             oldState.setIdRole(existing.getIdRole());
             oldState.setEstActif(existing.isEstActif());
@@ -255,6 +263,7 @@ public class UtilisateurController {
             UtilisateurResponse res = new UtilisateurResponse();
             res.setIdUtilisateur(existing.getIdUtilisateur());
             res.setIdentifiant(existing.getIdentifiant());
+            res.setEmail(existing.getEmail());
             res.setIdRole(existing.getIdRole());
             if (finalRole != null) {
                 res.setCodeRole(finalRole.getCodeRole());
@@ -287,6 +296,7 @@ public class UtilisateurController {
             Utilisateur oldState = new Utilisateur();
             oldState.setIdUtilisateur(existing.getIdUtilisateur());
             oldState.setIdentifiant(existing.getIdentifiant());
+            oldState.setEmail(existing.getEmail());
             oldState.setMotDePasseHache(existing.getMotDePasseHache());
             oldState.setIdRole(existing.getIdRole());
             oldState.setEstActif(existing.isEstActif());
@@ -304,6 +314,7 @@ public class UtilisateurController {
             UtilisateurResponse res = new UtilisateurResponse();
             res.setIdUtilisateur(existing.getIdUtilisateur());
             res.setIdentifiant(existing.getIdentifiant());
+            res.setEmail(existing.getEmail());
             res.setIdRole(existing.getIdRole());
             if (finalRole != null) {
                 res.setCodeRole(finalRole.getCodeRole());

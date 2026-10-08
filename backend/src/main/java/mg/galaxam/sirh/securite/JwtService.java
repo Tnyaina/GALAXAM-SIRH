@@ -96,6 +96,7 @@ public class JwtService {
 
         extraClaims.put("role", role);
         extraClaims.put("permissions", permissions);
+        if (userDetails instanceof CustomUserDetails custom) extraClaims.put("identifiant", custom.getDisplayName());
         return generateAccessToken(extraClaims, userDetails);
     }
 

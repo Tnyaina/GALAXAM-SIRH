@@ -13,13 +13,19 @@ public class CustomUserDetails implements UserDetails {
     private final String password;
     private final Collection<? extends GrantedAuthority> authorities;
     private final boolean active;
+    private final String displayName;
 
     public CustomUserDetails(Integer idUtilisateur, String username, String password, Collection<? extends GrantedAuthority> authorities, boolean active) {
+        this(idUtilisateur, username, password, authorities, active, username);
+    }
+
+    public CustomUserDetails(Integer idUtilisateur, String username, String password, Collection<? extends GrantedAuthority> authorities, boolean active, String displayName) {
         this.idUtilisateur = idUtilisateur;
         this.username = username;
         this.password = password;
         this.authorities = authorities;
         this.active = active;
+        this.displayName = displayName;
     }
 
     public CustomUserDetails(Integer idUtilisateur, String username, String password, String role, boolean active) {
@@ -29,6 +35,8 @@ public class CustomUserDetails implements UserDetails {
     public Integer getIdUtilisateur() {
         return idUtilisateur;
     }
+
+    public String getDisplayName() { return displayName; }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -74,4 +82,3 @@ public class CustomUserDetails implements UserDetails {
         return 1;
     }
 }
-

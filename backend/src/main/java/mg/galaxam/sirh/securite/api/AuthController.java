@@ -63,8 +63,8 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         
-        if (request.getIdentifiant() == null || request.getMotDePasse() == null) {
-            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'identifiant et le mot de passe sont requis.");
+        if (request.getEmail() == null || request.getMotDePasse() == null) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'adresse e-mail et le mot de passe sont requis.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -72,7 +72,7 @@ public class AuthController {
             c.setAutoCommit(false); 
             
             try {
-                Utilisateur u = Utilisateur.rechercherParIdentifiant(request.getIdentifiant(), c);
+                Utilisateur u = Utilisateur.rechercherParEmail(request.getEmail(), c);
                 JournalConnexion journal = new JournalConnexion();
                 
                 if (u != null) {
@@ -91,7 +91,7 @@ public class AuthController {
                         journal.save(c);
                         
                         // Génération des tokens JWT
-                        UserDetails userDetails = customUserDetailsService.loadUserByUsername(u.getIdentifiant());
+                        UserDetails userDetails = customUserDetailsService.loadUserByUsername(u.getEmail());
                         String accessToken = jwtService.generateAccessToken(userDetails);
                         String refreshToken = jwtService.generateRefreshToken(userDetails);
 
@@ -108,6 +108,7 @@ public class AuthController {
                         responseBody.put("accessToken", accessToken);
                         responseBody.put("expiresIn", jwtService.getAccessTokenExpirationMs() / 1000);
                         responseBody.put("identifiant", u.getIdentifiant());
+                        responseBody.put("email", u.getEmail());
                         responseBody.put("role", userDetails.getAuthorities().stream()
                                 .map(auth -> auth.getAuthority())
                                 .findFirst()
@@ -169,7 +170,7 @@ public class AuthController {
                             "Session révoquée ou introuvable.");
                 }
 
-                UserDetails userDetails = customUserDetailsService.loadUserByUsername(u.getIdentifiant());
+                UserDetails userDetails = customUserDetailsService.loadUserByUsername(u.getEmail());
 
                 String newAccessToken = jwtService.generateAccessToken(userDetails);
                 String newRefreshToken = jwtService.generateRefreshToken(userDetails);
@@ -232,7 +233,7 @@ public class AuthController {
         CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
 
         try (Connection c = dataSource.getConnection()) {
-            Utilisateur u = Utilisateur.rechercherParIdentifiant(userDetails.getUsername(), c);
+            Utilisateur u = Utilisateur.rechercherParEmail(userDetails.getUsername(), c);
             if (u == null || u.getIdRole() == null) {
                 throw new org.springframework.security.access.AccessDeniedException("Utilisateur sans rôle assigné.");
             }
@@ -277,8 +278,8 @@ public class AuthController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
 
-        if (request.getIdentifiant() == null || request.getMotDePasse() == null || request.getIdRole() == null) {
-            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "L'identifiant, le mot de passe et l'ID du rôle sont requis.");
+        if (request.getIdentifiant() == null || request.getEmail() == null || request.getMotDePasse() == null || request.getIdRole() == null) {
+            throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, "Le nom, l'adresse e-mail, le mot de passe et l'ID du rôle sont requis.");
         }
 
         try (Connection c = dataSource.getConnection()) {
@@ -286,14 +287,15 @@ public class AuthController {
             c.setAutoCommit(false); 
 
             try {
-                Utilisateur existant = Utilisateur.rechercherParIdentifiant(request.getIdentifiant(), c);
+                Utilisateur existant = Utilisateur.rechercherParEmail(request.getEmail(), c);
                 if (existant != null) {
                     c.rollback();
-                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED, "Cet identifiant est déjà utilisé.");
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.PAYROLL_PERIOD_TRANSITION_BLOCKED, "Cette adresse e-mail est déjà utilisée.");
                 }
 
                 Utilisateur u = new Utilisateur();
                 u.setIdentifiant(request.getIdentifiant());
+                u.setEmail(request.getEmail());
                 u.setIdRole(request.getIdRole());
                 u.setMotDePasseEnClair(request.getMotDePasse());
 

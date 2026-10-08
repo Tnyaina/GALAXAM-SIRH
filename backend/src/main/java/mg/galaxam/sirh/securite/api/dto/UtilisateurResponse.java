@@ -5,6 +5,7 @@ import java.sql.Timestamp;
 public class UtilisateurResponse {
     private Integer idUtilisateur;
     private String identifiant;
+    private String email;
     private Integer idRole;
     private String codeRole;
     private String roleLibelle;
@@ -15,6 +16,7 @@ public class UtilisateurResponse {
     // Getters
     public Integer getIdUtilisateur() { return idUtilisateur; }
     public String getIdentifiant() { return identifiant; }
+    public String getEmail() { return email; }
     public Integer getIdRole() { return idRole; }
     public String getCodeRole() { return codeRole; }
     public String getRoleLibelle() { return roleLibelle; }
@@ -25,6 +27,7 @@ public class UtilisateurResponse {
     // Setters
     public void setIdUtilisateur(Integer idUtilisateur) { this.idUtilisateur = idUtilisateur; }
     public void setIdentifiant(String identifiant) { this.identifiant = identifiant; }
+    public void setEmail(String email) { this.email = email; }
     public void setIdRole(Integer idRole) { this.idRole = idRole; }
     public void setCodeRole(String codeRole) { this.codeRole = codeRole; }
     public void setRoleLibelle(String roleLibelle) { this.roleLibelle = roleLibelle; }

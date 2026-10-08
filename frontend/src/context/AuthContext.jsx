@@ -50,7 +50,8 @@ export const AuthProvider = ({ children }) => {
                 const decoded = parseJwt(accessToken);
                 if (decoded) {
                     const loggedUser = {
-                        identifiant: decoded.sub,
+                        identifiant: decoded.identifiant || decoded.sub,
+                        email: decoded.sub,
                         role: decoded.role,
                         permissions: Array.isArray(decoded.permissions) ? decoded.permissions : [],
                         exp: decoded.exp,
@@ -105,7 +106,8 @@ export const AuthProvider = ({ children }) => {
             const decoded = parseJwt(token);
             if (decoded) {
                 const loggedUser = {
-                    identifiant: decoded.sub,
+                    identifiant: decoded.identifiant || decoded.sub,
+                    email: decoded.sub,
                     role: decoded.role,
                     permissions: Array.isArray(decoded.permissions) ? decoded.permissions : [],
                     exp: decoded.exp,
@@ -160,24 +162,24 @@ export const AuthProvider = ({ children }) => {
     }, [user]);
 
     // Connexion utilisateur
-    const login = async (identifiant, password) => {
+    const login = async (email, password) => {
         try {
             const response = await apiClient.post('/auth/login', {
-                identifiant,
+                email,
                 motDePasse: password,
             });
             const { accessToken } = response.data;
             handleTokenUpdate(accessToken);
             return { success: true };
         } catch (error) {
-            let message = "Identifiant ou mot de passe incorrect. Veuillez vérifier votre saisie.";
+            let message = "E-mail ou mot de passe incorrect. Veuillez vérifier votre saisie.";
             if (error.response) {
                 if (typeof error.response.data === 'string' && error.response.data.trim() !== '') {
                     message = error.response.data;
                 } else if (error.response.data?.message) {
                     message = error.response.data.message;
                 } else if (error.response.status === 401) {
-                    message = "Identifiant ou mot de passe incorrect. Veuillez vérifier votre saisie.";
+                    message = "E-mail ou mot de passe incorrect. Veuillez vérifier votre saisie.";
                 } else if (error.response.status === 403) {
                     message = "Votre compte utilisateur est désactivé. Veuillez contacter votre administrateur.";
                 } else if (error.response.status >= 500) {
@@ -278,7 +280,11 @@ export const AuthProvider = ({ children }) => {
 
     const getDefaultHomeRoute = useCallback(() => {
         if (!user) return '/';
-        if (user.role === 'ROLE_ADMIN' || (user.permissions && user.permissions.includes('EMPLOYE_READ'))) {
+        // Le centre de paie est l'accueil opérationnel de l'administrateur.
+        if (user.role === 'ROLE_ADMIN') {
+            return '/paie';
+        }
+        if (user.permissions && user.permissions.includes('EMPLOYE_READ')) {
             return '/dashboard';
         }
         if (hasPermission('POINTAGE_READ')) {

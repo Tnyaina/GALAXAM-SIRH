@@ -50,6 +50,7 @@ export default function UserManagementTab() {
     // Formulaire utilisateur
     const [formData, setFormData] = useState({
         identifiant: '',
+        email: '',
         motDePasse: '',
         confirmPassword: '',
         idRole: ''
@@ -85,6 +86,7 @@ export default function UserManagementTab() {
         setSelectedUser(null);
         setFormData({
             identifiant: '',
+            email: '',
             motDePasse: '',
             confirmPassword: '',
             idRole: ''
@@ -99,6 +101,7 @@ export default function UserManagementTab() {
         setSelectedUser(user);
         setFormData({
             identifiant: user.identifiant,
+            email: user.email || '',
             motDePasse: '',
             confirmPassword: '',
             idRole: String(user.idRole)
@@ -123,9 +126,8 @@ export default function UserManagementTab() {
         setModalError(null);
 
         const errors = {};
-        if (!formData.identifiant.trim()) {
-            errors.identifiant = "L'identifiant est obligatoire.";
-        }
+        if (!formData.identifiant.trim()) errors.identifiant = "Le nom d'affichage est obligatoire.";
+        if (!formData.email.trim()) errors.email = "L'adresse e-mail est obligatoire.";
 
         if (!selectedUser) {
             if (!formData.motDePasse) {
@@ -154,6 +156,7 @@ export default function UserManagementTab() {
             if (selectedUser) {
                 const updatePayload = {
                     identifiant: formData.identifiant,
+                    email: formData.email,
                     idRole: parseInt(formData.idRole)
                 };
                 if (formData.motDePasse) {
@@ -164,6 +167,7 @@ export default function UserManagementTab() {
             } else {
                 const createPayload = {
                     identifiant: formData.identifiant,
+                    email: formData.email,
                     motDePasse: formData.motDePasse,
                     idRole: parseInt(formData.idRole)
                 };
@@ -228,7 +232,7 @@ export default function UserManagementTab() {
     const safeUsersList = Array.isArray(users) ? users : (users?.items || users?.content || []);
     const filteredUsers = safeUsersList.filter(u =>
         (showInactive || u.estActif !== false) &&
-        (u.identifiant?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (u.identifiant?.toLowerCase().includes(debouncedSearch.toLowerCase()) || u.email?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         (u.roleLibelle && u.roleLibelle.toLowerCase().includes(debouncedSearch.toLowerCase())))
     );
 
@@ -252,7 +256,7 @@ export default function UserManagementTab() {
                 <div className="flex-1 max-w-md">
                     <Input
                         aria-label="Rechercher"
-                        placeholder="Rechercher par identifiant ou rôle…"
+                        placeholder="Rechercher par nom, e-mail ou rôle…"
                         value={search}
                         onChange={event => setSearch(event.target.value)}
                         iconLeft={<Search size={15} />}
@@ -283,7 +287,8 @@ export default function UserManagementTab() {
             {/* Tableau des utilisateurs */}
             <Table bordered={false}>
                 <Thead>
-                    <Th>Identifiant</Th>
+                    <Th>Nom d'affichage</Th>
+                    <Th>E-mail</Th>
                     <Th>Rôle</Th>
                     <Th>Statut</Th>
                     <Th className="text-right">Actions</Th>
@@ -293,6 +298,7 @@ export default function UserManagementTab() {
                         filteredUsers.map((user) => (
                             <Tr key={user.idUtilisateur}>
                                 <Td className="font-bold text-[var(--color-fg)]">{user.identifiant}</Td>
+                                <Td>{user.email}</Td>
                                 <Td>
                                     <Badge variant="primary" size="sm">
                                         {user.roleLibelle}
@@ -331,7 +337,7 @@ export default function UserManagementTab() {
                         ))
                     ) : (
                         <Tr>
-                            <Td colSpan={4} className="p-0">
+                            <Td colSpan={5} className="p-0">
                                 <EmptyState
                                     icon={UserCheck}
                                     title="Aucun utilisateur trouvé"
@@ -367,17 +373,29 @@ export default function UserManagementTab() {
                 <form id="user-form" onSubmit={handleSaveUser} className="space-y-4 min-h-[220px]">
                     {modalError && <FormError message={modalError} />}
                     <Input
-                        label="Identifiant / Login"
+                        label="Nom d'affichage"
                         required
-                        disabled={!!selectedUser}
-                        autoComplete="username"
+                        autoComplete="name"
                         value={formData.identifiant}
                         error={fieldErrors.identifiant}
                         onChange={(e) => {
                             setFormData({ ...formData, identifiant: e.target.value });
                             if (fieldErrors.identifiant) setFieldErrors(prev => ({ ...prev, identifiant: undefined }));
                         }}
-                        placeholder="Ex: prenom.nom"
+                        placeholder="Ex: Jean Marc"
+                    />
+                    <Input
+                        label="Adresse e-mail (utilisée pour la connexion)"
+                        type="email"
+                        required
+                        autoComplete="email"
+                        value={formData.email}
+                        error={fieldErrors.email}
+                        onChange={(e) => {
+                            setFormData({ ...formData, email: e.target.value });
+                            if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: undefined }));
+                        }}
+                        placeholder="jean.dupont@entreprise.com"
                     />
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <Input

@@ -31,18 +31,22 @@ public class AdminAccountSeeder implements CommandLineRunner {
     @Autowired
     private DataSource dataSource;
 
-    @Value("${app.security.default-admin.username:}")
-    private String defaultAdminUsername;
+    @Value("${app.security.default-admin.name:}")
+    private String defaultAdminName;
+
+    @Value("${app.security.default-admin.email:}")
+    private String defaultAdminEmail;
 
     @Value("${app.security.default-admin.password:}")
     private String defaultAdminPassword;
 
     @Override
     public void run(String... args) {
-        if (defaultAdminUsername == null || defaultAdminUsername.isBlank()
+        if (defaultAdminName == null || defaultAdminName.isBlank()
+                || defaultAdminEmail == null || defaultAdminEmail.isBlank()
                 || defaultAdminPassword == null || defaultAdminPassword.isBlank()) {
             throw new IllegalStateException(
-                    "Bootstrap administrateur activé sans GALAXAM_DEFAULT_ADMIN_USERNAME/GALAXAM_DEFAULT_ADMIN_PASSWORD.");
+                    "Bootstrap administrateur activé sans GALAXAM_DEFAULT_ADMIN_NAME/GALAXAM_DEFAULT_ADMIN_EMAIL/GALAXAM_DEFAULT_ADMIN_PASSWORD.");
         }
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -86,23 +90,26 @@ public class AdminAccountSeeder implements CommandLineRunner {
                 }
 
                 // 3. Vérifier si un compte avec l'identifiant par défaut existe déjà (désactivé ou sans rôle admin)
-                Utilisateur existingUser = Utilisateur.rechercherParIdentifiant(defaultAdminUsername, c);
+                Utilisateur existingUser = Utilisateur.rechercherParEmail(defaultAdminEmail, c);
                 if (existingUser != null) {
+                    existingUser.setIdentifiant(defaultAdminName);
+                    existingUser.setEmail(defaultAdminEmail);
                     existingUser.setIdRole(adminRole.getIdRole());
                     existingUser.setEstActif(true);
                     existingUser.setMotDePasseEnClair(defaultAdminPassword);
                     existingUser.controler(c);
                     existingUser.save(c);
-                    logger.info("[AdminAccountSeeder] Compte existant '{}' réactivé et promu administrateur avec succès.", defaultAdminUsername);
+                    logger.info("[AdminAccountSeeder] Compte existant '{}' réactivé et promu administrateur avec succès.", defaultAdminEmail);
                 } else {
                     Utilisateur newUser = new Utilisateur();
-                    newUser.setIdentifiant(defaultAdminUsername);
+                    newUser.setIdentifiant(defaultAdminName);
+                    newUser.setEmail(defaultAdminEmail);
                     newUser.setMotDePasseEnClair(defaultAdminPassword);
                     newUser.setIdRole(adminRole.getIdRole());
                     newUser.setEstActif(true);
                     newUser.controler(c);
                     newUser.save(c);
-                    logger.info("[AdminAccountSeeder] Compte administrateur racine créé avec succès (identifiant: '{}').", defaultAdminUsername);
+                    logger.info("[AdminAccountSeeder] Compte administrateur racine créé avec succès (e-mail: '{}').", defaultAdminEmail);
                 }
 
                 c.commit();

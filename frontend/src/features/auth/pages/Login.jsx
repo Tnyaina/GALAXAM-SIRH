@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Eye, EyeOff, User } from 'lucide-react';
+import { Lock, Eye, EyeOff, Mail } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 import Input from '@/components/ui/forms/Input';
@@ -16,7 +16,7 @@ export default function Login() {
     const { login, isAuthenticated, user, getDefaultHomeRoute } = useAuth();
 
     // État local
-    const [identifiant, setIdentifiant] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
@@ -31,9 +31,9 @@ export default function Login() {
     }, [isAuthenticated, user, getDefaultHomeRoute, navigate]);
 
     // Actions
-    const handleIdentifiantChange = (e) => {
+    const handleEmailChange = (e) => {
         if (error) setError('');
-        setIdentifiant(e.target.value);
+        setEmail(e.target.value);
     };
 
     const handlePasswordChange = (e) => {
@@ -47,7 +47,7 @@ export default function Login() {
         setLoading(true);
 
         try {
-            const result = await login(identifiant, password);
+            const result = await login(email, password);
 
             if (!result.success) {
                 setError(result.message || 'Identifiants incorrects.');
@@ -110,14 +110,14 @@ export default function Login() {
 
                         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                             <Input
-                                label="Identifiant"
-                                type="text"
-                                name="identifiant"
-                                placeholder="Votre identifiant"
-                                icon={<User size={16} />}
-                                value={identifiant}
-                                onChange={handleIdentifiantChange}
-                                autoComplete="username"
+                                label="Adresse e-mail"
+                                type="email"
+                                name="email"
+                                placeholder="vous@entreprise.com"
+                                icon={<Mail size={16} />}
+                                value={email}
+                                onChange={handleEmailChange}
+                                autoComplete="email"
                                 required
                             />
 

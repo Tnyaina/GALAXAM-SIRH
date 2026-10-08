@@ -14,6 +14,7 @@ public class Utilisateur extends ClassMere {
 
     private Integer idUtilisateur;
     private String identifiant;
+    private String email;
     private String motDePasseHache;
     private Integer idRole; // Clé étrangère vers RefRole
     private boolean estActif;
@@ -51,19 +52,15 @@ public class Utilisateur extends ClassMere {
             throw new IllegalArgumentException("L'identifiant est obligatoire.");
         }
 
-        Utilisateur existant = rechercherParIdentifiant(this.identifiant, c);
-        if (existant != null && !existant.getIdUtilisateur().equals(this.idUtilisateur)) {
-            throw new IllegalArgumentException("Cet identifiant est déjà utilisé par un autre compte.");
-        }
-
         identifiant = identifiant.trim();
+        if (identifiant.length() > 100) throw new IllegalArgumentException("Le nom d'affichage ne peut pas dépasser 100 caractères.");
 
-        if (identifiant.length() < 3 || identifiant.length() > 50) {
-            throw new IllegalArgumentException("L'identifiant doit contenir entre 3 et 50 caractères.");
-        }
-
-        if (!identifiant.matches("^[A-Za-z0-9._@-]+$")) {
-            throw new IllegalArgumentException("L'identifiant contient des caractères invalides.");
+        if (email == null || email.isBlank()) throw new IllegalArgumentException("L'adresse e-mail est obligatoire.");
+        email = email.trim().toLowerCase(java.util.Locale.ROOT);
+        if (email.length() > 254 || !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) throw new IllegalArgumentException("L'adresse e-mail est invalide.");
+        Utilisateur existant = rechercherParEmail(email, c);
+        if (existant != null && !existant.getIdUtilisateur().equals(this.idUtilisateur)) {
+            throw new IllegalArgumentException("Cette adresse e-mail est déjà utilisée par un autre compte.");
         }
 
         if (idRole == null) {
@@ -119,18 +116,19 @@ public class Utilisateur extends ClassMere {
     @Override
     protected ClassMere inserer(Connection c) throws Exception {
         String sql = "INSERT INTO utilisateur " +
-                "(identifiant, mot_de_passe_hache, id_role, est_actif, motif_desactivation, date_desactivation, refresh_token, refresh_token_expiration) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                "(identifiant, email, mot_de_passe_hache, id_role, est_actif, motif_desactivation, date_desactivation, refresh_token, refresh_token_expiration) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, identifiant);
-            ps.setString(2, motDePasseHache);
-            ps.setInt(3, idRole);
-            ps.setBoolean(4, estActif);
-            ps.setString(5, motifDesactivation);
-            ps.setTimestamp(6, dateDesactivation);
-            ps.setString(7, refreshToken);
-            ps.setTimestamp(8, refreshTokenExpiration);
+            ps.setString(2, email);
+            ps.setString(3, motDePasseHache);
+            ps.setInt(4, idRole);
+            ps.setBoolean(5, estActif);
+            ps.setString(6, motifDesactivation);
+            ps.setTimestamp(7, dateDesactivation);
+            ps.setString(8, refreshToken);
+            ps.setTimestamp(9, refreshTokenExpiration);
 
             ps.executeUpdate();
 
@@ -146,7 +144,7 @@ public class Utilisateur extends ClassMere {
     @Override
     protected ClassMere modifier(Connection c) throws Exception {
         String sql = "UPDATE utilisateur SET " +
-                "identifiant=?, " +
+                "identifiant=?, email=?, " +
                 "mot_de_passe_hache=?, " +
                 "id_role=?, " +
                 "est_actif=?, " +
@@ -159,14 +157,15 @@ public class Utilisateur extends ClassMere {
 
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, identifiant);
-            ps.setString(2, motDePasseHache);
-            ps.setInt(3, idRole);
-            ps.setBoolean(4, estActif);
-            ps.setString(5, motifDesactivation);
-            ps.setTimestamp(6, dateDesactivation);
-            ps.setString(7, refreshToken);
-            ps.setTimestamp(8, refreshTokenExpiration);
-            ps.setInt(9, idUtilisateur);
+            ps.setString(2, email);
+            ps.setString(3, motDePasseHache);
+            ps.setInt(4, idRole);
+            ps.setBoolean(5, estActif);
+            ps.setString(6, motifDesactivation);
+            ps.setTimestamp(7, dateDesactivation);
+            ps.setString(8, refreshToken);
+            ps.setTimestamp(9, refreshTokenExpiration);
+            ps.setInt(10, idUtilisateur);
 
             ps.executeUpdate();
         }
@@ -213,6 +212,15 @@ public class Utilisateur extends ClassMere {
         return null;
     }
 
+    public static Utilisateur rechercherParEmail(String email, Connection c) throws Exception {
+        String sql = "SELECT * FROM utilisateur WHERE LOWER(email) = LOWER(?)";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, email != null ? email.trim() : "");
+            try (ResultSet rs = ps.executeQuery()) { if (rs.next()) return mapResultSet(rs); }
+        }
+        return null;
+    }
+
     public static Utilisateur rechercherParRefreshToken(String token, Connection c) throws Exception {
         if (token == null || token.isBlank()) return null;
         String sql = "SELECT * FROM utilisateur WHERE refresh_token = ? AND est_actif = TRUE AND (refresh_token_expiration IS NULL OR refresh_token_expiration > CURRENT_TIMESTAMP)";
@@ -249,6 +257,7 @@ public class Utilisateur extends ClassMere {
         Utilisateur u = new Utilisateur();
         u.idUtilisateur = rs.getInt("id_utilisateur");
         u.identifiant = rs.getString("identifiant");
+        u.email = rs.getString("email");
         u.motDePasseHache = rs.getString("mot_de_passe_hache");
         u.idRole = rs.getInt("id_role");
         u.estActif = rs.getBoolean("est_actif");
@@ -285,6 +294,9 @@ public class Utilisateur extends ClassMere {
     public String getIdentifiant() {
         return identifiant;
     }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
     public void setIdentifiant(String identifiant) {
         this.identifiant = identifiant;

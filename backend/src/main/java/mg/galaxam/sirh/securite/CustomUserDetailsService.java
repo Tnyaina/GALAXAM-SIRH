@@ -25,7 +25,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         try (Connection c = dataSource.getConnection()) {
             
             Set<GrantedAuthority> authorities = new HashSet<>();
-            String sql = "SELECT u.id_utilisateur, u.identifiant, u.mot_de_passe_hache, u.est_actif, "
+            String sql = "SELECT u.id_utilisateur, u.identifiant, u.email, u.mot_de_passe_hache, u.est_actif, "
                     + "r.code_role, UPPER(m.code_module) AS code_module, "
                     + "rp.droit_lecture, rp.droit_ecriture, rp.droit_validation "
                     + "FROM utilisateur u "
@@ -33,10 +33,11 @@ public class CustomUserDetailsService implements UserDetailsService {
                     + "LEFT JOIN role_permission rp ON rp.id_role = u.id_role "
                     + "LEFT JOIN ref_module m ON m.id_module = rp.id_module AND m.est_actif = TRUE "
                     + "WHERE u.id_utilisateur = (SELECT matched.id_utilisateur FROM utilisateur matched "
-                    + "WHERE LOWER(matched.identifiant) = LOWER(?) ORDER BY matched.id_utilisateur LIMIT 1)";
+                    + "WHERE LOWER(matched.email) = LOWER(?) ORDER BY matched.id_utilisateur LIMIT 1)";
 
             Integer userId = null;
             String identifiant = null;
+            String email = null;
             String passwordHash = null;
             boolean active = false;
             String codeRole = "ROLE_USER";
@@ -47,6 +48,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                         if (userId == null) {
                             userId = rs.getInt("id_utilisateur");
                             identifiant = rs.getString("identifiant");
+                            email = rs.getString("email");
                             passwordHash = rs.getString("mot_de_passe_hache");
                             active = rs.getBoolean("est_actif");
 
@@ -90,10 +92,11 @@ public class CustomUserDetailsService implements UserDetailsService {
             // 5. Construction de l'objet CustomUserDetails avec ses autorisations granulaires
             return new CustomUserDetails(
                     userId,
-                    identifiant,
+                    email,
                     passwordHash,
                     authorities,
-                    active
+                    active,
+                    identifiant
             );
 
         } catch (UsernameNotFoundException e) {

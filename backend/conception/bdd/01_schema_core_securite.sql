@@ -47,7 +47,8 @@ CREATE TABLE role_permission (
 -- 5. Utilisateurs du Système
 CREATE TABLE utilisateur (
     id_utilisateur SERIAL PRIMARY KEY,
-    identifiant VARCHAR(50) UNIQUE NOT NULL,
+    identifiant VARCHAR(100) NOT NULL,
+    email VARCHAR(254) NOT NULL,
     mot_de_passe_hache VARCHAR(255) NOT NULL,
     id_role INTEGER NOT NULL REFERENCES ref_role(id_role),
     est_actif BOOLEAN DEFAULT TRUE,
@@ -59,6 +60,7 @@ CREATE TABLE utilisateur (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE UNIQUE INDEX idx_utilisateur_email_lower ON utilisateur (LOWER(email));
 CREATE INDEX idx_utilisateur_identifiant_lower ON utilisateur (LOWER(identifiant));
 CREATE INDEX idx_utilisateur_refresh_token ON utilisateur (refresh_token) WHERE refresh_token IS NOT NULL;
 

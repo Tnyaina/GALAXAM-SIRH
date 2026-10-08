@@ -190,7 +190,7 @@ public class NotificationController {
         // Fallback : recherche par identifiant
         String identifiant = auth.getName();
         try (PreparedStatement ps = c.prepareStatement(
-                "SELECT id_utilisateur FROM utilisateur WHERE identifiant = ?")) {
+                "SELECT id_utilisateur FROM utilisateur WHERE LOWER(email) = LOWER(?)")) {
             ps.setString(1, identifiant);
             ResultSet rs = ps.executeQuery();
             return rs.next() ? rs.getInt(1) : null;

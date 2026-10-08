@@ -153,7 +153,8 @@ public class AuditLog extends ClassMere {
                 Utilisateur u = (Utilisateur) state;
                 Map<String, Object> map = new HashMap<>();
                 map.put("idUtilisateur", u.getIdUtilisateur());
-                map.put("identifiant", u.getIdentifiant());
+            map.put("identifiant", u.getIdentifiant());
+            map.put("email", u.getEmail());
                 map.put("idRole", u.getIdRole());
                 map.put("estActif", u.isEstActif());
                 return objectMapper.writeValueAsString(map);
