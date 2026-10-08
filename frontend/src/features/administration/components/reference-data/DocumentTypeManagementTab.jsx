@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, FileText, Power } from 'lucide-react';
+import { Plus, Edit2, FileText, Power, Check } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiClient';
 import documentRhService from '@/features/employees/api/documentRhService';
 import Input, { Textarea, Checkbox } from '@/components/ui/forms/Input';
@@ -253,7 +253,7 @@ export default function DocumentTypeManagementTab() {
                                             title={t.actif ? 'Désactiver le type' : 'Réactiver le type'}
                                             aria-label={t.actif ? `Désactiver ${t.libelle}` : `Activer ${t.libelle}`}
                                         >
-                                            <Power size={15} />
+                                            {t.actif ? <Power size={15} /> : <Check size={15} />}
                                         </button>
                                     </div>
                                 </Td>

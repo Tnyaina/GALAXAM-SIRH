@@ -1,4 +1,4 @@
-import { Edit2, Power, FileText } from 'lucide-react';
+import { Edit2, Power, Check, FileText } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -65,7 +65,7 @@ export default function TypesContratList({
                                                 title={tc.estActif !== false ? "Désactiver" : "Réactiver"}
                                                 aria-label={tc.estActif !== false ? `Désactiver ${tc.libelle}` : `Activer ${tc.libelle}`}
                                             >
-                                                <Power size={15} />
+                                                {tc.estActif !== false ? <Power size={15} /> : <Check size={15} />}
                                             </button>
                                         )}
                                     </div>

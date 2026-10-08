@@ -1,4 +1,4 @@
-import { Edit2, Power, UserCheck } from 'lucide-react';
+import { Edit2, Power, Check, UserCheck } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -85,7 +85,7 @@ export default function TypesIntervenantList({
                                                 title={ti.estActif !== false ? "Désactiver" : "Réactiver"}
                                                 aria-label={ti.estActif !== false ? `Désactiver ${ti.libelle}` : `Activer ${ti.libelle}`}
                                             >
-                                                <Power size={15} />
+                                                {ti.estActif !== false ? <Power size={15} /> : <Check size={15} />}
                                             </button>
                                         )}
                                     </div>

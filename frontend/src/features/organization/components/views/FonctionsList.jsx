@@ -1,4 +1,4 @@
-import { Briefcase, Edit2, Power } from 'lucide-react';
+import { Briefcase, Edit2, Power, Check } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -65,7 +65,7 @@ export default function FonctionsList({
                                         title={f.estActif ? "Désactiver le poste" : "Réactiver le poste"}
                                         aria-label={f.estActif ? `Désactiver ${f.libelle}` : `Activer ${f.libelle}`}
                                     >
-                                        <Power size={15} />
+                                        {f.estActif ? <Power size={15} /> : <Check size={15} />}
                                     </button>
                                 </div>
                             </Td>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useId } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, ChevronDown, X } from 'lucide-react';
 import FieldError from './FieldError';
 
@@ -28,6 +29,8 @@ export default function SearchSelect({
   const buttonRef = useRef(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);
+  const menuRef = useRef(null);
+  const [menuLayout, setMenuLayout] = useState(null);
   const reactId = useId();
   const fieldId = id || `search-select-${reactId}`;
   const feedbackId = `${fieldId}-feedback`;
@@ -38,13 +41,47 @@ export default function SearchSelect({
   // Effet : fermeture lors d'un clic extérieur.
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) && !menuRef.current?.contains(event.target)) {
         setIsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Render the menu in a portal so scroll containers inside modals cannot clip it.
+  useEffect(() => {
+    if (!isOpen || !buttonRef.current) return undefined;
+    const updateMenuLayout = () => {
+      const trigger = buttonRef.current;
+      if (!trigger) return;
+      const triggerRect = trigger.getBoundingClientRect();
+      // The menu is portaled above the modal layer; size it against the viewport
+      // so opening a select never changes the modal's dimensions.
+      const bounds = { top: 8, bottom: window.innerHeight - 8 };
+      const gap = 6;
+      const below = Math.max(0, bounds.bottom - triggerRect.bottom - gap);
+      const above = Math.max(0, triggerRect.top - bounds.top - gap);
+      const openUp = below < 140 && above > below;
+      const available = openUp ? above : below;
+      const maxHeight = Math.max(96, Math.min(288, available));
+      setMenuLayout({
+        left: triggerRect.left,
+        top: openUp ? undefined : triggerRect.bottom + gap,
+        bottom: openUp ? window.innerHeight - triggerRect.top + gap : undefined,
+        width: triggerRect.width,
+        maxHeight,
+      });
+    };
+    const layoutFrame = requestAnimationFrame(updateMenuLayout);
+    window.addEventListener('resize', updateMenuLayout);
+    window.addEventListener('scroll', updateMenuLayout, true);
+    return () => {
+      cancelAnimationFrame(layoutFrame);
+      window.removeEventListener('resize', updateMenuLayout);
+      window.removeEventListener('scroll', updateMenuLayout, true);
+    };
+  }, [isOpen]);
 
   // Effet : gestion du focus et réinitialisation à l'ouverture
   useEffect(() => {
@@ -223,8 +260,8 @@ export default function SearchSelect({
           </div>
         </button>
 
-        {isOpen && !disabled && (
-          <div className={`absolute left-0 top-full mt-1.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xl z-[70] max-h-72 overflow-hidden flex flex-col font-sans ${dropdownMinWidth}`}>
+        {isOpen && !disabled && menuLayout && createPortal(
+          <div ref={menuRef} style={{ position: 'fixed', left: menuLayout.left, top: menuLayout.top, bottom: menuLayout.bottom, width: menuLayout.width, minWidth: menuLayout.width, maxWidth: `min(${menuLayout.width}px, calc(100vw - 1rem))`, maxHeight: menuLayout.maxHeight }} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xl z-[100] overflow-hidden flex flex-col font-sans">
             {/* Barre de recherche dans le menu déroulant */}
             <div className="p-2.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center gap-2 shrink-0">
               <Search className="w-4 h-4 text-[var(--color-fg-muted)] shrink-0" />
@@ -255,7 +292,7 @@ export default function SearchSelect({
             </div>
 
             {/* Liste filtrée des options */}
-            <div ref={listRef} role="listbox" className="overflow-y-auto max-h-56 divide-y divide-[var(--color-border-subtle)]">
+            <div ref={listRef} role="listbox" style={{ maxHeight: Math.max(48, menuLayout.maxHeight - 56) }} className="overflow-y-auto divide-y divide-[var(--color-border-subtle)]">
               {filteredOptions.length === 0 ? (
                 <div className="p-3.5 text-xs text-[var(--color-fg-muted)] text-center">
                   Aucun résultat pour "{searchQuery}"
@@ -303,7 +340,8 @@ export default function SearchSelect({
                 })
               )}
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
       </div>
 

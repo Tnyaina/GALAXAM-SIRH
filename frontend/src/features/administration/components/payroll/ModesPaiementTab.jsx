@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Edit2, Power } from 'lucide-react';
+import { Edit2, Power, Check } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Badge from '@/components/ui/data-display/Badge';
 import Input from '@/components/ui/forms/Input';
@@ -189,7 +189,7 @@ export default function ModesPaiementTab() {
                                                 title={isActif ? "Désactiver ce mode" : "Activer ce mode"}
                                                 aria-label={isActif ? `Désactiver ${m.libelle}` : `Activer ${m.libelle}`}
                                             >
-                                                <Power size={15} />
+                                                {isActif ? <Power size={15} /> : <Check size={15} />}
                                             </button>
                                         </div>
                                     </Td>

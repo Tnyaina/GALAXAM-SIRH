@@ -1,4 +1,4 @@
-import { Plus, Edit2, Power, Landmark } from 'lucide-react';
+import { Plus, Edit2, Power, Check, Landmark } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -70,7 +70,7 @@ export default function BanquesList({
                                                 title={b.estActif !== false ? "Désactiver" : "Réactiver"}
                                                 aria-label={b.estActif !== false ? `Désactiver ${b.nomBanque}` : `Activer ${b.nomBanque}`}
                                             >
-                                                <Power size={15} />
+                                                {b.estActif !== false ? <Power size={15} /> : <Check size={15} />}
                                             </button>
                                         )}
                                     </div>

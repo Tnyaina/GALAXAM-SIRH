@@ -1,4 +1,4 @@
-import { Edit2, Power, Mail, Phone, MapPin, Building, UserPlus, SearchX } from 'lucide-react';
+import { Edit2, Power, Check, Mail, Phone, MapPin, Building, UserPlus, SearchX } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -87,7 +87,7 @@ export default function EmployeTable({
                     {emp.alerteContratTexte && emp.estActif && <Badge variant={emp.alerteContratNiveau === 'DANGER' ? 'danger' : emp.alerteContratNiveau === 'WARNING' ? 'warning' : 'brand'} size="xs" dot>{emp.alerteContratTexte}</Badge>}
                     {(canWrite || canValidate) && <div className="flex justify-end gap-1.5" onClick={e => e.stopPropagation()}>
                         {canWrite && <Button type="button" variant="ghost" size="sm" className="min-h-[44px] inline-flex items-center justify-center" iconLeft={<Edit2 size={14} />} onClick={() => onOpenEdit(emp)} aria-label={`Modifier ${fullName}`}>Modifier</Button>}
-                        {canValidate && <Button type="button" variant={emp.estActif ? 'outline' : 'success'} size="sm" className="min-h-[44px] inline-flex items-center justify-center" iconLeft={<Power size={14} />} onClick={() => onToggleStatus(emp)} aria-label={emp.estActif ? `Désactiver ${fullName}` : `Réactiver ${fullName}`}>{emp.estActif ? 'Désactiver' : 'Réactiver'}</Button>}
+                        {canValidate && <Button type="button" variant={emp.estActif ? 'outline' : 'success'} size="sm" className="min-h-[44px] inline-flex items-center justify-center" iconLeft={emp.estActif ? <Power size={14} /> : <Check size={14} />} onClick={() => onToggleStatus(emp)} aria-label={emp.estActif ? `Désactiver ${fullName}` : `Réactiver ${fullName}`}>{emp.estActif ? 'Désactiver' : 'Réactiver'}</Button>}
                     </div>}
                 </article>;
             })}
@@ -281,7 +281,7 @@ export default function EmployeTable({
                                             className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center ${emp.estActif ? 'text-[var(--color-danger-500)]' : 'text-[var(--color-success-500)]'}`}
                                             size="sm"
                                             iconOnly
-                                            icon={<Power size={15} />}
+                                            icon={emp.estActif ? <Power size={15} /> : <Check size={15} />}
                                             onClick={() => onToggleStatus(emp)}
                                             title={emp.estActif ? "Désactiver l'employé" : "Réactiver l'employé"}
                                             aria-label={emp.estActif ? `Désactiver ${fullName}` : `Réactiver ${fullName}`}

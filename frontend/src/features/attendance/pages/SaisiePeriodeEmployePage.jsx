@@ -1114,6 +1114,19 @@ export default function SaisiePeriodeEmployePage({
         return grilleRows;
     }, [grilleRows, filterJour]);
 
+    const focusedDate = searchParams.get('date');
+    useEffect(() => {
+        if (!focusedDate || !grilleRows.some(row => row.datePointage === focusedDate)) return;
+        if (filterJour !== 'ALL') {
+            setFilterJour('ALL');
+            return;
+        }
+        const frame = requestAnimationFrame(() => {
+            document.getElementById(`pointage-day-${focusedDate}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [focusedDate, grilleRows, filterJour]);
+
     // Refs pour la navigation clavier rapide et saut automatique (similaire à SaisieQuotidiennePage / PointageGridTable)
     const inputRefs = useRef({});
 
@@ -1966,7 +1979,10 @@ export default function SaisiePeriodeEmployePage({
                                                         return (
                                                             <Tr
                                                                 key={row.datePointage}
+                                                                id={`pointage-day-${row.datePointage}`}
                                                                 className={`border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]/40 transition-colors ${rowBorderCue} ${
+                                                                    focusedDate === row.datePointage ? 'outline outline-2 outline-[var(--color-brand-500)] outline-offset-[-2px] ' : ''
+                                                                }${
                                                                     isWeekend
                                                                         ? 'bg-[var(--color-bg-subtle)]/40 text-[var(--color-fg-muted)]'
                                                                         : isFerie

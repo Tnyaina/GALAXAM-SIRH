@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Building, Plus, Edit2, Eye, Search, Power } from 'lucide-react';
+import { Building, Plus, Edit2, Eye, Search, Power, Check } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import Badge from '@/components/ui/data-display/Badge';
@@ -131,7 +131,7 @@ export default function DepartementsList({
                                         title={dept.estActif ? "Désactiver le département" : "Réactiver le département"}
                                         aria-label={dept.estActif ? `Désactiver ${dept.libelle}` : `Activer ${dept.libelle}`}
                                     >
-                                        <Power size={14} />
+                                        {dept.estActif ? <Power size={14} /> : <Check size={14} />}
                                     </button>
                                 </div>
                             </div>

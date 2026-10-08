@@ -93,12 +93,6 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         idSite: searchParams.get('site') ? Number(searchParams.get('site')) : 0
     });
 
-    useEffect(() => {
-        if (kpis.anomaliesActives !== undefined && onAnomaliesCountChange) {
-            onAnomaliesCountChange(Number(kpis.anomaliesActives) || 0);
-        }
-    }, [kpis.anomaliesActives, onAnomaliesCountChange]);
-
     // Effets
     useEffect(() => {
         const init = async () => {
@@ -164,15 +158,19 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
 
     // Preflight global de la période pour détecter précisément les journées manquantes par site
     const [preflight, setPreflight] = useState(null);
+    const [preflightError, setPreflightError] = useState(false);
+    const [preflightRevision, setPreflightRevision] = useState(0);
 
     useEffect(() => {
         if (!selectedPeriodeId) return;
         let cancelled = false;
+        setPreflight(null);
+        setPreflightError(false);
         pointageSyntheseService.getPreflight({ idPeriodePaie: Number(selectedPeriodeId) })
             .then(res => { if (!cancelled) setPreflight(res); })
-            .catch(() => { if (!cancelled) setPreflight(null); });
+            .catch(() => { if (!cancelled) { setPreflight(null); setPreflightError(true); } });
         return () => { cancelled = true; };
-    }, [selectedPeriodeId]);
+    }, [selectedPeriodeId, preflightRevision]);
 
     const isSiteFiltered = Number(selectedSiteId) > 0;
     const selectedSiteObj = useMemo(() =>
@@ -201,6 +199,24 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         return preflight.journeesManquantes.filter(m => String(m.idSite) === String(selectedSiteId)).length;
     }, [isSiteFiltered, preflight, selectedSiteId]);
 
+    useEffect(() => {
+        if (onAnomaliesCountChange) {
+            onAnomaliesCountChange((Number(kpis.anomaliesActives) || 0)
+                + (isSiteFiltered ? currentSiteMissingCount : (preflight?.journeesManquantes?.length || 0)));
+        }
+    }, [kpis.anomaliesActives, isSiteFiltered, currentSiteMissingCount, preflight, onAnomaliesCountChange]);
+
+    const missingDays = useMemo(() => (preflight?.journeesManquantes || [])
+        .filter(day => !isSiteFiltered || String(day.idSite) === String(selectedSiteId))
+        .filter(day => {
+            const query = searchQuery.trim().toLowerCase();
+            return !query || `${day.nom || ''} ${day.prenom || ''} ${day.matricule || ''}`.toLowerCase().includes(query);
+        })
+        .sort((a, b) => String(a.date).localeCompare(String(b.date))),
+    [preflight, isSiteFiltered, selectedSiteId, searchQuery]);
+
+    const employeeDayUrl = (idEmploye, date) => `/pointages?tab=saisie&mode=employe&periode=${selectedPeriodeId}&employe=${idEmploye}&date=${date}`;
+
     const otherIncompleteSites = useMemo(() => {
         return sitesWithMissingDays.filter(s => String(s.idSite || s.id) !== String(selectedSiteId));
     }, [sitesWithMissingDays, selectedSiteId]);
@@ -216,9 +232,12 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         }, { replace: true });
     };
 
-    const actions = String(activePeriode?.idPeriodePaie) === String(selectedPeriodeId)
-        ? activePeriode.availableActions || {} : currentPeriodeObj?.availableActions || {};
-    const isLocked = actions.REGULARIZE_ANOMALY?.allowed !== true;
+    const actions = Object.keys(currentPeriodeObj?.availableActions || {}).length > 0
+        ? currentPeriodeObj.availableActions
+        : (String(activePeriode?.idPeriodePaie) === String(selectedPeriodeId) ? activePeriode.availableActions || {} : {});
+    const isPendingDaf = ['A_VALIDER', 'TRANSMIS_DAF'].includes(currentPeriodeObj?.statutCode || activePeriode?.statutCode);
+    const canRegularize = actions.REGULARIZE_ANOMALY?.allowed === true || (isDaf && isPendingDaf);
+    const isLocked = !canRegularize;
 
     // Anomalies bloquantes pour la transmission DAF
     const nbBloquantes = Number(stats?.bloquantes || 0);
@@ -245,6 +264,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     const isCurrentSiteClean = isSiteFiltered && currentSiteMissingCount === 0;
 
     const transmissionBlockTitle = useMemo(() => {
+        if (isPendingDaf) return 'Période transmise à la DAF pour arbitrage.';
         if (canTransmitDaf) return 'La période est prête à être transmise.';
         if (hasJourneesManquantes) {
             if (isCurrentSiteClean) {
@@ -256,9 +276,10 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             return 'Des journées ouvrables restent sans pointage sur la période.';
         }
         return transmissionBlockReason || 'Le workflow ne permet pas encore la transmission.';
-    }, [canTransmitDaf, hasJourneesManquantes, isCurrentSiteClean, isSiteFiltered, currentSiteMissingCount, selectedSiteCode, transmissionBlockReason]);
+    }, [isPendingDaf, canTransmitDaf, hasJourneesManquantes, isCurrentSiteClean, isSiteFiltered, currentSiteMissingCount, selectedSiteCode, transmissionBlockReason]);
 
     const transmissionBlockSubtitle = useMemo(() => {
+        if (isPendingDaf) return 'La DAF peut encore corriger ou régulariser les journées ici, puis valider ou renvoyer la période depuis « Contrôle & Validation ».';
         if (canTransmitDaf) return 'Pour transmettre la période à la DAF, utilisez le bouton de l’étape « Synthèse & Contrôle ». ';
         if (hasJourneesManquantes && isCurrentSiteClean) {
             const otherList = otherIncompleteSites.map(s => `${s.codeSite || s.code || s.libelle} (${s.nbManquantes} j)`).join(', ');
@@ -272,7 +293,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             return `${nbBloquantes} anomalie(s) bloquante(s) recensée(s) par le contrôle.`;
         }
         return null;
-    }, [canTransmitDaf, hasJourneesManquantes, isCurrentSiteClean, otherIncompleteSites, isSiteFiltered, sitesWithMissingDays, nbBloquantes]);
+    }, [isPendingDaf, canTransmitDaf, hasJourneesManquantes, isCurrentSiteClean, otherIncompleteSites, isSiteFiltered, sitesWithMissingDays, nbBloquantes]);
 
     // Filtrage dynamique des anomalies
     const filteredAnomalies = useMemo(() => {
@@ -368,6 +389,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             setSelectedRetards(new Map());
             setIsBulkConfirmOpen(false);
             await loadAnomalies();
+            setPreflightRevision(value => value + 1);
             if (succeeded > 0) toast.success(`${succeeded} retard${succeeded > 1 ? 's' : ''} confirmé${succeeded > 1 ? 's' : ''} comme réel${succeeded > 1 ? 's' : ''}.`);
             if (failed.length > 0) toast.error(`${failed.length} retard${failed.length > 1 ? 's' : ''} n'ont pas pu être régularisés. Rechargez la liste et vérifiez-les individuellement.`);
         } finally {
@@ -395,6 +417,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             toast.success(res.message || 'Pointage régularisé avec succès.');
             const updatedPeriodes = await periodePaieService.getAllPeriodes();
             if (updatedPeriodes) setPeriodes(updatedPeriodes);
+            setPreflightRevision(value => value + 1);
             return true;
         } else {
             toast.error(res?.error || res?.message || 'Erreur lors de la régularisation.');
@@ -476,36 +499,62 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         />
                     </div>
                 </div>
+                <Input
+                    icon={<Search size={13} className="text-[var(--color-fg-muted)]" />}
+                    placeholder="Rechercher un salarié ou matricule…"
+                    aria-label="Rechercher un salarié ou matricule"
+                    value={searchQuery}
+                    onChange={(event) => { setSearchQuery(event.target.value); setCurrentPage(1); }}
+                    className="w-full sm:w-64 text-xs"
+                />
             </div>
 
             {/* Les repères prioritaires avant le détail et les filtres. */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <StatCard
-                    title="Anomalies actives"
-                    value={kpis?.anomaliesActives ?? 0}
-                    subtext="À examiner sur la période"
+                    title="À traiter"
+                    value={(Number(kpis?.anomaliesActives) || 0) + (isSiteFiltered ? currentSiteMissingCount : (preflight?.journeesManquantes?.length || 0))}
+                    subtext="Journées sans statut et anomalies actives"
                     icon={<AlertTriangle size={17} />}
-                    color={Number(kpis?.anomaliesActives || 0) > 0 ? 'warning' : 'neutral'}
+                    color={(Number(kpis?.anomaliesActives) || 0) + (preflight?.journeesManquantes?.length || 0) > 0 ? 'warning' : 'neutral'}
                 />
                 <StatCard
-                    title="Pointages saisis"
-                    value={`${kpis?.joursSaisis ?? 0} / ${kpis?.joursTheoriques ?? 0}`}
-                    subtext={
-                        isSiteFiltered
-                            ? `Jours couverts (${selectedSiteCode || 'Site'}) · ${currentSiteMissingCount === 0 && (kpis?.joursTheoriques ?? 0) > 0 ? 'À jour ✓' : 'Incomplet'}`
-                            : "Jours saisis / jours attendus (Tous sites)"
-                    }
+                    title="Journées sans statut"
+                    value={isSiteFiltered ? currentSiteMissingCount : (preflight?.journeesManquantes?.length ?? '—')}
+                    subtext="Jours ouvrables à compléter avant transmission"
                     icon={<Calendar size={17} />}
-                    color={isSiteFiltered && currentSiteMissingCount === 0 && (kpis?.joursTheoriques ?? 0) > 0 ? 'success' : 'brand'}
+                    color={(isSiteFiltered ? currentSiteMissingCount : (preflight?.journeesManquantes?.length || 0)) > 0 ? 'warning' : 'success'}
                 />
                 <StatCard
-                    title="Bloquantes avant transmission"
+                    title="Anomalies bloquantes"
                     value={nbBloquantes}
-                    subtext="Valeur fournie par le contrôle des anomalies"
+                    subtext="Pointages enregistrés qui demandent une décision"
                     icon={<Shield size={17} />}
                     color={nbBloquantes > 0 ? 'danger' : 'success'}
                 />
             </div>
+
+            {/* Les journées absentes du pointage ne figurent pas dans la liste des anomalies enregistrées. */}
+            {filterStatutTraitement !== 'DONE' && (
+                <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)]" aria-labelledby="missing-days-title">
+                    <div className="p-4 border-b border-[var(--color-border-subtle)]">
+                        <h2 id="missing-days-title" className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                            Journées ouvrables sans statut · {missingDays.length}
+                        </h2>
+                        <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Ouvrez la journée pour saisir le pointage ou signaler une absence ou un congé. Aucun retrait de salaire n’est appliqué par cette liste.</p>
+                    </div>
+                    {missingDays.length > 0 ? (
+                        <div className="max-h-72 overflow-y-auto divide-y divide-[var(--color-border-subtle)]">
+                            {missingDays.map(day => (
+                                <div key={`${day.idEmploye}-${day.date}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-xs">
+                                    <div><strong>{day.nom} {day.prenom}</strong> <span className="text-[var(--color-fg-muted)]">· {day.matricule} · {fmtDate(day.date)}</span></div>
+                                    <Link to={employeeDayUrl(day.idEmploye, day.date)} className="font-semibold text-[var(--color-brand-600)] hover:underline">Ouvrir la journée →</Link>
+                                </div>
+                            ))}
+                        </div>
+                    ) : <p className="p-4 text-xs text-[var(--color-fg-muted)]">{preflightError ? 'Contrôle des journées indisponible pour le moment.' : preflight ? 'Aucune journée sans statut pour cette sélection.' : 'Chargement des journées à traiter…'}</p>}
+                </section>
+            )}
 
             {/* ---------- VUE HEBDOMADAIRE (S1 - S5) PLIABLE ---------- */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] overflow-hidden transition-all">
@@ -649,7 +698,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                     <div>
                         <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)] flex items-center gap-2">
                             <Shield size={14} className="text-[var(--color-brand-500)]" />
-                            Anomalies de pointage &amp; retards à vérifier
+                            Pointages à vérifier et régularisations
                         </h2>
                         <p className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
                             {filteredAnomalies.length} élément{filteredAnomalies.length > 1 ? 's' : ''} de suivi
@@ -657,19 +706,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(16rem,1fr)_13rem_auto] lg:items-center">
-                        <div className="min-w-0">
-                            <Input
-                                icon={<Search size={13} className="text-[var(--color-fg-muted)]" />}
-                                placeholder="Rechercher nom, matricule…"
-                                value={searchQuery}
-                                onChange={(e) => {
-                                    setSearchQuery(e.target.value);
-                                    setCurrentPage(1);
-                                }}
-                                className="text-xs"
-                            />
-                        </div>
+                    <div className="flex flex-wrap items-center gap-2">
                         <SearchSelect
                             aria-label="Filtrer les anomalies par traitement"
                             value={filterStatutTraitement}
@@ -679,9 +716,9 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                             }}
                             placeholder="Tous les statuts"
                             options={[
-                                { value: 'ALL', label: 'Tous les statuts' },
-                                { value: 'TODO', label: 'TODO — À vérifier / régulariser' },
-                                { value: 'DONE', label: 'DONE — Déjà régularisés' },
+                                { value: 'TODO', label: 'À traiter' },
+                                { value: 'DONE', label: 'Traités' },
+                                { value: 'ALL', label: 'Tous' },
                             ]}
                             className="text-xs w-full"
                         />
@@ -929,6 +966,12 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
 
                                             {/* Action */}
                                             <Td className="text-right">
+                                                <Link
+                                                    to={employeeDayUrl(ano.idEmploye, ano.datePointage)}
+                                                    className="mr-2 inline-flex min-h-[44px] items-center text-xs font-semibold text-[var(--color-brand-600)] hover:underline"
+                                                >
+                                                    Voir la journée
+                                                </Link>
                                                 <Button
                                                     variant={isDone ? 'ghost' : 'outline'}
                                                     size="sm"

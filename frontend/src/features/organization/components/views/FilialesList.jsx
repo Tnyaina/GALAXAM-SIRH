@@ -1,4 +1,4 @@
-import { Edit2, Building2, Power } from 'lucide-react';
+import { Edit2, Building2, Power, Check } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -60,7 +60,7 @@ export default function FilialesList({
                                         title={f.estActif ? "Désactiver la filiale" : "Réactiver la filiale"}
                                         aria-label={f.estActif ? `Désactiver ${f.raisonSociale}` : `Activer ${f.raisonSociale}`}
                                     >
-                                        <Power size={15} />
+                                        {f.estActif ? <Power size={15} /> : <Check size={15} />}
                                     </button>
                                 </div>
                             </Td>

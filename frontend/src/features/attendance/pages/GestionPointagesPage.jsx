@@ -77,8 +77,8 @@ export default function GestionPointagesPage() {
         },
         {
             id: 'suivi',
-            label: 'Suivi & Anomalies',
-            sublabel: anomaliesCount > 0 ? `${anomaliesCount} anom.` : null,
+            label: 'À traiter',
+            sublabel: anomaliesCount > 0 ? `${anomaliesCount} point(s)` : null,
             status: submitted ? 'done' : activeStep === 'suivi' ? 'active' : 'pending'
         },
         {
@@ -144,7 +144,7 @@ export default function GestionPointagesPage() {
                         && current.statutCode === target?.statutCode) {
                         return current;
                     }
-                    return { ...target, availableActions: current.availableActions || {} };
+                    return { ...target, availableActions: target.availableActions || current.availableActions || {} };
                 });
 
                 // Initialisation ou correction du paramètre d'URL s'il est absent ou invalide
@@ -244,6 +244,14 @@ export default function GestionPointagesPage() {
                 <div className="my-3">
                     <Alert type="error" title="Période indisponible" message={error} />
                 </div>
+            )}
+
+            {activePeriode?.statutCode === 'EN_COURS' && activePeriode?.motifRejet && (
+                <Alert
+                    type="warning"
+                    title="Période renvoyée par la DAF pour correction"
+                    message={activePeriode.motifRejet}
+                />
             )}
 
             {/* Contenu de l'etape active */}

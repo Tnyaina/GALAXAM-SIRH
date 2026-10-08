@@ -1,4 +1,4 @@
-import { Edit2, MapPin, Power, Clock } from 'lucide-react';
+import { Edit2, MapPin, Power, Check, Clock } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import EmptyState from '@/components/ui/data-display/EmptyState';
@@ -123,7 +123,7 @@ export default function SitesList({
                                             title={s.estActif ? "Désactiver le site" : "Réactiver le site"}
                                             aria-label={s.estActif ? `Désactiver ${s.libelle}` : `Activer ${s.libelle}`}
                                         >
-                                            <Power size={15} />
+                                            {s.estActif ? <Power size={15} /> : <Check size={15} />}
                                         </button>
                                     </div>
                                 </Td>

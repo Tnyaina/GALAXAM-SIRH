@@ -1,4 +1,4 @@
-import { Layers, Plus, Edit2, Building, Power } from 'lucide-react';
+import { Layers, Plus, Edit2, Building, Power, Check } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
@@ -89,7 +89,7 @@ export default function ServicesList({
                                                             title={srv.estActif ? "Désactiver le service" : "Réactiver le service"}
                                                             aria-label={srv.estActif ? `Désactiver ${srv.libelle}` : `Activer ${srv.libelle}`}
                                                         >
-                                                            <Power size={14} />
+                                                            {srv.estActif ? <Power size={14} /> : <Check size={14} />}
                                                         </button>
                                                     </div>
                                                 </Td>

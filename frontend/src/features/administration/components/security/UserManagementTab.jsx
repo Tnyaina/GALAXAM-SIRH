@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, UserPlus, Edit2, ShieldAlert, Eye, UserCheck, Power } from 'lucide-react';
+import { Search, UserPlus, Edit2, ShieldAlert, Eye, UserCheck, Power, Check } from 'lucide-react';
 import { getErrorMessage } from '@/api/apiClient';
 import referentielService from '@/features/administration/api/referentielService';
 import Card from '@/components/ui/data-display/Card';
@@ -323,7 +323,7 @@ export default function UserManagementTab() {
                                             title={user.estActif ? "Désactiver l'utilisateur" : "Réactiver l'utilisateur"}
                                             aria-label={user.estActif ? `Désactiver ${user.identifiant}` : `Activer ${user.identifiant}`}
                                         >
-                                            <Power size={15} />
+                                            {user.estActif ? <Power size={15} /> : <Check size={15} />}
                                         </button>
                                     </div>
                                 </Td>
