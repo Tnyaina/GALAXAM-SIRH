@@ -11,7 +11,8 @@ import {
     HeartHandshake,
     Wallet,
     Sun,
-    Sunset
+    Sunset,
+    ChevronDown
 } from 'lucide-react';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
@@ -33,7 +34,8 @@ export default function AnomalieRegularisationModal({
     isOpen,
     onClose,
     anomalie,
-    onSuccess
+    onSuccess,
+    directDayFlow = false
 }) {
     // État local : onglet, soumission et formulaire de régularisation.
     const [activeTab, setActiveTab] = useState('HEURES'); // 'HEURES', 'ABSENCE' ou 'RETARD_REEL'
@@ -76,8 +78,8 @@ export default function AnomalieRegularisationModal({
         if (!anomalie) return;
         setError('');
         
-        const isAbsence = anomalie.typeAnomalie === 'ABSENCE' || anomalie.statutCode === 'ABSENCE_NON_JUSTIFIEE' || anomalie.statutCode === 'ABSENCE_JUSTIFIEE';
-        setActiveTab(isAbsence ? 'ABSENCE' : 'HEURES');
+        const isAbsence = directDayFlow || anomalie.typeAnomalie === 'ABSENCE' || anomalie.statutCode === 'ABSENCE_NON_JUSTIFIEE' || anomalie.statutCode === 'ABSENCE_JUSTIFIEE';
+        setActiveTab(anomalie.importHalfDayMoment ? 'HEURES' : isAbsence ? 'ABSENCE' : 'HEURES');
 
         const em = anomalie.heureEntreeMatin || '';
         const sm = anomalie.heureSortieMatin || '';
@@ -103,17 +105,19 @@ export default function AnomalieRegularisationModal({
             setModePresence('JOURNEE');
         }
 
-        setOptionAutreDemiJournee('AUCUNE');
+        setOptionAutreDemiJournee(anomalie.importHalfDayMoment
+            ? anomalie.importEventCode === 'C' ? 'CONGE_PAYE' : 'ABSENCE_DEDUITE' : 'AUCUNE');
 
-        setOptionAbsence('CONGE_PAYE');
-        setCongeDuree('1.0');
-        setDateReprise(shiftIsoDate(anomalie.datePointage, 1));
-        setDemiJourneeMoment('MATIN');
+        setOptionAbsence(anomalie.importEventCode === 'A' ? 'ABSENCE_DEDUITE' : 'CONGE_PAYE');
+        setCongeDuree(anomalie.importHalfDayMoment ? '0.5' : '1.0');
+        setDateReprise(anomalie.importEventCode === 'C' && !anomalie.importHalfDayMoment
+            ? '' : shiftIsoDate(anomalie.datePointage, 1));
+        setDemiJourneeMoment(anomalie.importHalfDayMoment || 'MATIN');
         setMotifFamilial(MOTIFS_FAMILIAUX[0].value);
         setStatutAbsenceDeduite('ABSENCE_JUSTIFIEE');
 
         setMotifAjustement(anomalie.motifAjustement || '');
-    }, [anomalie, isOpen]);
+    }, [anomalie, isOpen, directDayFlow]);
 
     useEffect(() => {
         if (!isOpen || !anomalie?.idSite || Number(anomalie.idSite) <= 0 || !anomalie?.datePointage) return undefined;
@@ -127,12 +131,18 @@ export default function AnomalieRegularisationModal({
                 if (!row) throw new Error('La journée du salarié est introuvable dans la grille.');
                 const definitions = grid.siteIndemnites || [];
                 const selections = {};
+                const importedWithoutHours = Boolean(anomalie.importEventCode)
+                    && !anomalie.heureEntreeMatin && !anomalie.heureSortieMatin
+                    && !anomalie.heureEntreeAm && !anomalie.heureSortieAm;
                 definitions.forEach((allowance) => {
                     const current = row.dynamicIndemnites?.[String(allowance.idIndemnite)] || {};
+                    const imported = anomalie.importAllowanceOverrides?.[String(allowance.idIndemnite)] || {};
+                    const matin = imported.matin ?? (!importedWithoutHours && Boolean(current.matin));
+                    const am = imported.am ?? (!importedWithoutHours && Boolean(current.am));
                     selections[String(allowance.idIndemnite)] = {
-                        accordee: Boolean(current.accordee),
-                        matin: Boolean(current.matin),
-                        am: Boolean(current.am)
+                        accordee: imported.accordee ?? (allowance.fractionnable ? (matin || am) : (!importedWithoutHours && Boolean(current.accordee))),
+                        matin,
+                        am
                     };
                 });
                 setAvailableAllowances(definitions);
@@ -278,7 +288,7 @@ export default function AnomalieRegularisationModal({
                     payload.momentDemiJournee = demiJourneeMoment;
                 } else if (optionAbsence === 'PERMISSION_EXCEPTIONNELLE') {
                     payload.statutCode = 'CONGE';
-                    payload.motifAjustement = `[Permission Art. 88 : ${motifFamilial}] ${motifAjustement.trim()}`;
+                    payload.motifAjustement = `[Permission : ${motifFamilial}] ${motifAjustement.trim()}`;
                 } else {
                     // Absence déduite de la paie
                     payload.statutCode = statutAbsenceDeduite;
@@ -329,7 +339,7 @@ export default function AnomalieRegularisationModal({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Régularisation du pointage"
+            title={directDayFlow ? 'Signaler une absence ou un congé' : 'Régularisation du pointage'}
             size="2xl"
             footer={
                 <div className="flex items-center justify-between w-full">
@@ -352,7 +362,7 @@ export default function AnomalieRegularisationModal({
                             loading={saving}
                             className="rounded-none"
                         >
-                            {activeTab === 'RETARD_REEL' ? 'Confirmer le retard réel' : 'Enregistrer la régularisation'}
+                            {activeTab === 'RETARD_REEL' ? 'Confirmer le retard réel' : directDayFlow && activeTab === 'ABSENCE' ? 'Enregistrer le signalement' : directDayFlow ? 'Enregistrer la correction' : 'Enregistrer la régularisation'}
                             <span className="ml-2 text-[10px] font-normal opacity-70">Entrée ↵</span>
                         </Button>
                     </div>
@@ -407,9 +417,16 @@ export default function AnomalieRegularisationModal({
                     </FormError>
                 )}
 
+                {directDayFlow && (
+                    <div className="flex items-start gap-2 border border-[var(--color-info-subtle)] bg-[var(--color-info-subtle)]/50 px-3 py-2.5 text-xs text-[var(--color-fg)]">
+                        <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-info)]" />
+                        <p>Cette action concerne uniquement la journée du <strong>{fmtDate(anomalie.datePointage)}</strong>. Signalez le motif de l’absence, ou corrigez les heures si la personne était présente.</p>
+                    </div>
+                )}
+
                 {/* Onglets de mode */}
                 <div className="flex border-b border-[var(--color-border-subtle)]">
-                    {anomalie.typeAnomalie === 'RETARD' && (
+                    {!directDayFlow && anomalie.typeAnomalie === 'RETARD' && (
                         <button
                             type="button"
                             data-regularisation-selected={activeTab === 'RETARD_REEL'}
@@ -433,7 +450,7 @@ export default function AnomalieRegularisationModal({
                         }`}
                     >
                         <Clock className="w-3.5 h-3.5" />
-                        <span>Saisie / Oubli de pointage (Présence réelle)</span>
+                        <span>{directDayFlow ? 'Corriger les heures' : 'Saisie / Oubli de pointage (Présence réelle)'}</span>
                     </button>
                     <button
                         type="button"
@@ -446,7 +463,7 @@ export default function AnomalieRegularisationModal({
                         }`}
                     >
                         <Palmtree className="w-3.5 h-3.5" />
-                        <span>Régularisation d&apos;Absence (Congé / Déduction)</span>
+                        <span>{directDayFlow ? 'Signaler absence / congé' : 'Régularisation d’Absence (Congé / Déduction)'}</span>
                     </button>
                 </div>
 
@@ -844,7 +861,7 @@ export default function AnomalieRegularisationModal({
                                 >
                                     <div className="font-semibold text-xs flex items-center gap-1.5">
                                         <HeartHandshake className="w-3.5 h-3.5" />
-                                        <span>Permission (Art. 88)</span>
+                                        <span>Permission</span>
                                     </div>
                                     <div className="text-[11px] text-[var(--color-fg-muted)] mt-1">
                                         Événement familial 10j/an (Salaire maintenu)
@@ -960,19 +977,22 @@ export default function AnomalieRegularisationModal({
                         {optionAbsence === 'PERMISSION_EXCEPTIONNELLE' && (
                             <div className="p-3.5 border border-[var(--color-border-subtle)] rounded-none space-y-3">
                                 <label className="block text-xs font-semibold text-[var(--color-fg)]">
-                                    Motif légal de l&apos;événement familial (Art. 88) :
+                                    Motif légal de l&apos;événement familial :
                                 </label>
-                                <select
-                                    value={motifFamilial}
-                                    onChange={(e) => setMotifFamilial(e.target.value)}
-                                    className="w-full text-xs p-2 rounded-none border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)]"
-                                >
-                                    {MOTIFS_FAMILIAUX.map((m) => (
-                                        <option key={m.value} value={m.value}>
-                                            {m.label}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="relative">
+                                    <select
+                                        value={motifFamilial}
+                                        onChange={(e) => setMotifFamilial(e.target.value)}
+                                        className="w-full appearance-none text-xs py-2 pl-3 pr-10 rounded-none border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                                    >
+                                        {MOTIFS_FAMILIAUX.map((m) => (
+                                            <option key={m.value} value={m.value}>
+                                                {m.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-fg-muted)]" />
+                                </div>
                                 <div className="text-[11px] text-[var(--color-fg-muted)] flex items-center gap-1.5">
                                     <CheckCircle2 className="w-3.5 h-3.5 text-[var(--color-success)] shrink-0" />
                                     <span>Conforme au droit malgache : salaire maintenu intégralement sans impact sur le solde annuel.</span>

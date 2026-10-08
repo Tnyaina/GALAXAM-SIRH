@@ -24,20 +24,27 @@ function invalidateEmployeeSheets() {
 }
 
 function getEmployeeSheet(idEmploye, params = {}) {
+    let cleanId = idEmploye;
+    let cleanParams = params;
+    if (typeof idEmploye === 'object' && idEmploye !== null) {
+        cleanId = idEmploye.idEmploye;
+        cleanParams = { ...idEmploye };
+        delete cleanParams.idEmploye;
+    }
     const token = getAccessToken();
     if (token !== cacheToken) {
         invalidateEmployeeSheets();
         cacheToken = token;
     }
-    const periodId = Number(params.idPeriode);
+    const periodId = Number(cleanParams.idPeriode);
     const key = periodId > 0
-        ? `${idEmploye}:periode:${periodId}`
-        : `${idEmploye}:${params.period || 'mois'}:${params.date || ''}`;
+        ? `${cleanId}:periode:${periodId}`
+        : `${cleanId}:${cleanParams.period || 'mois'}:${cleanParams.date || ''}`;
     const cached = employeeSheetCache.get(key);
     if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.data);
     if (!employeeSheetRequests.has(key)) {
         const revision = sheetRevision;
-        const request = apiClient.get(`/pointages/employes/${idEmploye}`, { params })
+        const request = apiClient.get(`/pointages/employes/${cleanId}`, { params: cleanParams })
             .then((response) => {
                 if (revision === sheetRevision) {
                     employeeSheetCache.set(key, { data: response.data, expiresAt: Date.now() + SHEET_TTL_MS });
@@ -94,6 +101,18 @@ const attendanceApi = {
     },
     employees: {
         getSheet: getEmployeeSheet,
+        getImportTemplate: async (idEmploye, idPeriode) => {
+            const response = await apiClient.get(`/pointages/employes/${idEmploye}/import/modele`, {
+                params: { idPeriode }, responseType: 'blob'
+            });
+            return { blob: response.data, filename: `Modele_pointage_${idEmploye}_${idPeriode}.xlsx` };
+        },
+        previewImport: async (idEmploye, idPeriode, file) => {
+            const body = new FormData();
+            body.append('file', file);
+            return (await apiClient.post(`/pointages/employes/${idEmploye}/import/apercu`, body,
+                { params: { idPeriode } })).data;
+        },
         exportExcel: (idEmploye, params = {}) => exportDocument(idEmploye, 'excel', params),
         exportPdf: (idEmploye, params = {}) => exportDocument(idEmploye, 'pdf', params)
     },
@@ -152,6 +171,8 @@ export const attendanceService = {
     getAnomalies: attendanceApi.anomalies.list,
     regulariser: attendanceApi.anomalies.regularize,
     getFicheEmploye: attendanceApi.employees.getSheet,
+    getImportTemplate: attendanceApi.employees.getImportTemplate,
+    previewImport: attendanceApi.employees.previewImport,
     exportExcel: attendanceApi.employees.exportExcel,
     exportPdf: attendanceApi.employees.exportPdf,
     getPreflight: attendanceApi.summary.getPreflight

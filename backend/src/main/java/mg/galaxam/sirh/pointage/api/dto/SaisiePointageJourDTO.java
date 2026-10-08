@@ -56,6 +56,7 @@ public class SaisiePointageJourDTO {
     private String motifAjustement;
     private Integer idPeriodePaie;
     private String libelleConge;
+    private boolean congeApprouve;
     private Boolean congePaye = true;
     private Boolean congeDecompteSolde = true;
     private Integer version; // Optimistic locking version
@@ -102,6 +103,9 @@ public class SaisiePointageJourDTO {
 
     public String getLibelleConge() { return libelleConge; }
     public void setLibelleConge(String libelleConge) { this.libelleConge = libelleConge; }
+
+    public boolean isCongeApprouve() { return congeApprouve; }
+    public void setCongeApprouve(boolean congeApprouve) { this.congeApprouve = congeApprouve; }
 
     public Integer getIdPointage() { return idPointage; }
     public void setIdPointage(Integer idPointage) { this.idPointage = idPointage; }

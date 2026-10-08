@@ -16,7 +16,7 @@ export default function PeriodNavigator({
     onDateChange,        // Callback (newDateStr)
     allowFutureDates = true,
     showTodayButton = false,
-    className = '',
+    className = 'h-[32px]',
 }) {
     const dateInputRef = useRef(null);
 
@@ -111,7 +111,7 @@ export default function PeriodNavigator({
                     type="button"
                     onClick={handleToday}
                     title="Revenir à aujourd'hui"
-                    className="px-2 py-1.5 text-[11px] font-semibold text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] bg-[var(--color-surface)] border border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)] transition-colors flex items-center gap-1 cursor-pointer"
+                    className="h-full px-2 text-[11px] font-semibold text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] bg-[var(--color-surface)] border border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)] transition-colors flex items-center gap-1 cursor-pointer"
                 >
                     <RotateCcw size={12} />
                     Aujourd'hui
@@ -119,24 +119,24 @@ export default function PeriodNavigator({
             )}
 
             {/* Boîtier de navigation exact : < | date | > */}
-            <div className="inline-flex items-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
+            <div className="inline-flex items-stretch h-full bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
                 {/* Flèche Précédent */}
                 <button
                     type="button"
                     onClick={() => handleNavigate(-1)}
-                    className="px-2.5 py-1.5 text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
+                    className="h-full px-2.5 flex items-center justify-center text-[var(--color-fg)] hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer"
                     title="Précédent"
                 >
                     <ChevronLeft size={14} />
                 </button>
 
                 {/* Séparateur vertical discret */}
-                <span className="h-4 w-[1px] bg-[var(--color-border-subtle)]" />
+                <span className="self-center h-4 w-[1px] bg-[var(--color-border-subtle)] shrink-0" />
 
                 {/* Libellé de la période + Icône Calendrier cliquable */}
                 <div
                     onClick={() => dateInputRef.current?.showPicker()}
-                    className="flex items-center justify-between gap-3 px-3 py-1.5 cursor-pointer hover:bg-[var(--color-bg-subtle)] transition-colors select-none"
+                    className="h-full flex items-center justify-between gap-3 px-3 cursor-pointer hover:bg-[var(--color-bg-subtle)] transition-colors select-none"
                 >
                     <span className="text-xs sm:text-[13px] font-bold text-[var(--color-fg)] tracking-tight">
                         {getFormattedLabel() || 'Sélectionner une date'}
@@ -156,14 +156,14 @@ export default function PeriodNavigator({
                 </div>
 
                 {/* Séparateur vertical discret */}
-                <span className="h-4 w-[1px] bg-[var(--color-border-subtle)]" />
+                <span className="self-center h-4 w-[1px] bg-[var(--color-border-subtle)] shrink-0" />
 
                 {/* Flèche Suivant */}
                 <button
                     type="button"
                     onClick={() => handleNavigate(1)}
                     disabled={isFutureBlocked}
-                    className={`px-2.5 py-1.5 text-[var(--color-fg)] transition-colors ${
+                    className={`h-full px-2.5 flex items-center justify-center text-[var(--color-fg)] transition-colors ${
                         isFutureBlocked
                             ? 'opacity-30 cursor-not-allowed pointer-events-none'
                             : 'hover:bg-[var(--color-bg-subtle)] cursor-pointer'

@@ -101,12 +101,20 @@ incompatible fait échouer l'index unique et demande un arbitrage explicite.
 | `26-10-01-sp46-validite-conditions-rubriques.sql` | Ajoute validité, filiation et condition des rubriques manuelles ; interdit les chevauchements | `06_schema_paie.sql` |
 
 | `26-10-01-sp47-methodes-rubriques.sql` | Méthodes manuelles, arrondi, assiette FMFP séparée et précision des paramètres de ligne ; aucun ajout de table | `06_schema_paie.sql` |
+| `26-10-01-sp48-hs-imposables-par-defaut.sql` | Exonération HS inactive par défaut | `01_schema_core_securite.sql`, `02_schema_referentiels_rh.sql` |
+| `26-10-02-sp49-configuration-paie-menu.sql` | Sous-menu de configuration paie | `01_schema_core_securite.sql` |
+| `26-10-02-sp49-limites-legales-retenues.sql` | Plafond avance employeur légal | `02_schema_referentiels_rh.sql` |
+| `26-10-02-sp50-diviseur-conge-obligatoire.sql` | Diviseur jours calendaires congé obligatoire | `01_schema_core_securite.sql` |
+| `26-10-02-sp51-alertes-contrat-essai-echus.sql` | Types d'alertes contrats et essais échus non régularisés | `03_schema_employes_contrats.sql` |
 | `26-10-03-sp52-transitions-temporelles-et-menu-conges.sql` | Exclusions des chevauchements légaux, tarifs de site et références congés ; navigation des cycles | `01_schema_core_securite.sql`, `02_schema_referentiels_rh.sql`, `04_schema_conges.sql`, `05_schema_pointage.sql` |
+| `26-10-03-sp53-conge-valorisation-mensuelle-correction.sql` | Historique des rectifications DAF valorisation mensuelle | `04_schema_conges.sql`, `06_schema_paie.sql` |
+| `26-10-03-sp54-menu-controle-droits.sql` | Renommage sous-menu Contrôle des droits | `01_schema_core_securite.sql` |
 | `26-10-03-sp55-conge-decompte-feries-date.sql` | Règle datée `INCLUS`/`EXCLUS` des jours fériés débitant le solde acquis | `01_schema_core_securite.sql` |
-| `26-10-04-sp56-conge-decompte-feries-desactivable.sql` | Désactivation explicite de cette règle par version future | `01_schema_core_securite.sql` |
+| `26-10-04-sp55-pointage-periodes-sans-chevauchement.sql` | Guard anti-chevauchement des campagnes de paie | `05_schema_pointage.sql` |
+| `26-10-04-sp56-conge-decompte-feries-desactivable.sql` | Désactivation explicite de la règle fériés par version future | `01_schema_core_securite.sql` |
+| `26-10-06-sp57-agent-pointage-acces-fiche-employe.sql` | Habilitation temporaire agent pointage fiche employé | `01_schema_core_securite.sql` |
+| `26-10-07-sp58-agent-pointage-sans-fiche-employe.sql` | Rétablissement périmètre agent pointage sans fiche employé | `01_schema_core_securite.sql` |
 
 ### Remarques Opérationnelles
-- Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 81 tables et 9 vues cohérentes.
+- Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 84 tables et 9 vues cohérentes.
 - Les scripts du dossier `migrations/` sont destinés uniquement à la mise à niveau de bases déjà déployées antérieurement ; vérifier l'état de chaque migration avant de la rejouer.
-
-- `26-10-01-sp48-hs-imposables-par-defaut.sql` : désactive la bascule globale d'exonération HS sur les bases existantes ; valeur par défaut des nouvelles configurations légales à FALSE. Aucun recalcul de bulletin.

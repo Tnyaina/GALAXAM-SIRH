@@ -502,11 +502,12 @@ public class PointageService {
     }
 
     private static List<SaisiePointageJourDTO.StatusAction> resolveStatusActions(SaisiePointageJourDTO dto) {
-        if (dto.isFerieChome() || dto.getTypeCongeJour() != null || dto.isEstAutonome()) return List.of();
+        if (dto.isFerieChome() || dto.isCongeApprouve() || dto.isEstAutonome()) return List.of();
         return List.of(
                 new SaisiePointageJourDTO.StatusAction("PRESENT", "Présent", "Journée travaillée", false),
                 new SaisiePointageJourDTO.StatusAction("ABSENCE_JUSTIFIEE", "Absence justifiée", "Absence documentée ou autorisée", true),
-                new SaisiePointageJourDTO.StatusAction("ABSENCE_NON_JUSTIFIEE", "Absence non justifiée", "Absence sans justificatif", false)
+                new SaisiePointageJourDTO.StatusAction("ABSENCE_NON_JUSTIFIEE", "Absence non justifiée", "Absence sans justificatif", false),
+                new SaisiePointageJourDTO.StatusAction("CONGE", "Congé payé", "Imputer sur solde congé payé", false)
         );
     }
 
@@ -1080,6 +1081,7 @@ public class PointageService {
                         }
                         dto.setTypeCongeJour(typeCongeJour);
                         dto.setLibelleConge(libelleConge);
+                        dto.setCongeApprouve(conge != null);
 
                         // Pointage journalier existant
                         boolean hasExisting = false;

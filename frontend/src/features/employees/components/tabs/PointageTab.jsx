@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     Clock,
@@ -28,10 +28,11 @@ import Badge from '@/components/ui/data-display/Badge';
 import { Card } from '@/components/ui/data-display/Card';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import PeriodNavigator from '@/components/ui/navigation/PeriodNavigator';
+import PeriodeNavigator from '@/components/ui/navigation/PeriodeNavigator';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import EmptyState from '@/components/ui/data-display/EmptyState';
-import { getTodayDateString } from '@/utils/dateUtils';
+import { getTodayDateString, fmtDateFr } from '@/utils/dateUtils';
 import { formatHeuresDecimal, formatHeuresMinutes } from '@/features/attendance/utils/attendanceDisplayUtils';
 import WeeklyPointageCalculationTable from '@/features/attendance/components/WeeklyPointageCalculationTable';
 
@@ -351,68 +352,25 @@ export default function PointageTab({ idEmploye, employe = null }) {
 
                     {/* Navigation temporelle selon le mode */}
                     {periodView === 'periode' ? (
-                        <div className="inline-flex max-w-full min-w-0 items-center bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs">
-                            <button
-                                type="button"
-                                onClick={() => handleNavigatePeriode(-1)}
-                                disabled={currIndexInList < 0 || currIndexInList >= periodesList.length - 1}
-                                className={`px-3 py-2 text-[var(--color-fg)] transition-colors cursor-pointer ${currIndexInList < 0 || currIndexInList >= periodesList.length - 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--color-bg-subtle)]'
-                                    }`}
-                                title="Période précédente"
-                            >
-                                <ChevronLeft size={16} />
-                            </button>
-                            <span className="h-5 w-[1px] bg-[var(--color-border-subtle)]" />
-                            <div className="flex min-w-0 items-center gap-2 px-3 py-1.5">
-                                <Calendar size={15} className="text-[var(--color-brand-500)] shrink-0" />
-                                <select
-                                    value={selectedPeriodeId || ''}
-                                    onChange={(e) => {
-                                        const pId = parseInt(e.target.value, 10);
-                                        setSelectedPeriodeId(pId);
-                                        const found = periodesList.find(p => p.idPeriodePaie === pId);
-                                        if (found?.dateDebut) setSelectedDate(found.dateDebut);
-                                    }}
-                                    className="min-w-0 max-w-full bg-transparent text-sm font-bold text-[var(--color-fg)] border-none outline-none cursor-pointer pr-2"
-                                >
-                                    {periodesList.length === 0 ? (
-                                        <option value="" disabled>Aucune période configurée</option>
-                                    ) : (
-                                        <>
-                                            {!selectedPeriodeId && (
-                                                <option value="" disabled>Sélectionner une période...</option>
-                                            )}
-                                            {periodesList.map((p) => (
-                                                <option key={p.idPeriodePaie} value={p.idPeriodePaie} className="bg-[var(--color-surface)] text-[var(--color-fg)] font-medium">
-                                                    {[p.code, p.libelle].filter(Boolean).join(' — ') || p.idPeriodePaie} ({p.dateDebut} au {p.dateFin})
-                                                </option>
-                                            ))}
-                                        </>
-                                    )}
-                                </select>
-                            </div>
-                            <span className="h-5 w-[1px] bg-[var(--color-border-subtle)]" />
-                            <button
-                                type="button"
-                                onClick={() => handleNavigatePeriode(1)}
-                                disabled={currIndexInList <= 0}
-                                className={`px-3 py-2 text-[var(--color-fg)] transition-colors cursor-pointer ${currIndexInList <= 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--color-bg-subtle)]'
-                                    }`}
-                                title="Période suivante"
-                            >
-                                <ChevronRight size={16} />
-                            </button>
-                        </div>
+                        <PeriodeNavigator
+                            periodesList={periodesList}
+                            selectedPeriodeId={selectedPeriodeId}
+                            onSelectPeriode={(pId, target) => {
+                                setSelectedPeriodeId(pId);
+                                if (target?.dateDebut) setSelectedDate(target.dateDebut);
+                            }}
+                        />
                     ) : (
                         <PeriodNavigator
                             viewPeriod={periodView}
                             selectedDate={selectedDate}
                             onDateChange={(newDate) => setSelectedDate(newDate)}
+                            className="h-9"
                         />
                     )}
 
                     {/* Bascule Vue : Période de paie | Semaine */}
-                    <div className="flex border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 rounded-none">
+                    <div className="flex h-9 items-center border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5 rounded-none">
                         {[
                             { key: 'periode', label: 'Période de paie' },
                             { key: 'semaine', label: 'Semaine' },
@@ -433,14 +391,26 @@ export default function PointageTab({ idEmploye, employe = null }) {
                 </div>
 
                 <div className="flex items-center gap-2 self-end md:self-auto">
-                    {actions.TEAM_ENTRY && <Link
-                        to="/pointages?tab=saisie"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] bg-[var(--color-brand-500)]/10 hover:bg-[var(--color-brand-500)]/20 border border-[var(--color-brand-500)]/30 transition-colors"
-                        title="Ouvrir le module de saisie quotidienne pour toute l'équipe"
-                    >
-                        <span>Saisie d'équipe</span>
-                        <ExternalLink size={13} />
-                    </Link>}
+                    {actions.TEAM_ENTRY && (
+                        <>
+                            <Link
+                                to={`/pointages?tab=saisie&mode=employe&employe=${idEmploye}${selectedPeriodeId ? `&periode=${selectedPeriodeId}` : ''}`}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[var(--color-on-color)] bg-[var(--color-brand-600)] hover:bg-[var(--color-brand-700)] border border-[var(--color-brand-600)] transition-colors shadow-xs"
+                                title="Ouvrir la grille de saisie pour ce collaborateur"
+                            >
+                                <span>Modifier les pointages</span>
+                                <ExternalLink size={13} />
+                            </Link>
+                            <Link
+                                to="/pointages?tab=saisie"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] bg-[var(--color-brand-500)]/10 hover:bg-[var(--color-brand-500)]/20 border border-[var(--color-brand-500)]/30 transition-colors"
+                                title="Ouvrir le module de saisie quotidienne pour toute l'équipe"
+                            >
+                                <span>Saisie d'équipe</span>
+                                <ExternalLink size={13} />
+                            </Link>
+                        </>
+                    )}
                     {/* Menu Déroulant Exporter (Excel / PDF) */}
                     <div className="relative inline-block" ref={dropdownRef}>
                         <Button

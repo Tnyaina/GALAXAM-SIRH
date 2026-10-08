@@ -30,7 +30,8 @@ export default function PointageGridTable({
     onPageChange,
     onPageSizeChange,
     isReadOnly = false,
-    onToggleHoraireContinu
+    onToggleHoraireContinu,
+    onOpenRegularisation
 }) {
     // Données dérivées : pagination de la grille reçue du parent.
     const startIndex = (currentPage - 1) * pageSize;
@@ -216,11 +217,12 @@ export default function PointageGridTable({
                             />
                         ) : (
                             paginatedData.map((row) => {
-                                const isCongeFull = Boolean(row.congeFull ?? (row.typeCongeJour === 'FULL_DAY' || row.conge));
-                            const isCongeMatin = Boolean(row.congeMatin ?? (row.typeCongeJour === 'MATIN'));
-                            const isCongeAm = Boolean(row.congeAm ?? (row.typeCongeJour === 'APRES_MIDI'));
-                            const _isFerieChome = Boolean(row.ferieChome);
-                            const isReadOnlyForUser = isReadOnly;
+                                const isCongeApprouve = Boolean(row.congeApprouve || (row.conge && row.libelleConge && !row._isDraftConge));
+                                const isCongeFull = Boolean(row.congeFull ?? (row.typeCongeJour === 'FULL_DAY' || row.codeStatut === 'CONGE'));
+                                const isCongeMatin = Boolean(row.congeMatin ?? (row.typeCongeJour === 'MATIN'));
+                                const isCongeAm = Boolean(row.congeAm ?? (row.typeCongeJour === 'APRES_MIDI'));
+                                const _isFerieChome = Boolean(row.ferieChome);
+                                const isReadOnlyForUser = isReadOnly;
 
                             const isNonSaisi = Boolean(row.nonSaisi);
 
@@ -255,9 +257,9 @@ export default function PointageGridTable({
                                             <div className="min-w-0 flex-1">
                                                 <p className="font-semibold text-[var(--color-fg)] leading-tight truncate">
                                                     <Link
-                                                        to={`/employes/${row.idEmploye}?tab=pointage`}
+                                                        to={`/pointages?tab=saisie&mode=employe&employe=${row.idEmploye}`}
                                                         className="hover:text-[var(--color-brand-600)] hover:underline"
-                                                        title={`${row.nom} ${row.prenom}`}
+                                                        title={`Saisir la période de ${row.nom} ${row.prenom}`}
                                                     >
                                                         {row.nom} {row.prenom}
                                                     </Link>
@@ -416,7 +418,8 @@ export default function PointageGridTable({
                                             currentStatus={row.codeStatut}
                                             currentMotif={row.motifAjustement}
                                             onStatusChange={(newStatut, motif) => onUpdateStatut?.(row.idEmploye, newStatut, motif)}
-                                            disabled={isReadOnlyForUser || Boolean(row.ferieChome) || Boolean(row.conge)}
+                                            onOpenRegularisation={onOpenRegularisation}
+                                            disabled={isReadOnlyForUser || Boolean(row.ferieChome) || isCongeApprouve}
                                         />
                                         {row.validationMessages?.length > 0 && (
                                             <div className="mt-1 text-[10px] text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)] text-left" role="alert">

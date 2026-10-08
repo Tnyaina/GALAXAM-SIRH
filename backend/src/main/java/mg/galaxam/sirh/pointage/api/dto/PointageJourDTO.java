@@ -11,6 +11,9 @@ public class PointageJourDTO {
     private boolean canCorrect;
     public boolean isCanCorrect() { return canCorrect; }
     public void setCanCorrect(boolean value) { canCorrect = value; }
+    private boolean congeApprouve;
+    public boolean isCongeApprouve() { return congeApprouve; }
+    public void setCongeApprouve(boolean value) { congeApprouve = value; }
     private Integer idPointage;
     private Integer idSite;
     private Integer version;

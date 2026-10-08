@@ -11,11 +11,12 @@ import organisationService from '@/features/organization/api/organisationService
 
 // Lazy-loading des etapes du cockpit
 const SaisieQuotidiennePage    = lazy(() => import('@/features/attendance/pages/SaisieQuotidiennePage'));
+const SaisiePeriodeEmployePage = lazy(() => import('@/features/attendance/pages/SaisiePeriodeEmployePage'));
 const SuiviAnomaliesPage       = lazy(() => import('@/features/attendance/pages/SuiviAnomaliesPage'));
 const ArbitrageDafPage         = lazy(() => import('@/features/attendance/pages/ArbitrageDafPage'));
 
 const normalizePointageStep = (tab) => {
-    if (tab === 'saisie') return 'saisie';
+    if (tab === 'saisie' || tab === 'saisie-employe') return 'saisie';
     if (tab === 'suivi' || tab === 'anomalies') return 'suivi';
     if (tab === 'arbitrage' || tab === 'validation' || tab === 'synthese') return 'arbitrage';
     return 'saisie';
@@ -252,11 +253,20 @@ export default function GestionPointagesPage() {
                 ) : (
                     <Suspense fallback={<SkeletonTable rows={6} columns={6} />}>
                         {activeStep === 'saisie' && (
-                            <SaisieQuotidiennePage
-                                activePeriode={activePeriode}
-                                sitesDisponibles={allSites}
-                                onSelectPeriode={handlePeriodeChange}
-                            />
+                            (searchParams.get('mode') === 'employe' || searchParams.get('tab') === 'saisie-employe') ? (
+                                <SaisiePeriodeEmployePage
+                                    activePeriode={activePeriode}
+                                    periodesDisponibles={allPeriodes}
+                                    sitesDisponibles={allSites}
+                                    onSelectPeriode={handlePeriodeChange}
+                                />
+                            ) : (
+                                <SaisieQuotidiennePage
+                                    activePeriode={activePeriode}
+                                    sitesDisponibles={allSites}
+                                    onSelectPeriode={handlePeriodeChange}
+                                />
+                            )
                         )}
 
                         {activeStep === 'suivi' && activePeriode && (

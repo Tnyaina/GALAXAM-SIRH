@@ -41,6 +41,7 @@ export default function PointageToolbar({
                             onChange={(val) => onSiteChange(val || '')}
                             disabled={isReadOnly}
                             placeholder="Sélectionner un site..."
+                            size="sm"
                             className="text-xs min-w-[200px]"
                         />
                     </div>

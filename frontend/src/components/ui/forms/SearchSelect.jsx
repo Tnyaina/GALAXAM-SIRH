@@ -14,6 +14,11 @@ export default function SearchSelect({
   className = '',
   disabled = false,
   hint = null,
+  borderless = false,
+  clearable = true,
+  dropdownMinWidth = 'min-w-full',
+  buttonClassName = '',
+  size = 'md',
 }) {
   // État local et références DOM.
   const [searchQuery, setSearchQuery] = useState('');
@@ -84,7 +89,8 @@ export default function SearchSelect({
     if (!query) return true;
     const optLabel = (opt.label || '').toLowerCase();
     const optSublabel = (opt.sublabel || '').toLowerCase();
-    return optLabel.includes(query) || optSublabel.includes(query);
+    const optGroup = (opt.group || '').toLowerCase();
+    return optLabel.includes(query) || optSublabel.includes(query) || optGroup.includes(query);
   });
 
   const handleInputKeyDown = (e) => {
@@ -161,39 +167,56 @@ export default function SearchSelect({
           disabled={disabled}
           onClick={() => !disabled && setIsOpen((v) => !v)}
           onKeyDown={handleButtonKeyDown}
-          className={`w-full px-3 py-2 bg-[var(--color-surface)] border text-left text-xs sm:text-sm flex items-center justify-between outline-none cursor-pointer transition-colors ${
-            error
-              ? 'border-danger-500'
-              : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)] focus:border-[var(--color-brand-500)]'
-          } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+          className={`w-full text-left flex items-center justify-between outline-none cursor-pointer transition-colors ${
+            size === 'sm'
+              ? 'h-[32px] px-2.5 text-xs'
+              : borderless
+                ? 'px-2 py-1.5 text-xs sm:text-sm'
+                : 'px-3 py-2 text-xs sm:text-sm'
+          } ${
+            borderless
+              ? 'border-0 bg-transparent hover:bg-[var(--color-bg-subtle)]/60 focus:bg-[var(--color-bg-subtle)]'
+              : `bg-[var(--color-surface)] border ${
+                  error
+                    ? 'border-[var(--color-danger-500)]'
+                    : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)] focus:border-[var(--color-brand-500)]'
+                }`
+          } ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${buttonClassName}`}
         >
           {selectedOption ? (
-            <span className="font-semibold text-[var(--color-fg)] truncate">
-              {selectedOption.label}
+            <div className="flex items-center min-w-0 truncate">
+              <span className="font-bold text-[var(--color-fg)] truncate">
+                {selectedOption.label}
+              </span>
               {selectedOption.sublabel && (
-                <span className="text-xs text-[var(--color-fg-muted)] font-normal ml-2">
+                <span className="text-xs text-[var(--color-fg-muted)] font-normal ml-2 truncate hidden sm:inline">
                   ({selectedOption.sublabel})
                 </span>
               )}
-            </span>
+              {selectedOption.badge && (
+                <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full ml-2 shrink-0 hidden md:inline ${selectedOption.badgeClassName || 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'}`}>
+                  {selectedOption.badge}
+                </span>
+              )}
+            </div>
           ) : (
             <span className="text-[var(--color-fg-muted)] truncate">{placeholder}</span>
           )}
 
           <div className="flex items-center gap-1.5 shrink-0 ml-2">
-            {selectedOption && !disabled && (
+            {clearable && selectedOption && !disabled && (
               <span
                 role="button"
                 tabIndex={-1}
                 onClick={handleClear}
-                className="p-1 hover:bg-danger-500/10 text-danger-500 hover:text-danger-700 transition-colors"
+                className="p-0.5 hover:bg-[var(--color-danger-500)]/10 text-[var(--color-danger-500)] hover:text-[var(--color-danger-700)] transition-colors cursor-pointer"
                 title="Effacer la sélection"
               >
                 <X className="w-3.5 h-3.5" />
               </span>
             )}
             <ChevronDown
-              className={`w-4 h-4 text-[var(--color-fg-muted)] transition-transform ${
+              className={`w-3.5 h-3.5 text-[var(--color-fg-muted)] transition-transform ${
                 isOpen ? 'rotate-180' : ''
               }`}
             />
@@ -201,7 +224,7 @@ export default function SearchSelect({
         </button>
 
         {isOpen && !disabled && (
-          <div className="absolute left-0 right-0 top-full mt-1.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xl z-[70] max-h-64 overflow-hidden flex flex-col font-sans">
+          <div className={`absolute left-0 top-full mt-1.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-2xl z-[70] max-h-72 overflow-hidden flex flex-col font-sans ${dropdownMinWidth}`}>
             {/* Barre de recherche dans le menu déroulant */}
             <div className="p-2.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] flex items-center gap-2 shrink-0">
               <Search className="w-4 h-4 text-[var(--color-fg-muted)] shrink-0" />
@@ -232,7 +255,7 @@ export default function SearchSelect({
             </div>
 
             {/* Liste filtrée des options */}
-            <div ref={listRef} role="listbox" className="overflow-y-auto max-h-52 divide-y divide-[var(--color-border-subtle)]">
+            <div ref={listRef} role="listbox" className="overflow-y-auto max-h-56 divide-y divide-[var(--color-border-subtle)]">
               {filteredOptions.length === 0 ? (
                 <div className="p-3.5 text-xs text-[var(--color-fg-muted)] text-center">
                   Aucun résultat pour "{searchQuery}"
@@ -241,27 +264,41 @@ export default function SearchSelect({
                 filteredOptions.map((opt, idx) => {
                   const isSelected = String(opt.value) === String(value);
                   const isHighlighted = idx === highlightedIndex;
+                  const showGroupHeader = opt.group && (idx === 0 || filteredOptions[idx - 1]?.group !== opt.group);
                   return (
-                    <button
-                      key={opt.value}
-                      role="option"
-                      aria-selected={isSelected}
-                      type="button"
-                      onMouseEnter={() => setHighlightedIndex(idx)}
-                      onClick={() => handleSelect(opt)}
-                      className={`w-full text-left px-3.5 py-2.5 text-sm flex items-center justify-between transition-colors cursor-pointer ${
-                        isSelected
-                          ? 'bg-[var(--color-brand-500)]/15 font-bold'
-                          : isHighlighted
-                          ? 'bg-[var(--color-brand-500)]/10 font-medium'
-                          : 'hover:bg-[var(--color-bg-subtle)]'
-                      }`}
-                    >
-                      <span className="text-[var(--color-fg)] truncate">{opt.label}</span>
-                      {opt.sublabel && (
-                        <span className="text-xs text-[var(--color-fg-muted)] ml-2 shrink-0">{opt.sublabel}</span>
+                    <div key={opt.value}>
+                      {showGroupHeader && (
+                        <div className="px-3.5 py-1.5 bg-[var(--color-bg-subtle)] text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] border-b border-[var(--color-border-subtle)] sticky top-0 z-10 backdrop-blur-xs select-none">
+                          {opt.group}
+                        </div>
                       )}
-                    </button>
+                      <button
+                        role="option"
+                        aria-selected={isSelected}
+                        type="button"
+                        onMouseEnter={() => setHighlightedIndex(idx)}
+                        onClick={() => handleSelect(opt)}
+                        className={`w-full text-left px-3.5 py-2.5 text-sm flex items-center justify-between transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-[var(--color-brand-500)]/15 font-bold'
+                            : isHighlighted
+                            ? 'bg-[var(--color-brand-500)]/10 font-medium'
+                            : 'hover:bg-[var(--color-bg-subtle)]'
+                        }`}
+                      >
+                        <div className="flex flex-col min-w-0 pr-2">
+                          <span className="text-[var(--color-fg)] truncate font-medium">{opt.label}</span>
+                          {opt.sublabel && (
+                            <span className="text-xs text-[var(--color-fg-muted)] font-normal truncate mt-0.5">{opt.sublabel}</span>
+                          )}
+                        </div>
+                        {opt.badge && (
+                          <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full shrink-0 ${opt.badgeClassName || 'bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]'}`}>
+                            {opt.badge}
+                          </span>
+                        )}
+                      </button>
+                    </div>
                   );
                 })
               )}

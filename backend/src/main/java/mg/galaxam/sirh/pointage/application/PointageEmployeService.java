@@ -655,6 +655,7 @@ public class PointageEmployeService {
                         || "ANOMALIE_SAISIE".equalsIgnoreCase(rec.codeStatut));
 
                 if (isCongeValideRec) {
+                    dto.setCongeApprouve(true);
                     dto.setStatut("HALF_DAY".equals(typeCongeRec) ? "DEMI_JOURNEE" : "CONGE");
                     if ("HALF_DAY".equals(typeCongeRec)) {
                         totalJoursTravailles++;
@@ -695,6 +696,7 @@ public class PointageEmployeService {
                     dto.setHeures("—");
                     dto.setStatut("NON_CONCERNE");
                 } else if (typeConge != null && "FULL_DAY".equals(typeConge)) {
+                    dto.setCongeApprouve(true);
                     dto.setHeures("00h00");
                     dto.setStatut("CONGE");
                 } else if (isFerie) {

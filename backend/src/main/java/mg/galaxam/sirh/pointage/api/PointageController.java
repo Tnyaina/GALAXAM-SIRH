@@ -5,6 +5,7 @@ import mg.galaxam.sirh.pointage.application.PointageAnomalieService;
 import mg.galaxam.sirh.pointage.application.PointageAjustementPeriodeService;
 import mg.galaxam.sirh.pointage.application.PointageEmployeService;
 import mg.galaxam.sirh.pointage.application.PointageExcelExportService;
+import mg.galaxam.sirh.pointage.application.PointageImportService;
 import mg.galaxam.sirh.pointage.application.PointageService;
 import mg.galaxam.sirh.pointage.application.PointageSyntheseService;
 import mg.galaxam.sirh.pointage.persistence.EmployeIndemniteDerogation;
@@ -16,6 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
@@ -36,6 +38,7 @@ public class PointageController {
     @Autowired private PointageAnomalieService pointageAnomalieService;
     @Autowired private PointageEmployeService pointageEmployeService;
     @Autowired private PointageExcelExportService pointageExcelExportService;
+    @Autowired private PointageImportService pointageImportService;
     @Autowired private mg.galaxam.sirh.pointage.application.PointageDocumentService pointageDocumentService;
     @Autowired private mg.galaxam.sirh.pointage.application.PointagePdfExportService pointagePdfExportService;
     @Autowired private PointageAjustementPeriodeService pointageAjustementPeriodeService;
@@ -254,6 +257,23 @@ public class PointageController {
     }
 
     // Fiche employé et export
+    @GetMapping("/employes/{idEmploye}/import/modele")
+    @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('POINTAGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<byte[]> modeleImport(@PathVariable int idEmploye, @RequestParam int idPeriode) throws Exception {
+        byte[] bytes = pointageImportService.template(idEmploye, idPeriode);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=Modele_pointage_" + idEmploye + "_" + idPeriode + ".xlsx")
+                .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .body(bytes);
+    }
+
+    @PostMapping(value = "/employes/{idEmploye}/import/apercu", consumes = "multipart/form-data")
+    @PreAuthorize("hasAuthority('POINTAGE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<PointageImportService.ImportPreview> apercuImport(@PathVariable int idEmploye,
+            @RequestParam int idPeriode, @RequestParam("file") MultipartFile file) throws Exception {
+        return ResponseEntity.ok(pointageImportService.preview(idEmploye, idPeriode, file));
+    }
+
     @GetMapping("/employes/{idEmploye}")
     @PreAuthorize("hasAuthority('POINTAGE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FichePointageEmployeDTO> getFichePointageEmploye(@PathVariable Integer idEmploye,
