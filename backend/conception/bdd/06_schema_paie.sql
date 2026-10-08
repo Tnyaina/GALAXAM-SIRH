@@ -174,7 +174,7 @@ CREATE TABLE ref_type_bulletin (
 INSERT INTO ref_type_bulletin (code, libelle, prefixe_reference, est_reouvrable, exige_pointage_scelle, est_inclus_dnts, est_inclus_safi, actif)
 VALUES
     ('MENSUEL', 'Bulletin Mensuel Ordinaire', 'BP', TRUE, TRUE, TRUE, TRUE, TRUE),
-    ('STC', 'Solde de Tout Compte Libératoire', 'STC', FALSE, FALSE, TRUE, TRUE, TRUE),
+    ('STC', 'Bulletin de sortie et décompte STC', 'STC', FALSE, FALSE, TRUE, TRUE, TRUE),
     ('COMPLEMENTAIRE', 'Bulletin Complémentaire', 'BPC', TRUE, FALSE, TRUE, TRUE, TRUE),
     ('RAPPEL', 'Rappel de Salaire / Régularisation', 'BPR', TRUE, FALSE, TRUE, TRUE, TRUE),
     ('GRATIFICATION', 'Gratification / 13ème Mois', 'BPG', FALSE, FALSE, TRUE, TRUE, TRUE)
@@ -496,7 +496,7 @@ CREATE TABLE paie_honoraire_prestation (
 CREATE INDEX idx_honoraire_periode ON paie_honoraire_prestation(id_periode_paie);
 CREATE INDEX idx_honoraire_intervenant ON paie_honoraire_prestation(id_intervenant);
 
--- 10. Solde de Tout Compte (STC) & Reçu Libératoire
+-- 10. Solde de tout compte (STC) et décompte détaillé
 CREATE SEQUENCE IF NOT EXISTS seq_numero_recu_stc START WITH 1 INCREMENT BY 1;
 
 CREATE TABLE paie_stc (
@@ -537,6 +537,9 @@ CREATE TABLE paie_stc (
     cree_par INT REFERENCES utilisateur(id_utilisateur),
     valide_par INT REFERENCES utilisateur(id_utilisateur),
     date_validation TIMESTAMP WITH TIME ZONE,
+    date_reglement DATE,
+    reference_reglement VARCHAR(255),
+    regle_par INT REFERENCES utilisateur(id_utilisateur),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_stc_statut CHECK (statut IN ('SIMULATION', 'VALIDE', 'REGLE', 'ANNULE'))

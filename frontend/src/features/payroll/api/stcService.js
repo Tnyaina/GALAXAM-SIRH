@@ -1,7 +1,7 @@
 import apiClient from '@/api/apiClient';
 
 /**
- * Service API pour le Solde de Tout Compte (STC) & Quittance Libératoire — GALAXAM SIRH
+ * Service API pour le solde de tout compte et son décompte — GALAXAM SIRH
  * Signatures vérifiées sur mg.galaxam.sirh.api.controller.paie.StcController
  */
 export const stcService = {
@@ -45,9 +45,8 @@ export const stcService = {
     /**
      * Valide et émet définitivement le STC :
      * - Génère le reçu officiel numéroté (ex: STC-2026-0001)
-     * - Clôture et apure intégralement les prêts d'entreprise en cours
-     * - Solde les avances sur salaire
-     * - Enregistre la quittance libératoire dans paie_stc
+     * - Impute les acomptes versés non encore imputés
+     * - Enregistre le décompte dans paie_stc
      *
      * @param {Object} payload - StcCalculRequest
      */
@@ -57,6 +56,10 @@ export const stcService = {
             simulation: false,
         });
         return response.data;
+    },
+
+    enregistrerReglement: async (idStc, payload) => {
+        await apiClient.post(`paie/stc/${idStc}/regler`, payload);
     },
 
     /**
@@ -78,7 +81,7 @@ export const stcService = {
     },
 
     /**
-     * Récupère la quittance libératoire financière officielle d'un STC validé.
+     * Récupère le décompte détaillé d'un STC validé.
      *
      * @param {number} idStc
      */

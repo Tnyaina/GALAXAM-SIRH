@@ -5,14 +5,15 @@ import java.sql.Date;
 import java.sql.Timestamp;
 
 /**
- * DTO officiel pour la Quittance Libératoire de Solde de Tout Compte (STC).
- * Conforme aux dispositions de l'Article 53 du Code du Travail malgache (Loi n° 2003-044).
+ * Reçu détaillé du solde de tout compte. Sa remise ne constate pas le paiement.
  */
 public class StcRecuDTO {
 
     private String numeroRecu;
     private Timestamp dateEmission;
     private String statut;
+    private Date dateReglement;
+    private String referenceReglement;
 
     // Entreprise
     private String entrepriseNom = "GALAXAM LOGISTICS";
@@ -63,7 +64,7 @@ public class StcRecuDTO {
 
     // Mentions légales
     private String mentionLiberatoire;
-    private String formuleManuscriteObligatoire = "Bon pour solde de tout compte et quittance finale";
+    private String formuleManuscriteObligatoire = "Reçu sous réserve de mes droits";
 
     public StcRecuDTO() {}
 
@@ -76,6 +77,10 @@ public class StcRecuDTO {
 
     public String getStatut() { return statut; }
     public void setStatut(String statut) { this.statut = statut; }
+    public Date getDateReglement() { return dateReglement; }
+    public void setDateReglement(Date dateReglement) { this.dateReglement = dateReglement; }
+    public String getReferenceReglement() { return referenceReglement; }
+    public void setReferenceReglement(String referenceReglement) { this.referenceReglement = referenceReglement; }
 
     public String getEntrepriseNom() { return entrepriseNom; }
     public void setEntrepriseNom(String entrepriseNom) { this.entrepriseNom = entrepriseNom; }

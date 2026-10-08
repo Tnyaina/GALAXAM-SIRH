@@ -358,8 +358,12 @@ INSERT INTO ref_type_evenement_rh (code, libelle) VALUES
 INSERT INTO ref_motif_sortie (code, libelle) VALUES
 ('DEMISSION', 'Démission de l employé'),
 ('LICENCIEMENT', 'Licenciement'),
+('LICENCIEMENT_ECONOMIQUE', 'Licenciement pour motif économique'),
+('CESSATION_ACTIVITE', 'Licenciement pour cessation d activité'),
 ('FIN_CONTRAT', 'Fin du contrat (CDD / Stage)'),
+('RUPTURE_ESSAI', 'Rupture de période d essai'),
 ('RETRAITE', 'Départ en retraite'),
+('DEPART_RETRAITE', 'Départ en retraite (événement carrière)'),
 ('DECES', 'Décès de l employé'),
 ('RUPTURE_CONVENTIONNELLE', 'Rupture conventionnelle'),
 ('AUTRE', 'Autre motif');
@@ -456,5 +460,4 @@ INSERT INTO ref_calendrier_ferie (id_ferie, date_ferie, libelle, est_chome, est_
 (14, '2026-12-25', 'Noël',                                   TRUE, TRUE, TRUE);
 
 SELECT setval('ref_calendrier_ferie_id_ferie_seq', (SELECT GREATEST(MAX(id_ferie), 14) FROM ref_calendrier_ferie));
-
 

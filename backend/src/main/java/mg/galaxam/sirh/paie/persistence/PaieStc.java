@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Entité représentant un Solde de Tout Compte (STC) & Quittance Libératoire.
+ * Entité représentant un calcul de solde de tout compte et son statut de règlement.
  * Table BDD : paie_stc
  */
 public class PaieStc extends ClassMere {

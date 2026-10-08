@@ -564,7 +564,7 @@ public class PayrollService {
         List<BulletinPaie> bulletins = BulletinPaie.listerParPeriode(idPeriodePaie, c);
         for (BulletinPaie bp : bulletins) {
             if ("STC".equalsIgnoreCase(bp.getTypeBulletin())) {
-                continue; // Un Solde de Tout Compte est libératoire et sanctuarisé : il n'est pas rouvert avec la paie mensuelle
+                continue; // Le bulletin STC validé reste distinct de la paie mensuelle.
             }
             bp.rouvrirBulletin(motif, idUtilisateur, c);
         }

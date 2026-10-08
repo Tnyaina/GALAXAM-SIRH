@@ -32,12 +32,13 @@ import mg.galaxam.sirh.paie.api.dto.stc.StcCalculRequest;
 import mg.galaxam.sirh.paie.api.dto.stc.StcCalculResultDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcPreparationDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcRecuDTO;
+import mg.galaxam.sirh.paie.api.dto.stc.StcReglementRequest;
 import mg.galaxam.sirh.securite.AuditLog;
 import org.springframework.stereotype.Service;
 
 /**
  * Service Métier pour le traitement, la simulation, la validation et l'émission
- * du Solde de Tout Compte (STC) & Quittance Libératoire (Loi n° 2003-044).
+ * du solde de tout compte et de son reçu détaillé.
  */
 @Service
 public class StcService {
@@ -209,28 +210,11 @@ public class StcService {
         prep.setTauxJournalierConge(tauxConge);
         prep.setIccpEstimee(iccpEstimee);
 
-        // 6. Préavis suggéré et Indemnité de licenciement légale
-        boolean estCadre = "CADRE".equalsIgnoreCase(catPro) || "CADRE_DIRIGEANT".equalsIgnoreCase(catPro);
-        boolean estLicenciement = motif != null && (motif.toUpperCase().contains("LICENCIEMENT") || "DEPART_RETRAITE".equalsIgnoreCase(motif));
-
-        if (estLicenciement) {
-            // Préavis légal / conventionnel (Cadre = 3 mois, Non-Cadre = 1 à 2 mois)
-            BigDecimal moisPreavis = estCadre ? new BigDecimal("3.0") : (prep.getAncienneteAnnees() >= 3 ? new BigDecimal("2.0") : new BigDecimal("1.0"));
-            prep.setMoisPreavisSuggere(moisPreavis);
-            prep.setIndemnitePreavisEstimee(MoneyRoundingPolicy.amount(salaireBase.multiply(moisPreavis)));
-
-            // Indemnité légale de licenciement (ex: 10 jours de salaire par année complète)
-            int annees = prep.getAncienneteAnnees();
-            if (annees >= 1) {
-                BigDecimal tauxJourLic = salaireBase.divide(new BigDecimal("30.0"), 2, RoundingMode.HALF_UP);
-                BigDecimal montantLic = MoneyRoundingPolicy.amount(tauxJourLic.multiply(new BigDecimal(annees * 10L)));
-                prep.setIndemniteLicenciementEstimee(montantLic);
-            }
-        } else {
-            prep.setMoisPreavisSuggere(BigDecimal.ZERO);
-            prep.setIndemnitePreavisEstimee(BigDecimal.ZERO);
-            prep.setIndemniteLicenciementEstimee(BigDecimal.ZERO);
-        }
+        // Le référentiel actuel ne distingue pas les cinq groupes du décret 2007-009.
+        // Aucune indemnité de préavis ou de licenciement ne peut être déduite de "CADRE/A".
+        prep.setMoisPreavisSuggere(BigDecimal.ZERO);
+        prep.setIndemnitePreavisEstimee(BigDecimal.ZERO);
+        prep.setIndemniteLicenciementEstimee(BigDecimal.ZERO);
 
         // 7. Engagements financiers (Prêts & Avances)
         BigDecimal totalPrets = PaiePret.calculerCapitalRestantTotal(idEmploye, c);
@@ -257,6 +241,7 @@ public class StcService {
     // =========================================================================
 
     public StcCalculResultDTO simulerStc(StcCalculRequest req, Connection c) throws Exception {
+        verifierMontantsNonNegatifs(req);
         StcPreparationDTO prep = preparerStc(req.getIdEmploye(), req.getDateDepart(), req.getMotifRupture(), c);
 
         StcCalculResultDTO res = new StcCalculResultDTO();
@@ -287,35 +272,34 @@ public class StcService {
                 "GAIN", prep.getSalaireBase(), null, salaireProrata);
 
         // 2. ICCP (Indemnité Compensatrice de Congés Payés) ou Retenue pour congés par anticipation
-        BigDecimal soldeConges = req.getSoldeConges() != null ? req.getSoldeConges() : prep.getSoldeCongesRestant();
+        if (req.getSoldeConges() != null && req.getSoldeConges().compareTo(prep.getSoldeCongesRestant()) != 0) {
+            throw new IllegalArgumentException("Le solde de congés doit être corrigé dans le journal des congés avant le STC.");
+        }
+        BigDecimal soldeConges = prep.getSoldeCongesRestant();
         BigDecimal tauxConge = prep.getTauxJournalierConge();
-        boolean soldeIdentique = req.getSoldeConges() == null
-                || req.getSoldeConges().compareTo(prep.getSoldeCongesRestant()) == 0;
-        BigDecimal iccp = soldeConges.signum() != 0 && soldeIdentique
+        BigDecimal iccp = soldeConges.signum() != 0
                 ? lotsConges.situation(req.getIdEmploye(), req.getDateDepart().toLocalDate(), c).soldeValorisation()
-                : MoneyRoundingPolicy.amount(soldeConges.multiply(tauxConge));
+                : BigDecimal.ZERO;
         res.setSoldeCongesRestant(soldeConges);
         res.setTauxJournalierConge(tauxConge);
         res.setIndemniteCongesPayes(iccp);
 
         BigDecimal gainConge = BigDecimal.ZERO;
-        BigDecimal retenueCongeAnticipe = BigDecimal.ZERO;
         if (iccp.compareTo(BigDecimal.ZERO) > 0) {
             gainConge = iccp;
             res.ajouterLigne("INDEMNITE_COMPENSATRICE_CONGE", "Indemnité Compensatrice de Congés Payés (" + soldeConges
-                    + (soldeIdentique ? "j, valeurs historiques des lots)" : "j × " + tauxConge + " Ar, solde ajusté)") ,
+                    + "j, valeurs historiques des lots)",
                     "GAIN", tauxConge, null, iccp);
         } else if (iccp.compareTo(BigDecimal.ZERO) < 0) {
-            retenueCongeAnticipe = iccp.abs();
-            res.ajouterLigne("RETENUE_CONGE_ANTICIPE", "Retenue pour congés pris par anticipation (" + soldeConges.abs() + "j x " + tauxConge + " Ar)",
-                    "RETENUE", tauxConge, null, retenueCongeAnticipe);
+            // Un solde négatif appelle un examen RH ; il n'autorise pas une retenue automatique.
+            res.ajouterLigne("CONGE_ANTICIPE_A_EXAMINER", "Congés pris par anticipation à examiner", "INFO",
+                    tauxConge, null, iccp.abs());
         }
 
         // 3. Indemnités de rupture (Préavis & Licenciement)
         BigDecimal moisPreavis = req.getMoisPreavis() != null ? req.getMoisPreavis() : prep.getMoisPreavisSuggere();
         BigDecimal indemnitePreavis = req.getIndemnitePreavis() != null
-                ? req.getIndemnitePreavis()
-                : MoneyRoundingPolicy.amount(prep.getSalaireBase().multiply(moisPreavis));
+                ? req.getIndemnitePreavis() : BigDecimal.ZERO;
         res.setMoisPreavis(moisPreavis);
         res.setIndemnitePreavis(indemnitePreavis);
         if (indemnitePreavis.compareTo(BigDecimal.ZERO) > 0) {
@@ -325,7 +309,7 @@ public class StcService {
 
         BigDecimal indemniteLicenciement = req.getIndemniteLicenciement() != null
                 ? req.getIndemniteLicenciement()
-                : prep.getIndemniteLicenciementEstimee();
+                : BigDecimal.ZERO;
         res.setIndemniteLicenciement(indemniteLicenciement);
         if (indemniteLicenciement.compareTo(BigDecimal.ZERO) > 0) {
             res.ajouterLigne("INDEMNITE_LICENCIEMENT", "Indemnité Légale de Rupture / Licenciement",
@@ -346,11 +330,13 @@ public class StcService {
         BigDecimal totalBrut = salaireProrata.add(gainConge).add(indemnitePreavis).add(indemniteLicenciement).add(autresIndemnites);
         res.setTotalBrutStc(totalBrut);
 
-        // 4. Cotisations Sociales & Assiette Fiscale
-        // Note légale : L'indemnité de licenciement est exonérée de cotisations et d'IRSA.
-        // Les congés pris par anticipation s'imputent sur l'assiette brute soumise.
-        BigDecimal assietteBruteSoumise = salaireProrata.add(gainConge).subtract(retenueCongeAnticipe).max(BigDecimal.ZERO);
+        // 4. Cotisations sociales et assiette fiscale. Aucune exonération IRSA
+        // générale de l'indemnité de licenciement n'est prévue par le CGI :
+        // elle entre donc dans l'assiette fiscale. Son assiette sociale reste
+        // distincte de celle des salaires et indemnités compensatrices.
+        BigDecimal assietteBruteSoumise = salaireProrata.add(gainConge).add(autresIndemnites).max(BigDecimal.ZERO);
         BigDecimal assietteSociale = assietteBruteSoumise.add(indemnitePreavis);
+        BigDecimal assietteFiscaleBrute = assietteSociale.add(indemniteLicenciement);
 
         // Chargement dynamique des règles légales et plafonds
         PaieConfigLegale configLegale = chargerConfigLegale(req.getDateDepart(), c);
@@ -431,17 +417,17 @@ public class StcService {
         }
 
         // Assiette IRSA
-        BigDecimal netImposable = assietteSociale.subtract(totalCotis).max(BigDecimal.ZERO);
+        BigDecimal netImposable = assietteFiscaleBrute.subtract(totalCotis).max(BigDecimal.ZERO);
         res.setNetImposable(netImposable);
 
         BigDecimal irsaNet = BigDecimal.ZERO;
         // Régime fiscal résolu une seule fois dans la préparation STC.
         if ("ISI".equalsIgnoreCase(prep.getRegimeFiscal())) {
             BigDecimal tauxIsi = PayrollFiscalRulesResolver.resolveIsiRate(req.getDateDepart().toLocalDate(), c);
-            BigDecimal isi = new PayrollTaxCalculations().calculateIsi(assietteSociale, tauxIsi);
+            BigDecimal isi = new PayrollTaxCalculations().calculateIsi(assietteFiscaleBrute, tauxIsi);
             irsaNet = isi;
             res.setIrsaNet(BigDecimal.ZERO);
-            res.ajouterLigne("RETENUE_ISI_5", "Retenue ISI", "RETENUE", assietteSociale, tauxIsi, isi);
+            res.ajouterLigne("RETENUE_ISI_5", "Retenue ISI", "RETENUE", assietteFiscaleBrute, tauxIsi, isi);
         }
 
         // Calcul IRSA selon barème progressif dynamique unifié
@@ -472,40 +458,26 @@ public class StcService {
         }
 
         // Net avant déductions d'engagements personnels
-        BigDecimal netAvantEngagements = totalBrut.subtract(retenueCongeAnticipe).subtract(totalCotis).subtract(irsaNet).max(BigDecimal.ZERO);
+        BigDecimal netAvantEngagements = totalBrut.subtract(totalCotis).subtract(irsaNet).max(BigDecimal.ZERO);
 
-        // 5. Apurements des Engagements Financiers
-        // Apurement Intégral des Prêts (PaiePret)
-        BigDecimal soldePrets = prep.getCapitalRestantPrets();
-        BigDecimal pretsADeduire = MoneyRoundingPolicy.amount(soldePrets.min(netAvantEngagements));
-        res.setSoldePretsDeduit(pretsADeduire);
-        if (pretsADeduire.compareTo(BigDecimal.ZERO) > 0) {
-            res.ajouterLigne("SOLDE_PRET_STC", "Apurement Intégral Prêt d'Entreprise (Remboursement Anticipé)", "RETENUE", soldePrets, null, pretsADeduire);
-        }
+        // 5. Seuls les acomptes déjà versés sont imputés sur ce calcul.
+        // Un prêt reste une créance distincte : aucune compensation automatique sur le salaire.
+        res.setSoldePretsDeduit(BigDecimal.ZERO);
 
-        BigDecimal netApresPret = netAvantEngagements.subtract(pretsADeduire).max(BigDecimal.ZERO);
-
-        // Apurement des Avances en cours
-        BigDecimal soldeAvances = prep.getAvancesEnAttente();
-        BigDecimal avancesADeduire = MoneyRoundingPolicy.amount(soldeAvances.min(netApresPret));
+        // Imputation des acomptes déjà versés.
+        BigDecimal soldeAvances = calculerAcomptesVersesNonImputes(req.getIdEmploye(), c);
+        BigDecimal avancesADeduire = MoneyRoundingPolicy.amount(soldeAvances.min(netAvantEngagements));
         res.setSoldeAvancesDeduit(avancesADeduire);
         if (avancesADeduire.compareTo(BigDecimal.ZERO) > 0) {
-            res.ajouterLigne("SOLDE_AVANCES_STC", "Apurement des Avances sur Salaire en Attente", "RETENUE", soldeAvances, null, avancesADeduire);
+            res.ajouterLigne("SOLDE_AVANCES_STC", "Imputation des acomptes déjà versés", "RETENUE", soldeAvances, null, avancesADeduire);
         }
 
-        BigDecimal netApresAvances = netApresPret.subtract(avancesADeduire).max(BigDecimal.ZERO);
+        BigDecimal netApresAvances = netAvantEngagements.subtract(avancesADeduire).max(BigDecimal.ZERO);
 
-        // Autres déductions (ex: matériel non rendu)
-        BigDecimal autresDeductions = req.getAutresDeductions() != null ? req.getAutresDeductions() : BigDecimal.ZERO;
-        BigDecimal autresADeduire = MoneyRoundingPolicy.amount(autresDeductions.min(netApresAvances));
+        // Les retenues diverses ne sont plus acceptées par ce moteur.
+        BigDecimal autresADeduire = BigDecimal.ZERO;
         res.setAutresDeductions(autresADeduire);
-        res.setMotifAutresDeductions(req.getMotifAutresDeductions());
-        if (autresADeduire.compareTo(BigDecimal.ZERO) > 0) {
-            String libAutreDed = req.getMotifAutresDeductions() != null && !req.getMotifAutresDeductions().isBlank()
-                    ? req.getMotifAutresDeductions()
-                    : "Autres retenues finales";
-            res.ajouterLigne("AUTRES_RETENUES_STC", libAutreDed, "RETENUE", null, null, autresADeduire);
-        }
+        res.setMotifAutresDeductions(null);
 
         // 6. Net Final à Payer (arrondi bancaire officiel Ariary à la dizaine la plus proche)
         BigDecimal netFinalNonArrondi = netApresAvances.subtract(autresADeduire).max(BigDecimal.ZERO);
@@ -532,6 +504,7 @@ public class StcService {
     // =========================================================================
 
     public StcCalculResultDTO validerStc(StcCalculRequest req, Integer userId, Connection c) throws Exception {
+        verifierValidationJuridique(req, c);
         if (req.getDateDepart() != null
                 && req.getDateDepart().toLocalDate().isAfter(LocalDate.now(ZoneId.of("Indian/Antananarivo")))) {
             throw new IllegalArgumentException(
@@ -566,6 +539,14 @@ public class StcService {
             }
         }
         if (idPeriode == null) throw new IllegalStateException("MISSING_CONFIGURATION: PERIODE_PAIE au " + req.getDateDepart());
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT 1 FROM paie_stc WHERE id_employe = ? AND id_periode_paie = ? AND statut <> 'ANNULE' LIMIT 1")) {
+            ps.setInt(1, req.getIdEmploye());
+            ps.setInt(2, idPeriode);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) throw new IllegalStateException("Un STC existe déjà pour cet employé et cette période.");
+            }
+        }
         entity.setIdPeriodePaie(idPeriode);
         entity.setNumeroRecu(numRecu);
         entity.setDateDepart(req.getDateDepart());
@@ -601,7 +582,9 @@ public class StcService {
         entity.setNetAPayerStc(simulation.getNetAPayerStc());
         entity.setStatut("VALIDE");
         entity.setModeReglement(simulation.getModeReglement());
-        entity.setCommentaire(simulation.getCommentaire());
+        entity.setCommentaire((simulation.getCommentaire() == null ? "" : simulation.getCommentaire() + "\n")
+                + "Justification indemnités : " + (req.getJustificationIndemnites() == null ? "Sans indemnité manuelle" : req.getJustificationIndemnites().trim())
+                + "; rémunération de référence licenciement : " + req.getRemunerationReferenceLicenciement());
 
         // Résolution dynamique ref_mode_paiement
         String modeReg = simulation.getModeReglement() != null ? simulation.getModeReglement() : "VIREMENT";
@@ -616,15 +599,13 @@ public class StcService {
 
         // Résolution dynamique ref_motif_sortie
         if (entity.getMotifRupture() != null && !entity.getMotifRupture().isBlank()) {
-            try (PreparedStatement psMot = c.prepareStatement("SELECT id_motif_sortie FROM ref_motif_sortie WHERE UPPER(code) = UPPER(?) OR UPPER(libelle) LIKE ? LIMIT 1")) {
+            try (PreparedStatement psMot = c.prepareStatement("SELECT id_motif_sortie FROM ref_motif_sortie WHERE UPPER(code) = UPPER(?) AND actif = TRUE")) {
                 psMot.setString(1, entity.getMotifRupture());
-                psMot.setString(2, "%" + entity.getMotifRupture().toUpperCase() + "%");
                 try (ResultSet rsMot = psMot.executeQuery()) {
-                    if (rsMot.next()) {
-                        entity.setIdMotifSortie(rsMot.getInt(1));
-                    }
+                    if (!rsMot.next()) throw new IllegalArgumentException("Motif de sortie absent ou inactif dans le référentiel RH.");
+                    entity.setIdMotifSortie(rsMot.getInt(1));
                 }
-            } catch (Exception ignored) {}
+            }
         }
 
         entity.setCreePar(userId);
@@ -687,14 +668,6 @@ public class StcService {
         bpStc.setValidePar(userId);
         bpStc.setCommentaire("Solde de Tout Compte : " + entity.getMotifRupture());
 
-        // Nettoyage préalable d'un ancien bulletin STC pour la même période/employé si recalcul
-        String sqlCleanStcBp = "DELETE FROM bulletin_paie WHERE id_periode_paie = ? AND id_employe = ? AND type_bulletin = 'STC'";
-        try (PreparedStatement psClean = c.prepareStatement(sqlCleanStcBp)) {
-            psClean.setInt(1, entity.getIdPeriodePaie());
-            psClean.setInt(2, entity.getIdEmploye());
-            psClean.executeUpdate();
-        }
-
         bpStc.save(c);
         entity.setIdBulletin(bpStc.getIdBulletin());
         simulation.setIdBulletin(bpStc.getIdBulletin());
@@ -740,17 +713,12 @@ public class StcService {
             l.save(c);
         }
 
-        // 3. Apurement effectif des prêts en cours (PaiePret)
-        if (simulation.getSoldePretsDeduit().compareTo(BigDecimal.ZERO) > 0) {
-            PaiePret.solderPretsPourStc(req.getIdEmploye(), simulation.getSoldePretsDeduit(), bpStc.getIdBulletin(), c);
-        }
-
-        // 4. Le STC n'impute que la somme réellement retenue, sur les fonds versés.
+        // 4. Le STC n'impute que les acomptes versés et réellement retenus.
         BigDecimal resteAImputer = simulation.getSoldeAvancesDeduit();
         if (resteAImputer != null && resteAImputer.signum() > 0) {
             String sqlDossiers = "SELECT a.id_avance, a.solde_restant FROM paie_avance_acompte a " +
                     "JOIN ref_type_mouvement_paie t ON t.id_type_mouvement = a.id_type_mouvement " +
-                    "WHERE a.id_employe = ? AND t.categorie IN ('ACOMPTE','AVANCE') " +
+                    "WHERE a.id_employe = ? AND t.categorie = 'ACOMPTE' " +
                     "AND a.versement_confirme_at IS NOT NULL AND a.statut = 'APPROUVE' " +
                     "AND a.solde_restant > 0 ORDER BY a.date_paiement, a.id_avance FOR UPDATE OF a";
             try (PreparedStatement ps = c.prepareStatement(sqlDossiers)) {
@@ -826,9 +794,126 @@ public class StcService {
         return simulation;
     }
 
+    private BigDecimal calculerAcomptesVersesNonImputes(Integer idEmploye, Connection c) throws Exception {
+        String sql = "SELECT COALESCE(SUM(a.solde_restant), 0) FROM paie_avance_acompte a "
+                + "JOIN ref_type_mouvement_paie t ON t.id_type_mouvement = a.id_type_mouvement "
+                + "WHERE a.id_employe = ? AND t.categorie = 'ACOMPTE' "
+                + "AND a.versement_confirme_at IS NOT NULL AND a.statut = 'APPROUVE'";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idEmploye);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getBigDecimal(1) : BigDecimal.ZERO;
+            }
+        }
+    }
+
+    private void verifierMontantsNonNegatifs(StcCalculRequest req) {
+        for (BigDecimal montant : List.of(
+                zeroIfNull(req.getJoursTravaillesDernierMois()),
+                zeroIfNull(req.getMoisPreavis()),
+                zeroIfNull(req.getIndemnitePreavis()),
+                zeroIfNull(req.getIndemniteLicenciement()),
+                zeroIfNull(req.getAutresIndemnites()),
+                zeroIfNull(req.getAutresDeductions()))) {
+            if (montant.signum() < 0) throw new IllegalArgumentException("Les montants du STC ne peuvent pas être négatifs.");
+        }
+        if (req.getAutresDeductions() != null && req.getAutresDeductions().signum() > 0) {
+            throw new IllegalArgumentException("Les retenues diverses doivent être traitées dans leur dossier légal, hors STC.");
+        }
+        if (req.getJoursTravaillesDernierMois() != null
+                && req.getJoursTravaillesDernierMois().compareTo(new BigDecimal("30")) > 0) {
+            throw new IllegalArgumentException("Le prorata du dernier mois ne peut dépasser 30 jours.");
+        }
+    }
+
+    private void verifierValidationJuridique(StcCalculRequest req, Connection c) throws Exception {
+        verifierMontantsNonNegatifs(req);
+        String motif = req.getMotifRupture() == null ? "" : req.getMotifRupture().trim().toUpperCase();
+        if (!List.of("DEMISSION", "LICENCIEMENT", "LICENCIEMENT_ECONOMIQUE", "CESSATION_ACTIVITE",
+                "FIN_CONTRAT", "RUPTURE_ESSAI", "RUPTURE_CONVENTIONNELLE", "RETRAITE",
+                "DEPART_RETRAITE", "AUTRE").contains(motif)) {
+            throw new IllegalArgumentException("Le motif de rupture doit être choisi dans le référentiel RH.");
+        }
+        boolean economique = "LICENCIEMENT_ECONOMIQUE".equals(motif) || "CESSATION_ACTIVITE".equals(motif);
+        var emploi = new mg.galaxam.sirh.contrat.application.EmploymentContextResolver()
+                .resolveContext(req.getIdEmploye(), req.getDateDepart().toLocalDate(), c);
+        if (emploi == null || emploi.idContrat() == null) {
+            throw new IllegalArgumentException("Aucun contrat applicable à la date du départ.");
+        }
+        if ("FIN_CONTRAT".equals(motif) && "CDD".equalsIgnoreCase(emploi.typeContratCode())
+                && (emploi.dateFinContrat() == null
+                || !emploi.dateFinContrat().equals(req.getDateDepart().toLocalDate()))) {
+            throw new IllegalArgumentException("La fin de CDD doit correspondre à son échéance contractuelle. Une rupture anticipée suit un autre régime.");
+        }
+        if ("AUTRE".equals(motif) && (req.getCommentaire() == null || req.getCommentaire().isBlank())) {
+            throw new IllegalArgumentException("Un motif de sortie 'Autre' doit être décrit dans le commentaire RH.");
+        }
+        if (!"CDI".equalsIgnoreCase(emploi.typeContratCode())
+                && (economique || "LICENCIEMENT".equals(motif)
+                || zeroIfNull(req.getIndemnitePreavis()).signum() > 0)) {
+            throw new IllegalArgumentException("Le préavis CDI et l'indemnité de licenciement économique ne s'appliquent pas à ce type de contrat.");
+        }
+        BigDecimal indemniteLicenciement = zeroIfNull(req.getIndemniteLicenciement());
+        BigDecimal indemnitePreavis = zeroIfNull(req.getIndemnitePreavis());
+        if (indemnitePreavis.signum() > 0 && zeroIfNull(req.getMoisPreavis()).signum() <= 0) {
+            throw new IllegalArgumentException("La durée de préavis non exécutée doit être renseignée avec son indemnité.");
+        }
+        if (zeroIfNull(req.getAutresIndemnites()).signum() > 0
+                && (req.getMotifAutresIndemnites() == null || req.getMotifAutresIndemnites().isBlank())) {
+            throw new IllegalArgumentException("Le libellé des autres gains de départ est obligatoire.");
+        }
+        if ((indemniteLicenciement.signum() > 0 || indemnitePreavis.signum() > 0)
+                && (req.getJustificationIndemnites() == null || req.getJustificationIndemnites().isBlank())) {
+            throw new IllegalArgumentException("La référence de la décision et du calcul des indemnités est obligatoire.");
+        }
+        if (economique) {
+            BigDecimal reference = req.getRemunerationReferenceLicenciement();
+            if (reference == null || reference.signum() <= 0) {
+                throw new IllegalArgumentException("La dernière rémunération avec accessoires, hors frais, est obligatoire pour le licenciement économique ou la cessation d'activité.");
+            }
+            StcPreparationDTO prep = preparerStc(req.getIdEmploye(), req.getDateDepart(), motif, c);
+            if (reference.compareTo(prep.getSalaireBase()) < 0) {
+                throw new IllegalArgumentException("La rémunération de référence ne peut être inférieure au salaire de base du contrat.");
+            }
+            BigDecimal jours = new BigDecimal(Math.min(prep.getAncienneteAnnees() * 10L, 180L));
+            BigDecimal minimum = MoneyRoundingPolicy.amount(reference.multiply(jours)
+                    .divide(new BigDecimal("30"), 2, RoundingMode.HALF_UP));
+            if (indemniteLicenciement.compareTo(minimum) < 0) {
+                throw new IllegalArgumentException("L'indemnité de licenciement est inférieure au minimum légal calculé sur la rémunération de référence : " + minimum + " Ar.");
+            }
+        } else if (indemniteLicenciement.signum() > 0 && !"LICENCIEMENT".equals(motif)) {
+            throw new IllegalArgumentException("Une indemnité de licenciement hors motif économique exige un motif de licenciement explicite.");
+        }
+    }
+
     // =========================================================================
-    // 4. REÇU & QUITTANCE LIBÉRATOIRE OFFICIELLE
+    // 4. RÈGLEMENT ET DÉCOMPTE DE FIN DE CONTRAT
     // =========================================================================
+
+    public void enregistrerReglement(Integer idStc, StcReglementRequest req, Integer userId, Connection c) throws Exception {
+        if (req == null || req.dateReglement() == null || req.referenceReglement() == null
+                || req.referenceReglement().isBlank()) {
+            throw new IllegalArgumentException("La date et la référence du paiement sont obligatoires.");
+        }
+        if (req.dateReglement().toLocalDate().isAfter(LocalDate.now(ZoneId.of("Indian/Antananarivo")))) {
+            throw new IllegalArgumentException("Le règlement ne peut pas être daté dans le futur.");
+        }
+        try (PreparedStatement ps = c.prepareStatement(
+                "UPDATE paie_stc SET statut = 'REGLE', date_reglement = ?, reference_reglement = ?, "
+                + "regle_par = ?, updated_at = CURRENT_TIMESTAMP WHERE id_stc = ? AND statut = 'VALIDE' "
+                + "AND date_depart <= ?")) {
+            ps.setDate(1, req.dateReglement());
+            ps.setString(2, req.referenceReglement().trim());
+            ps.setInt(3, userId);
+            ps.setInt(4, idStc);
+            ps.setDate(5, req.dateReglement());
+            if (ps.executeUpdate() != 1) {
+                throw new IllegalStateException("STC absent, déjà réglé, annulé ou date de règlement antérieure au départ.");
+            }
+        }
+        AuditLog.audit(c, "REGLEMENT_STC", "paie_stc", String.valueOf(idStc), null,
+                req.referenceReglement().trim());
+    }
 
     public StcRecuDTO obtenirRecuStc(Integer idStc, Connection c) throws Exception {
         PaieStc s = PaieStc.trouverParId(idStc, c);
@@ -840,6 +925,16 @@ public class StcService {
         r.setNumeroRecu(s.getNumeroRecu());
         r.setDateEmission(s.getDateValidation() != null ? s.getDateValidation() : new Timestamp(System.currentTimeMillis()));
         r.setStatut(s.getStatut());
+        try (PreparedStatement psReg = c.prepareStatement(
+                "SELECT date_reglement, reference_reglement FROM paie_stc WHERE id_stc = ?")) {
+            psReg.setInt(1, idStc);
+            try (ResultSet rsReg = psReg.executeQuery()) {
+                if (rsReg.next()) {
+                    r.setDateReglement(rsReg.getDate("date_reglement"));
+                    r.setReferenceReglement(rsReg.getString("reference_reglement"));
+                }
+            }
+        }
 
         try (PreparedStatement ps = c.prepareStatement(
                 "SELECT raison_sociale, nif, stat FROM ref_filiale WHERE est_actif = TRUE ORDER BY id_filiale ASC LIMIT 1")) {
@@ -872,15 +967,8 @@ public class StcService {
         r.setTauxJournalierConge(s.getTauxJournalierConge());
 
         BigDecimal iccp = s.getIndemniteCongesPayes() != null ? s.getIndemniteCongesPayes() : BigDecimal.ZERO;
-        BigDecimal retenueCongeAnticipe = BigDecimal.ZERO;
-        if (iccp.compareTo(BigDecimal.ZERO) < 0) {
-            retenueCongeAnticipe = iccp.abs();
-            r.setIndemniteCongesPayes(BigDecimal.ZERO);
-            r.setAutresDeductions((s.getAutresDeductions() != null ? s.getAutresDeductions() : BigDecimal.ZERO).add(retenueCongeAnticipe));
-        } else {
-            r.setIndemniteCongesPayes(iccp);
-            r.setAutresDeductions(s.getAutresDeductions() != null ? s.getAutresDeductions() : BigDecimal.ZERO);
-        }
+        r.setIndemniteCongesPayes(iccp.max(BigDecimal.ZERO));
+        r.setAutresDeductions(s.getAutresDeductions() != null ? s.getAutresDeductions() : BigDecimal.ZERO);
 
         r.setMoisPreavis(s.getMoisPreavis());
         r.setIndemnitePreavis(s.getIndemnitePreavis());
@@ -897,7 +985,7 @@ public class StcService {
         BigDecimal totalRetenues = s.getTotalCotisationsSociales().add(s.getTotalIrsa())
                 .add(s.getSoldePretsDeduit()).add(s.getSoldeAvancesDeduit()).add(r.getAutresDeductions());
 
-        // Réconciliation stricte de l'arrondi légal à la dizaine d'Ariary pour la quittance imprimée
+        // Réconciliation de l'arrondi à la dizaine d'Ariary pour le décompte imprimé.
         BigDecimal deltaArrondi = s.getNetAPayerStc().subtract(s.getTotalBrutStc().subtract(totalRetenues));
         if (deltaArrondi.compareTo(BigDecimal.ZERO) > 0) {
             r.setTotalBrut(s.getTotalBrutStc().add(deltaArrondi));
@@ -914,12 +1002,9 @@ public class StcService {
         r.setModeReglement(s.getModeReglement());
         r.setNetEnLettres(convertirEnLettres(s.getNetAPayerStc()));
 
-        r.setMentionLiberatoire(
-                "Le salarié soussigné reconnaît avoir reçu de la société GALAXAM LOGISTICS la somme de " +
-                s.getNetAPayerStc().toPlainString() + " Ariary pour solde de tout compte et règlement définitif " +
-                "de tous salaires, indemnités et accessoires qui lui étaient dus au titre de l'exécution et de la résiliation " +
-                "de son contrat de travail, conformément aux dispositions du Code du Travail Malgache."
-        );
+        r.setMentionLiberatoire("Ce document détaille les sommes calculées à la cessation du contrat. "
+                + "Le paiement doit être attesté séparément. La remise ou la signature de ce document "
+                + "n'emporte aucune renonciation aux droits du travailleur.");
 
         return r;
     }

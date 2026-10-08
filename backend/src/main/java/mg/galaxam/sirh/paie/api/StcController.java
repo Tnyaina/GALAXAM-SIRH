@@ -10,6 +10,7 @@ import mg.galaxam.sirh.paie.api.dto.stc.StcCalculRequest;
 import mg.galaxam.sirh.paie.api.dto.stc.StcCalculResultDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcPreparationDTO;
 import mg.galaxam.sirh.paie.api.dto.stc.StcRecuDTO;
+import mg.galaxam.sirh.paie.api.dto.stc.StcReglementRequest;
 import mg.galaxam.sirh.common.exception.SirhBusinessException;
 import mg.galaxam.sirh.common.exception.SirhErrorCode;
 import mg.galaxam.sirh.paie.persistence.PaieStc;
@@ -81,9 +82,8 @@ public class StcController {
     /**
      * Valide et émet définitivement le STC :
      * - Génère le reçu numéroté officiel (ex: STC-2026-0001)
-     * - Clôture et apure intégralement les prêts d'entreprise en cours (SOLDE)
-     * - Solde les avances sur salaire
-     * - Enregistre la quittance libératoire dans paie_stc
+     * - Impute les seuls acomptes versés et non imputés
+     * - Enregistre le décompte détaillé dans paie_stc
      */
     @PostMapping("/valider")
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
@@ -127,7 +127,7 @@ public class StcController {
     }
 
     /**
-     * Récupère la quittance libératoire financière officielle d'un STC validé.
+     * Récupère le décompte détaillé d'un STC validé.
      */
     @GetMapping("/{idStc}/recu")
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
@@ -139,6 +139,24 @@ public class StcController {
                         "STC introuvable pour l'identifiant " + idStc + ".");
             }
             return ResponseEntity.ok(recu);
+        }
+    }
+
+    @PostMapping("/{idStc}/regler")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> enregistrerReglement(@PathVariable("idStc") Integer idStc,
+            @Valid @RequestBody StcReglementRequest req) throws Exception {
+        Integer userId = getCurrentUserId();
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                stcService.enregistrerReglement(idStc, req, userId, c);
+                c.commit();
+                return ResponseEntity.noContent().build();
+            } catch (Exception ex) {
+                c.rollback();
+                throw ex;
+            }
         }
     }
 

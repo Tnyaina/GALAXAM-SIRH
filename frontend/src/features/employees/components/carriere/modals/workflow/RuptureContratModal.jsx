@@ -11,6 +11,7 @@ import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Loading from '@/components/ui/feedback/Loading';
 import Modal from '@/components/ui/overlays/Modal';
 import contratService from '@/features/employees/api/contratService';
+import { motifsPourEvenement, motifSortiePourEvenement, optionsMotifsSortie } from '@/features/employees/utils/motifsSortie';
 import { fmtDateFr, fmtDateInput } from '@/utils/dateUtils';
 import { fmtMoneyMGA } from '@/utils/moneyUtils';
 
@@ -100,9 +101,11 @@ export default function RuptureContratModal({
     const [savedDraftResult, setSavedDraftResult] = useState(null);
 
     const [typesEvenement, setTypesEvenement] = useState([]);
+    const [motifsSortie, setMotifsSortie] = useState([]);
 
     const [formData, setFormData] = useState({
         codeTypeEvenement: 'DEMISSION',
+        motifSortieCode: 'DEMISSION',
         dateNotification: fmtDateInput(new Date()),
         dateEffet: fmtDateInput(new Date()),
         dureePreavisKey: '1_MOIS',
@@ -116,7 +119,10 @@ export default function RuptureContratModal({
     const loadReferentiels = useCallback(async () => {
         setLoadingRef(true);
         try {
-            const tevRes = await contratService.getTypesEvenementRh();
+            const [tevRes, motifsRes] = await Promise.all([
+                contratService.getTypesEvenementRh(), contratService.getMotifsSortie(),
+            ]);
+            setMotifsSortie(optionsMotifsSortie(motifsRes));
             const list = Array.isArray(tevRes) ? tevRes : (tevRes?.items || tevRes?.content || []);
             const ruptures = list.filter(t =>
                 t && ['DEMISSION', 'LICENCIEMENT', 'RUPTURE_CONVENTIONNELLE', 'FIN_CONTRAT', 'RUPTURE_ESSAI', 'DEPART_RETRAITE'].includes(t.code)
@@ -178,6 +184,8 @@ export default function RuptureContratModal({
 
                 setFormData({
                     codeTypeEvenement: targetData.codeTypeEvenement || 'DEMISSION',
+                    motifSortieCode: /^\[([A-Z_]+)\]/.exec(targetData.motif || '')?.[1]
+                        || motifSortiePourEvenement(targetData.codeTypeEvenement || 'DEMISSION'),
                     dateNotification: dateNotif,
                     dateEffet: parsedDateEffet,
                     dureePreavisKey: resolvedDuree,
@@ -191,6 +199,7 @@ export default function RuptureContratModal({
                 const computedEffet = calculerDateEffet(dateNotif, defaultDuree, 'EFFECTUE');
                 setFormData({
                     codeTypeEvenement: 'DEMISSION',
+                    motifSortieCode: 'DEMISSION',
                     dateNotification: dateNotif,
                     dateEffet: computedEffet,
                     dureePreavisKey: defaultDuree,
@@ -291,6 +300,7 @@ export default function RuptureContratModal({
         setFormData(prev => ({
             ...prev,
             codeTypeEvenement: newCode,
+            motifSortieCode: motifSortiePourEvenement(newCode),
             dureePreavisKey: suggestedDuree,
             modePreavis: suggestedMode,
             dateEffet: newEffet,
@@ -299,6 +309,7 @@ export default function RuptureContratModal({
 
     const typeEvenementActuel = typesEvenement.find(t => t.code === formData.codeTypeEvenement);
     const libTypeRupture = typeEvenementActuel?.libelle || formData.codeTypeEvenement;
+    const libMotifSortie = motifsSortie.find(m => m.value === formData.motifSortieCode)?.label || libTypeRupture;
 
     // Détection si la date d'effet est future
     const isDateEffetFuture = useMemo(() => {
@@ -317,6 +328,9 @@ export default function RuptureContratModal({
 
         if (!formData.dateEffet) return setErrorMsg('La date de prise d\'effet de la rupture est obligatoire.');
         if (!contratSourceId) return setErrorMsg('Impossible de rompre : aucun contrat source trouvé pour cet employé.');
+        if (!motifsSortie.some(m => m.value === formData.motifSortieCode && motifsPourEvenement(formData.codeTypeEvenement).includes(m.value))) {
+            return setErrorMsg('Choisissez un motif de sortie actif et cohérent avec le type de rupture.');
+        }
 
         setSubmitting(true);
         try {
@@ -325,7 +339,7 @@ export default function RuptureContratModal({
                 idContratSource: contratSourceId,
                 idAffectationSource: affectationActive?.idAffectation || initialData?.idAffectationSource || (workflowActif?.isBrouillon ? workflowActif.idAffectationSource : null),
                 dateEffet: formData.dateEffet,
-                motif: `[${libTypeRupture}] ${formData.motif || ''}`.trim(),
+                motif: `[${formData.motifSortieCode}] ${formData.motif || ''}`.trim(),
                 commentaireAffectation: formData.commentaire || null,
                 descriptionContrat: `Préavis : ${libelleDuree} (${modePreavisInfo.titre})`,
             };
@@ -351,7 +365,7 @@ export default function RuptureContratModal({
         if (onOpenStc) {
             onOpenStc({
                 dateDepart: formData.dateEffet,
-                motifRupture: formData.codeTypeEvenement,
+                motifRupture: formData.motifSortieCode,
                 modePreavis: formData.modePreavis,
                 moisPreavis: moisIndemnite,
                 indemnitePreavis: indemniteEstimee > 0 ? indemniteEstimee : null,
@@ -402,7 +416,7 @@ export default function RuptureContratModal({
                                 Brouillon de fin de contrat créé
                             </h3>
                             <p className="text-xs text-[var(--color-fg-muted)] leading-relaxed">
-                                Le motif <strong className="text-[var(--color-fg)]">{libTypeRupture}</strong> avec date de sortie au <strong className="text-[var(--color-fg)]">{fmtDateFr(formData.dateEffet)}</strong> a été enregistré.
+                                Le motif <strong className="text-[var(--color-fg)]">{libMotifSortie}</strong> avec date de sortie au <strong className="text-[var(--color-fg)]">{fmtDateFr(formData.dateEffet)}</strong> a été enregistré.
                                 {isDateEffetFuture
                                     ? ' Après validation finale, l\'offboarding sera planifié jusqu\'au terme du préavis.'
                                     : ' L\'application prendra effet immédiatement lors de la validation finale.'}
@@ -502,6 +516,15 @@ export default function RuptureContratModal({
                                         label: t.libelle
                                     }))}
                                 placeholder="-- Choisir un type de rupture --"
+                            />
+                            <SearchSelect
+                                id="motifSortieCode"
+                                label="Motif précis de sortie"
+                                required
+                                value={formData.motifSortieCode}
+                                onChange={(val) => setFormData(prev => ({ ...prev, motifSortieCode: val }))}
+                                options={motifsSortie.filter(m => motifsPourEvenement(formData.codeTypeEvenement).includes(m.value))}
+                                placeholder="-- Choisir le motif de sortie --"
                             />
                         </div>
 

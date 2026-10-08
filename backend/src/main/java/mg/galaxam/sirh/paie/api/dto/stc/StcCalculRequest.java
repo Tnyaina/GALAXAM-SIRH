@@ -26,6 +26,8 @@ public class StcCalculRequest {
     private BigDecimal moisPreavis; // 0, 1, 2 ou 3 mois
     private BigDecimal indemnitePreavis; // Surcharge du montant
     private BigDecimal indemniteLicenciement; // Surcharge du montant
+    private BigDecimal remunerationReferenceLicenciement; // Dernière rémunération avec accessoires, hors frais
+    private String justificationIndemnites; // Référence de la décision et du calcul RH
     private BigDecimal autresIndemnites;
     private String motifAutresIndemnites;
 
@@ -66,6 +68,10 @@ public class StcCalculRequest {
 
     public BigDecimal getIndemniteLicenciement() { return indemniteLicenciement; }
     public void setIndemniteLicenciement(BigDecimal indemniteLicenciement) { this.indemniteLicenciement = indemniteLicenciement; }
+    public BigDecimal getRemunerationReferenceLicenciement() { return remunerationReferenceLicenciement; }
+    public void setRemunerationReferenceLicenciement(BigDecimal remunerationReferenceLicenciement) { this.remunerationReferenceLicenciement = remunerationReferenceLicenciement; }
+    public String getJustificationIndemnites() { return justificationIndemnites; }
+    public void setJustificationIndemnites(String justificationIndemnites) { this.justificationIndemnites = justificationIndemnites; }
 
     public BigDecimal getAutresIndemnites() { return autresIndemnites; }
     public void setAutresIndemnites(BigDecimal autresIndemnites) { this.autresIndemnites = autresIndemnites; }

@@ -1,5 +1,13 @@
 # Registre des Migrations Incrémentales BDD
 
+`26-10-08-sp60-stc-motifs-rupture.sql` ajoute les motifs détaillés du STC
+pour les bases existantes. Le référentiel canonique `02_schema_referentiels_rh.sql`
+les contient pour les nouvelles installations.
+
+`26-10-08-sp61-stc-reglement.sql` ajoute la preuve de paiement du STC,
+distincte de la validation du calcul. Les colonnes figurent dans le schéma
+canonique `06_schema_paie.sql`.
+
 `26-10-03-sp55-conge-decompte-feries-date.sql` fixe la règle Galaxam actuelle
 `INCLUS` dans un paramètre obligatoire et versionnable par date d'effet.
 Une version `EXCLUS` future changera le décompte à partir de chaque jour concerné,

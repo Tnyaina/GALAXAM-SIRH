@@ -10,7 +10,7 @@ import stcService from '@/features/payroll/api/stcService';
 import { getErrorMessage } from '@/api/apiClient';
 
 /**
- * Modale Quittance Libératoire Financière Officielle du STC (Article 53 Code du Travail - Loi 2003-044).
+ * Reçu détaillé du calcul de fin de contrat.
  */
 export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = null }) {
     // État local
@@ -40,7 +40,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                     const data = await stcService.obtenirRecuStc(idStc);
                     setRecu(data);
                 } catch (err) {
-                    setError(getErrorMessage(err, 'Impossible de charger le reçu officiel de STC.'));
+                    setError(getErrorMessage(err, 'Impossible de charger le décompte de STC.'));
                 } finally {
                     setLoading(false);
                 }
@@ -62,13 +62,13 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={recu?.numeroRecu ? `Quittance Libératoire — ${recu.numeroRecu}` : 'Reçu de Solde de Tout Compte'}
+            title={recu?.numeroRecu ? `Décompte de fin de contrat — ${recu.numeroRecu}` : 'Décompte de fin de contrat'}
             icon={<FileText size={18} className="text-[var(--color-brand-600)]" />}
             size="3xl"
             footer={
                 <div className="flex justify-between items-center w-full">
                     <span className="text-[11px] text-[var(--color-fg-subtle)]">
-                        Document officiel conforme à l'Art. 53 du Code du Travail Malgache
+                        Calcul validé ; paiement à attester séparément
                     </span>
                     <div className="flex gap-2">
                         <Button type="button" variant="outline" size="sm" onClick={onClose}>
@@ -82,7 +82,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                                 iconLeft={<Printer size={15} />}
                                 onClick={handlePrint}
                             >
-                                Imprimer la Quittance
+                                Imprimer le décompte
                             </Button>
                         )}
                     </div>
@@ -91,7 +91,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
         >
             {loading && (
                 <div className="py-12 text-center text-xs text-[var(--color-fg-muted)]">
-                    Chargement de la quittance libératoire...
+                    Chargement du décompte...
                 </div>
             )}
 
@@ -116,7 +116,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                         </div>
                         <div className="text-right">
                             <Badge variant="success" size="sm" className="font-bold font-mono">
-                                {recu.numeroRecu || 'STC-OFFICIEL'}
+                                {recu.numeroRecu || 'STC'}
                             </Badge>
                             <p className="text-[10px] text-[var(--color-fg-muted)] mt-1">
                                 Émis le : <span className="font-semibold">{fmtDate(recu.dateEmission)}</span>
@@ -124,6 +124,11 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                             <p className="text-[10px] text-[var(--color-fg-subtle)] uppercase">
                                 Statut : {recu.statut || 'VALIDÉ'}
                             </p>
+                            {recu.dateReglement && (
+                                <p className="text-[10px] text-[var(--color-fg-subtle)]">
+                                    Payé le {fmtDate(recu.dateReglement)} · Réf. {recu.referenceReglement}
+                                </p>
+                            )}
                         </div>
                     </div>
 
@@ -182,7 +187,9 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                                 <Td className="font-sans">
                                     Indemnité Compensatrice de Congés Payés (ICCP)
                                     <span className="text-[10px] text-[var(--color-fg-muted)] block font-normal">
-                                        Solde : {recu.soldeCongesRestant} j × {formatMoneyAr(recu.tauxJournalierConge)} / j
+                                        {Number(recu.soldeCongesRestant) < 0
+                                            ? `Solde négatif de ${Math.abs(Number(recu.soldeCongesRestant))} jour(s) à examiner séparément`
+                                            : `Solde : ${recu.soldeCongesRestant} j, valorisation des droits acquis`}
                                     </span>
                                 </Td>
                                 <Td className="text-right">{formatMoneyAr(recu.indemniteCongesPayes)}</Td>
@@ -239,7 +246,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                         <Tfoot>
                             <Tr className="bg-[var(--color-ink-950)] text-[var(--color-on-color)] font-bold">
                                 <Td className="p-3 font-sans uppercase tracking-wider text-xs text-inherit">
-                                    NET À PAYER DÉFINITIF
+                                    NET CALCULÉ À PAYER
                                     <span className="text-[10px] text-[var(--color-ink-200)] block font-normal capitalize">
                                         Règlement par {recu.modeReglement || 'VIREMENT'}
                                     </span>
@@ -258,12 +265,12 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                         </p>
                     )}
 
-                    {/* Mention légale libératoire */}
+                    {/* Portée du reçu */}
                     <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-[11px] leading-relaxed text-[var(--color-fg-muted)]">
-                        <p className="font-semibold text-[var(--color-fg)] mb-1">Mention légale libératoire (Art. 53 Loi n° 2003-044) :</p>
+                        <p className="font-semibold text-[var(--color-fg)] mb-1">Portée du décompte (Code du travail 2024, art. 95 et 96) :</p>
                         <p>{recu.mentionLiberatoire}</p>
                         <p className="mt-2 text-[10px] text-[var(--color-fg-subtle)]">
-                            Mention manuscrite obligatoire du salarié : <span className="font-semibold text-[var(--color-fg)]">"{recu.formuleManuscriteObligatoire}"</span>
+                            Si une signature est recueillie, elle atteste seulement la remise du document. Aucune formule manuscrite obligatoire n’est imposée ici.
                         </p>
                     </div>
 
@@ -277,7 +284,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                         <div className="border-t border-dashed border-[var(--color-border)] pt-2">
                             <p className="font-semibold text-[var(--color-fg)]">Le Salarié</p>
                             <p className="text-[10px] text-[var(--color-fg-muted)] mt-0.5">
-                                Précédé de la mention manuscrite obligatoire
+                                Accusé de remise du document
                             </p>
                             <div className="h-14"></div>
                         </div>

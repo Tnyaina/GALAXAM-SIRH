@@ -13,6 +13,8 @@ import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
 import MoneyInput from '@/components/ui/forms/MoneyInput';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
+import contratService from '@/features/employees/api/contratService';
+import { optionsMotifsSortie } from '@/features/employees/utils/motifsSortie';
 import Alert from '@/components/ui/feedback/Alert';
 import FormError from '@/components/ui/feedback/FormError';
 import { Table, Thead, Th, Tbody, Tr, Td, Tfoot } from '@/components/ui/data-display/Table';
@@ -21,15 +23,6 @@ import { fmtDate } from '@/utils/dateUtils';
 import stcService from '@/features/payroll/api/stcService';
 import { getErrorMessage } from '@/api/apiClient';
 import StcRecuModal from './StcRecuModal';
-
-const MOTIFS_RUPTURE = [
-    { value: 'DEMISSION', label: 'Démission volontaire' },
-    { value: 'LICENCIEMENT', label: 'Licenciement (conventionnel / économique)' },
-    { value: 'FIN_CONTRAT', label: 'Arrivée à terme du contrat (CDD / Essai)' },
-    { value: 'RUPTURE_CONVENTIONNELLE', label: 'Rupture conventionnelle d’un commun accord' },
-    { value: 'RETRAITE', label: 'Départ à la retraite' },
-    { value: 'AUTRE', label: 'Autre motif légal' },
-];
 
 const MODES_REGLEMENT = [
     { value: 'VIREMENT', label: 'Virement bancaire' },
@@ -81,9 +74,19 @@ export default function StcPreparationModal({
     // Résultat du calcul de simulation ou validation
     const [calculResult, setCalculResult] = useState(null);
 
-    // Contrôle d'affichage de la quittance imprimable
+    // Contrôle d'affichage du décompte imprimable
     const [showRecuModal, setShowRecuModal] = useState(false);
     const [showConfirmValider, setShowConfirmValider] = useState(false);
+    const [dateReglement, setDateReglement] = useState('');
+    const [referenceReglement, setReferenceReglement] = useState('');
+    const [motifsSortie, setMotifsSortie] = useState([]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        contratService.getMotifsSortie()
+            .then(data => setMotifsSortie(optionsMotifsSortie(data)))
+            .catch(() => setErrorMsg('Impossible de charger les motifs de sortie. Vérifiez le référentiel RH.'));
+    }, [isOpen]);
 
     // Formulaire des paramètres utilisateur (StcCalculRequest)
     const [form, setForm] = useState({
@@ -93,10 +96,10 @@ export default function StcPreparationModal({
         joursTravaillesDernierMois: '',
         indemnitePreavis: '',
         indemniteLicenciement: '',
+        remunerationReferenceLicenciement: '',
+        justificationIndemnites: '',
         autresIndemnites: '',
         motifAutresIndemnites: '',
-        autresDeductions: '',
-        motifAutresDeductions: '',
         modeReglement: 'VIREMENT',
         commentaire: '',
         desactiverEmploye: false,
@@ -127,17 +130,19 @@ export default function StcPreparationModal({
                     : ((indemnitePreavisInitiale !== null && Number(indemnitePreavisInitiale) >= 0)
                         ? String(indemnitePreavisInitiale)
                         : (data.indemnitePreavisEstimee != null && Number(data.indemnitePreavisEstimee) > 0 ? String(data.indemnitePreavisEstimee) : '')),
-                indemniteLicenciement: data.indemniteLicenciementEstimee != null && Number(data.indemniteLicenciementEstimee) > 0 ? String(data.indemniteLicenciementEstimee) : '',
+                indemniteLicenciement: '',
+                remunerationReferenceLicenciement: '',
+                justificationIndemnites: '',
                 autresIndemnites: '',
                 motifAutresIndemnites: '',
-                autresDeductions: '',
-                motifAutresDeductions: '',
                 modeReglement: 'VIREMENT',
                 commentaire: '',
                 desactiverEmploye: false,
             });
             setStep('PREPARATION');
             setCalculResult(null);
+            setDateReglement('');
+            setReferenceReglement('');
         } catch (err) {
             setErrorMsg(getErrorMessage(err, 'Impossible de collecter les données préparatoires du STC.'));
         } finally {
@@ -175,10 +180,10 @@ export default function StcPreparationModal({
                 ? 0
                 : (form.indemnitePreavis !== '' ? Number(form.indemnitePreavis) : null),
             indemniteLicenciement: form.indemniteLicenciement ? Number(form.indemniteLicenciement) : null,
+            remunerationReferenceLicenciement: form.remunerationReferenceLicenciement ? Number(form.remunerationReferenceLicenciement) : null,
+            justificationIndemnites: form.justificationIndemnites || null,
             autresIndemnites: form.autresIndemnites ? Number(form.autresIndemnites) : null,
             motifAutresIndemnites: form.motifAutresIndemnites || null,
-            autresDeductions: form.autresDeductions ? Number(form.autresDeductions) : null,
-            motifAutresDeductions: form.motifAutresDeductions || null,
             modeReglement: form.modeReglement || 'VIREMENT',
             commentaire: form.commentaire || null,
             simulation: simulationMode,
@@ -191,6 +196,10 @@ export default function StcPreparationModal({
         if (e) e.preventDefault();
         if (!form.dateDepart) {
             setErrorMsg('La date de cessation effective est obligatoire.');
+            return;
+        }
+        if (!motifsSortie.some(m => m.value === form.motifRupture)) {
+            setErrorMsg('Choisissez un motif de sortie actif dans le référentiel RH.');
             return;
         }
 
@@ -208,7 +217,7 @@ export default function StcPreparationModal({
         }
     };
 
-    // 2. Déclenche la validation définitive et émission du reçu numéroté
+    // 2. Valide le calcul et émet le décompte numéroté
     const handleValiderDefinitivement = async () => {
         setShowConfirmValider(false);
         setSubmitting(true);
@@ -228,10 +237,32 @@ export default function StcPreparationModal({
         }
     };
 
+    const handleEnregistrerReglement = async () => {
+        if (!dateReglement || !referenceReglement.trim()) {
+            setErrorMsg('La date et la référence du paiement réellement effectué sont obligatoires.');
+            return;
+        }
+        setSubmitting(true);
+        setErrorMsg(null);
+        try {
+            await stcService.enregistrerReglement(calculResult.idStc, {
+                dateReglement,
+                referenceReglement: referenceReglement.trim(),
+            });
+            const regle = { ...calculResult, statut: 'REGLE' };
+            setCalculResult(regle);
+            onStcValide?.(regle);
+        } catch (err) {
+            setErrorMsg(getErrorMessage(err, 'Impossible de constater le règlement du STC.'));
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     if (!isOpen) return null;
 
     const modalTitle = step === 'VALIDE'
-        ? `STC Validé — ${calculResult?.numeroRecu || 'Reçu émis'}`
+        ? `STC validé — ${calculResult?.numeroRecu || 'Décompte émis'}`
         : step === 'SIMULATION'
         ? `Simulation STC — ${prepData?.nomComplet || nomEmploye || ''}`
         : `Préparation Solde de Tout Compte — ${prepData?.nomComplet || nomEmploye || ''}`;
@@ -247,7 +278,7 @@ export default function StcPreparationModal({
                 icon={<Calculator size={18} className="text-[var(--color-brand-600)]" />}
                 size="3xl"
                 closeOnBackdrop={false}
-                isDirty={step === 'SIMULATION' || Boolean(form.indemniteLicenciementManuelle || form.autresIndemnites || form.autresDeductions)}
+                isDirty={step === 'SIMULATION' || Boolean(form.indemniteLicenciement || form.autresIndemnites || form.justificationIndemnites)}
                 dirtyWarningTitle="Calcul de STC en cours"
                 dirtyWarningMessage="Une préparation ou simulation de Solde de Tout Compte est en cours. Si vous quittez maintenant, les paramètres calculés seront réinitialisés. Voulez-vous vraiment quitter ?"
                 footer={
@@ -291,7 +322,7 @@ export default function StcPreparationModal({
                                     disabled={dateDepartFuture}
                                     iconLeft={<FileCheck size={15} />}
                                 >
-                                    Valider et Émettre le Reçu Officiel
+                                    Valider le calcul et le bulletin
                                 </Button>
                             </>
                         )}
@@ -299,7 +330,7 @@ export default function StcPreparationModal({
                         {step === 'VALIDE' && (
                             <>
                                 <div className="flex items-center gap-1.5 text-xs text-[var(--color-success-600)] font-semibold">
-                                    <CheckCircle2 size={16} /> Reçu officiel {calculResult?.numeroRecu} enregistré
+                                    <CheckCircle2 size={16} /> Décompte {calculResult?.numeroRecu} enregistré
                                 </div>
                                 <div className="flex gap-2">
                                     <Button
@@ -309,7 +340,7 @@ export default function StcPreparationModal({
                                         onClick={() => setShowRecuModal(true)}
                                         iconLeft={<FileCheck size={15} />}
                                     >
-                                        Consulter la Quittance Libératoire
+                                        Consulter le décompte
                                     </Button>
                                     <Button type="button" variant="primary" size="sm" onClick={onClose}>
                                         Terminer
@@ -346,7 +377,7 @@ export default function StcPreparationModal({
                             </div>
                             <div className={`flex items-center gap-1.5 font-bold ${step === 'VALIDE' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-fg-muted)]'}`}>
                                 <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'VALIDE' ? 'bg-[var(--color-success-600)] text-[var(--color-on-color)]' : 'bg-[var(--color-bg-subtle)]'}`}>3</span>
-                                <span>Validation & Reçu</span>
+                                <span>Validation & Décompte</span>
                             </div>
                         </div>
 
@@ -393,7 +424,7 @@ export default function StcPreparationModal({
                                     <Alert
                                         type="warning"
                                         title="Départ planifié"
-                                        message="Le calcul peut être simulé dès maintenant. Le reçu officiel et le règlement ne pourront être validés qu’à partir de la date de départ effective."
+                                        message="Le calcul peut être simulé dès maintenant. Sa validation attendra la date de départ effective."
                                     />
                                 )}
 
@@ -411,7 +442,7 @@ export default function StcPreparationModal({
                                         required
                                         value={form.motifRupture}
                                         onChange={(val) => handleFormChange('motifRupture', val)}
-                                        options={MOTIFS_RUPTURE}
+                                        options={motifsSortie}
                                     />
                                 </div>
 
@@ -425,14 +456,14 @@ export default function StcPreparationModal({
                                         value={form.joursTravaillesDernierMois}
                                         onChange={(e) => handleFormChange('joursTravaillesDernierMois', e.target.value)}
                                     />
-                                    {modePreavisInitial === 'DISPENSE_PAYEE' && (
+                                    {(!modePreavisInitial || modePreavisInitial === 'DISPENSE_PAYEE') && (
                                         <Input
                                             type="number"
                                             label="Durée de préavis indemnisée (mois)"
                                             min="0"
                                             max="6"
                                             step="0.5"
-                                            hint="Reprise de la rupture. Vérifiez la durée indemnisée."
+                                            hint="Durée non exécutée à indemniser, vérifiée avec le décret et la notification de rupture."
                                             value={form.moisPreavis}
                                             onChange={(e) => handleFormChange('moisPreavis', e.target.value)}
                                         />
@@ -454,9 +485,9 @@ export default function StcPreparationModal({
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <MoneyInput
-                                            label="Indemnité de licenciement (Ar)"
-                                            placeholder={`Suggéré: ${formatMoneyAr(prepData.indemniteLicenciementEstimee)}`}
-                                            hint="Montant estimé automatiquement. Ajustez uniquement si une régularisation est nécessaire."
+                                            label="Indemnité de licenciement à justifier (Ar)"
+                                            placeholder="Montant validé par la GRH"
+                                            hint="Pour motif économique ou cessation d’activité : au moins 10 jours par année complète, plafonné à six mois, sur la dernière rémunération avec accessoires hors frais."
                                             value={form.indemniteLicenciement}
                                             onValueChange={(value) => handleFormChange('indemniteLicenciement', value)}
                                         />
@@ -465,20 +496,35 @@ export default function StcPreparationModal({
                                                 label={modePreavisInitial === 'DISPENSE_PAYEE'
                                                     ? 'Indemnité compensatrice de préavis (Ar)'
                                                     : 'Indemnité compensatrice de préavis (Ar)'}
-                                                placeholder={`Suggéré: ${formatMoneyAr(prepData.indemnitePreavisEstimee)}`}
+                                                placeholder="Montant vérifié par la GRH"
                                                 hint={modePreavisInitial === 'DISPENSE_PAYEE'
                                                     ? 'Montant transmis depuis la rupture. Ajustez-le si nécessaire.'
-                                                    : 'Montant estimé selon le motif. Vérifiez ou ajustez avant simulation.'}
+                                                    : 'Vérifiez le groupe professionnel, le décret 2007-009, les deux dernières paies et le préavis non exécuté.'}
                                                 value={form.indemnitePreavis}
                                                 onValueChange={(value) => handleFormChange('indemnitePreavis', value)}
                                             />
                                         )}
                                     </div>
 
+                                    {(form.motifRupture === 'LICENCIEMENT_ECONOMIQUE' || form.motifRupture === 'CESSATION_ACTIVITE') && (
+                                        <MoneyInput
+                                            label="Dernière rémunération de référence (Ar)"
+                                            hint="Salaire et accessoires, hors remboursements de frais (art. 48 du Code du travail 2024)."
+                                            value={form.remunerationReferenceLicenciement}
+                                            onValueChange={(value) => handleFormChange('remunerationReferenceLicenciement', value)}
+                                        />
+                                    )}
+                                    <Input
+                                        label="Référence des décisions et calculs d’indemnités"
+                                        hint="Indiquez la notification de rupture, le groupe professionnel, la durée de préavis restant à indemniser, les deux dernières paies et l’accord ou la convention applicable. Obligatoire si une indemnité est versée."
+                                        value={form.justificationIndemnites}
+                                        onChange={(e) => handleFormChange('justificationIndemnites', e.target.value)}
+                                    />
+
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div className="space-y-1">
                                             <MoneyInput
-                                                label="Autres Indemnités / Primes départ (Ar)"
+                                                label="Autres gains / primes de départ soumis au régime ordinaire (Ar)"
                                                 placeholder="0 Ar"
                                                 value={form.autresIndemnites}
                                                 onValueChange={(value) => handleFormChange('autresIndemnites', value)}
@@ -493,40 +539,25 @@ export default function StcPreparationModal({
                                             )}
                                         </div>
 
-                                        <div className="space-y-1">
-                                            <MoneyInput
-                                                label="Autres Déductions / Retenues diverses (Ar)"
-                                                placeholder="0 Ar"
-                                                value={form.autresDeductions}
-                                                onValueChange={(value) => handleFormChange('autresDeductions', value)}
-                                            />
-                                            {Number(form.autresDeductions) > 0 && (
-                                                <Input
-                                                    type="text"
-                                                    placeholder="Motif de la déduction..."
-                                                    value={form.motifAutresDeductions}
-                                                    onChange={(e) => handleFormChange('motifAutresDeductions', e.target.value)}
-                                                />
-                                            )}
-                                        </div>
+                                        <p className="text-xs text-[var(--color-fg-muted)]">Les retenues diverses sont traitées dans leur dossier légal, avec justificatif, avant la paie de sortie.</p>
                                     </div>
                                 </div>
 
-                                {/* Prêts et Avances à apurer automatiquement */}
+                                {/* Créances à examiner et acomptes à imputer */}
                                 {(Number(prepData.capitalRestantPrets) > 0 || Number(prepData.avancesEnAttente) > 0) && (
                                     <div className="p-3 bg-[var(--color-warning-500)]/10 border border-[var(--color-warning-500)]/30 text-xs text-[var(--color-fg)] space-y-1">
                                         <p className="font-bold text-[var(--color-warning-600)] flex items-center gap-1.5">
                                             <AlertTriangle size={14} /> Engagements Financiers en cours détectés
                                         </p>
                                         <p className="text-[11px] text-[var(--color-fg-muted)]">
-                                            Lors de la validation définitive du STC, le système apurera automatiquement :
+                                            Le STC déduit uniquement les acomptes déjà versés et non imputés. Les autres créances restent à examiner séparément :
                                         </p>
                                         <ul className="list-disc pl-5 space-y-0.5 text-[11px] font-mono">
                                             {Number(prepData.capitalRestantPrets) > 0 && (
-                                                <li>Prêt(s) d'entreprise en cours : <strong>{formatMoneyAr(prepData.capitalRestantPrets)}</strong> (passera en SOLDE)</li>
+                                                <li>Prêt(s) d'entreprise en cours : <strong>{formatMoneyAr(prepData.capitalRestantPrets)}</strong></li>
                                             )}
                                             {Number(prepData.avancesEnAttente) > 0 && (
-                                                <li>Avance(s) et acompte(s) non imputés : <strong>{formatMoneyAr(prepData.avancesEnAttente)}</strong> (passera en REGLE)</li>
+                                                <li>Avance(s) et acompte(s) non imputés : <strong>{formatMoneyAr(prepData.avancesEnAttente)}</strong></li>
                                             )}
                                         </ul>
                                     </div>
@@ -541,7 +572,7 @@ export default function StcPreparationModal({
                                     <Alert
                                         type="info"
                                         title="Mode Simulation"
-                                        message="Ce résultat est purement indicatif. Aucun enregistrement n'a été créé et aucun prêt n'a été clôturé. Cliquez sur 'Valider et Émettre le Reçu Officiel' pour officialiser le solde de tout compte."
+                                        message="Ce résultat est indicatif. Aucun calcul n'a été enregistré et aucun paiement n'a été constaté. Vérifiez les éléments avant de valider le bulletin de sortie."
                                     />
                                 )}
 
@@ -567,8 +598,25 @@ export default function StcPreparationModal({
                                     <Alert
                                         type="success"
                                         title="Solde de Tout Compte Validé avec Succès"
-                                        message={`Le reçu numéroté ${calculResult.numeroRecu} a été émis. Les prêts et avances ont été soldés conformément à la législation en vigueur.`}
+                                        message={calculResult.statut === 'REGLE'
+                                            ? `Le paiement du STC ${calculResult.numeroRecu} a été constaté. La remise des documents de sortie reste à vérifier.`
+                                            : `Le calcul ${calculResult.numeroRecu} a été validé. Le paiement et la remise des documents doivent encore être constatés.`}
                                     />
+                                )}
+
+                                {step === 'VALIDE' && calculResult.statut !== 'REGLE' && (
+                                    <div className="p-3 border border-[var(--color-border)] space-y-3">
+                                        <h4 className="font-semibold text-xs">Constater le paiement réellement effectué</h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <Input type="date" label="Date du règlement" value={dateReglement}
+                                                onChange={(e) => setDateReglement(e.target.value)} />
+                                            <Input label="Référence du règlement (virement, chèque ou reçu caisse)"
+                                                value={referenceReglement}
+                                                onChange={(e) => setReferenceReglement(e.target.value)} />
+                                        </div>
+                                        <Button type="button" variant="primary" size="sm" loading={submitting}
+                                            onClick={handleEnregistrerReglement}>Enregistrer le règlement</Button>
+                                    </div>
                                 )}
 
                                 {/* Tableau décomposé du calcul STC */}
@@ -666,7 +714,7 @@ export default function StcPreparationModal({
                 )}
             </Modal>
 
-            {/* Modal Quittance Libératoire Imprimable */}
+            {/* Décompte imprimable */}
             {calculResult?.idStc && (
                 <StcRecuModal
                     isOpen={showRecuModal}
@@ -680,7 +728,7 @@ export default function StcPreparationModal({
                 onClose={() => setShowConfirmValider(false)}
                 onConfirm={handleValiderDefinitivement}
                 title="Validation définitive du STC"
-                message="ATTENTION : Cette action est irréversible. Le STC sera définitivement validé, un reçu officiel numéroté sera émis, et les éventuels prêts et avances du salarié seront intégralement soldés dans le GRH."
+                message="Le calcul STC et son bulletin de sortie seront enregistrés. Vérifiez les droits, les justificatifs, les congés et les acomptes avant de valider. Le paiement reste à constater séparément."
                 confirmLabel="Valider définitivement"
                 variant="danger"
                 loading={submitting}
