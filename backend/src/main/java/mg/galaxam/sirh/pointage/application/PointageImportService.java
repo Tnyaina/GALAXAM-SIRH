@@ -99,7 +99,7 @@ public class PointageImportService {
             Sheet help = book.createSheet("Aide");
             help.createRow(0).createCell(0).setCellValue("Événement : CONGÉ = congé à régulariser ; ABSENCE = absence à traiter ; vide = aucun signalement.");
             help.createRow(1).createCell(0).setCellValue("Un seul CONGÉ au début suffit. La date de reprise se choisit dans l'aperçu.");
-            help.createRow(2).createCell(0).setCellValue("Indemnités : vide = proposition du site ; 0 = refus ; 1 = accordée ; 0,5 = demi-journée.");
+            help.createRow(2).createCell(0).setCellValue("Indemnités : vide = proposition du site ; 0 = refus ; 0,5 = demi-indemnité ; 1 = indemnité entière. Pour une indemnité fractionnable, le créneau de la demi-indemnité suit les heures saisies (matin si les deux demi-journées sont travaillées).");
             help.setColumnWidth(0, 25000);
             org.apache.poi.ss.usermodel.DataValidationHelper validationHelper = tab.getDataValidationHelper();
             org.apache.poi.ss.usermodel.DataValidationConstraint codeList = validationHelper
@@ -285,10 +285,7 @@ public class PointageImportService {
     private static List<String> columns(SortedMap<String, Boolean> allowances) {
         List<String> result = new ArrayList<>(FIXED);
         result.add(EVENT_COLUMN);
-        allowances.forEach((code, split) -> {
-            if (split) { result.add(code + " matin"); result.add(code + " après-midi"); }
-            else result.add(code);
-        });
+        allowances.keySet().forEach(result::add);
         return result;
     }
 
@@ -332,24 +329,33 @@ public class PointageImportService {
                     ? new LinkedHashMap<>((Map<String, Object>) map) : new LinkedHashMap<>();
             boolean suggested = current.get("motifSuggestion") == null;
             if (split) {
-                String colMorning = code + " matin", colAfternoon = code + " après-midi";
-                validHeaders.add(colMorning); validHeaders.add(colAfternoon);
-                Boolean m = allowanceCell(source, headers, colMorning, formatter, errors, true);
-                Boolean a = allowanceCell(source, headers, colAfternoon, formatter, errors, true);
-                if (m != null || a != null) {
-                    Map<String, Object> selected = new LinkedHashMap<>();
-                    if (m != null) selected.put("matin", m);
-                    if (a != null) selected.put("am", a);
-                    overrides.put(id, selected);
+                validHeaders.add(code);
+                Double fraction = allowanceFractionCell(source, headers, code, formatter, errors);
+                boolean grantMorning;
+                boolean grantAfternoon;
+                if (fraction != null) {
+                    if (fraction >= 1.0) {
+                        grantMorning = true;
+                        grantAfternoon = true;
+                    } else if (fraction == 0.5) {
+                        // Une demi-indemnité suit le seul créneau travaillé ; journée complète => matin par convention.
+                        grantMorning = morning;
+                        grantAfternoon = !morning && afternoon;
+                    } else {
+                        grantMorning = false;
+                        grantAfternoon = false;
+                    }
+                    overrides.put(id, Map.of("matin", grantMorning, "am", grantAfternoon));
+                } else {
+                    grantMorning = suggested && morning;
+                    grantAfternoon = suggested && afternoon;
                 }
-                boolean grantMorning = m == null ? suggested && morning : m;
-                boolean grantAfternoon = a == null ? suggested && afternoon : a;
                 current.put("matin", grantMorning); current.put("am", grantAfternoon);
                 current.put("accordee", grantMorning || grantAfternoon);
                 current.put("fractionJour", (grantMorning ? 0.5 : 0) + (grantAfternoon ? 0.5 : 0));
             } else {
                 validHeaders.add(code);
-                Boolean selected = allowanceCell(source, headers, code, formatter, errors, false);
+                Boolean selected = allowanceCell(source, headers, code, formatter, errors);
                 if (selected != null) overrides.put(id, Map.of("accordee", selected));
                 boolean grant = selected == null ? suggested && (morning || afternoon) : selected;
                 current.put("accordee", grant); current.put("fractionJour", grant ? 1 : 0);
@@ -364,15 +370,26 @@ public class PointageImportService {
         return selections;
     }
 
-    private static Boolean allowanceCell(Row row, List<String> headers, String heading,
-            DataFormatter formatter, List<String> errors, boolean split) {
+    private static Double allowanceFractionCell(Row row, List<String> headers, String heading,
+            DataFormatter formatter, List<String> errors) {
         int index = headers.indexOf(heading);
         if (index < 0) return null;
         String text = formatter.formatCellValue(row.getCell(index)).trim().replace(',', '.');
         if (text.isBlank()) return null;
+        if (text.equals("0") || text.equals("0.5") || text.equals("1")) return Double.valueOf(text);
+        errors.add(heading + " : saisir 0, 0,5 ou 1");
+        return null;
+    }
+
+    private static Boolean allowanceCell(Row row, List<String> headers, String heading,
+            DataFormatter formatter, List<String> errors) {
+        int index = headers.indexOf(heading);
+        if (index < 0) return null;
+        String text = formatter.formatCellValue(row.getCell(index)).trim();
+        if (text.isBlank()) return null;
         if (text.equals("0")) return false;
-        if (split && text.equals("0.5") || !split && text.equals("1")) return true;
-        errors.add(heading + " : saisir " + (split ? "0 ou 0,5" : "0 ou 1"));
+        if (text.equals("1")) return true;
+        errors.add(heading + " : saisir 0 ou 1");
         return null;
     }
 }
