@@ -496,7 +496,6 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
     const selectedEtatActif = urlParams.get(filterPrefix + 'etat') || 'ALL';
 
     // Actions
-    const [togglingId, setTogglingId] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [isNouvelleVersion, setIsNouvelleVersion] = useState(false);
     const [submitting, setSubmitting] = useState(false);

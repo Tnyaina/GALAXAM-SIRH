@@ -9,7 +9,6 @@ import DocumentsRhTab from '../components/tabs/DocumentsRhTab';
 import documentService from '@/api/documentService';
 import documentRhService from '../api/documentRhService';
 import contratService from '../api/contratService';
-import stcService from '@/features/payroll/api/stcService';
 vi.mock('@/api/documentService', () => ({ default: { getContratData: vi.fn(), downloadContratDocx: vi.fn() } }));
 vi.mock('../api/documentRhService', () => ({ default: { getDocumentsByEmploye: vi.fn(), getTypesDocument: vi.fn(), uploadDocument: vi.fn(), downloadDocument: vi.fn(), viewDocument: vi.fn() } }));
 vi.mock('@/features/auth/components/HasPermission', () => ({ default: ({ children }) => children }));

@@ -1,23 +1,16 @@
 import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
     Calendar,
     ChevronLeft,
     ChevronRight,
     Users,
     User,
-    Clock,
     ClockCheck,
     Coffee,
     Save,
     Search,
-    AlertTriangle,
     RotateCcw,
-    CheckCircle2,
-    Briefcase,
-    ShieldCheck,
-    CalendarCheck,
-    Building2,
     FastForward,
     Palmtree,
     Download,
@@ -38,7 +31,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import useUnsavedChanges from '@/hooks/useUnsavedChanges';
 import { formatHeuresDecimal, formatHeuresMinutes, formatMonnaie } from '@/features/attendance/utils/attendanceDisplayUtils';
-import { getTodayDateString, fmtDate } from '@/utils/dateUtils';
+import { getTodayDateString } from '@/utils/dateUtils';
 
 const AnomalieRegularisationModal = lazy(() => import('@/features/attendance/components/modals/AnomalieRegularisationModal'));
 
@@ -675,7 +668,7 @@ export default function SaisiePeriodeEmployePage({
                             _previewPending: false
                         };
                     }));
-                } catch (e) {
+                } catch {
                     setGrilleRows(current => current.map(item =>
                         item.datePointage === dateKey ? { ...item, _previewPending: false } : item
                     ));

@@ -17,7 +17,6 @@ export default function SearchSelect({
   hint = null,
   borderless = false,
   clearable = true,
-  dropdownMinWidth = 'min-w-full',
   buttonClassName = '',
   size = 'md',
 }) {

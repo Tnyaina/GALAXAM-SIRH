@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     Clock,
@@ -7,9 +7,6 @@ import {
     FileText,
     TrendingUp,
     Info,
-    ChevronLeft,
-    ChevronRight,
-    Calendar,
     CalendarX,
     DollarSign,
     ExternalLink,
@@ -32,7 +29,7 @@ import PeriodeNavigator from '@/components/ui/navigation/PeriodeNavigator';
 import { SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import Alert from '@/components/ui/feedback/Alert';
 import EmptyState from '@/components/ui/data-display/EmptyState';
-import { getTodayDateString, fmtDateFr } from '@/utils/dateUtils';
+import { getTodayDateString } from '@/utils/dateUtils';
 import { formatHeuresDecimal, formatHeuresMinutes } from '@/features/attendance/utils/attendanceDisplayUtils';
 import WeeklyPointageCalculationTable from '@/features/attendance/components/WeeklyPointageCalculationTable';
 
@@ -202,18 +199,6 @@ export default function PointageTab({ idEmploye, employe = null }) {
         loadFiche();
     }, [loadFiche]);
 
-    // Navigation entre périodes de paie
-    const handleNavigatePeriode = (delta) => {
-        if (!periodesList || periodesList.length === 0) return;
-        const currIndex = periodesList.findIndex(p => p.idPeriodePaie === selectedPeriodeId);
-        if (currIndex === -1) return;
-        const newIndex = currIndex - delta; // Liste triée DESC (0 = plus récent)
-        if (newIndex >= 0 && newIndex < periodesList.length) {
-            const nextP = periodesList[newIndex];
-            setSelectedPeriodeId(nextP.idPeriodePaie);
-            if (nextP.dateDebut) setSelectedDate(nextP.dateDebut);
-        }
-    };
 
     const handleExportDocument = async (format) => {
         setExportDropdownOpen(false);
@@ -340,7 +325,6 @@ export default function PointageTab({ idEmploye, employe = null }) {
         ferie: totals.ferie + Number(week.heuresFerie || 0),
     }), { nuit: 0, dimanche: 0, ferie: 0 });
     const actions = !loading && !error ? ficheData?.availableActions || {} : {};
-    const currIndexInList = periodesList.findIndex(p => p.idPeriodePaie === selectedPeriodeId);
 
     // Rendu
     return (

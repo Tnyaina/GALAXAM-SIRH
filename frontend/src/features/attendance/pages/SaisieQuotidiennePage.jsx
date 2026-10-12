@@ -18,7 +18,6 @@ import useUnsavedChanges from '@/hooks/useUnsavedChanges';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 
 const PointageRecapModal = lazy(() => import('@/features/attendance/components/modals/PointageRecapModal'));
-const AnomalieRegularisationModal = lazy(() => import('@/features/attendance/components/modals/AnomalieRegularisationModal'));
 
 export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectPeriode = null, sitesDisponibles = null }) {
     const { toast } = useToast();
@@ -116,7 +115,6 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     useUnsavedChanges(dirtyCount > 0, `${dirtyCount} pointage(s) modifié(s) ne sont pas encore enregistrés.`);
 
     // Ligne en cours de régularisation par congé ou absence
-    const [regularisationRow, setRegularisationRow] = useState(null);
 
     // Navigation en attente de confirmation si données modifiées
     const [pendingNav, setPendingNav] = useState(null); // { type: 'site' | 'date', value: ... }
@@ -382,36 +380,6 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
         return { siteLabel, previewPending: grilleData.some((row) => row._previewPending) };
     }, [backendStatsJour, grilleData, siteLabel]);
 
-    // Régularisation intelligente directe d'absence ou congé sans passer par la page des anomalies
-    const handleSaveRegularisation = async (payload) => {
-        if (!regularisationRow || !payload) return false;
-        try {
-            const idPtg = regularisationRow.idPointage ? Number(regularisationRow.idPointage) : 0;
-            const enrichedPayload = {
-                ...payload,
-                idEmploye: regularisationRow.idEmploye,
-                idSite: selectedSite,
-                idPeriodePaie: periodeInfo?.idPeriodePaie,
-                datePointage: selectedDate
-            };
-            const res = await attendanceService.regulariser(idPtg, enrichedPayload);
-            if (res && (res.success || res === true)) {
-                setRegularisationRow(null);
-                toast.success(res.message || 'Pointage régularisé avec succès.');
-                await loadData();
-                return true;
-            } else {
-                toast.error(res?.error || res?.message || 'Erreur lors de la régularisation.');
-                return res || false;
-            }
-        } catch (err) {
-            console.error('Erreur régularisation pointage:', err);
-            const msg = err?.response?.data?.message || err?.message || 'Erreur lors de la régularisation.';
-            toast.error(msg);
-            return { error: msg };
-        }
-    };
-
     // Ouvre la modale de récapitulatif & validation
     const handleRequestSave = useCallback(() => {
         if (isReadOnly || saving || loading) return;
@@ -626,7 +594,6 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                         pageSize={pageSize}
                         onPageChange={setCurrentPage}
                         onPageSizeChange={(sz) => { setPageSize(sz); setCurrentPage(1); }}
-                        onOpenRegularisation={(row) => setRegularisationRow(row)}
                         isReadOnly={isReadOnly || loading || Boolean(error)}
                     />
                 )}
@@ -650,35 +617,6 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
             )}
 
             {/* Modale de Régularisation directe par Congé / Absence (Lazy Loaded) */}
-            {regularisationRow && (
-                <Suspense fallback={null}>
-                    <AnomalieRegularisationModal
-                        isOpen={Boolean(regularisationRow)}
-                        onClose={() => setRegularisationRow(null)}
-                        anomalie={{
-                            idPointage: regularisationRow.idPointage || 0,
-                            idEmploye: regularisationRow.idEmploye,
-                            idSite: selectedSite,
-                            idPeriodePaie: periodeInfo?.idPeriodePaie,
-                            datePointage: selectedDate,
-                            nom: regularisationRow.nom,
-                            prenom: regularisationRow.prenom,
-                            matricule: regularisationRow.matricule,
-                            photoUrl: regularisationRow.photoUrl,
-                            statutCode: regularisationRow.codeStatut || 'NON_SAISI',
-                            statutLibelle: regularisationRow.libelleStatut,
-                            typeAnomalie: 'ABSENCE',
-                            heureEntreeMatin: regularisationRow.heureEntreeMatin,
-                            heureSortieMatin: regularisationRow.heureSortieMatin,
-                            heureEntreeAm: regularisationRow.heureEntreeAm,
-                            heureSortieAm: regularisationRow.heureSortieAm,
-                            version: regularisationRow.version
-                        }}
-                        onSuccess={handleSaveRegularisation}
-                    />
-                </Suspense>
-            )}
-
             {/* Confirmation en cas de changement de filtre avec modifications en cours */}
             <ConfirmDialog
                 isOpen={showUnsavedNavConfirm}
