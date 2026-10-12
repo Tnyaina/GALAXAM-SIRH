@@ -90,7 +90,7 @@ export default function CarriereTimeline({
                             onClick={() => setModeAffichage('parcours')}
                             aria-pressed={modeAffichage === 'parcours'}
                             className={`
-                                min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150
+                                min-h-[30px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150
                                 ${modeAffichage === 'parcours'
                                     ? 'bg-[var(--color-surface)] text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shadow-sm border border-[var(--color-border-subtle)]'
                                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
@@ -106,7 +106,7 @@ export default function CarriereTimeline({
                             onClick={() => setModeAffichage('tables')}
                             aria-pressed={modeAffichage === 'tables'}
                             className={`
-                                min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150
+                                min-h-[30px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase transition-all duration-150
                                 ${modeAffichage === 'tables'
                                     ? 'bg-[var(--color-surface)] text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shadow-sm border border-[var(--color-border-subtle)]'
                                     : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'

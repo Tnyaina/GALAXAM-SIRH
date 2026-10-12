@@ -283,9 +283,9 @@ export default function SaisiePeriodeEmployePage({
     // Détection si le collaborateur est un cadre autonome
     const isAutonome = Boolean(
         ficheData?.estAutonome ||
+        ficheData?.dispensePointage ||
         currentEmpSummary?.estAutonome ||
-        ficheData?.categorie === 'CADRE' ||
-        currentEmpSummary?.isCadre
+        currentEmpSummary?.dispensePointage
     );
 
     // Chargement de la fiche employé et préparation de la grille
@@ -309,10 +309,18 @@ export default function SaisiePeriodeEmployePage({
             });
             const selectedPeriod = periodesList.find(p => Number(p.idPeriodePaie) === Number(selectedPeriodeId));
             const referenceDate = selectedPeriod?.dateDebut || fiche?.dateDebut || getTodayDateString();
-            const referenceSiteId = selectedSiteId || fiche?.idSite;
+            // La fiche période n'expose pas `idSite` à sa racine. En mode « tous les sites »,
+            // résoudre le site depuis la synthèse employé ou depuis ses journées de la période.
+            const firstDatedSite = fiche?.pointagesData?.find(day => Number(day.idSite) > 0);
+            const referenceSiteId = Number(selectedSiteId) > 0
+                ? Number(selectedSiteId)
+                : Number(currentEmpSummary?.idSite) > 0
+                    ? Number(currentEmpSummary.idSite)
+                    : Number(firstDatedSite?.idSite) > 0 ? Number(firstDatedSite.idSite) : null;
+            const siteReferenceDay = fiche?.pointagesData?.find(day => Number(day.idSite) === referenceSiteId);
             const siteGrid = referenceSiteId ? await attendanceService.getGrilleSaisie({
                 idSite: referenceSiteId,
-                date: referenceDate
+                date: siteReferenceDay?.dateComplete || referenceDate
             }) : null;
 
             if (reqId !== loadReqId.current) return;
@@ -351,8 +359,9 @@ export default function SaisiePeriodeEmployePage({
             const rawPoints = fiche?.pointagesData || [];
             const empAutonome = Boolean(
                 fiche?.estAutonome ||
+                fiche?.dispensePointage ||
                 currentEmpSummary?.estAutonome ||
-                fiche?.categorie === 'CADRE'
+                currentEmpSummary?.dispensePointage
             );
 
             const rows = rawPoints.map((ptg) => {
@@ -1058,8 +1067,10 @@ export default function SaisiePeriodeEmployePage({
 
             const res = await attendanceService.daily.saveBatch(payload);
             if (res && res.success !== false) {
-                toast.success?.(`Pointages enregistrés avec succès (${payload.length} jours mis à jour).`) ||
-                toast({ title: 'Enregistrement réussi', message: `${payload.length} journée(s) mise(s) à jour.`, type: 'success' });
+                toast.success(
+                    `${payload.length} journée(s) de pointage enregistrée(s).`,
+                    'Enregistrement confirmé'
+                );
                 await loadFicheEmploye();
             } else {
                 toast.error?.(res?.message || "Erreur lors de l'enregistrement des pointages.") ||
@@ -1819,7 +1830,7 @@ export default function SaisiePeriodeEmployePage({
                                                 <tr key={line.ligne} className="border-t border-[var(--color-border-subtle)] align-top">
                                                     <td className="p-2"><input type="checkbox" checked={Boolean(importSelections[line.ligne])} disabled={!['IMPORT', 'SIGNAL'].includes(line.decision) || !grilleRows.find(r => r.datePointage === line.date)?.canCorrect || Boolean(e?.congeApprouve && line.eventCode)}
                                                         onChange={event => setImportSelections(prev => ({ ...prev, [line.ligne]: event.target.checked }))} /></td>
-                                                    <td className="p-2 whitespace-nowrap font-semibold">{line.date}{line.eventCode && <span className="ml-1 px-1 border border-[var(--color-warning-600)]">{line.eventCode}</span>}</td>
+                                                    <td className="p-2 whitespace-nowrap font-semibold">{line.date}{line.eventCode && <span className="ml-1 px-1 border border-[var(--color-warning-600)]">{line.eventCode === 'C' ? 'Congé' : 'Absence'}</span>}</td>
                                                     <td className="p-2 font-mono">
                                                         {p && line.decision === 'IMPORT' ? formatHours(p, true) : 'Aucune heure'}
                                                         {p && line.decision === 'IMPORT' && p.totalHeures != null && <div className="mt-1">Calcul : {formatHeuresMinutes(p.totalHeures)} · {p.libelleStatut || p.codeStatut}</div>}
@@ -1940,16 +1951,11 @@ export default function SaisiePeriodeEmployePage({
                                                         <Th className="w-16 px-2 py-2 text-center">Retard</Th>
                                                         <Th className="w-24 px-2 py-2 text-center">Heures</Th>
                                                         <Th className="w-32 px-2 py-2 text-center">Statut</Th>
-                                                        {displayedIndemnites.map((ind) => (
-                                                            <Th key={ind.idIndemnite} className="px-2 py-2 text-center border-l border-[var(--color-border-subtle)] min-w-[110px]" title={ind.libelle}>
-                                                                <div className="flex flex-col items-center">
-                                                                    <span>{ind.libelle || ind.code}</span>
-                                                                    <span className="text-[9px] font-normal text-[var(--color-fg-muted)] normal-case">
-                                                                        {ind.sousTitre || (ind.estProratise ? `Prorata ${formatMonnaie(ind.montantJour)}/j` : `${formatMonnaie(ind.montantJour)}/j`)}
-                                                                    </span>
-                                                                </div>
+                                                        {displayedIndemnites.length > 0 && (
+                                                            <Th className="w-44 px-2 py-2 text-center border-l border-[var(--color-border-subtle)]" title="Indemnités applicables à la journée">
+                                                                Indemnités
                                                             </Th>
-                                                        ))}
+                                                        )}
                                                         <Th className="w-20 px-2 py-2 text-center">Actions</Th>
                                                     </Tr>
                                                 </Thead>
@@ -1974,7 +1980,7 @@ export default function SaisiePeriodeEmployePage({
                                                         }
 
                                                         const canEditRow = canEditPeriod && row.canCorrect !== false;
-                                                        const chomeColSpan = 7 + displayedIndemnites.length;
+                                                        const chomeColSpan = 7;
 
                                                         return (
                                                             <Tr
@@ -2177,83 +2183,53 @@ export default function SaisiePeriodeEmployePage({
                                                                     </>
                                                                 )}
 
-                                                                {/* 10. Colonnes Dynamiques d'Indemnités du Site */}
-                                                                {displayedIndemnites.map((ind) => {
-                                                                    if (row._dateAllowances && !row._dateAllowances.some(item => item.idIndemnite === ind.idIndemnite)) {
-                                                                        return <Td key={ind.idIndemnite} className="px-2 py-1 text-center border-l border-[var(--color-border-subtle)]">—</Td>;
-                                                                    }
-                                                                    const dayInd = row._dateAllowances?.find(item => item.idIndemnite === ind.idIndemnite) || ind;
-                                                                    const dynObj = row.dynamicIndemnites?.[String(ind.idIndemnite)] || {};
-                                                                    const isFractionnable = dayInd.estFractionnable !== undefined ? dayInd.estFractionnable : dayInd.fractionnable;
+                                                                {/* 10. Indemnités regroupées pour préserver la largeur de la grille */}
+                                                                {displayedIndemnites.length > 0 && (
+                                                                    <Td className="px-1.5 py-1 border-l border-[var(--color-border-subtle)]">
+                                                                        {isWeekend && !hasPunches ? (
+                                                                            <div className="text-center text-[var(--color-fg-muted)] opacity-40">—</div>
+                                                                        ) : (
+                                                                            <div className="flex flex-wrap items-center justify-center gap-1">
+                                                                                {displayedIndemnites.map((ind) => {
+                                                                                    if (row._dateAllowances && !row._dateAllowances.some(item => item.idIndemnite === ind.idIndemnite)) return null;
+                                                                                    const dayInd = row._dateAllowances?.find(item => item.idIndemnite === ind.idIndemnite) || ind;
+                                                                                    const dynObj = row.dynamicIndemnites?.[String(ind.idIndemnite)] || {};
+                                                                                    const isFractionnable = dayInd.estFractionnable !== undefined ? dayInd.estFractionnable : dayInd.fractionnable;
+                                                                                    const name = dayInd.code === 'DEPLACEMENT' || dayInd.code === 'DPLCT' || dayInd.code === 'TRANSPORT'
+                                                                                        ? 'Dépl.'
+                                                                                        : dayInd.code === 'REPAS' ? 'Repas' : (dayInd.libelle || dayInd.code);
+                                                                                    const details = [
+                                                                                        dayInd.libelle || dayInd.code,
+                                                                                        isFractionnable
+                                                                                            ? `Matin ${formatMonnaie(dayInd.montantTrajet || dayInd.montantJour / 2)} · après-midi ${formatMonnaie(dayInd.montantTrajet || dayInd.montantJour / 2)}`
+                                                                                            : `${formatMonnaie(dayInd.montantJour)}/j`,
+                                                                                        dynObj.motifSuggestion,
+                                                                                    ].filter(Boolean).join(' — ');
 
-                                                                    if (isWeekend && !hasPunches) {
-                                                                        return (
-                                                                            <Td key={ind.idIndemnite} className="px-2 py-1 text-center border-l border-[var(--color-border-subtle)]">
-                                                                                <span className="opacity-30">—</span>
-                                                                            </Td>
-                                                                        );
-                                                                    }
-
-                                                                    if (isFractionnable) {
-                                                                        const matVal = Boolean(dynObj.matin);
-                                                                        const amVal = Boolean(dynObj.am);
-
-                                                                        return (
-                                                                            <Td key={ind.idIndemnite} className="px-2 py-1 text-center border-l border-[var(--color-border-subtle)]">
-                                                                                <div className="flex flex-col items-center justify-center gap-0.5">
-                                                                                    {dynObj.motifSuggestion && (
-                                                                                        <span className="text-[8px] font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]" title={dynObj.motifSuggestion}>
-                                                                                            {dynObj.motifSuggestion}
-                                                                                        </span>
-                                                                                    )}
-                                                                                    <div className="flex items-center justify-center gap-2">
-                                                                                        <label className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${!canEditRow ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Trajet aller (matin) — ${formatMonnaie(dayInd.montantTrajet || dayInd.montantJour / 2)}`}>
-                                                                                            <input
-                                                                                                type="checkbox"
-                                                                                                checked={matVal}
-                                                                                                disabled={!canEditRow}
-                                                                                                onChange={(e) => updateRowDynamicIndemnite(row.datePointage, ind.idIndemnite, e.target.checked, 'MATIN')}
-                                                                                                className="w-3.5 h-3.5 cursor-pointer accent-[var(--color-brand-600)]"
-                                                                                            />
-                                                                                            <span className={matVal ? 'text-[var(--color-fg)] font-bold' : 'text-[var(--color-fg-muted)]'}>M</span>
-                                                                                        </label>
-                                                                                        <label className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${!canEditRow ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Trajet retour (soir) — ${formatMonnaie(dayInd.montantTrajet || dayInd.montantJour / 2)}`}>
-                                                                                            <input
-                                                                                                type="checkbox"
-                                                                                                checked={amVal}
-                                                                                                disabled={!canEditRow}
-                                                                                                onChange={(e) => updateRowDynamicIndemnite(row.datePointage, ind.idIndemnite, e.target.checked, 'APRES_MIDI')}
-                                                                                                className="w-3.5 h-3.5 cursor-pointer accent-[var(--color-brand-600)]"
-                                                                                            />
-                                                                                            <span className={amVal ? 'text-[var(--color-fg)] font-bold' : 'text-[var(--color-fg-muted)]'}>A</span>
-                                                                                        </label>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </Td>
-                                                                        );
-                                                                    }
-
-                                                                    const isAccordee = Boolean(dynObj.accordee);
-                                                                    return (
-                                                                        <Td key={ind.idIndemnite} className="px-2 py-1 text-center border-l border-[var(--color-border-subtle)]">
-                                                                            <div className="flex flex-col items-center justify-center gap-0.5">
-                                                                                {dynObj.motifSuggestion && (
-                                                                                    <span className="text-[8px] font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]" title={dynObj.motifSuggestion}>
-                                                                                        {dynObj.motifSuggestion}
-                                                                                    </span>
-                                                                                )}
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    checked={isAccordee}
-                                                                                    disabled={!canEditRow}
-                                                                                    onChange={(e) => updateRowDynamicIndemnite(row.datePointage, ind.idIndemnite, e.target.checked, 'ALL')}
-                                                                                    className="w-3.5 h-3.5 rounded accent-[var(--color-brand-600)] cursor-pointer align-middle"
-                                                                                    title={`${dayInd.libelle || dayInd.code} — ${formatMonnaie(dayInd.montantJour)}/j`}
-                                                                                />
+                                                                                    return (
+                                                                                        <div key={ind.idIndemnite} title={details} className="inline-flex items-center gap-1 rounded border border-[var(--color-border-subtle)] bg-[var(--color-bg)] px-1.5 py-0.5">
+                                                                                            <span className="max-w-16 truncate text-[9px] font-medium" title={details}>{name}</span>
+                                                                                            {isFractionnable ? (
+                                                                                                <>
+                                                                                                    <label className={`inline-flex items-center gap-0.5 text-[9px] font-semibold ${!canEditRow ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Matin — ${formatMonnaie(dayInd.montantTrajet || dayInd.montantJour / 2)}`}>
+                                                                                                        <input type="checkbox" checked={Boolean(dynObj.matin)} disabled={!canEditRow} onChange={(e) => updateRowDynamicIndemnite(row.datePointage, ind.idIndemnite, e.target.checked, 'MATIN')} className="h-3 w-3 cursor-pointer accent-[var(--color-brand-600)]" />
+                                                                                                        M
+                                                                                                    </label>
+                                                                                                    <label className={`inline-flex items-center gap-0.5 text-[9px] font-semibold ${!canEditRow ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Après-midi — ${formatMonnaie(dayInd.montantTrajet || dayInd.montantJour / 2)}`}>
+                                                                                                        <input type="checkbox" checked={Boolean(dynObj.am)} disabled={!canEditRow} onChange={(e) => updateRowDynamicIndemnite(row.datePointage, ind.idIndemnite, e.target.checked, 'APRES_MIDI')} className="h-3 w-3 cursor-pointer accent-[var(--color-brand-600)]" />
+                                                                                                        A
+                                                                                                    </label>
+                                                                                                </>
+                                                                                            ) : (
+                                                                                                <input type="checkbox" checked={Boolean(dynObj.accordee)} disabled={!canEditRow} onChange={(e) => updateRowDynamicIndemnite(row.datePointage, ind.idIndemnite, e.target.checked, 'ALL')} className="h-3 w-3 cursor-pointer accent-[var(--color-brand-600)]" aria-label={`Accorder ${dayInd.libelle || dayInd.code}`} />
+                                                                                            )}
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
                                                                             </div>
-                                                                        </Td>
-                                                                    );
-                                                                })}
+                                                                        )}
+                                                                    </Td>
+                                                                )}
 
                                                                 {/* 11. Actions rapides (Régulariser Congé/Absence, Vider ou Standard) */}
                                                                 <Td className="px-2 py-1 text-center whitespace-nowrap">

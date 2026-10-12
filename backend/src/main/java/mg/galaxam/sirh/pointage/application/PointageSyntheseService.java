@@ -184,6 +184,59 @@ public class PointageSyntheseService {
         return c.contains("CADRE") || "C".equals(c) || "HC".equals(c) || "DIRIGEANT".equals(c);
     }
 
+    /** Indemnités journalières par défaut d'un autonome, après application des dérogations datées. */
+    private Map<String, BigDecimal> loadDefaultAutonomousDailyAllowanceAmounts(
+            int employeeId, int siteId, LocalDate day, int workingDays, Integer pointageId, Connection c) throws SQLException {
+        String savedAllowanceFilter = pointageId == null ? "" : "AND NOT EXISTS (SELECT 1 FROM pointage_indemnite_jour saved "
+                + "WHERE saved.id_pointage = ? AND saved.id_indemnite = c.id_indemnite) ";
+        String sql = "SELECT i.code, c.periodicite, c.montant_reference "
+                + "FROM site_indemnite_config c JOIN ref_indemnite i ON i.id_indemnite = c.id_indemnite "
+                + "WHERE c.id_site = ? AND c.est_actif = TRUE AND i.est_actif = TRUE "
+                + "AND c.periodicite <> 'FIXE_MENSUEL' AND c.montant_reference > 0 "
+                + "AND c.date_debut <= ? AND (c.date_fin IS NULL OR c.date_fin >= ?) "
+                + "AND NOT EXISTS (SELECT 1 FROM employe_indemnite_derogation d "
+                + "WHERE d.id_employe = ? AND d.id_indemnite = c.id_indemnite AND d.beneficie = FALSE "
+                + "AND d.date_debut <= ? AND (d.date_fin IS NULL OR d.date_fin >= ?)) "
+                + savedAllowanceFilter
+                + "ORDER BY i.code";
+        Map<String, BigDecimal> amounts = new LinkedHashMap<>();
+        Date sqlDay = Date.valueOf(day);
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, siteId);
+            ps.setDate(2, sqlDay);
+            ps.setDate(3, sqlDay);
+            ps.setInt(4, employeeId);
+            ps.setDate(5, sqlDay);
+            ps.setDate(6, sqlDay);
+            if (pointageId != null) ps.setInt(7, pointageId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    BigDecimal reference = nullToZero(rs.getBigDecimal("montant_reference"));
+                    BigDecimal amount = switch (rs.getString("periodicite").toUpperCase(java.util.Locale.ROOT)) {
+                        case "JOURNALIER", "FORFAIT" -> reference;
+                        case "MENSUEL", "MENSUEL_PRORATISE" -> workingDays > 0
+                                ? calendrierEngine.calculerProrataJournalier(reference, workingDays)
+                                : BigDecimal.ZERO;
+                        default -> BigDecimal.ZERO;
+                    };
+                    if (amount.signum() > 0) amounts.merge(rs.getString("code"), amount, BigDecimal::add);
+                }
+            }
+        }
+        return amounts;
+    }
+
+    private static String defaultTravelCode(Map<String, BigDecimal> amounts) {
+        return List.of("DPLCT", "DEPLACEMENT", "TRANSPORT").stream()
+                .filter(code -> amounts.getOrDefault(code, BigDecimal.ZERO).signum() > 0)
+                .findFirst().orElse(null);
+    }
+
+    private static BigDecimal defaultTravelAmount(Map<String, BigDecimal> amounts) {
+        String code = defaultTravelCode(amounts);
+        return code == null ? BigDecimal.ZERO : amounts.get(code);
+    }
+
     /**
      * Calcule la synthèse de pointage d'une période en logique métier pure Java
      */
@@ -435,6 +488,7 @@ public class PointageSyntheseService {
         BigDecimal montantRepasTotal = BigDecimal.ZERO;
         BigDecimal totalTrajets = BigDecimal.ZERO;
         BigDecimal totalMntDeplacement = BigDecimal.ZERO;
+        Map<String, BigDecimal> indemnitesAutonomesSansPointage = new LinkedHashMap<>();
         int totalMinsRetard = 0;
         int nbAnomalies = 0;
 
@@ -544,11 +598,20 @@ public class PointageSyntheseService {
                             || "DEMI_JOURNEE".equals(stCode)
                             || estPresentAutonome || th > 0.0);
 
-                    boolean aPrisRepasCeJour = estTravailleOuPresent && (repasEffectif || estPresentAutonome);
+                    Map<String, BigDecimal> defaultsAutonomes = estPresentAutonome
+                            ? loadDefaultAutonomousDailyAllowanceAmounts(idEmp,
+                                    contextesJournaliers.get(dPointage).siteId(), dPointage,
+                                    nbJoursOuvrablesPeriode, rsPtg.getInt("id_pointage"), c)
+                            : Map.of();
+                    defaultsAutonomes.forEach((code, amount) -> indemnitesAutonomesSansPointage.merge(code, amount, BigDecimal::add));
+                    boolean aPrisRepasCeJour = estTravailleOuPresent && (repasEffectif
+                            || (dynRepasObj == null && defaultsAutonomes.containsKey("REPAS")));
                     BigDecimal mealAmount = BigDecimal.ZERO;
                     if (aPrisRepasCeJour) {
                         repasCount++;
-                        mealAmount = nullToZero(rsPtg.getBigDecimal("dyn_repas_montant"));
+                        mealAmount = dynRepasObj == null
+                                ? defaultsAutonomes.getOrDefault("REPAS", BigDecimal.ZERO)
+                                : nullToZero(rsPtg.getBigDecimal("dyn_repas_montant"));
                         montantRepasTotal = montantRepasTotal.add(mealAmount);
                     }
 
@@ -556,15 +619,17 @@ public class PointageSyntheseService {
                     BigDecimal fractionJour = BigDecimal.ZERO;
                     Object dynDepQteObj = rsPtg.getObject("dyn_dep_quantite");
                     if (dynDepQteObj != null) {
-                        if (estTravailleOuPresent && (rsPtg.getBoolean("dyn_dep_accorde") || estPresentAutonome)) {
+                        if (estTravailleOuPresent && rsPtg.getBoolean("dyn_dep_accorde")) {
                             fractionJour = nullToZero(rsPtg.getBigDecimal("dyn_dep_quantite"));
                         }
                     } else if (estTravailleOuPresent && estPresentAutonome) {
-                        fractionJour = BigDecimal.ONE;
+                        BigDecimal defaultTravelAmount = defaultTravelAmount(defaultsAutonomes);
+                        if (defaultTravelAmount.signum() > 0) fractionJour = BigDecimal.ONE;
                     }
                     totalTrajets = totalTrajets.add(fractionJour);
-                    BigDecimal travelAmount = fractionJour.signum() == 0
-                            ? BigDecimal.ZERO : nullToZero(rsPtg.getBigDecimal("dyn_dep_montant"));
+                    BigDecimal travelAmount = fractionJour.signum() == 0 ? BigDecimal.ZERO
+                            : dynDepQteObj == null ? defaultTravelAmount(defaultsAutonomes)
+                                    : nullToZero(rsPtg.getBigDecimal("dyn_dep_montant"));
                     totalMntDeplacement = totalMntDeplacement.add(travelAmount);
 
                     LocalDate lundiSemaine = dPointage.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
@@ -635,33 +700,20 @@ public class PointageSyntheseService {
         if (contextesJournaliers.values().stream().anyMatch(
                 mg.galaxam.sirh.contrat.application.EmploymentContextResolver.PointageDay::dispensePointage)) {
             for (LocalDate day = dateDebut; !day.isAfter(dateFin); day = day.plusDays(1)) {
-                if (datesAvecPointage.contains(day) || CalendrierOuvrableEngine.isWeekend(day)) continue;
+                if (datesAvecPointage.contains(day) || congesValidesEmploye.containsKey(day)
+                        || CalendrierOuvrableEngine.isWeekend(day)) continue;
                 var contexteJour = contextesJournaliers.get(day);
                 if (contexteJour == null || !contexteJour.dispensePointage()) continue;
+                boolean isPublicHoliday = calendrierEngine.getJourChomeInfo(day, contexteJour.siteId(), c).estChome();
+                if (isPublicHoliday) continue;
                 int dailySite = contexteJour.siteId();
                 var allowanceStates = ParametreGlobal.loadEtatMapAtDate(Date.valueOf(day), c);
                 BigDecimal mealRate = BigDecimal.ZERO, dailyTravelReference = BigDecimal.ZERO;
-                boolean travelFound = false, mealFound = false;
-                try (PreparedStatement tariff = c.prepareStatement(
-                        "SELECT ri.code,sic.montant_reference FROM site_indemnite_config sic "
-                        + "JOIN ref_indemnite ri ON ri.id_indemnite=sic.id_indemnite "
-                        + "WHERE sic.id_site=? AND ri.code IN ('REPAS','DPLCT','DEPLACEMENT','TRANSPORT') "
-                        + "AND sic.est_actif=TRUE AND sic.periodicite<>'FIXE_MENSUEL' "
-                        + "AND sic.date_debut<=? AND (sic.date_fin IS NULL OR sic.date_fin>=?)")) {
-                    tariff.setInt(1,dailySite); tariff.setDate(2,Date.valueOf(day));tariff.setDate(3,Date.valueOf(day));
-                    try (ResultSet result=tariff.executeQuery()) {
-                        while (result.next()) {
-                            if ("REPAS".equals(result.getString(1))) {
-                                if (mealFound) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: REPAS au " + day);
-                                mealRate=nullToZero(result.getBigDecimal(2)); mealFound=true;
-                            } else {
-                                if (travelFound) throw new IllegalStateException("AMBIGUOUS_CONFIGURATION: DEPLACEMENT au " + day);
-                                dailyTravelReference=nullToZero(result.getBigDecimal(2)); travelFound=true;
-                            }
-                        }
-                    }
-                }
-                BigDecimal travelRate = calendrierEngine.calculerProrataJournalier(dailyTravelReference, nbJoursOuvrablesPeriode);
+                Map<String, BigDecimal> defaultAllowances = loadDefaultAutonomousDailyAllowanceAmounts(
+                        idEmp, dailySite, day, nbJoursOuvrablesPeriode, null, c);
+                mealRate = defaultAllowances.getOrDefault("REPAS", BigDecimal.ZERO);
+                dailyTravelReference = defaultTravelAmount(defaultAllowances);
+                BigDecimal travelRate = dailyTravelReference;
                 BigDecimal travelReduction = requireAllowanceParameter(allowanceStates,
                         "REDUCTION_DEPLACT_REPAS_MIDI", dailySite, day, idEmp);
                 AttendanceEngine.Result autonomousDay = dailyAttendanceCalculator
@@ -670,9 +722,10 @@ public class PointageSyntheseService {
                                 LocalTime.of(8, 0), LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(17, 0),
                                 PointageService.resolveOptionalTimeRule(allowanceStates,"SEUIL_NUIT_DEBUT"),
                                 PointageService.resolveOptionalTimeRule(allowanceStates,"SEUIL_NUIT_FIN"),
-                                false, true, calendrierEngine.getJourChomeInfo(day,dailySite,c).estChome(),
+                                false, true, isPublicHoliday,
                                 AttendanceEngine.Context.LeavePart.NONE,
-                                mealRate.signum()>0, mealRate, BigDecimal.ONE, travelRate, travelReduction,
+                                mealRate.signum()>0, mealRate, travelRate.signum() > 0 ? BigDecimal.ONE : BigDecimal.ZERO,
+                                travelRate, travelReduction,
                                 mealRate.signum() == 0));
                 LocalDate monday = day.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
                 parSemaine.computeIfAbsent(monday, ignored -> new ArrayList<>()).add(autonomousDay);
@@ -682,6 +735,7 @@ public class PointageSyntheseService {
                 montantRepasTotal = montantRepasTotal.add(autonomousDay.mealAmount());
                 totalTrajets = totalTrajets.add(autonomousDay.travelUnits());
                 totalMntDeplacement = totalMntDeplacement.add(autonomousDay.travelAmount());
+                defaultAllowances.forEach((code, amount) -> indemnitesAutonomesSansPointage.merge(code, amount, BigDecimal::add));
             }
         }
 
@@ -889,7 +943,10 @@ public class PointageSyntheseService {
         }
         dto.setMontantDeplacement(mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy.amount(montantDeplacementFinal));
         Map<String, BigDecimal> fixedAmounts = loadFixedMonthlyAmounts(idEmp, idPeriode, dateDebut, dateFin, statutPeriode, c);
-        dto.setMontantsIndemnites(loadAllowanceAmounts(idEmp, idPeriode, dateDebut, dateFin, statutPeriode, c, fixedAmounts));
+        Map<String, BigDecimal> totalAllowances = new LinkedHashMap<>(
+                loadAllowanceAmounts(idEmp, idPeriode, dateDebut, dateFin, statutPeriode, c, fixedAmounts));
+        indemnitesAutonomesSansPointage.forEach((code, amount) -> totalAllowances.merge(code, amount, BigDecimal::add));
+        dto.setMontantsIndemnites(totalAllowances);
         dto.setIndemnitesFixesMensuelles(fixedAmounts);
         dto.setNbAnomaliesNonResolues(nbAnomalies);
         dto.setHeuresNormales(seuilHeuresJour.multiply(BigDecimal.valueOf(nbJoursOuvrablesPeriode)).doubleValue());

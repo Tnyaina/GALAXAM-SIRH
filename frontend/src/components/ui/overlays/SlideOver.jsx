@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import ConfirmDialog from './ConfirmDialog';
 import useFocusTrap from '@/hooks/useFocusTrap';
@@ -70,7 +71,7 @@ export default function SlideOver({
 
     return (
         <>
-            <div className="fixed inset-0 z-50 flex justify-end">
+            {createPortal(<div className="fixed inset-0 z-50 flex justify-end">
                 <div
                     className="absolute inset-0 bg-[var(--color-overlay)]/60 backdrop-blur-[2px]"
                     onClick={handleBackdropClick}
@@ -126,7 +127,7 @@ export default function SlideOver({
                         </div>
                     )}
                 </div>
-            </div>
+            </div>, document.body)}
 
             {/* Confirmation d'abandon de saisie */}
             <ConfirmDialog

@@ -23,6 +23,12 @@ function invalidateEmployeeSheets() {
     employeeSheetCache.clear();
 }
 
+function notifyPointageUpdated() {
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('pointage-data-updated'));
+    }
+}
+
 function getEmployeeSheet(idEmploye, params = {}) {
     let cleanId = idEmploye;
     let cleanParams = params;
@@ -74,6 +80,7 @@ const attendanceApi = {
         saveBatch: async (pointages) => {
             const data = (await apiClient.post('/pointages/saisie/batch', pointages)).data;
             invalidateEmployeeSheets();
+            notifyPointageUpdated();
             return data;
         }
     },
@@ -97,6 +104,7 @@ const attendanceApi = {
         regularize: async (idPointage, payload) => {
             const data = (await apiClient.put(`/pointages/anomalies/${idPointage}/regulariser`, payload)).data;
             invalidateEmployeeSheets();
+            notifyPointageUpdated();
             return data;
         }
     },
@@ -130,11 +138,13 @@ const attendanceApi = {
         createAdjustment: async ({ idPeriodePaie, idEmploye, minutesSignees, motif }) => {
             const data = (await apiClient.post('/pointages/synthese/ajustements', { minutesSignees, motif }, { params: { idPeriodePaie, idEmploye } })).data;
             invalidateEmployeeSheets();
+            notifyPointageUpdated();
             return data;
         },
         cancelAdjustment: async ({ idPeriodePaie, idEmploye, idAjustement, motif }) => {
             const data = (await apiClient.post(`/pointages/synthese/ajustements/${idAjustement}/annuler`, { motif }, { params: { idPeriodePaie, idEmploye } })).data;
             invalidateEmployeeSheets();
+            notifyPointageUpdated();
             return data;
         },
         recalculateWeeks: async ({ idPeriodePaie, idSite }) => {
@@ -142,6 +152,7 @@ const attendanceApi = {
                 idPeriodePaie: Number(idPeriodePaie), idSite: cleanSite(idSite)
             })).data;
             invalidateEmployeeSheets();
+            notifyPointageUpdated();
             return data;
         }
     },
@@ -166,6 +177,9 @@ const attendanceApi = {
 
 // Noms existants conservés dans les composants jusqu'à leur migration vers les groupes ci-dessus.
 export const attendanceService = {
+    // La saisie par période utilise les méthodes regroupées sous `daily`.
+    // Les alias ci-dessous restent disponibles pour les écrans plus anciens.
+    daily: attendanceApi.daily,
     getGrilleSaisie: attendanceApi.daily.getGrid,
     previewDay: attendanceApi.daily.preview,
     previewDays: attendanceApi.daily.previewBatch,

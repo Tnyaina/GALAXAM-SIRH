@@ -12,6 +12,8 @@ const STATUS_MAP = {
     'CLOTUREE': { variant: 'secondary', label: 'Clôturée', dot: false },
     'ROMPU': { variant: 'danger', label: 'Rompu', dot: false },
     'ANNULE': { variant: 'secondary', label: 'Annulé', dot: false },
+    'ANNULEE': { variant: 'secondary', label: 'Annulée', dot: false },
+    'PAYEE': { variant: 'success', label: 'Payée', dot: true },
     'BLOQUE': { variant: 'danger', label: 'Bloqué', dot: true },
     'BLOQUEE': { variant: 'danger', label: 'Bloquée', dot: true },
 

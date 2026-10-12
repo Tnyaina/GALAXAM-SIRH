@@ -81,7 +81,7 @@ export default function HistoriqueContratsTable({
                     Aucun contrat dans l'historique.
                 </p>
             ) : (
-                <Table>
+                <Table tableClassName="min-w-[1100px]">
                     <Thead>
                         <Tr>
                             <Th>Type &amp; N° Contrat</Th>
@@ -168,9 +168,9 @@ export default function HistoriqueContratsTable({
                                             )}
                                         </div>
                                     </Td>
-                                    <Td>
-                                        <div className="flex flex-wrap items-center justify-between gap-1.5">
-                                            <span className="font-mono text-[var(--color-fg-muted)]">
+                                    <Td className="min-w-[150px]">
+                                        <div className="flex flex-col items-start gap-1">
+                                            <span className="font-mono text-xs whitespace-nowrap text-[var(--color-fg-muted)]">
                                                 {ct.dateSignature ? fmtDate(ct.dateSignature) : <span className="text-[var(--color-fg-subtle)] font-normal text-xs">Non renseignée</span>}
                                             </span>
                                             {!isAnnule && ct.codeStatutContrat !== 'BROUILLON' && onOpenContrat && (
@@ -180,6 +180,7 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenContrat(ct)}
                                                         variant="ghost"
                                                         size="xs"
+                                                        className="min-h-8 px-1.5"
                                                     >
                                                         {ct.dateSignature ? 'Modifier' : 'Renseigner'}
                                                     </Button>
@@ -220,7 +221,7 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenAttestation(ct)}
                                                         variant="outline"
                                                         size="xs"
-                                                        className="min-h-[44px] inline-flex items-center justify-center"
+                                                        className="inline-flex items-center justify-center"
                                                         iconLeft={<FileCheck size={14} />}
                                                         aria-label={`Générer l'attestation de travail pour le contrat ${ct.numeroContrat || ''}`}
                                                     >
@@ -232,7 +233,7 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenContrat(ct)}
                                                         variant="ghost"
                                                         size="xs"
-                                                        className="min-h-[44px] inline-flex items-center justify-center"
+                                                        className="inline-flex items-center justify-center"
                                                         iconLeft={<FileText size={14} />}
                                                         aria-label={`Consulter le contrat ${ct.numeroContrat || ''}`}
                                                     >
@@ -250,7 +251,7 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenContrat(ct)}
                                                         variant="outline"
                                                         size="xs"
-                                                        className="min-h-[44px] inline-flex items-center justify-center"
+                                                        className="inline-flex items-center justify-center"
                                                         iconLeft={<FileText size={14} />}
                                                         aria-label={`Consulter l'ancien contrat ${ct.numeroContrat || ''}`}
                                                     >
@@ -269,7 +270,7 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenContrat(ct)}
                                                         variant="outline"
                                                         size="xs"
-                                                        className="min-h-[44px] inline-flex items-center justify-center"
+                                                        className="inline-flex items-center justify-center"
                                                         iconLeft={<FileText size={14} />}
                                                         aria-label={`Consulter le contrat transitionné ${ct.numeroContrat || ''}`}
                                                     >
@@ -286,7 +287,7 @@ export default function HistoriqueContratsTable({
                                                         variant="outline"
                                                         size="xs"
                                                         iconLeft={<Calculator size={14} />}
-                                                        className="min-h-[44px] inline-flex items-center justify-center border-[var(--color-brand-600)] text-[var(--color-brand-600)] hover:bg-[var(--color-brand-100)]/40"
+                                                        className="inline-flex items-center justify-center border-[var(--color-brand-600)] text-[var(--color-brand-600)] hover:bg-[var(--color-brand-100)]/40"
                                                         aria-label={`Calculer le solde de tout compte (STC) pour le contrat ${ct.numeroContrat || ''}`}
                                                     >
                                                         STC
@@ -297,7 +298,7 @@ export default function HistoriqueContratsTable({
                                                         onClick={() => onOpenCertificat(ct)}
                                                         variant="outline"
                                                         size="xs"
-                                                        className="min-h-[44px] inline-flex items-center justify-center"
+                                                        className="inline-flex items-center justify-center"
                                                         iconLeft={<Award size={14} />}
                                                         aria-label={`Générer le certificat de travail pour le contrat ${ct.numeroContrat || ''}`}
                                                     >

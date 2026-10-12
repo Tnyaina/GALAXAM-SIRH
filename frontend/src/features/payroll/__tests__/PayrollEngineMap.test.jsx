@@ -34,7 +34,7 @@ it('place les données du serveur dans leur phase et relie type et rubrique selo
     // Au clic sur la ligne ou la flèche, la fiche détaillée de la rubrique s'ouvre
     const openRubriqueBtn = host.querySelector('button[aria-label="Ouvrir le détail de Prime exceptionnelle"]');
     await act(async () => openRubriqueBtn.click());
-    expect(host.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Montant saisi');
+    expect(document.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Montant saisi');
 
     // Bascule vers l'onglet Types de variable
     const typeTabBtn = [...host.querySelectorAll('button')].find(button => button.textContent.includes('Types de variable'));
@@ -43,15 +43,15 @@ it('place les données du serveur dans leur phase et relie type et rubrique selo
     // Au clic sur la flèche du type, sa fiche détaillée s'ouvre avec la mention de saisie
     const openTypeBtn = host.querySelector('button[aria-label="Ouvrir le détail de Prime exceptionnelle"]');
     await act(async () => openTypeBtn.click());
-    expect(host.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Saisie manuelle autorisée');
-    expect(host.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Rubrique alimentée');
+    expect(document.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Saisie manuelle autorisée');
+    expect(document.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Rubrique alimentée');
 
     // Au clic sur [Ouvrir la rubrique], on bascule vers la rubrique associée
-    const openLinkedRubriqueBtn = [...host.querySelectorAll('button')].find(b => b.textContent.includes('Ouvrir la rubrique'));
+    const openLinkedRubriqueBtn = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Ouvrir la rubrique'));
     expect(openLinkedRubriqueBtn).toBeTruthy();
     await act(async () => openLinkedRubriqueBtn.click());
-    expect(host.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('RUBRIQUE DE CALCUL');
-    expect(host.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Prime exceptionnelle');
+    expect(document.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('RUBRIQUE DE CALCUL');
+    expect(document.querySelector('aside[aria-label="Détail de configuration"]').textContent).toContain('Prime exceptionnelle');
 });
 
 it('ouvre la création d’un type prélié depuis une rubrique sans type', async () => {

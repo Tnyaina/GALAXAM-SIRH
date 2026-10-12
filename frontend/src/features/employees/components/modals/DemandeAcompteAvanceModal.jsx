@@ -197,7 +197,12 @@ export default function DemandeAcompteAvanceModal({ idEmploye, employe, synthese
 
     // Raccourcis de calcul ergonomiques (purement indicatifs, aucune règle bloquante)
     const quickAmounts = useMemo(() => {
-        if (!salaireBase || salaireBase <= 0) return [50000, 100000, 200000];
+        if (!salaireBase || salaireBase <= 0) {
+            return [50000, 100000, 200000].map(value => ({
+                label: formatMoneyAr(value),
+                value,
+            }));
+        }
         const p25 = Math.round(salaireBase * 0.25);
         const p50 = Math.round(salaireBase * 0.5);
         const p75 = Math.round(salaireBase * 0.75);

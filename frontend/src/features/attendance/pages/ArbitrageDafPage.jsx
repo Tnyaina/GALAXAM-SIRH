@@ -93,7 +93,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             try {
                 const paramPeriode = searchParams.get('periode');
                 const [resPeriodes, resSites, context] = await Promise.all([
-                    periodesDisponibles ?? periodePaieService.getAllPeriodes(),
+                    periodePaieService.getAllPeriodes().catch(() => periodesDisponibles ?? []),
                     sitesDisponibles ?? organisationService.getSites(),
                     activePeriode ? null : periodePaieService.getContext(paramPeriode ? Number(paramPeriode) : null)
                 ]);
@@ -134,21 +134,6 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
             setCurrentPage(1);
         }
     }, [activePeriode?.idPeriodePaie]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Synchronisation réactive de la liste locale des périodes avec le statut et version d'activePeriode
-    useEffect(() => {
-        if (activePeriode?.idPeriodePaie) {
-            setPeriodes(prev => {
-                const idx = prev.findIndex(p => p.idPeriodePaie === activePeriode.idPeriodePaie);
-                if (idx >= 0) {
-                    const copy = [...prev];
-                    copy[idx] = { ...copy[idx], ...activePeriode };
-                    return copy;
-                }
-                return prev.length === 0 ? [activePeriode] : prev;
-            });
-        }
-    }, [activePeriode]);
 
     const loadData = useCallback(async ({ silent = false } = {}) => {
         if (!selectedPeriode) {
@@ -196,37 +181,38 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         }
     }, [selectedPeriode, selectedSite, debouncedSearch, alertFilter, currentPage, pageSize]);
 
+    const refreshPeriodData = useCallback(async () => {
+        loadData({ silent: true });
+        setPreflightRevision(value => value + 1);
+        try {
+            const updatedList = await periodePaieService.getAllPeriodes();
+            if (Array.isArray(updatedList)) setPeriodes(updatedList);
+        } catch {
+            // Les données affichées restent utilisables; le prochain rafraîchissement retentera la lecture.
+        }
+    }, [loadData]);
+
     useEffect(() => { loadData(); }, [loadData]);
 
     // Actualisation silencieuse lors des changements de statut/version d'activePeriode
     useEffect(() => {
         if (activePeriode?.statutCode || activePeriode?.version) {
-            loadData({ silent: true });
-            setPreflightRevision(value => value + 1);
+            refreshPeriodData();
         }
-    }, [activePeriode?.statutCode, activePeriode?.version, loadData]);
+    }, [activePeriode?.statutCode, activePeriode?.version, refreshPeriodData]);
 
     // Écoute des événements métier pour actualisation silencieuse
     useEffect(() => {
-        const silentRefresh = async () => {
-            loadData({ silent: true });
-            setPreflightRevision(v => v + 1);
-            try {
-                const updatedList = await (periodesDisponibles ?? periodePaieService.getAllPeriodes());
-                if (updatedList && updatedList.length > 0) setPeriodes(updatedList);
-            } catch {
-                // Erreur silencieuse
-            }
-        };
-
-        window.addEventListener('pointage-period-updated', silentRefresh);
-        window.addEventListener('sirh:period-updated', silentRefresh);
+        window.addEventListener('pointage-period-updated', refreshPeriodData);
+        window.addEventListener('sirh:period-updated', refreshPeriodData);
+        window.addEventListener('pointage-data-updated', refreshPeriodData);
 
         return () => {
-            window.removeEventListener('pointage-period-updated', silentRefresh);
-            window.removeEventListener('sirh:period-updated', silentRefresh);
+            window.removeEventListener('pointage-period-updated', refreshPeriodData);
+            window.removeEventListener('sirh:period-updated', refreshPeriodData);
+            window.removeEventListener('pointage-data-updated', refreshPeriodData);
         };
-    }, [loadData, periodesDisponibles]);
+    }, [refreshPeriodData]);
 
     useEffect(() => {
         if (!selectedPeriode) {
@@ -275,7 +261,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const currentPeriodeObj = useMemo(() => {
         const fromList = periodes.find(p => p.idPeriodePaie === Number(selectedPeriode));
         if (String(activePeriode?.idPeriodePaie) === String(selectedPeriode)) {
-            return { ...fromList, ...activePeriode };
+            return fromList ? { ...activePeriode, ...fromList } : activePeriode;
         }
         return fromList || null;
     }, [periodes, selectedPeriode, activePeriode]);
@@ -285,8 +271,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
         return st === 'VALIDEE' || st === 'PAIE_VALIDEE' || st === 'CLOTUREE';
     }, [currentPeriodeObj]);
 
-    const periodActions = String(activePeriode?.idPeriodePaie) === String(selectedPeriode)
-        ? activePeriode.availableActions || {} : currentPeriodeObj?.availableActions || {};
+    const periodActions = currentPeriodeObj?.availableActions || {};
     const isPendingDaf = ['A_VALIDER', 'TRANSMIS_DAF'].includes(currentPeriodeObj?.statutCode);
     const isPreflightPret = preflight?.pret === true;
     const canApprove = !loading && !loadError && isPreflightPret && periodActions.APPROVE?.allowed === true;

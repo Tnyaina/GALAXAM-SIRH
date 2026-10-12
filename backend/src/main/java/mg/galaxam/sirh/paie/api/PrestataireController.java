@@ -8,11 +8,13 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -127,9 +129,20 @@ public class PrestataireController {
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> joindreContrat(@PathVariable int id, @RequestParam("file") MultipartFile file) throws Exception {
         byte[] bytes = pdfBytes(file);
+        String reference;
+        LocalDate dateDebut;
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
+                "SELECT reference,date_debut FROM prestataire_contrat WHERE id_contrat_prestataire=? AND chemin_piece IS NULL")) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new IllegalStateException("Contrat absent ou pièce déjà jointe.");
+                reference = rs.getString("reference");
+                dateDebut = rs.getDate("date_debut") == null ? null : rs.getDate("date_debut").toLocalDate();
+            }
+        }
         Path directory = Path.of(documentDirectory).toAbsolutePath().normalize();
         Files.createDirectories(directory);
-        String filename = UUID.randomUUID() + ".pdf";
+        String filename = nomFichierStockage("CONTRAT_PRESTATION", reference, dateDebut);
         Path path = directory.resolve(filename);
         Files.write(path, bytes);
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
@@ -147,11 +160,13 @@ public class PrestataireController {
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<byte[]> telechargerContrat(@PathVariable int id) throws Exception {
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
-                "SELECT chemin_piece FROM prestataire_contrat WHERE id_contrat_prestataire=?")) {
+                "SELECT chemin_piece,reference,date_debut FROM prestataire_contrat WHERE id_contrat_prestataire=?")) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next() || rs.getString(1) == null) return ResponseEntity.notFound().build();
-                return envoyerPdf(rs.getString(1), "contrat-prestataire-" + id + ".pdf");
+                LocalDate dateDebut = rs.getDate(3) == null ? null : rs.getDate(3).toLocalDate();
+                String downloadName = nomFichierTelechargement("contrat-prestation", rs.getString(2), dateDebut);
+                return envoyerPdf(rs.getString(1), downloadName);
             }
         }
     }
@@ -215,9 +230,20 @@ public class PrestataireController {
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> joindreFacture(@PathVariable int id, @RequestParam("file") MultipartFile file) throws Exception {
         byte[] bytes = pdfBytes(file);
+        String reference;
+        LocalDate dateFacture;
+        try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
+                "SELECT reference,date_facture FROM prestataire_facture WHERE id_facture_prestataire=? AND statut='BROUILLON' AND chemin_piece IS NULL")) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new IllegalStateException("Facture absente, déjà validée ou pièce déjà jointe.");
+                reference = rs.getString("reference");
+                dateFacture = rs.getDate("date_facture") == null ? null : rs.getDate("date_facture").toLocalDate();
+            }
+        }
         Path directory = Path.of(documentDirectory).toAbsolutePath().normalize();
         Files.createDirectories(directory);
-        String filename = UUID.randomUUID() + ".pdf";
+        String filename = nomFichierStockage("FACTURE_PRESTATAIRE", reference, dateFacture);
         Path path = directory.resolve(filename);
         Files.write(path, bytes);
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
@@ -235,15 +261,18 @@ public class PrestataireController {
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<byte[]> telechargerPiece(@PathVariable int id) throws Exception {
         String filename;
+        String downloadName;
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
-                "SELECT chemin_piece FROM prestataire_facture WHERE id_facture_prestataire=?")) {
+                "SELECT chemin_piece,reference,date_facture FROM prestataire_facture WHERE id_facture_prestataire=?")) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next() || rs.getString(1) == null) return ResponseEntity.notFound().build();
                 filename = rs.getString(1);
+                LocalDate dateFacture = rs.getDate(3) == null ? null : rs.getDate(3).toLocalDate();
+                downloadName = nomFichierTelechargement("facture-prestataire", rs.getString(2), dateFacture);
             }
         }
-        return envoyerPdf(filename, "facture-prestataire-" + id + ".pdf");
+        return envoyerPdf(filename, downloadName);
     }
 
     @PostMapping("/factures/{id}/valider")
@@ -279,6 +308,29 @@ public class PrestataireController {
 
     private static boolean blank(String value) { return value == null || value.isBlank(); }
     private static String trim(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+    private static String nomFichierTelechargement(String type, String reference, LocalDate date) {
+        String normalizedReference = Normalizer.normalize(reference == null ? "" : reference.trim(), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-|-$", "");
+        if (normalizedReference.isBlank()) normalizedReference = "sans-reference";
+        if (normalizedReference.length() > 80) normalizedReference = normalizedReference.substring(0, 80).replaceAll("-$", "");
+        return type + "-" + normalizedReference + (date == null ? "" : "-" + date) + ".pdf";
+    }
+    private static String nomFichierStockage(String type, String reference, LocalDate date) {
+        String normalizedReference = Normalizer.normalize(reference == null ? "" : reference.trim(), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toUpperCase(Locale.ROOT)
+                .replaceAll("[^A-Z0-9]+", "_")
+                .replaceAll("^_|_$", "");
+        if (normalizedReference.isBlank()) normalizedReference = "SANS_REFERENCE";
+        if (normalizedReference.length() > 60) normalizedReference = normalizedReference.substring(0, 60).replaceAll("_$", "");
+        String datePart = (date == null ? LocalDate.now(ZoneId.of("Indian/Antananarivo")) : date)
+                .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+        String shortId = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        return type + "_" + normalizedReference + "_" + datePart + "_" + shortId + ".pdf";
+    }
     private static byte[] pdfBytes(MultipartFile file) throws Exception {
         if (file == null || file.isEmpty() || file.getSize() > 10_000_000)
             throw new IllegalArgumentException("Un PDF de 10 Mo maximum est requis.");
@@ -288,7 +340,9 @@ public class PrestataireController {
         return bytes;
     }
     private ResponseEntity<byte[]> envoyerPdf(String filename, String downloadName) throws Exception {
-        if (!filename.matches("[a-f0-9-]{36}\\.pdf")) throw new IllegalStateException("Référence de pièce invalide.");
+        boolean newConvention = filename.matches("[A-Z0-9_-]+_[0-9]{8}_[a-f0-9]{8}\\.pdf");
+        boolean legacyUuid = filename.matches("[a-f0-9-]{36}\\.pdf");
+        if (!newConvention && !legacyUuid) throw new IllegalStateException("Référence de pièce invalide.");
         Path path = Path.of(documentDirectory).toAbsolutePath().normalize().resolve(filename);
         if (!Files.isRegularFile(path)) return ResponseEntity.notFound().build();
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)

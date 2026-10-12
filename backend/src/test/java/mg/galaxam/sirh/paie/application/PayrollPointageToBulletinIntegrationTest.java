@@ -145,7 +145,15 @@ class PayrollPointageToBulletinIntegrationTest {
                 try (PreparedStatement statement = connection.prepareStatement(
                         "INSERT INTO paie_pret_echeance (id_pret, numero_echeance, date_echeance, "
                         + "montant_echeance, capital_restant_apres, montant_restant_echeance) "
-                        + "VALUES (?, 1, '2026-10-27', 12000, 0, 12000)")) {
+                        + "VALUES (?, 1, '2026-11-27', 12000, 0, 12000)")) {
+                    statement.setInt(1, loanId);
+                    statement.executeUpdate();
+                }
+
+                assertEquals(null, payrollService.preparerInput(employeeId, periodId, true, connection)
+                        .getEcheancePretActive(), "Une échéance future ne doit pas être prélevée sur cette paie");
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "UPDATE paie_pret_echeance SET date_echeance = '2026-10-27' WHERE id_pret = ?")) {
                     statement.setInt(1, loanId);
                     statement.executeUpdate();
                 }

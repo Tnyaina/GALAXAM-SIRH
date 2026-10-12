@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getErrorMessage } from '@/api/apiClient';
 import { Briefcase, Save, UserPlus, RotateCcw } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
@@ -25,6 +26,7 @@ export default function EmbaucheModal({
     initialData = null,
     onSuccess,
 }) {
+    const navigate = useNavigate();
     // Données dérivées de l'historique contractuel.
     const isEditMode = !!initialData;
     const hasHistory = Array.isArray(contratsList) && contratsList.length > 0;
@@ -287,6 +289,14 @@ export default function EmbaucheModal({
             ) : (
                 <form id="embauche-form" onSubmit={handleSubmit} className="space-y-6 [&_label]:normal-case [&_label]:tracking-normal [&_label]:text-xs [&_label]:font-medium">
                     {errorMsg && <FormError message={errorMsg} />}
+                    {!isEditMode && <div className="flex flex-wrap items-center justify-between gap-3 border border-[var(--color-info-border)] bg-[var(--color-info-surface)] p-3 text-xs text-[var(--color-info-text)]">
+                        <p><strong>Choisir le bon parcours.</strong> Un consultant salarié est embauché ici avec un contrat de travail et passe en paie IRSA. Un consultant ou autre prestataire indépendant est enregistré hors paie, avec contrat de prestation et facture.</p>
+                        <Button type="button" variant="outline" size="sm" disabled={isDirty}
+                            title={isDirty ? 'Fermez d’abord ce brouillon pour changer de parcours.' : undefined}
+                            onClick={() => { onClose(); navigate('/paie/prestataires'); }}>
+                            Ouvrir les prestataires indépendants
+                        </Button>
+                    </div>}
 
                     {/* Nature de la contractualisation si historique existant */}
                     {hasHistory && !isEditMode && (

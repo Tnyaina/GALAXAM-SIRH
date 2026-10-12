@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 import Button from '@/components/ui/forms/Button';
 import useFocusTrap from '@/hooks/useFocusTrap';
@@ -42,7 +43,7 @@ export default function ConfirmDialog({
         success: 'text-[var(--color-brand-600)] bg-[var(--color-brand-50)] border-[var(--color-brand-200)]',
     };
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-overlay)]/60 backdrop-blur-[2px] p-4">
             <div
                 ref={dialogRef}
@@ -50,7 +51,7 @@ export default function ConfirmDialog({
                 aria-modal="true"
                 aria-labelledby="confirm-dialog-title"
                 tabIndex={-1}
-                className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl max-w-md w-full overflow-hidden rounded-none animate-in fade-in zoom-in-95"
+                className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl max-w-md w-full overflow-hidden rounded-none flex flex-col animate-in fade-in zoom-in-95"
             >
                 <div className="p-4 sm:p-5 space-y-3">
                     <div className="flex items-start gap-3">
@@ -72,7 +73,7 @@ export default function ConfirmDialog({
                     {children && <div className="pt-1.5">{children}</div>}
                 </div>
 
-                <div className="px-4 py-3 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex justify-end gap-2">
+                <div className="px-4 py-3 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex justify-end gap-2 shrink-0">
                     <Button
                         type="button"
                         onClick={onClose}
@@ -93,6 +94,7 @@ export default function ConfirmDialog({
                     </Button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

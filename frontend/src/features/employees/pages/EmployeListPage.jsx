@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { UserPlus, Users, UserCheck, UserX, RefreshCw } from 'lucide-react';
+import { UserPlus, Users, UserCheck, UserX, BriefcaseBusiness } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import employeService from '@/features/employees/api/employeService';
 import Button from '@/components/ui/forms/Button';
@@ -24,7 +24,7 @@ import SEO from '@/components/system/SEO';
 export default function EmployeListPage() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { hasPermission } = useAuth();
+    const { hasPermission, hasRole } = useAuth();
     const { sites = [], departements = [], services = [] } = useContractReferentiels(true);
     const toast = useToast();
 
@@ -37,7 +37,7 @@ export default function EmployeListPage() {
     // Filtres synchronisés avec l'URL
     const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
     const debouncedSearch = useDebounce(searchQuery, 350);
-    const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'ALL'); // 'ALL', 'ACTIVE', 'INACTIVE'
+    const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'ACTIVE'); // 'ALL', 'ACTIVE', 'INACTIVE'
     const [siteFilter, setSiteFilter] = useState(searchParams.get('site') || '');
     const [departementFilter, setDepartementFilter] = useState(searchParams.get('dept') || '');
     const [serviceFilter, setServiceFilter] = useState(searchParams.get('service') || '');
@@ -69,6 +69,7 @@ export default function EmployeListPage() {
 
     const canWrite = hasPermission('EMPLOYE_WRITE');
     const canValidate = hasPermission('EMPLOYE_VALIDATE');
+    const canOpenPrestataires = hasRole('ROLE_ADMIN') && hasPermission('PAIE_READ');
 
     // Chargement des statistiques globales (compteurs d'effectif).
     // Les filtres de recherche ne changent pas ces compteurs : ils décrivent
@@ -311,15 +312,18 @@ export default function EmployeListPage() {
                 ]}
                 actions={
                     <>
-                        <Button
-                            onClick={() => { loadEmployes(); loadStats(); }}
-                            variant="ghost"
-                            size="sm"
-                            loading={loading}
-                            iconLeft={<RefreshCw size={16} />}
-                        >
-                            Actualiser
-                        </Button>
+                        {canOpenPrestataires && (
+                            <Button
+                                type="button"
+                                onClick={() => navigate('/paie/prestataires')}
+                                variant="outline"
+                                size="sm"
+                                iconLeft={<BriefcaseBusiness size={16} />}
+                                title="Gérer les indépendants hors liste des employés et hors bulletin de paie"
+                            >
+                                Prestataires indépendants
+                            </Button>
+                        )}
                         {canWrite && displayTotal > 0 && (
                             <Button
                                 onClick={handleOpenCreate}

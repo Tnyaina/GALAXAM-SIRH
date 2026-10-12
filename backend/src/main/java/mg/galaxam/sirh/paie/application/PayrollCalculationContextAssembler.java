@@ -510,10 +510,12 @@ final class PayrollCalculationContextAssembler {
                 "JOIN paie_pret p ON e.id_pret = p.id_pret " +
                 "WHERE p.id_employe = ? AND p.statut = 'EN_COURS' " +
                 "AND e.statut IN ('A_ECHOIR', 'PRELEVEE_PARTIELLEMENT') " +
-                "ORDER BY e.numero_echeance ASC LIMIT 1";
+                "AND e.date_echeance <= ? " +
+                "ORDER BY e.date_echeance ASC, e.id_pret ASC, e.numero_echeance ASC LIMIT 1";
 
         try (PreparedStatement ps = c.prepareStatement(sqlPret)) {
             ps.setInt(1, idEmploye);
+            ps.setDate(2, in.getDateFinPeriode());
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     PaiePretEcheance ech = new PaiePretEcheance();

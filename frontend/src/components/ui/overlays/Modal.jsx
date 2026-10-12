@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import ConfirmDialog from './ConfirmDialog';
 import useFocusTrap from '@/hooks/useFocusTrap';
@@ -69,7 +70,7 @@ export default function Modal({
 
     return (
         <>
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {createPortal(<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                 {/* Backdrop */}
                 <div
                     className="absolute inset-0 bg-[var(--color-overlay)]/60 backdrop-blur-[2px]"
@@ -117,7 +118,7 @@ export default function Modal({
                         </div>
                     )}
                 </div>
-            </div>
+            </div>, document.body)}
 
             {/* Boîte de dialogue de confirmation d'abandon si formulaire modifié */}
             <ConfirmDialog

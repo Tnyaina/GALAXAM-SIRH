@@ -86,6 +86,9 @@ export default function TransitionTypeSection({ relevantEvTypes = [], formData, 
     return (
         <section className="space-y-4 pb-6 border-b border-[var(--color-border-subtle)]">
             <FormSectionHeader step={1} icon={RefreshCw} title="Type de mouvement" />
+            <p className="border border-[var(--color-info-border)] bg-[var(--color-info-surface)] p-3 text-xs text-[var(--color-info-text)]">
+                Une mission indépendante ne se crée pas comme mouvement de carrière salarié. Utilisez « Paie & Rémunération → Prestataires indépendants » pour le dossier, le contrat de prestation et les factures.
+            </p>
 
             {/* Groupes d'événements */}
             <div className="space-y-4">

@@ -11,7 +11,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.common.dto.BusinessDecision;
 import mg.galaxam.sirh.paie.api.dto.PaieAjustementRequest;
@@ -88,7 +90,8 @@ public class PaieAjustementController {
                             "rtmp.categorie AS type_categorie, rtmp.nature AS type_nature, pr.soumis_irsa AS type_imposable, "
                             +
                             "pr.soumis_cnaps AS type_cotisable " +
-                            ", pj.nom_fichier AS justificatif_nom " +
+                            ", pj.nom_fichier AS justificatif_nom, pj.type_mime AS justificatif_mime, " +
+                            "pj.created_at AS justificatif_date_depot " +
                             "FROM paie_avance_acompte paa " +
                             "JOIN employe e ON paa.id_employe = e.id_employe " +
                             "LEFT JOIN ref_type_mouvement_paie rtmp ON paa.id_type_mouvement = rtmp.id_type_mouvement "
@@ -146,8 +149,13 @@ public class PaieAjustementController {
                         map.put("referenceVersement", rs.getString("reference_versement"));
                         map.put("dateAccord", rs.getDate("date_accord"));
                         map.put("motif", rs.getString("motif"));
-                        map.put("justificatifNom", rs.getString("justificatif_nom"));
-                        map.put("justificatifPresent", rs.getString("justificatif_nom") != null);
+                        String justificatifNom = rs.getString("justificatif_nom");
+                        if (justificatifNom != null) {
+                            justificatifNom = nomAffichageJustificatif(justificatifNom,
+                                    rs.getTimestamp("justificatif_date_depot"), rs.getString("justificatif_mime"));
+                        }
+                        map.put("justificatifNom", justificatifNom);
+                        map.put("justificatifPresent", justificatifNom != null);
                         map.put("statut", rs.getString("statut"));
                         Timestamp uAt = rs.getTimestamp("updated_at");
                         map.put("updatedAt", uAt);
@@ -210,7 +218,7 @@ public class PaieAjustementController {
                     "FROM ref_type_mouvement_paie t " +
                     "LEFT JOIN paie_rubrique r ON r.id_rubrique = t.id_rubrique " +
                     "WHERE t.est_actif = TRUE AND t.saisie_manuelle_autorisee = TRUE " +
-                    "AND (t.owner_code = 'DAF_PAIE' OR t.code = 'REGULARISATION_CONGE') " +
+                    "AND (t.owner_code IN ('DAF_PAIE', 'TRESORERIE') OR t.code = 'REGULARISATION_CONGE') " +
                     "ORDER BY t.ordre_affichage, t.libelle";
             try (PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -656,10 +664,11 @@ public class PaieAjustementController {
             throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
                     "Utilisez un justificatif PDF, PNG ou JPEG.");
         }
-        String name = file.getOriginalFilename() == null ? "justificatif" : file.getOriginalFilename();
-        name = name.replaceAll("[\\r\\n\\\\/]", "_").trim();
-        if (name.isBlank()) name = "justificatif";
-        if (name.length() > 255) name = name.substring(0, 255);
+        String extension = "application/pdf".equals(mime) ? "pdf" : "image/png".equals(mime) ? "png" : "jpg";
+        String uploadDate = LocalDate.now(ZoneId.of("Indian/Antananarivo"))
+                .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+        String shortId = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String name = "JUSTIFICATIF_FRAIS_" + uploadDate + "_" + shortId + "." + extension;
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -705,7 +714,7 @@ public class PaieAjustementController {
     @PreAuthorize("hasAuthority('PAIE_READ') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> telechargerJustificatifFrais(@PathVariable("id") int id) throws Exception {
         try (Connection c = dataSource.getConnection(); PreparedStatement ps = c.prepareStatement(
-                "SELECT j.nom_fichier,j.type_mime,j.contenu FROM paie_mouvement_justificatif j "
+                "SELECT j.nom_fichier,j.type_mime,j.contenu,j.created_at FROM paie_mouvement_justificatif j "
                         + "JOIN paie_avance_acompte a ON a.id_avance=j.id_avance "
                         + "JOIN ref_type_mouvement_paie t ON t.id_type_mouvement=a.id_type_mouvement "
                         + "WHERE j.id_avance=? AND t.code='NOTE_DE_FRAIS'")) {
@@ -713,8 +722,11 @@ public class PaieAjustementController {
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) throw new SirhBusinessException(SirhErrorCode.RESOURCE_NOT_FOUND,
                         "Justificatif de frais introuvable.");
+                String mime = rs.getString("type_mime");
+                String downloadName = nomAffichageJustificatif(rs.getString("nom_fichier"),
+                        rs.getTimestamp("created_at"), mime);
                 return ResponseEntity.ok().contentType(MediaType.parseMediaType(rs.getString("type_mime")))
-                        .header("Content-Disposition", "attachment; filename=\"" + rs.getString("nom_fichier").replace("\"", "_") + "\"")
+                        .header("Content-Disposition", "attachment; filename=\"" + downloadName + "\"")
                         .header("Cache-Control", "private, no-store")
                         .body(rs.getBytes("contenu"));
             }
@@ -824,6 +836,19 @@ public class PaieAjustementController {
                 throw ex;
             }
         }
+    }
+
+    private static String nomAffichageJustificatif(String storedName, Timestamp uploadedAt, String mime) {
+        if (storedName != null && storedName.matches("JUSTIFICATIF_FRAIS_[0-9]{8}_[a-f0-9]{8}\\.(pdf|png|jpg)")) {
+            return storedName;
+        }
+        String extension = "application/pdf".equals(mime) ? "pdf" : "image/png".equals(mime) ? "png" : "jpg";
+        LocalDate uploadedDate = uploadedAt == null ? LocalDate.now(ZoneId.of("Indian/Antananarivo"))
+                : uploadedAt.toLocalDateTime().toLocalDate();
+        String shortHash = Integer.toUnsignedString(storedName == null ? 0 : storedName.hashCode(), 16);
+        if (shortHash.length() > 8) shortHash = shortHash.substring(shortHash.length() - 8);
+        return "JUSTIFICATIF_FRAIS_" + uploadedDate.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
+                + "_HISTORIQUE_" + shortHash + "." + extension;
     }
 
     private Integer getCurrentUserId() {

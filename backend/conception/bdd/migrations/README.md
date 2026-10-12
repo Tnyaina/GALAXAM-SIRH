@@ -1,5 +1,9 @@
 # Registre des Migrations Incrémentales BDD
 
+`26-10-11-sp64-prestataires-menu.sql` ajoute « Prestataires indépendants »
+dans le menu Paie pour les rôles qui disposent de la lecture Paie. Appliquer
+après SP63 sur une base existante ; le schéma canonique contient ce menu.
+
 `26-10-08-sp62-isi-2026.sql` désactive le taux et la rubrique ISI, remet les
 types d'intervenants en cohérence avec la loi de finances 2026 et ajoute le
 type `CONSULTANT_SALARIE`. Les anciennes lignes de paie restent intactes.

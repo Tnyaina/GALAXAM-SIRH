@@ -25,7 +25,7 @@ import mg.galaxam.sirh.paie.domain.dto.PayrollCalculationInput;
  * 3. Net imposable
  * 4. Fiscalité salariale IRSA ; l'ancien champ ISI reste nul en 2026.
  * 5. Remboursements et indemnités réellement non imposables
- * 6. Retenues de trésorerie (Acomptes, Avances plafonnées 1/10 Art. 68, Prêts plafonnés 1/3 Art. 72)
+ * 6. Retenues de trésorerie (acomptes, avances et prêts selon les plafonds configurés)
  * 7. Net à payer bancaire & arrondi monétaire officiel
  */
 @Component
@@ -866,7 +866,7 @@ public class PayrollExecutionEngine {
 
         BigDecimal netApresAcompte = netAvantTresorerie.subtract(totalAcomptesQuinzaine).max(BigDecimal.ZERO);
 
-        // Plafond Art. 68 : Remboursement d'avances consenti par l'employeur max 1/10e (10%)
+        // Plafond des avances employeur résolu dans la configuration légale de la période.
         BigDecimal plafondDixiemeAvances = MoneyRoundingPolicy.amount(netApresAcompte.multiply(input.getPlafondAvanceEmployeur()));
 
         if (input.getAvancesAcomptes() != null) {
@@ -879,7 +879,7 @@ public class PayrollExecutionEngine {
                 if (isAvanceSpeciale) {
                     String codeRubrique = a.getCodeRubriqueCalcul() != null
                             ? a.getCodeRubriqueCalcul() : mapRubriqueAvance(type);
-                    String libelle = a.getMotif() != null && !a.getMotif().isBlank() ? a.getMotif() : "Avance sur salaire (Art. 68)";
+                    String libelle = a.getMotif() != null && !a.getMotif().isBlank() ? a.getMotif() : "Avance exceptionnelle sur salaire";
 
                     BigDecimal capaciteRestanteAvance = plafondDixiemeAvances.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
                     BigDecimal mntAvanceRetenu = MoneyRoundingPolicy.amount(a.getMontant().min(capaciteRestanteAvance));
@@ -896,7 +896,7 @@ public class PayrollExecutionEngine {
             }
         }
 
-        // Plafond global de quotité cessible (1/3 du net après acompte Art. 72)
+        // Quotité cessible configurée pour la période, appliquée au net après acompte.
         BigDecimal plafondTiers = MoneyRoundingPolicy.amount(netApresAcompte.multiply(input.getQuotiteCessible()));
         BigDecimal capaciteRestantePret = plafondTiers.subtract(totalAvancesSpeciales).max(BigDecimal.ZERO);
 

@@ -247,7 +247,7 @@ export default function PointageGridTable({
 
                                     {/* 1. Identification Salarié */}
                                     <Td className="px-3.5 py-2">
-                                        <div className="flex items-center gap-2.5 min-w-[210px]">
+                                        <div className="flex items-center gap-2.5 min-w-[230px]">
                                             <Avatar
                                                 src={row.photoUrl}
                                                 name={`${row.prenom || ''} ${row.nom || ''}`}

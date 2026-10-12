@@ -92,7 +92,7 @@ function CotisationFormModal({ isOpen, onClose, onSubmit, editingCotisation, for
             onSubmit={submit}
             title={editingCotisation ? 'Modifier la Cotisation Sociale' : 'Nouvelle Cotisation Sociale'}
             icon={<ShieldCheck size={18} />}
-            size="xl"
+            size="2xl"
             isEdit={!!editingCotisation}
             loading={submitting}
             error={localError || actionError}

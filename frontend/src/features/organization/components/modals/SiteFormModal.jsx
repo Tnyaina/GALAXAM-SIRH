@@ -26,7 +26,7 @@ export default function SiteFormModal({
             onClose={onClose}
             title={selectedSite ? "Modifier le Site d'Exploitation" : "Nouveau Site d'Exploitation"}
             icon={<MapPin size={18} />}
-            size="lg"
+            size="xl"
             footer={
                 <>
                     <Button type="button" onClick={onClose} variant="ghost" size="sm" disabled={submitting}>

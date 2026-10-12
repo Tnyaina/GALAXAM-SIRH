@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
     Banknote, CalendarRange, FileText,
     DollarSign, AlertTriangle, SlidersHorizontal,
-    ChevronRight, TrendingUp, TrendingDown
+    ChevronRight, TrendingUp, TrendingDown, Users
 } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import Button from '@/components/ui/forms/Button';
@@ -259,11 +259,14 @@ export default function GestionPaiePage() {
                 )}
             />
 
-            <div className="mb-4 flex justify-end">
-                <Button variant="outline" onClick={() => navigate('/paie/prestataires')}>
-                    Prestataires indépendants · contrats et factures
-                </Button>
-            </div>
+            <Card padding shadow="none" className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                    <Users size={18} className="mt-0.5 shrink-0 text-[var(--color-brand-600)]" />
+                    <div><h2 className="text-sm font-bold">Un consultant indépendant ou un autre prestataire de services ?</h2>
+                        <p className="text-xs text-[var(--color-fg-muted)]">Créez son dossier, son contrat et ses factures dans le parcours prestataires. Son règlement est distinct des bulletins et du STC.</p></div>
+                </div>
+                <Button type="button" variant="outline" onClick={() => navigate('/paie/prestataires')}>Ouvrir les prestataires indépendants</Button>
+            </Card>
 
             {error && (
                 <div className="mb-2">

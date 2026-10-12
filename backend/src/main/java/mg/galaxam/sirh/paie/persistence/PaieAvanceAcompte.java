@@ -13,16 +13,13 @@ import java.util.List;
 
 /**
  * Entité de gestion des mouvements de trésorerie mensuels (Acomptes du 15, Avances spéciales, CALL PERSO).
- * Réf. Code du Travail Malgache Art. 68 (Quotité cessible max 1/3).
+ * Les plafonds exécutés sur bulletin sont résolus dans la configuration légale datée.
  */
 public class PaieAvanceAcompte extends ClassMere {
 
     /**
-     * Garde-fous légaux (Code du Travail Malagasy, Loi n° 2003-044, Art. 68) :
-     * 1. Avances en espèces consenties par l'employeur (Avance Spéciale) :
-     *    La retenue mensuelle ne peut excéder le dixième (10%) du montant des salaires exigibles.
-     * 2. Quotité cessible / saisissable générale (Prêts, cessions volontaires notifiées, saisies) :
-     *    Plafond d'un tiers (33.33%) du salaire net disponible.
+     * Ratios historiques utilisés par les méthodes utilitaires de cette entité.
+     * Le moteur de paie utilise les pourcentages datés de PaieConfigLegale.
      */
     public static final BigDecimal RATIO_AVANCE_EMPLOYEUR_MAX = new BigDecimal("0.10");
     public static final BigDecimal RATIO_QUOTITE_CESSIBLE_MAX = new BigDecimal("0.3333");
@@ -217,8 +214,7 @@ public class PaieAvanceAcompte extends ClassMere {
     }
 
     /**
-     * Garde-fou légal de quotité cessible (Code du Travail Art. 68) :
-     * Le total des retenues mensuelles ne doit pas excéder le tiers (33.33%) du net disponible.
+     * Contrôle utilitaire de la quotité d'un tiers du net disponible.
      */
     public static boolean isQuotiteCessibleRespectee(BigDecimal netDisponible, BigDecimal totalRetenuesProposees) {
         if (netDisponible == null || netDisponible.compareTo(BigDecimal.ZERO) <= 0) {
@@ -239,9 +235,7 @@ public class PaieAvanceAcompte extends ClassMere {
     }
 
     /**
-     * Garde-fou légal pour avance spéciale employeur (Code du Travail Art. 68) :
-     * La retenue mensuelle au titre d'avances en espèces consenties par l'employeur
-     * ne peut excéder le dixième (10%) du montant des salaires exigibles.
+     * Contrôle utilitaire du ratio historique de 10 % pour une avance employeur.
      */
     public static boolean isAvanceEmployeurRespectee(BigDecimal netDisponible, BigDecimal montantAvance) {
         if (netDisponible == null || netDisponible.compareTo(BigDecimal.ZERO) <= 0) {

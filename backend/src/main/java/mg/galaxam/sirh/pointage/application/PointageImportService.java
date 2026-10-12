@@ -22,8 +22,10 @@ import java.util.*;
 /** Lecture seule du modèle Pointage. L'enregistrement reste dans PointageService. */
 @Service
 public class PointageImportService {
-    private static final List<String> FIXED = List.of("Date", "Entrée matin", "Sortie matin", "Entrée après-midi", "Sortie finale");
-    private static final String EVENT_COLUMN = "Code";
+    private static final List<String> FIXED = List.of("Date", "Entrée AM", "Sortie AM", "Entrée PM", "Sortie PM");
+    private static final List<String> LEGACY_FIXED = List.of("Date", "Entrée matin", "Sortie matin", "Entrée après-midi", "Sortie finale");
+    private static final String EVENT_COLUMN = "Événement";
+    private static final String LEGACY_EVENT_COLUMN = "Code";
     private static final int MAX_BYTES = 2 * 1024 * 1024;
     private final PointageEmployeService employes;
     private final PointageService pointages;
@@ -95,13 +97,13 @@ public class PointageImportService {
             Row header = tab.createRow(0);
             for (int i = 0; i < columns.size(); i++) header.createCell(i).setCellValue(columns.get(i));
             Sheet help = book.createSheet("Aide");
-            help.createRow(0).createCell(0).setCellValue("Code : C = congé à régulariser ; A = absence à traiter ; vide = aucun signalement.");
-            help.createRow(1).createCell(0).setCellValue("Un seul C au début du congé suffit. La date de reprise se choisit dans l'aperçu.");
+            help.createRow(0).createCell(0).setCellValue("Événement : CONGÉ = congé à régulariser ; ABSENCE = absence à traiter ; vide = aucun signalement.");
+            help.createRow(1).createCell(0).setCellValue("Un seul CONGÉ au début suffit. La date de reprise se choisit dans l'aperçu.");
             help.createRow(2).createCell(0).setCellValue("Indemnités : vide = proposition du site ; 0 = refus ; 1 = accordée ; 0,5 = demi-journée.");
             help.setColumnWidth(0, 25000);
             org.apache.poi.ss.usermodel.DataValidationHelper validationHelper = tab.getDataValidationHelper();
             org.apache.poi.ss.usermodel.DataValidationConstraint codeList = validationHelper
-                    .createExplicitListConstraint(new String[]{"C", "A"});
+                    .createExplicitListConstraint(new String[]{"CONGÉ", "ABSENCE"});
             org.apache.poi.ss.usermodel.DataValidation codeValidation = validationHelper.createValidation(codeList,
                     new org.apache.poi.ss.util.CellRangeAddressList(1, Math.max(1, fiche.getPointagesData().size()), FIXED.size(), FIXED.size()));
             codeValidation.setShowErrorBox(true);
@@ -149,11 +151,15 @@ public class PointageImportService {
             if (header.getLastCellNum() > 100) throw new IllegalArgumentException("Le modèle dépasse 100 colonnes.");
             for (int col = 0; col < header.getLastCellNum(); col++)
                 headers.add(formatter.formatCellValue(header.getCell(col)).trim());
-            if (headers.size() < FIXED.size() || !headers.subList(0, FIXED.size()).equals(FIXED))
+            if (headers.size() < FIXED.size()
+                    || (!headers.subList(0, FIXED.size()).equals(FIXED)
+                    && !headers.subList(0, LEGACY_FIXED.size()).equals(LEGACY_FIXED)))
                 throw new IllegalArgumentException("Les colonnes fixes du modèle Pointage ont été modifiées.");
             if (new HashSet<>(headers).size() != headers.size())
                 throw new IllegalArgumentException("Le modèle contient des colonnes en double.");
-            int allowanceStart = headers.size() > FIXED.size() && EVENT_COLUMN.equals(headers.get(FIXED.size()))
+            int allowanceStart = headers.size() > FIXED.size()
+                    && (EVENT_COLUMN.equalsIgnoreCase(headers.get(FIXED.size()))
+                    || LEGACY_EVENT_COLUMN.equalsIgnoreCase(headers.get(FIXED.size())))
                     ? FIXED.size() + 1 : FIXED.size();
             if (tab.getLastRowNum() > 400) throw new IllegalArgumentException("Le modèle dépasse 400 lignes.");
             for (int index = 1; index <= tab.getLastRowNum(); index++) {
@@ -172,10 +178,15 @@ public class PointageImportService {
                     catch (IllegalArgumentException error) { errors.add(error.getMessage()); hours[i] = null; }
                 }
                 boolean hasHours = Arrays.stream(hours).anyMatch(Objects::nonNull);
-                String eventCode = allowanceStart > FIXED.size()
+                String eventValue = allowanceStart > FIXED.size()
                         ? formatter.formatCellValue(source.getCell(FIXED.size())).trim().toUpperCase(Locale.ROOT) : "";
+                String eventCode = switch (eventValue) {
+                    case "CONGÉ", "CONGE", "C" -> "C";
+                    case "ABSENCE", "A" -> "A";
+                    default -> eventValue;
+                };
                 if (!eventCode.isEmpty() && !eventCode.equals("C") && !eventCode.equals("A"))
-                    errors.add("Code inconnu : saisir C, A ou laisser vide");
+                    errors.add("Événement inconnu : choisir CONGÉ, ABSENCE ou laisser vide");
                 boolean hasAllowanceInput = false;
                 for (int col = allowanceStart; col < headers.size(); col++) {
                     if (!formatter.formatCellValue(source.getCell(col)).isBlank()) {
@@ -196,8 +207,8 @@ public class PointageImportService {
                     previousLeaveMarker = null;
                 }
                 if (repeatedLeaveMarker) {
-                    if (hasAllowanceInput) errors.add("C répété avec indemnités : conserver C sur le premier jour et examiner cette indemnité séparément");
-                    else warnings.add("C répété : couvert par le signalement du " + leaveMarkerStart);
+                    if (hasAllowanceInput) errors.add("CONGÉ répété avec indemnités : conserver CONGÉ sur le premier jour et examiner cette indemnité séparément");
+                    else warnings.add("CONGÉ répété : couvert par le signalement du " + leaveMarkerStart);
                 }
                 boolean continuous = hours[0] != null && hours[3] != null && hours[1] == null && hours[2] == null;
                 boolean morningOnly = hours[0] != null && hours[1] != null && hours[2] == null && hours[3] == null;
@@ -205,7 +216,7 @@ public class PointageImportService {
                 boolean complete = Arrays.stream(hours).allMatch(Objects::nonNull);
                 if (hasHours && !continuous && !morningOnly && !afternoonOnly && !complete)
                     errors.add("Pointage incomplet : corriger les heures du matin ou de l'après-midi");
-                if (complete && !eventCode.isEmpty()) errors.add("Code C/A incompatible avec une journée entièrement pointée");
+                if (complete && !eventCode.isEmpty()) errors.add("Un événement CONGÉ/ABSENCE est incompatible avec une journée entièrement pointée");
                 if (continuous) warnings.add("Journée continue détectée");
                 if (morningOnly) warnings.add("Après-midi à régulariser");
                 if (afternoonOnly) warnings.add("Matin à régulariser");

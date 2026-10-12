@@ -1,14 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
-import { FileText, Plus } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { FileText, Plus, Users, FileCheck2, ReceiptText } from 'lucide-react';
 import apiClient, { getErrorMessage } from '@/api/apiClient';
 import { useAuth } from '@/context/AuthContext';
 import PageHeader from '@/components/ui/navigation/PageHeader';
 import Button from '@/components/ui/forms/Button';
 import Input from '@/components/ui/forms/Input';
+import MoneyInput from '@/components/ui/forms/MoneyInput';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Alert from '@/components/ui/feedback/Alert';
+import SEO from '@/components/system/SEO';
+import FormModal from '@/components/ui/overlays/FormModal';
+import { Card, CardHeader, CardTitle, CardSubtitle, CardBody } from '@/components/ui/data-display/Card';
+import { Tabs } from '@/components/ui/navigation/Tabs';
+import StatCard from '@/components/ui/data-display/StatCard';
+import EmptyState from '@/components/ui/data-display/EmptyState';
+import StatusBadge from '@/components/ui/data-display/StatusBadge';
+import { useToast } from '@/components/ui/feedback/Toast';
 import { formatMoneyAr } from '@/utils/moneyUtils';
-import { getTodayDateString } from '@/utils/dateUtils';
+import { fmtDate, getTodayDateString } from '@/utils/dateUtils';
 
 const today = getTodayDateString;
 const PDF_MAX_BYTES = 10_000_000;
@@ -19,7 +28,42 @@ function verifierPdf(file) {
     }
 }
 
+function nomPiecePrestataire(type, reference, date) {
+    const slug = String(reference || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLocaleLowerCase('fr').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80).replace(/-$/g, '');
+    const dateIso = date ? String(date).slice(0, 10) : '';
+    return `${type}-${slug || 'sans-reference'}${dateIso ? `-${dateIso}` : ''}.pdf`;
+}
+
+function filenameDepuisReponse(response, fallback) {
+    const header = response.headers?.['content-disposition'] || '';
+    const encodedName = header.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+    const plainName = header.match(/filename="?([^";]+)"?/i)?.[1];
+    const candidate = encodedName ? decodeURIComponent(encodedName) : plainName;
+    return candidate || fallback;
+}
+
+function PdfAttach({ label, filename, busy, onUpload }) {
+    const inputRef = useRef(null);
+    const [file, setFile] = useState(null);
+    return <div className="flex flex-wrap items-center gap-1.5">
+        <input ref={inputRef} type="file" accept="application/pdf" className="sr-only"
+            aria-label={`${label}, PDF de 10 Mo maximum`} onChange={e => setFile(e.target.files?.[0] || null)} />
+        <Button type="button" variant="outline" size="xs" disabled={busy} onClick={() => inputRef.current?.click()}>
+            {file ? (filename || file.name) : label}
+        </Button>
+        {file && <Button type="button" size="xs" disabled={busy} onClick={async () => {
+            const uploadFile = filename
+                ? new File([file], filename, { type: file.type, lastModified: file.lastModified })
+                : file;
+            const ok = await onUpload(uploadFile);
+            if (ok) { setFile(null); if (inputRef.current) inputRef.current.value = ''; }
+        }}>Joindre</Button>}
+    </div>;
+}
+
 export default function PrestatairesPage() {
+    const toast = useToast();
     const { hasPermission } = useAuth();
     const canWrite = hasPermission('PAIE_WRITE');
     const canValidate = hasPermission('PAIE_VALIDATE');
@@ -27,15 +71,17 @@ export default function PrestatairesPage() {
     const [contrats, setContrats] = useState([]);
     const [factures, setFactures] = useState([]);
     const [error, setError] = useState('');
-    const [message, setMessage] = useState('');
+    const [formError, setFormError] = useState('');
+    const [fieldErrors, setFieldErrors] = useState({});
     const [busy, setBusy] = useState(false);
     const [prestataire, setPrestataire] = useState({ nom: '', nif: '', stat: '', adresse: '', email: '' });
     const [contrat, setContrat] = useState({ idPrestataire: '', reference: '', objet: '', dateDebut: today(), dateFin: '', tarifConvenu: '' });
     const [facture, setFacture] = useState({ idContratPrestataire: '', reference: '', dateFacture: today(), montant: '' });
-    const [pieces, setPieces] = useState({});
-    const [piecesContrat, setPiecesContrat] = useState({});
     const [paiements, setPaiements] = useState({});
     const [annulations, setAnnulations] = useState({});
+    const [activeTab, setActiveTab] = useState('prestataires');
+    const [modal, setModal] = useState(null);
+    const [selectedFacture, setSelectedFacture] = useState(null);
     const contratsDocumentes = contrats.filter(c => Boolean(c.chemin_piece));
     const facturesEnAttente = factures.filter(f => f.statut === 'BROUILLON' || f.statut === 'VALIDEE');
 
@@ -52,24 +98,75 @@ export default function PrestatairesPage() {
 
     useEffect(() => { charger().catch(() => {}); }, [charger]);
 
-    const agir = async (action, succes) => {
-        if (busy) return;
-        setBusy(true); setError(''); setMessage('');
-        try { await action(); await charger(); setMessage(succes); }
-        catch (err) { setError(getErrorMessage(err, 'Opération impossible.')); }
+    const agir = async (action, succes, { form = false } = {}) => {
+        if (busy) return false;
+        setBusy(true);
+        if (form) setFormError(''); else setError('');
+        try { await action(); await charger(); toast.success(succes); return true; }
+        catch (err) {
+            const message = getErrorMessage(err, 'Opération impossible.');
+            if (form) setFormError(message); else toast.error(message);
+            return false;
+        }
         finally { setBusy(false); }
+    };
+
+    const validerContrat = () => {
+        const errors = {};
+        if (!contrat.idPrestataire) errors.idPrestataire = 'Sélectionnez un prestataire.';
+        if (!contrat.reference.trim()) errors.reference = 'La référence du contrat est obligatoire.';
+        if (!contrat.objet.trim()) errors.objet = 'L’objet de la mission est obligatoire.';
+        if (!contrat.dateDebut) errors.dateDebut = 'La date de début est obligatoire.';
+        if (contrat.dateFin && contrat.dateFin < contrat.dateDebut) errors.dateFin = 'La date de fin doit être égale ou postérieure au début.';
+        if (contrat.tarifConvenu && Number(contrat.tarifConvenu) < 0) errors.tarifConvenu = 'Le tarif ne peut pas être négatif.';
+        setFieldErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const validerPaiement = () => {
+        const errors = {};
+        const value = paiements[selectedFacture?.id_facture_prestataire] || {};
+        if (!value.datePaiement) errors.datePaiement = 'La date réelle du paiement est obligatoire.';
+        if (selectedFacture?.date_facture && value.datePaiement && value.datePaiement < String(selectedFacture.date_facture).slice(0, 10)) {
+            errors.datePaiement = 'La date du paiement ne peut pas précéder la date de facture.';
+        }
+        if (!value.referencePaiement?.trim()) errors.referencePaiement = 'La référence du paiement est obligatoire.';
+        setFieldErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const updateField = (setValue, key, value) => {
+        setValue(previous => ({ ...previous, [key]: value }));
+        setFieldErrors(previous => ({ ...previous, [key]: undefined }));
+        setFormError('');
+    };
+
+    const fermerFormulaire = () => {
+        setModal(null);
+        setFormError('');
+        setFieldErrors({});
     };
 
     const ajouterPrestataire = (event) => {
         event.preventDefault();
+        const errors = {};
+        if (!prestataire.nom.trim()) errors.nom = 'Le nom ou la raison sociale est obligatoire.';
+        if (!prestataire.nif.trim()) errors.nif = 'Le NIF est obligatoire.';
+        setFieldErrors(errors);
+        setFormError('');
+        if (Object.keys(errors).length) return;
         agir(async () => {
             const { data } = await apiClient.post('v1/prestataires', prestataire);
             setContrat(previous => ({ ...previous, idPrestataire: String(data.idPrestataire) }));
             setPrestataire({ nom: '', nif: '', stat: '', adresse: '', email: '' });
-        }, 'Prestataire enregistré. Créez maintenant son contrat.');
+            setActiveTab('contrats');
+            setModal('contrat');
+        }, 'Prestataire enregistré. Créez maintenant son contrat.', { form: true });
     };
     const ajouterContrat = (event) => {
         event.preventDefault();
+        setFormError('');
+        if (!validerContrat()) return;
         agir(async () => {
             const { data } = await apiClient.post('v1/prestataires/contrats', {
                 ...contrat, idPrestataire: Number(contrat.idPrestataire),
@@ -77,150 +174,245 @@ export default function PrestatairesPage() {
             });
             setFacture(previous => ({ ...previous, idContratPrestataire: String(data.idContratPrestataire) }));
             setContrat({ idPrestataire: '', reference: '', objet: '', dateDebut: today(), dateFin: '', tarifConvenu: '' });
-        }, 'Contrat enregistré. Joignez son PDF dans la liste des contrats, puis créez une facture.');
+            setActiveTab('contrats');
+            setModal(null);
+        }, 'Contrat enregistré. Joignez son PDF dans la liste des contrats, puis créez une facture.', { form: true });
     };
     const ajouterFacture = (event) => {
         event.preventDefault();
+        const errors = {};
+        if (!facture.idContratPrestataire) errors.idContratPrestataire = 'Sélectionnez un contrat.';
+        if (!facture.reference.trim()) errors.reference = 'La référence de facture est obligatoire.';
+        if (!facture.dateFacture) errors.dateFacture = 'La date de facture est obligatoire.';
+        if (!facture.montant || Number(facture.montant) <= 0) errors.montantFacture = 'Le montant doit être supérieur à zéro.';
+        setFieldErrors(errors);
+        setFormError('');
+        if (Object.keys(errors).length) return;
         agir(async () => {
             await apiClient.post('v1/prestataires/factures', {
                 ...facture, idContratPrestataire: Number(facture.idContratPrestataire), montant: Number(facture.montant),
             });
             setFacture({ idContratPrestataire: '', reference: '', dateFacture: today(), montant: '' });
-        }, 'Facture créée en brouillon. Joignez son PDF dans la liste ci-dessous.');
+            setActiveTab('factures');
+            setModal(null);
+        }, 'Facture créée en brouillon. Joignez son PDF dans la liste ci-dessous.', { form: true });
     };
-    const joindrePiece = (id) => agir(async () => {
-        verifierPdf(pieces[id]);
-        const data = new FormData(); data.append('file', pieces[id]);
+    const joindrePiece = (id, file) => agir(async () => {
+        verifierPdf(file);
+        const data = new FormData(); data.append('file', file);
         await apiClient.post(`v1/prestataires/factures/${id}/piece`, data, { headers: { 'Content-Type': 'multipart/form-data' } });
-        setPieces(previous => ({ ...previous, [id]: null }));
     }, 'Pièce justificative enregistrée.');
-    const joindreContrat = (id) => agir(async () => {
-        verifierPdf(piecesContrat[id]);
-        const data = new FormData(); data.append('file', piecesContrat[id]);
+    const joindreContrat = (id, file) => agir(async () => {
+        verifierPdf(file);
+        const data = new FormData(); data.append('file', file);
         await apiClient.post(`v1/prestataires/contrats/${id}/piece`, data, { headers: { 'Content-Type': 'multipart/form-data' } });
-        setPiecesContrat(previous => ({ ...previous, [id]: null }));
     }, 'Contrat PDF enregistré.');
     const telechargerPiece = async (kind, id) => {
         try {
             const response = await apiClient.get(`v1/prestataires/${kind}/${id}/piece`, { responseType: 'blob' });
             const url = URL.createObjectURL(response.data);
-            const link = document.createElement('a'); link.href = url; link.download = `${kind === 'contrats' ? 'contrat' : 'facture'}-prestataire-${id}.pdf`; link.click();
+            const contract = kind === 'contrats' ? contrats.find(item => item.id_contrat_prestataire === id) : null;
+            const invoice = kind === 'factures' ? factures.find(item => item.id_facture_prestataire === id) : null;
+            const fallback = contract
+                ? nomPiecePrestataire('contrat-prestation', contract.reference, contract.date_debut)
+                : invoice
+                    ? nomPiecePrestataire('facture-prestataire', invoice.reference, invoice.date_facture)
+                    : `${kind === 'contrats' ? 'contrat-prestation' : 'facture-prestataire'}-${id}.pdf`;
+            const link = document.createElement('a'); link.href = url; link.download = filenameDepuisReponse(response, fallback); link.click();
             setTimeout(() => URL.revokeObjectURL(url), 1000);
-        } catch (err) { setError(getErrorMessage(err, 'Téléchargement impossible.')); }
+        } catch (err) { toast.error(getErrorMessage(err, 'Téléchargement impossible.')); }
     };
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto pb-12 px-3 sm:px-5">
-            <PageHeader title="Prestataires indépendants" subtitle="Contrats, factures et paiements hors bulletin de paie et sans retenue ISI générale." icon={FileText}
-                breadcrumbs={[{ label: 'Paie', href: '/paie' }, { label: 'Prestataires indépendants' }]} />
+        <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-12 px-2 sm:px-4">
+            <SEO title="Prestataires indépendants | GALAXAM GRH" description="Dossiers, contrats, factures et règlements des prestataires indépendants." />
+            <PageHeader title="Prestataires indépendants" subtitle="Contrats, factures et règlements hors bulletin de paie." icon={FileText}
+                breadcrumbs={[{ label: 'Paie', href: '/paie' }, { label: 'Prestataires indépendants' }]}
+                actions={canWrite && <Button type="button" iconLeft={<Plus size={15} />} onClick={() => setModal(activeTab === 'prestataires' || !prestataires.length ? 'prestataire' : activeTab === 'contrats' || !contrats.length ? 'contrat' : 'facture')}>
+                    {activeTab === 'prestataires' || !prestataires.length ? 'Nouveau prestataire' : activeTab === 'contrats' || !contrats.length ? 'Nouveau contrat' : 'Nouvelle facture'}
+                </Button>} />
             {error && <div role="alert"><Alert type="error" message={error} /></div>}
-            {message && <div role="status"><Alert type="success" message={message} /></div>}
-            <Alert type="info" message="Ce circuit est réservé aux indépendants disposant d'un NIF. Un consultant salarié doit être inscrit dans la paie et soumis aux règles salariales applicables." />
-            <div className="grid gap-3 sm:grid-cols-3" aria-label="Étapes du parcours prestataire">
-                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3">
-                    <strong>1 · Identifier</strong><p className="text-xs text-[var(--color-fg-muted)]">Créer le dossier avec NIF, puis le contrat et son PDF.</p>
-                </div>
-                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3">
-                    <strong>2 · Facturer</strong><p className="text-xs text-[var(--color-fg-muted)]">Créer une facture liée au contrat et joindre son PDF.</p>
-                </div>
-                <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3">
-                    <strong>3 · Valider et régler</strong><p className="text-xs text-[var(--color-fg-muted)]">Valider les pièces, puis enregistrer la date et la référence du paiement réel.</p>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <StatCard title="Prestataires" value={prestataires.length} icon={<Users size={17} />} subtext="Dossiers fiscaux" />
+                <StatCard title="Contrats avec PDF" value={`${contratsDocumentes.length} / ${contrats.length}`} icon={<FileCheck2 size={17} />} subtext="Pièce requise pour valider" color="info" />
+                <StatCard title="Factures à traiter" value={facturesEnAttente.length} icon={<ReceiptText size={17} />} subtext="À compléter ou à régler" color="warning" />
             </div>
 
-            {canWrite && <div className="grid gap-4 lg:grid-cols-3">
-                <form onSubmit={ajouterPrestataire} className="space-y-3 p-4 border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
-                    <h2 className="font-bold">1. Dossier prestataire</h2>
-                    <p className="text-xs text-[var(--color-fg-muted)]">Le NIF est obligatoire. Un consultant lié par contrat de travail relève du parcours salarié.</p>
-                    <Input label="Nom ou raison sociale" required value={prestataire.nom} onChange={e => setPrestataire({ ...prestataire, nom: e.target.value })} />
-                    <Input label="NIF" required value={prestataire.nif} onChange={e => setPrestataire({ ...prestataire, nif: e.target.value })} />
-                    <Input label="STAT" value={prestataire.stat} onChange={e => setPrestataire({ ...prestataire, stat: e.target.value })} />
-                    <Input label="Adresse" value={prestataire.adresse} onChange={e => setPrestataire({ ...prestataire, adresse: e.target.value })} />
-                    <Input label="E-mail" type="email" value={prestataire.email} onChange={e => setPrestataire({ ...prestataire, email: e.target.value })} />
-                    <Button type="submit" disabled={busy} iconLeft={<Plus size={16} />}>Enregistrer</Button>
-                </form>
-                <form onSubmit={ajouterContrat} className="space-y-3 p-4 border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
-                    <h2 className="font-bold">2. Contrat de prestation</h2>
-                    <p className="text-xs text-[var(--color-fg-muted)]">Sélectionnez le prestataire, puis joignez le PDF du contrat après sa création.</p>
-                    <SearchSelect label="Prestataire" required value={contrat.idPrestataire} onChange={value => setContrat({ ...contrat, idPrestataire: value })}
+            <Card shadow="sm">
+                <CardHeader><CardTitle size="lg">Dossiers prestataires</CardTitle><CardSubtitle>Créer le dossier, joindre le contrat, puis valider la facture avant de consigner son paiement.</CardSubtitle></CardHeader>
+                <div className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Parcours de règlement</p>
+                    <ol className="mt-2 grid gap-2 text-xs sm:grid-cols-3 lg:grid-cols-5">
+                        <li><strong>1. Identifier</strong><span className="block text-[var(--color-fg-muted)]">Créer le prestataire et saisir son NIF.</span></li>
+                        <li><strong>2. Contractualiser</strong><span className="block text-[var(--color-fg-muted)]">Enregistrer la mission et joindre le contrat signé en PDF.</span></li>
+                        <li><strong>3. Facturer</strong><span className="block text-[var(--color-fg-muted)]">Saisir la facture reçue et joindre son PDF.</span></li>
+                        <li><strong>4. Valider</strong><span className="block text-[var(--color-fg-muted)]">Contrôler les pièces et valider la facture.</span></li>
+                        <li><strong>5. Régler</strong><span className="block text-[var(--color-fg-muted)]">Après paiement réel, consigner date et référence.</span></li>
+                    </ol>
+                </div>
+                <Tabs ariaLabel="Parcours prestataires" activeTab={activeTab} onChange={setActiveTab} tabs={[
+                    { id: 'prestataires', label: 'Prestataires', icon: Users, count: prestataires.length },
+                    { id: 'contrats', label: 'Contrats', icon: FileCheck2, count: contrats.length },
+                    { id: 'factures', label: 'Factures et règlements', icon: ReceiptText, count: factures.length },
+                ]} />
+                <div id={`panel-${activeTab}`} role="tabpanel" aria-labelledby={`tab-${activeTab}`}>
+                    {activeTab === 'prestataires' && <CardBody className="space-y-3">
+                        {canWrite && prestataires.length > 0 && <div className="flex justify-end"><Button type="button" size="sm" iconLeft={<Plus size={15} />} onClick={() => setModal('prestataire')}>Ajouter un prestataire</Button></div>}
+                        {prestataires.length === 0 ? <EmptyState compact bordered={false} icon={Users} title="Aucun prestataire" description="Créez un dossier avec son NIF pour commencer."
+                            actionLabel={canWrite ? 'Nouveau prestataire' : undefined} onAction={canWrite ? () => setModal('prestataire') : undefined} />
+                            : prestataires.map(p => <Card key={p.id_prestataire} shadow="none" padding className="flex flex-wrap items-center justify-between gap-3">
+                                <div><strong className="text-sm">{p.nom}</strong><p className="text-xs text-[var(--color-fg-muted)]">NIF {p.nif}{p.stat ? ` · STAT ${p.stat}` : ''}{p.email ? ` · ${p.email}` : ''}</p></div>
+                                <div className="flex items-center gap-2"><StatusBadge status={p.est_actif ? 'ACTIF' : 'FALSE'} />{canWrite && p.est_actif && <Button type="button" variant="outline" size="xs" onClick={() => {
+                                    setContrat(previous => ({ ...previous, idPrestataire: String(p.id_prestataire) })); setModal('contrat');
+                                }}>Créer un contrat</Button>}</div>
+                            </Card>)}
+                    </CardBody>}
+
+            {canWrite && <>
+                <FormModal isOpen={modal === 'prestataire'} onClose={fermerFormulaire} onSubmit={ajouterPrestataire}
+                    title="Nouveau prestataire indépendant" icon={<Users size={17} />} size="xl" loading={busy} error={formError} submitLabel="Enregistrer le prestataire" noValidate>
+                    <p className="text-xs text-[var(--color-fg-muted)]">À utiliser pour tout fournisseur indépendant de services, consultant ou non. Reprenez les informations figurant sur sa facture.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Input label="Nom ou raison sociale" required error={fieldErrors.nom} placeholder="Nom légal figurant sur la facture" value={prestataire.nom} onChange={e => updateField(setPrestataire, 'nom', e.target.value)} />
+                        <Input label="NIF" required error={fieldErrors.nif} placeholder="NIF du prestataire" hint="Vérifiez-le sur les documents du fournisseur." value={prestataire.nif} onChange={e => updateField(setPrestataire, 'nif', e.target.value)} />
+                        <Input label="STAT" placeholder="Numéro STAT, si disponible" value={prestataire.stat} onChange={e => setPrestataire({ ...prestataire, stat: e.target.value })} />
+                        <Input label="E-mail" type="email" placeholder="contact@prestataire.mg" value={prestataire.email} onChange={e => setPrestataire({ ...prestataire, email: e.target.value })} />
+                    </div>
+                    <Input label="Adresse" placeholder="Adresse professionnelle" value={prestataire.adresse} onChange={e => setPrestataire({ ...prestataire, adresse: e.target.value })} />
+                </FormModal>
+                <FormModal isOpen={modal === 'contrat'} onClose={fermerFormulaire} onSubmit={ajouterContrat}
+                    title="Nouveau contrat de prestation" icon={<FileCheck2 size={17} />} size="2xl" loading={busy} error={formError}
+                    submitLabel="Enregistrer le contrat" noValidate>
+                    <p className="text-xs text-[var(--color-fg-muted)]">Ce dossier rattache une mission indépendante au prestataire et servira de référence aux factures. Il ne crée pas un contrat de travail ni un bulletin. Enregistrez la mission, puis joignez le contrat de prestation signé en PDF dans l'onglet Contrats.</p>
+                    <SearchSelect label="Prestataire" required error={fieldErrors.idPrestataire} value={contrat.idPrestataire} onChange={value => updateField(setContrat, 'idPrestataire', value)}
                         options={prestataires.filter(p => p.est_actif).map(p => ({ value: String(p.id_prestataire), label: `${p.nom} · ${p.nif}` }))}
                         hint={prestataires.length === 0 ? 'Créez d’abord un dossier prestataire.' : null} />
-                    <Input label="Référence du contrat" required value={contrat.reference} onChange={e => setContrat({ ...contrat, reference: e.target.value })} />
-                    <Input label="Objet" required value={contrat.objet} onChange={e => setContrat({ ...contrat, objet: e.target.value })} />
-                    <Input label="Début" type="date" required value={contrat.dateDebut} onChange={e => setContrat({ ...contrat, dateDebut: e.target.value })} />
-                    <Input label="Fin éventuelle" type="date" value={contrat.dateFin} onChange={e => setContrat({ ...contrat, dateFin: e.target.value })} />
-                    <Input label="Tarif convenu (Ar)" type="number" min="0" value={contrat.tarifConvenu} onChange={e => setContrat({ ...contrat, tarifConvenu: e.target.value })} />
-                    <Button type="submit" disabled={busy || !contrat.idPrestataire} iconLeft={<Plus size={16} />}>Enregistrer</Button>
-                </form>
-                <form onSubmit={ajouterFacture} className="space-y-3 p-4 border border-[var(--color-border-subtle)] bg-[var(--color-surface)]">
-                    <h2 className="font-bold">3. Facture</h2>
-                    <p className="text-xs text-[var(--color-fg-muted)]">Le contrat PDF doit être joint avant validation. Une facture peut être émise après la fin de la prestation.</p>
-                    <SearchSelect label="Contrat" required value={facture.idContratPrestataire} onChange={value => setFacture({ ...facture, idContratPrestataire: value })}
+                    <Input label="Référence du contrat" required error={fieldErrors.reference} placeholder="Ex. PREST-2026-001" value={contrat.reference} onChange={e => updateField(setContrat, 'reference', e.target.value)} />
+                    <Input label="Objet" required error={fieldErrors.objet} placeholder="Ex. mission de conseil, maintenance ou transport" value={contrat.objet} onChange={e => updateField(setContrat, 'objet', e.target.value)} />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Input label="Début" type="date" required error={fieldErrors.dateDebut} value={contrat.dateDebut} onChange={e => updateField(setContrat, 'dateDebut', e.target.value)} />
+                        <Input label="Fin éventuelle" type="date" min={contrat.dateDebut} error={fieldErrors.dateFin} value={contrat.dateFin} onChange={e => updateField(setContrat, 'dateFin', e.target.value)} />
+                    </div>
+                    <MoneyInput label="Tarif convenu (Ar)" min={0} maxDecimals={2} error={fieldErrors.tarifConvenu} placeholder="Montant prévu au contrat, si fixé" hint="Ce montant n'est pas un salaire calculé par la paie." value={contrat.tarifConvenu} onValueChange={value => updateField(setContrat, 'tarifConvenu', value)} />
+                </FormModal>
+                <FormModal isOpen={modal === 'facture'} onClose={fermerFormulaire} onSubmit={ajouterFacture}
+                    title="Nouvelle facture prestataire" icon={<ReceiptText size={17} />} size="xl" loading={busy} error={formError}
+                    submitLabel="Créer le brouillon" noValidate>
+                    <p className="text-xs text-[var(--color-fg-muted)]">Saisissez le montant de la facture reçue. Le système ne calcule ni salaire ni retenue ISI générale. Le contrat PDF et la facture PDF sont requis avant validation.</p>
+                    <SearchSelect label="Contrat" required error={fieldErrors.idContratPrestataire} value={facture.idContratPrestataire} onChange={value => updateField(setFacture, 'idContratPrestataire', value)}
                         options={contrats.map(c => ({ value: String(c.id_contrat_prestataire), label: `${c.prestataire} · ${c.reference}${c.chemin_piece ? '' : ' · PDF manquant'}` }))}
                         hint={contrats.length === 0 ? 'Créez d’abord un contrat de prestation.' : null} />
-                    <Input label="Référence facture" required value={facture.reference} onChange={e => setFacture({ ...facture, reference: e.target.value })} />
-                    <Input label="Date de facture" type="date" required value={facture.dateFacture} onChange={e => setFacture({ ...facture, dateFacture: e.target.value })} />
-                    <Input label="Montant (Ar)" type="number" min="0.01" step="0.01" required value={facture.montant} onChange={e => setFacture({ ...facture, montant: e.target.value })} />
-                    <Button type="submit" disabled={busy || !facture.idContratPrestataire} iconLeft={<Plus size={16} />}>Créer le brouillon</Button>
-                </form>
-            </div>}
-
-            <section className="space-y-3">
-                <h2 className="font-bold text-lg">Contrats de prestation</h2>
-                <p className="text-xs text-[var(--color-fg-muted)]">{contratsDocumentes.length} contrat(s) avec PDF sur {contrats.length}. Le PDF du contrat et celui de la facture sont requis pour valider.</p>
-                {contrats.length === 0 && <p className="text-sm text-[var(--color-fg-muted)]">Aucun contrat enregistré.</p>}
-                {contrats.map(c => <div key={c.id_contrat_prestataire} className="p-4 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] flex flex-wrap items-center justify-between gap-3">
-                    <div><strong>{c.prestataire}</strong> · {c.reference}<br /><span className="text-xs text-[var(--color-fg-muted)]">{c.objet} · {c.date_debut} à {c.date_fin || 'durée ouverte'} · {c.chemin_piece ? 'PDF joint' : 'PDF à joindre'}</span></div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        {c.chemin_piece && <Button variant="outline" size="sm" onClick={() => telechargerPiece('contrats', c.id_contrat_prestataire)}>Voir le contrat PDF</Button>}
-                        {canWrite && !c.chemin_piece && <>
-                            <input type="file" accept="application/pdf" aria-label={`PDF du contrat ${c.reference}, 10 Mo maximum`} onChange={e => setPiecesContrat(previous => ({ ...previous, [c.id_contrat_prestataire]: e.target.files?.[0] }))} />
-                            <Button size="sm" disabled={busy || !piecesContrat[c.id_contrat_prestataire]} onClick={() => joindreContrat(c.id_contrat_prestataire)}>Joindre le contrat</Button>
-                        </>}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Input label="Référence facture" required error={fieldErrors.reference} placeholder="Numéro indiqué sur la facture PDF" value={facture.reference} onChange={e => updateField(setFacture, 'reference', e.target.value)} />
+                        <Input label="Date de facture" type="date" required error={fieldErrors.dateFacture} value={facture.dateFacture} onChange={e => updateField(setFacture, 'dateFacture', e.target.value)} />
                     </div>
-                </div>)}
-            </section>
+                    <MoneyInput label="Montant de la facture (Ar)" required min={0.01} maxDecimals={2} error={fieldErrors.montantFacture} placeholder="Montant à régler selon la facture" hint="Montant saisi depuis la facture ; aucune paie ni retenue automatique." value={facture.montant} onValueChange={value => updateField(setFacture, 'montant', value)} />
+                </FormModal>
+            </>}
 
-            <section className="space-y-3">
-                <h2 className="font-bold text-lg">Factures et règlements</h2>
-                <p className="text-xs text-[var(--color-fg-muted)]">{facturesEnAttente.length} facture(s) à compléter ou à régler. « Marquer payée » consigne un paiement déjà effectué et ne déclenche aucun virement.</p>
-                {factures.length === 0 && <p className="text-sm text-[var(--color-fg-muted)]">Aucune facture enregistrée.</p>}
+            <FormModal isOpen={modal === 'annuler'} onClose={fermerFormulaire}
+                onSubmit={async e => {
+                    e.preventDefault();
+                    const id = selectedFacture?.id_facture_prestataire;
+                    if (!annulations[id]?.trim()) { setFieldErrors({ motif: 'Le motif d’annulation est obligatoire.' }); return; }
+                    const ok = await agir(() => apiClient.post(`v1/prestataires/factures/${id}/annuler`, { motif: annulations[id]?.trim() }),
+                        'Brouillon annulé. Vous pouvez créer une facture corrigée.', { form: true });
+                    if (ok) setModal(null);
+                }} title={`Annuler le brouillon · ${selectedFacture?.reference || ''}`}
+                icon={<ReceiptText size={17} />} size="lg" loading={busy} error={formError} submitLabel="Confirmer l'annulation"
+                noValidate>
+                <p className="text-xs text-[var(--color-fg-muted)]">Le brouillon restera dans l'historique. Vous pourrez créer une facture corrigée.</p>
+                <Input label="Motif d'annulation" required error={fieldErrors.motif} placeholder="Ex. erreur de référence ou de montant" value={annulations[selectedFacture?.id_facture_prestataire] || ''}
+                    onChange={e => { setAnnulations(previous => ({ ...previous, [selectedFacture.id_facture_prestataire]: e.target.value })); if (e.target.value.trim()) setFieldErrors(previous => ({ ...previous, motif: undefined })); setFormError(''); }} />
+            </FormModal>
+
+            <FormModal isOpen={modal === 'payer'} onClose={fermerFormulaire}
+                onSubmit={async e => {
+                    e.preventDefault();
+                    if (!validerPaiement()) return;
+                    const id = selectedFacture?.id_facture_prestataire;
+                    const ok = await agir(() => apiClient.post(`v1/prestataires/factures/${id}/payer`, paiements[id] || { datePaiement: today(), referencePaiement: '' }),
+                        'Paiement enregistré.', { form: true });
+                    if (ok) setModal(null);
+                }} title={`Paiement · ${selectedFacture?.reference || ''}`}
+                icon={<ReceiptText size={17} />} size="xl" loading={busy} error={formError} submitLabel="Enregistrer le paiement"
+                noValidate>
+                <p className="text-xs text-[var(--color-fg-muted)]">Consignez uniquement un paiement déjà effectué. Cette action ne déclenche aucun virement.</p>
+                <Input label="Date réelle du paiement" type="date" required min={selectedFacture?.date_facture} max={today()} error={fieldErrors.datePaiement}
+                    value={paiements[selectedFacture?.id_facture_prestataire]?.datePaiement || today()}
+                    onChange={e => {
+                        setPaiements(previous => ({ ...previous, [selectedFacture.id_facture_prestataire]: {
+                            ...previous[selectedFacture.id_facture_prestataire], datePaiement: e.target.value,
+                        } }));
+                        setFieldErrors(previous => ({ ...previous, datePaiement: undefined }));
+                        setFormError('');
+                    }} />
+                <Input label="Référence du paiement" required error={fieldErrors.referencePaiement} placeholder="Référence du virement ou du reçu" hint="Saisissez une preuve d'un règlement déjà effectué." value={paiements[selectedFacture?.id_facture_prestataire]?.referencePaiement || ''}
+                    onChange={e => {
+                        setPaiements(previous => ({ ...previous, [selectedFacture.id_facture_prestataire]: {
+                            ...previous[selectedFacture.id_facture_prestataire], datePaiement: previous[selectedFacture.id_facture_prestataire]?.datePaiement || today(), referencePaiement: e.target.value,
+                        } }));
+                        if (e.target.value.trim()) setFieldErrors(previous => ({ ...previous, referencePaiement: undefined }));
+                        setFormError('');
+                    }} />
+            </FormModal>
+
+            {activeTab === 'contrats' && <CardBody className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-[var(--color-fg-muted)]">Le contrat décrit la mission du prestataire indépendant. Joignez son PDF signé, puis rattachez-y chaque facture. {contratsDocumentes.length} contrat(s) avec PDF sur {contrats.length}.</p>
+                    {canWrite && contrats.length > 0 && <Button type="button" size="sm" iconLeft={<Plus size={15} />} onClick={() => setModal(prestataires.length ? 'contrat' : 'prestataire')}>Ajouter un contrat</Button>}
+                </div>
+                {contrats.length === 0 && <EmptyState compact bordered={false} icon={FileCheck2} title="Aucun contrat" description={prestataires.length ? 'Enregistrez la mission du prestataire, puis joignez le contrat signé.' : 'Commencez par créer un prestataire avec son NIF.'}
+                    actionLabel={canWrite ? (prestataires.length ? 'Ajouter un contrat' : 'Créer un prestataire') : undefined}
+                    onAction={canWrite ? () => setModal(prestataires.length ? 'contrat' : 'prestataire') : undefined} actionIcon={<Plus size={14} />} />}
+                {contrats.map(c => <Card key={c.id_contrat_prestataire} shadow="none" padding className="flex flex-wrap items-center justify-between gap-3">
+                    <div><strong className="text-sm">{c.prestataire} · {c.reference}</strong><br /><span className="text-xs text-[var(--color-fg-muted)]">{c.objet} · {fmtDate(c.date_debut)} à {c.date_fin ? fmtDate(c.date_fin) : 'durée ouverte'}</span><div className="mt-1"><StatusBadge status={c.chemin_piece ? 'ACTIF' : 'EN_ATTENTE'} label={c.chemin_piece ? 'PDF joint' : 'PDF manquant'} /></div></div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {c.chemin_piece && <Button variant="outline" size="sm" onClick={() => telechargerPiece('contrats', c.id_contrat_prestataire)}>Télécharger le contrat signé</Button>}
+                        {canWrite && !c.chemin_piece && <PdfAttach label="Choisir le PDF du contrat" busy={busy}
+                            filename={nomPiecePrestataire('contrat-prestation', c.reference, c.date_debut)}
+                            onUpload={file => joindreContrat(c.id_contrat_prestataire, file)} />}
+                        {canWrite && <Button type="button" variant="ghost" size="sm" onClick={() => {
+                            setFacture(previous => ({ ...previous, idContratPrestataire: String(c.id_contrat_prestataire) })); setModal('facture');
+                        }}>Créer une facture</Button>}
+                    </div>
+                </Card>)}
+            </CardBody>}
+
+            {activeTab === 'factures' && <CardBody className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-[var(--color-fg-muted)]">{facturesEnAttente.length} facture(s) à compléter ou à régler. « Marquer payée » consigne un paiement déjà effectué et ne déclenche aucun virement.</p>
+                    {canWrite && factures.length > 0 && <Button type="button" size="sm" iconLeft={<Plus size={15} />} onClick={() => setModal(contrats.length ? 'facture' : prestataires.length ? 'contrat' : 'prestataire')}>Ajouter une facture</Button>}
+                </div>
+                {factures.length === 0 && <EmptyState compact bordered={false} icon={ReceiptText} title="Aucune facture" description={contrats.length ? 'Créez une facture liée à un contrat de prestation.' : prestataires.length ? 'Créez d’abord un contrat de prestation.' : 'Commencez par créer un prestataire, puis son contrat.'}
+                    actionLabel={canWrite ? (contrats.length ? 'Ajouter une facture' : prestataires.length ? 'Créer un contrat' : 'Créer un prestataire') : undefined}
+                    onAction={canWrite ? () => setModal(contrats.length ? 'facture' : prestataires.length ? 'contrat' : 'prestataire') : undefined} actionIcon={<Plus size={14} />} />}
                 {factures.map(f => {
                     const id = f.id_facture_prestataire;
-                    const paiement = paiements[id] || { datePaiement: today(), referencePaiement: '' };
-                    return <div key={id} className="p-4 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] space-y-3">
+                    return <Card key={id} shadow="none" padding className="space-y-3">
                         <div className="flex flex-wrap justify-between gap-2">
-                            <div><strong>{f.prestataire}</strong> · {f.reference} · contrat {f.contrat_reference}<br /><span className="text-sm text-[var(--color-fg-muted)]">{f.date_facture} · {f.statut === 'BROUILLON' ? 'Brouillon' : f.statut === 'VALIDEE' ? 'Validée, paiement à enregistrer' : f.statut === 'PAYEE' ? 'Payée' : 'Annulée'}</span></div>
+                            <div><strong>{f.prestataire}</strong> · {f.reference} · contrat {f.contrat_reference}<br /><span className="text-sm text-[var(--color-fg-muted)]">{fmtDate(f.date_facture)} · <StatusBadge status={f.statut} /></span></div>
                             <strong>{formatMoneyAr(f.montant)}</strong>
                         </div>
                         <div className="flex flex-wrap items-end gap-3">
                             {f.chemin_piece && <Button variant="outline" size="sm" onClick={() => telechargerPiece('factures', id)}>Voir le PDF</Button>}
-                            {canWrite && f.statut === 'BROUILLON' && !f.chemin_piece && <>
-                                <label className="text-xs">Facture PDF (10 Mo maximum) <input type="file" accept="application/pdf" onChange={e => setPieces(previous => ({ ...previous, [id]: e.target.files?.[0] }))} /></label>
-                                <Button size="sm" disabled={busy || !pieces[id]} onClick={() => joindrePiece(id)}>Joindre</Button>
-                            </>}
+                            {canWrite && f.statut === 'BROUILLON' && !f.chemin_piece && <PdfAttach label="Choisir le PDF de facture" busy={busy}
+                                filename={nomPiecePrestataire('facture-prestataire', f.reference, f.date_facture)}
+                                onUpload={file => joindrePiece(id, file)} />}
                             {canValidate && f.statut === 'BROUILLON' && <Button size="sm" disabled={busy || !f.chemin_piece || !contrats.find(c => c.id_contrat_prestataire === f.id_contrat_prestataire)?.chemin_piece}
                                 onClick={() => agir(() => apiClient.post(`v1/prestataires/factures/${id}/valider`), 'Facture validée.')}>Valider</Button>}
                             {f.statut === 'BROUILLON' && (!f.chemin_piece || !contrats.find(c => c.id_contrat_prestataire === f.id_contrat_prestataire)?.chemin_piece) &&
                                 <span className="text-xs text-[var(--color-fg-muted)]">Validation en attente : {!contrats.find(c => c.id_contrat_prestataire === f.id_contrat_prestataire)?.chemin_piece ? 'PDF du contrat' : 'PDF de la facture'} manquant.</span>}
-                            {canWrite && f.statut === 'BROUILLON' && <>
-                                <Input label="Motif d'annulation" value={annulations[id] || ''}
-                                    onChange={e => setAnnulations(previous => ({ ...previous, [id]: e.target.value }))} />
-                                <Button variant="outline" size="sm" disabled={busy || !annulations[id]?.trim()}
-                                    onClick={() => agir(() => apiClient.post(`v1/prestataires/factures/${id}/annuler`, { motif: annulations[id].trim() }), 'Brouillon annulé. Vous pouvez créer une facture corrigée.')}>Annuler le brouillon</Button>
-                            </>}
-                            {canValidate && f.statut === 'VALIDEE' && <>
-                                <Input label="Date réelle du paiement" type="date" min={f.date_facture} max={today()} value={paiement.datePaiement} onChange={e => setPaiements(previous => ({ ...previous, [id]: { ...paiement, datePaiement: e.target.value } }))} />
-                                <Input label="Référence du paiement" value={paiement.referencePaiement} onChange={e => setPaiements(previous => ({ ...previous, [id]: { ...paiement, referencePaiement: e.target.value } }))} />
-                                <Button size="sm" disabled={busy || !paiement.referencePaiement}
-                                    onClick={() => agir(() => apiClient.post(`v1/prestataires/factures/${id}/payer`, paiement), 'Paiement enregistré.')}>Marquer payée</Button>
-                            </>}
-                            {f.statut === 'PAYEE' && <span className="text-xs">Payée le {f.date_paiement} · {f.reference_paiement}</span>}
+                            {canWrite && f.statut === 'BROUILLON' && <Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedFacture(f); setModal('annuler'); }}>Annuler le brouillon</Button>}
+                            {canValidate && f.statut === 'VALIDEE' && <Button type="button" size="sm" onClick={() => { setSelectedFacture(f); setModal('payer'); }}>Marquer payée</Button>}
+                            {f.statut === 'PAYEE' && <span className="text-xs">Payée le {fmtDate(f.date_paiement)} · {f.reference_paiement}</span>}
                             {f.statut === 'ANNULEE' && <span className="text-xs">Annulée : {f.motif_annulation}</span>}
                         </div>
-                    </div>;
+                    </Card>;
                 })}
-            </section>
+            </CardBody>}
+                </div>
+            </Card>
         </div>
     );
 }

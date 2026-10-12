@@ -18,7 +18,6 @@ import mg.galaxam.sirh.paie.api.dto.stc.StcRecuDTO;
 import mg.galaxam.sirh.paie.application.export.BulletinDocumentService;
 import mg.galaxam.sirh.paie.application.export.AnnualPayrollExportService;
 import mg.galaxam.sirh.paie.application.export.DntsExportService;
-import mg.galaxam.sirh.paie.application.export.EdiIsiExportService;
 import mg.galaxam.sirh.paie.application.export.EtatSocialMensuelExportService;
 import mg.galaxam.sirh.paie.application.export.GrandLivrePaieExportService;
 import mg.galaxam.sirh.paie.application.export.IrsaExcelExportService;
@@ -81,7 +80,6 @@ public class PayrollFullEnterpriseLifecycleSimulationIntegrationTest {
     @Autowired private VirementBancaireExportService virementBancaireExportService;
     @Autowired private SafiExportService safiExportService;
     @Autowired private IrsaExcelExportService irsaExcelExportService;
-    @Autowired private EdiIsiExportService ediIsiExportService;
     @Autowired private GrandLivrePaieExportService grandLivrePaieExportService;
     @Autowired private BulletinDocumentService bulletinDocumentService;
     @Autowired private DntsExportService dntsExportService;
@@ -131,7 +129,7 @@ public class PayrollFullEnterpriseLifecycleSimulationIntegrationTest {
                 definirNumeroContrat(c, contrat2Id, "CTR-CDI-TECH-02");
                 CongeTestFixtureHelper.createAffectation(c, emp2Id, contrat2Id, LocalDate.of(2026, 7, 1), new BigDecimal("500000.00"));
 
-                // Salarié 3 : Consultant Expert Externe (Régime fiscal ISI 5%) - BNI Madagascar
+                // Salarié 3 : consultant sous contrat de travail, inclus dans la paie salariale.
                 int emp3Id = creerEmployeTest(c, "CONS-03", "Andria", "Faly", String.format("101%09d", suffix + 3));
                 configurerEmployeBancaire(c, emp3Id, "BNI Madagascar", "00005 00999 55555555555 10", 0);
                 int contrat3Id = creerContratConsultant(c, emp3Id, LocalDate.of(2026, 7, 1), new BigDecimal("900000.00"));
@@ -284,12 +282,7 @@ public class PayrollFullEnterpriseLifecycleSimulationIntegrationTest {
                 assertNotNull(irsaXlsResult);
                 assertTrue(irsaXlsResult.bytes().length > 1000);
 
-                // 4. Flux XML officiel EDI ISI pour honoraires de consultation
-                String ediIsiXmlP1 = ediIsiExportService.exporterEdiXml(p1Id, c);
-                assertNotNull(ediIsiXmlP1);
-                assertTrue(ediIsiXmlP1.contains("<declarationISI>") || ediIsiXmlP1.contains("CONS-03") || ediIsiXmlP1.contains("ISI"));
-
-                // 5. Grand Livre de Paie mensuel Excel avec équilibre et contrôles
+                // 4. Grand Livre de Paie mensuel Excel avec équilibre et contrôles
                 var glpP1 = grandLivrePaieExportService.export(p1Id, c);
                 assertNotNull(glpP1);
                 assertTrue(glpP1.bytes().length > 1000);
@@ -583,8 +576,8 @@ public class PayrollFullEnterpriseLifecycleSimulationIntegrationTest {
         int idContrat;
         try (PreparedStatement ps = c.prepareStatement(
                 "INSERT INTO contrat_travail (id_employe, id_filiale, id_type_contrat, id_type_intervenant, id_statut_rh, date_debut) "
-                        + "VALUES (?, 1, (SELECT id_type_contrat FROM ref_type_contrat WHERE code = 'PRESTATION' LIMIT 1), "
-                        + "(SELECT id_type_intervenant FROM ref_type_intervenant WHERE code = 'CONSULTANT'), 4, ?) "
+                        + "VALUES (?, 1, (SELECT id_type_contrat FROM ref_type_contrat WHERE code = 'CDI' LIMIT 1), "
+                        + "(SELECT id_type_intervenant FROM ref_type_intervenant WHERE code = 'CONSULTANT_SALARIE'), 4, ?) "
                         + "RETURNING id_contrat")) {
             ps.setInt(1, idEmploye);
             ps.setDate(2, Date.valueOf(debut));

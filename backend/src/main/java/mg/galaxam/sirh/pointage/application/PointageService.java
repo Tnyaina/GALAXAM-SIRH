@@ -1326,7 +1326,14 @@ public class PointageService {
                                     BigDecimal mntGlobal = sInd.get("montantGlobal") != null ? (BigDecimal) sInd.get("montantGlobal") : mntJour;
                                     boolean useGlobal = Boolean.TRUE.equals(sInd.get("useGlobalIfZero"));
                                     boolean cocheParDefaut = !Boolean.FALSE.equals(sInd.get("cocheParDefaut"));
-                                    boolean acc = !isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour) && cocheParDefaut;
+                                    Map<String, Object> derogation = derogationsParEmploye.getOrDefault(idEmp, List.of())
+                                            .stream()
+                                            .filter(item -> Integer.valueOf(idInd).equals(item.get("id_indemnite")))
+                                            .filter(item -> !Boolean.TRUE.equals(item.get("beneficie")))
+                                            .findFirst().orElse(null);
+                                    boolean estExclu = derogation != null;
+                                    boolean acc = !estExclu && !isFerie
+                                            && !"FULL_DAY".equalsIgnoreCase(typeCongeJour) && cocheParDefaut;
 
                                     Map<String, Object> item = new HashMap<>();
                                     item.put("accordee", acc);
@@ -1336,6 +1343,7 @@ public class PointageService {
                                         item.put("matin", acc);
                                         item.put("am", acc);
                                     }
+                                    if (estExclu) item.put("motifSuggestion", derogation.get("motif"));
                                     dynMap.put(String.valueOf(idInd), item);
                                 }
                             }

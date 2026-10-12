@@ -46,11 +46,12 @@ public final class CongeTestFixtureHelper {
     }
 
     public static int createAdminUser(Connection c, String identifiant) throws SQLException {
-        String sql = "INSERT INTO utilisateur (identifiant, mot_de_passe_hache, id_role) " +
-                "VALUES (?, '$2a$10$abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmn', 1) " +
+        String sql = "INSERT INTO utilisateur (identifiant, email, mot_de_passe_hache, id_role) " +
+                "VALUES (?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmn', 1) " +
                 "RETURNING id_utilisateur";
         try (PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, identifiant);
+            ps.setString(2, identifiant + "@example.test");
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return rs.getInt(1);
             }

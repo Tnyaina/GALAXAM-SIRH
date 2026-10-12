@@ -219,8 +219,9 @@ INSERT INTO ref_menu (id_menu, libelle, icone, href, rang, niveau, id_pere) VALU
 ('PAIE_CENTRE',       'Centre de paie',          'LayoutDashboard',   '/paie',                           1, 2, 'PAIE_MODULE'),
 ('PAIE_CAMPAGNE',     'Cycles de paie',          'CalendarRange',     '/paie?tab=periodes',              2, 2, 'PAIE_MODULE'),
 ('PAIE_ACOMPTES',     'Acomptes & avances',      'SlidersHorizontal', '/paie/acomptes-avances',           3, 2, 'PAIE_MODULE'),
-('PAIE_CONFIGURATION','Configuration de paie',  'Settings2',         '/paie/configuration',             4, 2, 'PAIE_MODULE'),
-('PAIE_DECLARATIONS', 'Déclarations & sorties',  'FileText',          '/paie/declarations',              5, 2, 'PAIE_MODULE');
+('PAIE_PRESTATAIRES', 'Prestataires indépendants','Users',            '/paie/prestataires',             4, 2, 'PAIE_MODULE'),
+('PAIE_CONFIGURATION','Configuration de paie',  'Settings2',         '/paie/configuration',             5, 2, 'PAIE_MODULE'),
+('PAIE_DECLARATIONS', 'Déclarations & sorties',  'FileText',          '/paie/declarations',              6, 2, 'PAIE_MODULE');
 -- Habilitations Menus (Role x Menu) (Archives Finales Sprint 11)
 -- ROLE_ADMIN (id_role = 1) : Accès complet
 INSERT INTO role_menu (id_role, id_menu) VALUES
@@ -240,6 +241,7 @@ INSERT INTO role_menu (id_role, id_menu) VALUES
 (1, 'PAIE_CENTRE'),
 (1, 'PAIE_CAMPAGNE'),
 (1, 'PAIE_ACOMPTES'),
+(1, 'PAIE_PRESTATAIRES'),
 (1, 'PAIE_CONFIGURATION'),
 (1, 'PAIE_DECLARATIONS'),
 (1, 'ADMIN_MODULE'),
