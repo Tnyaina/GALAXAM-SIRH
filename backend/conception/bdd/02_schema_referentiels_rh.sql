@@ -227,7 +227,6 @@ CREATE TABLE paie_config_legale (
     seuil_hs_tranche1 NUMERIC(5,2) NOT NULL DEFAULT 8.00,
     plafond_hs_hebdo NUMERIC(5,2) NOT NULL DEFAULT 20.00,
     acquisition_conge_mensuel_jours NUMERIC(4,2) NOT NULL DEFAULT 2.50,
-    diviseur_valorisation_conge_jours INT NOT NULL DEFAULT 30,
     exoneration_hs_irsa_active BOOLEAN NOT NULL DEFAULT FALSE,
     plafond_mensuel_hs_exonerees NUMERIC(5,2) NOT NULL DEFAULT 20.00,
     source_type VARCHAR(50) DEFAULT 'CGI_MADAGASCAR',
@@ -400,7 +399,7 @@ INSERT INTO paie_config_legale (
     sme_national, sme_agricole, plafond_cotisation_nb_sme,
     seuil_exoneration_irsa, minimum_perception_irsa, deduction_charge_famille, arrondi_base_irsa,
     duree_hebdo_legale, diviseur_mensuel_heures, seuil_hs_tranche1, plafond_hs_hebdo,
-    acquisition_conge_mensuel_jours, diviseur_valorisation_conge_jours,
+    acquisition_conge_mensuel_jours,
     exoneration_hs_irsa_active, plafond_mensuel_hs_exonerees,
     source_type, source_reference, article_reference, publication_date
 ) VALUES 
@@ -412,7 +411,7 @@ INSERT INTO paie_config_legale (
     262680.00, 266500.00, 8.00,
     350000.00, 2000.00, 2000.00, 'CENTAINE_INF',
     40.00, 173.33, 8.00, 20.00,
-    2.50, 30,
+    2.50,
     FALSE, 20.00,
     'CGI_MADAGASCAR', 'Code des impôts 2025', '01.03.16', '2024-01-01'
 ),
@@ -424,7 +423,7 @@ INSERT INTO paie_config_legale (
     262680.00, 266500.00, 8.00,
     350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
     40.00, 173.33, 8.00, 20.00,
-    2.50, 30,
+    2.50,
     FALSE, 20.00,
     'CGI_MADAGASCAR', 'Loi de finances 2026', '01.03.16', '2025-12-31'
 ),
@@ -436,7 +435,7 @@ INSERT INTO paie_config_legale (
     300000.00, 304300.00, 8.00,
     350000.00, 3000.00, 2000.00, 'CENTAINE_INF',
     40.00, 173.33, 8.00, 20.00,
-    2.50, 30,
+    2.50,
     FALSE, 20.00,
     'CGI_MADAGASCAR', 'Loi de finances 2026', '01.03.16', '2026-02-15'
 );

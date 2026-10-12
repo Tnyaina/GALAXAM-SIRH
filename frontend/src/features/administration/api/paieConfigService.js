@@ -195,6 +195,10 @@ const paieConfigService = {
         const response = await apiClient.put(`/referentiel/parametres-globaux/${id}/toggle-actif`, payload);
         return response.data;
     },
+    toggleGroupeParametresGlobaux: async (groupe, estActif, dateEffet = null) => {
+        const response = await apiClient.put(`/referentiel/parametres-globaux/groupes/${groupe}/toggle-actif`, { estActif, dateEffet });
+        return response.data;
+    },
     annulerParametreGlobalProgramme: async (id) => {
         const response = await apiClient.delete(`/referentiel/parametres-globaux/${id}`);
         return response.data;

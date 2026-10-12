@@ -47,7 +47,6 @@ public class PaieConfigLegaleRequest {
 
     // Congés Payés
     private BigDecimal acquisitionCongeMensuelJours;
-    private Integer diviseurValorisationCongeJours;
 
     // Exonération fiscale Heures Supplémentaires (CGI 01.03.03-9°)
     private Boolean exonerationHsIrsaActive;
@@ -94,8 +93,6 @@ public class PaieConfigLegaleRequest {
     public void setPlafondHsHebdo(BigDecimal v) { this.plafondHsHebdo = v; }
     public BigDecimal getAcquisitionCongeMensuelJours() { return acquisitionCongeMensuelJours; }
     public void setAcquisitionCongeMensuelJours(BigDecimal v) { this.acquisitionCongeMensuelJours = v; }
-    public Integer getDiviseurValorisationCongeJours() { return diviseurValorisationCongeJours; }
-    public void setDiviseurValorisationCongeJours(Integer v) { this.diviseurValorisationCongeJours = v; }
     public Boolean getExonerationHsIrsaActive() { return exonerationHsIrsaActive; }
     public void setExonerationHsIrsaActive(Boolean v) { this.exonerationHsIrsaActive = v; }
     public BigDecimal getPlafondMensuelHsExonerees() { return plafondMensuelHsExonerees; }

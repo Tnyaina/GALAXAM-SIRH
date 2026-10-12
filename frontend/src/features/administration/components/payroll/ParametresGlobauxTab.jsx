@@ -101,10 +101,21 @@ const PARAMETRE_METADATA = {
         explication: "Ancienneté des droits à partir de laquelle une revue administrative est demandée.",
     },
     DUREE_REFERENCE_TCONGE_MOIS: {
-        titre: "Période de référence des congés",
+        titre: "Durée technique de référence TCONGE",
         icone: Calendar,
         unite: "mois",
-        explication: "Nombre de mois de référence servant à l'acquisition annuelle des droits à congés.",
+        explication: "Invariant technique de 12 mois utilisé pour valider les périodes TCONGE; les dates réelles du cycle sont gérées par le module Congés.",
+    },
+    DIVISEUR_JOURS_CALENDAIRE_CONGE: {
+        titre: "Diviseur calendaire du prorata de congé",
+        icone: Calendar,
+        unite: "jours",
+        explication: "Base calendaire utilisée pour proratiser l'acquisition mensuelle selon les absences injustifiées; ce n'est pas le taux TCONGE ni le diviseur de salaire.",
+    },
+    CONGE_DECOMPTE_FERIES: {
+        titre: "Jours fériés dans le décompte des congés",
+        icone: Calendar,
+        explication: "Détermine si les jours fériés sont inclus dans les jours débités du solde de congés. Toute évolution se programme par date d'effet.",
     },
     PLAFOND_SOLDE_CONGE_NEGATIF: {
         titre: "Plafond d'anticipation de congés (solde négatif)",
@@ -238,6 +249,7 @@ const THEMATIC_BLOCKS = [
         regleConjointe: "Attribuée automatiquement au bulletin de paie si le cumul mensuel de retards reste inférieur ou égal au seuil.",
         effetCascade: "Si le montant est désactivé ou égal à 0 Ar, aucune prime d'assiduité n'est versée.",
         masterCode: 'MONTANT_PRIME_ASSIDUITE',
+        activationCodes: ['MONTANT_PRIME_ASSIDUITE', 'SEUIL_RETARD_ASSIDUITE_MIN'],
         codes: ['MONTANT_PRIME_ASSIDUITE', 'SEUIL_RETARD_ASSIDUITE_MIN']
     },
     {
@@ -249,6 +261,7 @@ const THEMATIC_BLOCKS = [
         regleConjointe: "Une réduction de 25% s'applique si les seuils de retard et de congés sont tous deux dépassés.",
         effetCascade: "Si le taux ou l'un des deux seuils est désactivé, la pénalité conjointe n'est pas appliquée.",
         masterCode: 'TAUX_PENALITE_PP',
+        activationCodes: ['TAUX_PENALITE_PP', 'SEUIL_RETARD_PENALITE_PP_MIN', 'SEUIL_CONGES_PENALITE_PP_JOURS'],
         codes: ['TAUX_PENALITE_PP', 'SEUIL_RETARD_PENALITE_PP_MIN', 'SEUIL_CONGES_PENALITE_PP_JOURS']
     },
 
@@ -271,6 +284,10 @@ const THEMATIC_BLOCKS = [
         icone: Coffee,
         regleConjointe: "Repas alloué après 19h30 (Tranche 1) et majoré après 21h00 (Tranche 2).",
         effetCascade: "Si une tranche est désactivée, l'indemnité correspondante n'est pas attribuée.",
+        activationGroups: [
+            { key: 'REPAS_2_TRANCHE_1', titre: 'Tranche 1', codes: ['SEUIL_2ND_REPAS_1', 'MONTANT_2ND_REPAS_1'] },
+            { key: 'REPAS_2_TRANCHE_2', titre: 'Tranche 2', codes: ['SEUIL_2ND_REPAS_2', 'MONTANT_2ND_REPAS_2'] },
+        ],
         codes: ['SEUIL_2ND_REPAS_1', 'MONTANT_2ND_REPAS_1', 'SEUIL_2ND_REPAS_2', 'MONTANT_2ND_REPAS_2']
     },
     {
@@ -293,7 +310,37 @@ const THEMATIC_BLOCKS = [
         regleConjointe: "Encadre le cumul des congés payés et les conditions de prise avec solde négatif.",
         effetCascade: "Si le plafond négatif est désactivé, la prise anticipée de congés est strictement bloquée.",
         masterCode: 'PLAFOND_SOLDE_CONGE_NEGATIF',
-        codes: ['PLAFOND_CUMUL_SOLDE_CONGE_JOURS', 'PLAFOND_SOLDE_CONGE_NEGATIF', 'SEUIL_ALERTE_SOLDE_CONGE_FAIBLE', 'DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS', 'DUREE_REFERENCE_TCONGE_MOIS']
+        codes: ['PLAFOND_CUMUL_SOLDE_CONGE_JOURS', 'PLAFOND_SOLDE_CONGE_NEGATIF', 'SEUIL_ALERTE_SOLDE_CONGE_FAIBLE', 'DUREE_PRESCRIPTION_SOLDE_CONGE_MOIS']
+    },
+    {
+        id: 'CONGE_TCONGE_TECHNIQUE',
+        categorie: 'CONGE',
+        titre: "Référence technique TCONGE",
+        sousTitre: "Invariant de validation de la période annuelle",
+        icone: ShieldCheck,
+        regleConjointe: "Le cycle TCONGE est géré par les périodes du module Congés; ce paramètre ne remplace pas leurs dates.",
+        effetCascade: "La durée attendue est de 12 mois et sert uniquement au contrôle de cohérence.",
+        codes: ['DUREE_REFERENCE_TCONGE_MOIS']
+    },
+    {
+        id: 'CONGE_PRORATA_ACQUISITION',
+        categorie: 'CONGE',
+        titre: "Acquisition et prorata des congés",
+        sousTitre: "Paramètres de calcul de l'acquisition mensuelle",
+        icone: Calendar,
+        regleConjointe: "Le taux mensuel d'acquisition est configuré dans Paie config; ce diviseur global sert uniquement au prorata des absences injustifiées.",
+        effetCascade: "Le diviseur ne remplace ni le TCONGE individuel ni la retenue de salaire au 1/30e.",
+        codes: ['DIVISEUR_JOURS_CALENDAIRE_CONGE']
+    },
+    {
+        id: 'CONGE_DECOMPTE_FERIES',
+        categorie: 'CONGE',
+        titre: "Décompte des jours fériés",
+        sousTitre: "Règle de débit du solde de congés",
+        icone: Calendar,
+        regleConjointe: "La valeur INCLUS ou EXCLUS détermine si un jour férié débite le solde lorsqu'il tombe dans un congé.",
+        effetCascade: "Les changements prennent effet par version datée; sans règle active, le calcul concerné est bloqué.",
+        codes: ['CONGE_DECOMPTE_FERIES']
     },
     {
         id: 'CONGE_BONIFICATION',
@@ -304,6 +351,7 @@ const THEMATIC_BLOCKS = [
         regleConjointe: "Attribution de congés additionnels par palier au-delà du seuil d'ancienneté.",
         effetCascade: "Si la bonification est désactivée, aucun jour supplémentaire d'ancienneté n'est accordé.",
         masterCode: 'JOURS_BONIFICATION_PAR_PALIER',
+        activationCodes: ['SEUIL_ANCIENNETE_BONIFICATION_ANS', 'PALIER_ANNEES_BONIFICATION', 'JOURS_BONIFICATION_PAR_PALIER'],
         codes: ['SEUIL_ANCIENNETE_BONIFICATION_ANS', 'PALIER_ANNEES_BONIFICATION', 'JOURS_BONIFICATION_PAR_PALIER']
     },
     {
@@ -588,7 +636,15 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
         filteredParametres.forEach(param => {
             const block = paramToBlockMap.get(param.codeParametre);
             const id = block?.id || 'autres';
-            if (!groups.has(id)) groups.set(id, { id, titre: block?.titre || 'Autres paramètres', sousTitre: block?.sousTitre || '', icone: block?.icone || Sliders, params: [] });
+            if (!groups.has(id)) groups.set(id, {
+                id,
+                titre: block?.titre || 'Autres paramètres',
+                sousTitre: block?.sousTitre || '',
+                icone: block?.icone || Sliders,
+                activationCodes: block?.activationCodes,
+                activationGroups: block?.activationGroups,
+                params: [],
+            });
             groups.get(id).params.push(param);
         });
         return [...groups.values()];
@@ -620,9 +676,26 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
         });
     };
 
+    const handleToggleGroup = (block, group = null) => {
+        const codes = group?.codes || block.activationCodes;
+        if (!codes?.length) return;
+        const members = parametres.filter(p => codes.includes(p.codeParametre) && getStatut(p) === 'EN_VIGUEUR');
+        if (members.length !== codes.length || members.some(p => !p.estDesactivable)) {
+            toast.error('Cette règle ne peut pas être basculée : une configuration active est manquante ou protégée.');
+            return;
+        }
+        const active = members.every(p => p.estActif);
+        setConfirmToggle({
+            groupKey: group?.key || block.id,
+            groupTitle: group?.titre ? `${block.titre} — ${group.titre}` : block.titre,
+            nouveauStatut: !active,
+            dateEffet: fmtDateInput(new Date()), loading: false, error: '',
+        });
+    };
+
     const handleConfirmToggle = async () => {
         if (!confirmToggle || confirmToggle.loading) return;
-        const { param, nouveauStatut, dateEffet } = confirmToggle;
+        const { param, groupKey, nouveauStatut, dateEffet } = confirmToggle;
         if (!dateEffet) {
             setConfirmToggle(prev => ({ ...prev, error: "La date de prise d'effet est obligatoire." }));
             return;
@@ -630,14 +703,15 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
 
         setConfirmToggle(prev => ({ ...prev, loading: true, error: '' }));
         try {
-            await paieConfigService.toggleParametreGlobalActif(param.idParametre, nouveauStatut, dateEffet);
-            const meta = PARAMETRE_METADATA[param.codeParametre];
-            const nomParam = meta?.titre || param.codeParametre;
+            if (groupKey) await paieConfigService.toggleGroupeParametresGlobaux(groupKey, nouveauStatut, dateEffet);
+            else await paieConfigService.toggleParametreGlobalActif(param.idParametre, nouveauStatut, dateEffet);
+            const meta = PARAMETRE_METADATA[param?.codeParametre];
+            const nomParam = confirmToggle.groupTitle || meta?.titre || param?.codeParametre;
             const dateStr = new Date(dateEffet).toLocaleDateString('fr-FR');
             toast.success(
                 nouveauStatut
                     ? `${nomParam} réactivé avec prise d'effet au ${dateStr}.`
-                    : (param.effetDesactivation || `${nomParam} désactivé avec prise d'effet au ${dateStr}.`)
+                    : (param?.effetDesactivation || `${nomParam} désactivé avec prise d'effet au ${dateStr}.`)
             );
             setConfirmToggle(null);
             setDetails(null);
@@ -801,24 +875,41 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                     {thematicBlocksWithData.map(block => {
                         const BlockIcon = block.icone;
                         const isCollapsed = collapsedBlocks.has(block.id);
+                        const managedCodes = new Set([...(block.activationCodes || []), ...(block.activationGroups || []).flatMap(group => group.codes)]);
+                        const toggleableGroups = [
+                            ...(block.activationCodes ? [{ key: block.id, titre: null, codes: block.activationCodes }] : []),
+                            ...(block.activationGroups || []),
+                        ];
                         return <Card key={block.id} className="overflow-hidden p-0" shadow="sm">
-                            <button
-                                type="button"
-                                aria-expanded={!isCollapsed}
-                                aria-controls={`param-block-${block.id}`}
-                                onClick={() => setCollapsedBlocks(previous => {
-                                    const next = new Set(previous);
-                                    if (next.has(block.id)) next.delete(block.id);
-                                    else next.add(block.id);
-                                    return next;
-                                })}
-                                className="w-full flex items-center gap-3 px-4 py-3 text-left bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-surface-hover)] transition-colors"
-                            >
+                            <div className="w-full flex flex-wrap items-center gap-3 px-4 py-3 text-left bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-subtle)]">
+                                <button
+                                    type="button"
+                                    aria-expanded={!isCollapsed}
+                                    aria-controls={`param-block-${block.id}`}
+                                    onClick={() => setCollapsedBlocks(previous => {
+                                        const next = new Set(previous);
+                                        if (next.has(block.id)) next.delete(block.id);
+                                        else next.add(block.id);
+                                        return next;
+                                    })}
+                                    className="flex min-w-0 flex-1 items-center gap-3 text-left hover:text-[var(--color-brand-600)]"
+                                >
                                 <span className="flex h-9 w-9 items-center justify-center border border-[var(--color-brand-500)]/20 bg-[var(--color-brand-500)]/10 text-[var(--color-brand-600)]"><BlockIcon size={18} /></span>
                                 <span className="min-w-0 flex-1"><span role="heading" aria-level="2" className="block text-sm font-bold text-[var(--color-fg)]">{block.titre}</span>{block.sousTitre && <span className="block text-xs text-[var(--color-fg-muted)] mt-0.5">{block.sousTitre}</span>}</span>
-                                <span className="text-xs font-semibold text-[var(--color-fg-muted)]">{block.params.length} règle(s)</span>
                                 <ChevronDown size={16} aria-hidden="true" className={`shrink-0 text-[var(--color-fg-muted)] transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
-                            </button>
+                                </button>
+                                {canWrite && toggleableGroups.map(group => {
+                                    const members = parametres.filter(p => group.codes.includes(p.codeParametre) && getStatut(p) === 'EN_VIGUEUR');
+                                    const active = members.length === group.codes.length && members.every(p => p.estActif);
+                                    const allowed = members.length === group.codes.length && members.every(p => p.estDesactivable);
+                                    return <span key={group.key}>
+                                        <Button type="button" variant="outline" size="sm" disabled={!allowed} onClick={() => handleToggleGroup(block, group.titre ? group : null)}>
+                                            {group.titre ? `${group.titre} · ` : ''}{active ? 'Désactiver la règle' : 'Activer la règle'}
+                                        </Button>
+                                    </span>;
+                                })}
+                                <span className="text-xs font-semibold text-[var(--color-fg-muted)]">{block.params.length} règle(s)</span>
+                            </div>
                             <div id={`param-block-${block.id}`} hidden={isCollapsed} className="divide-y divide-[var(--color-border-subtle)]">
                                 {block.params.map(param => {
                                     const meta = PARAMETRE_METADATA[param.codeParametre];
@@ -844,7 +935,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                         {hasActions && <div className="flex flex-wrap items-center justify-end gap-1 lg:min-w-[220px]">
                                             {param.peutModifier && <Button variant="outline" size="sm" onClick={() => handleOpenEdit(param,false)}>Modifier</Button>}
                                             {param.peutVersionner && <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(param,true)}>Nouvelle version</Button>}
-                                            {param.peutBasculer && (
+                                            {param.peutBasculer && !managedCodes.has(param.codeParametre) && (
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
@@ -881,7 +972,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                     {parametres.filter(param => param.codeParametre === details.codeParametre && param.idParametre !== details.idParametre).length > 0 && <div className="border-t border-[var(--color-border-subtle)] pt-3 space-y-2"><h4 className="font-semibold text-sm">Autres versions</h4>{parametres.filter(param => param.codeParametre === details.codeParametre && param.idParametre !== details.idParametre).map(param => <div key={param.idParametre} className="flex flex-wrap justify-between gap-2 text-sm"><span>{formatPeriodeValidite(param.dateDebut,param.dateFin,getStatut(param))}</span><span className="font-mono">{formatValeurAffichage(param.codeParametre,param.valeur)}</span></div>)}</div>}
                     {details.effetDesactivation && <div className="border-t border-[var(--color-border-subtle)] pt-3"><h4 className="font-semibold text-sm">Effet de la désactivation</h4><p className="text-sm text-[var(--color-fg-muted)]">{details.effetDesactivation}</p></div>}
                     {detailsError && <FormError message={detailsError} />}
-                    {canWrite && details.peutBasculer && <Button variant="outline" onClick={event => handleToggleActif(details, event)}>{details.estActif ? 'Désactiver' : 'Activer'}</Button>}
+                    {canWrite && details.peutBasculer && !THEMATIC_BLOCKS.some(block => [...(block.activationCodes || []), ...(block.activationGroups || []).flatMap(group => group.codes)].includes(details.codeParametre)) && <Button variant="outline" onClick={event => handleToggleActif(details, event)}>{details.estActif ? 'Désactiver' : 'Activer'}</Button>}
                     {canWrite && getStatut(details) === 'PROGRAMME' && (
                         <Button
                             variant="ghost"
@@ -897,6 +988,9 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
             {(() => {
                 const meta = PARAMETRE_METADATA[formData.codeParametre];
                 const ModalIcon = meta?.icone || Sliders;
+                const activationGereeParGroupe = THEMATIC_BLOCKS.some(block =>
+                    [...(block.activationCodes || []), ...(block.activationGroups || []).flatMap(group => group.codes)]
+                        .includes(formData.codeParametre));
                 const titreHumain = meta?.titre || formData.codeParametre;
 
                 return (
@@ -984,7 +1078,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                 </div>
 
                                 {/* Option d'activation si le paramètre est débrayable */}
-                                {formData.estDesactivable && (
+                                {formData.estDesactivable && !activationGereeParGroupe && (
                                     <div className="md:col-span-2 space-y-2">
                                         <div className="flex items-center justify-between p-3.5 border bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)]">
                                             <div>
@@ -1027,6 +1121,11 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                             </div>
                                         )}
                                     </div>
+                                )}
+                                {formData.estDesactivable && activationGereeParGroupe && (
+                                    <p className="md:col-span-2 text-xs text-[var(--color-fg-muted)]">
+                                        L’activation de cette règle se gère depuis son groupe pour conserver un état cohérent entre ses paramètres.
+                                    </p>
                                 )}
 
                                 <div>
@@ -1105,7 +1204,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                 {confirmToggle?.nouveauStatut ? "Confirmer la réactivation" : "Confirmer la désactivation"}
                             </div>
                             <div className="text-xs text-[var(--color-fg-muted)]">
-                                {PARAMETRE_METADATA[confirmToggle?.param?.codeParametre]?.titre || confirmToggle?.param?.codeParametre}
+                            {confirmToggle?.groupTitle || PARAMETRE_METADATA[confirmToggle?.param?.codeParametre]?.titre || confirmToggle?.param?.codeParametre}
                             </div>
                         </div>
                     </div>
@@ -1145,7 +1244,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                             <p>
                                 {confirmToggle.nouveauStatut
                                     ? "La règle sera réactivée à la date d'effet choisie. Les calculs de paie antérieurs à cette date continueront de respecter l'ancien état."
-                                    : (confirmToggle.param.effetDesactivation || "La règle cessera d'être appliquée à compter de la date d'effet choisie. La version en vigueur sera automatiquement clôturée à la veille pour sanctuariser les paies passées.")}
+                                    : (confirmToggle.param?.effetDesactivation || "La règle cessera d'être appliquée à compter de la date d'effet choisie. La version en vigueur sera automatiquement clôturée à la veille pour sanctuariser les paies passées.")}
                             </p>
                         </div>
 
@@ -1157,7 +1256,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                 value={confirmToggle.dateEffet}
                                 onChange={(e) => setConfirmToggle({ ...confirmToggle, dateEffet: e.target.value, error: '' })}
                                 hint="Par défaut aujourd'hui. L'historique antérieur à cette date est préservé."
-                                min={confirmToggle.param.dateDebut ? fmtDateInput(confirmToggle.param.dateDebut) : undefined}
+                                min={confirmToggle.param?.dateDebut ? fmtDateInput(confirmToggle.param.dateDebut) : fmtDateInput(new Date())}
                             />
                         </div>
                     </div>

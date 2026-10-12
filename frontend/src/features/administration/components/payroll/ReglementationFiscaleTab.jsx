@@ -88,7 +88,7 @@ const EMPTY_FORM = {
     arrondiBaseIrsa: '',
     dureeHebdoLegale: '', diviseurMensuelHeures: '', seuilHsTranche1: '', plafondHsHebdo: '',
     exonerationHsIrsaActive: false, plafondMensuelHsExonerees: '',
-    acquisitionCongeMensuelJours: '', diviseurValorisationCongeJours: '',
+    acquisitionCongeMensuelJours: '',
     tranchesIrsa: [],
     majorations: [],
 };
@@ -651,16 +651,10 @@ function ExerciceFormModal({ isOpen, onClose, onSave, mode, loading, error, form
                                 onChange={e => upd('acquisitionCongeMensuelJours', e.target.value)}
                                 hint="Nombre de jours acquis par mois dans cet exercice"
                             />
-                            <Input
-                                label="Diviseur valorisation (jours)"
-                                type="number"
-                                required={!isReadOnly}
-                                disabled={isReadOnly}
-                                value={formData.diviseurValorisationCongeJours}
-                                onChange={e => upd('diviseurValorisationCongeJours', e.target.value)}
-                                hint="Diviseur appliqué au salaire brut pour valoriser un jour"
-                            />
                         </div>
+                        <p className="text-xs text-[var(--color-fg-muted)]">
+                            La valeur d’un congé payé est déterminée par le TCONGE propre au salarié. La retenue de base des jours régularisés par congé est calculée séparément au 1/30ᵉ du salaire.
+                        </p>
                     </div>
 
                     {/* SECTION 6 : Taux de Majoration des Heures Spéciales (Pleine largeur) */}
@@ -819,7 +813,6 @@ export default function ReglementationFiscaleTab() {
             exonerationHsIrsaActive: activeConfig.exonerationHsIrsaActive ?? false,
             plafondMensuelHsExonerees: String(activeConfig.plafondMensuelHsExonerees ?? ''),
             acquisitionCongeMensuelJours: String(activeConfig.acquisitionCongeMensuelJours ?? ''),
-            diviseurValorisationCongeJours: String(activeConfig.diviseurValorisationCongeJours ?? ''),
             tranchesIrsa: clonedTranches,
             majorations: clonedMajs,
         };
@@ -855,7 +848,6 @@ export default function ReglementationFiscaleTab() {
             exonerationHsIrsaActive: config.exonerationHsIrsaActive ?? false,
             plafondMensuelHsExonerees: String(config.plafondMensuelHsExonerees ?? ''),
             acquisitionCongeMensuelJours: String(config.acquisitionCongeMensuelJours ?? ''),
-            diviseurValorisationCongeJours: String(config.diviseurValorisationCongeJours ?? ''),
             tranchesIrsa: tranches.map(t => ({
                 numeroTranche: t.numeroTranche,
                 trancheMin: t.trancheMin,
@@ -914,7 +906,6 @@ export default function ReglementationFiscaleTab() {
             exonerationHsIrsaActive: config.exonerationHsIrsaActive ?? false,
             plafondMensuelHsExonerees: String(config.plafondMensuelHsExonerees ?? ''),
             acquisitionCongeMensuelJours: String(config.acquisitionCongeMensuelJours ?? ''),
-            diviseurValorisationCongeJours: String(config.diviseurValorisationCongeJours ?? ''),
             tranchesIrsa: tranches.length > 0 ? tranches.map(t => ({
                 numeroTranche: t.numeroTranche,
                 trancheMin: t.trancheMin,
@@ -965,7 +956,6 @@ export default function ReglementationFiscaleTab() {
         exonerationHsIrsaActive: Boolean(formData.exonerationHsIrsaActive),
         plafondMensuelHsExonerees: formData.exonerationHsIrsaActive ? parseSafe(formData.plafondMensuelHsExonerees, 0) : 0,
         acquisitionCongeMensuelJours: parseSafe(formData.acquisitionCongeMensuelJours, 2.5),
-        diviseurValorisationCongeJours: parseInt(formData.diviseurValorisationCongeJours, 10) || 30,
     });
 
     const handleSave = async (e) => {
@@ -1136,7 +1126,7 @@ export default function ReglementationFiscaleTab() {
                             <SectionTitle icon={Palmtree} label="Congés Payés" color="var(--color-brand-500)" />
                             <div className="grid grid-cols-2 gap-2">
                                 <KpiField label="Acquisition mensuelle" value={`${fmtNb(activeConfig.acquisitionCongeMensuelJours, 2)} j/mois`} sub="= 30 j/an" />
-                                <KpiField label="Valorisation d'1 jour de congé" value={`Salaire brut ÷ ${activeConfig.diviseurValorisationCongeJours}`} sub="Décompte calendaire standard" />
+                                <KpiField label="Valorisation des congés payés" value="TCONGE individuel" sub="Calculé par salarié et période de référence" />
                             </div>
                         </div>}
                     </div>
@@ -1281,7 +1271,7 @@ export default function ReglementationFiscaleTab() {
                             </p>
                             <p>• <strong>Congés payés</strong> :
                                 <strong> {fmtNb(activeConfig.acquisitionCongeMensuelJours, 2)} j</strong>/mois,
-                                décompte calendaire ÷&nbsp;<strong>{activeConfig.diviseurValorisationCongeJours}</strong>
+                                valorisation selon le TCONGE individuel
                             </p>
                             <p>• <strong>Retenues sur salaire</strong> : avance employeur&nbsp;<strong>{fmtNb(activeConfig.plafondAvanceEmployeurPct, 4)}%</strong>, quotité cessible&nbsp;<strong>{fmtNb(activeConfig.quotiteCessiblePct, 4)}%</strong>.</p>
                         </>

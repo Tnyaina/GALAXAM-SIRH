@@ -192,11 +192,12 @@ export const paieService = {
      * P1-01 : Exécute une commande de workflow sur un ajustement (APPROVE, REJECT, CANCEL).
      * Le backend décide de la transition autorisée et applique l'optimistic locking via expectedVersion.
      */
-    executerCommandeAjustement: async (idAjustement, command, reason = null, expectedVersion = 1) => {
+    executerCommandeAjustement: async (idAjustement, command, reason = null, expectedVersion = 1, dateAccord = null) => {
         const response = await apiClient.post(`paie/ajustements/${idAjustement}/commands`, {
             command,
             reason,
-            expectedVersion
+            expectedVersion,
+            dateAccord,
         });
         return response.data;
     },

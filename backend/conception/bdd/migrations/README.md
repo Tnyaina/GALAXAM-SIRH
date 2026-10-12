@@ -4,6 +4,12 @@
 désactive l'ancien seuil hebdomadaire, remplacé par
 `paie_config_legale.duree_hebdo_legale`. La ligne reste conservée pour l'audit.
 
+`26-10-12-sp66-centralise-exoneration-hs-et-conges.sql` clôt les paramètres
+globaux historiques d'exonération HS, désormais pilotés uniquement par
+`paie_config_legale`, et retire le diviseur de valorisation des congés inutilisé.
+La valeur TCONGE reste la référence d'indemnité ; la retenue de base reste au
+1/30e du salaire.
+
 `26-10-11-sp64-prestataires-menu.sql` ajoute « Prestataires indépendants »
 dans le menu Paie pour les rôles qui disposent de la lecture Paie. Appliquer
 après SP63 sur une base existante ; le schéma canonique contient ce menu.
@@ -139,6 +145,7 @@ incompatible fait échouer l'index unique et demande un arbitrage explicite.
 | `26-10-06-sp57-agent-pointage-acces-fiche-employe.sql` | Habilitation temporaire agent pointage fiche employé | `01_schema_core_securite.sql` |
 | `26-10-07-sp58-agent-pointage-sans-fiche-employe.sql` | Rétablissement périmètre agent pointage sans fiche employé | `01_schema_core_securite.sql` |
 | `26-10-08-sp59-security-user-read-indexes.sql` | Index des recherches case-insensitive de comptes et des refresh tokens | `01_schema_core_securite.sql` |
+| `26-10-12-sp67-activation-par-regle-metier.sql` | Rend les paramètres membres des règles groupées basculables par action métier atomique | `01_schema_core_securite.sql` |
 
 ### Remarques Opérationnelles
 - Pour toute nouvelle base de données : exécuter **uniquement les 6 scripts canoniques** `01` à `06`. Ils créent 84 tables et 9 vues cohérentes.

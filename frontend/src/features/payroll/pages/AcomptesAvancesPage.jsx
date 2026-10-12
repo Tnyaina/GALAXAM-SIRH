@@ -59,6 +59,8 @@ export default function AcomptesAvancesPage() {
     const [imputations, setImputations] = useState([]);
     const [imputationError, setImputationError] = useState(null);
     const [decision, setDecision] = useState(null);
+    const [dateAccord, setDateAccord] = useState(getTodayDateString());
+    const [dateAccordError, setDateAccordError] = useState(null);
     const [reason, setReason] = useState('');
     const [versement, setVersement] = useState(null);
     const [dateVersement, setDateVersement] = useState(getTodayDateString());
@@ -157,10 +159,26 @@ export default function AcomptesAvancesPage() {
             setDecisionFormError(null);
             return;
         }
+        if (decision.command === 'APPROVE') {
+            if (!dateAccord) {
+                setDateAccordError("La date d'approbation est obligatoire.");
+                return;
+            }
+            if (dateAccord > getTodayDateString()) {
+                setDateAccordError("La date d'approbation ne peut pas être future.");
+                return;
+            }
+            if (decision.dateDemande && dateAccord < String(decision.dateDemande).slice(0, 10)) {
+                setDateAccordError("La date d'approbation ne peut pas précéder la demande.");
+                return;
+            }
+        }
+        setDateAccordError(null);
         setDecisionReasonError(null); setDecisionFormError(null); setSubmitting(true);
         try {
             await paieService.executerCommandeAjustement(decision.idAvance, decision.command,
-                decision.command === 'REJECT' ? reason.trim() : null, decision.version);
+                decision.command === 'REJECT' ? reason.trim() : null, decision.version,
+                decision.command === 'APPROVE' ? dateAccord : null);
             setDecision(null); setReason('');
             toast.success(decision.command === 'APPROVE' ? 'Demande approuvée. Le versement reste à confirmer.' : 'Demande rejetée.');
             await charger();
@@ -286,7 +304,7 @@ export default function AcomptesAvancesPage() {
                 </div>
                 <p className="text-xs text-[var(--color-fg-muted)]">Motif : {selected.motif}</p>
                 {canWrite && <div className="flex flex-wrap gap-2">
-                    {selected.actions?.APPROVE && <Button size="sm" onClick={() => setDecision({ ...selected, command: 'APPROVE' })}>Approuver</Button>}
+                    {selected.actions?.APPROVE && <Button size="sm" onClick={() => { setDateAccord(getTodayDateString()); setDateAccordError(null); setDecisionFormError(null); setDecision({ ...selected, command: 'APPROVE' }); }}>Approuver</Button>}
                     {selected.actions?.REJECT && <Button variant="outline" size="sm" onClick={() => setDecision({ ...selected, command: 'REJECT' })}>Rejeter</Button>}
                     {selected.actions?.CONFIRM_VERSEMENT && <Button size="sm" onClick={() => { setVersement(selected); setModeReglement(selected.modeReglement || ''); }}>{selected.etatDossier === 'VERSEMENT_A_VERIFIER' ? 'Rapprocher le versement' : 'Confirmer le versement'}</Button>}
                 </div>}
@@ -308,11 +326,14 @@ export default function AcomptesAvancesPage() {
                 }}
             />
         )}
-        {decision && <Modal isOpen title={decision.command === 'APPROVE' ? 'Approuver la demande' : 'Rejeter la demande'} onClose={() => { setDecision(null); setDecisionFormError(null); setDecisionReasonError(null); }}>
+        {decision && <Modal isOpen title={decision.command === 'APPROVE' ? 'Approuver la demande' : 'Rejeter la demande'} onClose={() => { setDecision(null); setDecisionFormError(null); setDecisionReasonError(null); setDateAccordError(null); }}>
             <form className="space-y-3" onSubmit={executeDecision}>
                 <FormError title="Décision impossible" message={decisionFormError} onClose={() => setDecisionFormError(null)} />
                 <p className="text-xs">{decision.typeLibelle} de {formatMoneyAr(decision.montantInitial)} pour {decision.nomComplet}.</p>
-                {decision.command === 'APPROVE' ? <Alert type="info" message="L’approbation n’atteste pas le versement. Confirmez celui-ci séparément après paiement réel." />
+                {decision.command === 'APPROVE' ? <>
+                    <Alert type="info" message="L’approbation n’atteste pas le versement. Confirmez celui-ci séparément après paiement réel." />
+                    <Input label="Date d’approbation" type="date" required max={getTodayDateString()} min={decision.dateDemande ? String(decision.dateDemande).slice(0, 10) : undefined} value={dateAccord} error={dateAccordError} onChange={event => { setDateAccord(event.target.value); setDateAccordError(null); setDecisionFormError(null); }} />
+                </>
                     : <Input label="Motif du rejet" required value={reason} error={decisionReasonError} onChange={event => { setReason(event.target.value); if (event.target.value.trim()) setDecisionReasonError(null); }} placeholder="Expliquer la décision…" />}
                 <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setDecision(null)}>Annuler</Button><Button type="submit" disabled={submitting}>{decision.command === 'APPROVE' ? 'Approuver' : 'Rejeter'}</Button></div>
             </form>

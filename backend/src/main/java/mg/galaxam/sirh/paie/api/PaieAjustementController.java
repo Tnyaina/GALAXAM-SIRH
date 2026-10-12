@@ -762,7 +762,7 @@ public class PaieAjustementController {
         }
         Integer userId = getCurrentUserId();
         BusinessDecision decision = adjustmentWorkflowService.execute(
-                id, req.getCommand(), userId, req.getReason(), req.getExpectedVersion());
+                id, req.getCommand(), userId, req.getReason(), req.getExpectedVersion(), req.getDateAccord());
         return ResponseEntity.ok(decision);
     }
 

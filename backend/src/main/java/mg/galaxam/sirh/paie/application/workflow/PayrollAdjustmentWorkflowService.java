@@ -58,6 +58,16 @@ public class PayrollAdjustmentWorkflowService {
             Integer requestingUserId,
             String reason,
             Integer expectedVersion) throws Exception {
+        return execute(adjustmentId, command, requestingUserId, reason, expectedVersion, null);
+    }
+
+    public BusinessDecision execute(
+            int adjustmentId,
+            PayrollAdjustmentCommand command,
+            Integer requestingUserId,
+            String reason,
+            Integer expectedVersion,
+            java.time.LocalDate dateAccord) throws Exception {
 
         if (command == PayrollAdjustmentCommand.REJECT && (reason == null || reason.isBlank())) {
             throw new SirhBusinessException(SirhErrorCode.PAYROLL_PERIOD_REASON_REQUIRED,
@@ -91,6 +101,16 @@ public class PayrollAdjustmentWorkflowService {
                     throw new SirhBusinessException(transition.errorCode(), transition.blockingMessage());
                 }
                 if (command == PayrollAdjustmentCommand.APPROVE) {
+                    java.time.LocalDate dateDecision = dateAccord != null ? dateAccord : java.time.LocalDate.now();
+                    if (dateDecision.isAfter(java.time.LocalDate.now())) {
+                        throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                "La date d'approbation ne peut pas être future.");
+                    }
+                    if (entity.getDateDemande() != null
+                            && dateDecision.isBefore(entity.getDateDemande().toLocalDate())) {
+                        throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
+                                "La date d'approbation ne peut pas précéder la date de demande.");
+                    }
                     try (PreparedStatement ps = c.prepareStatement(
                             "SELECT t.code, EXISTS(SELECT 1 FROM paie_mouvement_justificatif j "
                                     + "WHERE j.id_avance=a.id_avance) AS justificatif_present "
@@ -152,7 +172,8 @@ public class PayrollAdjustmentWorkflowService {
                 entity.setStatut(transition.targetStatut());
                 if (command == PayrollAdjustmentCommand.APPROVE) {
                     entity.setApprouvePar(requestingUserId);
-                    entity.setDateAccord(new java.sql.Date(System.currentTimeMillis()));
+                    entity.setDateAccord(java.sql.Date.valueOf(
+                            dateAccord != null ? dateAccord : java.time.LocalDate.now()));
                 }
                 if (reason != null && !reason.isBlank()) {
                     entity.setMotif((entity.getMotif() != null ? entity.getMotif() + " | " : "") + reason);

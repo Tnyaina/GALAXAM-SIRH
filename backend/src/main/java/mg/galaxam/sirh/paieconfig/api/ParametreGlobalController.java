@@ -1,7 +1,9 @@
 package mg.galaxam.sirh.paieconfig.api;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.util.List;
+import java.util.Map;
 import javax.sql.DataSource;
 import mg.galaxam.sirh.paieconfig.api.dto.ParametreGlobalRequest;
 import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
@@ -15,6 +17,19 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/referentiel/parametres-globaux")
 public class ParametreGlobalController {
+
+    private static final Map<String, List<String>> GROUPES_ACTIVATION = Map.of(
+            "PAIE_ASSIDUITE", List.of("MONTANT_PRIME_ASSIDUITE", "SEUIL_RETARD_ASSIDUITE_MIN"),
+            "PAIE_PERFORMANCE", List.of("TAUX_PENALITE_PP", "SEUIL_RETARD_PENALITE_PP_MIN", "SEUIL_CONGES_PENALITE_PP_JOURS"),
+            "CONGE_BONIFICATION", List.of("SEUIL_ANCIENNETE_BONIFICATION_ANS", "PALIER_ANNEES_BONIFICATION", "JOURS_BONIFICATION_PAR_PALIER"),
+            "REPAS_2_TRANCHE_1", List.of("SEUIL_2ND_REPAS_1", "MONTANT_2ND_REPAS_1"),
+            "REPAS_2_TRANCHE_2", List.of("SEUIL_2ND_REPAS_2", "MONTANT_2ND_REPAS_2")
+    );
+
+    private static boolean estCodeActivationGroupee(String code) {
+        return code != null && GROUPES_ACTIVATION.values().stream().flatMap(List::stream)
+                .anyMatch(code::equalsIgnoreCase);
+    }
 
     @Autowired
     private DataSource dataSource;
@@ -52,13 +67,87 @@ public class ParametreGlobalController {
         }
     }
 
+    /** Bascule une règle métier en transaction, en versionnant ensemble tous ses paramètres. */
+    @PutMapping("/groupes/{groupe}/toggle-actif")
+    @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN') or hasAuthority('ORGANISATION_WRITE') or hasAuthority('POINTAGE_WRITE')")
+    public ResponseEntity<?> toggleGroupeActif(@PathVariable String groupe, @RequestBody Map<String, Object> body) {
+        List<String> codes = GROUPES_ACTIVATION.get(groupe);
+        if (codes == null) throw new IllegalArgumentException("Groupe de paramètres inconnu : " + groupe);
+        try (Connection c = dataSource.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                boolean actif = Boolean.parseBoolean(String.valueOf(body.get("estActif")));
+                java.time.LocalDate dateEffet = body.get("dateEffet") == null
+                        ? java.time.LocalDate.now() : java.time.LocalDate.parse(String.valueOf(body.get("dateEffet")));
+                if (dateEffet.isBefore(java.time.LocalDate.now())) {
+                    throw new IllegalArgumentException("La date d'effet d'une règle groupée ne peut pas être passée.");
+                }
+                String lockSql = "SELECT id_parametre FROM parametre_global WHERE code_parametre IN ("
+                        + String.join(",", java.util.Collections.nCopies(codes.size(), "?"))
+                        + ") AND date_debut <= CURRENT_DATE AND COALESCE(date_fin, DATE '9999-12-31') >= CURRENT_DATE FOR UPDATE";
+                try (var lock = c.prepareStatement(lockSql)) {
+                    for (int index = 0; index < codes.size(); index++) lock.setString(index + 1, codes.get(index));
+                    try (var ignored = lock.executeQuery()) { while (ignored.next()) { /* lock active rows */ } }
+                }
+                List<ParametreGlobal> versions = ParametreGlobal.listAll(c);
+                java.util.ArrayList<ParametreGlobal> resultat = new java.util.ArrayList<>();
+                for (String code : codes) {
+                    List<ParametreGlobal> enVigueur = versions.stream()
+                            .filter(p -> code.equalsIgnoreCase(p.getCodeParametre()))
+                            .filter(p -> "EN_VIGUEUR".equals(p.getStatutTemporel())).toList();
+                    if (enVigueur.size() != 1 || !Boolean.TRUE.equals(enVigueur.get(0).getEstDesactivable())) {
+                        throw new IllegalStateException("Configuration active absente ou protégée pour " + code + ".");
+                    }
+                    ParametreGlobal existing = enVigueur.get(0);
+                    if (existing.getDateDebut() == null || dateEffet.isBefore(existing.getDateDebut().toLocalDate())) {
+                        throw new IllegalArgumentException("La date d'effet précède la configuration de " + code + ".");
+                    }
+                    if (existing.getDateFin() != null && dateEffet.isAfter(existing.getDateFin().toLocalDate())) {
+                        throw new IllegalArgumentException("Une version future de " + code
+                                + " existe déjà. Ajustez-la ou annulez-la avant de basculer la règle.");
+                    }
+                    if (dateEffet.equals(existing.getDateDebut().toLocalDate())) {
+                        existing.setEstActif(actif);
+                        existing.update(c);
+                        resultat.add(existing);
+                    } else {
+                        Date veille = Date.valueOf(dateEffet.minusDays(1));
+                        Date finInitiale = existing.getDateFin();
+                        existing.setDateFin(veille);
+                        existing.update(c);
+                        ParametreGlobal nouvelle = new ParametreGlobal();
+                        nouvelle.setCodeParametre(existing.getCodeParametre());
+                        nouvelle.setValeur(existing.getValeur());
+                        nouvelle.setDescription(existing.getDescription());
+                        nouvelle.setCategorie(existing.getCategorie());
+                        nouvelle.setDateDebut(Date.valueOf(dateEffet));
+                        nouvelle.setDateFin(finInitiale);
+                        nouvelle.setEstActif(actif);
+                        nouvelle.setEstDesactivable(existing.getEstDesactivable());
+                        nouvelle.save(c);
+                        resultat.add(nouvelle);
+                    }
+                }
+                AuditLog.audit(c, actif ? "ACTIVATION_GROUPEE" : "DESACTIVATION_GROUPEE", "parametre_global", groupe, null, resultat);
+                c.commit();
+                return ResponseEntity.ok(resultat);
+            } catch (Exception ex) {
+                c.rollback();
+                throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                        mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR, ex.getMessage());
+            }
+        } catch (Exception e) {
+            throw mg.galaxam.sirh.common.exception.SirhExceptionTranslator.propagate(e);
+        }
+    }
+
     @PostMapping
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> createParametreGlobal(@RequestBody ParametreGlobalRequest request) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
-                verifierParametreIsi2026(request.getCodeParametre());
+                verifierParametreRetire(request.getCodeParametre());
                 verifierVersionFutureDecompteConges(request, null);
                 if (request.getCodeParametre() != null && request.getDateDebut() != null) {
                     ParametreGlobal.cloturerPrecedent(request.getCodeParametre(), request.getDateDebut(), c);
@@ -105,8 +194,16 @@ public class ParametreGlobalController {
                     throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Paramètre global non trouvé.");
                 }
 
-                verifierParametreIsi2026(existing.getCodeParametre());
-                verifierParametreIsi2026(request.getCodeParametre());
+                verifierParametreRetire(existing.getCodeParametre());
+                verifierParametreRetire(request.getCodeParametre());
+
+                if (estCodeActivationGroupee(existing.getCodeParametre())
+                        && (!existing.getCodeParametre().equalsIgnoreCase(request.getCodeParametre())
+                            || (request.getEstActif() != null && !request.getEstActif().equals(existing.getEstActif())))) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                            "L'activation de ce paramètre se gère avec sa règle métier complète.");
+                }
 
                 verifierVersionFutureDecompteConges(request, existing);
                 verifierAbsenceChevauchementFeries(request, id, c);
@@ -195,6 +292,14 @@ public class ParametreGlobalController {
                 ParametreGlobal existing = (ParametreGlobal) pg.rechercherParId(id, c);
                 if (existing == null) {
                     throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Paramètre global non trouvé.");
+                }
+
+                verifierParametreRetire(existing.getCodeParametre());
+
+                if (estCodeActivationGroupee(existing.getCodeParametre())) {
+                    throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                            mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                            "L'activation de ce paramètre se gère avec sa règle métier complète.");
                 }
 
                 if ("CONGE_DECOMPTE_FERIES".equalsIgnoreCase(existing.getCodeParametre())) {
@@ -297,9 +402,13 @@ public class ParametreGlobalController {
      * Interdit sur les versions EN_VIGUEUR ou ARCHIVÉE.
      * Restaure automatiquement le date_fin=NULL de la version précédente.
      */
-    private static void verifierParametreIsi2026(String code) {
+    private static void verifierParametreRetire(String code) {
         if ("TAUX_ISI".equalsIgnoreCase(code) || "TAUX_ISI_POURCENT".equalsIgnoreCase(code)) {
             throw new IllegalArgumentException("Le taux ISI général est retiré du paramétrage des nouvelles paies 2026.");
+        }
+        if ("EXONERATION_HS_IRSA_ACTIVE".equalsIgnoreCase(code)
+                || "PLAFOND_MENSUEL_HS_EXONEREES".equalsIgnoreCase(code)) {
+            throw new IllegalArgumentException("L'exonération des heures supplémentaires se configure uniquement dans Paie config.");
         }
     }
 
@@ -314,7 +423,7 @@ public class ParametreGlobalController {
                 if (cible == null) {
                     throw new mg.galaxam.sirh.common.exception.SirhBusinessException(mg.galaxam.sirh.common.exception.SirhErrorCode.RESOURCE_NOT_FOUND, "Paramètre global non trouvé.");
                 }
-                verifierParametreIsi2026(cible.getCodeParametre());
+                verifierParametreRetire(cible.getCodeParametre());
                 ParametreGlobal.annulerProgramme(id, c);
                 AuditLog.audit(c, "ANNULATION_PROGRAMME", "parametre_global", String.valueOf(id), cible, null);
                 c.commit();

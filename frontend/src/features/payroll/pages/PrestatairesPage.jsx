@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FileText, Plus, Users, FileCheck2, ReceiptText } from 'lucide-react';
+import { FileText, Plus, Users, FileCheck2, ReceiptText, Search } from 'lucide-react';
 import apiClient, { getErrorMessage } from '@/api/apiClient';
 import { useAuth } from '@/context/AuthContext';
 import PageHeader from '@/components/ui/navigation/PageHeader';
@@ -80,10 +80,14 @@ export default function PrestatairesPage() {
     const [paiements, setPaiements] = useState({});
     const [annulations, setAnnulations] = useState({});
     const [activeTab, setActiveTab] = useState('prestataires');
+    const [recherchePrestataire, setRecherchePrestataire] = useState('');
     const [modal, setModal] = useState(null);
     const [selectedFacture, setSelectedFacture] = useState(null);
     const contratsDocumentes = contrats.filter(c => Boolean(c.chemin_piece));
     const facturesEnAttente = factures.filter(f => f.statut === 'BROUILLON' || f.statut === 'VALIDEE');
+    const prestatairesFiltres = prestataires.filter(p =>
+        [p.nom, p.nif, p.stat, p.email].some(value => String(value || '').toLocaleLowerCase('fr').includes(recherchePrestataire.trim().toLocaleLowerCase('fr')))
+    );
 
     const charger = useCallback(async () => {
         try {
@@ -257,10 +261,17 @@ export default function PrestatairesPage() {
                 ]} />
                 <div id={`panel-${activeTab}`} role="tabpanel" aria-labelledby={`tab-${activeTab}`}>
                     {activeTab === 'prestataires' && <CardBody className="space-y-3">
-                        {canWrite && prestataires.length > 0 && <div className="flex justify-end"><Button type="button" size="sm" iconLeft={<Plus size={15} />} onClick={() => setModal('prestataire')}>Ajouter un prestataire</Button></div>}
+                        {(prestataires.length > 0 || canWrite) && <div className="flex flex-wrap items-center justify-between gap-2">
+                            {prestataires.length > 0 && <div className="w-full max-w-52">
+                                <Input type="search" value={recherchePrestataire} onChange={e => setRecherchePrestataire(e.target.value)}
+                                    placeholder="Rechercher…" aria-label="Rechercher un prestataire" iconLeft={<Search size={14} aria-hidden="true" />} />
+                            </div>}
+                            {canWrite && <Button type="button" size="sm" iconLeft={<Plus size={15} />} onClick={() => setModal('prestataire')}>Ajouter un prestataire</Button>}
+                        </div>}
                         {prestataires.length === 0 ? <EmptyState compact bordered={false} icon={Users} title="Aucun prestataire" description="Créez un dossier avec son NIF pour commencer."
                             actionLabel={canWrite ? 'Nouveau prestataire' : undefined} onAction={canWrite ? () => setModal('prestataire') : undefined} />
-                            : prestataires.map(p => <Card key={p.id_prestataire} shadow="none" padding className="flex flex-wrap items-center justify-between gap-3">
+                            : prestatairesFiltres.length === 0 ? <EmptyState compact bordered={false} icon={Users} title="Aucun résultat" description="Aucun prestataire ne correspond à cette recherche." />
+                            : prestatairesFiltres.map(p => <Card key={p.id_prestataire} shadow="none" padding className="flex flex-wrap items-center justify-between gap-3">
                                 <div><strong className="text-sm">{p.nom}</strong><p className="text-xs text-[var(--color-fg-muted)]">NIF {p.nif}{p.stat ? ` · STAT ${p.stat}` : ''}{p.email ? ` · ${p.email}` : ''}</p></div>
                                 <div className="flex items-center gap-2"><StatusBadge status={p.est_actif ? 'ACTIF' : 'FALSE'} />{canWrite && p.est_actif && <Button type="button" variant="outline" size="xs" onClick={() => {
                                     setContrat(previous => ({ ...previous, idPrestataire: String(p.id_prestataire) })); setModal('contrat');
