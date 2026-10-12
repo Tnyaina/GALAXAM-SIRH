@@ -60,6 +60,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const [preflightError, setPreflightError] = useState('');
     const [preflightRevision, setPreflightRevision] = useState(0);
     const loadSequence = useRef(0);
+    const activePeriodeSnapshot = useRef(null);
     const [loadedQuery, setLoadedQuery] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebounce(searchTerm, 300);
@@ -177,7 +178,9 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                 setTotalElements(0);
             }
         } finally {
-            if (sequence === loadSequence.current && !silent) setLoading(false);
+            // A newer silent refresh can supersede the initial visible request.
+            // The latest request still owns the loading state and must settle it.
+            if (sequence === loadSequence.current) setLoading(false);
         }
     }, [selectedPeriode, selectedSite, debouncedSearch, alertFilter, currentPage, pageSize]);
 
@@ -196,10 +199,16 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
 
     // Actualisation silencieuse lors des changements de statut/version d'activePeriode
     useEffect(() => {
-        if (activePeriode?.statutCode || activePeriode?.version) {
+        const snapshot = JSON.stringify([activePeriode?.idPeriodePaie, activePeriode?.statutCode, activePeriode?.version]);
+        if (activePeriodeSnapshot.current === null) {
+            activePeriodeSnapshot.current = snapshot;
+            return;
+        }
+        if (activePeriodeSnapshot.current !== snapshot) {
+            activePeriodeSnapshot.current = snapshot;
             refreshPeriodData();
         }
-    }, [activePeriode?.statutCode, activePeriode?.version, refreshPeriodData]);
+    }, [activePeriode?.idPeriodePaie, activePeriode?.statutCode, activePeriode?.version, refreshPeriodData]);
 
     // Écoute des événements métier pour actualisation silencieuse
     useEffect(() => {
@@ -261,7 +270,12 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const currentPeriodeObj = useMemo(() => {
         const fromList = periodes.find(p => p.idPeriodePaie === Number(selectedPeriode));
         if (String(activePeriode?.idPeriodePaie) === String(selectedPeriode)) {
-            return fromList ? { ...activePeriode, ...fromList } : activePeriode;
+            if (!fromList) return activePeriode;
+            const activeVersion = Number(activePeriode.version) || 0;
+            const listedVersion = Number(fromList.version) || 0;
+            return activeVersion > listedVersion
+                ? { ...fromList, ...activePeriode }
+                : { ...activePeriode, ...fromList };
         }
         return fromList || null;
     }, [periodes, selectedPeriode, activePeriode]);
@@ -274,7 +288,9 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const periodActions = currentPeriodeObj?.availableActions || {};
     const isPendingDaf = ['A_VALIDER', 'TRANSMIS_DAF'].includes(currentPeriodeObj?.statutCode);
     const isPreflightPret = preflight?.pret === true;
-    const canApprove = !loading && !loadError && isPreflightPret && periodActions.APPROVE?.allowed === true;
+    // La lecture de la grille (pagination, filtres) ne doit pas désactiver une décision
+    // que le workflow et le préflight serveur autorisent déjà. Le POST revalide toujours.
+    const canApprove = isDaf && isPendingDaf && isPreflightPret && periodActions.APPROVE?.allowed === true;
     const canReject = periodActions.REJECT?.allowed === true;
     const approvalBlockCode = periodActions.APPROVE?.reasonCodes?.[0];
     const approvalBlockMessage = {
@@ -761,7 +777,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             <kpi.icon size={20} className={`${kpi.color} shrink-0`} />
                             <div>
                                 <div className="text-[11px] text-[var(--color-fg-muted)] font-medium">{kpi.label}</div>
-                                <div className="text-base font-bold font-mono text-[var(--color-fg)]">{kpi.value}</div>
+                                <div className="text-base font-bold font-sans tabular-nums text-[var(--color-fg)]">{kpi.value}</div>
                             </div>
                         </div>
                     ))}
@@ -777,7 +793,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                             <kpi.icon size={18} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shrink-0" />
                             <div>
                                 <div className="text-[11px] text-[var(--color-fg-muted)] font-medium">{kpi.label}</div>
-                                <div className="text-sm font-bold font-mono text-[var(--color-fg)]">{kpi.value}</div>
+                                <div className="text-sm font-bold font-sans tabular-nums text-[var(--color-fg)]">{kpi.value}</div>
                             </div>
                         </div>
                     ))}
@@ -906,7 +922,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                         ) : (
                             <div className="space-y-0 overflow-x-auto">
 
-                                <Table density="compact" bordered={false}>
+                                <Table density="comfortable" bordered={false}>
                                     <Thead>
                                         <Tr>
                                             <Th className="w-[190px] max-w-[210px]">Collaborateur</Th>
@@ -985,7 +1001,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                             return (
                                                 <Tr key={row.idEmploye || row.matricule}>
                                                     <Td className="w-[190px] max-w-[210px]">
-                                                        <div className="font-semibold text-xs text-[var(--color-fg)] truncate" title={`${row.nom} ${row.prenom}`}>
+                                                        <div className="font-semibold text-sm text-[var(--color-fg)] truncate" title={`${row.nom} ${row.prenom}`}>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setSelectedEmployeForDetail(row)}
@@ -995,33 +1011,33 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                                 {row.nom} {row.prenom}
                                                             </button>
                                                         </div>
-                                                        <div className="text-[10px] font-mono text-[var(--color-fg-muted)] flex items-center gap-1.5 mt-0.5">
+                                                        <div className="text-xs text-[var(--color-fg-muted)] flex items-center gap-1.5 mt-0.5">
                                                             <span>{row.matricule}</span>
                                                             {profilLabel && (
-                                                                <span className={`px-1.5 py-0 text-[8.5px] font-bold border ${getAttendanceBadgeClass(profilVariant)}`}>
+                                                                <span className={`px-1.5 py-0 text-[10px] font-bold border ${getAttendanceBadgeClass(profilVariant)}`}>
                                                                     {profilLabel}
                                                                 </span>
                                                             )}
                                                         </div>
                                                     </Td>
-                                                    <Td className="text-center font-mono text-xs">
+                                                    <Td className="text-center font-sans tabular-nums text-sm">
                                                         <div className="font-semibold">{presents != null && presents > 0 ? `${presents}j` : presents === 0 ? '0j' : '—'}</div>
                                                         {((row.nbJoursConge || 0) > 0 || (row.nbJoursFerieChome || 0) > 0) && (
                                                             <div className="flex flex-wrap items-center justify-center gap-1 mt-0.5 font-sans">
                                                                 {(row.nbJoursConge || 0) > 0 && (
-                                                                    <span className="text-[9px] px-1 py-0.2 rounded bg-[var(--color-info-500)]/15 text-[var(--color-info-700)] dark:text-[var(--color-info-300)] font-medium" title={`${row.nbJoursConge}j de congé payé`}>
+                                                                    <span className="text-[11px] px-1 py-0.2 rounded bg-[var(--color-info-500)]/15 text-[var(--color-info-700)] dark:text-[var(--color-info-300)] font-medium" title={`${row.nbJoursConge}j de congé payé`}>
                                                                         +{row.nbJoursConge}j congé
                                                                     </span>
                                                                 )}
                                                                 {(row.nbJoursFerieChome || 0) > 0 && (
-                                                                    <span className="text-[9px] px-1 py-0.2 rounded bg-[var(--color-warning-500)]/15 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-medium" title={`${row.nbJoursFerieChome}j férié chômé`}>
+                                                                    <span className="text-[11px] px-1 py-0.2 rounded bg-[var(--color-warning-500)]/15 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-medium" title={`${row.nbJoursFerieChome}j férié chômé`}>
                                                                         +{row.nbJoursFerieChome}j férié
                                                                     </span>
                                                                 )}
                                                             </div>
                                                         )}
                                                     </Td>
-                                                    <Td className="text-center font-mono text-xs font-semibold">
+                                                    <Td className="text-center font-sans tabular-nums text-sm font-semibold">
                                                         {row.totalHeuresTravaillees != null ? (
                                                             <div>
                                                                 <div>{formatHeuresMinutes(row.totalHeuresTravaillees)}</div>
@@ -1031,64 +1047,64 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     </Td>
                                                     <Td className="text-center">
                                                         {hs30Finales > 0 ? (
-                                                            <span className="attendance-overtime inline-block attendance-duration text-xs font-bold px-1.5 py-0.5" title="HS 30 % après rapprochement de période">
+                                                            <span className="attendance-overtime inline-block attendance-duration text-sm font-bold px-1.5 py-0.5" title="HS 30 % après rapprochement de période">
                                                                 {formatHeuresMinutes(hs30Finales)}
                                                                 <span className="attendance-duration-secondary block">({formatHeuresDecimal(hs30Finales)})</span>
                                                             </span>
                                                         ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
+                                                            <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
                                                         )}
                                                     </Td>
                                                     <Td className="text-center">
                                                         {hs50Finales > 0 ? (
-                                                            <span className="attendance-overtime inline-block attendance-duration text-xs font-bold px-1.5 py-0.5" title={`${formatHeuresMinutes(hs50Finales)}`}>
+                                                            <span className="attendance-overtime inline-block attendance-duration text-sm font-bold px-1.5 py-0.5" title={`${formatHeuresMinutes(hs50Finales)}`}>
                                                                 {formatHeuresMinutes(hs50Finales)}
                                                                 <span className="attendance-duration-secondary block">({formatHeuresDecimal(hs50Finales)})</span>
                                                             </span>
                                                         ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
+                                                            <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
                                                         )}
                                                     </Td>
                                                     <Td className="text-center">
-                                                        <span className="attendance-info inline-block attendance-duration text-xs font-bold px-1.5 py-0.5">
+                                                        <span className="attendance-info inline-block attendance-duration text-sm font-bold px-1.5 py-0.5">
                                                             {formatHeuresMinutes(heuresQualifiees.nuit)}
                                                             <span className="attendance-duration-secondary block">({formatHeuresDecimal(heuresQualifiees.nuit)})</span>
                                                         </span>
                                                     </Td>
-                                                    <Td className="text-center font-mono text-xs">
+                                                    <Td className="text-center font-sans tabular-nums text-sm">
                                                         {formatHeuresMinutes(heuresQualifiees.dimanche)}
                                                         <span className="attendance-duration-secondary block">({formatHeuresDecimal(heuresQualifiees.dimanche)})</span>
                                                     </Td>
-                                                    <Td className="text-center font-mono text-xs">
+                                                    <Td className="text-center font-sans tabular-nums text-sm">
                                                         {formatHeuresMinutes(heuresQualifiees.ferie)}
                                                         <span className="attendance-duration-secondary block">({formatHeuresDecimal(heuresQualifiees.ferie)})</span>
                                                     </Td>
                                                     {/* Total Indemnités regroupé */}
-                                                    <Td className="attendance-allowance text-center attendance-duration text-xs">
+                                                    <Td className="attendance-allowance text-center attendance-duration text-sm">
                                                         {totalIndRow > 0 ? (
                                                             <button type="button" className="flex flex-col items-center w-full hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-500)]" onClick={() => setSelectedEmployeForDetail(row)} aria-label={`Voir le détail des indemnités de ${row.nom} ${row.prenom}`}>
                                                                 <span className="font-bold">{formatMonnaie(totalIndRow)}</span>
-                                                                <span className="text-[9px] text-[var(--color-fg-muted)] mt-0.5">
+                                                                <span className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
                                                                     {allowanceEntries.map(([code]) => code).join(' · ')}
                                                                 </span>
-                                                                {fixedEntries.length > 0 && <span className="text-[9px] text-[var(--color-brand-600)] mt-0.5">Fixe mensuel {fixedEstimated ? 'estimé' : 'validé'}</span>}
+                                                                {fixedEntries.length > 0 && <span className="text-[11px] text-[var(--color-brand-600)] mt-0.5">Fixe mensuel {fixedEstimated ? 'estimé' : 'validé'}</span>}
                                                             </button>
                                                         ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
+                                                            <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
                                                         )}
                                                     </Td>
                                                     {/* Retards (Rouge) */}
                                                     <Td className="text-center">
                                                         {(row.totalMinutesRetard || 0) > 0 ? (
                                                             <span
-                                                                className="attendance-retention inline-block attendance-duration text-xs font-bold px-1.5 py-0.5 cursor-help"
+                                                                className="attendance-retention inline-block attendance-duration text-sm font-bold px-1.5 py-0.5 cursor-help"
                                                                 title={`Retards constatés (matin et après-midi) : ${formatHeuresDecimal(row.totalMinutesRetard / 60)} (${formatHeuresMinutes(row.totalMinutesRetard / 60)})`}
                                                             >
                                                                 {formatHeuresMinutes(row.totalMinutesRetard / 60)}
                                                                 <span className="attendance-duration-secondary block">({formatHeuresDecimal(row.totalMinutesRetard / 60)})</span>
                                                             </span>
                                                         ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
+                                                            <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
                                                         )}
                                                     </Td>
                                                     {/* Colonnes d'audit conditionnelles */}
@@ -1098,28 +1114,28 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                             <Td className="text-center">
                                                                 {(row.surplusBrut || 0) > 0 ? (
                                                                     <span
-                                                                        className="attendance-info inline-block attendance-duration text-xs font-bold px-1.5 py-0.5 cursor-help"
+                                                                className="attendance-info inline-block attendance-duration text-sm font-bold px-1.5 py-0.5 cursor-help"
                                                                         title={`Heures en plus sur la journée : +${formatHeuresMinutes(row.surplusBrut)} (+${formatHeuresDecimal(row.surplusBrut)})`}
                                                                     >
                                                                         +{formatHeuresMinutes(row.surplusBrut)}
                                                                         <span className="attendance-duration-secondary block">(+{formatHeuresDecimal(row.surplusBrut)})</span>
                                                                     </span>
                                                                 ) : (
-                                                                    <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
+                                                                    <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
                                                                 )}
                                                             </Td>
                                                             {/* Compensé */}
                                                             <Td className="text-center">
                                                                 {(row.retardCompense || 0) > 0 ? (
                                                                     <span
-                                                                        className="attendance-compensation inline-block attendance-duration text-xs font-bold px-1.5 py-0.5 cursor-help"
+                                                                className="attendance-compensation inline-block attendance-duration text-sm font-bold px-1.5 py-0.5 cursor-help"
                                                                         title={`Heures manquantes comblées par les surplus intra-semaine : -${formatHeuresDecimal(row.retardCompense)} (-${formatHeuresMinutes(row.retardCompense)})`}
                                                                     >
                                                                         -{formatHeuresMinutes(row.retardCompense)}
                                                                         <span className="attendance-duration-secondary block">(-{formatHeuresDecimal(row.retardCompense)})</span>
                                                                     </span>
                                                                 ) : (
-                                                                    <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
+                                                                    <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
                                                                 )}
                                                             </Td>
                                                         </>
@@ -1128,27 +1144,27 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                                                     <Td className="text-center">
                                                         {absenceFinale > 0 ? (
                                                             <span
-                                                                className="attendance-retention inline-block attendance-duration text-xs font-bold px-1.5 py-0.5 cursor-help"
+                                                                className="attendance-retention inline-block attendance-duration text-sm font-bold px-1.5 py-0.5 cursor-help"
                                                                 title={`Absence horaire finale hors congés : -${formatHeuresDecimal(absenceFinale)} (-${formatHeuresMinutes(absenceFinale)})`}
                                                             >
                                                                 -{formatHeuresMinutes(absenceFinale)}
                                                                 <span className="attendance-duration-secondary block">(-{formatHeuresDecimal(absenceFinale)})</span>
                                                             </span>
                                                         ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
+                                                            <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
                                                         )}
                                                     </Td>
                                                     {/* Absences (Jours) */}
                                                     <Td className="text-center">
                                                         {(row.nbJoursAbsence || 0) > 0 ? (
                                                             <span
-                                                                className="inline-block font-mono text-xs text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] font-bold bg-[var(--color-danger-500)]/10 px-1.5 py-0.5 border border-[var(--color-danger-500)]/20 cursor-help"
+                                                                className="inline-block font-sans tabular-nums text-sm text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)] font-bold bg-[var(--color-danger-500)]/10 px-1.5 py-0.5 border border-[var(--color-danger-500)]/20 cursor-help"
                                                                 title={`Absence non justifiée : ${row.nbJoursAbsence} jour(s)`}
                                                             >
                                                                 {row.nbJoursAbsence}j
                                                             </span>
                                                         ) : (
-                                                            <span className="text-[var(--color-fg-subtle)] text-xs font-mono">—</span>
+                                                            <span className="text-[var(--color-fg-subtle)] text-sm">—</span>
                                                         )}
                                                     </Td>
                                                     {/* Actions : Voir détail & Ajuster */}

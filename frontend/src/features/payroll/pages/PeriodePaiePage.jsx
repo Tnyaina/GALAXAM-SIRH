@@ -9,7 +9,8 @@ import {
     Archive,
     Sparkles,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    Search
 } from 'lucide-react';
 import { usePeriodePaie } from '@/features/attendance/hooks/usePeriodePaie';
 import { periodePaieService } from '@/features/attendance/api/attendanceApi';
@@ -18,6 +19,8 @@ import { formatMoneyAr } from '@/utils/moneyUtils';
 import Button from '@/components/ui/forms/Button';
 import Alert from '@/components/ui/feedback/Alert';
 import Input from '@/components/ui/forms/Input';
+import { Select } from '@/components/ui/forms/Input';
+import Pagination from '@/components/ui/navigation/Pagination';
 import DatePicker from '@/components/ui/forms/DatePicker';
 import Modal from '@/components/ui/overlays/Modal';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
@@ -77,6 +80,8 @@ const MOIS_FR = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
     'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
 ];
+
+const normalizeSearch = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
 const computeNextPeriodeSuggestion = (periodesList) => {
     // Cycle de paie standard : du 26 du mois M-1 au 25 du mois M
@@ -211,6 +216,10 @@ export default function PeriodePaiePage() {
     const toast = useToast();
     const [variablesByPeriod, setVariablesByPeriod] = useState({});
     const [expandedPeriodId, setExpandedPeriodId] = useState(null);
+    const [campaignSearch, setCampaignSearch] = useState('');
+    const [campaignStatus, setCampaignStatus] = useState('');
+    const [campaignPage, setCampaignPage] = useState(1);
+    const [campaignPageSize, setCampaignPageSize] = useState(10);
 
     // Effets
     useEffect(() => {
@@ -239,6 +248,20 @@ export default function PeriodePaiePage() {
 
     // Données dérivées
     const nextSuggestion = useMemo(() => computeNextPeriodeSuggestion(periodes), [periodes]);
+    const filteredPeriodes = useMemo(() => {
+        const query = normalizeSearch(campaignSearch);
+        return periodes.filter((period) => {
+            const statusCode = period.statutCode || period.workflowStatuses?.pointage?.code || period.workflowStatuses?.paie?.code || '';
+            const searchable = normalizeSearch([period.libelle, period.code, period.dateDebut, period.dateFin].join(' '));
+            return (!query || searchable.includes(query)) && (!campaignStatus || statusCode === campaignStatus);
+        });
+    }, [periodes, campaignSearch, campaignStatus]);
+    const visiblePeriodes = useMemo(() => {
+        const start = (campaignPage - 1) * campaignPageSize;
+        return filteredPeriodes.slice(start, start + campaignPageSize);
+    }, [filteredPeriodes, campaignPage, campaignPageSize]);
+
+    useEffect(() => { setCampaignPage(1); }, [campaignSearch, campaignStatus, campaignPageSize]);
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isCustomCreate, setIsCustomCreate] = useState(false);
@@ -522,8 +545,32 @@ export default function PeriodePaiePage() {
                         Aucune campagne créée pour le moment.
                     </div>
                 ) : (
+                    <>
+                    <div className="grid grid-cols-1 gap-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 sm:grid-cols-[minmax(16rem,1fr)_minmax(12rem,0.35fr)]">
+                        <Input
+                            aria-label="Rechercher une campagne"
+                            placeholder="Rechercher par libellé, code ou dates…"
+                            icon={<Search size={16} />}
+                            value={campaignSearch}
+                            onChange={(event) => setCampaignSearch(event.target.value)}
+                        />
+                        <Select
+                            aria-label="Filtrer les campagnes par statut"
+                            value={campaignStatus}
+                            onChange={(event) => setCampaignStatus(event.target.value)}
+                        >
+                            <option value="">Tous les statuts</option>
+                            {Object.entries(STATUT_CONFIG).map(([code, status]) => (
+                                <option key={code} value={code}>{status.label}</option>
+                            ))}
+                        </Select>
+                    </div>
                     <div className={`space-y-3 transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
-                        {periodes.map(p => {
+                        {filteredPeriodes.length === 0 ? (
+                            <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-8 text-center text-sm text-[var(--color-fg-muted)]">
+                                Aucune campagne ne correspond aux filtres.
+                            </div>
+                        ) : visiblePeriodes.map(p => {
                             const periodId = p.idPeriodePaie || p.id;
                             const variables = variablesByPeriod[periodId] || [];
                             const isExpanded = expandedPeriodId === periodId;
@@ -628,6 +675,15 @@ export default function PeriodePaiePage() {
                             );
                         })}
                     </div>
+                    <Pagination
+                        currentPage={campaignPage}
+                        totalItems={filteredPeriodes.length}
+                        pageSize={campaignPageSize}
+                        pageSizeOptions={[10, 25, 50]}
+                        onPageChange={setCampaignPage}
+                        onPageSizeChange={setCampaignPageSize}
+                    />
+                    </>
                 )}
             </section>
 

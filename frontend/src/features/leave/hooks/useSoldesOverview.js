@@ -15,7 +15,7 @@ const getMonday = (d) => {
 export function useSoldesOverview() {
   // État local : mode, navigation, recherche, pagination et planning.
   // Modes d'affichage
-  const [viewMode, setViewMode] = useState('MOIS'); // 'MOIS' | 'SEMAINE'
+  const [viewMode, setViewMode] = useState('SEMAINE'); // Vue par défaut, plus lisible pour suivre l'équipe
   const [filterMode, setFilterMode] = useState('TOUS'); // 'TOUS' | 'ABSENTS'
 
   // Navigation Mensuelle

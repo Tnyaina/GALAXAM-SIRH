@@ -315,11 +315,15 @@
     @apply text-xs text-[var(--color-fg-muted)];
   }
 
-  /* Données logistiques mono */
+  /* Les codes restent techniques ; les données chiffrées gardent la police de lecture. */
   code,
-  kbd,
-  .font-data {
+  kbd {
     font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .font-data {
+    font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;
   }
 
@@ -426,13 +430,13 @@
    ============================================================================ */
 @layer components {
   .attendance-duration {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;
   }
 
   .attendance-duration-secondary {
     color: var(--color-fg-muted);
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     font-weight: 400;
   }
 

@@ -167,10 +167,10 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                 <div key={item.label} className={`p-3 relative transition-all rounded-none ${item.cardBorder}`}>
                                     <div className="flex items-center justify-between gap-1">
                                         <span className="text-xs font-medium text-[var(--color-fg-muted)]">
-                                            {item.label} : <strong className={`font-mono text-base ${item.tone}`}>{item.value || '—'}</strong>
+                                            {item.label} : <strong className={`font-data text-base ${item.tone}`}>{item.value || '—'}</strong>
                                         </span>
                                         {item.badge && (
-                                            <span className={`text-[10px] px-1.5 py-0.5 font-bold uppercase rounded-none ${
+                                            <span className={`text-xs px-1.5 py-0.5 font-bold uppercase rounded-none ${
                                                 item.highlight && item.badge === 'Retenue'
                                                     ? 'bg-[var(--color-danger-500)]/15 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]'
                                                     : 'bg-[var(--color-success-500)]/15 text-[var(--color-success-700)] dark:text-[var(--color-success-300)]'
@@ -180,7 +180,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                         )}
                                     </div>
                                     {decimalFromHhMm(item.value) && (
-                                        <span className="block font-mono text-xs text-[var(--color-fg-muted)] mt-1">
+                                        <span className="block font-data text-xs text-[var(--color-fg-muted)] mt-1">
                                             Équivalent : ({decimalFromHhMm(item.value)})
                                         </span>
                                     )}
@@ -207,8 +207,8 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                             {semaines.map((week, index) => (
                                 <Tr key={`${week.debutSemaine}-${index}`}>
                                     <Td className="font-medium">{formatDate(week.debutSemaine)} → {formatDate(week.finSemaine)}</Td>
-                                    <Td className="font-mono text-[var(--color-fg-muted)]">{Number(week.seuilHeuresTroncon || 0).toFixed(2)} h</Td>
-                                    <Td className="font-mono">
+                                    <Td className="font-data text-[var(--color-fg-muted)]">{Number(week.seuilHeuresTroncon || 0).toFixed(2)} h</Td>
+                                    <Td className="font-data">
                                         {Number(week.totalHeuresTravaillees || 0) < Number(week.seuilHeuresTroncon || 0) ? (
                                             <span className="font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]">
                                                 {Number(week.totalHeuresTravaillees || 0).toFixed(2)} h
@@ -221,7 +221,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                             <span>{Number(week.totalHeuresTravaillees || 0).toFixed(2)} h</span>
                                         )}
                                     </Td>
-                                    <Td className="font-mono">
+                                    <Td className="font-data">
                                         {Number(week.heuresDeficit || 0) > 0 ? (
                                             <span className="font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
                                                 −{Number(week.heuresDeficit).toFixed(2)} h
@@ -230,7 +230,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                             <span className="text-[var(--color-fg-muted)]">-</span>
                                         )}
                                     </Td>
-                                    <Td className="font-mono">
+                                    <Td className="font-data">
                                         {Number(week.heuresHs30 || 0) > 0 ? (
                                             <span className="font-semibold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
                                                 +{Number(week.heuresHs30).toFixed(2)} h
@@ -239,7 +239,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                             <span className="text-[var(--color-fg-muted)]">-</span>
                                         )}
                                     </Td>
-                                    <Td className="font-mono">
+                                    <Td className="font-data">
                                         {Number(week.heuresHs50 || 0) > 0 ? (
                                             <span className="font-semibold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
                                                 +{Number(week.heuresHs50).toFixed(2)} h
@@ -251,7 +251,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                     {[week.heuresNuit, week.heuresDimanche, week.heuresFerie].map((hours, qualificationIndex) => {
                                         const value = Number(hours || 0);
                                         return (
-                                            <Td key={qualificationIndex} className="whitespace-nowrap font-mono">
+                                            <Td key={qualificationIndex} className="whitespace-nowrap font-data">
                                                 {value > 0 ? (
                                                     <span className="font-semibold text-[var(--color-fg)]">
                                                         {formatHeuresMinutes(value)} <span className="text-[var(--color-fg-muted)] font-normal">({formatHeuresDecimal(value)})</span>
@@ -268,7 +268,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                     </Table>
                 <section className="space-y-2">
                 <h3 className="font-semibold">Rapprochement du solde</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs items-stretch">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-data text-xs items-stretch">
                     {/* 1. Déficit cumulé */}
                     {(() => {
                         const rawDeficit = recap.deficitHebdo || '00h00';
@@ -283,7 +283,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                     {formattedDeficit}
                                 </strong>
                                 {decimalFromHhMm(formattedDeficit) && (
-                                    <span className="block mt-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                                    <span className="block mt-0.5 text-xs text-[var(--color-fg-muted)]">
                                         ({decimalFromHhMm(formattedDeficit)})
                                     </span>
                                 )}
@@ -303,7 +303,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                     {formattedHs}
                                 </strong>
                                 {decimalFromHhMm(formattedHs) && (
-                                    <span className="block mt-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                                    <span className="block mt-0.5 text-xs text-[var(--color-fg-muted)]">
                                         ({decimalFromHhMm(formattedHs)})
                                     </span>
                                 )}
@@ -324,7 +324,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                     {rawAj}
                                 </strong>
                                 {decimalFromHhMm(rawAj) && (
-                                    <span className="block mt-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                                    <span className="block mt-0.5 text-xs text-[var(--color-fg-muted)]">
                                         ({decimalFromHhMm(rawAj)})
                                     </span>
                                 )}
@@ -339,14 +339,14 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                         const isPos = solde.startsWith('+');
                         return (
                             <div className={`p-3 sm:p-4 rounded-none transition-all ${isNeg ? 'border-2 border-[var(--color-danger-500)]/50 bg-[var(--color-danger-500)]/10' : isPos ? 'border-2 border-[var(--color-success-500)]/50 bg-[var(--color-success-500)]/10' : 'border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]'}`}>
-                                <span className={`block text-[10px] font-bold uppercase tracking-wider ${isNeg ? 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]' : isPos ? 'text-[var(--color-success-700)] dark:text-[var(--color-success-300)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                <span className={`block text-xs font-bold uppercase tracking-wider ${isNeg ? 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]' : isPos ? 'text-[var(--color-success-700)] dark:text-[var(--color-success-300)]' : 'text-[var(--color-fg-muted)]'}`}>
                                     Solde final {isNeg ? '· Déficit' : isPos ? '· Excédent' : ''}
                                 </span>
-                                <strong className={`block mt-1 text-xl font-bold font-mono leading-tight ${isNeg ? 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]' : isPos ? 'text-[var(--color-success-700)] dark:text-[var(--color-success-300)]' : ''}`}>
+                                <strong className={`block mt-1 text-xl font-bold font-data leading-tight ${isNeg ? 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)]' : isPos ? 'text-[var(--color-success-700)] dark:text-[var(--color-success-300)]' : ''}`}>
                                     {solde}
                                 </strong>
                                 {decimalFromHhMm(solde) && (
-                                    <span className="block mt-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                                    <span className="block mt-0.5 text-xs text-[var(--color-fg-muted)]">
                                         ({decimalFromHhMm(solde)})
                                     </span>
                                 )}
@@ -365,7 +365,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                         ].map(([label, value]) => (
                             <div key={label} className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-3">
                                 <span className="text-[var(--color-fg-muted)]">{label}</span>
-                                <strong className="block mt-1 font-mono">{formatHeuresMinutes(value)} <span className="text-[var(--color-fg-muted)] font-normal">({formatHeuresDecimal(value)})</span></strong>
+                                <strong className="block mt-1 font-data">{formatHeuresMinutes(value)} <span className="text-[var(--color-fg-muted)] font-normal">({formatHeuresDecimal(value)})</span></strong>
                             </div>
                         ))}
                     </div>
@@ -411,7 +411,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                     <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] p-4">
                         <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1.5fr] gap-3 items-start">
                             <label className="flex flex-col gap-1">
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)]">Action</span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">Action</span>
                                 <span className="relative">
                                     <select value={sens} onChange={(e) => setSens(e.target.value)} aria-label="Sens de l’ajustement" className="w-full appearance-none border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 pr-9 text-sm font-medium text-[var(--color-fg)] outline-none hover:border-[var(--color-fg-muted)] focus:border-[var(--color-brand-500)]">
                                         <option value="-">Retirer des heures</option><option value="+">Ajouter des heures</option>
@@ -420,7 +420,7 @@ export default function PointageSoldePeriodeModal({ employe, idPeriodePaie, read
                                 </span>
                             </label>
                             <div className="flex flex-col gap-1">
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg)]">Format</span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">Format</span>
                                 <div className="flex h-[38px] border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5" role="group" aria-label="Format de durée">
                                     {[
                                         ['decimal', 'Décimal'],

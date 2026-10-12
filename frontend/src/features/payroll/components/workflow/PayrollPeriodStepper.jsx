@@ -78,14 +78,14 @@ export default function PayrollPeriodStepper({
                     {n}
                 </span>
             ),
-            label: 'text-[var(--color-fg-subtle)] opacity-60',
+            label: 'text-[var(--color-fg-muted)]',
             connector: 'bg-[var(--color-border-subtle)]',
             ring: '',
             dot: 'bg-[var(--color-border-subtle)]',
         },
         LOCKED: {
             icon: (_n) => <Lock size={12} className="text-[var(--color-fg-subtle)] shrink-0" aria-label="Verrouillé" />,
-            label: 'text-[var(--color-fg-subtle)]',
+            label: 'text-[var(--color-fg-muted)]',
             connector: 'bg-[var(--color-success-500)]',
             ring: '',
             dot: 'bg-[var(--color-fg-subtle)]',
@@ -111,22 +111,20 @@ export default function PayrollPeriodStepper({
             aria-label="Workflow de campagne de paie"
             className="relative bg-[var(--color-surface)] border border-[var(--color-border-subtle)]"
         >
-            <ol className="relative z-10 flex items-stretch overflow-x-auto" aria-label="Étapes de la campagne">
+            <ol className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-9" aria-label="Étapes de la campagne">
                 {steps.map((step, index) => {
                     const conf = stateConfig[step.state] || stateConfig.BLOCKED;
                     const isActive = step.code === activeCode;
                     const _isCurrentBusiness = step.code === currentStep;
                     const accessible = step.accessible ?? step.state !== 'BLOCKED';
-                    const isLast = index === steps.length - 1;
                     const num = index + 1;
 
                     return (
                         <li
                             key={step.code}
                             className={`
-                                flex-1 min-w-[150px] flex items-center group
+                                min-w-0 flex items-stretch group border-b border-r border-[var(--color-border-subtle)]
                                 ${isActive ? 'bg-[var(--color-brand-500)]/5' : ''}
-                                ${!isLast ? 'border-r border-[var(--color-border-subtle)]' : ''}
                             `}
                         >
                             <button
@@ -136,8 +134,8 @@ export default function PayrollPeriodStepper({
                                 title={step.issues?.length > 0 ? step.issues[0] : step.label}
                                 aria-current={isActive ? 'step' : undefined}
                                 className={`
-                                    w-full flex items-center gap-2 px-3 py-3 transition-colors duration-150
-                                    ${accessible ? 'cursor-pointer hover:bg-[var(--color-bg-subtle)]' : 'cursor-not-allowed opacity-60'}
+                                    w-full min-w-0 flex items-center gap-2 px-2 py-2 transition-colors duration-150
+                                    ${accessible ? 'cursor-pointer hover:bg-[var(--color-bg-subtle)]' : 'cursor-not-allowed opacity-80'}
                                     ${isActive ? 'bg-[var(--color-brand-500)]/8' : ''}
                                     focus:outline-none focus:ring-1 focus:ring-inset focus:ring-[var(--color-brand-500)]/40
                                 `}
@@ -146,8 +144,8 @@ export default function PayrollPeriodStepper({
                                 {conf.icon(num)}
 
                                 {/* Label & sous-texte — conforme V1 Full V3 */}
-                                <span className="flex flex-col min-w-0 text-left flex-1">
-                                    <span className={`text-[10px] font-semibold tracking-wide uppercase truncate leading-tight ${conf.label}`}>
+                                <span className="flex min-w-0 flex-1 flex-col items-center text-center">
+                                    <span className={`break-words text-xs font-semibold uppercase leading-snug ${conf.label}`}>
                                         {step.label}
                                         {isActive && (
                                             <span className="sr-only"> (page actuelle)</span>
@@ -155,17 +153,17 @@ export default function PayrollPeriodStepper({
                                     </span>
                                     {/* Sous-texte contextuel (subtitle ou issue résumé) — V1 Full V3 */}
                                     {step.subtitle && !step.warnings?.length && !step.issues?.length && (
-                                        <span className="text-[9px] text-[var(--color-fg-subtle)] truncate leading-tight mt-0.5">
+                                        <span className="break-words text-xs text-[var(--color-fg-muted)] leading-snug mt-0.5">
                                             {step.subtitle}
                                         </span>
                                     )}
                                     {step.warnings?.length > 0 && (
-                                        <span className="text-[9px] text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)] truncate leading-tight mt-0.5">
+                                        <span className="break-words text-xs text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)] leading-snug mt-0.5">
                                             ⚠ {step.warnings[0]}
                                         </span>
                                     )}
                                     {step.issues?.length > 0 && step.state !== 'COMPLETED' && step.state !== 'LOCKED' && (
-                                        <span className="text-[9px] text-[var(--color-fg-subtle)] truncate leading-tight mt-0.5">
+                                        <span className="break-words text-xs text-[var(--color-fg-muted)] leading-snug mt-0.5">
                                             {step.issues[0]}
                                         </span>
                                     )}

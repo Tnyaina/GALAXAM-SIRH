@@ -241,8 +241,8 @@ export default function GestionPaiePage() {
                 <Breadcrumb items={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Paie & Rémunération' }]} />
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
                     <div className="min-w-0">
-                        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[var(--color-fg)]">Centre de paie</h1>
-                        <p className="mt-1 text-base text-[var(--color-fg-muted)]">Supervision opérationnelle, campagnes actives, acomptes et sorties réglementaires.</p>
+                        <h1 className="text-[var(--color-fg)]">Centre de paie</h1>
+                        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">Supervision opérationnelle, campagnes actives, acomptes et sorties réglementaires.</p>
                     </div>
                     {periodes.length > 0 && (
                         <div className="flex w-full flex-col gap-1.5 lg:w-[min(100%,440px)] shrink-0">
@@ -421,19 +421,19 @@ export default function GestionPaiePage() {
                     )}
                     <div className="mt-4 grid grid-cols-2 border border-[var(--color-border-subtle)]">
                         <div className="p-3 border-b border-r border-[var(--color-border-subtle)]">
-                            <p className="text-lg font-bold font-mono text-[var(--color-fg-muted)]">{kpiLoading ? '…' : `${periodKpis?.totalBulletins ?? 0} / ${periodKpis?.populationCount ?? context?.populationCount ?? activePeriod?.employeeCount ?? '–'}`}</p>
+                            <p className="text-lg font-bold tabular-nums text-[var(--color-fg-muted)]">{kpiLoading ? '…' : `${periodKpis?.totalBulletins ?? 0} / ${periodKpis?.populationCount ?? context?.populationCount ?? activePeriod?.employeeCount ?? '–'}`}</p>
                             <p className="text-xs text-[var(--color-fg-muted)]">Bulletins calculés</p>
                         </div>
                         <div className="p-3 border-b border-[var(--color-border-subtle)]">
-                            <p className="text-lg font-bold font-mono text-[var(--color-fg-muted)]">{hasCalculatedBulletins ? formatAr(periodKpis?.totalBrut) : '—'}</p>
+                            <p className="text-lg font-bold tabular-nums text-[var(--color-fg-muted)]">{hasCalculatedBulletins ? formatAr(periodKpis?.totalBrut) : '—'}</p>
                             <p className="text-xs text-[var(--color-fg-muted)]">Masse brute</p>
                         </div>
                         <div className="p-3 border-r border-[var(--color-border-subtle)]">
-                            <p className="text-lg font-bold font-mono text-[var(--color-fg-muted)]">{hasCalculatedBulletins ? formatAr(periodKpis?.totalNet) : '—'}</p>
+                            <p className="text-lg font-bold tabular-nums text-[var(--color-fg-muted)]">{hasCalculatedBulletins ? formatAr(periodKpis?.totalNet) : '—'}</p>
                             <p className="text-xs text-[var(--color-fg-muted)]">Net à payer</p>
                         </div>
                         <div className="p-3">
-                            <p className="text-lg font-bold font-mono text-[var(--color-fg-muted)]">{periodKpis?.totalAlertes ?? 0}</p>
+                            <p className="text-lg font-bold tabular-nums text-[var(--color-fg-muted)]">{periodKpis?.totalAlertes ?? 0}</p>
                             <p className="text-xs text-[var(--color-fg-muted)]">Anomalies détectées</p>
                         </div>
                     </div>
@@ -448,9 +448,9 @@ export default function GestionPaiePage() {
                         {activePeriod && <Button variant="outline" size="sm" onClick={() => navigate(`/paie/periodes/${activePeriod.id}/variables`)}>Vérifier les variables</Button>}
                     </div>
                     <dl className="mt-4 divide-y divide-[var(--color-border-subtle)]">
-                        <div className="flex items-center justify-between gap-4 py-3 text-sm"><dt>Éléments variables à relire</dt><dd className="font-mono font-semibold">{variableSummary.count}</dd></div>
-                        <div className="flex items-center justify-between gap-4 py-3 text-sm"><dt>Gains déclarés (primes, indemnités)</dt><dd className="font-mono font-semibold">{formatAr(variableSummary.gains)}</dd></div>
-                        <div className="flex items-center justify-between gap-4 py-3 text-sm"><dt>Retenues déclarées (acomptes, déductions)</dt><dd className="font-mono font-semibold">{formatAr(variableSummary.retenues)}</dd></div>
+                        <div className="flex items-center justify-between gap-4 py-3 text-sm"><dt>Éléments variables à relire</dt><dd className="font-sans tabular-nums font-semibold">{variableSummary.count}</dd></div>
+                        <div className="flex items-center justify-between gap-4 py-3 text-sm"><dt>Gains déclarés (primes, indemnités)</dt><dd className="font-sans tabular-nums font-semibold">{formatAr(variableSummary.gains)}</dd></div>
+                        <div className="flex items-center justify-between gap-4 py-3 text-sm"><dt>Retenues déclarées (acomptes, déductions)</dt><dd className="font-sans tabular-nums font-semibold">{formatAr(variableSummary.retenues)}</dd></div>
                         <div className="flex items-center justify-between gap-4 py-3 text-sm"><dt>Pointage validé et figé</dt><dd className={`font-semibold ${pointageCheck?.status === 'PASS' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>{pointageCheck?.status === 'PASS' ? 'Oui' : pointageCheck ? 'À faire' : '—'}</dd></div>
                     </dl>
                 </section>

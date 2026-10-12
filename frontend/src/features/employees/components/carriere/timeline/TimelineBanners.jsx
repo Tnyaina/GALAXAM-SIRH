@@ -50,15 +50,16 @@ export default function TimelineBanners({
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto shrink-0">
-                        {!brouillonEstRupture && contratBrouillon && onOpenContrat && <Button variant="primary" size="sm" onClick={() => onOpenContrat(contratBrouillon)}>Préparer le contrat</Button>}
+                    <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto sm:justify-end sm:max-w-[min(100%,48rem)]">
+                        {!brouillonEstRupture && contratBrouillon && onOpenContrat && <Button className="w-full sm:w-auto" variant="primary" size="sm" onClick={() => onOpenContrat(contratBrouillon)}>Préparer le contrat</Button>}
                         {canWrite && (
                             <>
                                 <Button
                                     onClick={() => onSelectWorkflowRecap(brouillonWf, { startInCancelMode: true })}
-                                    variant="danger"
+                                    variant="outline"
                                     size="sm"
                                     iconLeft={<XCircle size={15} />}
+                                    className="w-full sm:w-auto text-[var(--color-danger-600)] border-[var(--color-danger-500)]/40 hover:bg-[var(--color-danger-500)]/10"
                                 >
                                     Annuler
                                 </Button>
@@ -66,6 +67,7 @@ export default function TimelineBanners({
                                     onClick={() => onOpenEditModal(brouillonWf)}
                                     variant="outline"
                                     size="sm"
+                                    className="w-full sm:w-auto"
                                 >
                                     Corriger
                                 </Button>
@@ -76,6 +78,7 @@ export default function TimelineBanners({
                             variant={!brouillonEstRupture && contratBrouillon ? "outline" : "primary"}
                             size="sm"
                             iconLeft={<Eye size={16} />}
+                            className="w-full sm:w-auto"
                         >
                             Relecture et validation
                         </Button>

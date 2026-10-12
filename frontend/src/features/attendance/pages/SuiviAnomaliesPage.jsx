@@ -259,6 +259,8 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
         POINTAGE_CROSS_PERIOD_SHIFT: 'Une vacation du dernier jour déborde sur la période suivante. Scindez sa saisie par date avant de transmettre.',
         POINTAGE_HS_ELIGIBILITY_CHANGE: 'L’éligibilité aux HS change pendant une semaine. La DAF doit confirmer la date d’effet de l’affectation.',
         BLOCKING_ANOMALIES: 'Des anomalies bloquantes doivent être régularisées.',
+        INVALID_STATE: 'L’état actuel de la période ne permet pas encore cette action.',
+        FORBIDDEN: 'Vous ne disposez pas des droits nécessaires pour transmettre cette période.',
     }[code] || code)).join(' · ');
 
     const hasJourneesManquantes = (actions.SUBMIT?.reasonCodes || []).includes('POINTAGE_JOURNEES_MANQUANTES');
@@ -652,14 +654,14 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                             </span>
                                         )}
                                     </div>
-                                    <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5 mb-2.5 font-mono">
+                                    <div className="text-xs text-[var(--color-fg-muted)] mt-0.5 mb-2.5 font-data">
                                         {sem.dates}
                                     </div>
 
                                     {/* Ligne Saisis */}
                                     <div className="flex items-center justify-between text-xs mb-1">
                                         <span className="text-[var(--color-fg-muted)]">Saisis</span>
-                                        <span className="font-mono font-semibold text-[var(--color-fg)]">
+                                        <span className="font-data font-semibold text-[var(--color-fg)]">
                                             {sem.joursSaisis} / {sem.joursTheoriques} j
                                         </span>
                                     </div>
@@ -675,7 +677,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                     {/* Ligne Heures */}
                                     <div className="flex items-center justify-between text-xs mb-2.5">
                                         <span className="text-[var(--color-fg-muted)]">Heures</span>
-                                        <span className="font-mono font-semibold text-[var(--color-fg)]">
+                                        <span className="font-data font-semibold text-[var(--color-fg)]">
                                             {sem.heuresCumulees}h
                                         </span>
                                     </div>
@@ -743,7 +745,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 { value: 'DONE', label: 'Traités' },
                                 { value: 'ALL', label: 'Tous' },
                             ]}
-                            className="text-xs w-full"
+                            className="text-xs w-full sm:w-48"
                         />
                         <Button
                             type="button"
@@ -928,7 +930,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                                                 {ano.nom} {ano.prenom}
                                                             </Link>
                                                         </div>
-                                                        <div className="text-[10px] font-mono text-[var(--color-fg-muted)]">
+                                                <div className="text-xs font-mono text-[var(--color-fg-muted)]">
                                                             {ano.matricule}
                                                         </div>
                                                     </div>

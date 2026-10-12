@@ -467,7 +467,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             {ficheData.libellePeriode || 'Période de présence'}
                         </span>
                         {ficheData.dateDebut && ficheData.dateFin && (
-                            <span className="text-xs text-[var(--color-fg-muted)] font-mono">
+                            <span className="text-xs text-[var(--color-fg-muted)] font-data">
                                 (du {ficheData.dateDebut} au {ficheData.dateFin})
                             </span>
                         )}
@@ -524,10 +524,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 </div>
                                 <div className="mt-2.5">
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-2xl font-bold font-mono text-[var(--color-fg)]">
+                                        <span className="text-2xl font-bold font-data text-[var(--color-fg)]">
                                             {kpis.heuresRealisees || '00h00'}
                                         </span>
-                                        <span className="text-xs font-mono text-[var(--color-fg-muted)]">
+                                        <span className="text-xs font-data text-[var(--color-fg-muted)]">
                                             ({formatDecimalHours(parseHhMmToDecimal(kpis.heuresRealisees))})
                                         </span>
                                     </div>
@@ -561,10 +561,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 </div>
                                 <div className="mt-2.5">
                                     <div className="flex items-baseline gap-2">
-                                        <span className={`text-2xl font-bold font-mono ${hasHsNettes ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
+                                        <span className={`text-2xl font-bold font-data ${hasHsNettes ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
                                             {hasHsNettes ? `+${recap.heuresSuppNettes}` : '00h00'}
                                         </span>
-                                        <span className="text-xs font-mono text-[var(--color-fg-muted)]">
+                                        <span className="text-xs font-data text-[var(--color-fg-muted)]">
                                             ({hasHsNettes ? `+${formatDecimalHours(parseHhMmToDecimal(recap.heuresSuppNettes), false)}` : '0.00h'})
                                         </span>
                                     </div>
@@ -602,10 +602,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 </div>
                                 <div className="mt-2.5">
                                     <div className="flex items-baseline gap-2">
-                                        <span className={`text-2xl font-bold font-mono ${hasRetardNet ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
+                                        <span className={`text-2xl font-bold font-data ${hasRetardNet ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
                                             {hasRetardNet ? `-${recap.retardNet}` : '00h00'}
                                         </span>
-                                        <span className="text-xs font-mono text-[var(--color-fg-muted)]">
+                                        <span className="text-xs font-data text-[var(--color-fg-muted)]">
                                             ({hasRetardNet ? `-${formatDecimalHours(parseHhMmToDecimal(recap.retardNet), false)}` : '0.00h'})
                                         </span>
                                     </div>
@@ -651,10 +651,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 </div>
                                 <div className="mt-2.5">
                                     <div className="flex items-baseline gap-2">
-                                        <span className={`text-2xl font-bold font-mono ${isAssiduiteEligible ? 'text-[var(--color-fg)]' : 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]'}`}>
+                                        <span className={`text-2xl font-bold font-data ${isAssiduiteEligible ? 'text-[var(--color-fg)]' : 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]'}`}>
                                             {kpis.retardCumule || '00h00'}
                                         </span>
-                                        <span className="text-xs font-mono text-[var(--color-fg-muted)]">
+                                        <span className="text-xs font-data text-[var(--color-fg-muted)]">
                                             de retard
                                         </span>
                                     </div>
@@ -776,7 +776,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                                     : ''
                                                     }
                                                 >
-                                                    <Td className="font-mono text-xs font-bold text-[var(--color-fg)] py-2.5 px-3">
+                                                    <Td className="font-data text-xs font-bold text-[var(--color-fg)] py-2.5 px-3">
                                                         {ptg.date}
                                                         {ptg.canCorrect && ptg.dateComplete && (
                                                             <button type="button" onClick={() => setCorrectionDate(ptg.dateComplete)} className="block mt-1 text-[11px] font-sans text-[var(--color-brand-600)] hover:underline" aria-label={`Corriger la journée du ${ptg.date}`}>Corriger</button>
@@ -823,7 +823,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                         </Td>
                                                     ) : (
                                                         <>
-                                                            <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                            <Td className="font-data text-xs text-center py-2.5 px-3">
                                                                 <div>{ptg.entree}</div>
                                                             </Td>
                                                             {isContinu ? (
@@ -834,18 +834,18 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                                 </Td>
                                                             ) : (
                                                                 <>
-                                                                    <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                                    <Td className="font-data text-xs text-center py-2.5 px-3">
                                                                         {ptg.sortiePause}
                                                                     </Td>
-                                                                    <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                                    <Td className="font-data text-xs text-center py-2.5 px-3">
                                                                         {ptg.retourPause}
                                                                     </Td>
                                                                 </>
                                                             )}
-                                                            <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                            <Td className="font-data text-xs text-center py-2.5 px-3">
                                                                 {ptg.sortie}
                                                             </Td>
-                                                            <Td className="font-mono text-xs text-center py-2.5 px-2">
+                                                            <Td className="font-data text-xs text-center py-2.5 px-2">
                                                                 {ptg.minutesRetard > 0 ? (
                                                                     <span className="font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] bg-[var(--color-warning-50)] dark:bg-[var(--color-warning-950)]/40 px-1.5 py-0.5 rounded-none border border-[var(--color-warning-200)] dark:border-[var(--color-warning-800)]/50" title={`Retard cumulé sur la journée : ${ptg.minutesRetard} min`}>
                                                                         {ptg.minutesRetard} min
@@ -854,15 +854,15 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                                     <span className="text-[var(--color-fg-subtle)] opacity-40">-</span>
                                                                 )}
                                                             </Td>
-                                                            <Td className="font-mono text-xs font-bold text-center py-2.5 px-3 text-[var(--color-fg)]">
+                                                            <Td className="font-data text-xs font-bold text-center py-2.5 px-3 text-[var(--color-fg)]">
                                                                 <div>{ptg.heures}</div>
                                                                 {ptg.heures && ptg.heures !== '-' && ptg.heures !== '—' && ptg.heures !== '00h00' && (
-                                                                    <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">
+                                                                    <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-data">
                                                                         ({ptg.totalHeuresDecimal != null ? ptg.totalHeuresDecimal.toFixed(2) : parseHhMmToDecimal(ptg.heures).toFixed(2)}h)
                                                                     </div>
                                                                 )}
                                                             </Td>
-                                                            <Td className="font-mono text-xs text-center py-2.5 px-3">
+                                                            <Td className="font-data text-xs text-center py-2.5 px-3">
                                                                 <div>
                                                                     {ptg.ecart && ptg.ecart.startsWith('-') ? (
                                                                         <span className="text-[var(--color-danger-500)] dark:text-[var(--color-danger-400)] font-bold">
@@ -879,7 +879,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                                     )}
                                                                 </div>
                                                                 {parseEcartToDecimal(ptg.ecart) && (
-                                                                    <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">
+                                                                    <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-data">
                                                                         ({parseEcartToDecimal(ptg.ecart)})
                                                                     </div>
                                                                 )}
@@ -895,7 +895,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                     {dynamicAllowances.map((allowance) => {
                                                         const value = ptg.indemnites?.[allowance.code];
                                                         return (
-                                                            <Td key={allowance.code} className="font-mono text-xs text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/20 bg-[var(--color-orange-500)]/[0.04]" title={value?.accordee ? allowance.code : ''}>
+                                                            <Td key={allowance.code} className="font-data text-xs text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/20 bg-[var(--color-orange-500)]/[0.04]" title={value?.accordee ? allowance.code : ''}>
                                                                 {value?.accordee && Number(value.montant) > 0 ? `${Number(value.montant).toLocaleString('fr-FR')} Ar` : '-'}
                                                             </Td>
                                                         );
@@ -914,7 +914,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             </td>
 
                                             {/* Col 7 : Retard Total */}
-                                            <td className="font-mono text-xs font-bold text-center py-2.5 px-2 text-[var(--color-fg)]">
+                                            <td className="font-data text-xs font-bold text-center py-2.5 px-2 text-[var(--color-fg)]">
                                                 {totalRetardMinutes > 0 ? (
                                                     <span className="text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
                                                         {totalRetardHhMm}
@@ -928,7 +928,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             </td>
 
                                             {/* Col 8 : Heures Réalisées */}
-                                            <td className="font-mono text-xs font-bold text-center py-2.5 px-3 text-[var(--color-fg)]">
+                                            <td className="font-data text-xs font-bold text-center py-2.5 px-3 text-[var(--color-fg)]">
                                                 <div>{recap.tempsRealise || '00h00'}</div>
                                                 {recap.tempsRealise && recap.tempsRealise !== '00h00' && (
                                                     <div className="text-[10px] text-[var(--color-fg-muted)] font-normal">
@@ -938,12 +938,12 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             </td>
 
                                             {/* Col 9 : Écart Cumulé (vs 8h) */}
-                                            <td className="font-mono text-xs font-bold text-center py-2.5 px-3">
+                                            <td className="font-data text-xs font-bold text-center py-2.5 px-3">
                                                 <div className={displayEcart && displayEcart.startsWith('-') ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : displayEcart && displayEcart.startsWith('+') ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]'}>
                                                     {displayEcart || '-'}
                                                 </div>
                                                 {parseEcartToDecimal(displayEcart) && (
-                                                    <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-mono">
+                                                    <div className="text-[10px] text-[var(--color-fg-muted)] font-normal font-data">
                                                         ({parseEcartToDecimal(displayEcart)})
                                                     </div>
                                                 )}
@@ -955,7 +955,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             </td>
 
                                             {dynamicAllowances.map((allowance) => (
-                                                <td key={allowance.code} className="font-mono text-xs font-bold text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10">
+                                                <td key={allowance.code} className="font-data text-xs font-bold text-center py-2.5 px-2 border-l border-[var(--color-orange-500)]/30 text-[var(--color-orange-700)] dark:text-[var(--color-orange-400)] bg-[var(--color-orange-500)]/10">
                                                     {Math.round(Number(dynamicAllowanceTotals[allowance.code] || 0)).toLocaleString('fr-FR')} Ar
                                                 </td>
                                             ))}
@@ -988,27 +988,27 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 <div className="grid grid-cols-2 sm:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1.2fr] items-center gap-2">
                                     <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2.5 text-center">
                                         <div className="text-[10px] text-[var(--color-fg-muted)] truncate">HS hebdomadaires</div>
-                                        <div className="font-mono text-sm font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)] mt-0.5">
+                                        <div className="font-data text-sm font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)] mt-0.5">
                                             {recap.hsTotalHebdo && recap.hsTotalHebdo !== '—' && recap.hsTotalHebdo !== '-' ? `+${recap.hsTotalHebdo}` : '00h00'}
                                         </div>
-                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-data">
                                             ({formatHhMmWithDecimal(recap.hsTotalHebdo, recap.hsTotalHebdo && recap.hsTotalHebdo !== '00h00' ? '+' : '')})
                                         </div>
                                     </div>
                                     <div className="hidden sm:flex text-base font-bold text-[var(--color-fg-muted)]">−</div>
                                     <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2.5 text-center">
                                         <div className="text-[10px] text-[var(--color-fg-muted)] truncate">Déficits restants</div>
-                                        <div className={`font-mono text-sm font-bold mt-0.5 ${recap.deficitHebdo && recap.deficitHebdo !== '00h00' && recap.deficitHebdo !== '—' && recap.deficitHebdo !== '-' ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg)]'}`}>
+                                        <div className={`font-data text-sm font-bold mt-0.5 ${recap.deficitHebdo && recap.deficitHebdo !== '00h00' && recap.deficitHebdo !== '—' && recap.deficitHebdo !== '-' ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg)]'}`}>
                                             {recap.deficitHebdo && recap.deficitHebdo !== '—' && recap.deficitHebdo !== '-' ? recap.deficitHebdo : '00h00'}
                                         </div>
-                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-data">
                                             ({formatHhMmWithDecimal(recap.deficitHebdo)})
                                         </div>
                                     </div>
                                     <div className="hidden sm:flex text-base font-bold text-[var(--color-fg-muted)]">+</div>
                                     <div className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-2.5 text-center">
                                         <div className="text-[10px] text-[var(--color-fg-muted)] truncate">Régularisation</div>
-                                        <div className={`font-mono text-sm font-bold mt-0.5 ${
+                                        <div className={`font-data text-sm font-bold mt-0.5 ${
                                             recap.ajustements && (recap.ajustements.startsWith('-') || recap.ajustements.startsWith('−')) && recap.ajustements !== '-00h00' && recap.ajustements !== '−00h00'
                                                 ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'
                                                 : recap.ajustements && recap.ajustements.startsWith('+') && recap.ajustements !== '+00h00'
@@ -1017,17 +1017,17 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         }`}>
                                             {recap.ajustements && recap.ajustements !== '—' && recap.ajustements !== '-' ? recap.ajustements.replace('−', '-') : '00h00'}
                                         </div>
-                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-data">
                                             ({formatHhMmWithDecimal(recap.ajustements)})
                                         </div>
                                     </div>
                                     <div className="hidden sm:flex text-base font-bold text-[var(--color-fg-muted)]">=</div>
                                     <div className="border-2 border-[var(--color-brand-500)]/40 bg-[var(--color-brand-500)]/5 p-2.5 text-center">
                                         <div className="text-[10px] font-semibold text-[var(--color-fg-muted)] truncate">Solde final</div>
-                                        <div className={`font-mono text-base sm:text-lg font-bold mt-0.5 ${String(recap.soldeFinal || '').startsWith('-') || String(recap.soldeFinal || '').startsWith('−') ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
+                                        <div className={`font-data text-base sm:text-lg font-bold mt-0.5 ${String(recap.soldeFinal || '').startsWith('-') || String(recap.soldeFinal || '').startsWith('−') ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]'}`}>
                                             {recap.soldeFinal || '-'}
                                         </div>
-                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                        <div className="text-[10px] text-[var(--color-fg-muted)] font-data">
                                             ({formatHhMmWithDecimal(recap.soldeFinal)})
                                         </div>
                                     </div>
@@ -1042,28 +1042,28 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     <div className="grid grid-cols-3 gap-2">
                                         <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/40 p-2 text-center">
                                             <div className="text-[10px] text-[var(--color-fg-muted)] truncate">Retenue absence</div>
-                                            <div className={`font-mono text-sm font-bold mt-1 ${recap.absenceFinale && recap.absenceFinale !== '00h00' && recap.absenceFinale !== '—' && recap.absenceFinale !== '-' ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg)]'}`}>
+                                            <div className={`font-data text-sm font-bold mt-1 ${recap.absenceFinale && recap.absenceFinale !== '00h00' && recap.absenceFinale !== '—' && recap.absenceFinale !== '-' ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg)]'}`}>
                                                 {recap.absenceFinale && recap.absenceFinale !== '—' && recap.absenceFinale !== '-' && recap.absenceFinale !== '00h00' ? `-${recap.absenceFinale}` : (recap.absenceFinale || '00h00')}
                                             </div>
-                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-data">
                                                 ({formatHhMmWithDecimal(recap.absenceFinale, recap.absenceFinale && recap.absenceFinale !== '00h00' ? '-' : '')})
                                             </div>
                                         </div>
                                         <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/40 p-2 text-center">
                                             <div className="text-[10px] text-[var(--color-fg-muted)] truncate">HS à 30 %</div>
-                                            <div className={`font-mono text-sm font-bold mt-1 ${recap.hs30Finales && recap.hs30Finales !== '00h00' && recap.hs30Finales !== '—' && recap.hs30Finales !== '-' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
+                                            <div className={`font-data text-sm font-bold mt-1 ${recap.hs30Finales && recap.hs30Finales !== '00h00' && recap.hs30Finales !== '—' && recap.hs30Finales !== '-' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
                                                 {recap.hs30Finales && recap.hs30Finales !== '—' && recap.hs30Finales !== '-' && recap.hs30Finales !== '00h00' ? `+${recap.hs30Finales}` : (recap.hs30Finales || '00h00')}
                                             </div>
-                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-data">
                                                 ({formatHhMmWithDecimal(recap.hs30Finales, recap.hs30Finales && recap.hs30Finales !== '00h00' ? '+' : '')})
                                             </div>
                                         </div>
                                         <div className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/40 p-2 text-center">
                                             <div className="text-[10px] text-[var(--color-fg-muted)] truncate">HS à 50 %</div>
-                                            <div className={`font-mono text-sm font-bold mt-1 ${recap.hs50Finales && recap.hs50Finales !== '00h00' && recap.hs50Finales !== '—' && recap.hs50Finales !== '-' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
+                                            <div className={`font-data text-sm font-bold mt-1 ${recap.hs50Finales && recap.hs50Finales !== '00h00' && recap.hs50Finales !== '—' && recap.hs50Finales !== '-' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg)]'}`}>
                                                 {recap.hs50Finales && recap.hs50Finales !== '—' && recap.hs50Finales !== '-' && recap.hs50Finales !== '00h00' ? `+${recap.hs50Finales}` : (recap.hs50Finales || '00h00')}
                                             </div>
-                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                            <div className="text-[10px] text-[var(--color-fg-muted)] font-data">
                                                 ({formatHhMmWithDecimal(recap.hs50Finales, recap.hs50Finales && recap.hs50Finales !== '00h00' ? '+' : '')})
                                             </div>
                                         </div>
@@ -1081,10 +1081,10 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         ].map(({ label, value }) => (
                                             <div key={label} className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)]/40 p-2 text-center">
                                                 <div className="text-[10px] text-[var(--color-fg-muted)]">{label}</div>
-                                                <div className="font-mono text-sm font-bold text-[var(--color-fg)] mt-1">
+                                                <div className="font-data text-sm font-bold text-[var(--color-fg)] mt-1">
                                                     {formatHeuresMinutes(value)}
                                                 </div>
-                                                <div className="text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                                <div className="text-[10px] text-[var(--color-fg-muted)] font-data">
                                                     ({formatHeuresDecimal(value)})
                                                 </div>
                                             </div>
@@ -1094,7 +1094,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                             </div>
 
                             {recap.regleVentilation && (
-                                <p className="text-[11px] text-[var(--color-fg-muted)] mt-2.5 font-mono">
+                                <p className="text-[11px] text-[var(--color-fg-muted)] mt-2.5 font-data">
                                     {recap.regleVentilation}
                                 </p>
                             )}
@@ -1112,7 +1112,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     <Scale size={16} className="text-[var(--color-brand-500)] shrink-0" />
                                     <span className="text-[var(--color-fg)]">Détail du calcul par semaine</span>
                                 </span>
-                                <div className="flex flex-wrap items-center gap-2.5 font-mono text-xs">
+                                <div className="flex flex-wrap items-center gap-2.5 font-data text-xs">
                                     <span className="text-[var(--color-fg-muted)] font-sans">{ficheData.bilansHebdo.length} sem.</span>
                                     <span className="text-[var(--color-border-subtle)]">·</span>
                                     <span className="flex items-center gap-1.5">
@@ -1137,7 +1137,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     <Scale size={14} className="shrink-0 text-[var(--color-brand-500)]" />
                                     <span><strong>Compensation 40h/semaine :</strong> les surplus journaliers couvrent les journées courtes de la même semaine.</span>
                                 </span>
-                                <span className="text-[11px] text-[var(--color-fg-muted)] font-mono shrink-0 hidden sm:inline">
+                                <span className="text-[11px] text-[var(--color-fg-muted)] font-data shrink-0 hidden sm:inline">
                                     Base légale {dureeHebdoLegale}h/sem.
                                 </span>
                             </div>
@@ -1153,7 +1153,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                 <Scale size={16} className="text-[var(--color-brand-500)] shrink-0" />
                                 <span className="text-[var(--color-fg)]">Détail du bilan, indemnités et règles</span>
                             </span>
-                            <div className="flex flex-wrap items-center gap-2.5 font-mono text-xs">
+                            <div className="flex flex-wrap items-center gap-2.5 font-data text-xs">
                                 <span className="flex items-center gap-1.5">
                                     <span className="text-[var(--color-fg-muted)] font-sans">Solde paie :</span>
                                     <span className={`font-bold ${recap.retardNet && recap.retardNet !== '00h00' ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : recap.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]'}`}>
@@ -1187,24 +1187,24 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             <FileText size={14} className="text-[var(--color-brand-500)] shrink-0" />
                                             Incidence sur la paie
                                         </span>
-                                        <span className={`font-mono text-xs font-bold ${recap.retardNet && recap.retardNet !== '00h00' ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : recap.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                        <span className={`font-data text-xs font-bold ${recap.retardNet && recap.retardNet !== '00h00' ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : recap.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]'}`}>
                                             {recap.retardNet && recap.retardNet !== '00h00' ? `-${recap.retardNet}` : recap.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' ? `+${recap.heuresSuppNettes}` : '00h00'}
                                         </span>
                                     </div>
                                     <div className="pt-2 space-y-2 text-xs">
                                         <div className="flex justify-between items-center">
                                             <span className="text-[var(--color-fg-muted)]">Base contractuelle</span>
-                                            <span className="font-mono font-bold text-[var(--color-fg)]">{recap.tempsTheorique || '-'}</span>
+                                            <span className="font-data font-bold text-[var(--color-fg)]">{recap.tempsTheorique || '-'}</span>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="text-[var(--color-fg-muted)]">Temps total réalisé</span>
-                                            <span className="font-mono font-bold text-[var(--color-fg)]">{recap.tempsRealise || '00h00'}</span>
+                                            <span className="font-data font-bold text-[var(--color-fg)]">{recap.tempsRealise || '00h00'}</span>
                                         </div>
                                         {/* Déficit hebdomadaire si présent */}
                                         {recap.deficitHebdo && recap.deficitHebdo !== '00h00' && recap.deficitHebdo !== '—' && recap.deficitHebdo !== '-' && (
                                             <div className="flex justify-between items-center">
                                                 <span className="text-[var(--color-fg-muted)]">Déficit hebdomadaire</span>
-                                                <span className="font-mono font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                                                <span className="font-data font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
                                                     -{recap.deficitHebdo}
                                                 </span>
                                             </div>
@@ -1212,7 +1212,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         {/* Régularisation */}
                                         <div className="flex justify-between items-center">
                                             <span className="text-[var(--color-fg-muted)]">Régularisation</span>
-                                            <span className={`font-mono font-bold ${
+                                            <span className={`font-data font-bold ${
                                                 recap.ajustements && (recap.ajustements.startsWith('-') || recap.ajustements.startsWith('−')) && recap.ajustements !== '-00h00' && recap.ajustements !== '−00h00'
                                                     ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]'
                                                     : recap.ajustements && recap.ajustements.startsWith('+') && recap.ajustements !== '+00h00'
@@ -1226,13 +1226,13 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="text-[var(--color-fg-muted)]">Retenue salaire (Déficit net)</span>
-                                            <span className={`font-mono font-bold ${recap.retardNet && recap.retardNet !== '00h00' ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                            <span className={`font-data font-bold ${recap.retardNet && recap.retardNet !== '00h00' ? 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' : 'text-[var(--color-fg-muted)]'}`}>
                                                 {recap.retardNet && recap.retardNet !== '00h00' ? `-${recap.retardNet}` : '00h00'}
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="text-[var(--color-fg-muted)]">Heures sup. finales</span>
-                                            <span className={`font-mono font-bold ${recap.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                            <span className={`font-data font-bold ${recap.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' ? 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' : 'text-[var(--color-fg-muted)]'}`}>
                                                 {recap.heuresSuppNettes && recap.heuresSuppNettes !== '00h00' ? `+${recap.heuresSuppNettes}` : '00h00'}
                                             </span>
                                         </div>
@@ -1246,25 +1246,25 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             <Scale size={12} className="text-[var(--color-brand-500)]" />
                                             Compensation hebdo
                                         </span>
-                                        <span className="text-[10px] text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-mono font-bold">
+                                        <span className="text-[10px] text-[var(--color-success-600)] dark:text-[var(--color-success-400)] font-data font-bold">
                                             {recap.retardCompense && recap.retardCompense !== '00h00' ? `${recap.retardCompense} compensé` : ''}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Retards constatés</span>
-                                        <span className={`font-mono ${(kpis.retardCumule && kpis.retardCumule !== '00h00') ? 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-bold' : 'text-[var(--color-fg)]'}`}>
+                                        <span className={`font-data ${(kpis.retardCumule && kpis.retardCumule !== '00h00') ? 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] font-bold' : 'text-[var(--color-fg)]'}`}>
                                             {kpis.retardCumule || recap.retards || '00h00'}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Surplus journalier</span>
-                                        <span className="font-mono text-[var(--color-fg)]">
+                                        <span className="font-data text-[var(--color-fg)]">
                                             {recap.heuresSuppBrutes || '00h00'}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
                                         <span>Heures compensées</span>
-                                        <span className="font-mono font-bold">
+                                        <span className="font-data font-bold">
                                             {recap.retardCompense && recap.retardCompense !== '00h00' ? `-${recap.retardCompense}` : '00h00'}
                                         </span>
                                     </div>
@@ -1279,7 +1279,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             <DollarSign size={14} className="text-[var(--color-orange-600)] shrink-0" />
                                             Indemnités de pointage & majorations
                                         </span>
-                                        <span className="font-mono text-xs font-bold text-[var(--color-orange-600)] dark:text-[var(--color-orange-400)]">
+                                        <span className="font-data text-xs font-bold text-[var(--color-orange-600)] dark:text-[var(--color-orange-400)]">
                                             {kpis.totalIndemnitesMois || '0 Ar'}
                                         </span>
                                     </div>
@@ -1297,7 +1297,7 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                                             </div>
                                                         )}
                                                     </div>
-                                                    <span className="font-mono text-xs font-bold text-[var(--color-orange-600)] dark:text-[var(--color-orange-400)] shrink-0">
+                                                    <span className="font-data text-xs font-bold text-[var(--color-orange-600)] dark:text-[var(--color-orange-400)] shrink-0">
                                                         {Math.round(Number(dynamicAllowanceTotals[allowance.code] || 0)).toLocaleString('fr-FR')} Ar
                                                     </span>
                                                 </div>
@@ -1315,27 +1315,27 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                     {hasMajorations ? (
                                         <div className="flex flex-wrap gap-1.5 pt-0.5">
                                             {hs30Val > 0 && (
-                                                <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-[var(--color-warning-500)]/10 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] border border-[var(--color-warning-500)]/20">
+                                                <span className="px-2 py-0.5 text-[10.5px] font-data font-bold bg-[var(--color-warning-500)]/10 text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)] border border-[var(--color-warning-500)]/20">
                                                     +{hs30Val}h à 30%
                                                 </span>
                                             )}
                                             {hs50Val > 0 && (
-                                                <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)] border border-[var(--color-danger-500)]/20">
+                                                <span className="px-2 py-0.5 text-[10.5px] font-data font-bold bg-[var(--color-danger-500)]/10 text-[var(--color-danger-700)] dark:text-[var(--color-danger-300)] border border-[var(--color-danger-500)]/20">
                                                     +{hs50Val}h à 50%
                                                 </span>
                                             )}
                                             {nuitVal > 0 && (
-                                                <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border border-[var(--color-brand-500)]/20">
+                                                <span className="px-2 py-0.5 text-[10.5px] font-data font-bold bg-[var(--color-brand-500)]/10 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)] border border-[var(--color-brand-500)]/20">
                                                     +{nuitVal}h nuit
                                                 </span>
                                             )}
                                             {dimVal > 0 && (
-                                                <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-[var(--color-info-500)]/10 text-[var(--color-info-700)] dark:text-[var(--color-info-300)] border border-[var(--color-info-500)]/20">
+                                                <span className="px-2 py-0.5 text-[10.5px] font-data font-bold bg-[var(--color-info-500)]/10 text-[var(--color-info-700)] dark:text-[var(--color-info-300)] border border-[var(--color-info-500)]/20">
                                                     +{dimVal}h dimanche
                                                 </span>
                                             )}
                                             {ferVal > 0 && (
-                                                <span className="px-2 py-0.5 text-[10.5px] font-mono font-bold bg-[var(--color-success-500)]/10 text-[var(--color-success-700)] dark:text-[var(--color-success-300)] border border-[var(--color-success-500)]/20">
+                                                <span className="px-2 py-0.5 text-[10.5px] font-data font-bold bg-[var(--color-success-500)]/10 text-[var(--color-success-700)] dark:text-[var(--color-success-300)] border border-[var(--color-success-500)]/20">
                                                     +{ferVal}h férié
                                                 </span>
                                             )}
@@ -1356,26 +1356,26 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             <Info size={14} className="text-[var(--color-info-500)] shrink-0" />
                                             Règles & assiduité
                                         </span>
-                                        <span className={`text-[10px] font-mono font-bold ${isAssiduiteEligible ? 'text-[var(--color-success-600)]' : 'text-[var(--color-warning-600)]'}`}>
+                                        <span className={`text-[10px] font-data font-bold ${isAssiduiteEligible ? 'text-[var(--color-success-600)]' : 'text-[var(--color-warning-600)]'}`}>
                                             {isAssiduiteEligible ? 'Éligible' : 'Hors critère'}
                                         </span>
                                     </div>
                                     <div className="pt-2 space-y-2 text-xs">
                                         <div className="flex justify-between items-center">
                                             <span className="text-[var(--color-fg-muted)]">Horaire journalier</span>
-                                            <span className="font-mono font-bold text-[var(--color-fg)]">{regles.horaireJournalier || '-'}</span>
+                                            <span className="font-data font-bold text-[var(--color-fg)]">{regles.horaireJournalier || '-'}</span>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="text-[var(--color-fg-muted)]">Pause déjeuner</span>
-                                            <span className="font-mono font-bold text-[var(--color-fg)]">{regles.pause || '-'}</span>
+                                            <span className="font-data font-bold text-[var(--color-fg)]">{regles.pause || '-'}</span>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="text-[var(--color-fg-muted)]">Prise de poste théorique</span>
-                                            <span className="font-mono font-bold text-[var(--color-fg)]">{regles.debutNormal || '-'}</span>
+                                            <span className="font-data font-bold text-[var(--color-fg)]">{regles.debutNormal || '-'}</span>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="text-[var(--color-fg-muted)]">Heure min. comptabilisée</span>
-                                            <span className="font-mono font-bold text-[var(--color-fg)]">{regles.plafondArrivee || 'Désactivée'}</span>
+                                            <span className="font-data font-bold text-[var(--color-fg)]">{regles.plafondArrivee || 'Désactivée'}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1387,17 +1387,17 @@ export default function PointageTab({ idEmploye, employe = null }) {
                                             <Award size={12} className={isAssiduiteEligible ? 'text-[var(--color-success-600)]' : 'text-[var(--color-warning-600)]'} />
                                             Prime d'assiduité
                                         </span>
-                                        <span className={`text-[10px] font-mono font-bold ${isAssiduiteEligible ? 'text-[var(--color-success-600)]' : 'text-[var(--color-warning-600)]'}`}>
+                                        <span className={`text-[10px] font-data font-bold ${isAssiduiteEligible ? 'text-[var(--color-success-600)]' : 'text-[var(--color-warning-600)]'}`}>
                                             {isAssiduiteEligible ? 'Éligible' : 'Hors critère'}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Seuil d'éligibilité</span>
-                                        <span className="font-mono font-bold text-[var(--color-fg)]">{seuilAssiduiteMinutes} min max (brut)</span>
+                                        <span className="font-data font-bold text-[var(--color-fg)]">{seuilAssiduiteMinutes} min max (brut)</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[var(--color-fg-muted)]">Cumul retards bruts</span>
-                                        <span className={`font-mono font-bold ${isAssiduiteEligible ? 'text-[var(--color-success-600)]' : 'text-[var(--color-warning-600)]'}`}>
+                                        <span className={`font-data font-bold ${isAssiduiteEligible ? 'text-[var(--color-success-600)]' : 'text-[var(--color-warning-600)]'}`}>
                                             {kpis.retardCumule || recap.retards || '00h00'}
                                         </span>
                                     </div>

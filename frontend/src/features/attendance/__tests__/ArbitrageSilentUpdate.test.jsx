@@ -156,4 +156,31 @@ describe('ArbitrageDafPage - Actualisation silencieuse et réactivité du statut
         );
         expect(continuerBtn).not.toBeUndefined();
     });
+
+    it('ne bloque pas la décision DAF pendant le chargement de la synthèse paginée', async () => {
+        let finishSynthese;
+        pointageSyntheseService.getSynthese.mockReturnValue(new Promise(resolve => { finishSynthese = resolve; }));
+        const period = {
+            idPeriodePaie: 4,
+            statutCode: 'TRANSMIS_DAF',
+            availableActions: { APPROVE: { allowed: true }, REJECT: { allowed: true } }
+        };
+
+        await act(async () => {
+            root.render(
+                <MemoryRouter initialEntries={['/pointages?tab=validation&periode=4']}>
+                    <ArbitrageDafPage activePeriode={period} />
+                </MemoryRouter>
+            );
+            await new Promise(resolve => setTimeout(resolve, 20));
+        });
+
+        const validerBtn = [...container.querySelectorAll('button')].find(button =>
+            button.textContent.includes('Valider et sceller le pointage')
+        );
+        expect(validerBtn).toBeDefined();
+        expect(validerBtn.disabled).toBe(false);
+
+        await act(async () => finishSynthese({ synthese: [], totalElements: 0, kpis: {}, alertCounts: {} }));
+    });
 });

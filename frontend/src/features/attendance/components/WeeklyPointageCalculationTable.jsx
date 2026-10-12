@@ -41,32 +41,32 @@ export default function WeeklyPointageCalculationTable({ weeks = [], pointages =
                         return (
                             <Fragment key={start || index}>
                                 <Tr>
-                                    <Td className="py-2.5 font-mono text-xs">
+                                    <Td className="py-2.5 font-data text-xs">
                                         <strong className="block text-[var(--color-fg)]">Semaine {week.numeroSemaine ?? week.numSemaine ?? index + 1}</strong>
                                         <span className="text-[var(--color-fg-muted)]">du {fmtDate(start)} au {fmtDate(end)}</span>
                                     </Td>
-                                    <Td className="py-2.5 text-center font-mono text-xs">{week.nbJoursTroncon ?? week.joursOuvrables ?? '-'} j</Td>
-                                    <Td className="py-2.5 text-center font-mono text-xs">
+                                    <Td className="py-2.5 text-center font-data text-xs">{week.nbJoursTroncon ?? week.joursOuvrables ?? '-'} j</Td>
+                                    <Td className="py-2.5 text-center font-data text-xs">
                                         <strong className="block font-semibold">{formatHeuresMinutes(objective)}</strong>
-                                        <span className="text-[10px] text-[var(--color-fg-muted)]">({formatHeuresDecimal(objective)})</span>
+                                        <span className="text-xs text-[var(--color-fg-muted)]">({formatHeuresDecimal(objective)})</span>
                                     </Td>
-                                    <Td className="py-2.5 text-center font-mono text-xs">
+                                    <Td className="py-2.5 text-center font-data text-xs">
                                         <strong className="block">{formatHeuresMinutes(worked)}</strong>
-                                        <span className="text-[10px] text-[var(--color-fg-muted)]">({formatHeuresDecimal(worked)})</span>
+                                        <span className="text-xs text-[var(--color-fg-muted)]">({formatHeuresDecimal(worked)})</span>
                                     </Td>
-                                    <Td className={`py-2.5 text-center font-mono text-xs font-bold ${differenceMinutes > 0 ? 'text-[var(--color-success-600)]' : differenceMinutes < 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                    <Td className={`py-2.5 text-center font-data text-xs font-bold ${differenceMinutes > 0 ? 'text-[var(--color-success-600)]' : differenceMinutes < 0 ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-fg-muted)]'}`}>
                                         <strong className="block">{differenceMinutes > 0 ? '+' : differenceMinutes < 0 ? '-' : ''}{formatHeuresMinutes(Math.abs(differenceMinutes) / 60)}</strong>
-                                        <span className="text-[10px] text-[var(--color-fg-muted)] font-normal">
+                                        <span className="text-xs text-[var(--color-fg-muted)] font-normal">
                                             ({differenceMinutes > 0 ? '+' : differenceMinutes < 0 ? '-' : ''}{formatHeuresDecimal(Math.abs(differenceMinutes) / 60)})
                                         </span>
                                     </Td>
-                                    <Td className="py-2.5 text-center font-mono text-xs">
+                                    <Td className="py-2.5 text-center font-data text-xs">
                                         {missingDays.length > 0 ? (
                                             <Badge variant="warning" size="sm">Saisie incomplète · {missingDays.length} j à saisir</Badge>
                                         ) : overtime > 0 ? (
                                             <div>
                                                 <Badge variant="success" size="sm">+{formatHeuresMinutes(overtime)} HS</Badge>
-                                                <span className="block mt-1 text-[10px] text-[var(--color-fg-muted)]">
+                                                <span className="block mt-1 text-xs text-[var(--color-fg-muted)]">
                                                     {overtime30 > 0 && `${formatHeuresDecimal(overtime30)} à 30 %`}
                                                     {overtime30 > 0 && overtime50 > 0 && ' · '}
                                                     {overtime50 > 0 && `${formatHeuresDecimal(overtime50)} à 50 %`}
@@ -75,7 +75,7 @@ export default function WeeklyPointageCalculationTable({ weeks = [], pointages =
                                         ) : deficit > 0 ? (
                                             <div>
                                                 <Badge variant="danger" size="sm">-{formatHeuresMinutes(deficit)} de déficit</Badge>
-                                                <span className="block mt-1 text-[10px] text-[var(--color-fg-muted)] font-mono">
+                                                <span className="block mt-1 text-xs text-[var(--color-fg-muted)] font-data">
                                                     -{formatHeuresDecimal(deficit)}
                                                 </span>
                                             </div>
@@ -98,8 +98,8 @@ export default function WeeklyPointageCalculationTable({ weeks = [], pointages =
                                                 <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                                     <div className="rounded-none border border-[var(--color-border-subtle)] p-3">
                                                         <strong className="block mb-2 text-[var(--color-fg)]">Calcul des heures</strong>
-                                                        <p>Surplus journalier : <strong>+{formatHeuresMinutes(surplus)}</strong> <span className="text-[11px] text-[var(--color-fg-muted)]">({formatHeuresDecimal(surplus)})</span></p>
-                                                        <p>Dont utilisé pour les journées courtes : <strong>{formatHeuresMinutes(used)}</strong> <span className="text-[11px] text-[var(--color-fg-muted)]">({formatHeuresDecimal(used)})</span></p>
+                                                        <p>Surplus journalier : <strong>+{formatHeuresMinutes(surplus)}</strong> <span className="text-xs text-[var(--color-fg-muted)]">({formatHeuresDecimal(surplus)})</span></p>
+                                                        <p>Dont utilisé pour les journées courtes : <strong>{formatHeuresMinutes(used)}</strong> <span className="text-xs text-[var(--color-fg-muted)]">({formatHeuresDecimal(used)})</span></p>
                                                     </div>
                                                     <div className="rounded-none border border-[var(--color-border-subtle)] p-3">
                                                         <strong className="block mb-2 text-[var(--color-fg)]">Heures qualifiées</strong>
@@ -110,13 +110,13 @@ export default function WeeklyPointageCalculationTable({ weeks = [], pointages =
                                                         ].map(([label, hours]) => (
                                                             <p key={label} className="flex justify-between gap-2">
                                                                 <span>{label}</span>
-                                                                <strong className="font-mono text-right">{formatHeuresMinutes(hours)} <span className="text-[11px] text-[var(--color-fg-muted)]">({formatHeuresDecimal(hours)})</span></strong>
+                                                                <strong className="font-data text-right">{formatHeuresMinutes(hours)} <span className="text-xs text-[var(--color-fg-muted)]">({formatHeuresDecimal(hours)})</span></strong>
                                                             </p>
                                                         ))}
                                                     </div>
                                                     <div className="rounded-none border border-[var(--color-border-subtle)] p-3">
                                                         <strong className="block mb-2 text-[var(--color-fg)]">Ponctualité</strong>
-                                                        <p>Retards constatés : <strong>{formatHeuresMinutes(late)}</strong> <span className="text-[11px] text-[var(--color-fg-muted)]">({formatHeuresDecimal(late)})</span></p>
+                                                        <p>Retards constatés : <strong>{formatHeuresMinutes(late)}</strong> <span className="text-xs text-[var(--color-fg-muted)]">({formatHeuresDecimal(late)})</span></p>
                                                     </div>
                                                 </div>
                                             )}

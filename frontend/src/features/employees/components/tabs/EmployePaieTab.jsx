@@ -304,9 +304,9 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                             <span className="text-[10px] text-[var(--color-fg-muted)] block truncate max-w-[140px]">{b.libellePeriode}</span>
                                         </Td>
                                         <Td><Badge variant={b.isStc || b.typeBulletin === 'STC' ? 'warning' : 'default'} size="xs">{b.typeBulletin || 'MENSUEL'}</Badge></Td>
-                                        <Td className="font-mono text-[var(--color-fg-muted)]">{fmtDate(b.dateCalcul)}</Td>
-                                        <Td className="text-right font-mono">{formatMoneyAr(b.totalGainsBruts)}</Td>
-                                        <Td className="text-right font-mono font-bold text-[var(--color-fg)]">{formatMoneyAr(b.netAPayer)}</Td>
+                                        <Td className="font-data text-[var(--color-fg-muted)]">{fmtDate(b.dateCalcul)}</Td>
+                                        <Td className="text-right font-data">{formatMoneyAr(b.totalGainsBruts)}</Td>
+                                        <Td className="text-right font-data font-bold text-[var(--color-fg)]">{formatMoneyAr(b.netAPayer)}</Td>
                                         <Td>
                                             <Badge variant={b.badgeVariant || (b.isValide || b.isCloture ? 'success' : b.isCalcule ? 'info' : 'default')} size="xs">{b.statut}</Badge>
                                         </Td>
@@ -400,7 +400,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                         const isGain = Boolean(m.isGain ?? (m.sens === 'GAIN'));
                                         return (
                                             <Tr key={m.idAvance || m.idAjustement}>
-                                                <Td className="font-mono text-[var(--color-fg-muted)]">{fmtDate(m.dateDemande || m.datePaiement)}</Td>
+                                                <Td className="font-data text-[var(--color-fg-muted)]">{fmtDate(m.dateDemande || m.datePaiement)}</Td>
                                                 <Td>
                                                     <div className="font-semibold text-[var(--color-fg)]">{m.typeLibelle || m.typeMouvement}</div>
                                                     <span className="text-[10px] text-[var(--color-fg-subtle)] font-mono">{m.typeMouvement}</span>
@@ -411,7 +411,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                                         {isGain ? 'GAIN' : 'RETENUE'}
                                                     </Badge>
                                                 </Td>
-                                                <Td className={`text-right font-mono font-bold ${isGain ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
+                                                <Td className={`text-right font-data font-bold ${isGain ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
                                                     {isGain ? '+' : '-'}{formatMoneyAr(m.montant)}
                                                 </Td>
                                                 <Td className="text-[var(--color-fg-muted)] max-w-[160px] truncate">{m.motif || 'Non renseigné'}</Td>
@@ -477,9 +477,9 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                                             <Td className="font-mono font-bold text-[var(--color-fg)]">{s.numeroRecu || `STC-#${s.idStc}`}</Td>
                                             <Td>{fmtDate(s.dateDepart)}</Td>
                                             <Td className="text-[var(--color-fg-muted)]">{s.motifRupture}</Td>
-                                            <Td className="text-right font-mono">{formatMoneyAr(s.totalBrutStc)}</Td>
-                                            <Td className="text-right font-mono text-[var(--color-danger-600)]">{formatMoneyAr(s.soldePretsDeduit)}</Td>
-                                            <Td className="text-right font-mono font-bold text-[var(--color-fg)]">{formatMoneyAr(s.netAPayerStc)}</Td>
+                                            <Td className="text-right font-data">{formatMoneyAr(s.totalBrutStc)}</Td>
+                                            <Td className="text-right font-data text-[var(--color-danger-600)]">{formatMoneyAr(s.soldePretsDeduit)}</Td>
+                                            <Td className="text-right font-data font-bold text-[var(--color-fg)]">{formatMoneyAr(s.netAPayerStc)}</Td>
                                             <Td><Badge variant={s.statut === 'VALIDE' ? 'success' : 'warning'} size="xs">{s.statut}</Badge></Td>
                                             <Td className="text-right">
                                                 <Button type="button" variant="outline" size="xs" iconLeft={<FileText size={12} />} onClick={() => setSelectedStcRecuId(s.idStc)}>Quittance</Button>
