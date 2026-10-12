@@ -11,6 +11,7 @@ export default function CarriereTimeline({
     affectationActive,
     workflowCplActif,
     workflowsList = [],
+    stcList = [],
     contratsList = [],
     brouillonWf,
     workflowPlanifieFutur,
@@ -143,6 +144,7 @@ export default function CarriereTimeline({
                             displayContrats={displayContrats}
                             contratActif={contratActif}
                             workflowsList={workflowsList}
+                            stcList={stcList}
                             onOpenCertificat={onOpenCertificat}
                             onOpenAttestation={onOpenAttestation}
                             onOpenContrat={onOpenContrat}

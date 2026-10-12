@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import contratService from '@/features/employees/api/contratService';
+import stcService from '@/features/payroll/api/stcService';
 
 /**
  * Custom Hook React pour la gestion et le chargement centralisé du dossier carrière d'un employé.
@@ -15,6 +16,7 @@ export function useCarriere(idEmploye) {
     const [affectationActive, setAffectationActive] = useState(null);
     const [contratsList, setContratsList] = useState([]);
     const [workflowsList, setWorkflowsList] = useState([]);
+    const [stcList, setStcList] = useState([]);
     const [etatEssai, setEtatEssai] = useState({
         isEssaiActif: false,
         isDernierJour: false,
@@ -56,14 +58,16 @@ export function useCarriere(idEmploye) {
                 activeAffRes,
                 contratsRes,
                 workflowsRes,
-                etatEssaiRes
+                etatEssaiRes,
+                stcRes
             ] = await Promise.allSettled([
                 contratService.getBrouillonEnCours(idEmploye),
                 contratService.getContratActif(idEmploye),
                 contratService.getAffectationActive(idEmploye),
                 contratService.getContratsParEmploye(idEmploye),
                 contratService.getWorkflowsParEmploye(idEmploye),
-                contratService.getEtatEssai(idEmploye)
+                contratService.getEtatEssai(idEmploye),
+                stcService.listerStcEmploye(idEmploye)
             ]);
 
             const brouillonData = brouillonRes.status === 'fulfilled' ? brouillonRes.value : null;
@@ -72,6 +76,7 @@ export function useCarriere(idEmploye) {
             setAffectationActive(activeAffRes.status === 'fulfilled' ? activeAffRes.value : null);
             setContratsList(contratsRes.status === 'fulfilled' ? (contratsRes.value || []) : []);
             setWorkflowsList(workflowsRes.status === 'fulfilled' ? (workflowsRes.value || []) : []);
+            setStcList(stcRes.status === 'fulfilled' ? (stcRes.value || []) : []);
             if (etatEssaiRes.status === 'fulfilled' && etatEssaiRes.value) {
                 setEtatEssai(etatEssaiRes.value);
             }
@@ -95,6 +100,7 @@ export function useCarriere(idEmploye) {
         affectationActive,
         contratsList,
         workflowsList,
+        stcList,
         etatEssai,
         refreshData: loadCarriereData,
         updateContrat,

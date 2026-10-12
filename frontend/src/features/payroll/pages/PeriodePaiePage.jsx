@@ -546,18 +546,20 @@ export default function PeriodePaiePage() {
                     </div>
                 ) : (
                     <>
-                    <div className="grid grid-cols-1 gap-3 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 sm:grid-cols-[minmax(16rem,1fr)_minmax(12rem,0.35fr)]">
+                    <div className="flex flex-col items-stretch gap-2 border border-[var(--color-border-subtle)] bg-[var(--color-surface)] p-3 sm:flex-row sm:items-center">
                         <Input
                             aria-label="Rechercher une campagne"
                             placeholder="Rechercher par libellé, code ou dates…"
                             icon={<Search size={16} />}
                             value={campaignSearch}
                             onChange={(event) => setCampaignSearch(event.target.value)}
+                            className="w-full sm:max-w-[560px]"
                         />
                         <Select
                             aria-label="Filtrer les campagnes par statut"
                             value={campaignStatus}
                             onChange={(event) => setCampaignStatus(event.target.value)}
+                            className="w-full sm:w-[260px]"
                         >
                             <option value="">Tous les statuts</option>
                             {Object.entries(STATUT_CONFIG).map(([code, status]) => (

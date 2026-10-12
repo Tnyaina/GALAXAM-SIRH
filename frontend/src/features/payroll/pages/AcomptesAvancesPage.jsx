@@ -212,7 +212,7 @@ export default function AcomptesAvancesPage() {
 
     return <div className="space-y-6 max-w-7xl 2xl:max-w-[1600px] mx-auto w-full pb-12 px-2 sm:px-4">
         <SEO title="Acomptes et avances | GALAXAM GRH" description="Décisions, versements et remboursements des salariés." />
-        <PageHeader title="Acomptes et avances" subtitle="Demande → approbation → versement confirmé → retenues sur bulletin → solde"
+        <PageHeader title="Acomptes et avances" subtitle="Suivi des demandes, versements et remboursements sur bulletin."
             icon={Banknote} breadcrumbs={[{ label: 'Paie', href: '/paie' }, { label: 'Acomptes et avances' }]} />
         {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
         {synthese?.aVerifier > 0 && <Alert type="warning" message={`${synthese.aVerifier} dossier(s) historique(s) ont des retenues sans confirmation de versement fiable. Vérifiez les pièces avant toute nouvelle action.`} />}

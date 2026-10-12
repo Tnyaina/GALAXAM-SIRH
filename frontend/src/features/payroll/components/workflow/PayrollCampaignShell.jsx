@@ -76,11 +76,8 @@ export default function PayrollCampaignShell({
             {/* 2. Header Invariant de Campagne */}
             <header className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] rounded-none shadow-xs p-4 sm:p-5 mb-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-1">
+                        <div className="space-y-1">
                         <div className="flex items-center gap-2.5 flex-wrap">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">
-                                {context?.currentPeriod?.id === activePeriod?.id ? 'Période courante' : 'Période sélectionnée'}
-                            </span>
                             <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-fg)] tracking-tight">
                                 {periodCode}
                             </h1>

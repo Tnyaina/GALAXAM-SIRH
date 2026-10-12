@@ -7,7 +7,6 @@ import {
     Calendar,
     Search,
     Shield,
-    Building2,
     Layers,
     ArrowRight,
     ChevronDown,
@@ -150,6 +149,8 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
 
     useEffect(() => {
         setSelectedRetards(new Map());
+        setIsMissingDaysCollapsed(true);
+        setIsSemainesCollapsed(true);
     }, [selectedPeriodeId, selectedSiteId]);
 
     // Données dérivées
@@ -431,18 +432,16 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
 
     // Rendu
     return (
-        <div className="space-y-4 font-sans animate-in fade-in duration-300">
+        <div className="space-y-5 font-sans animate-in fade-in duration-300">
             <SEO
                 title="Suivi &amp; Anomalies — Pointage | GALAXAM GRH"
                 description="Suivi de la progression hebdomadaire, détection proactive et régularisation d'anomalies de pointage."
             />
 
-            {/* ---------- HEADER CONTEXTE & ACTIONS (STICKY TOP) ---------- */}
-            <div className="sticky top-0 z-20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 shadow-sm">
-                <div className="flex items-center gap-3 flex-wrap">
-                    {/* Période */}
-                    <div className="flex items-center gap-1.5 min-w-[220px]">
-                        <Calendar size={14} className="text-[var(--color-brand-500)] shrink-0" />
+            {/* Contexte de la vue : période et site, sans mélanger la recherche d'anomalies. */}
+            <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-5">
+                <div className="w-full sm:max-w-[360px]">
+                    <label className="mb-1 block text-xs font-semibold text-[var(--color-fg-muted)]">Période</label>
                         <SearchSelect
                             value={String(selectedPeriodeId || '')}
                             onChange={(val) => {
@@ -468,11 +467,9 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                             }))}
                             className="w-full"
                         />
-                    </div>
-
-                    {/* Site */}
-                    <div className="flex items-center gap-1.5 min-w-[200px]">
-                        <Building2 size={14} className="text-[var(--color-brand-500)] shrink-0" />
+                </div>
+                <div className="w-full sm:max-w-[300px]">
+                    <label className="mb-1 block text-xs font-semibold text-[var(--color-fg-muted)]">Site</label>
                         <SearchSelect
                             value={String(selectedSiteId)}
                             onChange={(val) => {
@@ -498,22 +495,13 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                                 })
                             ]}
                             placeholder="Tous les sites (Global)"
-                            className="text-xs min-w-[200px]"
+                            className="w-full text-xs"
                         />
-                    </div>
                 </div>
-                <Input
-                    icon={<Search size={13} className="text-[var(--color-fg-muted)]" />}
-                    placeholder="Rechercher un salarié ou matricule…"
-                    aria-label="Rechercher un salarié ou matricule"
-                    value={searchQuery}
-                    onChange={(event) => { setSearchQuery(event.target.value); setCurrentPage(1); }}
-                    className="w-full sm:w-64 text-xs"
-                />
             </div>
 
             {/* Les repères prioritaires avant le détail et les filtres. */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <StatCard
                     title="À traiter"
                     value={(Number(kpis?.anomaliesActives) || 0) + (isSiteFiltered ? currentSiteMissingCount : (preflight?.journeesManquantes?.length || 0))}
@@ -538,7 +526,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             </div>
 
             {/* Les journées absentes du pointage ne figurent pas dans la liste des anomalies enregistrées. */}
-            {filterStatutTraitement !== 'DONE' && (
+            {filterStatutTraitement !== 'DONE' && (missingDays.length > 0 || preflightError) && (
                 <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)]" aria-labelledby="missing-days-title">
                     <Button
                         type="button"
@@ -712,7 +700,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                             Aucune donnée de semaine disponible pour cette sélection.
                         </div>
                     )}
-                </div>
+            </div>
                 )}
             </div>
 
@@ -731,7 +719,15 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
                         </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <Input
+                            icon={<Search size={13} className="text-[var(--color-fg-muted)]" />}
+                            placeholder="Rechercher un salarié ou matricule…"
+                            aria-label="Rechercher un salarié ou matricule"
+                            value={searchQuery}
+                            onChange={(event) => { setSearchQuery(event.target.value); setCurrentPage(1); }}
+                            className="w-full sm:w-64 sm:flex-1 text-xs"
+                        />
                         <SearchSelect
                             aria-label="Filtrer les anomalies par traitement"
                             value={filterStatutTraitement}

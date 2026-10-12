@@ -9,11 +9,13 @@ import DocumentsRhTab from '../components/tabs/DocumentsRhTab';
 import documentService from '@/api/documentService';
 import documentRhService from '../api/documentRhService';
 import contratService from '../api/contratService';
+import stcService from '@/features/payroll/api/stcService';
 vi.mock('@/api/documentService', () => ({ default: { getContratData: vi.fn(), downloadContratDocx: vi.fn() } }));
 vi.mock('../api/documentRhService', () => ({ default: { getDocumentsByEmploye: vi.fn(), getTypesDocument: vi.fn(), uploadDocument: vi.fn(), downloadDocument: vi.fn(), viewDocument: vi.fn() } }));
 vi.mock('@/features/auth/components/HasPermission', () => ({ default: ({ children }) => children }));
 vi.mock('@/components/ui/overlays/Modal', () => ({ default: ({ isOpen, children, footer }) => isOpen ? <div>{children}{footer}</div> : null }));
 vi.mock('../api/contratService', () => ({ default: { getContratsParEmploye: vi.fn().mockResolvedValue([]), renseignerDateSignature: vi.fn() } }));
+vi.mock('@/features/payroll/api/stcService', () => ({ default: { listerStcEmploye: vi.fn().mockResolvedValue([]) } }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root, host;
@@ -31,6 +33,16 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
 describe('Contrats : génération et archivage', () => {
+    it('remplace le bouton STC par un statut lorsque le reçu a déjà été établi', async () => {
+        const contratRompu = { ...contrat, codeStatutContrat: 'ROMPU', isRompu: true, dateFin: '2026-02-20' };
+        await act(async () => root.render(<HistoriqueContratsTable
+            displayContrats={[contratRompu]}
+            stcList={[{ idStc: 1, statut: 'VALIDE', dateDepart: '2026-02-20' }]}
+            onOpenStc={vi.fn()}
+        />));
+        expect(button('STC')).toBeUndefined();
+        expect(document.body.textContent).toContain('STC établi');
+    });
     it('permet génération et modification au brouillon, puis télécharge le contrat choisi', async () => {
         const edit = vi.fn(); await render({ onEdit: edit });
         expect(button('Télécharger le DOCX').disabled).toBe(false);

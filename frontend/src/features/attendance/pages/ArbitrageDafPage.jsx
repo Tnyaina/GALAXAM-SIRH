@@ -4,7 +4,7 @@ import {
     CheckCircle, XCircle, AlertTriangle, CheckCircle2, Clock,
     Users, TrendingUp, Moon, Award, Search,
     Edit3, Calendar, Building2, X, GanttChartSquare,
-    LayoutGrid, ShieldCheck, Banknote, RefreshCw, Scale, Eye, Send
+    LayoutGrid, ShieldCheck, Banknote, RefreshCw, Scale, Eye, Send, ChevronDown
 } from 'lucide-react';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import Button from '@/components/ui/forms/Button';
@@ -49,6 +49,7 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
     const [selectedEmployeForDetail, setSelectedEmployeForDetail] = useState(null);
     const [selectedEmployeForSolde, setSelectedEmployeForSolde] = useState(null);
     const [showAuditColumns, setShowAuditColumns] = useState(false);
+    const [showAdditionalKpis, setShowAdditionalKpis] = useState(false);
     const [adjustInitialDate, setAdjustInitialDate] = useState(null);
     const [sites, setSites] = useState([]);
     const [selectedSite, setSelectedSite] = useState(() => Number(searchParams.get('site') || 0));
@@ -762,15 +763,14 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                     )}
                 </Card>
 
-                {/* Valeurs finales utilisées lors du scellement et indicateurs de suivi. */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-2.5">
+                {/* Repères principaux ; les indicateurs secondaires restent disponibles à la demande. */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5">
                     {[
                         { label: 'Salariés', value: kpis?.totalSalaries ?? '—', icon: Users, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
                         { label: 'Heures totales', value: kpis ? `${formatHeuresDecimal(kpis.totalHeures)} (${formatHeuresMinutes(kpis.totalHeures)})` : '—', icon: Clock, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
                         { label: 'Absence finale', value: kpis ? `${formatHeuresMinutes((kpis.totalAbsenceFinaleMins ?? 0) / 60)} (${formatHeuresDecimal((kpis.totalAbsenceFinaleMins ?? 0) / 60)})` : '—', icon: AlertTriangle, color: 'text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]' },
                         { label: 'HS 30 % finales', value: kpis ? `${formatHeuresMinutes(kpis.totalHs30)} (${formatHeuresDecimal(kpis.totalHs30)})` : '—', icon: TrendingUp, color: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' },
                         { label: 'HS 50 % finales', value: kpis ? `${formatHeuresMinutes(kpis.totalHs50)} (${formatHeuresDecimal(kpis.totalHs50)})` : '—', icon: TrendingUp, color: 'text-[var(--color-success-600)] dark:text-[var(--color-success-400)]' },
-                        { label: 'Retards cumulés', value: kpis ? `${formatHeuresDecimal(kpis.totalRetardMins / 60)} (${formatHeuresMinutes(kpis.totalRetardMins / 60)})` : '—', icon: AlertTriangle, color: 'text-[var(--color-warning-600)] dark:text-[var(--color-warning-400)]' },
                         { label: 'Indemnités totales', value: kpis ? formatMonnaie(kpis.totalIndemnites) : '—', icon: Banknote, color: 'text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]' },
                     ].map(kpi => (
                         <div key={kpi.label} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex items-center gap-3">
@@ -783,21 +783,39 @@ export default function ArbitrageDafPage({ activePeriode = null, onSelectPeriode
                     ))}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    {[
-                        { label: 'Heures de nuit', value: kpis ? `${formatHeuresMinutes(kpis.totalNuit)} (${formatHeuresDecimal(kpis.totalNuit)})` : '—', icon: Moon },
-                        { label: 'Heures du dimanche', value: kpis ? `${formatHeuresMinutes(kpis.totalDimanche)} (${formatHeuresDecimal(kpis.totalDimanche)})` : '—', icon: Calendar },
-                        { label: 'Heures des jours fériés', value: kpis ? `${formatHeuresMinutes(kpis.totalFerie)} (${formatHeuresDecimal(kpis.totalFerie)})` : '—', icon: Award },
-                    ].map(kpi => (
-                        <div key={kpi.label} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex items-center gap-3">
-                            <kpi.icon size={18} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shrink-0" />
-                            <div>
-                                <div className="text-[11px] text-[var(--color-fg-muted)] font-medium">{kpi.label}</div>
-                                <div className="text-sm font-bold font-sans tabular-nums text-[var(--color-fg)]">{kpi.value}</div>
-                            </div>
+                <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
+                    <button
+                        type="button"
+                        aria-expanded={showAdditionalKpis}
+                        aria-controls="additional-attendance-kpis"
+                        onClick={() => setShowAdditionalKpis(value => !value)}
+                        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-xs font-semibold text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-focus-ring)]"
+                    >
+                        <span>Détails complémentaires</span>
+                        <span className="flex items-center gap-2">
+                            <span>{showAdditionalKpis ? 'Masquer' : 'Afficher'}</span>
+                            <ChevronDown size={15} className={`transition-transform ${showAdditionalKpis ? 'rotate-180' : ''}`} />
+                        </span>
+                    </button>
+                    {showAdditionalKpis && (
+                        <div id="additional-attendance-kpis" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 border-t border-[var(--color-border-subtle)] p-2.5">
+                            {[
+                                { label: 'Retards cumulés', value: kpis ? `${formatHeuresDecimal(kpis.totalRetardMins / 60)} (${formatHeuresMinutes(kpis.totalRetardMins / 60)})` : '—', icon: AlertTriangle },
+                                { label: 'Heures de nuit', value: kpis ? `${formatHeuresMinutes(kpis.totalNuit)} (${formatHeuresDecimal(kpis.totalNuit)})` : '—', icon: Moon },
+                                { label: 'Heures du dimanche', value: kpis ? `${formatHeuresMinutes(kpis.totalDimanche)} (${formatHeuresDecimal(kpis.totalDimanche)})` : '—', icon: Calendar },
+                                { label: 'Heures des jours fériés', value: kpis ? `${formatHeuresMinutes(kpis.totalFerie)} (${formatHeuresDecimal(kpis.totalFerie)})` : '—', icon: Award },
+                            ].map(kpi => (
+                                <div key={kpi.label} className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-3 flex items-center gap-3">
+                                    <kpi.icon size={18} className="text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)] shrink-0" />
+                                    <div>
+                                        <div className="text-[11px] text-[var(--color-fg-muted)] font-medium">{kpi.label}</div>
+                                        <div className="text-sm font-bold font-sans tabular-nums text-[var(--color-fg)]">{kpi.value}</div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
+                    )}
+                </section>
 
                 {/* Toggle Synthèse / Gantt */}
                 <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] shadow-xs p-4">

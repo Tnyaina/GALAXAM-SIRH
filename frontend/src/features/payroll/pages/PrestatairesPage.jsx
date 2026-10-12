@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FileText, Plus, Users, FileCheck2, ReceiptText, Search } from 'lucide-react';
+import { FileText, Plus, Users, FileCheck2, ReceiptText, Search, ChevronDown } from 'lucide-react';
 import apiClient, { getErrorMessage } from '@/api/apiClient';
 import { useAuth } from '@/context/AuthContext';
 import PageHeader from '@/components/ui/navigation/PageHeader';
@@ -80,6 +80,7 @@ export default function PrestatairesPage() {
     const [paiements, setPaiements] = useState({});
     const [annulations, setAnnulations] = useState({});
     const [activeTab, setActiveTab] = useState('prestataires');
+    const [showWorkflowDetails, setShowWorkflowDetails] = useState(false);
     const [recherchePrestataire, setRecherchePrestataire] = useState('');
     const [modal, setModal] = useState(null);
     const [selectedFacture, setSelectedFacture] = useState(null);
@@ -244,15 +245,25 @@ export default function PrestatairesPage() {
 
             <Card shadow="sm">
                 <CardHeader><CardTitle size="lg">Dossiers prestataires</CardTitle><CardSubtitle>Créer le dossier, joindre le contrat, puis valider la facture avant de consigner son paiement.</CardSubtitle></CardHeader>
-                <div className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4 py-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Parcours de règlement</p>
-                    <ol className="mt-2 grid gap-2 text-xs sm:grid-cols-3 lg:grid-cols-5">
+                <div className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4 py-2.5">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">Parcours de règlement</p>
+                            <p className="mt-1 text-xs font-medium text-[var(--color-fg)]">Prestataire <span className="px-1 text-[var(--color-fg-muted)]">›</span> Contrat <span className="px-1 text-[var(--color-fg-muted)]">›</span> Facture <span className="px-1 text-[var(--color-fg-muted)]">›</span> Validation <span className="px-1 text-[var(--color-fg-muted)]">›</span> Paiement consigné</p>
+                        </div>
+                        <Button type="button" variant="ghost" size="xs" aria-expanded={showWorkflowDetails}
+                            aria-controls="prestataire-workflow-details" iconRight={<ChevronDown size={14} className={`transition-transform ${showWorkflowDetails ? 'rotate-180' : ''}`} />}
+                            onClick={() => setShowWorkflowDetails(value => !value)}>
+                            {showWorkflowDetails ? 'Masquer les étapes' : 'Détail des étapes'}
+                        </Button>
+                    </div>
+                    {showWorkflowDetails && <ol id="prestataire-workflow-details" className="mt-3 grid gap-3 border-t border-[var(--color-border-subtle)] pt-3 text-xs sm:grid-cols-2 lg:grid-cols-5">
                         <li><strong>1. Identifier</strong><span className="block text-[var(--color-fg-muted)]">Créer le prestataire et saisir son NIF.</span></li>
                         <li><strong>2. Contractualiser</strong><span className="block text-[var(--color-fg-muted)]">Enregistrer la mission et joindre le contrat signé en PDF.</span></li>
                         <li><strong>3. Facturer</strong><span className="block text-[var(--color-fg-muted)]">Saisir la facture reçue et joindre son PDF.</span></li>
                         <li><strong>4. Valider</strong><span className="block text-[var(--color-fg-muted)]">Contrôler les pièces et valider la facture.</span></li>
                         <li><strong>5. Régler</strong><span className="block text-[var(--color-fg-muted)]">Après paiement réel, consigner date et référence.</span></li>
-                    </ol>
+                    </ol>}
                 </div>
                 <Tabs ariaLabel="Parcours prestataires" activeTab={activeTab} onChange={setActiveTab} tabs={[
                     { id: 'prestataires', label: 'Prestataires', icon: Users, count: prestataires.length },

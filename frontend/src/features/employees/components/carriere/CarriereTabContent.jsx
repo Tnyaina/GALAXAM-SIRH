@@ -29,7 +29,7 @@ export default function CarriereTab({
     
     const {
         loading, errorMsg, brouillonWf, contratActif, affectationActive,
-        contratsList, workflowsList, etatEssai, refreshData, updateContrat,
+        contratsList, workflowsList, stcList, etatEssai, refreshData, updateContrat,
     } = useCarriere(idEmploye);
 
     const modalsState = useCarriereModals({
@@ -91,6 +91,7 @@ export default function CarriereTab({
                 affectationActive={affectationActive}
                 workflowCplActif={workflowCplActif}
                 workflowsList={workflowsList}
+                stcList={stcList}
                 contratsList={contratsList}
                 brouillonWf={brouillonWf}
                 workflowPlanifieFutur={workflowPlanifieFutur}

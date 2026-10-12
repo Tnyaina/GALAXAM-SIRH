@@ -347,16 +347,14 @@ INSERT INTO ref_statut_periode_paie (id_statut_periode, code, libelle) VALUES
 (7, 'PAIE_VALIDEE', 'Paie Validée & Approuvée — Prête pour virement et clôture');
 SELECT setval('ref_statut_periode_paie_id_statut_periode_seq', (SELECT GREATEST(MAX(id_statut_periode), 7) FROM ref_statut_periode_paie));
 
--- Première période de paie de cutover : décembre 2025 / janvier 2026.
--- Les bornes sont inclusives dans ex_periode_paie_dates ; la période précédente,
--- si elle est créée, doit donc se terminer le 2025-12-25.
+-- Première période de paie : août 2026, du 26 juillet au 25 août.
 INSERT INTO periode_paie (id_periode_paie, code, libelle, date_debut, date_fin, id_statut_periode)
 VALUES (
     1,
-    '2026-01',
-    'Janvier 2026 (26/12/2025 - 25/01/2026)',
-    DATE '2025-12-26',
-    DATE '2026-01-25',
+    '2026-08',
+    'Août 2026 (26/07/2026 - 25/08/2026)',
+    DATE '2026-07-26',
+    DATE '2026-08-25',
     (SELECT id_statut_periode FROM ref_statut_periode_paie WHERE code = 'EN_COURS')
 );
 SELECT setval('periode_paie_id_periode_paie_seq', (SELECT GREATEST(MAX(id_periode_paie), 1) FROM periode_paie));
@@ -385,14 +383,13 @@ UPDATE ref_indemnite SET code_rubrique_paie = 'INDEMNITE_REPAS' WHERE code = 'RE
 UPDATE ref_indemnite SET code_rubrique_paie = 'INDEMNITE_TRANSPORT' WHERE code IN ('DPLCT', 'DEPLACEMENT');
 SELECT setval('ref_indemnite_id_indemnite_seq', (SELECT GREATEST(MAX(id_indemnite), 2) FROM ref_indemnite));
 
--- Dérogations de cutover : les seuls employés présents dans cette table
--- sont exclus du déplacement (beneficie = FALSE). Les autres en bénéficient
--- selon la configuration de leur site.
+-- Les employés listés ci-dessous sont exclus de l'indemnité de déplacement.
+-- Les autres en bénéficient selon la configuration de leur site.
 INSERT INTO employe_indemnite_derogation
     (id_employe, id_indemnite, beneficie, motif, date_debut, date_fin)
 SELECT e.id_employe, i.id_indemnite, FALSE,
-       'Cutover paie janvier 2026 : exclusion de l’indemnité déplacement',
-       DATE '2025-12-26', NULL
+       'Exclusion de l’indemnité déplacement',
+       DATE '2026-07-26', NULL
 FROM employe e
 CROSS JOIN ref_indemnite i
 WHERE e.id_employe IN (1, 2)

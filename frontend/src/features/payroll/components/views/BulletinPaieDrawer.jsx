@@ -214,7 +214,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                         <ExternalLink size={11} /> Congés
                                     </a>
                                     <span className="text-[var(--color-fg-muted)]">·</span>
-                                    <span className="text-[11px] text-[var(--color-fg-muted)] ml-auto font-mono">
+                                    <span className="text-[11px] text-[var(--color-fg-muted)] ml-auto font-data">
                                         {joursTravailles != null ? `${joursTravailles}j travaillés${heuresNormales != null ? ` · ${formatHours(heuresNormales)} h` : ''}` : ''}
                                     </span>
                                 </div>
@@ -230,7 +230,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                 <section aria-labelledby="bulletin-composition">
                                     <h3 id="bulletin-composition" className="text-xs font-bold uppercase tracking-wide text-[var(--color-fg-muted)] mb-3">Composition du brut</h3>
                                     <Card shadow="none" padding className="space-y-2">
-                                        <div className="space-y-3 font-mono text-[11px]">
+                                        <div className="space-y-3 font-data text-[11px]">
                                             {gainsBruts.length || retenuesBrut.length ? (
                                                 <>
                                                     {[...gainsBruts, ...retenuesBrut].sort((a, b) => Number(a.ordre || 0) - Number(b.ordre || 0)).map((l, index) => (
@@ -265,14 +265,14 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                 <span className="font-semibold text-xs text-[var(--color-fg)]">
                                                     Absences régularisées par congé payé ({explication.nbJoursConge} j)
                                                 </span>
-                                                <span className={`font-mono font-bold text-xs ${explication.impactNetConge >= 0 ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
+                                                <span className={`font-data font-bold text-xs ${explication.impactNetConge >= 0 ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>
                                                     {explication.impactNetConge >= 0 ? `+${formatAr(explication.impactNetConge)}` : `-${formatAr(Math.abs(explication.impactNetConge))}`}
                                                 </span>
                                             </div>
                                             <p className="text-[11px] leading-relaxed text-[var(--color-fg-muted)]">Le salaire de base est ajusté pour ces jours, puis l’indemnité de congé est ajoutée. L’effet net correspond à la différence entre les deux lignes.</p>
                                             <div className="text-[11px] text-[var(--color-fg-muted)] pl-3 border-l-2 border-[var(--color-info-400)] dark:border-[var(--color-info-600)] space-y-2">
-                                                <div className="flex justify-between gap-3"><span>Déduction du salaire de base · {explication.nbJoursConge} j × {formatAr(explication.tauxJournalierTrentieme)}/j</span><strong className="shrink-0 font-mono text-[var(--color-danger-600)]">−{formatAr(explication.deductionCongeTrentieme)}</strong></div>
-                                                <div className="flex justify-between gap-3"><span>Indemnité de congé · {explication.nbJoursConge} j × {formatAr(explication.tauxJournalierConge)}/j</span><strong className="shrink-0 font-mono text-[var(--color-success-600)]">+{formatAr(explication.indemniteConge)}</strong></div>
+                                                <div className="flex justify-between gap-3"><span>Déduction du salaire de base · {explication.nbJoursConge} j × {formatAr(explication.tauxJournalierTrentieme)}/j</span><strong className="shrink-0 font-data text-[var(--color-danger-600)]">−{formatAr(explication.deductionCongeTrentieme)}</strong></div>
+                                                <div className="flex justify-between gap-3"><span>Indemnité de congé · {explication.nbJoursConge} j × {formatAr(explication.tauxJournalierConge)}/j</span><strong className="shrink-0 font-data text-[var(--color-success-600)]">+{formatAr(explication.indemniteConge)}</strong></div>
                                             </div>
                                             <p className="text-[10px] text-[var(--color-fg-subtle)]">Sources : congés validés et règle TCONGE.</p>
                                         </div>
@@ -285,7 +285,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                 <span className="font-semibold text-xs text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
                                                     Déficit de présence hors congés
                                                 </span>
-                                                <span className="font-mono font-bold text-xs text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                                                <span className="font-data font-bold text-xs text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
                                                     -{formatAr(explication.montantRetenueAbsence)}
                                                 </span>
                                             </div>
@@ -307,7 +307,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                     {!explication && Number(lignes.find(l => l.codeRubrique === 'RETENUE_ABSENCE')?.montantSalarial || 0) > 0 && (
                                         <div className="flex justify-between items-center p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[11px]">
                                             <span className="text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">Retenue pour absences et retards</span>
-                                            <span className="font-mono font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">-{formatAr(lignes.find(l => l.codeRubrique === 'RETENUE_ABSENCE')?.montantSalarial)}</span>
+                                            <span className="font-data font-bold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">-{formatAr(lignes.find(l => l.codeRubrique === 'RETENUE_ABSENCE')?.montantSalarial)}</span>
                                         </div>
                                     )}
 
@@ -315,7 +315,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                     {((bulletin.heuresHs30 || 0) > 0 || (bulletin.heuresHs50 || 0) > 0) && (
                                         <div className="flex justify-between items-center p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[11px]">
                                             <span className="text-[var(--color-fg)]">Heures supplémentaires (+30%: {formatHours(bulletin.heuresHs30)}h / +50%: {formatHours(bulletin.heuresHs50)}h)</span>
-                                            <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
+                                            <span className="font-data font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
                                                 +{formatAr(Number(explication?.montantHs30 || 0) + Number(explication?.montantHs50 || 0))}
                                             </span>
                                         </div>
@@ -325,7 +325,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                     {(bulletin.heuresNuit || 0) > 0 && (
                                         <div className="flex justify-between items-center p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[11px]">
                                             <span className="text-[var(--color-fg)]">Majoration de nuit (+30% / {bulletin.heuresNuit}h)</span>
-                                            <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
+                                            <span className="font-data font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">
                                                 +{formatAr(explication?.montantNuit)}
                                             </span>
                                         </div>
@@ -335,7 +335,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                     {indemniteNet > 0 && (
                                         <div className="flex justify-between items-center p-3.5 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] text-[11px]">
                                             <span className="text-[var(--color-fg)]">Indemnités et remboursements non imposables</span>
-                                            <span className="font-mono font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">+{formatAr(bulletin.totalIndemnitesNonImposables)}</span>
+                                            <span className="font-data font-bold text-[var(--color-success-600)] dark:text-[var(--color-success-400)]">+{formatAr(bulletin.totalIndemnitesNonImposables)}</span>
                                         </div>
                                     )}
 
@@ -350,81 +350,81 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                     <div className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] divide-y divide-[var(--color-border-subtle)]">
                                         <div className="flex justify-between items-center px-3.5 py-2.5 font-bold text-xs">
                                             <span className="uppercase tracking-wide text-[var(--color-fg)]">TOTAL BRUT</span>
-                                            <span className="font-mono text-sm text-[var(--color-fg)]">{formatAr(bulletin.totalGainsBruts)}</span>
+                                            <span className="font-data text-sm text-[var(--color-fg)]">{formatAr(bulletin.totalGainsBruts)}</span>
                                         </div>
                                         <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                             <span className="text-[var(--color-fg-muted)]">Cotisations salariales</span>
-                                            <span className="font-mono font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
+                                            <span className="font-data font-semibold text-[var(--color-danger-600)] dark:text-[var(--color-danger-400)]">
                                                 −{formatAr(bulletin.totalCotisationsSalariales)}
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center px-3.5 py-2.5 font-bold text-xs bg-[var(--color-bg-subtle)]">
                                             <span className="text-[var(--color-fg)]">Net après cotisations</span>
-                                            <span className="font-mono text-[var(--color-fg)]">{formatAr(netAvantImpot)}</span>
+                                            <span className="font-data text-[var(--color-fg)]">{formatAr(netAvantImpot)}</span>
                                         </div>
                                         {estIrsa && gainsBrutsExoneres > 0 && (
                                             <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                                 <span className="text-[var(--color-fg-muted)]">Gains du brut exclus de l’assiette IRSA</span>
-                                                <span className="font-mono">−{formatAr(gainsBrutsExoneres)}</span>
+                                                <span className="font-data">−{formatAr(gainsBrutsExoneres)}</span>
                                             </div>
                                         )}
                                         {estIrsa && hsExonereeIrsa > 0 && (
                                             <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                                 <span className="text-[var(--color-fg-muted)]">Heures supplémentaires exclues de la base IRSA</span>
-                                                <span className="font-mono">−{formatAr(hsExonereeIrsa)}</span>
+                                                <span className="font-data">−{formatAr(hsExonereeIrsa)}</span>
                                             </div>
                                         )}
                                         {estIrsa && (hsExonereeIrsa > 0 || gainsBrutsExoneres > 0) && (
                                             <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                                 <span className="text-[var(--color-fg-muted)]">Revenu soumis à l’IRSA</span>
-                                                <span className="font-mono">{formatAr(bulletin.revenuNetImposable)}</span>
+                                                <span className="font-data">{formatAr(bulletin.revenuNetImposable)}</span>
                                             </div>
                                         )}
                                         {estIrsa && (
                                             <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                                 <span className="text-[var(--color-fg-muted)]">Base fiscale IRSA (arrondie)</span>
-                                                <span className="font-mono">{formatAr(bulletin.baseIrsaArrondie)}</span>
+                                                <span className="font-data">{formatAr(bulletin.baseIrsaArrondie)}</span>
                                             </div>
                                         )}
                                         {estIrsa && Number(bulletin.irsaNet || 0) > 0 && (
                                             <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                                 <span className="text-[var(--color-fg-muted)]">IRSA prélevé</span>
-                                                <span className="font-mono font-semibold text-[var(--color-danger-600)]">−{formatAr(bulletin.irsaNet)}</span>
+                                                <span className="font-data font-semibold text-[var(--color-danger-600)]">−{formatAr(bulletin.irsaNet)}</span>
                                             </div>
                                         )}
                                         {retenueIsi > 0 && (
                                             <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                                 <span className="text-[var(--color-fg-muted)]">ISI prélevé</span>
-                                                <span className="font-mono font-semibold text-[var(--color-danger-600)]">−{formatAr(bulletin.retenueIsi5)}</span>
+                                                <span className="font-data font-semibold text-[var(--color-danger-600)]">−{formatAr(bulletin.retenueIsi5)}</span>
                                             </div>
                                         )}
                                         {indemniteNet > 0 && (
                                             <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                                 <span className="text-[var(--color-fg-muted)]">Indemnités et remboursements non imposables</span>
-                                                <span className="font-mono font-semibold text-[var(--color-success-600)]">+{formatAr(bulletin.totalIndemnitesNonImposables)}</span>
+                                                <span className="font-data font-semibold text-[var(--color-success-600)]">+{formatAr(bulletin.totalIndemnitesNonImposables)}</span>
                                             </div>
                                         )}
                                         {retenuesTresorerie > 0 && (
                                             <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                                 <span className="text-[var(--color-fg-muted)]">Acomptes, prêts et autres retenues</span>
-                                                <span className="font-mono font-semibold text-[var(--color-danger-600)]">−{formatAr(bulletin.totalRetenuesAcomptePret)}</span>
+                                                <span className="font-data font-semibold text-[var(--color-danger-600)]">−{formatAr(bulletin.totalRetenuesAcomptePret)}</span>
                                             </div>
                                         )}
                                         {bulletin.netAvantArrondi != null && (
                                             <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                                 <span className="text-[var(--color-fg-muted)]">Net avant arrondi</span>
-                                                <span className="font-mono font-semibold">{formatAr(bulletin.netAvantArrondi)}</span>
+                                                <span className="font-data font-semibold">{formatAr(bulletin.netAvantArrondi)}</span>
                                             </div>
                                         )}
                                         {ajustementArrondi !== null && ajustementArrondi !== 0 && (
                                             <div className="flex justify-between items-center px-3.5 py-2 text-[11px]">
                                                 <span className="text-[var(--color-fg-muted)]">Ajustement à la dizaine d’ariary</span>
-                                                <span className="font-mono font-semibold">{ajustementArrondi > 0 ? '+' : '−'}{formatAr(Math.abs(ajustementArrondi))}</span>
+                                                <span className="font-data font-semibold">{ajustementArrondi > 0 ? '+' : '−'}{formatAr(Math.abs(ajustementArrondi))}</span>
                                             </div>
                                         )}
                                         <div className="flex justify-between items-center px-3.5 py-3 bg-[var(--color-ink-950)] text-[var(--color-on-color)]">
                                             <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-ink-300)]">NET À PAYER</span>
-                                            <span className="font-mono font-black text-base text-[var(--color-on-color)]">{formatAr(bulletin.netAPayer)}</span>
+                                            <span className="font-data font-black text-base text-[var(--color-on-color)]">{formatAr(bulletin.netAPayer)}</span>
                                         </div>
                                     </div>
 
@@ -438,10 +438,10 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                         <span className="text-[var(--color-fg-muted)]">
                                                             {formatAr(tranche.borneInferieure)} → {tranche.borneSuperieure == null ? 'au-delà' : formatAr(tranche.borneSuperieure)}
                                                         </span>
-                                                        <span className="font-mono text-[var(--color-fg-muted)]">
+                                                        <span className="font-data text-[var(--color-fg-muted)]">
                                                             {formatAr(tranche.montantTaxable)} × {(Number(tranche.taux) * 100).toLocaleString('fr-FR')} %
                                                         </span>
-                                                        <span className="font-mono font-semibold text-[var(--color-fg)]">{formatAr(tranche.impotProduit)}</span>
+                                                        <span className="font-data font-semibold text-[var(--color-fg)]">{formatAr(tranche.impotProduit)}</span>
                                                     </div>
                                                 ))}
                                                 {(!fiscalite?.detailsTranches || fiscalite.detailsTranches.length === 0) && (
@@ -451,11 +451,11 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                 )}
                                                 <div className="grid grid-cols-2 gap-2 px-3.5 py-2.5 bg-[var(--color-bg-subtle)] text-[11px] border-t border-[var(--color-border-subtle)]">
                                                     <span className="text-[var(--color-fg-muted)]">IRSA calculé</span>
-                                                    <span className="text-right font-mono font-semibold">{formatAr(fiscalite?.irsaCalcule ?? bulletin.irsaCalcule ?? bulletin.irsaBrut)}</span>
+                                                    <span className="text-right font-data font-semibold">{formatAr(fiscalite?.irsaCalcule ?? bulletin.irsaCalcule ?? bulletin.irsaBrut)}</span>
                                                     <span className="text-[var(--color-fg-muted)]">Réduction charges familiales</span>
-                                                    <span className="text-right font-mono">-{formatAr(fiscalite?.reductionChargeFamille ?? bulletin.reductionChargeFamille ?? bulletin.reductionEnfants)}</span>
+                                                    <span className="text-right font-data">-{formatAr(fiscalite?.reductionChargeFamille ?? bulletin.reductionChargeFamille ?? bulletin.reductionEnfants)}</span>
                                                     <span className="font-bold text-[var(--color-fg)]">IRSA dû (net)</span>
-                                                    <span className="text-right font-mono font-bold text-[var(--color-danger-600)]">{formatAr(fiscalite?.irsaDu ?? bulletin.irsaDu ?? bulletin.irsaNet)}</span>
+                                                    <span className="text-right font-data font-bold text-[var(--color-danger-600)]">{formatAr(fiscalite?.irsaDu ?? bulletin.irsaDu ?? bulletin.irsaNet)}</span>
                                                 </div>
                                             </div>
                                         </Card>
@@ -467,12 +467,12 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                             <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)] block">Coût Employeur</span>
                                             <div className="flex justify-between items-center">
                                                 <span className="text-[var(--color-fg-muted)]">Cotisations patronales</span>
-                                                <span className="font-mono font-semibold">{formatAr(bulletin.totalCotisationsPatronales)}</span>
+                                                <span className="font-data font-semibold">{formatAr(bulletin.totalCotisationsPatronales)}</span>
                                             </div>
                                             {Number(bulletin.coutGlobalEmployeur) > 0 && (
                                                 <div className="flex justify-between items-center font-bold border-t border-[var(--color-border-subtle)] pt-1.5">
                                                     <span className="text-[var(--color-fg)]">Coût total employeur</span>
-                                                    <span className="font-mono">{formatAr(bulletin.coutGlobalEmployeur)}</span>
+                                                    <span className="font-data">{formatAr(bulletin.coutGlobalEmployeur)}</span>
                                                 </div>
                                             )}
                                         </div>
@@ -492,7 +492,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                         Résultats salarié · {rows.length} rubriques
                                                     </h3>
                                                     <Card shadow="none">
-                                                        <div className="px-3 py-1.5 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex items-center justify-between text-[10px] font-mono text-[var(--color-fg-muted)]">
+                                                        <div className="px-3 py-1.5 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex items-center justify-between text-[10px] font-data text-[var(--color-fg-muted)]">
                                                             <span>Bulletin n° {bulletin.idBulletin}</span>
                                                             {bulletin.codePeriode && <span>Période {bulletin.codePeriode}</span>}
                                                         </div>
@@ -517,11 +517,11 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                                     const gnVal = rawGn != null ? Number(rawGn) : 0;
                                                                     const baseVal = l.categorie !== 'NET' && l.baseCalcul != null ? Number(l.baseCalcul) : null;
                                                                     return (
-                                                                        <Tr key={i} className="font-mono text-[11px]">
+                                                                        <Tr key={i} className="font-data text-[11px]">
                                                                             <Td className="font-sans font-medium text-[var(--color-fg)]">
                                                                                 {l.libelleRubrique}
                                                                                 {isInfo && (
-                                                                                    <Badge variant="default" size="xs" className="ml-1.5 font-mono">
+                                                                                    <Badge variant="default" size="xs" className="ml-1.5 font-data">
                                                                                         info
                                                                                     </Badge>
                                                                                 )}
@@ -544,7 +544,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                         Charges patronales · {rows.length} rubriques
                                                     </h3>
                                                     <Card shadow="none">
-                                                        <div className="px-3 py-1.5 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex items-center justify-between text-[10px] font-mono text-[var(--color-fg-muted)]">
+                                                        <div className="px-3 py-1.5 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border-subtle)] flex items-center justify-between text-[10px] font-data text-[var(--color-fg-muted)]">
                                                             <span>Part employeur</span>
                                                             {bulletin.codePeriode && <span>Période {bulletin.codePeriode}</span>}
                                                         </div>
@@ -566,7 +566,7 @@ export default function BulletinPaieDrawer({ isOpen, onClose, idBulletin, onReca
                                                                     const tauxVal = l.tauxPatronal != null ? Number(l.tauxPatronal)
                                                                         : l.tauxSalarial != null ? Number(l.tauxSalarial) : null;
                                                                     return (
-                                                                        <Tr key={i} className="font-mono text-[11px]">
+                                                                        <Tr key={i} className="font-data text-[11px]">
                                                                             <Td className="font-sans font-medium text-[var(--color-fg)]">{l.libelleRubrique}</Td>
                                                                             <Td className="text-right text-[var(--color-fg-muted)]">{baseVal != null ? formatAr(baseVal) : '—'}</Td>
                                                                             <Td className="text-right text-[var(--color-fg-muted)]">{tauxVal != null ? `${tauxVal}%` : '—'}</Td>

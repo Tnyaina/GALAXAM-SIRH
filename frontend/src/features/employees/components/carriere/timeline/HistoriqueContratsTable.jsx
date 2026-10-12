@@ -13,6 +13,7 @@ export default function HistoriqueContratsTable({
     contratsList,
     contratActif = null,
     workflowsList = [],
+    stcList = [],
     onOpenCertificat,
     onOpenAttestation,
     onOpenContrat,
@@ -103,6 +104,13 @@ export default function HistoriqueContratsTable({
                             const isContratEnCours = Boolean(ct.isActif) && !isPlanifie && !isAnnule;
                             const estDateFinEchue = ct.dateFin && new Date(ct.dateFin).getTime() < today;
                             const canGenerateCertificat = !isContratEnCours && !isPlanifie && !isAnnule && (isClotureOuRomp || estDateFinEchue);
+                            // Le modèle STC est rattaché au salarié (pas à idContrat) : la date
+                            // de départ permet d'identifier le contrat soldé dans l'historique.
+                            const dateFinContrat = ct.dateFin ? String(ct.dateFin).slice(0, 10) : null;
+                            const stcExiste = stcList.some(stc =>
+                                stc.statut !== 'ANNULE' && dateFinContrat &&
+                                String(stc.dateDepart || '').slice(0, 10) === dateFinContrat
+                            );
 
                             return (
                                 <Tr
@@ -281,7 +289,7 @@ export default function HistoriqueContratsTable({
                                         ) : canGenerateCertificat ? (
                                             /* Salarié ayant quitté l'entreprise : STC et Certificat de travail légal */
                                             <div className="flex justify-end gap-1.5 items-center">
-                                                {onOpenStc && (
+                                                {onOpenStc && !stcExiste && (
                                                     <Button
                                                         onClick={() => onOpenStc(ct)}
                                                         variant="outline"
@@ -292,6 +300,11 @@ export default function HistoriqueContratsTable({
                                                     >
                                                         STC
                                                     </Button>
+                                                )}
+                                                {stcExiste && (
+                                                    <span className="text-[10.5px] text-[var(--color-success-700)] px-2 py-1 bg-[var(--color-success-500)]/10 border border-[var(--color-success-500)]/30 font-sans">
+                                                        STC établi
+                                                    </span>
                                                 )}
                                                 {onOpenCertificat && (
                                                     <Button

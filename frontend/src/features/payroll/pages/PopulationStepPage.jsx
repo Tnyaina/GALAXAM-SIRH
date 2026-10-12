@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { CheckCircle2, UserX, AlertTriangle } from 'lucide-react';
 import PayrollCampaignShell from '@/features/payroll/components/workflow/PayrollCampaignShell';
 import Badge from '@/components/ui/data-display/Badge';
+import StatCard from '@/components/ui/data-display/StatCard';
 import { Tr, Td } from '@/components/ui/data-display/Table';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
@@ -146,6 +147,20 @@ export default function PopulationStepPage() {
             }}
         >
             <div className="space-y-4">
+                <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Synthèse de la population">
+                    <StatCard title="Effectif évalué" value={loading ? '—' : population.length} subtext="Salariés sur la période" color="brand" />
+                    <StatCard title="Inclus" value={loading ? '—' : includedCount} subtext="Éligibles au calcul" color="success" />
+                    <StatCard title="Exclus" value={loading ? '—' : excludedCount} subtext="Hors périmètre de la campagne" color="neutral" />
+                    <StatCard title="À résoudre" value={loading ? '—' : blockedCount} subtext={blockedCount > 0 ? 'Bloque la suite du workflow' : 'Aucun blocage détecté'} color={blockedCount > 0 ? 'danger' : 'success'} />
+                </section>
+
+                {blockedCount > 0 && (
+                    <div role="status" className="flex flex-wrap items-center justify-between gap-2 border border-[var(--color-danger-500)]/40 bg-[var(--color-danger-500)]/5 px-4 py-3">
+                        <p className="text-sm font-semibold text-[var(--color-danger-700)]">{blockedCount} salarié(s) bloqué(s) : résolvez leur dossier avant de poursuivre.</p>
+                        <Badge variant="danger" size="sm">Étape suivante indisponible</Badge>
+                    </div>
+                )}
+
                 <details className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] px-4 py-3 text-xs text-[var(--color-fg-muted)]">
                     <summary className="font-semibold text-[var(--color-fg)] cursor-pointer">Règles d’inclusion de la population</summary>
                     <p className="mt-2 leading-relaxed">

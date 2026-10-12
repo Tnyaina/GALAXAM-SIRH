@@ -162,10 +162,28 @@ export default function ControleStepPage() {
                     />
                 </div>
 
+                <section className={`flex flex-wrap items-center justify-between gap-3 border px-4 py-3 ${canContinue ? 'border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5' : 'border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10'}`} role="status">
+                    <div>
+                        <h2 className="text-sm font-bold text-[var(--color-fg)]">{canContinue ? 'Campagne prête pour validation' : 'Contrôle à compléter'}</h2>
+                        <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+                            {canContinue
+                                ? 'Les prérequis de validation sont satisfaits. Vous pouvez transmettre la campagne à l’étape suivante.'
+                                : blockers > 0
+                                    ? `${blockers} point(s) bloquant(s) empêchent la validation.`
+                                    : alerts > 0
+                                        ? `${alerts} signal(aux) à examiner avant la validation.`
+                                        : 'La validation reste indisponible selon les règles et autorisations de la campagne.'}
+                        </p>
+                    </div>
+                    <Badge variant={canContinue ? 'success' : blockers > 0 ? 'danger' : 'warning'} size="sm">
+                        {canContinue ? 'Prêt' : blockers > 0 ? 'Bloqué' : 'À vérifier'}
+                    </Badge>
+                </section>
+
                 <PayrollStepTable
-                    title="État nominatif"
+                    title="Revue des bulletins"
                     badgeCount={matchingCount}
-                    subtitle="Montants enregistrés pour la campagne"
+                    subtitle="Montants enregistrés · ouvrez le bulletin pour examiner le détail"
                     searchValue={query}
                     onSearchChange={eventOrValue => {
                         const val = typeof eventOrValue === 'string' ? eventOrValue : eventOrValue?.target?.value || '';

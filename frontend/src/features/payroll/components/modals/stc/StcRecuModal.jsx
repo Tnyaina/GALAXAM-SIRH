@@ -54,6 +54,8 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
         window.print();
     };
 
+    const printSheetId = 'stc-recu-print-sheet';
+
     // Rendu : garde de fermeture.
     if (!isOpen) return null;
 
@@ -89,6 +91,37 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
                 </div>
             }
         >
+            <style>{`
+                @media print {
+                    @page { size: A4 portrait; margin: 12mm 15mm; }
+                    html, body {
+                        background: #fff !important;
+                        height: auto !important;
+                        min-height: auto !important;
+                        overflow: visible !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+                    body * { visibility: visible !important; }
+                    body > * { display: none !important; }
+                    body > div:has(#${printSheetId}) { display: block !important; }
+                    body > div:has(#${printSheetId}) * { visibility: visible !important; }
+                    body > div:has(#${printSheetId}) > div { display: block !important; position: static !important; inset: auto !important; width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; background: #fff !important; }
+                    body > div:has(#${printSheetId}) > div > div:first-child,
+                    body > div:has(#${printSheetId}) > div > div:last-child { display: none !important; }
+                    #${printSheetId} {
+                        position: static !important;
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        box-shadow: none !important;
+                        border: 0 !important;
+                        overflow: visible !important;
+                    }
+                    #${printSheetId} * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+                }
+            `}</style>
             {loading && (
                 <div className="py-12 text-center text-xs text-[var(--color-fg-muted)]">
                     Chargement du décompte...
@@ -102,7 +135,7 @@ export default function StcRecuModal({ isOpen, onClose, idStc, initialRecu = nul
             )}
 
             {recu && (
-                <div ref={printAreaRef} className="space-y-4 text-xs p-1">
+                <div id={printSheetId} ref={printAreaRef} className="space-y-4 text-xs p-1 bg-white text-black">
                     {/* Entête Document */}
                     <div className="border-b border-[var(--color-border)] pb-4 flex justify-between items-start">
                         <div>

@@ -328,14 +328,6 @@ export default function CalculStepPage() {
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2">
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => setShowResultsTable(!showResultsTable)}
-                                    iconRight={showResultsTable ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                >
-                                    {showResultsTable ? 'Masquer la décomposition' : 'Voir les résultats détaillés'}
-                                </Button>
                                 {isSimulationActive && canSimulate && <Button
                                     variant="secondary"
                                     size="sm"
@@ -509,6 +501,18 @@ export default function CalculStepPage() {
                                 subtext="Masse nette des virements"
                                 color="success"
                             />
+                        </div>
+
+                        <div className="flex justify-end">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                aria-expanded={showResultsTable}
+                                onClick={() => setShowResultsTable(value => !value)}
+                                iconRight={showResultsTable ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            >
+                                {showResultsTable ? 'Masquer les résultats individuels' : 'Voir les résultats individuels'}
+                            </Button>
                         </div>
 
                         {/* Décomposition technique des résultats */}

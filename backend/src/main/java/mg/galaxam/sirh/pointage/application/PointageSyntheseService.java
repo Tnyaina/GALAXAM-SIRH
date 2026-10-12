@@ -1269,7 +1269,10 @@ public class PointageSyntheseService {
             "FROM employe e " +
             "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
             "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
-            "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
+            // La synthèse d'une période passée doit garder les affectations qui
+            // étaient valides à cette période, même si un changement ultérieur
+            // les a passées à HISTORISE/CLOTURE/ROMPU.
+            "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code IN ('ACTIF', 'HISTORISE', 'CLOTURE', 'ROMPU') " +
             "LEFT JOIN contrat_travail ct ON ct.id_contrat = a.id_contrat " +
             "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
             "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
@@ -1443,7 +1446,7 @@ public class PointageSyntheseService {
             "SELECT COUNT(DISTINCT e.id_employe) FROM employe e " +
             "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
             "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
-            "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
+            "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code IN ('ACTIF', 'HISTORISE', 'CLOTURE', 'ROMPU') " +
             "WHERE e.est_actif = TRUE "
         );
         if (idSite != null && idSite > 0) sqlTot.append("AND (a.id_site = ? OR EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? AND pj.id_site = ?)) ");
@@ -1554,7 +1557,7 @@ public class PointageSyntheseService {
             "    FROM employe e " +
             "    JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
             "        AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
-            "    JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
+            "    JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code IN ('ACTIF', 'HISTORISE', 'CLOTURE', 'ROMPU') " +
             "    LEFT JOIN contrat_travail ct ON ct.id_contrat = a.id_contrat " +
             "    LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
             "    LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +
@@ -2343,7 +2346,7 @@ public class PointageSyntheseService {
             String sqlNbEmp = "SELECT COUNT(DISTINCT e.id_employe) FROM employe e " +
                               "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
                               "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
-                              "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
+                              "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code IN ('ACTIF', 'HISTORISE', 'CLOTURE', 'ROMPU') " +
                               "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
                               "WHERE COALESCE(f.dispense_pointage, FALSE) = FALSE " +
                               (idSite != null && idSite > 0 ? "AND (a.id_site = ? OR EXISTS (SELECT 1 FROM pointage_jour pj WHERE pj.id_employe = e.id_employe AND pj.id_periode_paie = ? AND pj.id_site = ?)) " : "");
@@ -2486,7 +2489,7 @@ public class PointageSyntheseService {
             "FROM employe e " +
             "JOIN employe_affectation_carriere a ON e.id_employe = a.id_employe " +
             "    AND a.date_debut <= ? AND (a.date_fin IS NULL OR a.date_fin >= ?) " +
-            "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code = 'ACTIF' " +
+            "JOIN ref_statut_rh rsa ON a.id_statut_rh = rsa.id_statut_rh AND rsa.code IN ('ACTIF', 'HISTORISE', 'CLOTURE', 'ROMPU') " +
             "LEFT JOIN contrat_travail ct ON ct.id_contrat = a.id_contrat " +
             "LEFT JOIN ref_fonction f ON a.id_fonction = f.id_fonction " +
             "LEFT JOIN ref_categorie_professionnelle cp ON a.id_categorie_professionnelle = cp.id_categorie_professionnelle " +

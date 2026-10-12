@@ -517,9 +517,19 @@ export default function VariablesPaieTab({ idPeriodeActive, canMutate = false, m
                 <p className="mt-2">Les repas et déplacements ordinaires proviennent du pointage. Saisissez ici les primes et retenues exceptionnelles justifiées. Le régime fiscal et social provient du type configuré.</p>
             </details>
 
-            {pendingCount > 0 && (
-                <Alert type="warning" message={`${pendingCount} variable(s) en attente d’approbation. Le calcul réel reste bloqué jusqu’à leur approbation ou suppression.`} />
-            )}
+            <section className={`flex flex-wrap items-center justify-between gap-3 border px-3 py-2.5 ${pendingCount > 0 ? 'border-[var(--color-warning-500)]/40 bg-[var(--color-warning-500)]/10' : 'border-[var(--color-success-500)]/30 bg-[var(--color-success-500)]/5'}`} aria-live="polite">
+                <div>
+                    <h3 className="text-xs font-bold text-[var(--color-fg)]">Prérequis du calcul réel</h3>
+                    <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+                        {loading ? 'Vérification des variables en cours…' : refreshError ? 'Statut indisponible : vérifiez les variables avant de calculer.' : pendingCount > 0
+                            ? `${pendingCount} variable(s) attendent une approbation ou une suppression.`
+                            : 'Toutes les variables actives sont approuvées.'}
+                    </p>
+                </div>
+                <Badge variant={loading || refreshError ? 'neutral' : pendingCount > 0 ? 'warning' : 'success'} size="sm">
+                    {loading ? 'Vérification' : refreshError ? 'À vérifier' : pendingCount > 0 ? `${pendingCount} à approuver` : 'Prêt'}
+                </Badge>
+            </section>
             {refreshError && <p role="status" className="text-xs text-[var(--color-warning-700)]">Mise à jour indisponible ; les dernières données chargées restent affichées.</p>}
             {!canMutate && idPeriodeActive && <Alert type="info" message={disabledExplanation || 'La période est en lecture seule.'} />}
 

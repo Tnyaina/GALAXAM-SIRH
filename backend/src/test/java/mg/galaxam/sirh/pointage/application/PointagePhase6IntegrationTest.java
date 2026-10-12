@@ -472,6 +472,28 @@ class PointagePhase6IntegrationTest {
     }
 
     @Test
+    @DisplayName("La synthèse conserve un salarié dont l'affectation valide est historisée après la période")
+    void testSyntheseInclutAffectationHistoriseeSurLaPeriode() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE employe_affectation_carriere SET id_statut_rh = " +
+                    "(SELECT id_statut_rh FROM ref_statut_rh WHERE code = 'HISTORISE') " +
+                    "WHERE id_affectation = ?")) {
+                ps.setInt(1, initialAssignmentId);
+                assertEquals(1, ps.executeUpdate());
+            }
+
+            var synthese = pointageSyntheseService.getSynthesePeriode(testPeriodId, null, c);
+            var page = pointageSyntheseService.getSynthesePeriodePaginee(testPeriodId, null, null, null, 1, 100, c);
+            @SuppressWarnings("unchecked")
+            var pagedRows = (java.util.List<PointageSyntheseMensuelleDTO>) page.get("synthese");
+
+            assertTrue(synthese.stream().anyMatch(row -> row.getIdEmploye() == employeId));
+            assertTrue(pagedRows.stream().anyMatch(row -> row.getIdEmploye() == employeId));
+        }
+    }
+
+    @Test
     @DisplayName("Transmission refusée si une période partiellement saisie contient des journées ouvrables manquantes")
     void testTransmissionRefuseJourneesManquantes() throws Exception {
         try (Connection c = dataSource.getConnection()) {
