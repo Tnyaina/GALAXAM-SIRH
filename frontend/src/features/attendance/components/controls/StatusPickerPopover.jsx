@@ -4,104 +4,10 @@ import {
     ChevronDown, 
     Check, 
     X, 
-    CheckCircle2, 
-    AlertTriangle, 
-    XCircle,
     Palmtree
 } from 'lucide-react';
 import Badge from '@/components/ui/data-display/Badge';
-
-const STATUS_PRESENTATION = {
-    PRESENT: {
-        label: 'Présent',
-        variant: 'success',
-        icon: CheckCircle2,
-        dotColor: 'bg-[var(--color-success-500)]',
-        textColor: 'text-[var(--color-success-700)] dark:text-[var(--color-success-400)]',
-        bgHover: 'hover:bg-[var(--color-success-500)]/10'
-    },
-    DISPENSE_POINTAGE: {
-        label: 'Autonome',
-        variant: 'purple',
-        icon: CheckCircle2,
-        dotColor: 'bg-[var(--color-purple-500)]',
-        textColor: 'text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)]',
-        bgHover: 'hover:bg-[var(--color-purple-500)]/10'
-    },
-    AUTONOME: {
-        label: 'Autonome',
-        variant: 'purple',
-        icon: CheckCircle2,
-        dotColor: 'bg-[var(--color-purple-500)]',
-        textColor: 'text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)]',
-        bgHover: 'hover:bg-[var(--color-purple-500)]/10'
-    },
-    ABSENCE_JUSTIFIEE: {
-        label: 'Absence justifiée',
-        variant: 'warning',
-        icon: AlertTriangle,
-        dotColor: 'bg-[var(--color-warning-500)]',
-        textColor: 'text-[var(--color-warning-700)] dark:text-[var(--color-warning-400)]',
-        bgHover: 'hover:bg-[var(--color-warning-500)]/10',
-        requiresMotif: true
-    },
-    ABSENCE_NON_JUSTIFIEE: {
-        label: 'Absent',
-        variant: 'danger',
-        icon: XCircle,
-        dotColor: 'bg-[var(--color-danger-500)]',
-        textColor: 'text-[var(--color-danger-700)] dark:text-[var(--color-danger-400)]',
-        bgHover: 'hover:bg-[var(--color-danger-500)]/10'
-    },
-    CONGE: {
-        label: 'Congé',
-        variant: 'info',
-        icon: CheckCircle2,
-        dotColor: 'bg-[var(--color-sky-500)]',
-        textColor: 'text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)]',
-        bgHover: 'hover:bg-[var(--color-sky-500)]/10'
-    },
-    CONGE_PAYE: {
-        label: 'Congé',
-        variant: 'info',
-        icon: CheckCircle2,
-        dotColor: 'bg-[var(--color-sky-500)]',
-        textColor: 'text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)]',
-        bgHover: 'hover:bg-[var(--color-sky-500)]/10'
-    },
-    FERIE_CHOME: {
-        label: 'Férié chômé',
-        variant: 'neutral',
-        icon: CheckCircle2,
-        dotColor: 'bg-[var(--color-purple-500)]',
-        textColor: 'text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)]',
-        bgHover: 'hover:bg-[var(--color-purple-500)]/10'
-    },
-    FERIE_TRAVAILLE: {
-        label: 'Férié +100%',
-        variant: 'purple',
-        icon: CheckCircle2,
-        dotColor: 'bg-[var(--color-purple-500)]',
-        textColor: 'text-[var(--color-purple-700)] dark:text-[var(--color-purple-300)]',
-        bgHover: 'hover:bg-[var(--color-purple-500)]/10'
-    },
-    REPOS: {
-        label: 'Repos',
-        variant: 'neutral',
-        icon: CheckCircle2,
-        dotColor: 'bg-[var(--color-fg-subtle)]',
-        textColor: 'text-[var(--color-fg-muted)]',
-        bgHover: 'hover:bg-[var(--color-bg-subtle)]'
-    },
-    NON_SAISI: {
-        label: 'Non saisi',
-        variant: 'neutral',
-        icon: AlertTriangle,
-        dotColor: 'bg-[var(--color-fg-subtle)]',
-        textColor: 'text-[var(--color-fg-muted)]',
-        bgHover: 'hover:bg-[var(--color-bg-subtle)]'
-    }
-};
+import { ATTENDANCE_STATUS, getAttendanceStatus, getDefaultAttendanceStatusActions } from '@/features/attendance/utils/attendanceStatus';
 
 const SUGGESTIONS_MOTIF = [
     'Certificat médical',
@@ -135,17 +41,7 @@ export default function StatusPickerPopover({
     const popoverRef = useRef(null);
 
     const isAutonome = Boolean(row?.estAutonome);
-    const defaultStatusActions = isAutonome ? [
-        { code: 'DISPENSE_POINTAGE', label: 'Autonome (8h présumé)', description: 'Présomption légale de travail 8h' },
-        { code: 'ABSENCE_JUSTIFIEE', label: 'Absence justifiée', description: 'Absence autorisée avec motif', requiresMotif: true },
-        { code: 'ABSENCE_NON_JUSTIFIEE', label: 'Absence non justifiée', description: 'Absence non justifiée constatée' },
-        { code: 'CONGE', label: 'Congé payé', description: 'Imputer sur solde congé payé' }
-    ] : [
-        { code: 'PRESENT', label: 'Présent', description: 'Collaborateur présent sur le site' },
-        { code: 'ABSENCE_JUSTIFIEE', label: 'Absence justifiée', description: 'Absence autorisée avec motif', requiresMotif: true },
-        { code: 'ABSENCE_NON_JUSTIFIEE', label: 'Absence non justifiée', description: 'Absence non justifiée constatée' },
-        { code: 'CONGE', label: 'Congé payé', description: 'Imputer sur solde congé payé' }
-    ];
+    const defaultStatusActions = getDefaultAttendanceStatusActions(isAutonome);
 
     const statusOptions = (row?.statusActions && row.statusActions.length > 0) ? row.statusActions : defaultStatusActions;
 
@@ -246,29 +142,9 @@ export default function StatusPickerPopover({
 
     // Résolution robuste du statut actif, de sa présentation et de son libellé
     const activeStatutCode = (currentStatus || row?.codeStatut || (isAutonome ? 'DISPENSE_POINTAGE' : 'NON_SAISI')).toUpperCase();
-    const configPres = STATUS_PRESENTATION[activeStatutCode] || {};
-
-    const variant = row?.statutBadgeVariant || configPres.variant || (
-        activeStatutCode === 'PRESENT' ? 'success' :
-        activeStatutCode === 'DISPENSE_POINTAGE' || activeStatutCode === 'AUTONOME' ? 'purple' :
-        activeStatutCode === 'ABSENCE_JUSTIFIEE' || activeStatutCode === 'RETARD' ? 'warning' :
-        activeStatutCode === 'ABSENCE_NON_JUSTIFIEE' ? 'danger' :
-        activeStatutCode === 'CONGE' || activeStatutCode === 'CONGE_PAYE' ? 'info' :
-        activeStatutCode === 'FERIE_TRAVAILLE' ? 'purple' :
-        'neutral'
-    );
-    const label = row?.statutBadgeLabel || row?.libelleStatut || configPres.label || (
-        activeStatutCode === 'PRESENT' ? 'Présent' :
-        activeStatutCode === 'DISPENSE_POINTAGE' || activeStatutCode === 'AUTONOME' ? 'Autonome' :
-        activeStatutCode === 'ABSENCE_JUSTIFIEE' ? 'Absence justifiée' :
-        activeStatutCode === 'ABSENCE_NON_JUSTIFIEE' ? 'Absent' :
-        activeStatutCode === 'CONGE' || activeStatutCode === 'CONGE_PAYE' ? 'Congé' :
-        activeStatutCode === 'FERIE_CHOME' ? 'Férié chômé' :
-        activeStatutCode === 'FERIE_TRAVAILLE' ? 'Férié +100%' :
-        activeStatutCode === 'REPOS' ? 'Repos' :
-        activeStatutCode === 'NON_SAISI' ? 'Non saisi' :
-        activeStatutCode
-    );
+    const configPres = getAttendanceStatus(activeStatutCode);
+    const variant = row?.statutBadgeVariant || configPres.variant;
+    const label = row?.statutBadgeLabel || row?.libelleStatut || configPres.label;
 
     const isCongeApprouve = Boolean(row?.congeApprouve || (row?.conge && row?.libelleConge && !row?._isDraftConge));
 
@@ -341,7 +217,7 @@ export default function StatusPickerPopover({
                     {/* Liste des statuts d'absence / présence */}
                     <div className="space-y-1 pr-0.5">
                         {statusOptions.map((option) => {
-                            const opt = { ...option, ...(STATUS_PRESENTATION[option.code] || {}) };
+                            const opt = { ...option, ...(ATTENDANCE_STATUS[option.code] || {}) };
                             if (!opt.icon) return null;
                             const isSelected = selectedStatut === opt.code;
 

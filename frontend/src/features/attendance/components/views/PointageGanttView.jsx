@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Clock, User, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2, Calendar } from 'lucide-react';
 import { isDateInFuture, isDateToday } from '@/utils/dateUtils';
 import { getAttendanceBadgeClass } from '@/features/attendance/utils/attendanceDisplayUtils';
+import { getAttendanceStatus } from '@/features/attendance/utils/attendanceStatus';
 
 /**
  * PointageGanttView — Vue Gantt hebdomadaire du pointage.
@@ -556,7 +557,7 @@ function getStatutLabel(cellData, day) {
     if (cellData.retard && cellData.minutesRetard > 0) return 'Retard';
     if (cellData.present || hasWorked) return 'Présent';
     if (cellData.nonSaisi) return 'Non saisi';
-    return '—';
+    return cellData.codeStatut ? getAttendanceStatus(cellData.codeStatut).label : '—';
 }
 
 function getTimeString(cellData, day) {

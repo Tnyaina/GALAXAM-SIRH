@@ -13,6 +13,7 @@ import { Avatar } from '@/components/ui/data-display/Avatar';
 import Button from '@/components/ui/forms/Button';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import { formatHeuresDecimal } from '@/features/attendance/utils/attendanceDisplayUtils';
+import { isAttendanceUnentered, isAttendanceUnjustifiedAbsence } from '@/features/attendance/utils/attendanceStatus';
 
 export default function PeriodeEmployeeHeader({
     ficheData,
@@ -37,8 +38,8 @@ export default function PeriodeEmployeeHeader({
     onDeducePauses,
     onSaveBatch
 }) {
-    const missingCount = grilleRows.filter(r => !r.weekend && !r.ferie && !r.conge && (!r.heureEntreeMatin || r.codeStatut === 'NON_SAISI')).length;
-    const anomalyCount = grilleRows.filter(r => r.minutesRetard > 0 || r.codeStatut === 'ABSENCE_NON_JUSTIFIEE').length;
+    const missingCount = grilleRows.filter(r => !r.weekend && !r.ferie && !r.conge && (!r.heureEntreeMatin || isAttendanceUnentered(r))).length;
+    const anomalyCount = grilleRows.filter(r => r.minutesRetard > 0 || isAttendanceUnjustifiedAbsence(r)).length;
 
     return (
         <Card padding={false} className="border border-[var(--color-border-subtle)] bg-[var(--color-surface)] overflow-hidden shadow-xs">

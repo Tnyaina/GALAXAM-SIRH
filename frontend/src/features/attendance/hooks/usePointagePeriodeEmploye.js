@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { attendanceService } from '@/features/attendance/api/attendanceApi';
 import { formatHeuresMinutes } from '@/features/attendance/utils/attendanceDisplayUtils';
+import { isAllowanceGrantedByDefault, resolveAttendanceStatus } from '@/features/attendance/utils/attendanceStatus';
 import { getTodayDateString } from '@/utils/dateUtils';
 
 // ─── Helpers purs ─────────────────────────────────────────────────────────────
@@ -163,14 +164,10 @@ export function usePointagePeriodeEmploye({
                 const defaultEntreeAm    = isBlankOuvre && empAutonome ? (sParams?.heureDebutAm || '13:00') : rawEntreeAm;
                 const defaultSortieAm    = isBlankOuvre && empAutonome ? (sParams?.heureFinAm || '17:00') : rawSortieAm;
 
-                let codeStatut = ptg.statut;
-                if (!codeStatut || codeStatut === 'NON_SAISI' || (codeStatut === 'ABSENT' && !hasSavedHours)) {
-                    if (isFerie)          codeStatut = hasSavedHours ? 'FERIE_TRAVAILLE' : 'FERIE_CHOME';
-                    else if (isWeekend)   codeStatut = hasSavedHours ? 'SAMEDI_TRAVAILLE' : 'REPOS';
-                    else if (isConge)     codeStatut = 'CONGE';
-                    else if (empAutonome) codeStatut = 'DISPENSE_POINTAGE';
-                    else                  codeStatut = hasSavedHours ? 'PRESENT' : 'NON_SAISI';
-                }
+                const codeStatut = resolveAttendanceStatus({
+                    status: ptg.statut, hasHours: hasSavedHours, weekend: isWeekend,
+                    holiday: isFerie, leave: isConge, autonomous: empAutonome
+                });
 
                 const dynamicIndemnites = {};
                 sIndemnites.forEach(ind => {
@@ -178,7 +175,6 @@ export function usePointagePeriodeEmploye({
                     const fractionnable = ind.estFractionnable !== undefined ? ind.estFractionnable : ind.fractionnable;
                     const derogMotif = dMap[key] || dMap[ind.code];
                     const isExclu = Boolean(derogMotif);
-                    const cocheDefaut = ind.cocheParDefaut !== false;
                     const saved = ptg.indemnites?.[ind.code] || ptg.indemnites?.[key];
                     if (saved && typeof saved === 'object') {
                         const acc = Boolean(saved.accordee ?? saved.accorde);
@@ -190,7 +186,9 @@ export function usePointagePeriodeEmploye({
                             motifSuggestion: derogMotif, montantApplique: saved.montant || ind.montantJour
                         };
                     } else {
-                        const shouldAccord = !isWeekend && !isFerie && !isConge && !isExclu && cocheDefaut;
+                        const shouldAccord = isAllowanceGrantedByDefault(ind, {
+                            weekend: isWeekend, holiday: isFerie, leave: isConge, excluded: isExclu
+                        });
                         dynamicIndemnites[key] = {
                             accordee: shouldAccord, fractionJour: shouldAccord ? 1 : 0,
                             matin: fractionnable ? shouldAccord : undefined,
@@ -328,11 +326,12 @@ export function usePointagePeriodeEmploye({
         indList.forEach(ind => {
             const key = String(ind.idIndemnite);
             const fractionnable = ind.estFractionnable !== undefined ? ind.estFractionnable : ind.fractionnable;
-            const cocheParDefaut = ind.cocheParDefaut !== false;
             const derogMotif = dMap[key] || dMap[ind.code];
             const isDerogeExclu = Boolean(derogMotif);
             let matVal = false, amVal = false, accordeeVal = false;
-            if (!row.weekend && !row.ferie && !row.conge && !isDerogeExclu && cocheParDefaut) {
+            if (isAllowanceGrantedByDefault(ind, {
+                weekend: row.weekend, holiday: row.ferie, leave: row.conge, excluded: isDerogeExclu
+            })) {
                 if (fractionnable) {
                     matVal = hasHours ? hasMatin : true;
                     amVal = hasHours ? hasAm : true;
@@ -403,7 +402,9 @@ export function usePointagePeriodeEmploye({
             const previous = existingDyn[key] || {};
             const allowance = (row._dateAllowances || siteIndemnites).find(i => String(i.idIndemnite) === key);
             const fractionnable = allowance?.estFractionnable !== undefined ? allowance.estFractionnable : allowance?.fractionnable;
-            const defaultGranted = allowance?.cocheParDefaut !== false && !row.weekend && !row.ferie && !row.conge;
+            const defaultGranted = isAllowanceGrantedByDefault(allowance, {
+                weekend: row.weekend, holiday: row.ferie, leave: row.conge
+            });
             const current = {
                 accordee: Boolean(previous.accordee ?? defaultGranted),
                 matin: previous.matin ?? (fractionnable ? defaultGranted : undefined),

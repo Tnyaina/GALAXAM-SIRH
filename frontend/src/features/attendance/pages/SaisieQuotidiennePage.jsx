@@ -16,6 +16,7 @@ import usePointageSaisie from '@/features/attendance/hooks/usePointageSaisie';
 import useDebounce from '@/hooks/useDebounce';
 import useUnsavedChanges from '@/hooks/useUnsavedChanges';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
+import { isAttendanceLate, isAttendanceLeave, isAttendancePresent } from '@/features/attendance/utils/attendanceStatus';
 
 const PointageRecapModal = lazy(() => import('@/features/attendance/components/modals/PointageRecapModal'));
 
@@ -323,10 +324,10 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     const statusCounts = useMemo(() => {
         const list = Array.isArray(grilleData) ? grilleData : [];
         const all = list.length;
-        const presents = list.filter(r => r.present || r.dispensePointage || r.ferieTravaille || r.samediTravaille || r.dimancheTravaille).length;
-        const conges = list.filter(r => r.conge || r.absenceJustifiee).length;
+        const presents = list.filter(isAttendancePresent).length;
+        const conges = list.filter(isAttendanceLeave).length;
         const nonSaisis = list.filter(r => r.nonSaisi).length;
-        const retards = list.filter(r => r.retard).length;
+        const retards = list.filter(isAttendanceLate).length;
 
         return { ALL: all, PRESENT: presents, CONGE: conges, NON_SAISI: nonSaisis, RETARD: retards };
     }, [grilleData]);
@@ -336,13 +337,13 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
         let list = Array.isArray(grilleData) ? grilleData : [];
 
         if (statutFilter === 'PRESENT') {
-            list = list.filter(r => r.present || r.dispensePointage || r.ferieTravaille || r.samediTravaille || r.dimancheTravaille);
+            list = list.filter(isAttendancePresent);
         } else if (statutFilter === 'CONGE') {
-            list = list.filter(r => r.conge || r.absenceJustifiee);
+            list = list.filter(isAttendanceLeave);
         } else if (statutFilter === 'NON_SAISI') {
             list = list.filter(r => r.nonSaisi);
         } else if (statutFilter === 'RETARD') {
-            list = list.filter(r => r.retard);
+            list = list.filter(isAttendanceLate);
         }
 
         if (!debouncedSearch.trim()) return list;

@@ -22,7 +22,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.math.BigDecimal;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -331,43 +330,9 @@ public class PointageService {
         };
     }
 
-    private static String toPersistenceStatus(AttendanceEngine.Result result, SaisiePointageJourDTO dto) {
-        return switch (result.status()) {
-            case PRESENT -> "PRESENT";
-            case HALF_DAY -> "DEMI_JOURNEE";
-            case ABSENT -> "ABSENCE_NON_JUSTIFIEE";
-            case LEAVE -> !dto.isCongePaye() ? "ABSENCE_JUSTIFIEE"
-                    : (!dto.isCongeDecompteSolde() ? "DISPENSE_POINTAGE" : "CONGE");
-            case REST -> "REPOS";
-            case PUBLIC_HOLIDAY_OFF -> "FERIE_CHOME";
-            case PUBLIC_HOLIDAY_WORKED -> "FERIE_TRAVAILLE";
-            case SUNDAY_WORKED -> "DIMANCHE_TRAVAILLE";
-            case AUTONOMOUS -> "DISPENSE_POINTAGE";
-            case ANOMALY -> "ANOMALIE_SAISIE";
-        };
-    }
-
+    /** Compatibilité interne conservée pour les anciens appelants et tests du service. */
     static String resolveDayStatus(SaisiePointageJourDTO dto, AttendanceEngine.Result result, LocalDate date) {
-        String code = dto.getCodeStatut();
-        if (!result.anomalies().isEmpty()) return "ANOMALIE_SAISIE";
-        if ("FULL_DAY".equalsIgnoreCase(dto.getTypeCongeJour())) {
-            return toPersistenceStatus(result, dto);
-        }
-        // Absence is an explicit administrative decision; presence, rest and anomaly
-        // are calculated afresh from the punches and the calendar.
-        if ("ABSENCE_JUSTIFIEE".equals(code) || "ABSENCE_NON_JUSTIFIEE".equals(code)) return code;
-        boolean hasPunch = hasTime(dto.getHeureEntreeMatin()) || hasTime(dto.getHeureSortieMatin())
-                || hasTime(dto.getHeureEntreeAm()) || hasTime(dto.getHeureSortieAm());
-        if (!hasPunch && !dto.isFerieJour() && !CalendrierOuvrableEngine.isWeekend(date)
-                && !dto.isEstAutonome() && dto.getTypeCongeJour() == null) return "NON_SAISI";
-        String calculated = toPersistenceStatus(result, dto);
-        if (date.getDayOfWeek() == DayOfWeek.SATURDAY && result.workedMinutes() > 0
-                && !dto.isFerieJour()) return "SAMEDI_TRAVAILLE";
-        return calculated;
-    }
-
-    private static boolean hasTime(String value) {
-        return value != null && !value.isBlank() && !"—".equals(value) && !"--:--".equals(value);
+        return AttendanceStatusPolicy.resolve(dto, result, date);
     }
 
     private static void normalizeDayIntent(SaisiePointageJourDTO dto, LocalTime startMorning, LocalTime endMorning,
@@ -498,8 +463,8 @@ public class PointageService {
         dto.setMinutesRetard(Math.toIntExact(result.lateMinutes()));
         dto.setHasValidationError(!result.anomalies().isEmpty());
         dto.setValidationMessages(result.anomalies());
-        dto.setCodeStatut(resolveDayStatus(dto, result, date));
-        dto.setLibelleStatut(statusLabel(dto.getCodeStatut()));
+        dto.setCodeStatut(AttendanceStatusPolicy.resolve(dto, result, date));
+        dto.setLibelleStatut(AttendanceStatusPolicy.label(dto.getCodeStatut()));
         dto.setStatusActions(resolveStatusActions(dto));
         return dto;
     }
@@ -524,33 +489,7 @@ public class PointageService {
     }
 
     private static List<SaisiePointageJourDTO.StatusAction> resolveStatusActions(SaisiePointageJourDTO dto) {
-        if (dto.isFerieChome() || dto.isCongeApprouve() || dto.isEstAutonome()) return List.of();
-        return List.of(
-                new SaisiePointageJourDTO.StatusAction("PRESENT", "Présent", "Journée travaillée", false),
-                new SaisiePointageJourDTO.StatusAction("ABSENCE_JUSTIFIEE", "Absence justifiée", "Absence documentée ou autorisée", true),
-                new SaisiePointageJourDTO.StatusAction("ABSENCE_NON_JUSTIFIEE", "Absence non justifiée", "Absence sans justificatif", false),
-                new SaisiePointageJourDTO.StatusAction("CONGE", "Congé payé", "Imputer sur solde congé payé", false)
-        );
-    }
-
-    private static String statusLabel(String code) {
-        return switch (code == null ? "" : code) {
-            case "PRESENT" -> "Présent";
-            case "RETARD" -> "Retard";
-            case "DEMI_JOURNEE" -> "Demi-journée travaillée";
-            case "ABSENCE_NON_JUSTIFIEE" -> "Absent";
-            case "ABSENCE_JUSTIFIEE" -> "Absence justifiée";
-            case "ANOMALIE_SAISIE" -> "Incomplet / Anomalie";
-            case "CONGE" -> "Congé";
-            case "DISPENSE_POINTAGE" -> "Dispense de pointage";
-            case "FERIE_TRAVAILLE" -> "Férié travaillé";
-            case "FERIE_CHOME" -> "Férié chômé";
-            case "SAMEDI_TRAVAILLE" -> "Samedi travaillé";
-            case "DIMANCHE_TRAVAILLE" -> "Dimanche travaillé";
-            case "REPOS" -> "Repos";
-            case "NON_SAISI" -> "Non saisi";
-            default -> "Non saisi";
-        };
+        return AttendanceStatusPolicy.actions(dto);
     }
 
     /**
@@ -1766,7 +1705,7 @@ public class PointageService {
                 double hNuit = minutesToStorageHours(dailyResult.nightMinutes());
                 int retMins = Math.toIntExact(dailyResult.lateMinutes());
 
-                String codeStatut = resolveDayStatus(dto, dailyResult, datePtg);
+                String codeStatut = AttendanceStatusPolicy.resolve(dto, dailyResult, datePtg);
                 if ("NON_SAISI".equals(codeStatut)) {
                     throw new SirhBusinessException(SirhErrorCode.VALIDATION_ERROR,
                             "Aucun horaire ou statut d'absence n'a été saisi pour l'employé ID " + dto.getIdEmploye() + ".");

@@ -3,6 +3,7 @@ import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { formatHeuresMinutes, formatHeuresDecimal } from '@/features/attendance/utils/attendanceDisplayUtils';
 import { fmtDate } from '@/utils/dateUtils';
+import { isAttendanceUnjustifiedAbsence } from '@/features/attendance/utils/attendanceStatus';
 
 export default function WeeklyPointageCalculationTable({ weeks = [], pointages = [] }) {
     return (
@@ -36,7 +37,7 @@ export default function WeeklyPointageCalculationTable({ weeks = [], pointages =
                         const overtime = Number(week.heuresHsNettes ?? (overtime30 + overtime50));
                         const deficit = Number(week.heuresDeficit ?? week.heuresAbsenceRetenues ?? 0);
                         const missingDays = pointages.filter((day) => day.dateComplete >= start && day.dateComplete <= end
-                            && (day.isAbsent || day.statut === 'ABSENT') && !day.idPointage);
+                            && isAttendanceUnjustifiedAbsence({ ...day, absenceNonJustifiee: day.isAbsent || day.absenceNonJustifiee }) && !day.idPointage);
 
                         return (
                             <Fragment key={start || index}>

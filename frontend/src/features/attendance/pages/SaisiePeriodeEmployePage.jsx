@@ -9,7 +9,6 @@ import PeriodeNavigator from '@/components/ui/navigation/PeriodeNavigator';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { pointageSyntheseService, periodePaieService } from '@/features/attendance/api/attendanceApi';
 import organisationService from '@/features/organization/api/organisationService';
-import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import useUnsavedChanges from '@/hooks/useUnsavedChanges';
 
@@ -19,6 +18,7 @@ import PeriodeEmployeeHeader from '@/features/attendance/components/views/Period
 import PeriodeEmployeeTable from '@/features/attendance/components/views/PeriodeEmployeeTable';
 import PeriodeEmployeeImportPreview from '@/features/attendance/components/views/PeriodeEmployeeImportPreview';
 import PeriodeRecapModal from '@/features/attendance/components/modals/PeriodeRecapModal';
+import { isAttendanceUnentered, isAttendanceUnjustifiedAbsence } from '@/features/attendance/utils/attendanceStatus';
 
 const AnomalieRegularisationModal = lazy(() => import('@/features/attendance/components/modals/AnomalieRegularisationModal'));
 
@@ -28,7 +28,6 @@ export default function SaisiePeriodeEmployePage({
     sitesDisponibles: propSitesList = null
 }) {
     const toast = useToast();
-    const { hasPermission } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
 
     // ── 1. Période & Sites ────────────────────────────────────────────────────
@@ -90,7 +89,6 @@ export default function SaisiePeriodeEmployePage({
     // ── 3. Hook métier centralisé ─────────────────────────────────────────────
     const {
         ficheData,
-        siteParams,
         siteIndemnites,
         displayedIndemnites,
         grilleRows,
@@ -295,13 +293,13 @@ export default function SaisiePeriodeEmployePage({
         }
     }, [dirtyCount, applyNav]);
 
-    const handleNavigateEmploye = (direction) => {
+    const handleNavigateEmploye = useCallback((direction) => {
         if (currentEmpIndex < 0) return;
         const newIndex = currentEmpIndex + direction;
         if (newIndex >= 0 && newIndex < employesList.length) {
             requestNav({ type: 'employe', value: employesList[newIndex].idEmploye });
         }
-    };
+    }, [currentEmpIndex, employesList, requestNav]);
 
     // ── 6. Raccourcis clavier (Ctrl+S, Alt+Flèches) ───────────────────────────
     useEffect(() => {
@@ -321,15 +319,15 @@ export default function SaisiePeriodeEmployePage({
         };
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [dirtyCount, saving, canEditPeriod, currentEmpIndex, employesList]);
+    }, [dirtyCount, saving, canEditPeriod, handleNavigateEmploye]);
 
     // ── 7. Filtrage & Groupement par semaine ──────────────────────────────────
     const filteredRows = useMemo(() => {
         if (filterJour === 'MISSING') {
-            return grilleRows.filter(r => !r.weekend && !r.ferie && !r.conge && (!r.heureEntreeMatin || r.codeStatut === 'NON_SAISI'));
+            return grilleRows.filter(r => !r.weekend && !r.ferie && !r.conge && (!r.heureEntreeMatin || isAttendanceUnentered(r)));
         }
         if (filterJour === 'ANOMALY') {
-            return grilleRows.filter(r => r.minutesRetard > 0 || r.codeStatut === 'ABSENCE_NON_JUSTIFIEE');
+            return grilleRows.filter(r => r.minutesRetard > 0 || isAttendanceUnjustifiedAbsence(r));
         }
         return grilleRows;
     }, [grilleRows, filterJour]);

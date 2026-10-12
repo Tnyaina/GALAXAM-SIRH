@@ -6,6 +6,7 @@ import Alert from '@/components/ui/feedback/Alert';
 import Badge from '@/components/ui/data-display/Badge';
 import { Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/data-display/Table';
 import { formatHeuresMinutes, formatHeuresDecimal } from '@/features/attendance/utils/attendanceDisplayUtils';
+import { isAttendancePresent } from '@/features/attendance/utils/attendanceStatus';
 
 export default function PointageRecapModal({
     isOpen = false,
@@ -40,7 +41,7 @@ export default function PointageRecapModal({
     const cannotConfirm = saving || pending.length > 0 || previewErrors.length > 0;
 
     const totalInscrits = safeData.length;
-    const presents = safeData.filter(r => r.present || r.dispensePointage || r.ferieTravaille || r.samediTravaille || r.dimancheTravaille);
+    const presents = safeData.filter(isAttendancePresent);
     const retards = safeData.filter(r => r.retard);
     const cumulRetard = safeData.reduce((acc, r) => acc + (Number(r.minutesRetard) || 0), 0);
     const anomalies = safeData.filter(r => r.hasValidationError || r.anomalie);

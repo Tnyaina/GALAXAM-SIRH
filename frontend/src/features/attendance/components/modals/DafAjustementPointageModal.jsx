@@ -19,6 +19,7 @@ import { useToast } from '@/components/ui/feedback/Toast';
 import { attendanceService } from '@/features/attendance/api/attendanceApi';
 import { fmtDate } from '@/utils/dateUtils';
 import { formatHeuresMinutes } from '@/features/attendance/utils/attendanceDisplayUtils';
+import { deriveAttendanceFlags } from '@/features/attendance/utils/attendanceStatus';
 
 export default function DafAjustementPointageModal({
     isOpen,
@@ -493,16 +494,10 @@ export default function DafAjustementPointageModal({
                                             const totalH = Number(ptg.totalHeures || (ptg.heures ? parseFloat(ptg.heures) : 0));
                                             const hasWorked = totalH > 0;
 
-                                            const isAbsent = Boolean(ptg.isAbsent ?? (ptg.statut === 'ABSENT' || ptg.statut === 'ABSENCE_NON_JUSTIFIEE' || ptg.codeStatut === 'ABSENCE_NON_JUSTIFIEE'));
-                                            const isConge = Boolean(ptg.isConge ?? (ptg.statut === 'CONGE' || ptg.codeStatut === 'CONGE' || Boolean(ptg.typeConge)));
-                                            const isRetard = Boolean(ptg.isRetard ?? (ptg.statut === 'RETARD' || (ptg.ecart && ptg.ecart.startsWith('-') && !ptg.ecartPositif) || (ptg.minutesRetard > 0)));
-                                            const isRepos = Boolean(ptg.isRepos ?? ((isWeekend && !hasWorked) || ptg.statut === 'REPOS' || ptg.codeStatut === 'REPOS'));
-                                            const isDimancheTrav = Boolean(ptg.isDimancheTravaille ?? (isSunday && hasWorked));
-                                            const isSamediTrav = Boolean(ptg.isSamediTravaille ?? (isSaturday && hasWorked));
-                                            const isPlanifie = Boolean(ptg.isPlanifie ?? (ptg.statut === 'PLANIFIE' || ptg.statut === 'NON_ECHU'));
-                                            const isAutonome = Boolean(ptg.isDispensePointage ?? ((ptg.statut === 'AUTONOME' || ptg.statut === 'DISPENSE_POINTAGE') && !isWeekend));
-                                            const isPresent = Boolean(ptg.isPresent ?? ((ptg.statut === 'PRESENT' || hasWorked || ptg.present) && !isRepos && !isDimancheTrav && !isSamediTrav));
-                                            const hasAnomalie = Boolean(ptg.isAnomalie ?? (ptg.anomalieSaisie || isAbsent || isRetard || ptg.statut === 'ANOMALIE'));
+                                            const {
+                                                isAbsent, isConge, isRetard, isRepos, isDimancheTravaille: isDimancheTrav,
+                                                isSamediTravaille: isSamediTrav, isPlanifie, isAutonome, isPresent, hasAnomalie
+                                            } = deriveAttendanceFlags(ptg, { isWeekend, isSunday, isSaturday, hasWorked });
 
                                             const dateFormatted = dateVal ? fmtDate(dateVal) : `${ptg.date} (${ptg.jour || ''})`;
                                             

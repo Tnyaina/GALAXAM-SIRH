@@ -1,5 +1,6 @@
 import Badge from '@/components/ui/data-display/Badge';
 import { formatRoundedMoneyAr } from '@/utils/moneyUtils';
+import { getAttendanceStatus } from '@/features/attendance/utils/attendanceStatus';
 
 /**
  * Formate un nombre d'heures décimales (ex: 8.5) en chaîne lisible "08h30" ou "8h30".
@@ -58,37 +59,14 @@ export const getStatutPointageBadge = (codeStatut, minutesRetard = 0) => {
         return <Badge variant="warning">Retard ({minutesRetard} min)</Badge>;
     }
 
-    switch (upper) {
-        case 'PRESENT':
-            return <Badge variant="success">Présent</Badge>;
-        case 'DEMI_JOURNEE':
-            return <Badge variant="sky">Demi-journée</Badge>;
-        case 'ANOMALIE_SAISIE':
-            return <Badge variant="warning">Incomplet</Badge>;
-        case 'ABSENCE_NON_JUSTIFIEE':
-        case 'ABSENT':
-            return <Badge variant="danger">Absent</Badge>;
-        case 'ABSENCE_JUSTIFIEE':
-            return <Badge variant="warning">Absence justifiée (non payée)</Badge>;
-        case 'CONGE':
-            return <Badge variant="sky">Congé / Permission</Badge>;
-        case 'DISPENSE_POINTAGE':
-            return <Badge variant="info">Autonome</Badge>;
-        case 'FERIE_TRAVAILLE':
-            return <Badge variant="success">Férié Travaillé</Badge>;
-        case 'FERIE_CHOME':
-            return <Badge variant="neutral">Férié Chômé</Badge>;
-        case 'SAMEDI_TRAVAILLE':
-            return <Badge variant="primary">Samedi Travaillé</Badge>;
-        case 'DIMANCHE_TRAVAILLE':
-            return <Badge variant="primary">Dimanche Travaillé</Badge>;
-        case 'REPOS':
-            return <Badge variant="neutral">Repos</Badge>;
-        case 'NON_ECHU':
-            return <Badge variant="neutral">—</Badge>;
-        default:
-            return <Badge variant="neutral">{codeStatut}</Badge>;
-    }
+    const status = getAttendanceStatus(upper);
+    const label = upper === 'ABSENCE_JUSTIFIEE' ? 'Absence justifiée (non payée)'
+        : upper === 'CONGE' ? 'Congé / Permission'
+            : upper === 'FERIE_TRAVAILLE' ? 'Férié Travaillé'
+                : upper === 'FERIE_CHOME' ? 'Férié Chômé'
+                    : status.label;
+    const variant = upper === 'DEMI_JOURNEE' ? 'sky' : status.variant;
+    return <Badge variant={variant}>{upper === 'NON_ECHU' ? '—' : label}</Badge>;
 };
 
 /** Classes de badge partagées par les vues d'arbitrage et de planning pointage. */

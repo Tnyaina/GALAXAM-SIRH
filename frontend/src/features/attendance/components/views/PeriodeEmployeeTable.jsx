@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 import {
     Calendar,
     ClockCheck,
@@ -12,6 +12,7 @@ import Button from '@/components/ui/forms/Button';
 import TimeInput from '@/components/ui/forms/TimeInput';
 import StatusPickerPopover from '@/features/attendance/components/controls/StatusPickerPopover';
 import { formatHeuresDecimal, formatMonnaie } from '@/features/attendance/utils/attendanceDisplayUtils';
+import { isAttendanceUnentered } from '@/features/attendance/utils/attendanceStatus';
 
 export default function PeriodeEmployeeTable({
     groupedByWeeks = [],
@@ -40,8 +41,7 @@ export default function PeriodeEmployeeTable({
     };
 
     // Obtenir la liste à plat de toutes les dates visibles dans le tableau
-    const allFilteredDates = useRef([]);
-    allFilteredDates.current = groupedByWeeks.flatMap(w => w.rows.map(r => r.datePointage));
+    const allFilteredDates = useMemo(() => groupedByWeeks.flatMap(w => w.rows.map(r => r.datePointage)), [groupedByWeeks]);
 
     const focusNext = useCallback((datePointage, fieldIndex) => {
         // 1. Chercher le prochain champ éditable du même jour
@@ -54,7 +54,7 @@ export default function PeriodeEmployeeTable({
             }
         }
         // 2. Sauter au premier champ éditable du jour suivant
-        const allDates = allFilteredDates.current;
+        const allDates = allFilteredDates;
         const currIdx = allDates.indexOf(datePointage);
         if (currIdx !== -1 && currIdx < allDates.length - 1) {
             for (let d = currIdx + 1; d < allDates.length; d++) {
@@ -71,7 +71,7 @@ export default function PeriodeEmployeeTable({
                 }
             }
         }
-    }, []);
+    }, [allFilteredDates]);
 
     const handleKeyDown = useCallback((e, datePointage, fieldIndex) => {
         if (e.key === 'Enter') {
@@ -90,7 +90,7 @@ export default function PeriodeEmployeeTable({
                     return;
                 }
             }
-            const allDates = allFilteredDates.current;
+            const allDates = allFilteredDates;
             const currIdx = allDates.indexOf(datePointage);
             if (currIdx !== -1 && currIdx < allDates.length - 1) {
                 for (let d = currIdx + 1; d < allDates.length; d++) {
@@ -121,7 +121,7 @@ export default function PeriodeEmployeeTable({
                     return;
                 }
             }
-            const allDates = allFilteredDates.current;
+            const allDates = allFilteredDates;
             const currIdx = allDates.indexOf(datePointage);
             if (currIdx > 0) {
                 for (let d = currIdx - 1; d >= 0; d--) {
@@ -144,7 +144,7 @@ export default function PeriodeEmployeeTable({
 
         if (e.key === 'ArrowDown') {
             e.preventDefault();
-            const allDates = allFilteredDates.current;
+            const allDates = allFilteredDates;
             const currIdx = allDates.indexOf(datePointage);
             if (currIdx !== -1 && currIdx < allDates.length - 1) {
                 for (let d = currIdx + 1; d < allDates.length; d++) {
@@ -167,7 +167,7 @@ export default function PeriodeEmployeeTable({
 
         if (e.key === 'ArrowUp') {
             e.preventDefault();
-            const allDates = allFilteredDates.current;
+            const allDates = allFilteredDates;
             const currIdx = allDates.indexOf(datePointage);
             if (currIdx > 0) {
                 for (let d = currIdx - 1; d >= 0; d--) {
@@ -186,7 +186,7 @@ export default function PeriodeEmployeeTable({
                 }
             }
         }
-    }, [focusNext]);
+    }, [focusNext, allFilteredDates]);
 
     return (
         <div className="space-y-4">
@@ -282,7 +282,7 @@ export default function PeriodeEmployeeTable({
 
                                         const initialRow = initialRows.find(i => i.datePointage === row.datePointage);
                                         const isModified = isDayRowModified ? isDayRowModified(row, initialRow) : false;
-                                        const isNonSaisi = (row.codeStatut === 'NON_SAISI' || !row.codeStatut) && !isWeekend && !isFerie && !isConge;
+                                        const isNonSaisi = isAttendanceUnentered(row) && !isWeekend && !isFerie && !isConge;
 
                                         let rowBorderCue = 'border-l-2 border-l-transparent';
                                         if (isModified) {
@@ -486,7 +486,7 @@ export default function PeriodeEmployeeTable({
 
                                                         {/* 9. Statut */}
                                                         <Td className="px-2 py-2 text-center">
-                                                            <StatusPickerPopover
+                                                                <StatusPickerPopover
                                                                 row={row}
                                                                 currentStatus={row.codeStatut}
                                                                 onStatusChange={(newSt, motif) => updateDayStatut(row.datePointage, newSt, motif)}
@@ -509,7 +509,6 @@ export default function PeriodeEmployeeTable({
                                                                     const dayInd = row._dateAllowances?.find(item => item.idIndemnite === ind.idIndemnite) || ind;
                                                                     const dynObj = row.dynamicIndemnites?.[String(ind.idIndemnite)] || {};
                                                                     const isFractionnable = dayInd.estFractionnable !== undefined ? dayInd.estFractionnable : dayInd.fractionnable;
-                                                                    const defaultGranted = dayInd.cocheParDefaut !== false && !isConge;
                                                                     const name = dayInd.code === 'DEPLACEMENT' || dayInd.code === 'DPLCT' || dayInd.code === 'TRANSPORT'
                                                                         ? 'Dépl.'
                                                                         : dayInd.code === 'REPAS' ? 'Repas' : (dayInd.libelle || dayInd.code);
@@ -527,16 +526,16 @@ export default function PeriodeEmployeeTable({
                                                                             {isFractionnable ? (
                                                                                 <>
                                                                                     <label className={`inline-flex items-center gap-0.5 text-[9px] font-semibold ${!canEditRow ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Matin — ${formatMonnaie(dayInd.montantTrajet || dayInd.montantJour / 2)}`}>
-                                                                                        <input type="checkbox" checked={dynObj.matin === undefined ? defaultGranted : Boolean(dynObj.matin)} disabled={!canEditRow} onChange={(e) => updateRowDynamicIndemnite(row.datePointage, ind.idIndemnite, e.target.checked, 'MATIN')} className="h-3 w-3 cursor-pointer accent-[var(--color-brand-600)]" />
+                                                                                        <input type="checkbox" checked={Boolean(dynObj.matin)} disabled={!canEditRow} onChange={(e) => updateRowDynamicIndemnite(row.datePointage, ind.idIndemnite, e.target.checked, 'MATIN')} className="h-3 w-3 cursor-pointer accent-[var(--color-brand-600)]" />
                                                                                         M
                                                                                     </label>
                                                                                     <label className={`inline-flex items-center gap-0.5 text-[9px] font-semibold ${!canEditRow ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'} select-none`} title={`Après-midi — ${formatMonnaie(dayInd.montantTrajet || dayInd.montantJour / 2)}`}>
-                                                                                        <input type="checkbox" checked={dynObj.am === undefined ? defaultGranted : Boolean(dynObj.am)} disabled={!canEditRow} onChange={(e) => updateRowDynamicIndemnite(row.datePointage, ind.idIndemnite, e.target.checked, 'APRES_MIDI')} className="h-3 w-3 cursor-pointer accent-[var(--color-brand-600)]" />
+                                                                                        <input type="checkbox" checked={Boolean(dynObj.am)} disabled={!canEditRow} onChange={(e) => updateRowDynamicIndemnite(row.datePointage, ind.idIndemnite, e.target.checked, 'APRES_MIDI')} className="h-3 w-3 cursor-pointer accent-[var(--color-brand-600)]" />
                                                                                         A
                                                                                     </label>
                                                                                 </>
                                                                             ) : (
-                                                                            <input type="checkbox" checked={dynObj.accordee === undefined ? defaultGranted : Boolean(dynObj.accordee)} disabled={!canEditRow} onChange={(e) => updateRowDynamicIndemnite(row.datePointage, ind.idIndemnite, e.target.checked, 'ALL')} className="h-3 w-3 cursor-pointer accent-[var(--color-brand-600)]" aria-label={`Accorder ${dayInd.libelle || dayInd.code}`} />
+                                                                            <input type="checkbox" checked={Boolean(dynObj.accordee)} disabled={!canEditRow} onChange={(e) => updateRowDynamicIndemnite(row.datePointage, ind.idIndemnite, e.target.checked, 'ALL')} className="h-3 w-3 cursor-pointer accent-[var(--color-brand-600)]" aria-label={`Accorder ${dayInd.libelle || dayInd.code}`} />
                                                                             )}
                                                                         </div>
                                                                     );

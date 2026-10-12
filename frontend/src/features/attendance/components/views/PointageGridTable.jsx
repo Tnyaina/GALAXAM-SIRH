@@ -9,6 +9,7 @@ import Modal from '@/components/ui/overlays/Modal';
 import Pagination from '@/components/ui/navigation/Pagination';
 import { formatHeuresMinutes, formatHeuresDecimal, formatMonnaie } from '@/features/attendance/utils/attendanceDisplayUtils';
 import StatusPickerPopover from '@/features/attendance/components/controls/StatusPickerPopover';
+import { countAttendanceStatuses } from '@/features/attendance/utils/attendanceStatus';
 
 export default function PointageGridTable({
     grilleData = [],
@@ -109,13 +110,8 @@ export default function PointageGridTable({
             <div className="flex flex-wrap items-center justify-between px-3 py-1.5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-xs text-[var(--color-fg-muted)] gap-2">
                 {/* 1. Filtres d'état (Pills au-dessus de la table) */}
                 <div className="flex items-center gap-1 overflow-x-auto">
-                    {[
-                        { id: 'ALL', label: 'Tous', count: grilleData.length },
-                        { id: 'PRESENT', label: 'Présents', count: grilleData.filter(r => r.present || r.dispensePointage || r.ferieTravaille || r.samediTravaille || r.dimancheTravaille).length },
-                        { id: 'NON_SAISI', label: 'Non saisis', count: grilleData.filter(r => r.nonSaisi).length },
-                        { id: 'RETARD', label: 'Retards', count: grilleData.filter(r => r.retard).length },
-                        { id: 'CONGE', label: 'Congés', count: grilleData.filter(r => r.conge || r.absenceJustifiee).length },
-                    ].map((tab) => {
+                    {Object.entries(countAttendanceStatuses(grilleData)).map(([id, count]) => {
+                        const tab = { id, count, label: ({ ALL: 'Tous', PRESENT: 'Présents', NON_SAISI: 'Non saisis', RETARD: 'Retards', CONGE: 'Congés' })[id] };
                         const isActive = selectedStatutFilter === tab.id;
                         return (
                             <button
@@ -431,17 +427,12 @@ export default function PointageGridTable({
                                     {/* 9. Colonnes Dynamiques d'Indemnités avec Cases à cocher */}
                                     {siteIndemnites.map((ind) => {
                                         const dynObj = row.dynamicIndemnites?.[String(ind.idIndemnite)] || {};
-                                        // Sur un jour de congé : décoché par défaut SAUF si l'utilisateur a explicitement coché
-                                        const isAccordee = isCongeFull
-                                            ? (dynObj.accordee === true) // exception manuelle explicite uniquement
-                                            : (dynObj.accordee !== false);
                                         const isFractionnable = ind.estFractionnable !== undefined ? ind.estFractionnable : ind.fractionnable;
 
                                         if (isFractionnable) {
                                             const montantTrajet = ind.montantTrajet;
-                                            // Sur congé : décoché par défaut, sauf exception manuelle explicite
-                                            const matVal = isCongeFull ? (dynObj.matin === true) : Boolean(dynObj.matin);
-                                            const amVal = isCongeFull ? (dynObj.am === true) : Boolean(dynObj.am);
+                                            const matVal = Boolean(dynObj.matin);
+                                            const amVal = Boolean(dynObj.am);
                                             const hasCongeException = isCongeFull && (matVal || amVal);
 
                                             return (
@@ -493,10 +484,7 @@ export default function PointageGridTable({
                                         const useGlobalIfZero = !!ind.useGlobalIfZero;
                                         const repasFourniSansVersement = ind.code === 'REPAS'
                                             && Number(ind.montantReference) === 0;
-                                        // Sur congé : décoché par défaut, sauf si l'utilisateur a coché explicitement
-                                        const checked = dynObj.accordee !== undefined
-                                            ? Boolean(dynObj.accordee)
-                                            : (isCongeFull ? false : (ind.cocheParDefaut !== undefined ? Boolean(ind.cocheParDefaut) : (useGlobalIfZero ? false : isAccordee)));
+                                        const checked = Boolean(dynObj.accordee);
                                         const montantEffectif = useGlobalIfZero && checked
                                             ? (ind.montantGlobal || ind.montantJour || 0)
                                             : (ind.montantJour || ind.montantReference || 0);
