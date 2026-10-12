@@ -340,8 +340,14 @@ export default function PeriodeEmployeeTable({
                                                     </div>
                                                 </Td>
 
-                                                {/* Ligne fusionnée pour Repos / Férié chômé / Congé sans badge de travail */}
-                                                {isWeekend && !hasPunches ? (
+                                                {/* Le congé validé prime sur l'affichage calendrier du week-end ou du férié. */}
+                                                {isConge && !hasPunches ? (
+                                                    <Td colSpan={chomeColSpan} className="px-2 py-1.5 text-center text-[11px] text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)] font-medium">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <Badge variant="info" size="sm">Congé payé validé</Badge>
+                                                        </div>
+                                                    </Td>
+                                                ) : isWeekend && !hasPunches ? (
                                                     <Td colSpan={chomeColSpan} className="px-2 py-1.5 text-center text-[11px] text-[var(--color-fg-muted)]">
                                                         <div className="flex items-center justify-center gap-2">
                                                             <span>Repos hebdomadaire</span>
@@ -374,15 +380,6 @@ export default function PeriodeEmployeeTable({
                                                                     + Travaillé (+100%)
                                                                 </Button>
                                                             )}
-                                                        </div>
-                                                    </Td>
-                                                ) : isConge && !hasPunches ? (
-                                                    <Td colSpan={chomeColSpan} className="px-2 py-1.5 text-center text-[11px] text-[var(--color-sky-700)] dark:text-[var(--color-sky-300)] font-medium">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <Badge variant="info" size="sm">Congé payé validé</Badge>
-                                                            <span className="text-[10px] text-[var(--color-sky-600)] dark:text-[var(--color-sky-400)]">
-                                                                Piloté par le module Congés
-                                                            </span>
                                                         </div>
                                                     </Td>
                                                 ) : (
@@ -500,7 +497,7 @@ export default function PeriodeEmployeeTable({
                                                 {/* 10. Indemnités regroupées */}
                                                 {displayedIndemnites.length > 0 && (
                                                     <Td className="px-1.5 py-2 border-l border-[var(--color-border-subtle)]">
-                                                        {isWeekend && !hasPunches ? (
+                                                        {isWeekend && !hasPunches && !isConge ? (
                                                             <div className="text-center text-[var(--color-fg-muted)] opacity-40">—</div>
                                                         ) : (
                                                             <div className="flex flex-wrap items-center justify-center gap-1">

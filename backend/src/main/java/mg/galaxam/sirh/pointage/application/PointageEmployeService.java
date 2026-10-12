@@ -373,7 +373,11 @@ public class PointageEmployeService {
         String sqlIndemnites = "SELECT p.date_pointage, i.code, "
                 + "BOOL_OR(pij.accorde) AS accorde, "
                 + "SUM(CASE WHEN pij.accorde THEN pij.quantite ELSE 0 END) AS quantite, "
-                + "COALESCE(SUM(CASE WHEN pij.accorde THEN pij.montant_calcule ELSE 0 END), 0) AS montant_calcule "
+                + "COALESCE(SUM(CASE WHEN pij.accorde THEN pij.montant_calcule ELSE 0 END), 0) AS montant_calcule, "
+                + "BOOL_OR(pij.accorde AND (UPPER(COALESCE(pij.fraction, '')) = 'MATIN' "
+                + "OR (UPPER(COALESCE(pij.fraction, '')) = 'JOUR_ENTIER' AND pij.quantite > 0))) AS matin, "
+                + "BOOL_OR(pij.accorde AND (UPPER(COALESCE(pij.fraction, '')) = 'APRES_MIDI' "
+                + "OR (UPPER(COALESCE(pij.fraction, '')) = 'JOUR_ENTIER' AND pij.quantite >= 1))) AS am "
                 + "FROM pointage_jour p JOIN pointage_indemnite_jour pij ON pij.id_pointage = p.id_pointage "
                 + "JOIN ref_indemnite i ON i.id_indemnite = pij.id_indemnite "
                 + "WHERE p.id_employe = ? AND p.date_pointage BETWEEN ? AND ? "
@@ -388,7 +392,8 @@ public class PointageEmployeService {
                     if (record == null) continue;
                     String code = rs.getString("code");
                     record.indemnites.put(code, new PointageJourDTO.IndemniteJourDTO(
-                            code, rs.getBoolean("accorde"), zeroIfNull(rs.getBigDecimal("montant_calcule")), rs.getBigDecimal("quantite")));
+                            code, rs.getBoolean("accorde"), zeroIfNull(rs.getBigDecimal("montant_calcule")),
+                            rs.getBigDecimal("quantite"), rs.getBoolean("matin"), rs.getBoolean("am")));
                 }
             }
         } catch (Exception e) {
@@ -562,12 +567,16 @@ public class PointageEmployeService {
                 boolean estTravailleOuPresent = !isNonTravaille && (totalMinutesJour > 0 || (isAutonome && !isWeekendRec));
 
                 boolean aDroitRepas = estTravailleOuPresent && (rec.indemniteRepasRecue || isAutonome);
-                boolean depM = estTravailleOuPresent && (rec.deplacementMatin || isAutonome);
-                boolean depA = estTravailleOuPresent && (rec.deplacementAm || isAutonome);
+                boolean deplacementMatinAttribue = rec.deplacementMatin || (isAutonome && !isWeekendRec);
+                boolean deplacementAmAttribue = rec.deplacementAm || (isAutonome && !isWeekendRec);
+                boolean depM = estTravailleOuPresent && deplacementMatinAttribue;
+                boolean depA = estTravailleOuPresent && deplacementAmAttribue;
 
-                dto.setDeplacementMatin(depM);
-                dto.setDeplacementAm(depA);
-                dto.setIndemniteDeplacement(depM || depA);
+                // Les cases de la grille exposent l'attribution persistée, même si la journée
+                // est ensuite qualifiée de congé. Les montants restent soumis à l'éligibilité.
+                dto.setDeplacementMatin(deplacementMatinAttribue);
+                dto.setDeplacementAm(deplacementAmAttribue);
+                dto.setIndemniteDeplacement(deplacementMatinAttribue || deplacementAmAttribue);
 
                 if (depM) totalTrajetsCount += 0.5;
                 if (depA) totalTrajetsCount += 0.5;

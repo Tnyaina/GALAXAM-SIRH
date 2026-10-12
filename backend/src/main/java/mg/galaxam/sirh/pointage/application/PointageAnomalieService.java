@@ -576,6 +576,10 @@ public class PointageAnomalieService {
      */
     public boolean regulariserPointage(int idPointage, Map<String, Object> payload) throws Exception {
         String typeRegularisation = payload.get("typeRegularisation") != null ? payload.get("typeRegularisation").toString() : "HEURES";
+        boolean absenceFlow = "ABSENCE".equalsIgnoreCase(typeRegularisation)
+                || "CONGE_PAYE".equalsIgnoreCase(String.valueOf(payload.get("optionAbsence")))
+                || "PERMISSION_EXCEPTIONNELLE".equalsIgnoreCase(String.valueOf(payload.get("optionAbsence")))
+                || "ABSENCE_DEDUITE".equalsIgnoreCase(String.valueOf(payload.get("optionAbsence")));
         if ("HEURES".equalsIgnoreCase(typeRegularisation)
                 && !(payload.get("dynamicIndemnites") instanceof Map<?, ?>)) {
             throw new IllegalArgumentException("La sélection des indemnités du site doit être chargée avant toute correction d'horaires.");
@@ -634,7 +638,7 @@ public class PointageAnomalieService {
                                 heureMinimaleComptabilisee = arrivalFloor == null ? null : arrivalFloor.toLocalTime();
                                 boolean horairesComplets = siteDebM != null && siteFinA != null
                                         && (cont || (siteFinM != null && siteDebA != null));
-                                if (!horairesComplets) {
+                                if (!absenceFlow && !horairesComplets) {
                                     throw new IllegalStateException("Horaires de travail incomplets pour le site " + idSite + ".");
                                 }
                             }
@@ -654,7 +658,7 @@ public class PointageAnomalieService {
                 }
                 boolean horairesComplets = siteDebM != null && siteFinA != null
                         && (isJourneeContinue || (siteFinM != null && siteDebA != null));
-                if (!horairesComplets) {
+                if (!absenceFlow && !horairesComplets) {
                     throw new IllegalStateException("Horaires de travail incomplets ou site introuvable pour le pointage " + idPointage + ".");
                 }
 
@@ -775,7 +779,7 @@ public class PointageAnomalieService {
             Date leaveEndDate = null;
             List<LeavePointageDay> extraLeaveDays = List.of();
 
-            if ("ABSENCE".equalsIgnoreCase(typeRegularisation) || "CONGE_PAYE".equalsIgnoreCase(optionAbsence) || "PERMISSION_EXCEPTIONNELLE".equalsIgnoreCase(optionAbsence) || "ABSENCE_DEDUITE".equalsIgnoreCase(optionAbsence)) {
+            if (absenceFlow) {
                 // Régularisation d'absence
                 em = null; sm = null; ea = null; sa = null;
 

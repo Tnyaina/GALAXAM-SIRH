@@ -21,6 +21,7 @@ import Input from '@/components/ui/forms/Input';
 import { Avatar } from '@/components/ui/data-display/Avatar';
 import { fmtDate, shiftIsoDate } from '@/utils/dateUtils';
 import { attendanceService } from '@/features/attendance/api/attendanceApi';
+import congeService from '@/features/leave/api/congeService';
 
 const MOTIFS_FAMILIAUX = [
     { label: 'Mariage du salarié (3 jours)', value: 'Mariage du salarié' },
@@ -48,6 +49,8 @@ export default function AnomalieRegularisationModal({
     const [dynamicAllowances, setDynamicAllowances] = useState({});
     const [allowancesLoading, setAllowancesLoading] = useState(false);
     const [allowancesError, setAllowancesError] = useState('');
+    const [leaveSituation, setLeaveSituation] = useState(null);
+    const [leaveSituationLoading, setLeaveSituationLoading] = useState(false);
 
     // Formulaire Mode 1 : Horaires
     const [modePresence, setModePresence] = useState('JOURNEE'); // 'JOURNEE', 'MATIN_SEUL', 'APRES_MIDI_SEUL', 'CONTINU'
@@ -155,12 +158,26 @@ export default function AnomalieRegularisationModal({
                 if (!cancelled) setAllowancesLoading(false);
             });
         return () => { cancelled = true; };
-    }, [isOpen, anomalie?.idSite, anomalie?.datePointage, anomalie?.idEmploye]);
+    }, [isOpen, anomalie?.idSite, anomalie?.datePointage, anomalie?.idEmploye,
+        anomalie?.heureEntreeMatin, anomalie?.heureSortieMatin, anomalie?.heureEntreeAm,
+        anomalie?.heureSortieAm, anomalie?.importAllowanceOverrides, anomalie?.importEventCode]);
 
-    // Les soldes sont informatifs ; CongeService valide l'éligibilité au moment de la régularisation.
-    const soldeRestant = anomalie?.soldeCongesRestant ?? 0;
-    const soldeAcquis = anomalie?.soldeCongesAcquis ?? 0;
-    const soldePris = anomalie?.soldeCongesPris ?? 0;
+    useEffect(() => {
+        if (!isOpen || !anomalie?.idEmploye) return undefined;
+        let cancelled = false;
+        setLeaveSituation(null);
+        setLeaveSituationLoading(true);
+        congeService.getSituationEmploye(anomalie.idEmploye)
+            .then((situation) => { if (!cancelled) setLeaveSituation(situation); })
+            .catch(() => { if (!cancelled) setLeaveSituation(null); })
+            .finally(() => { if (!cancelled) setLeaveSituationLoading(false); });
+        return () => { cancelled = true; };
+    }, [isOpen, anomalie?.idEmploye, anomalie?.datePointage]);
+
+    // Source unique : le même endpoint de situation que l'onglet Congés.
+    const soldeRestant = leaveSituation?.soldeJours;
+    const soldeAcquis = leaveSituation?.totalAcquis;
+    const soldePris = leaveSituation?.totalPris;
 
     const dernierJourConge = shiftIsoDate(dateReprise, -1);
     const nbJoursAImputer = congeDuree === '0.5' ? 0.5 :
@@ -813,13 +830,14 @@ export default function AnomalieRegularisationModal({
                                     <span>Solde de Congés Payés du collaborateur</span>
                                 </div>
                                 <div className="text-[11px] text-[var(--color-fg-muted)]">
-                                    Acquis : {soldeAcquis} j. | Consommé : {soldePris} j.
+                                    {leaveSituationLoading ? 'Chargement de la situation…' :
+                                        `Acquis : ${soldeAcquis ?? '—'} j. | Consommé : ${soldePris ?? '—'} j.`}
                                 </div>
                             </div>
                             <div className="text-right">
                                 <div className="text-[11px] text-[var(--color-fg-muted)]">Disponible net</div>
-                                <div className={`font-mono text-base font-bold ${soldeRestant > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'}`}>
-                                    {soldeRestant} j.
+                                <div className={`font-mono text-base font-bold ${Number(soldeRestant) > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'}`}>
+                                    {soldeRestant ?? '—'} j.
                                 </div>
                             </div>
                         </div>

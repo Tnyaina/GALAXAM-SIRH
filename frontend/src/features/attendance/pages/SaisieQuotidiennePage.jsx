@@ -13,12 +13,14 @@ import { getTodayDateString, isDateInFuture } from '@/utils/dateUtils';
 import PointageToolbar from '@/features/attendance/components/controls/PointageToolbar';
 import PointageGridTable from '@/features/attendance/components/views/PointageGridTable';
 import usePointageSaisie from '@/features/attendance/hooks/usePointageSaisie';
+import { attendanceService } from '@/features/attendance/api/attendanceApi';
 import useDebounce from '@/hooks/useDebounce';
 import useUnsavedChanges from '@/hooks/useUnsavedChanges';
 import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { isAttendanceLate, isAttendanceLeave, isAttendancePresent } from '@/features/attendance/utils/attendanceStatus';
 
 const PointageRecapModal = lazy(() => import('@/features/attendance/components/modals/PointageRecapModal'));
+const AnomalieRegularisationModal = lazy(() => import('@/features/attendance/components/modals/AnomalieRegularisationModal'));
 
 export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectPeriode = null, sitesDisponibles = null }) {
     const { toast } = useToast();
@@ -101,7 +103,8 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
         bulkApplyStandardHours,
         bulkApplyStatut,
         bulkApplyIndemnite,
-        saveAll
+        saveAll,
+        loadData
     } = usePointageSaisie(initialSite, defaultDate);
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -225,6 +228,7 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
 
     // Modales
     const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
+    const [regularisationRow, setRegularisationRow] = useState(null);
 
     // Actions
     const handleUpdateHours = (idEmploye, field, value) => {
@@ -236,7 +240,44 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
     };
 
     const handleUpdateStatut = (idEmploye, newStatut, motif) => {
+        if (newStatut === 'CONGE') {
+            if (dirtyCount > 0) {
+                toast.warning('Enregistrez les autres modifications de la grille avant de régulariser un congé.');
+                return;
+            }
+            const row = grilleData.find((item) => item.idEmploye === idEmploye);
+            if (!row) return;
+            setRegularisationRow({
+                ...row,
+                idPointage: row.idPointage || 0,
+                idEmploye,
+                idSite: row.idSite || selectedSite,
+                idPeriodePaie: periodeInfo?.id_periode_paie || activePeriode?.idPeriodePaie || activePeriode?.id,
+                datePointage: selectedDate,
+                typeAnomalie: 'ABSENCE',
+                statutCode: row.codeStatut,
+                version: row.version ?? null,
+                motifAjustement: row.motifAjustement || ''
+            });
+            return;
+        }
         updateRowStatut(idEmploye, newStatut, motif);
+    };
+
+    const handleSaveRegularisation = async (payload) => {
+        if (!regularisationRow) return false;
+        const response = await attendanceService.regulariser(regularisationRow.idPointage || 0, {
+            ...payload,
+            idEmploye: regularisationRow.idEmploye,
+            idSite: regularisationRow.idSite,
+            idPeriodePaie: regularisationRow.idPeriodePaie,
+            datePointage: regularisationRow.datePointage
+        });
+        if (!response?.success) return response || { error: 'La régularisation du congé a échoué.' };
+        await loadData();
+        toast.success(response.message || 'Congé régularisé avec succès.');
+        setRegularisationRow(null);
+        return true;
     };
 
     const handleUpdateDynamicIndemnite = (idEmploye, idIndemnite, checked, moment) => {
@@ -617,7 +658,18 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                 </Suspense>
             )}
 
-            {/* Modale de Régularisation directe par Congé / Absence (Lazy Loaded) */}
+            {regularisationRow && (
+                <Suspense fallback={null}>
+                    <AnomalieRegularisationModal
+                        isOpen
+                        directDayFlow
+                        anomalie={regularisationRow}
+                        onClose={() => setRegularisationRow(null)}
+                        onSuccess={handleSaveRegularisation}
+                    />
+                </Suspense>
+            )}
+
             {/* Confirmation en cas de changement de filtre avec modifications en cours */}
             <ConfirmDialog
                 isOpen={showUnsavedNavConfirm}

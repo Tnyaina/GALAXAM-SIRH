@@ -43,8 +43,14 @@ public class PointageJourDTO {
     private Double totalHeuresDecimal;  // Heures en centésimal (décimal) ex: 8.85
     private Map<String, IndemniteJourDTO> indemnites = new LinkedHashMap<>();
 
-    public record IndemniteJourDTO(String code, boolean accordee, BigDecimal montant, BigDecimal quantite) {
-        public IndemniteJourDTO(String code, boolean accordee, BigDecimal montant) { this(code, accordee, montant, null); }
+    public record IndemniteJourDTO(String code, boolean accordee, BigDecimal montant, BigDecimal quantite,
+                                   Boolean matin, Boolean am) {
+        public IndemniteJourDTO(String code, boolean accordee, BigDecimal montant, BigDecimal quantite) {
+            this(code, accordee, montant, quantite, null, null);
+        }
+        public IndemniteJourDTO(String code, boolean accordee, BigDecimal montant) {
+            this(code, accordee, montant, null, null, null);
+        }
     }
 
     // Getters et Setters
