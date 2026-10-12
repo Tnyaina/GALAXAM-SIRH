@@ -61,6 +61,9 @@ class PointagePhase6IntegrationTest {
     private int testPeriodId;
     private int initialAssignmentId;
     private int contractId;
+    private int autonomousFunctionId;
+    private int autonomousAllowanceId;
+    private String autonomousAllowanceCode;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -174,6 +177,22 @@ class PointagePhase6IntegrationTest {
                 ps.setInt(1, employeId);
                 ps.executeUpdate();
             }
+            if (autonomousAllowanceId > 0) {
+                try (PreparedStatement ps = c.prepareStatement("DELETE FROM site_indemnite_config WHERE id_indemnite = ?")) {
+                    ps.setInt(1, autonomousAllowanceId);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = c.prepareStatement("DELETE FROM ref_indemnite WHERE id_indemnite = ?")) {
+                    ps.setInt(1, autonomousAllowanceId);
+                    ps.executeUpdate();
+                }
+            }
+            if (autonomousFunctionId > 0) {
+                try (PreparedStatement ps = c.prepareStatement("DELETE FROM ref_fonction WHERE id_fonction = ?")) {
+                    ps.setInt(1, autonomousFunctionId);
+                    ps.executeUpdate();
+                }
+            }
             if (activeSiteId > 0) {
                 try (PreparedStatement ps = c.prepareStatement("DELETE FROM ref_site WHERE id_site = ?")) {
                     ps.setInt(1, activeSiteId);
@@ -190,6 +209,95 @@ class PointagePhase6IntegrationTest {
     }
 
     // =========================================================================
+
+    @Test
+    @DisplayName("Le contrôle et le gel conservent les indemnités par défaut des autonomes sans ligne de pointage")
+    void testIndemnitesAutonomesSansPointageSontFigeesPourLaPaie() throws Exception {
+        try (Connection c = dataSource.getConnection()) {
+            String suffix = Long.toString(System.nanoTime(), 36).toUpperCase();
+            autonomousAllowanceCode = "AU" + suffix.substring(0, Math.min(8, suffix.length()));
+            try (PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO ref_fonction (code_fonction, libelle, dispense_pointage, est_actif) "
+                            + "VALUES (?, 'Fonction autonome test', TRUE, TRUE) RETURNING id_fonction")) {
+                ps.setString(1, "FA" + suffix.substring(0, Math.min(8, suffix.length())));
+                try (ResultSet rs = ps.executeQuery()) { rs.next(); autonomousFunctionId = rs.getInt(1); }
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE employe_affectation_carriere SET id_site = ?, id_fonction = ? WHERE id_affectation = ?")) {
+                ps.setInt(1, activeSiteId);
+                ps.setInt(2, autonomousFunctionId);
+                ps.setInt(3, initialAssignmentId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO ref_indemnite (code, libelle, imposable_irsa, soumis_cotisation, fractionnable, est_actif) "
+                            + "VALUES (?, 'Indemnité autonome test', FALSE, FALSE, FALSE, TRUE) RETURNING id_indemnite")) {
+                ps.setString(1, autonomousAllowanceCode);
+                try (ResultSet rs = ps.executeQuery()) { rs.next(); autonomousAllowanceId = rs.getInt(1); }
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO site_indemnite_config (id_site, id_indemnite, periodicite, montant_reference, date_debut, est_actif) "
+                            + "VALUES (?, ?, 'JOURNALIER', 10000, DATE '2026-09-01', TRUE)")) {
+                ps.setInt(1, activeSiteId);
+                ps.setInt(2, autonomousAllowanceId);
+                ps.executeUpdate();
+            }
+
+            var summary = pointageSyntheseService.getSynthesePeriode(testPeriodId, null, c).stream()
+                    .filter(row -> row.getIdEmploye() == employeId).findFirst().orElseThrow();
+            BigDecimal amountFromControl = summary.getMontantsIndemnites().get(autonomousAllowanceCode);
+            assertNotNull(amountFromControl);
+            assertTrue(amountFromControl.signum() > 0);
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT COUNT(*) FROM pointage_jour WHERE id_employe = ? AND date_pointage BETWEEN DATE '2026-09-01' AND DATE '2026-09-30'")) {
+                ps.setInt(1, employeId);
+                try (ResultSet rs = ps.executeQuery()) { assertTrue(rs.next()); assertEquals(0, rs.getInt(1)); }
+            }
+
+            // Une journée enregistrée prévaut sur le défaut autonome du seul jour concerné.
+            int pointageId;
+            try (PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO pointage_jour (id_employe, id_periode_paie, id_site, date_pointage, id_statut_jour, "
+                            + "total_heures, minutes_retard, heures_nuit, version) "
+                            + "VALUES (?, ?, ?, DATE '2026-09-01', "
+                            + "(SELECT id_statut_jour FROM ref_statut_pointage_jour WHERE code = 'DISPENSE_POINTAGE'), "
+                            + "8, 0, 0, 1) RETURNING id_pointage")) {
+                ps.setInt(1, employeId);
+                ps.setInt(2, testPeriodId);
+                ps.setInt(3, activeSiteId);
+                try (ResultSet rs = ps.executeQuery()) { assertTrue(rs.next()); pointageId = rs.getInt(1); }
+            }
+            try (PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO pointage_indemnite_jour (id_pointage, id_indemnite, fraction, quantite, montant_calcule, accorde) "
+                            + "VALUES (?, ?, 'JOUR_ENTIER', 0, 0, FALSE)")) {
+                ps.setInt(1, pointageId);
+                ps.setInt(2, autonomousAllowanceId);
+                ps.executeUpdate();
+            }
+            var summaryWithOneRecordedDay = pointageSyntheseService.getSynthesePeriode(testPeriodId, null, c).stream()
+                    .filter(row -> row.getIdEmploye() == employeId).findFirst().orElseThrow();
+            BigDecimal amountAfterOneDayOverride = summaryWithOneRecordedDay.getMontantsIndemnites().get(autonomousAllowanceCode);
+            assertNotNull(amountAfterOneDayOverride);
+            assertEquals(0, new BigDecimal("10000").compareTo(amountFromControl.subtract(amountAfterOneDayOverride)));
+
+            c.setAutoCommit(false);
+            pointageSyntheseService.gelerPeriode(testPeriodId, adminUserId, c);
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT si.montant FROM pointage_snapshot_indemnite si "
+                            + "JOIN pointage_cumul_periode cp ON cp.id_cumul = si.id_cumul "
+                            + "WHERE cp.id_employe = ? AND cp.id_periode_paie = ? AND si.code = ? "
+                            + "AND cp.statut_snapshot = 'GELE'")) {
+                ps.setInt(1, employeId);
+                ps.setInt(2, testPeriodId);
+                ps.setString(3, autonomousAllowanceCode);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(0, amountAfterOneDayOverride.compareTo(rs.getBigDecimal(1)));
+                }
+            }
+            c.commit();
+        }
+    }
 
     @Test
     @DisplayName("Une catégorie qui change l'éligibilité HS en semaine bloque le gel, sans bloquer une affectation équivalente")

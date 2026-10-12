@@ -226,7 +226,7 @@ export default function MenuManagementTab() {
             {/* Barre d'outils */}
             <Card className="overflow-hidden p-0" shadow="none">
             <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center p-3.5 border-b border-[var(--color-border-subtle)]">
-                <div className="flex-1 max-w-md"><Input aria-label="Rechercher" placeholder="Rechercher par code ou libellé…" value={search} onChange={event => setSearch(event.target.value)} iconLeft={<Search size={16} />} className="min-h-[44px]" /></div>
+                <div className="flex-1 max-w-md"><Input aria-label="Rechercher" placeholder="Rechercher par code ou libellé…" value={search} onChange={event => setSearch(event.target.value)} iconLeft={<Search size={16} />} /></div>
                 {menus.length > 0 && (
                     <Button
                         onClick={handleOpenCreateModal}

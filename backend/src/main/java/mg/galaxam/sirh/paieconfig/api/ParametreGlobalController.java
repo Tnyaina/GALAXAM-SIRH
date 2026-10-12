@@ -187,7 +187,7 @@ public class ParametreGlobalController {
 
     @RequestMapping(value = "/{id}/toggle-actif", method = {RequestMethod.PATCH, RequestMethod.PUT})
     @PreAuthorize("hasAuthority('PAIE_WRITE') or hasAuthority('ROLE_ADMIN') or hasAuthority('ORGANISATION_WRITE') or hasAuthority('POINTAGE_WRITE')")
-    public ResponseEntity<?> toggleActif(@PathVariable int id, @RequestBody(required = false) java.util.Map<String, Boolean> body) {
+    public ResponseEntity<?> toggleActif(@PathVariable int id, @RequestBody(required = false) java.util.Map<String, Object> body) {
         try (Connection c = dataSource.getConnection()) {
             c.setAutoCommit(false);
             try {
@@ -218,9 +218,53 @@ public class ParametreGlobalController {
 
                 boolean nouveauStatut;
                 if (body != null && body.containsKey("estActif")) {
-                    nouveauStatut = Boolean.TRUE.equals(body.get("estActif"));
+                    Object raw = body.get("estActif");
+                    nouveauStatut = raw instanceof Boolean ? (Boolean) raw : Boolean.parseBoolean(String.valueOf(raw));
                 } else {
                     nouveauStatut = !Boolean.TRUE.equals(existing.getEstActif());
+                }
+
+                String dateEffetStr = body != null && body.get("dateEffet") != null ? String.valueOf(body.get("dateEffet")).trim() : null;
+                java.time.LocalDate dateEffet = (dateEffetStr != null && !dateEffetStr.isEmpty())
+                        ? java.time.LocalDate.parse(dateEffetStr)
+                        : null;
+
+                if (dateEffet != null) {
+                    java.time.LocalDate debutExist = existing.getDateDebut().toLocalDate();
+                    if (dateEffet.isBefore(debutExist)) {
+                        throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                                mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                                "La date de prise d'effet (" + dateEffet + ") ne peut pas être antérieure à la date de début de la version en cours (" + debutExist + ").");
+                    }
+                    if (existing.getDateFin() != null && dateEffet.isAfter(existing.getDateFin().toLocalDate())) {
+                        throw new mg.galaxam.sirh.common.exception.SirhBusinessException(
+                                mg.galaxam.sirh.common.exception.SirhErrorCode.VALIDATION_ERROR,
+                                "La date de prise d'effet (" + dateEffet + ") ne peut pas être postérieure à la date de fin de la version en cours (" + existing.getDateFin() + ").");
+                    }
+                    if (dateEffet.isAfter(debutExist)) {
+                        // Clôture propre de la version en cours à la veille de la date d'effet
+                        java.sql.Date veille = java.sql.Date.valueOf(dateEffet.minusDays(1));
+                        java.sql.Date dateFinInitiale = existing.getDateFin();
+                        existing.setDateFin(veille);
+                        existing.update(c);
+
+                        // Création de la nouvelle version datée avec le nouveau statut
+                        ParametreGlobal nouvelleVersion = new ParametreGlobal();
+                        nouvelleVersion.setCodeParametre(existing.getCodeParametre());
+                        nouvelleVersion.setValeur(existing.getValeur());
+                        nouvelleVersion.setDescription(existing.getDescription());
+                        nouvelleVersion.setCategorie(existing.getCategorie());
+                        nouvelleVersion.setDateDebut(java.sql.Date.valueOf(dateEffet));
+                        nouvelleVersion.setDateFin(dateFinInitiale);
+                        nouvelleVersion.setEstActif(nouveauStatut);
+                        nouvelleVersion.setEstDesactivable(existing.getEstDesactivable());
+                        nouvelleVersion.save(c);
+
+                        AuditLog.audit(c, nouveauStatut ? "ACTIVATION_VERSIONNEE" : "DESACTIVATION_VERSIONNEE", "parametre_global", String.valueOf(nouvelleVersion.getIdParametre()), null, nouvelleVersion);
+
+                        c.commit();
+                        return ResponseEntity.ok(nouvelleVersion);
+                    }
                 }
 
                 existing.setEstActif(nouveauStatut);

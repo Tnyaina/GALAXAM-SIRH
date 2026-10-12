@@ -66,6 +66,7 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
     const [filterDate, setFilterDate] = useState('');
     const [filterStatutTraitement, setFilterStatutTraitement] = useState('TODO'); // 'ALL', 'TODO', 'DONE'
     const [isSemainesCollapsed, setIsSemainesCollapsed] = useState(true);
+    const [isMissingDaysCollapsed, setIsMissingDaysCollapsed] = useState(true);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(8);
@@ -537,22 +538,44 @@ export default function SuiviAnomaliesPage({ activePeriode, onSelectPeriode, onT
             {/* Les journées absentes du pointage ne figurent pas dans la liste des anomalies enregistrées. */}
             {filterStatutTraitement !== 'DONE' && (
                 <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)]" aria-labelledby="missing-days-title">
-                    <div className="p-4 border-b border-[var(--color-border-subtle)]">
-                        <h2 id="missing-days-title" className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
-                            Journées ouvrables sans statut · {missingDays.length}
-                        </h2>
-                        <p className="mt-1 text-xs text-[var(--color-fg-muted)]">Ouvrez la journée pour saisir le pointage ou signaler une absence ou un congé. Aucun retrait de salaire n’est appliqué par cette liste.</p>
-                    </div>
-                    {missingDays.length > 0 ? (
-                        <div className="max-h-72 overflow-y-auto divide-y divide-[var(--color-border-subtle)]">
-                            {missingDays.map(day => (
-                                <div key={`${day.idEmploye}-${day.date}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-xs">
-                                    <div><strong>{day.nom} {day.prenom}</strong> <span className="text-[var(--color-fg-muted)]">· {day.matricule} · {fmtDate(day.date)}</span></div>
-                                    <Link to={employeeDayUrl(day.idEmploye, day.date)} className="font-semibold text-[var(--color-brand-600)] hover:underline">Ouvrir la journée →</Link>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="md"
+                        wrapLabel
+                        aria-expanded={!isMissingDaysCollapsed}
+                        aria-controls="missing-days-content"
+                        onClick={() => setIsMissingDaysCollapsed(previous => !previous)}
+                        iconRight={isMissingDaysCollapsed
+                            ? <ChevronDown size={16} className="shrink-0 text-[var(--color-fg-muted)]" />
+                            : <ChevronUp size={16} className="shrink-0 text-[var(--color-fg-muted)]" />}
+                        className="w-full justify-between p-4 text-left normal-case tracking-normal"
+                    >
+                        <span className="flex min-w-0 flex-1 flex-col items-start text-left normal-case tracking-normal">
+                            <span id="missing-days-title" className="block text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
+                                Journées ouvrables sans statut · {missingDays.length}
+                            </span>
+                            {!isMissingDaysCollapsed && (
+                                <span className="mt-1 block text-xs font-normal normal-case tracking-normal text-[var(--color-fg-muted)]">
+                                    Ouvrez la journée pour saisir le pointage ou signaler une absence ou un congé. Aucun retrait de salaire n’est appliqué par cette liste.
+                                </span>
+                            )}
+                        </span>
+                    </Button>
+                    {!isMissingDaysCollapsed && (
+                        <div id="missing-days-content" className="border-t border-[var(--color-border-subtle)]">
+                            {missingDays.length > 0 ? (
+                                <div className="max-h-72 overflow-y-auto divide-y divide-[var(--color-border-subtle)]">
+                                    {missingDays.map(day => (
+                                        <div key={`${day.idEmploye}-${day.date}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-xs">
+                                            <div><strong>{day.nom} {day.prenom}</strong> <span className="text-[var(--color-fg-muted)]">· {day.matricule} · {fmtDate(day.date)}</span></div>
+                                            <Link to={employeeDayUrl(day.idEmploye, day.date)} className="font-semibold text-[var(--color-brand-600)] hover:underline">Ouvrir la journée →</Link>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
+                            ) : <p className="p-4 text-xs text-[var(--color-fg-muted)]">{preflightError ? 'Contrôle des journées indisponible pour le moment.' : preflight ? 'Aucune journée sans statut pour cette sélection.' : 'Chargement des journées à traiter…'}</p>}
                         </div>
-                    ) : <p className="p-4 text-xs text-[var(--color-fg-muted)]">{preflightError ? 'Contrôle des journées indisponible pour le moment.' : preflight ? 'Aucune journée sans statut pour cette sélection.' : 'Chargement des journées à traiter…'}</p>}
+                    )}
                 </section>
             )}
 

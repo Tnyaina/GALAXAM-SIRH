@@ -16,6 +16,7 @@ import ConfirmDialog from '@/components/ui/overlays/ConfirmDialog';
 import { useToast } from '@/components/ui/feedback/Toast';
 
 const CATEGORIES = ['Administratif', 'Identité', 'Recrutement', 'Contrat', 'Formation', 'Paie', 'Autre'];
+const MAX_TAILLE_DOCUMENT_MO = 50;
 
 export default function DocumentTypeManagementTab() {
     // État local : référentiel, formulaire et confirmation.
@@ -98,6 +99,13 @@ export default function DocumentTypeManagementTab() {
         const errors = {};
         if (!formData.libelle.trim()) {
             errors.libelle = 'Le libellé du document est obligatoire.';
+        }
+        const extensions = String(formData.extensionAutorisee || '').split(',').map(value => value.trim().replace(/^\./, ''));
+        if (!extensions.length || extensions.some(value => !/^[a-z0-9]+$/i.test(value))) {
+            errors.extensionAutorisee = 'Saisissez des extensions valides séparées par des virgules.';
+        }
+        if (!Number.isInteger(Number(formData.tailleMaxMo)) || Number(formData.tailleMaxMo) < 1 || Number(formData.tailleMaxMo) > MAX_TAILLE_DOCUMENT_MO) {
+            errors.tailleMaxMo = `La taille doit être comprise entre 1 et ${MAX_TAILLE_DOCUMENT_MO} Mo.`;
         }
 
         if (Object.keys(errors).length > 0) {
@@ -315,13 +323,18 @@ export default function DocumentTypeManagementTab() {
                             value={formData.extensionAutorisee}
                             onChange={e => setFormData({ ...formData, extensionAutorisee: e.target.value })}
                             placeholder="pdf,jpg,jpeg,png"
+                            error={fieldErrors.extensionAutorisee}
                             hint="Séparées par des virgules"
                         />
                         <Input
                             label="Taille max (Mo)"
                             type="number"
+                            min={1}
+                            max={MAX_TAILLE_DOCUMENT_MO}
                             value={formData.tailleMaxMo}
                             onChange={e => setFormData({ ...formData, tailleMaxMo: parseInt(e.target.value) || 10 })}
+                            error={fieldErrors.tailleMaxMo}
+                            hint={`Maximum technique : ${MAX_TAILLE_DOCUMENT_MO} Mo`}
                         />
                     </div>
                     <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] rounded-none space-y-1">

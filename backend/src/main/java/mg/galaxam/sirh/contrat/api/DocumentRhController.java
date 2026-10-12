@@ -137,7 +137,7 @@ public class DocumentRhController {
                 String originalFilename = file.getOriginalFilename();
                 String extension = "";
                 if (originalFilename != null && originalFilename.contains(".")) {
-                    extension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
+                    extension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase(java.util.Locale.ROOT);
                 }
 
                 // 2.bis Vérification de l'extension autorisée (whitelist stricte)

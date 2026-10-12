@@ -236,7 +236,7 @@ export default function PeriodesReferenceTab({
                 iconLeft={<SlidersHorizontal size={14} />}
                 onClick={() => setShowCutoverModal(true)}
               >
-                Reprendre l'historique (Cutover)
+                Reprendre l'historique
               </Button>
             )}
           </div>

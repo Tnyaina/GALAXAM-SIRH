@@ -29,7 +29,7 @@ const formatDateMouvement = (dateVal, fallbackTimestamp) => {
 
 const getMouvementBadgeConfig = (type, commentaire) => {
   if (type === 'AJUSTEMENT' && commentaire &&
-    (commentaire.startsWith('[SOLDE_INITIAL]') || commentaire.startsWith('Reprise cutover - Solde initial'))) {
+    (commentaire.startsWith('[SOLDE_INITIAL]') || commentaire.startsWith('Reprise - Solde initial'))) {
     return { variant: 'info', label: 'Solde initial (reprise)' };
   }
   if (type === 'AJUSTEMENT' && commentaire?.startsWith('Correction DAF du reliquat de reprise')) {
@@ -91,7 +91,7 @@ export default function MouvementsSoldeTable({
   }, [mouvements]);
   const hasCutover = safeMouvements.some(m => m.typeMouvement === 'AJUSTEMENT'
     && (m.commentaire?.startsWith('[SOLDE_INITIAL]')
-      || m.commentaire?.startsWith('Reprise cutover - Solde initial')));
+      || m.commentaire?.startsWith('Reprise - Solde initial')));
   // Afficher la colonne valeur si au moins un mouvement a une valeur source historique.
   const hasValeurSource = safeMouvements.some(m => m.valeurSource != null && Number(m.valeurSource) > 0);
 
@@ -143,13 +143,13 @@ export default function MouvementsSoldeTable({
       if (filterType !== 'ALL') {
         if (filterType === 'SOLDE_INITIAL') {
           if (!(mvt.typeMouvement === 'AJUSTEMENT' &&
-            (mvt.commentaire?.startsWith('[SOLDE_INITIAL]') || mvt.commentaire?.startsWith('Reprise cutover - Solde initial')))) {
+            (mvt.commentaire?.startsWith('[SOLDE_INITIAL]') || mvt.commentaire?.startsWith('Reprise - Solde initial')))) {
             return false;
           }
         } else if (filterType === 'AJUSTEMENT') {
           if (!(mvt.typeMouvement === 'AJUSTEMENT' &&
             !mvt.commentaire?.startsWith('[SOLDE_INITIAL]') &&
-            !mvt.commentaire?.startsWith('Reprise cutover - Solde initial'))) {
+            !mvt.commentaire?.startsWith('Reprise - Solde initial'))) {
             return false;
           }
         } else if (mvt.typeMouvement !== filterType) {

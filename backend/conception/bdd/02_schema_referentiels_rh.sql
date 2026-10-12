@@ -308,7 +308,6 @@ INSERT INTO ref_fonction (code_fonction, libelle, dispense_pointage) VALUES
 INSERT INTO ref_type_contrat (id_type_contrat, code, libelle, exige_date_fin) VALUES
 (1, 'CDI', 'Contrat à Durée Indéterminée', FALSE),
 (2, 'CDD', 'Contrat à Durée Déterminée', TRUE),
-(3, 'PRESTATION', 'Contrat de Prestation', TRUE),
 (4, 'TEMPORAIRE', 'Contrat d Engagement Temporaire', TRUE),
 (5, 'STAGE', 'Convention / Contrat de Stage', TRUE);
 SELECT setval('ref_type_contrat_id_type_contrat_seq', (SELECT GREATEST(MAX(id_type_contrat), 5) FROM ref_type_contrat));

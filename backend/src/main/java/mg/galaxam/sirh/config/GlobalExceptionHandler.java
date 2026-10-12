@@ -107,7 +107,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleMaxUploadSize(MaxUploadSizeExceededException ex, HttpServletRequest request) {
         log.warn("Fichier trop volumineux sur [{}]", request.getRequestURI());
         return problem(HttpStatus.CONTENT_TOO_LARGE, SirhErrorCode.FILE_TOO_LARGE.name(),
-                "Le fichier sélectionné est trop volumineux. La taille maximale autorisée est de 10 Mo.", request);
+                "Le fichier sélectionné est trop volumineux. La limite technique maximale est de 50 Mo.", request);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

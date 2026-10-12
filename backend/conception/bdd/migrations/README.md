@@ -1,5 +1,9 @@
 # Registre des Migrations Incrémentales BDD
 
+`26-10-12-sp65-retire-seuil-heures-semaine-compensation.sql` clôt et
+désactive l'ancien seuil hebdomadaire, remplacé par
+`paie_config_legale.duree_hebdo_legale`. La ligne reste conservée pour l'audit.
+
 `26-10-11-sp64-prestataires-menu.sql` ajoute « Prestataires indépendants »
 dans le menu Paie pour les rôles qui disposent de la lecture Paie. Appliquer
 après SP63 sur une base existante ; le schéma canonique contient ce menu.

@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class RefTypeDocument extends ClassMere {
+    public static final int MAX_TAILLE_MAX_MO = 50;
     public static final String CONTRAT_TRAVAIL_LIBELLE = "Contrat de travail";
     public boolean isContratTravail() { return CONTRAT_TRAVAIL_LIBELLE.equalsIgnoreCase(libelle); }
 
@@ -46,8 +47,26 @@ public class RefTypeDocument extends ClassMere {
         if (categorie == null || categorie.isBlank()) {
             throw new IllegalArgumentException("La catégorie est obligatoire.");
         }
+        if (tailleMaxMo == null || tailleMaxMo < 1 || tailleMaxMo > MAX_TAILLE_MAX_MO) {
+            throw new IllegalArgumentException("La taille maximale doit être comprise entre 1 et " + MAX_TAILLE_MAX_MO + " Mo.");
+        }
+        if (extensionAutorisee == null || extensionAutorisee.isBlank()) {
+            throw new IllegalArgumentException("Au moins une extension autorisée est requise.");
+        }
+        String extensionsNormalisees = java.util.Arrays.stream(extensionAutorisee.split(","))
+                .map(String::trim)
+                .map(value -> value.startsWith(".") ? value.substring(1) : value)
+                .map(value -> value.toLowerCase(java.util.Locale.ROOT))
+                .filter(value -> !value.isBlank())
+                .distinct()
+                .collect(java.util.stream.Collectors.joining(","));
+        if (extensionsNormalisees.isBlank() || java.util.Arrays.stream(extensionsNormalisees.split(","))
+                .anyMatch(value -> !value.matches("[a-z0-9]+"))) {
+            throw new IllegalArgumentException("Les extensions doivent être séparées par des virgules (ex. pdf,jpg,png).");
+        }
         this.libelle = this.libelle.trim();
         this.categorie = this.categorie.trim();
+        this.extensionAutorisee = extensionsNormalisees;
     }
 
     @Override

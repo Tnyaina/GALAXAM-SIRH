@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { 
-    Banknote, CalendarRange, FileText,
-    DollarSign, AlertTriangle, SlidersHorizontal,
-    ChevronRight, TrendingUp, TrendingDown, Users
+import {
+    CalendarRange, FileText,
+    SlidersHorizontal, ChevronRight, Users, Clock3
 } from 'lucide-react';
 import SEO from '@/components/system/SEO';
 import Button from '@/components/ui/forms/Button';
 import SearchSelect from '@/components/ui/forms/SearchSelect';
 import Alert from '@/components/ui/feedback/Alert';
 import { Card } from '@/components/ui/data-display/Card';
-import StatCard from '@/components/ui/data-display/StatCard';
 import PayrollPeriodStepper from '@/features/payroll/components/workflow/PayrollPeriodStepper';
 import PayrollIssueBadge from '@/features/payroll/components/feedback/PayrollIssueBadge';
 import PageHeader from '@/components/ui/navigation/PageHeader';
-import { Skeleton, SkeletonStatCard, SkeletonTable } from '@/components/ui/feedback/Skeleton';
+import Breadcrumb from '@/components/ui/navigation/Breadcrumb';
+import { Skeleton, SkeletonTable } from '@/components/ui/feedback/Skeleton';
 import { usePayrollCampaign } from '@/features/payroll/hooks/usePayrollCampaign';
 import paieService from '@/features/payroll/api/paieService';
 import { formatMoneyAr } from '@/utils/moneyUtils';
@@ -52,13 +51,14 @@ export default function GestionPaiePage() {
     const [kpiLoading, setKpiLoading] = useState(false);
     const kpiRequest = useRef(0);
     const [variableSummary, setVariableSummary] = useState({ count: 0, gains: 0, retenues: 0 });
+    const [blockersExpanded, setBlockersExpanded] = useState(false);
 
     // Données dérivées
     const activePeriod = context?.selectedPeriod || context?.currentPeriod || periodes[0] || null;
-    const isCurrentBusinessPeriod = Boolean(context?.currentPeriod?.id && context.currentPeriod.id === activePeriod?.id);
     const campaignSteps = context?.campaignSteps || [];
     const currentStepCode = context?.currentStep;
     const currentStepObj = campaignSteps.find(s => s.code === currentStepCode);
+    const periodStateLabel = activePeriod?.statutCode || activePeriod?.statut || activePeriod?.state;
     const recalcRequired = context?.recalculationRequired === true;
     // Les issues comme 'PAYROLL_NOT_CALCULATED' concernent la validation finale des bulletins.
     // À l'étape Préparation / Population / Variables, ce n'est pas un blocage actif de la campagne
@@ -75,6 +75,10 @@ export default function GestionPaiePage() {
             return true;
         });
     }, [activePeriod, context?.issues, currentStepCode]);
+
+    useEffect(() => {
+        setBlockersExpanded(false);
+    }, [activePeriod?.id]);
 
     // Effets
     useEffect(() => {
@@ -112,6 +116,7 @@ export default function GestionPaiePage() {
                     totalNet: cockpitData.kpis?.totalNetAPayer ?? cockpitData.kpis?.masseNetAPayer ?? 0,
                     totalAlertes: cockpitData.readiness?.nbAnomalies ?? cockpitData.kpis?.nbAlertes ?? 0,
                     populationCount: popCount,
+                    readinessChecks: cockpitData.readiness?.checks || [],
                 });
             } else {
                 setPeriodKpis(null);
@@ -122,6 +127,8 @@ export default function GestionPaiePage() {
             if (requestId === kpiRequest.current) setKpiLoading(false);
         }
     }, []);
+
+    const pointageCheck = periodKpis?.readinessChecks?.find(check => check.code === 'POINTAGE_FROZEN');
 
     useEffect(() => {
         if (!needsCampaignContext) return;
@@ -230,43 +237,36 @@ export default function GestionPaiePage() {
                 description="Tableau de bord opérationnel de gestion de la paie, campagnes actives et déclarations."
             />
 
-            <PageHeader
-                title="Centre de paie"
-                subtitle="Supervision opérationnelle, campagnes actives, acomptes et sorties réglementaires."
-                icon={Banknote}
-                breadcrumbs={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Paie & Rémunération' }]}
-                actions={periodes.length > 0 && (
-                    <div className="flex items-center gap-2 min-w-[260px]">
-                        <CalendarRange size={16} className="text-[var(--color-brand-600)] shrink-0" aria-hidden="true" />
-                        <SearchSelect
-                            placeholder="Rechercher une période…"
-                            value={activePeriod?.id ? String(activePeriod.id) : String(periodes[0]?.idPeriodePaie || periodes[0]?.id || '')}
-                            onChange={(val) => val && selectPeriode(Number(val))}
-                            options={periodes.map(p => {
-                                const pId = p.idPeriodePaie || p.id_periode_paie || p.id;
-                                const statut = p.statutCode || p.statut || p.state || 'EN_COURS';
-                                return {
-                                    value: String(pId),
-                                    // SearchSelect recherche dans label et sublabel : exposer
-                                    // systématiquement code + libellé, pas l'un au détriment de l'autre.
-                                    label: [p.code, p.libelle].filter(Boolean).join(' — ') || String(pId),
-                                    sublabel: statut,
-                                };
-                            })}
-                            className="w-full"
-                        />
+            <div className="space-y-4">
+                <Breadcrumb items={[{ label: 'Tableau de bord', href: '/dashboard' }, { label: 'Paie & Rémunération' }]} />
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+                    <div className="min-w-0">
+                        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[var(--color-fg)]">Centre de paie</h1>
+                        <p className="mt-1 text-base text-[var(--color-fg-muted)]">Supervision opérationnelle, campagnes actives, acomptes et sorties réglementaires.</p>
                     </div>
-                )}
-            />
-
-            <Card padding shadow="none" className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-start gap-2.5">
-                    <Users size={18} className="mt-0.5 shrink-0 text-[var(--color-brand-600)]" />
-                    <div><h2 className="text-sm font-bold">Un consultant indépendant ou un autre prestataire de services ?</h2>
-                        <p className="text-xs text-[var(--color-fg-muted)]">Créez son dossier, son contrat et ses factures dans le parcours prestataires. Son règlement est distinct des bulletins et du STC.</p></div>
+                    {periodes.length > 0 && (
+                        <div className="flex w-full flex-col gap-1.5 lg:w-[min(100%,440px)] shrink-0">
+                            <label htmlFor="payroll-period-select" className="text-sm font-medium text-[var(--color-fg-muted)]">Période de paie</label>
+                            <SearchSelect
+                                id="payroll-period-select"
+                                placeholder="Rechercher une période…"
+                                value={activePeriod?.id ? String(activePeriod.id) : String(periodes[0]?.idPeriodePaie || periodes[0]?.id || '')}
+                                onChange={(val) => val && selectPeriode(Number(val))}
+                                options={periodes.map(p => {
+                                    const pId = p.idPeriodePaie || p.id_periode_paie || p.id;
+                                    const statut = p.statutCode || p.statut || p.state || 'EN_COURS';
+                                    return {
+                                        value: String(pId),
+                                        label: [p.code, p.libelle].filter(Boolean).join(' — ') || String(pId),
+                                        sublabel: statut,
+                                    };
+                                })}
+                                className="w-full"
+                            />
+                        </div>
+                    )}
                 </div>
-                <Button type="button" variant="outline" onClick={() => navigate('/paie/prestataires')}>Ouvrir les prestataires indépendants</Button>
-            </Card>
+            </div>
 
             {error && (
                 <div className="mb-2">
@@ -279,7 +279,7 @@ export default function GestionPaiePage() {
             )}
 
             {/* Contexte de la période et progression de la campagne */}
-            <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-5 sm:p-6 shadow-xs relative">
+            <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 sm:p-5 shadow-xs relative">
                 {loading && !context ? (
                     <div className="space-y-4">
                         <div className="flex items-center gap-3">
@@ -290,27 +290,37 @@ export default function GestionPaiePage() {
                         <Skeleton className="h-4 w-72" />
                     </div>
                 ) : (
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                         <div className="space-y-2">
                             <div className="flex items-center gap-3 flex-wrap">
-                                <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-[var(--color-brand-500)]/15 text-[var(--color-brand-700)] dark:text-[var(--color-brand-300)]">
-                                    {isCurrentBusinessPeriod ? 'Période courante' : 'Période sélectionnée'}
-                                </span>
                                 <h2 className="text-2xl sm:text-3xl font-bold text-[var(--color-fg)] tracking-tight">
                                     {activePeriod?.code || activePeriod?.label || 'Aucune campagne active'}
                                 </h2>
+                                {periodStateLabel && (
+                                    <span className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide border border-[var(--color-border-subtle)] bg-[var(--color-bg-subtle)] text-[var(--color-fg-muted)]">
+                                        {String(periodStateLabel).replaceAll('_', ' ')}
+                                    </span>
+                                )}
                                 <PayrollWorkflowStatusBadges statuses={activePeriod?.workflowStatuses} size="md" />
                                 {recalcRequired && (
                                     <PayrollIssueBadge severity="WARNING" label="Calcul obsolète" />
                                 )}
                                 {activeBlockers.length > 0 && (
-                                    <PayrollIssueBadge
-                                        severity="BLOCKER"
-                                        count={activeBlockers.length}
-                                        label="bloquant(s)"
-                                        className="cursor-help"
-                                        title={activeBlockers.map(b => b.message).join('\n')}
-                                    />
+                                    <button
+                                        type="button"
+                                        aria-expanded={blockersExpanded}
+                                        aria-controls="payroll-blockers"
+                                        onClick={() => setBlockersExpanded(value => !value)}
+                                        className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-danger-500)] focus-visible:ring-offset-2"
+                                        title={blockersExpanded ? 'Masquer les points bloquants' : 'Afficher les points bloquants'}
+                                    >
+                                        <PayrollIssueBadge
+                                            severity="BLOCKER"
+                                            count={activeBlockers.length}
+                                            label={activeBlockers.length === 1 ? 'point bloquant' : 'points bloquants'}
+                                            className="cursor-pointer"
+                                        />
+                                    </button>
                                 )}
                             </div>
 
@@ -331,7 +341,7 @@ export default function GestionPaiePage() {
 
                 {/* Stepper de campagne compact */}
                 {campaignSteps.length > 0 && (
-                    <div className="mt-6 pt-4 border-t border-[var(--color-border-subtle)]">
+                    <div className="mt-5 pt-4 border-t border-[var(--color-border-subtle)]">
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-fg-muted)]">
                                 Progression du workflow
@@ -380,8 +390,9 @@ export default function GestionPaiePage() {
                         <div>
                             <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-brand-600)] dark:text-[var(--color-brand-400)]">Prochaine action</span>
                             <h3 className="text-sm font-bold text-[var(--color-fg)] mt-0.5">
-                                {nextLogicalAction.title}
+                                {currentStepCode === 'POINTAGE' || currentStepCode === 'POINTAGE_SAISIE' ? 'Terminer la saisie du pointage' : nextLogicalAction.title}
                             </h3>
+                            <p className="text-xs text-[var(--color-fg-muted)] mt-1">{pointageCheck?.message || `Étape en cours : ${currentStepObj?.label || 'campagne de paie'}.`}</p>
                         </div>
                     </div>
 
@@ -392,103 +403,71 @@ export default function GestionPaiePage() {
                             onClick={nextLogicalAction.onClick}
                             iconRight={<ChevronRight size={14} />}
                         >
-                            {nextLogicalAction.label}
+                            {currentStepCode === 'POINTAGE' || currentStepCode === 'POINTAGE_SAISIE' ? 'Continuer la saisie' : nextLogicalAction.label}
                         </Button>
                     </div>
                 </section>
             )}
 
-            {/* GRILLE DE SYNTHÈSE KPI */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {(loading && !context) || (kpiLoading && !periodKpis) ? (
-                    <>
-                        <SkeletonStatCard />
-                        <SkeletonStatCard />
-                        <SkeletonStatCard />
-                        <SkeletonStatCard />
-                    </>
-                ) : (
-                    <>
-                        <StatCard
-                            title="Bulletins calculés"
-                            value={kpiLoading ? '…' : (periodKpis?.totalBulletins ?? 0)}
-                            subtext={hasCalculatedBulletins ? `Période ${activePeriod?.code || ''}` : 'En attente du calcul'}
-                            icon={<FileText size={18} />}
-                            color="brand"
-                        />
-                        <StatCard
-                            title="Masse Brute"
-                            value={kpiLoading ? '…' : hasCalculatedBulletins ? formatAr(periodKpis?.totalBrut) : '—'}
-                            subtext={hasCalculatedBulletins ? 'Salaires bruts imposables' : 'En attente du calcul'}
-                            icon={<DollarSign size={18} />}
-                            color="info"
-                        />
-                        <StatCard
-                            title="Net à payer"
-                            value={kpiLoading ? '…' : hasCalculatedBulletins ? formatAr(periodKpis?.totalNet) : '—'}
-                            subtext={hasCalculatedBulletins ? 'Montant total des virements' : 'En attente du calcul'}
-                            icon={<Banknote size={18} />}
-                            color="success"
-                        />
-                        <StatCard
-                            title="Alertes & Contrôles"
-                            value={kpiLoading ? '…' : (periodKpis?.totalAlertes ?? 0)}
-                            subtext={(periodKpis?.totalAlertes ?? 0) > 0 ? 'Anomalies nécessitant examen' : 'Aucune anomalie signalée'}
-                            icon={<AlertTriangle size={18} />}
-                            color={(periodKpis?.totalAlertes ?? 0) > 0 ? 'warning' : 'neutral'}
-                        />
-                    </>
-                )}
-            </div>
-
-            {activePeriod && (
-                <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)]">
-                    <div className="p-4 border-b border-[var(--color-border-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                            <h3 className="text-sm font-bold text-[var(--color-fg)]">Contrôles avant calcul</h3>
-                            <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">Les éléments qui influencent directement la paie de {activePeriod.code || activePeriod.libelle}.</p>
-                        </div>
-                        <Button variant="secondary" size="sm" onClick={() => navigate(`/paie/periodes/${activePeriod.id}/variables`)} iconLeft={<SlidersHorizontal size={14} />}>
-                            Vérifier les variables
-                        </Button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[var(--color-border-subtle)]">
-                        <div className="p-4">
-                            <p className="text-[10px] uppercase tracking-wider font-bold text-[var(--color-fg-muted)]">Éléments variables</p>
-                            <p className="mt-1 text-xl font-bold text-[var(--color-fg)]">{variableSummary.count}</p>
-                            <p className="text-xs text-[var(--color-fg-muted)]">à relire avant le calcul</p>
-                        </div>
-                        <div className="p-4">
-                            <p className="text-[10px] uppercase tracking-wider font-bold text-[var(--color-fg-muted)] flex items-center gap-1"><TrendingUp size={13} /> Gains déclarés</p>
-                            <p className="mt-1 text-xl font-bold text-[var(--color-success-600)]">+{formatAr(variableSummary.gains)}</p>
-                            <p className="text-xs text-[var(--color-fg-muted)]">primes et indemnités</p>
-                        </div>
-                        <div className="p-4">
-                            <p className="text-[10px] uppercase tracking-wider font-bold text-[var(--color-fg-muted)] flex items-center gap-1"><TrendingDown size={13} /> Retenues déclarées</p>
-                            <p className="mt-1 text-xl font-bold text-[var(--color-danger-600)]">-{formatAr(variableSummary.retenues)}</p>
-                            <p className="text-xs text-[var(--color-fg-muted)]">acomptes et déductions</p>
-                        </div>
-                    </div>
-                    {(activeBlockers.length > 0 || recalcRequired) && (
-                        <div className="p-4 border-t border-[var(--color-border-subtle)] space-y-2">
-                            {recalcRequired && (
-                                <Alert
-                                    type="warning"
-                                    title="Recalcul requis"
-                                    message="Le calcul doit être relancé après les dernières modifications des données sources."
-                                />
-                            )}
-                            {activeBlockers.map((blocker, idx) => (
-                                <Alert
-                                    key={blocker.code || idx}
-                                    type="error"
-                                    title="Point bloquant"
-                                    message={blocker.message}
-                                />
-                            ))}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 sm:p-5">
+                    <h3 className="text-base font-bold text-[var(--color-fg)]">Résultats de la paie</h3>
+                    <p className="text-sm text-[var(--color-fg-muted)] mt-1">{hasCalculatedBulletins ? `Résultats disponibles pour ${activePeriod?.code || 'la période sélectionnée'}.` : 'S’affichent après le premier calcul.'}</p>
+                    {!hasCalculatedBulletins && (
+                        <div className="mt-4 flex items-center gap-3 border border-dashed border-[var(--color-border-subtle)] p-3 text-sm text-[var(--color-fg-muted)]">
+                            <Clock3 size={19} className="shrink-0" />
+                            <span>Aucun bulletin calculé pour le moment.</span>
                         </div>
                     )}
+                    <div className="mt-4 grid grid-cols-2 border border-[var(--color-border-subtle)]">
+                        <div className="p-3 border-b border-r border-[var(--color-border-subtle)]">
+                            <p className="text-lg font-bold font-mono text-[var(--color-fg-muted)]">{kpiLoading ? '…' : `${periodKpis?.totalBulletins ?? 0} / ${periodKpis?.populationCount ?? context?.populationCount ?? activePeriod?.employeeCount ?? '–'}`}</p>
+                            <p className="text-xs text-[var(--color-fg-muted)]">Bulletins calculés</p>
+                        </div>
+                        <div className="p-3 border-b border-[var(--color-border-subtle)]">
+                            <p className="text-lg font-bold font-mono text-[var(--color-fg-muted)]">{hasCalculatedBulletins ? formatAr(periodKpis?.totalBrut) : '—'}</p>
+                            <p className="text-xs text-[var(--color-fg-muted)]">Masse brute</p>
+                        </div>
+                        <div className="p-3 border-r border-[var(--color-border-subtle)]">
+                            <p className="text-lg font-bold font-mono text-[var(--color-fg-muted)]">{hasCalculatedBulletins ? formatAr(periodKpis?.totalNet) : '—'}</p>
+                            <p className="text-xs text-[var(--color-fg-muted)]">Net à payer</p>
+                        </div>
+                        <div className="p-3">
+                            <p className="text-lg font-bold font-mono text-[var(--color-fg-muted)]">{periodKpis?.totalAlertes ?? 0}</p>
+                            <p className="text-xs text-[var(--color-fg-muted)]">Anomalies détectées</p>
+                        </div>
+                    </div>
                 </section>
+
+                <section className="bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-4 sm:p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div>
+                            <h3 className="text-base font-bold text-[var(--color-fg)]">Contrôles avant calcul</h3>
+                            <p className="text-sm text-[var(--color-fg-muted)] mt-1">Ce qui influence la paie de {activePeriod?.code || 'la période sélectionnée'}.</p>
+                        </div>
+                        {activePeriod && <Button variant="outline" size="sm" onClick={() => navigate(`/paie/periodes/${activePeriod.id}/variables`)}>Vérifier les variables</Button>}
+                    </div>
+                    <dl className="mt-4 divide-y divide-[var(--color-border-subtle)]">
+                        <div className="flex items-center justify-between gap-4 py-3 text-sm"><dt>Éléments variables à relire</dt><dd className="font-mono font-semibold">{variableSummary.count}</dd></div>
+                        <div className="flex items-center justify-between gap-4 py-3 text-sm"><dt>Gains déclarés (primes, indemnités)</dt><dd className="font-mono font-semibold">{formatAr(variableSummary.gains)}</dd></div>
+                        <div className="flex items-center justify-between gap-4 py-3 text-sm"><dt>Retenues déclarées (acomptes, déductions)</dt><dd className="font-mono font-semibold">{formatAr(variableSummary.retenues)}</dd></div>
+                        <div className="flex items-center justify-between gap-4 py-3 text-sm"><dt>Pointage validé et figé</dt><dd className={`font-semibold ${pointageCheck?.status === 'PASS' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-danger-600)]'}`}>{pointageCheck?.status === 'PASS' ? 'Oui' : pointageCheck ? 'À faire' : '—'}</dd></div>
+                    </dl>
+                </section>
+            </div>
+
+            {(blockersExpanded || recalcRequired) && (
+                <div id="payroll-blockers" className="space-y-2" aria-live="polite">
+                    {recalcRequired && <Alert type="warning" title="Recalcul requis" message="Le calcul doit être relancé après les dernières modifications des données sources." />}
+                    {blockersExpanded && activeBlockers.map((blocker, idx) => (
+                        <Alert
+                            key={blocker.code || idx}
+                            type="error"
+                            title="Point bloquant"
+                            message={<><span>{blocker.message}</span>{blocker.code === 'POINTAGE_NOT_FROZEN' && <span className="block mt-1 text-[var(--color-fg-muted)]">Pour le débloquer, terminez la saisie puis lancez la validation du pointage.</span>}</>}
+                        />
+                    ))}
+                </div>
             )}
 
             {/* Navigation secondaire */}
@@ -497,7 +476,7 @@ export default function GestionPaiePage() {
                     Accès rapides
                 </h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                     {/* Acomptes & Avances */}
                     <Card
                         hover
@@ -569,6 +548,25 @@ export default function GestionPaiePage() {
                             Bulletins et états de paie mensuels, trimestriels et annuels à consulter ou télécharger.
                         </p>
                     </Card>
+                    <Card
+                        hover
+                        padding
+                        className="text-left cursor-pointer transition-all group"
+                        onClick={() => navigate('/paie/prestataires')}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/paie/prestataires')}
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5 text-[var(--color-fg)]">
+                                <Users size={18} className="text-[var(--color-brand-600)] shrink-0" />
+                                <h4 className="text-sm font-bold group-hover:text-[var(--color-brand-600)] transition-colors">Prestataires indépendants</h4>
+                            </div>
+                            <ChevronRight size={16} className="text-[var(--color-fg-subtle)] group-hover:translate-x-0.5 transition-transform shrink-0" />
+                        </div>
+                        <p className="text-xs text-[var(--color-fg-muted)] mt-2 leading-relaxed">Consultants et autres prestataires : dossier, contrat et factures. Leur règlement est distinct des bulletins et du STC.</p>
+                    </Card>
+
                 </div>
             </div>
         </div>

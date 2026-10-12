@@ -7,6 +7,7 @@ import mg.galaxam.sirh.paieconfig.persistence.ParametreGlobal;
 import mg.galaxam.sirh.paie.domain.engine.MoneyRoundingPolicy;
 import mg.galaxam.sirh.pointage.domain.engine.CalendrierOuvrableEngine;
 import mg.galaxam.sirh.pointage.domain.calculation.AttendanceEngine;
+import mg.galaxam.sirh.pointage.domain.calculation.PointageAllowancePolicy;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.WorkIntervalFactory;
 import mg.galaxam.sirh.pointage.domain.calculation.TemporalAttendanceEngine.NightWindow;
 import mg.galaxam.sirh.contrat.application.EmploymentContextResolver;
@@ -1332,8 +1333,9 @@ public class PointageService {
                                             .filter(item -> !Boolean.TRUE.equals(item.get("beneficie")))
                                             .findFirst().orElse(null);
                                     boolean estExclu = derogation != null;
-                                    boolean acc = !estExclu && !isFerie
-                                            && !"FULL_DAY".equalsIgnoreCase(typeCongeJour) && cocheParDefaut;
+                                    boolean eligibleDay = !isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour);
+                                    boolean acc = PointageAllowancePolicy.resolve(null,
+                                            PointageAllowancePolicy.defaultGranted(eligibleDay, cocheParDefaut, estExclu));
 
                                     Map<String, Object> item = new HashMap<>();
                                     item.put("accordee", acc);
@@ -1397,7 +1399,9 @@ public class PointageService {
                                 boolean estExclu = exclusionsIndemnites.contains(idInd);
                                 // Si le site a un tarif = 0 (useGlobal), la case n'est pas cochée par défaut
                                 // même si l'employé n'est pas en congé/férié.
-                                boolean acc = !estExclu && !isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour) && cocheParDefaut;
+                                boolean eligibleDay = !isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour);
+                                boolean acc = PointageAllowancePolicy.resolve(null,
+                                        PointageAllowancePolicy.defaultGranted(eligibleDay, cocheParDefaut, estExclu));
 
                                 Map<String, Object> item = new HashMap<>();
                                 item.put("accordee", acc);

@@ -6,6 +6,7 @@ import Alert from '@/components/ui/feedback/Alert';
 import Modal from '@/components/ui/overlays/Modal';
 import Button from '@/components/ui/forms/Button';
 import Input, { Textarea, Select } from '@/components/ui/forms/Input';
+import { formatDocumentExtensions, getAllowedDocumentExtensions, MAX_DOCUMENT_SIZE_MB, validateDocumentFile } from '@/features/employees/utils/documentUploadRules';
 
 export default function UploadDocumentModal({
     isOpen,
@@ -15,6 +16,7 @@ export default function UploadDocumentModal({
     selectedTypeId,
     setSelectedTypeId,
     setSelectedFile,
+    setDocErrorMsg,
     docDate,
     setDocDate,
     docCommentaire,
@@ -30,6 +32,9 @@ export default function UploadDocumentModal({
     // État local
     const [contracts, setContracts] = useState([]);
     const [contractError, setContractError] = useState('');
+    const selectedType = typesDoc.find(type => String(type.idTypeDocument) === String(selectedTypeId));
+    const allowedExtensions = getAllowedDocumentExtensions(selectedType);
+    const maxSizeMb = Math.min(Number(selectedType?.tailleMaxMo) || 10, MAX_DOCUMENT_SIZE_MB);
     // Données dérivées
     const requiresContract = typesDoc.some(type => String(type.idTypeDocument) === String(selectedTypeId) && type.contratTravail);
     // Effets
@@ -83,7 +88,11 @@ export default function UploadDocumentModal({
                     label="Type de Document"
                     required
                     value={selectedTypeId}
-                    onChange={(e) => setSelectedTypeId(e.target.value)}
+                    onChange={(e) => {
+                        setSelectedTypeId(e.target.value);
+                        setSelectedFile(null);
+                        setDocErrorMsg?.('');
+                    }}
                 >
                     <option value="">-- Sélectionner un type --</option>
                     {typesDoc
@@ -102,15 +111,20 @@ export default function UploadDocumentModal({
                 {contractError && <Alert type="error" message={contractError} />}
                 <div className="space-y-1">
                     <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-fg)]">
-                        Fichier (PDF, JPG, PNG) <span className="text-[var(--color-danger-500)]">*</span>
+                        Fichier ({formatDocumentExtensions(selectedType)}) <span className="text-[var(--color-danger-500)]">*</span>
                     </label>
                     <input
                         type="file"
                         required
-                        accept=".pdf,image/png,image/jpeg,image/webp"
-                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                        accept={allowedExtensions.map(extension => `.${extension}`).join(',')}
+                        onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            setSelectedFile(file);
+                            setDocErrorMsg?.(file ? validateDocumentFile(file, selectedType) : '');
+                        }}
                         className="w-full text-xs text-[var(--color-fg)] border border-[var(--color-border)] p-2 rounded-none bg-[var(--color-bg-subtle)] focus:outline-none focus:border-[var(--color-brand-500)]"
                     />
+                    <p className="text-[11px] text-[var(--color-fg-muted)]">Taille maximale : {maxSizeMb} Mo.</p>
                 </div>
 
                 <Input

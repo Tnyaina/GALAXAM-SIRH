@@ -16,6 +16,7 @@ import Breadcrumb from '@/components/ui/navigation/Breadcrumb';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/feedback/Toast';
 import { getErrorMessage } from '@/api/apiClient';
+import { validateDocumentFile } from '@/features/employees/utils/documentUploadRules';
 
 // Lazy loading des sous-onglets & modales de la fiche employé pour optimiser les performances
 const EmployeeFormModal = lazy(() => import('@/features/employees/components/modals/EmployeeFormModal'));
@@ -309,6 +310,12 @@ export default function EmployeFicheDetailPage() {
             setDocErrorMsg('Veuillez choisir un fichier à téléverser.');
             return;
         }
+        const selectedType = typesDoc.find(type => String(type.idTypeDocument) === String(selectedTypeId));
+        const fileValidationError = validateDocumentFile(selectedFile, selectedType);
+        if (fileValidationError) {
+            setDocErrorMsg(fileValidationError);
+            return;
+        }
 
         setUploadingDoc(true);
         try {
@@ -552,6 +559,7 @@ export default function EmployeFicheDetailPage() {
                         selectedTypeId={selectedTypeId}
                         setSelectedTypeId={setSelectedTypeId}
                         setSelectedFile={setSelectedFile}
+                        setDocErrorMsg={setDocErrorMsg}
                         docDate={docDate}
                         setDocDate={setDocDate}
                         docCommentaire={docCommentaire}

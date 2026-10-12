@@ -291,7 +291,6 @@ INSERT INTO parametre_global (id_parametre, code_parametre, categorie, valeur, d
 (32, 'SEUIL_RETARD_PENALITE_PP_MIN', 'PAIE', '70', 'Seuil de retard mensuel en minutes déclenchant la pénalité sur la prime de performance si congés > seuil', '2001-07-01', NULL, TRUE, TRUE),
 (33, 'SEUIL_CONGES_PENALITE_PP_JOURS', 'PAIE', '1.0', 'Nombre de jours de congés dans le mois au-delà duquel la pénalité sur PP s applique si retard > seuil', '2001-07-01', NULL, TRUE, TRUE),
 (34, 'TAUX_PENALITE_PP', 'PAIE', '0.25', 'Taux de réduction appliqué sur la prime de performance (ex: 0.25 = 1/4 soit 25%)', '2001-07-01', NULL, TRUE, TRUE),
-(35, 'SEUIL_HEURES_SEMAINE_COMPENSATION', 'POINTAGE', '40.0', 'Ancien paramètre non consommé ; durée hebdomadaire issue de la configuration légale', '2001-07-01', NULL, TRUE, FALSE),
 (38, 'DUREE_REFERENCE_TCONGE_MOIS', 'CONGE', '12', 'TECHNICAL_VALIDITY_LOWER_BOUND — borne technique de validité du paramètre. Ne représente ni le début de la règle métier, ni le début d une campagne TCONGE, ni une date historique.', '2000-01-01', NULL, TRUE, FALSE),
 (39, 'EXONERATION_HS_IRSA_ACTIVE', 'PAIE', 'FALSE', 'Activation globale de l exonération fiscale des heures supplémentaires (CGI 01.03.03-9°)', '2001-07-01', NULL, TRUE, TRUE),
 (40, 'PLAFOND_MENSUEL_HS_EXONEREES', 'PAIE', '20.00', 'Plafond mensuel légal d heures supplémentaires exonérées d IRSA (CGI 01.03.03-9°)', '2001-07-01', NULL, TRUE, TRUE),

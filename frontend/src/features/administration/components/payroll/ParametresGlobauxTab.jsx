@@ -32,12 +32,6 @@ const PARAMETRE_METADATA = {
         unite: "heures",
         explication: "Durée quotidienne normale utilisée pour le calcul du temps de travail et le suivi des retards.",
     },
-    SEUIL_HEURES_SEMAINE_COMPENSATION: {
-        titre: "Seuil hebdomadaire de compensation",
-        icone: Clock,
-        unite: "heures",
-        explication: "Seuil hebdomadaire archivé pour traçabilité historique.",
-    },
     SEUIL_NUIT_DEBUT: {
         titre: "Début de la plage de nuit",
         icone: Moon,
@@ -289,17 +283,6 @@ const THEMATIC_BLOCKS = [
         effetCascade: "Constantes légales obligatoires.",
         codes: ['SEUIL_NUIT_DEBUT', 'SEUIL_NUIT_FIN']
     },
-    {
-        id: 'POINTAGE_HISTORIQUE',
-        categorie: 'POINTAGE',
-        titre: "Paramètres Historiques",
-        sousTitre: "Référence hebdomadaire archivée",
-        icone: Clock,
-        regleConjointe: "Seuil hebdomadaire de 40 heures conservé pour traçabilité.",
-        effetCascade: "Sans effet sur les calculs de paie actuels.",
-        codes: ['SEUIL_HEURES_SEMAINE_COMPENSATION']
-    },
-
     // --- CONGÉS & ABSENCES ---
     {
         id: 'CONGE_SOLDES_PLAFONDS',
@@ -473,6 +456,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
     const [fieldErrors, setFieldErrors] = useState({});
     const [confirmAnnulation, setConfirmAnnulation] = useState(null);
     const [annulationLoading, setAnnulationLoading] = useState(false);
+    const [confirmToggle, setConfirmToggle] = useState(null);
 
     const [formData, setFormData] = useState({
         idParametre: null,
@@ -558,6 +542,10 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
     // Filtrage dynamique
     const filteredParametres = useMemo(() => {
         return parametres.filter(p => {
+            // Conservé en base pour l'historique, mais remplacé par la durée légale
+            // hebdomadaire de PaieConfigLegale et sans consommateur métier.
+            if (p.codeParametre === 'SEUIL_HEURES_SEMAINE_COMPENSATION') return false;
+
             // Exclure les paramètres fiscaux désormais entièrement pilotés par la Loi de Finances
             if (p.codeParametre === 'EXONERATION_HS_IRSA_ACTIVE' || p.codeParametre === 'PLAFOND_MENSUEL_HS_EXONEREES'
                     || p.codeParametre === 'TAUX_ISI' || p.codeParametre === 'TAUX_ISI_POURCENT') {
@@ -606,8 +594,8 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
         return [...groups.values()];
     }, [filteredParametres, paramToBlockMap]);
 
-    // Gestion de l'interrupteur d'activation direct
-    const handleToggleActif = async (param, e) => {
+    // Gestion de l'interrupteur d'activation / désactivation avec date de prise d'effet
+    const handleToggleActif = (param, e) => {
         if (e) e.stopPropagation();
 
         if (toggleLock.current) return;
@@ -622,31 +610,44 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
         }
 
         setDetailsError('');
-        toggleLock.current = true;
         const nouveauStatut = !param.estActif;
-        setTogglingId(param.idParametre);
+        setConfirmToggle({
+            param,
+            nouveauStatut,
+            dateEffet: fmtDateInput(new Date()),
+            loading: false,
+            error: ''
+        });
+    };
 
+    const handleConfirmToggle = async () => {
+        if (!confirmToggle || confirmToggle.loading) return;
+        const { param, nouveauStatut, dateEffet } = confirmToggle;
+        if (!dateEffet) {
+            setConfirmToggle(prev => ({ ...prev, error: "La date de prise d'effet est obligatoire." }));
+            return;
+        }
+
+        setConfirmToggle(prev => ({ ...prev, loading: true, error: '' }));
         try {
-            await paieConfigService.toggleParametreGlobalActif(param.idParametre, nouveauStatut);
-            setParametres(prev => prev.map(item =>
-                item.idParametre === param.idParametre
-                    ? { ...item, estActif: nouveauStatut }
-                    : item
-            ));
+            await paieConfigService.toggleParametreGlobalActif(param.idParametre, nouveauStatut, dateEffet);
             const meta = PARAMETRE_METADATA[param.codeParametre];
             const nomParam = meta?.titre || param.codeParametre;
+            const dateStr = new Date(dateEffet).toLocaleDateString('fr-FR');
             toast.success(
                 nouveauStatut
-                    ? `${nomParam} activé.`
-                    : (param.effetDesactivation || `${nomParam} désactivé.`)
+                    ? `${nomParam} réactivé avec prise d'effet au ${dateStr}.`
+                    : (param.effetDesactivation || `${nomParam} désactivé avec prise d'effet au ${dateStr}.`)
             );
-            return true;
+            setConfirmToggle(null);
+            setDetails(null);
+            await loadParametres();
         } catch (err) {
-            setDetailsError(getErrorMessage(err, "L’état n’a pas été modifié. Réessayez."));
-            return false;
-        } finally {
-            toggleLock.current = false;
-            setTogglingId(null);
+            setConfirmToggle(prev => ({
+                ...prev,
+                loading: false,
+                error: getErrorMessage(err, "L’état n’a pas été modifié. Réessayez.")
+            }));
         }
     };
 
@@ -843,6 +844,16 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                         {hasActions && <div className="flex flex-wrap items-center justify-end gap-1 lg:min-w-[220px]">
                                             {param.peutModifier && <Button variant="outline" size="sm" onClick={() => handleOpenEdit(param,false)}>Modifier</Button>}
                                             {param.peutVersionner && <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(param,true)}>Nouvelle version</Button>}
+                                            {param.peutBasculer && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className={param.estActif ? "text-[var(--color-danger-600)] hover:text-[var(--color-danger-700)] hover:bg-[var(--color-danger-500)]/10" : "text-[var(--color-success-600)] hover:text-[var(--color-success-700)] hover:bg-[var(--color-success-500)]/10"}
+                                                    onClick={(e) => handleToggleActif(param, e)}
+                                                >
+                                                    {param.estActif ? 'Désactiver' : 'Activer'}
+                                                </Button>
+                                            )}
                                             {isProgramme && (
                                                 <Button
                                                     variant="ghost"
@@ -870,7 +881,7 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                     {parametres.filter(param => param.codeParametre === details.codeParametre && param.idParametre !== details.idParametre).length > 0 && <div className="border-t border-[var(--color-border-subtle)] pt-3 space-y-2"><h4 className="font-semibold text-sm">Autres versions</h4>{parametres.filter(param => param.codeParametre === details.codeParametre && param.idParametre !== details.idParametre).map(param => <div key={param.idParametre} className="flex flex-wrap justify-between gap-2 text-sm"><span>{formatPeriodeValidite(param.dateDebut,param.dateFin,getStatut(param))}</span><span className="font-mono">{formatValeurAffichage(param.codeParametre,param.valeur)}</span></div>)}</div>}
                     {details.effetDesactivation && <div className="border-t border-[var(--color-border-subtle)] pt-3"><h4 className="font-semibold text-sm">Effet de la désactivation</h4><p className="text-sm text-[var(--color-fg-muted)]">{details.effetDesactivation}</p></div>}
                     {detailsError && <FormError message={detailsError} />}
-                    {canWrite && details.peutBasculer && <Button variant="outline" onClick={async event => { if (await handleToggleActif(details,event)) setDetails(null); }} loading={togglingId === details.idParametre} className="min-h-[44px]">{details.estActif ? 'Désactiver' : 'Activer'}</Button>}
+                    {canWrite && details.peutBasculer && <Button variant="outline" onClick={event => handleToggleActif(details, event)}>{details.estActif ? 'Désactiver' : 'Activer'}</Button>}
                     {canWrite && getStatut(details) === 'PROGRAMME' && (
                         <Button
                             variant="ghost"
@@ -974,36 +985,47 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
 
                                 {/* Option d'activation si le paramètre est débrayable */}
                                 {formData.estDesactivable && (
-                                    <div className="md:col-span-2 flex items-center justify-between p-3.5 border bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)]">
-                                        <div>
-                                            <div className="text-xs font-bold text-[var(--color-fg)]">
-                                                État d'application de la règle
+                                    <div className="md:col-span-2 space-y-2">
+                                        <div className="flex items-center justify-between p-3.5 border bg-[var(--color-bg-subtle)] border-[var(--color-border-subtle)]">
+                                            <div>
+                                                <div className="text-xs font-bold text-[var(--color-fg)]">
+                                                    État d'application de la règle
+                                                </div>
+                                                <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
+                                                    {formData.estActif
+                                                        ? (formData.effetDesactivation
+                                                            ? `Si désactivée : ${formData.effetDesactivation}`
+                                                            : 'La règle est actuellement active.')
+                                                        : (formData.effetDesactivation || 'La règle est désactivée.')}
+                                                </div>
                                             </div>
-                                            <div className="text-[11px] text-[var(--color-fg-muted)] mt-0.5">
-                                                {formData.estActif
-                                                    ? (formData.effetDesactivation
-                                                        ? `Si désactivée : ${formData.effetDesactivation}`
-                                                        : 'La règle est actuellement active.')
-                                                    : (formData.effetDesactivation || 'La règle est désactivée.')}
-                                            </div>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            role="switch"
-                                            aria-checked={formData.estActif}
-                                            onClick={() => setFormData({ ...formData, estActif: !formData.estActif })}
-                                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-none border transition-colors duration-150 ease-in-out focus:outline-none ${
-                                                formData.estActif 
-                                                    ? 'bg-[var(--color-success-500)] border-[var(--color-success-600)]' 
-                                                    : 'bg-[var(--color-bg-subtle)] border-[var(--color-border)]'
-                                            }`}
-                                        >
-                                            <span
-                                                className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-none shadow-xs transform transition duration-150 ease-in-out mt-[2px] ml-[2px] ${
-                                                    formData.estActif ? 'translate-x-4 bg-[var(--color-surface)]' : 'translate-x-0 bg-[var(--color-fg-muted)]'
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={formData.estActif}
+                                                onClick={() => setFormData({ ...formData, estActif: !formData.estActif })}
+                                                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-none border transition-colors duration-150 ease-in-out focus:outline-none ${
+                                                    formData.estActif 
+                                                        ? 'bg-[var(--color-success-500)] border-[var(--color-success-600)]' 
+                                                        : 'bg-[var(--color-bg-subtle)] border-[var(--color-border)]'
                                                 }`}
-                                            />
-                                        </button>
+                                            >
+                                                <span
+                                                    className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-none shadow-xs transform transition duration-150 ease-in-out mt-[2px] ml-[2px] ${
+                                                        formData.estActif ? 'translate-x-4 bg-[var(--color-surface)]' : 'translate-x-0 bg-[var(--color-fg-muted)]'
+                                                    }`}
+                                                />
+                                            </button>
+                                        </div>
+
+                                        {!isNouvelleVersion && formData.dateDebut && (
+                                            <div className="p-2.5 bg-[var(--color-brand-500)]/10 border border-[var(--color-brand-500)]/25 text-xs text-[var(--color-fg-muted)] flex items-start gap-2">
+                                                <AlertTriangle size={15} className="text-[var(--color-brand-600)] shrink-0 mt-0.5" />
+                                                <div className="leading-relaxed">
+                                                    <span className="font-semibold text-[var(--color-fg)]">Conseil de gestion :</span> Pour désactiver sans modifier cette version historique (débutée le {fmtDateInput(formData.dateDebut)}), préférez renseigner une <strong>Date Fin</strong> ou utiliser le bouton <strong>« Nouvelle version »</strong>.
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
@@ -1068,6 +1090,79 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                     </div>
                 )}
             </ConfirmDialog>
+
+            {/* MODALE DE CONFIRMATION AVEC DATE DE PRISE D'EFFET */}
+            <Modal
+                isOpen={Boolean(confirmToggle)}
+                onClose={() => { if (!confirmToggle?.loading) setConfirmToggle(null); }}
+                title={
+                    <div className="flex items-center gap-2.5">
+                        <div className={`p-1.5 ${confirmToggle?.nouveauStatut ? 'bg-[var(--color-success-500)]/10 text-[var(--color-success-600)] border border-[var(--color-success-500)]/20' : 'bg-[var(--color-danger-500)]/10 text-[var(--color-danger-600)] border border-[var(--color-danger-500)]/20'}`}>
+                            <Shield size={18} />
+                        </div>
+                        <div>
+                            <div className="text-sm font-bold text-[var(--color-fg)]">
+                                {confirmToggle?.nouveauStatut ? "Confirmer la réactivation" : "Confirmer la désactivation"}
+                            </div>
+                            <div className="text-xs text-[var(--color-fg-muted)]">
+                                {PARAMETRE_METADATA[confirmToggle?.param?.codeParametre]?.titre || confirmToggle?.param?.codeParametre}
+                            </div>
+                        </div>
+                    </div>
+                }
+                size="md"
+                footer={
+                    <div className="flex items-center justify-end gap-2 w-full">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setConfirmToggle(null)}
+                            disabled={confirmToggle?.loading}
+                        >
+                            Annuler
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={confirmToggle?.nouveauStatut ? "primary" : "danger"}
+                            size="sm"
+                            onClick={handleConfirmToggle}
+                            loading={confirmToggle?.loading}
+                        >
+                            {confirmToggle?.nouveauStatut ? "Confirmer la réactivation" : "Confirmer la désactivation"}
+                        </Button>
+                    </div>
+                }
+            >
+                {confirmToggle && (
+                    <div className="space-y-4">
+                        {confirmToggle.error && <FormError message={confirmToggle.error} />}
+
+                        <div className="p-3 bg-[var(--color-bg-subtle)] border border-[var(--color-border-subtle)] text-xs text-[var(--color-fg-muted)] leading-relaxed space-y-1.5">
+                            <p>
+                                <strong className="text-[var(--color-fg)]">Préservation de l'historique :</strong>
+                            </p>
+                            <p>
+                                {confirmToggle.nouveauStatut
+                                    ? "La règle sera réactivée à la date d'effet choisie. Les calculs de paie antérieurs à cette date continueront de respecter l'ancien état."
+                                    : (confirmToggle.param.effetDesactivation || "La règle cessera d'être appliquée à compter de la date d'effet choisie. La version en vigueur sera automatiquement clôturée à la veille pour sanctuariser les paies passées.")}
+                            </p>
+                        </div>
+
+                        <div>
+                            <Input
+                                label="Date de prise d'effet"
+                                type="date"
+                                required
+                                value={confirmToggle.dateEffet}
+                                onChange={(e) => setConfirmToggle({ ...confirmToggle, dateEffet: e.target.value, error: '' })}
+                                hint="Par défaut aujourd'hui. L'historique antérieur à cette date est préservé."
+                                min={confirmToggle.param.dateDebut ? fmtDateInput(confirmToggle.param.dateDebut) : undefined}
+                            />
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 }
