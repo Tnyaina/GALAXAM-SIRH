@@ -118,7 +118,7 @@ const SUGGESTIONS_MOTIF = [
  */
 export default function StatusPickerPopover({
     row,
-    currentStatus = 'PRESENT',
+    currentStatus,
     currentMotif = '',
     onStatusChange,
     onOpenRegularisation,
@@ -126,7 +126,7 @@ export default function StatusPickerPopover({
 }) {
     // État local
     const [isOpen, setIsOpen] = useState(false);
-    const [selectedStatut, setSelectedStatut] = useState(currentStatus || 'PRESENT');
+    const [selectedStatut, setSelectedStatut] = useState(currentStatus || row?.codeStatut || 'NON_SAISI');
     const [motif, setMotif] = useState(currentMotif || '');
     const [position, setPosition] = useState({ top: 0, left: 0, openAbove: false });
 
@@ -151,8 +151,8 @@ export default function StatusPickerPopover({
 
     // Effets : synchronise les props, la position et la fermeture du popover.
     useEffect(() => {
-        setSelectedStatut(currentStatus || 'PRESENT');
-    }, [currentStatus]);
+        setSelectedStatut(currentStatus || row?.codeStatut || 'NON_SAISI');
+    }, [currentStatus, row?.codeStatut]);
 
     useEffect(() => {
         setMotif(currentMotif || '');
@@ -186,7 +186,7 @@ export default function StatusPickerPopover({
     const handleToggle = () => {
         if (disabled) return;
         if (!isOpen) {
-            setSelectedStatut(currentStatus || 'PRESENT');
+            setSelectedStatut(currentStatus || row?.codeStatut || 'NON_SAISI');
             setMotif(currentMotif || '');
             updatePosition();
         }
@@ -245,7 +245,7 @@ export default function StatusPickerPopover({
     };
 
     // Résolution robuste du statut actif, de sa présentation et de son libellé
-    const activeStatutCode = (currentStatus || row?.codeStatut || (isAutonome ? 'DISPENSE_POINTAGE' : 'PRESENT')).toUpperCase();
+    const activeStatutCode = (currentStatus || row?.codeStatut || (isAutonome ? 'DISPENSE_POINTAGE' : 'NON_SAISI')).toUpperCase();
     const configPres = STATUS_PRESENTATION[activeStatutCode] || {};
 
     const variant = row?.statutBadgeVariant || configPres.variant || (

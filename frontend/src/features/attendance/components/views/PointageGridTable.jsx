@@ -445,8 +445,8 @@ export default function PointageGridTable({
                                             const hasCongeException = isCongeFull && (matVal || amVal);
 
                                             return (
-                                                <Td key={ind.idIndemnite} className="px-3 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
-                                                    <div className="flex flex-col items-center justify-center gap-1">
+                                                <Td key={ind.idIndemnite} className="px-2 py-2 text-center border-l border-[var(--color-border-subtle)]">
+                                                    <div className="flex flex-col items-center justify-center gap-1.5">
                                                         {dynObj.motifSuggestion && (
                                                             <span className="text-[11px] font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]" title={dynObj.motifSuggestion}>
                                                                 Suggestion : {dynObj.motifSuggestion} · exception possible
@@ -457,7 +457,7 @@ export default function PointageGridTable({
                                                                 Exc. congé
                                                             </span>
                                                         )}
-                                                        <div className="flex items-center justify-center gap-3">
+                                                        <div className="flex items-center justify-center gap-2">
                                                             <label className={`inline-flex items-center gap-1 text-xs font-semibold ${isReadOnlyForUser ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} select-none`} title={`Trajet aller (matin) — ${fmtMoney(montantTrajet)}${isCongeFull ? ' · Jour de congé (exception)' : ''}`}>
                                                                 <input
                                                                     type="checkbox"
@@ -496,15 +496,15 @@ export default function PointageGridTable({
                                         // Sur congé : décoché par défaut, sauf si l'utilisateur a coché explicitement
                                         const checked = dynObj.accordee !== undefined
                                             ? Boolean(dynObj.accordee)
-                                            : (isCongeFull ? false : (useGlobalIfZero ? false : isAccordee));
+                                            : (isCongeFull ? false : (ind.cocheParDefaut !== undefined ? Boolean(ind.cocheParDefaut) : (useGlobalIfZero ? false : isAccordee)));
                                         const montantEffectif = useGlobalIfZero && checked
                                             ? (ind.montantGlobal || ind.montantJour || 0)
                                             : (ind.montantJour || ind.montantReference || 0);
                                         const isCongeException = isCongeFull && checked;
 
                                         return (
-                                            <Td key={ind.idIndemnite} className="px-3 py-1.5 text-center border-l border-[var(--color-border-subtle)]">
-                                                <div className="flex flex-col items-center justify-center gap-1">
+                                            <Td key={ind.idIndemnite} className="px-2 py-2 text-center border-l border-[var(--color-border-subtle)]">
+                                                <div className="flex flex-col items-center justify-center gap-1.5">
                                                         {dynObj.motifSuggestion && (
                                                             <span className="text-[11px] font-semibold text-[var(--color-warning-700)] dark:text-[var(--color-warning-300)]" title={dynObj.motifSuggestion}>
                                                                 Suggestion : {dynObj.motifSuggestion} · exception possible

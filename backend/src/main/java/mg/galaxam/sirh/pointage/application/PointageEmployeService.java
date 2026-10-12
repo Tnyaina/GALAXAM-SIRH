@@ -723,11 +723,12 @@ public class PointageEmployeService {
                     totalJoursTravailles++;
                     totalHeuresRealisees += toLegacyDecimalHours(dureeJourMins);
                 } else {
-                    dto.setHeures("00h00");
+                    // Une journée passée sans pointage ne vaut pas absence constatée :
+                    // le statut reste à compléter dans la grille de saisie.
+                    dto.setHeures("—");
                     dto.setTotalHeuresDecimal(0.0);
-                    dto.setStatut("ABSENT");
+                    dto.setStatut("NON_SAISI");
                     dto.setMontantDeplacement(BigDecimal.ZERO);
-                    nbAbsences++;
                 }
             }
 

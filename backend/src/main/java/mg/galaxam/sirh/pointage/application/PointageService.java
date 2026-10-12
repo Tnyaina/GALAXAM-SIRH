@@ -707,7 +707,10 @@ public class PointageService {
                         // Un tarif REPAS à 0 représente un repas fourni sans versement.
                         boolean isSiteZero = montantRef.signum() == 0;
                         BigDecimal montantGlobal = montantJour;
-                        boolean useGlobalIfZero = false;
+                        // Le tarif zéro signifie « appliquer le montant global configuré »
+                        // (sauf repas fourni, qui reste une décision explicite).
+                        boolean repasFourni = isSiteZero && "REPAS".equalsIgnoreCase(codeInd);
+                        boolean useGlobalIfZero = isSiteZero && !repasFourni;
 
                         String sousTitre;
                         if (isSiteZero && "REPAS".equalsIgnoreCase(codeInd)) {
@@ -730,7 +733,7 @@ public class PointageService {
                         ind.put("montantGlobal", montantGlobal);
                         // Conservé dans le contrat de grille pour les clients existants.
                         ind.put("useGlobalIfZero", useGlobalIfZero);
-                        ind.put("cocheParDefaut", !isSiteZero);
+                        ind.put("cocheParDefaut", !isSiteZero || useGlobalIfZero);
                         ind.put("montantTrajet", montantTrajet);
                         ind.put("sousTitre", sousTitre);
                         ind.put("nbJoursOuvrablesPeriode", nbOuvrablesPeriode);
@@ -1397,8 +1400,6 @@ public class PointageService {
                                 boolean useGlobal = Boolean.TRUE.equals(sInd.get("useGlobalIfZero"));
                                 boolean cocheParDefaut = !Boolean.FALSE.equals(sInd.get("cocheParDefaut"));
                                 boolean estExclu = exclusionsIndemnites.contains(idInd);
-                                // Si le site a un tarif = 0 (useGlobal), la case n'est pas cochée par défaut
-                                // même si l'employé n'est pas en congé/férié.
                                 boolean eligibleDay = !isFerie && !"FULL_DAY".equalsIgnoreCase(typeCongeJour);
                                 boolean acc = PointageAllowancePolicy.resolve(null,
                                         PointageAllowancePolicy.defaultGranted(eligibleDay, cocheParDefaut, estExclu));
@@ -1419,6 +1420,13 @@ public class PointageService {
                             }
                         }
                         dto.setDynamicIndemnites(dynMap);
+                        if (dto.getCodeStatut() == null || dto.getCodeStatut().isBlank()) {
+                            dto.setCodeStatut("NON_SAISI");
+                        }
+                        if ("NON_SAISI".equalsIgnoreCase(dto.getCodeStatut())
+                                && (dto.getLibelleStatut() == null || dto.getLibelleStatut().isBlank())) {
+                            dto.setLibelleStatut("Non saisi");
+                        }
                         dto.setStatusActions(resolveStatusActions(dto));
 
                         grille.add(dto);

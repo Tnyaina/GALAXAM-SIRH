@@ -426,10 +426,10 @@ export default function SaisieQuotidiennePage({ activePeriode = null, _onSelectP
                 description="Saisie opérationnelle, suivi des retards, heures de nuit et indemnités journalières."
             />
 
-            <div className="space-y-2.5 w-full pb-6">
+            <div className="space-y-4 w-full pb-8">
 
                 {/* Sélecteur de Mode : Saisie collective (par date) vs Saisie par collaborateur (période) */}
-                <div className="flex items-center justify-between gap-3 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] p-2">
+                <div className="flex items-center justify-between gap-4 bg-[var(--color-surface)] border border-[var(--color-border-subtle)] px-3 py-2.5">
                     <div className="inline-flex border border-[var(--color-border)] bg-[var(--color-bg-subtle)] p-0.5">
                         <button
                             type="button"
