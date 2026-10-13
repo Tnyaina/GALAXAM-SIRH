@@ -502,7 +502,7 @@ export default function CotisationsIrsaTab() {
     const requestedSubSection = searchParams.get('subtab');
     const subSection = requestedSubSection === 'irsa'
         ? 'cotisations'
-        : ['cotisations', 'site_cotisations'].includes(requestedSubSection) ? requestedSubSection : 'cotisations';
+        : ['cotisations', 'site_cotisations', 'organismes'].includes(requestedSubSection) ? requestedSubSection : 'cotisations';
 
     const setSubSection = (newSubTab) => {
         setSearchParams(prev => {
@@ -685,7 +685,7 @@ export default function CotisationsIrsaTab() {
             variant: isActif ? 'danger' : 'primary',
             onConfirm: async () => {
                 try {
-                    await paieConfigService.toggleOrganismeSocialStatut(item.idOrganisme);
+                    await paieConfigService.setOrganismeSocialActif(item.idOrganisme, !isActif);
                     toast({
                         title: 'Statut mis à jour',
                         message: `L'organisme "${item.code}" a été ${isActif ? 'désactivé' : 'activé'}.`,

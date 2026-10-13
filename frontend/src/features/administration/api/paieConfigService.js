@@ -98,8 +98,9 @@ const paieConfigService = {
     // ORGANISMES SOCIAUX DÉCLARATIFS (ref_organisme_social)
     // ----------------------------------------------------
     getOrganismesSociaux: async (actifsOnly = false) => {
-        const path = actifsOnly ? '/referentiel/organismes-sociaux/actifs' : '/referentiel/organismes-sociaux';
-        const response = await apiClient.get(path);
+        const response = await apiClient.get('/referentiel/organismes-sociaux', {
+            params: actifsOnly ? { actifOnly: true } : undefined
+        });
         return response.data;
     },
     createOrganismeSocial: async (data) => {
@@ -110,8 +111,9 @@ const paieConfigService = {
         const response = await apiClient.put(`/referentiel/organismes-sociaux/${id}`, data);
         return response.data;
     },
-    toggleOrganismeSocialStatut: async (id) => {
-        const response = await apiClient.put(`/referentiel/organismes-sociaux/${id}/toggle-statut`);
+    setOrganismeSocialActif: async (id, actif) => {
+        const action = actif ? 'activer' : 'desactiver';
+        const response = await apiClient.put(`/referentiel/organismes-sociaux/${id}/${action}`);
         return response.data;
     },
 

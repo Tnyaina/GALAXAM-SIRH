@@ -79,9 +79,6 @@ public class ParametreGlobalController {
                 boolean actif = Boolean.parseBoolean(String.valueOf(body.get("estActif")));
                 java.time.LocalDate dateEffet = body.get("dateEffet") == null
                         ? java.time.LocalDate.now() : java.time.LocalDate.parse(String.valueOf(body.get("dateEffet")));
-                if (dateEffet.isBefore(java.time.LocalDate.now())) {
-                    throw new IllegalArgumentException("La date d'effet d'une règle groupée ne peut pas être passée.");
-                }
                 String lockSql = "SELECT id_parametre FROM parametre_global WHERE code_parametre IN ("
                         + String.join(",", java.util.Collections.nCopies(codes.size(), "?"))
                         + ") AND date_debut <= CURRENT_DATE AND COALESCE(date_fin, DATE '9999-12-31') >= CURRENT_DATE FOR UPDATE";

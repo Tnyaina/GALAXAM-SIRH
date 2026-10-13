@@ -684,10 +684,16 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
             return;
         }
         const active = members.every(p => p.estActif);
+        const dateDebutMin = members
+            .map(p => fmtDateInput(p.dateDebut))
+            .filter(Boolean)
+            .sort()
+            .at(-1) || fmtDateInput(new Date());
         setConfirmToggle({
             groupKey: group?.key || block.id,
             groupTitle: group?.titre ? `${block.titre} — ${group.titre}` : block.titre,
             nouveauStatut: !active,
+            dateDebutMin,
             dateEffet: fmtDateInput(new Date()), loading: false, error: '',
         });
     };
@@ -1254,8 +1260,10 @@ export default function ParametresGlobauxTab({ fixedCategory = null }) {
                                 required
                                 value={confirmToggle.dateEffet}
                                 onChange={(e) => setConfirmToggle({ ...confirmToggle, dateEffet: e.target.value, error: '' })}
-                                hint="Par défaut aujourd'hui. L'historique antérieur à cette date est préservé."
-                                min={confirmToggle.param?.dateDebut ? fmtDateInput(confirmToggle.param.dateDebut) : fmtDateInput(new Date())}
+                                hint="La règle prendra effet à cette date. Les versions antérieures restent conservées."
+                                min={confirmToggle.param?.dateDebut
+                                    ? fmtDateInput(confirmToggle.param.dateDebut)
+                                    : confirmToggle.dateDebutMin || fmtDateInput(new Date())}
                             />
                         </div>
                     </div>

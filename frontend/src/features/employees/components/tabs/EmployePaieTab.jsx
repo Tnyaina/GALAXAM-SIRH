@@ -78,6 +78,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
     const [selectedBulletinId, setSelectedBulletinId] = useState(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isStcPrepOpen, setIsStcPrepOpen] = useState(false);
+    const [stcSimulationOnly, setStcSimulationOnly] = useState(true);
     const [selectedStcRecuId, setSelectedStcRecuId] = useState(null);
     const [isDemandeOpen, setIsDemandeOpen] = useState(false);
     const [bulletinQuery, setBulletinQuery] = useState('');
@@ -196,7 +197,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                         <p className="text-[var(--color-fg-muted)]">Le contrat est terminé et aucun solde de tout compte en cours n’a été trouvé.</p>
                     </div>
                     {canWrite && (
-                        <Button type="button" variant="warning" size="xs" iconLeft={<Calculator size={13} />} onClick={() => setIsStcPrepOpen(true)} className="shrink-0">
+                        <Button type="button" variant="warning" size="xs" iconLeft={<Calculator size={13} />} onClick={() => { setStcSimulationOnly(false); setIsStcPrepOpen(true); }} className="shrink-0">
                             Etablir le STC
                         </Button>
                     )}
@@ -206,6 +207,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div><h2 className="text-base font-bold text-[var(--color-fg)]">Paie et rémunération</h2><p className="text-xs text-[var(--color-fg-muted)]">Situation du salarié et historique des bulletins</p></div>
                 <div className="flex flex-wrap gap-2">
+                    {canWrite && <Button type="button" variant="outline" size="xs" iconLeft={<Calculator size={13} />} onClick={() => { setStcSimulationOnly(true); setIsStcPrepOpen(true); }}>Simuler un STC</Button>}
                     {canWrite && <Button type="button" variant="primary" size="xs" onClick={() => setIsDemandeOpen(true)}>Demander un acompte / une avance</Button>}
                 </div>
             </div>
@@ -513,6 +515,7 @@ export default function EmployePaieTab({ idEmploye, employe, canWrite }) {
                         nomEmploye={synthese?.nomComplet || employe?.nom || ''}
                         dateDepartInitiale={synthese?.dateFinContrat || null}
                         motifInitial="DEMISSION"
+                        simulationOnly={stcSimulationOnly}
                         onStcValide={() => chargerDonnees({ silent: true })}
                     />
                 )}

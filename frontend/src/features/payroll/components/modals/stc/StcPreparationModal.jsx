@@ -47,7 +47,7 @@ const fmtDateInput = (val) => {
 
 /**
  * Modale de Préparation, Simulation et Émission du Solde de Tout Compte (STC).
- * Workflow strict à 3 étapes : PRÉPARATION -> SIMULATION -> VALIDÉ.
+ * Workflow : PRÉPARATION -> SIMULATION, puis validation définitive si autorisée.
  */
 export default function StcPreparationModal({
     isOpen,
@@ -59,6 +59,7 @@ export default function StcPreparationModal({
     modePreavisInitial = null,
     moisPreavisInitial = null,
     indemnitePreavisInitiale = null,
+    simulationOnly = false,
     onStcValide,
 }) {
     // État local : étape, préparation, calcul, formulaire et reçu.
@@ -195,7 +196,7 @@ export default function StcPreparationModal({
     const handleSimuler = async (e) => {
         if (e) e.preventDefault();
         if (!form.dateDepart) {
-            setErrorMsg('La date de cessation effective est obligatoire.');
+            setErrorMsg('La date de départ est obligatoire.');
             return;
         }
         if (!motifsSortie.some(m => m.value === form.motifRupture)) {
@@ -219,6 +220,7 @@ export default function StcPreparationModal({
 
     // 2. Valide le calcul et émet le décompte numéroté
     const handleValiderDefinitivement = async () => {
+        if (simulationOnly) return;
         setShowConfirmValider(false);
         setSubmitting(true);
         setErrorMsg(null);
@@ -261,7 +263,9 @@ export default function StcPreparationModal({
 
     if (!isOpen) return null;
 
-    const modalTitle = step === 'VALIDE'
+    const modalTitle = simulationOnly && step !== 'VALIDE'
+        ? `Simulation STC — ${prepData?.nomComplet || nomEmploye || ''}`
+        : step === 'VALIDE'
         ? `STC validé — ${calculResult?.numeroRecu || 'Décompte émis'}`
         : step === 'SIMULATION'
         ? `Simulation STC — ${prepData?.nomComplet || nomEmploye || ''}`
@@ -278,7 +282,7 @@ export default function StcPreparationModal({
                 icon={<Calculator size={18} className="text-[var(--color-brand-600)]" />}
                 size="3xl"
                 closeOnBackdrop={false}
-                isDirty={step === 'SIMULATION' || Boolean(form.indemniteLicenciement || form.autresIndemnites || form.justificationIndemnites)}
+                isDirty={!simulationOnly && (step === 'SIMULATION' || Boolean(form.indemniteLicenciement || form.autresIndemnites || form.justificationIndemnites))}
                 dirtyWarningTitle="Calcul de STC en cours"
                 dirtyWarningMessage="Une préparation ou simulation de Solde de Tout Compte est en cours. Si vous quittez maintenant, les paramètres calculés seront réinitialisés. Voulez-vous vraiment quitter ?"
                 footer={
@@ -286,7 +290,7 @@ export default function StcPreparationModal({
                         {step === 'PREPARATION' && (
                             <>
                                 <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={submitting}>
-                                    Annuler
+                                    {simulationOnly ? 'Fermer' : 'Annuler'}
                                 </Button>
                                 <Button
                                     type="button"
@@ -296,7 +300,7 @@ export default function StcPreparationModal({
                                     loading={submitting}
                                     iconRight={<ArrowRight size={15} />}
                                 >
-                                    Simuler le calcul STC
+                                    {simulationOnly ? 'Calculer la simulation' : 'Simuler le STC'}
                                 </Button>
                             </>
                         )}
@@ -313,16 +317,17 @@ export default function StcPreparationModal({
                                 >
                                     Modifier les paramètres
                                 </Button>
+                                {simulationOnly && <span className="text-xs text-[var(--color-fg-muted)]">Aperçu · rien n’est enregistré</span>}
                                 <Button
                                     type="button"
-                                    variant="danger"
+                                    variant={simulationOnly ? 'primary' : 'danger'}
                                     size="sm"
-                                    onClick={() => setShowConfirmValider(true)}
-                                    loading={submitting}
-                                    disabled={dateDepartFuture}
-                                    iconLeft={<FileCheck size={15} />}
+                                    onClick={simulationOnly ? onClose : () => setShowConfirmValider(true)}
+                                    loading={!simulationOnly && submitting}
+                                    disabled={!simulationOnly && dateDepartFuture}
+                                    iconLeft={simulationOnly ? undefined : <FileCheck size={15} />}
                                 >
-                                    Valider le calcul et le bulletin
+                                    {simulationOnly ? 'Fermer' : 'Valider le calcul et le bulletin'}
                                 </Button>
                             </>
                         )}
@@ -369,16 +374,18 @@ export default function StcPreparationModal({
                         <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-3 text-xs">
                             <div className={`flex items-center gap-1.5 font-bold ${step === 'PREPARATION' ? 'text-[var(--color-brand-600)]' : 'text-[var(--color-fg-muted)]'}`}>
                                 <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'PREPARATION' ? 'bg-[var(--color-brand-600)] text-[var(--color-on-color)]' : 'bg-[var(--color-bg-subtle)]'}`}>1</span>
-                                <span>Paramètres & Données</span>
+                                <span>{simulationOnly ? 'Paramètres' : 'Paramètres & données'}</span>
                             </div>
                             <div className={`flex items-center gap-1.5 font-bold ${step === 'SIMULATION' ? 'text-[var(--color-brand-600)]' : 'text-[var(--color-fg-muted)]'}`}>
                                 <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'SIMULATION' ? 'bg-[var(--color-brand-600)] text-[var(--color-on-color)]' : 'bg-[var(--color-bg-subtle)]'}`}>2</span>
-                                <span>Simulation & Contrôle</span>
+                                <span>{simulationOnly ? 'Résultat' : 'Simulation & contrôle'}</span>
                             </div>
-                            <div className={`flex items-center gap-1.5 font-bold ${step === 'VALIDE' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-fg-muted)]'}`}>
-                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'VALIDE' ? 'bg-[var(--color-success-600)] text-[var(--color-on-color)]' : 'bg-[var(--color-bg-subtle)]'}`}>3</span>
-                                <span>Validation & Décompte</span>
-                            </div>
+                            {!simulationOnly && (
+                                <div className={`flex items-center gap-1.5 font-bold ${step === 'VALIDE' ? 'text-[var(--color-success-600)]' : 'text-[var(--color-fg-muted)]'}`}>
+                                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 'VALIDE' ? 'bg-[var(--color-success-600)] text-[var(--color-on-color)]' : 'bg-[var(--color-bg-subtle)]'}`}>3</span>
+                                    <span>Validation & décompte</span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Synthèse Préremplie des Droits Reconnus (Backend-driven) */}
@@ -408,6 +415,13 @@ export default function StcPreparationModal({
                         {/* VUE 1 : PRÉPARATION & SAISIE DES PARAMÈTRES */}
                         {step === 'PREPARATION' && (
                             <form onSubmit={handleSimuler} className="space-y-4">
+                                {simulationOnly && (
+                                    <Alert
+                                        type="info"
+                                        title="Simulation sans pointage"
+                                        message="Aucun pointage n’est chargé. Le salaire est calculé avec le prorata saisi sur 30 jours."
+                                    />
+                                )}
                                 {modePreavisInitial && (
                                     <Alert
                                         type={modePreavisInitial === 'DISPENSE_PAYEE' ? 'warning' : 'info'}
@@ -431,14 +445,14 @@ export default function StcPreparationModal({
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <Input
                                         type="date"
-                                        label="Date de Départ Effective"
-                                        hint="Date utilisée pour calculer le salaire final, les congés et l’ancienneté."
+                                        label={simulationOnly ? 'Date de départ simulée' : 'Date de départ effective'}
+                                        hint="Utilisée pour calculer le salaire, les congés et l’ancienneté."
                                         required
                                         value={form.dateDepart}
                                         onChange={(e) => handleFormChange('dateDepart', e.target.value)}
                                     />
                                     <SearchSelect
-                                        label="Motif Légal de Rupture"
+                                        label="Motif de sortie"
                                         required
                                         value={form.motifRupture}
                                         onChange={(val) => handleFormChange('motifRupture', val)}
@@ -449,10 +463,12 @@ export default function StcPreparationModal({
                                 <div className={`grid grid-cols-1 ${modePreavisInitial && modePreavisInitial !== 'DISPENSE_PAYEE' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'} gap-3`}>
                                     <Input
                                         type="number"
-                                        label="Jours Travaillés Dernier Mois"
+                                        label="Prorata du dernier mois (base 30)"
+                                        min="0"
+                                        max="30"
                                         step="0.5"
-                                        placeholder={`Estimé: ${prepData.joursTravaillesEstimes || 0}`}
-                                        hint={`Estimation automatique : ${prepData.joursTravaillesEstimes || 0} jour(s). Ajustez selon les jours réellement travaillés.`}
+                                        placeholder={`Estimation : ${prepData.joursTravaillesEstimes || 0}`}
+                                        hint={`30 = mois complet · 22 = 22/30 du salaire. Valeur proposée : ${prepData.joursTravaillesEstimes || 0}/30.`}
                                         value={form.joursTravaillesDernierMois}
                                         onChange={(e) => handleFormChange('joursTravaillesDernierMois', e.target.value)}
                                     />
@@ -469,7 +485,7 @@ export default function StcPreparationModal({
                                         />
                                     )}
                                     <SearchSelect
-                                        label="Mode de Règlement"
+                                        label="Mode de règlement"
                                         required
                                         value={form.modeReglement}
                                         onChange={(val) => handleFormChange('modeReglement', val)}
@@ -571,8 +587,10 @@ export default function StcPreparationModal({
                                 {step === 'SIMULATION' && (
                                     <Alert
                                         type="info"
-                                        title="Mode Simulation"
-                                        message="Ce résultat est indicatif. Aucun calcul n'a été enregistré et aucun paiement n'a été constaté. Vérifiez les éléments avant de valider le bulletin de sortie."
+                                        title={simulationOnly ? 'Aperçu de simulation' : 'Simulation'}
+                                        message={simulationOnly
+                                            ? 'Rien n’est enregistré. Le contrat reste inchangé.'
+                                            : 'Aucun calcul ni paiement n’est enregistré. Vérifiez les éléments avant validation.'}
                                     />
                                 )}
 
@@ -589,8 +607,10 @@ export default function StcPreparationModal({
                                 {dateDepartFuture && (
                                     <Alert
                                         type="warning"
-                                        title="Validation différée"
-                                        message="La simulation est disponible. La validation officielle du STC sera activée à la date de départ effective."
+                                        title={simulationOnly ? 'Date de départ prévisionnelle' : 'Validation différée'}
+                                        message={simulationOnly
+                                            ? 'Le résultat est estimatif pour cette date future.'
+                                            : 'La simulation est disponible. La validation officielle du STC sera activée à la date de départ effective.'}
                                     />
                                 )}
 
@@ -631,7 +651,7 @@ export default function StcPreparationModal({
                                         {Number(calculResult.salaireProrata) > 0 && (
                                             <Tr>
                                                 <Td className="font-sans">
-                                                    Salaire du dernier mois (Prorata {calculResult.joursTravaillesDernierMois || 0} j)
+                                                    Salaire du dernier mois ({calculResult.joursTravaillesDernierMois || 0}/30)
                                                 </Td>
                                                 <Td className="text-right">{formatMoneyAr(calculResult.salaireProrata)}</Td>
                                             </Tr>
@@ -724,7 +744,7 @@ export default function StcPreparationModal({
             )}
 
             <ConfirmDialog
-                isOpen={showConfirmValider}
+                isOpen={showConfirmValider && !simulationOnly}
                 onClose={() => setShowConfirmValider(false)}
                 onConfirm={handleValiderDefinitivement}
                 title="Validation définitive du STC"
